@@ -138,6 +138,7 @@ jobs:
           $COMPOSE logs --tail 120 wdqs-updater 2>&1 | grep -E "Unexpected|JsonParse|Exception|ERROR|WARN|Updating via|Started Updater" | head -12 || true
           echo "--- debug: api path probe ---"
           echo "recentchanges body:"; curl -s "$API_URL?action=query&list=recentchanges&rcprop=title%7Cids&rclimit=5&format=json" | head -c 300; echo
+          echo "updater-style request:"; curl -s -A "Wikidata-Query-RDF/1.0 (https://github.com/wikimedia/wikidata-query-rdf) Bot/1.0" "$API_URL?action=query&list=recentchanges&rcdir=newer&rcprop=title%7Cids%7Ctimestamp&rcnamespace=0%7C120&rclimit=500&continue=&rcstart=2026-08-16T18%3A00%3A00Z&format=json" | head -c 200; echo
           for ua in "Wikidata-Query-RDF/1.0 (https://github.com/wikimedia/wikidata-query-rdf) Bot/1.0" "Java/17.0.10" "curl/8.5.0"; do
             echo "UA [$ua]:"; curl -s -A "$ua" "$API_URL?action=query&list=recentchanges&rclimit=1&format=json" | head -c 120; echo
           done
