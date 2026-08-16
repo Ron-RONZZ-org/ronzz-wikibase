@@ -20,7 +20,7 @@ use Wikibase\DataModel\Entity\Property;
 use Wikibase\DataModel\Services\Statement\GuidGenerator;
 use Wikibase\DataModel\Snak\PropertyValueSnak;
 use Wikibase\Lib\Store\MatchingTermsLookup;
-use Wikibase\Lib\Store\TermIndexEntry;
+use Wikibase\Lib\TermIndexEntry;
 use Wikibase\Repo\WikibaseRepo;
 
 /**

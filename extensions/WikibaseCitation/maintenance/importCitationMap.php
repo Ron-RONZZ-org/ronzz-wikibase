@@ -13,7 +13,7 @@ use Wikibase\DataModel\Entity\EntityId;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\Property;
 use Wikibase\Lib\Store\MatchingTermsLookup;
-use Wikibase\Lib\Store\TermIndexEntry;
+use Wikibase\Lib\TermIndexEntry;
 use Wikibase\Repo\WikibaseRepo;
 use WikibaseCitation\Manifest\CitationMapException;
 use WikibaseCitation\Manifest\CitationMapReader;
