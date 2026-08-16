@@ -67,11 +67,14 @@ CODE_LABELS = {
     "eo": "Faktorialo en Python",
 }
 CODE_DESCRIPTIONS = {
-    "en": "Recursive factorial function in Python",
-    "fr": "Fonction factorielle récursive en Python",
-    "eo": "Rekursia faktoriala funkcio en Python",
+    "en": "Recursive factorial function in Python (single line: Wikibase string values reject newlines)",
+    "fr": "Fonction factorielle récursive en Python (une ligne : les chaînes Wikibase refusent les sauts de ligne)",
+    "eo": "Rekursia faktoriala funkcio en Python (unu linio: Wikibase-ĉenoj malakceptas linisaltojn)",
 }
-CODE_TEXT = "def factorial(n):\n    return 1 if n <= 1 else n * factorial(n - 1)\n"
+# NB: Wikibase `string`/`monolingualtext` values reject vertical whitespace
+# (ValidatorBuilders::getCommonStringValidators) — payloads must be single
+# line. Multiline content is a documented v1 escalation (issue #6 §8).
+CODE_TEXT = "factorial = lambda n: 1 if n <= 1 else n * factorial(n - 1)"
 
 MATH_LABELS = {
     "en": "Euler's identity",
