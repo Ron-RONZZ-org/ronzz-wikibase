@@ -141,6 +141,8 @@ jobs:
             echo "UA [$ua]:"; curl -s -A "$ua" "$API_URL?action=query&list=recentchanges&rclimit=1&format=json" | head -c 120; echo
           done
           curl -s -o /dev/null -w "/w/api.php: %{http_code}\n" "$BASE_URL/w/api.php?action=query&list=recentchanges&format=json"
+          echo "--- debug: in-network probe from wdqs-updater ---"
+          $COMPOSE exec -T wdqs-updater sh -c 'curl -s -A "Wikidata-Query-RDF/1.0 Bot/1.0" "http://wikibase/w/api.php?action=query&list=recentchanges&rclimit=1&format=json" | head -c 200; echo; curl -s -o /dev/null -w "no-UA: %{http_code}\n" "http://wikibase/w/api.php?action=query&list=recentchanges&rclimit=1&format=json"' 2>&1 | head -5 || true
           echo "--- debug: sparql probe ---"
           curl -sG "$SPARQL_URL" --data-urlencode 'query=SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 5' --data-urlencode 'format=json' | head -c 600; echo
           python3 tests/e2e/run_e2e.py check \
