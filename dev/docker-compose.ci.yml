@@ -83,6 +83,12 @@ services:
       WIKIBASE_HOST: wikibase
       WDQS_HOST: wdqs
       WDQS_PORT: 9999
+    # Blazegraph aborts without a high fd limit:
+    # "unable to allocate file descriptor table" (see wmde/wikibase-suite).
+    ulimits:
+      nofile:
+        soft: 32768
+        hard: 32768
     depends_on:
       - wikibase
 
@@ -94,6 +100,10 @@ services:
       WDQS_HOST: wdqs
       WDQS_PORT: 9999
       WIKIBASE_MAX_DAYS_BACK: 90
+    ulimits:
+      nofile:
+        soft: 32768
+        hard: 32768
     depends_on:
       - wdqs
 

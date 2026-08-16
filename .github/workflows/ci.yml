@@ -128,6 +128,8 @@ jobs:
           curl -s "$API_URL?action=embed&entity=$(jq -r .dogfood.quotation seed/generated/ids.json)&output=html&format=json" | python3 -c "import sys; print(sys.stdin.read()[:400])"
           echo "--- debug: Special:Embed body ---"
           curl -s "$BASE_URL/wiki/Special:Embed/$(jq -r .dogfood.quotation seed/generated/ids.json)" | head -c 400; echo
+          echo "--- debug: Special:Embed code item body ---"
+          curl -s "$BASE_URL/wiki/Special:Embed/$(jq -r .dogfood.code seed/generated/ids.json)" | head -c 500; echo
           echo "--- debug: wikibase container log tail ---"
           $COMPOSE logs --tail 60 wikibase 2>&1 | tail -30 || true
           echo "--- debug: wdqs container status + logs ---"
