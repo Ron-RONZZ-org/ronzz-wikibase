@@ -40,6 +40,15 @@ class ManifestReaderTest extends TestCase {
 		$this->assertSame( 'monolingualtext', $contentText->getDatatype() );
 		$this->assertNull( $contentText->getAlignUri() );
 		$this->assertNull( $contentText->getAlignWikidata() );
+
+		// `equivalent property` aligns to wd:P1628 (equivalent property) — NOT
+		// P2888 (exact match); regression guard for the D1 data fix.
+		$equivalentProperty = $rows[9];
+		$this->assertSame( 'equivalent property', $equivalentProperty->getLabels()['en'] );
+		$this->assertSame(
+			'https://www.wikidata.org/wiki/Property:P1628',
+			$equivalentProperty->getAlignWikidata()
+		);
 	}
 
 	public function testBundledClassesManifestParses(): void {
