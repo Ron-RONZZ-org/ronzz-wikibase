@@ -7,6 +7,7 @@ License: GPL-2.0-or-later
 
 from __future__ import annotations
 
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -15,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import config_builder  # noqa: E402
 import manifest_loader  # noqa: E402
+from seed_instance import SeedOrchestrator  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 MANIFESTS = REPO_ROOT / "extensions" / "EmbeddableContent" / "manifests"
@@ -92,6 +94,39 @@ class ConfigBuilderTest(unittest.TestCase):
         self.assertIn("== Properties ==", report)
         self.assertIn("| instance of || P31", report)
         self.assertIn("| quotation || Q5", report)
+
+
+class SeedPhaseConfigTest(unittest.TestCase):
+    """Regression guard: phase_config emits ids.json (issue #6, CI wiring)."""
+
+    def setUp(self):
+        import types
+
+        args = types.SimpleNamespace(
+            dry_run=False,
+            config_out=Path(__file__).parent / "out" / "ronzz-wikibase-config.php",
+            report_out=Path(__file__).parent / "out" / "seed-report.wiki",
+            ids_out=Path(__file__).parent / "out" / "ids.json",
+            publish_report="",
+            api_url="http://example.invalid/api.php",
+            user=None,
+            password=None,
+            timeout=5,
+            lang=None,
+            manifests_dir=str(MANIFESTS),
+        )
+        self.orchestrator = SeedOrchestrator(args)
+        self.orchestrator.property_ids = {"instance of": "P1"}
+        self.orchestrator.class_ids = {"quotation content": "Q1"}
+        self.orchestrator.lexer_ids = {"python": "Q57"}
+        self.orchestrator.dogfood_ids = {"quotation": "Q87"}
+        self.orchestrator.languages_available = ["fr", "en", "eo"]
+
+    def test_emits_ids_json(self):
+        self.orchestrator.phase_config()
+        ids = json.loads((Path(__file__).parent / "out" / "ids.json").read_text())
+        self.assertEqual(ids["dogfood"]["quotation"], "Q87")
+        self.assertEqual(ids["properties"]["instance of"], "P1")
 
 
 if __name__ == "__main__":
