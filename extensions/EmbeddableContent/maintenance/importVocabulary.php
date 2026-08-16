@@ -15,6 +15,7 @@ use MediaWiki\Maintenance\Maintenance;
 use MediaWiki\User\User;
 use Wikibase\DataModel\Entity\EntityDocument;
 use Wikibase\DataModel\Entity\EntityId;
+use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\Property;
 use Wikibase\DataModel\Services\Statement\GuidGenerator;
@@ -253,7 +254,7 @@ class ImportVocabulary extends Maintenance {
 		}
 
 		$item->getStatements()->addNewStatement(
-			new PropertyValueSnak( $instanceOfId, $programmingLanguageClassId ),
+			new PropertyValueSnak( $instanceOfId, new EntityIdValue( $programmingLanguageClassId ) ),
 			null,
 			null,
 			( new GuidGenerator() )->newGuid( $item->getId() )
