@@ -126,7 +126,7 @@ class ContentRenderer {
 			);
 		}
 
-		$negotiated = $this->negotiateLanguage( $payload, $lang, $acceptLanguages );
+		$negotiated = $this->negotiateLanguage( $item, $payload, $lang, $acceptLanguages );
 		$title = $this->labelFor( $item, $negotiated );
 		$lastModified = $entityRevision ? $entityRevision->getTimestamp() : null;
 
@@ -217,29 +217,37 @@ class ContentRenderer {
 	}
 
 	/**
-	 * Picks the payload language: explicit ?lang=, then Accept-Language order,
-	 * then the configured fallback chain, then the first available.
+	 * Picks the display language: explicit ?lang=, then Accept-Language order,
+	 * then the configured fallback chain, then the first language with a
+	 * label. For language-carrying payloads (quotation) the choice must be
+	 * backed by a payload claim; code/math payloads have no language, so the
+	 * choice is display-only.
 	 *
 	 * @param array<string,string> $payload
 	 * @param string[] $acceptLanguages
 	 */
-	private function negotiateLanguage( array $payload, ?string $lang, array $acceptLanguages ): string {
-		$available = array_keys( $payload );
+	private function negotiateLanguage( Item $item, array $payload, ?string $lang, array $acceptLanguages ): string {
+		$labelLangs = array_keys( $item->getFingerprint()->getLabels()->toTextArray() );
+		$chain = array_values( array_unique( array_merge(
+			$lang !== null ? [ $lang ] : [],
+			$acceptLanguages,
+			$this->config->fallbackLanguages(),
+			$labelLangs
+		) ) );
 
-		if ( $lang !== null && isset( $payload[$lang] ) ) {
-			return $lang;
-		}
-		foreach ( $acceptLanguages as $candidate ) {
+		$payloadLangs = array_keys( array_filter( $payload, static function ( $text, $code ) {
+			return $code !== '';
+		}, ARRAY_FILTER_USE_BOTH ) );
+
+		foreach ( $chain as $candidate ) {
+			if ( $payloadLangs === [] ) {
+				return $candidate; // code/math: language is display-only
+			}
 			if ( isset( $payload[$candidate] ) ) {
 				return $candidate;
 			}
 		}
-		foreach ( $this->config->fallbackLanguages() as $candidate ) {
-			if ( isset( $payload[$candidate] ) ) {
-				return $candidate;
-			}
-		}
-		return $available[0];
+		return $payloadLangs === [] ? '' : reset( $payloadLangs );
 	}
 
 	private function renderKind( string $kind, Item $item, array $payload, string $lang ): string {
