@@ -1,0 +1,23 @@
+{
+	"name": "WikibaseCitation",
+	"version": "0.1.0",
+	"author": [
+		"ronzz.org"
+	],
+	"url": "https://github.com/Ron-RONZZ-org/ronzz-wikibase",
+	"descriptionmsg": "wikibasecitation-desc",
+	"license-name": "GPL-2.0-or-later",
+	"type": "other",
+	"requires": {
+		"MediaWiki": ">= 1.46.0"
+	},
+	"AutoloadNamespaces": {
+		"WikibaseCitation\\": "includes/"
+	},
+	"MessagesDirs": {
+		"WikibaseCitation": [
+			"i18n"
+		]
+	},
+	"manifest_version": 2
+}

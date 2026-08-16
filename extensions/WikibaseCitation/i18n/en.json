@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		],
+		"description": "Cite Wikibase entities (quotation, code snippet, mathematical expression) in standard citation styles — vocabulary manifests, citation property/type maps, maintenance scripts, and (later) the citation API.",
+		"license-name": "GPL-2.0-or-later"
+	},
+	"wikibasecitation-desc": "Cite Wikibase entities in standard citation styles"
+}
