@@ -61,7 +61,7 @@ class ApiCitation extends ApiBase {
 	public function execute() {
 		$params = $this->extractRequestParams();
 		$style = $params['style'];
-		$format = $params['format'];
+		$format = $params['output'];
 
 		$id = $this->parseItemId( $params['entity'] );
 		if ( $id === null ) {
@@ -108,7 +108,7 @@ class ApiCitation extends ApiBase {
 				self::PARAM_TYPE => CitationFormatter::STYLES,
 				self::PARAM_DFLT => 'json',
 			],
-			'format' => [
+			'output' => [
 				self::PARAM_TYPE => [ 'html', 'text' ],
 				self::PARAM_DFLT => 'text',
 			],

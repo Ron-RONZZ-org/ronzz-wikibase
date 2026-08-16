@@ -1,0 +1,32 @@
+The '''ronzz-wikibase seed report''' documents the vocabulary created by the
+one-time bootstrap (issue #6, D2). Re-generated on every seed run.
+
+Instance languages: ''fr'', ''en'', ''eo''
+
+== Properties ==
+{| class="wikitable"
+! Label (en) !! Entity
+| instance of || P1
+|}
+
+== Classes ==
+{| class="wikitable"
+! Label (en) !! Entity
+| quotation content || Q1
+|}
+
+== Programming languages ==
+{| class="wikitable"
+! Lexer !! Entity
+| python || Q57
+|}
+
+== Dogfood entities ==
+{| class="wikitable"
+! Kind !! Entity
+| quotation || Q87
+|}
+
+== Config map ==
+The emitted <code>$wgEmbeddableContentConfig</code> is generated from the
+IDs above; see <code>seed/generated/</code> for the LocalSettings fragment.

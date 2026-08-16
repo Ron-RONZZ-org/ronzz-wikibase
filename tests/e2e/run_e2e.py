@@ -74,7 +74,7 @@ def check(args: argparse.Namespace) -> int:
             failures.append(name)
             print(f"  [FAIL] {name}: {exc}")
     def embed_html(entity: str, **extra) -> str:
-        params = {"action": "embed", "entity": entity, "format": "html", **extra}
+        params = {"action": "embed", "entity": entity, "output": "html", **extra}
         status, body, _ = http_get(f"{api}?{urllib.parse.urlencode(params)}")
         expect(status == 200, f"embed {entity}: HTTP {status}")
         return body.decode("utf-8", "replace")
@@ -99,7 +99,7 @@ def check(args: argparse.Namespace) -> int:
 
     def check_citation_styles() -> None:
         for style in ("json", "apa", "vancouver", "bibtex", "ris"):
-            params = {"action": "citation", "entity": args.quote, "style": style, "format": "text"}
+            params = {"action": "citation", "entity": args.quote, "style": style, "output": "text", "format": "json"}
             status, body, ctype = http_get(f"{api}?{urllib.parse.urlencode(params)}")
             expect(status == 200, f"citation {style}: HTTP {status}")
             text = body.decode("utf-8", "replace")

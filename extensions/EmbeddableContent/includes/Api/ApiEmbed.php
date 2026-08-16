@@ -11,7 +11,7 @@ use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\Repo\WikibaseRepo;
 
 /**
- * api.php?action=embed&entity=Q1&format=html|json&lang=… — same renderer as
+ * api.php?action=embed&entity=Q1&output=html|json&lang=… — same renderer as
  * Special:Embed, CORS `*` for cross-site consumers (issue #6 §4.3).
  *
  * @license GPL-2.0-or-later
@@ -28,7 +28,7 @@ class ApiEmbed extends ApiBase {
 
 	public function execute() {
 		$params = $this->extractRequestParams();
-		$format = $params['format'];
+		$format = $params['output'];
 		$lang = $params['lang'] !== null ? $params['lang'] : null;
 
 		$id = $this->parseItemId( $params['entity'] );
@@ -66,7 +66,7 @@ class ApiEmbed extends ApiBase {
 				self::PARAM_TYPE => 'string',
 				self::PARAM_REQUIRED => true,
 			],
-			'format' => [
+			'output' => [
 				self::PARAM_TYPE => [ 'html', 'json' ],
 				self::PARAM_DFLT => 'html',
 			],

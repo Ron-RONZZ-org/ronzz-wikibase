@@ -70,7 +70,7 @@
 				action: 'citation',
 				entity: entityId,
 				style: 'apa',
-				format: 'text'
+				output: 'text'
 			} ).done( function ( data ) {
 				var citation = ( data && data.citation ) || '';
 				if ( !citation ) {

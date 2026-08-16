@@ -82,7 +82,7 @@ def self_verify(
 
     def check_citation_json() -> None:
         status, body, _ = _get(
-            f"{api_url}?action=citation&entity={quote_id}&style=json&format=json", timeout
+            f"{api_url}?action=citation&entity={quote_id}&style=json&format=json&output=json", timeout
         )
         if status != 200:
             raise VerifyError(f"HTTP {status}")
@@ -95,7 +95,7 @@ def self_verify(
 
     def check_citation_apa() -> None:
         status, body, _ = _get(
-            f"{api_url}?action=citation&entity={quote_id}&style=apa&format=text", timeout
+            f"{api_url}?action=citation&entity={quote_id}&style=apa&format=json&output=text", timeout
         )
         if status != 200 or not body.strip():
             raise VerifyError(f"HTTP {status}, empty body")

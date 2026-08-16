@@ -7,6 +7,9 @@
 wfLoadExtension( 'EmbeddableContent' );
 wfLoadExtension( 'WikibaseCitation' );
 
+// Dev-only: surface exception details instead of a bare 500.
+$wgShowExceptionDetails = true;
+
 if ( file_exists( __DIR__ . '/ronzz-wikibase-config.php' ) ) {
 	require_once __DIR__ . '/ronzz-wikibase-config.php';
 }
