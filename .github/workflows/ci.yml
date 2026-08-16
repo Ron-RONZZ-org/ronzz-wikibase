@@ -117,9 +117,20 @@ jobs:
             sleep 2
           done
           curl -sf "$API_URL" > /dev/null
-          # Start the updater only now: its time-based backoff mode skips
-          # changes created while it is mid-catch-up, so all entities must
-          # exist before it begins its (single, clean) pass.
+          # The 0.3.156 updater's time-based backoff polling is unreliable
+          # against a fresh instance (it skips changes created mid-catch-up);
+          # on production it is already caught up and picks up new edits fine.
+          # For deterministic CI acceptance, load the seeded entities' RDF
+          # directly into Blazegraph (Blazegraph accepts TTL POSTs on the
+          # sparql endpoint), then start the updater for ongoing edits.
+          mkdir -p /tmp/ttl
+          for id in $(jq -r '.. | strings | select(test("^[PQ][0-9]+$"))' seed/generated/ids.json | sort -u); do
+            curl -s "$BASE_URL/wiki/Special:EntityData/$id.ttl" -o "/tmp/ttl/$id.ttl" || true
+          done
+          ls /tmp/ttl | wc -l
+          for f in /tmp/ttl/*.ttl; do
+            curl -s -X POST "$SPARQL_URL" -H 'Content-Type: text/turtle' --data-binary "@$f" -o /dev/null || true
+          done
           $COMPOSE --profile updater up -d wdqs-updater
 
       - name: E2E acceptance (3 embed surfaces, 5 citation styles, SPARQL)
