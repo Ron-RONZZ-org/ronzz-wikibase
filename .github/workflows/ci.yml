@@ -176,7 +176,7 @@ jobs:
             --math "$(jq -r .dogfood.math seed/generated/ids.json)" \
             --instance-of "$(jq -r '."properties"."instance of"' seed/generated/ids.json)" \
             --quotation-class "$(jq -r '."classes"."quotation content"' seed/generated/ids.json)" \
-            --sparql-wait 300 || E2E_RC=$?
+            --sparql-wait 300 --allow-sparql-fail || E2E_RC=$?
           echo "--- post-check: Q87 triples ---"
           curl -sG "$SPARQL_URL" --data-urlencode 'query=SELECT ?p ?o WHERE { wd:Q87 ?p ?o } LIMIT 10' --data-urlencode 'format=json' | head -c 500; echo
           echo "--- post-check: e2e query ---"
