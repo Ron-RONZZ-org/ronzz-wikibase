@@ -110,6 +110,8 @@ def check(args: argparse.Namespace) -> int:
                     raise CheckFailed(
                         f"citation json: not JSON (HTTP {status}): {text[:300]!r}"
                     ) from exc
+                if "error" in payload:
+                    raise CheckFailed(f"citation json: API error: {payload['error']!r}")
                 expect(payload.get("citation", {}).get("type"), "json citation missing type")
             else:
                 expect(text.strip() != "", f"citation {style}: empty output")

@@ -45,7 +45,7 @@ class SpecialEmbed extends SpecialPage {
 			return;
 		}
 
-		$format = $request->getRawVal( 'format', 'html' );
+		$format = $request->getRawVal( 'format' ) ?? 'html';
 		$lang = $request->getRawVal( 'lang' );
 		$revId = $request->getIntOrNull( 'rev' );
 		$acceptLanguages = array_keys( $request->getAcceptLang() );
@@ -104,7 +104,7 @@ class SpecialEmbed extends SpecialPage {
 	private function respondOEmbed(): void {
 		$request = $this->getRequest();
 		$output = $this->getOutput();
-		$url = $request->getRawVal( 'url', '' );
+		$url = $request->getRawVal( 'url' ) ?? '';
 
 		$id = $this->extractIdFromUrl( $url );
 		if ( $id === null ) {
