@@ -97,7 +97,7 @@ jobs:
         run: |
           for type in property class language; do
             $COMPOSE exec -T wikibase php maintenance/run.php \
-              extensions/EmbeddableContent/maintenance/importVocabulary.php --type="$type" || exit 1
+              /var/www/html/extensions/EmbeddableContent/maintenance/importVocabulary.php --type="$type" || exit 1
           done
 
       - name: D2 seed — dogfood entities + config emission
