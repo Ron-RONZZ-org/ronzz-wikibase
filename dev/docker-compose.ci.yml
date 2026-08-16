@@ -100,6 +100,12 @@ services:
       - wikibase
 
   wdqs-updater:
+    # Started explicitly AFTER the seed (profiles): the updater's time-based
+    # backoff mode skips changes created while it is mid-catch-up, so it must
+    # only start once all entities exist. Start with:
+    #   docker compose -f dev/docker-compose.ci.yml --profile updater up -d
+    profiles:
+      - updater
     image: wikibase/wdqs:wdqs0.3.156
     # runUpdate.sh defaults HOST to localhost:9999 — point it at the wdqs
     # service. Its getopts only knows h/c/n/l/t/s/S/N/v; the wiki base URL

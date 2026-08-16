@@ -46,6 +46,10 @@ python3 -m seed.seed_instance \
 docker compose -f dev/docker-compose.ci.yml restart wikibase
 # wait for api.php again
 
+# 3b. Start the WDQS updater NOW (after all entities exist): its time-based
+# backoff mode skips changes created while it is mid-catch-up.
+docker compose -f dev/docker-compose.ci.yml --profile updater up -d wdqs-updater
+
 # 4. E2E acceptance + XSS
 python3 tests/e2e/run_e2e.py check --api-url http://127.0.0.1:8082/api.php \
   --base-url http://127.0.0.1:8082 --sparql-url http://127.0.0.1:9999/bigdata/namespace/wdq/sparql \
