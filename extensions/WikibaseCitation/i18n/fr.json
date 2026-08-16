@@ -3,7 +3,9 @@
 		"authors": [
 			"ronzz.org"
 		],
-		"description": "Citer les entités Wikibase (citation, extrait de code, expression mathématique) dans les styles de citation standard — manifests de vocabulaire, cartes de propriétés/types de citation, scripts de maintenance et (plus tard) l'API de citation."
+		"description": "Citer les entités Wikibase (citation, extrait de code, expression mathématique) dans les styles de citation standard — cartes de propriétés/types de citation et API de citation."
 	},
-	"wikibasecitation-desc": "Citer les entités Wikibase dans les styles de citation standard"
+	"wikibasecitation-desc": "Citer les entités Wikibase dans les styles de citation standard",
+	"wikibasecitation-error-invalidentity": "Identifiant d'entité invalide.",
+	"wikibasecitation-error-notfound": "Entité introuvable."
 }

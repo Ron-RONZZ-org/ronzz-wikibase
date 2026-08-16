@@ -1,6 +1,6 @@
 {
 	"name": "WikibaseCitation",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"author": [
 		"ronzz.org"
 	],
@@ -18,6 +18,28 @@
 		"WikibaseCitation": [
 			"i18n"
 		]
+	},
+	"config": {
+		"WikibaseCitationInstanceOf": {
+			"value": null,
+			"description": "Instance-of property id (e.g. P31). Defaults to EmbeddableContentConfig['instanceOf'] when unset."
+		},
+		"WikibaseCitationStyleDir": {
+			"value": null,
+			"description": "Directory with apa.csl / vancouver.csl. Defaults to the extension styles/ dir."
+		}
+	},
+	"ServiceWiringFiles": [
+		"includes/ServiceWiring.php"
+	],
+	"APIModules": {
+		"citation": {
+			"class": "WikibaseCitation\\Api\\ApiCitation",
+			"services": [
+				"WikibaseCitation.StatementToCslConverter",
+				"WikibaseCitation.CitationFormatter"
+			]
+		}
 	},
 	"manifest_version": 2
 }
