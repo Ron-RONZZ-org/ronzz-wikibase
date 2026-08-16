@@ -90,6 +90,12 @@ services:
       nofile:
         soft: 32768
         hard: 32768
+    healthcheck:
+      test: ["CMD", "curl", "--silent", "--fail", "localhost:9999/bigdata/namespace/wdq/sparql"]
+      interval: 10s
+      timeout: 10s
+      retries: 18
+      start_period: 180s
     depends_on:
       - wikibase
 
@@ -99,6 +105,7 @@ services:
     # service. --wikibaseUrl is the *base* URL: the updater appends
     # /w/api.php itself (Uris.DEFAULT_API_PATH).
     command: ./runUpdate.sh -h http://wdqs:9999 --wikibaseUrl http://wikibase
+    restart: unless-stopped
     environment:
       WIKIBASE_HOST: wikibase
       WDQS_HOST: wdqs
@@ -109,7 +116,8 @@ services:
         soft: 32768
         hard: 32768
     depends_on:
-      - wdqs
+      wdqs:
+        condition: service_healthy
 
 volumes:
   db-data:
