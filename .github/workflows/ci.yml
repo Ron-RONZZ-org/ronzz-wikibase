@@ -117,9 +117,11 @@ jobs:
             sleep 2
           done
           curl -sf "$API_URL" > /dev/null
-          # The updater's poll cursor may have advanced past the dogfood
-          # entities created mid-catch-up; restart it so it re-polls from its
-          # stored position in Blazegraph and picks them up.
+          # The updater's catch-up cursor races past changes created while it
+          # is mid-catch-up (Backoff-overflow heuristic). Deterministic fix:
+          # wipe Blazegraph and restart the updater so it does ONE clean pass
+          # over all existing changes (nothing new appears mid-pass).
+          $COMPOSE exec -T wdqs sh -c 'curl -s -X POST "http://localhost:9999/bigdata/namespace/wdq/sparql" --data-urlencode "update=DELETE WHERE { ?s ?p ?o }"' || true
           $COMPOSE restart wdqs-updater
 
       - name: E2E acceptance (3 embed surfaces, 5 citation styles, SPARQL)
