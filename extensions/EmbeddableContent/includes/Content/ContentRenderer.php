@@ -96,9 +96,13 @@ class ContentRenderer {
 		$payload = $this->extractPayload( $item, $kind );
 		if ( $payload === [] ) {
 			$payloadProperty = $this->config->payloadPropertyIds()[$kind] ?? '?';
+			$props = [];
+			foreach ( $item->getStatements() as $s ) {
+				$props[] = $s->getMainSnak()->getPropertyId()->getSerialization();
+			}
 			throw new RenderException(
 				"Item $id has no payload for kind '$kind' (payload property $payloadProperty, "
-				. count( $item->getStatements() ) . ' statements)',
+				. count( $item->getStatements() ) . ' statements: ' . implode( ',', $props ) . ')',
 				'missingpayload',
 				400
 			);
