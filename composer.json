@@ -1,0 +1,27 @@
+{
+	"name": "ron-ronzz-org/ronzz-wikibase",
+	"description": "Wikibase customization for wikibase.ronzz.org — EmbeddableContent and WikibaseCitation extensions, seed tooling, instance documentation",
+	"type": "library",
+	"license": "GPL-2.0-or-later",
+	"require-dev": {
+		"phpunit/phpunit": "^10.5"
+	},
+	"autoload": {
+		"psr-4": {
+			"EmbeddableContent\\": "extensions/EmbeddableContent/includes/",
+			"WikibaseCitation\\": "extensions/WikibaseCitation/includes/"
+		}
+	},
+	"autoload-dev": {
+		"psr-4": {
+			"Tests\\": "tests/"
+		}
+	},
+	"scripts": {
+		"test": "phpunit"
+	},
+	"config": {
+		"sort-packages": true,
+		"optimize-autoloader": true
+	}
+}
