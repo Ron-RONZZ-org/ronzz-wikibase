@@ -46,10 +46,20 @@ QUOTATION_DESCRIPTIONS = {
     "fr": "Citation d'Ada Lovelace à propos de la machine analytique",
     "eo": "Citaĵo de Ada Lovelace pri la analiza maŝino",
 }
-QUOTATION_TEXT = (
-    "The Analytical Engine has no pretensions whatever to originate anything. "
-    "It can do whatever we know how to order it to perform."
-)
+QUOTATION_TEXT = {
+    "en": (
+        "The Analytical Engine has no pretensions whatever to originate anything. "
+        "It can do whatever we know how to order it to perform."
+    ),
+    "fr": (
+        "La machine analytique ne prétend nullement être à l'origine de quoi que ce soit. "
+        "Elle peut faire tout ce que nous savons lui ordonner d'exécuter."
+    ),
+    "eo": (
+        "La analiza maŝino tute ne pretendas origini ion ajn. "
+        "Ĝi povas fari ĉion, kion ni scias ordoni al ĝi plenumi."
+    ),
+}
 
 CODE_LABELS = {
     "en": "Factorial in Python",

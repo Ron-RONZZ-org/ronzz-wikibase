@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -48,8 +49,13 @@ def self_verify(
     quotation_class_id: str,
     instance_of_id: str,
     timeout: int = 60,
+    sparql_wait: int = 0,
 ) -> bool:
-    """Runs the acceptance checks; returns True when all pass."""
+    """Runs the acceptance checks; returns True when all pass.
+
+    `sparql_wait` (seconds) retries the SPARQL check to allow the WDQS
+    updater to sync recent changes (needed on fresh instances/CI).
+    """
     print(f"Self-verification against {api_url} …")
     ok = True
 
@@ -68,11 +74,11 @@ def self_verify(
             raise VerifyError("fragment HTML missing the quotation text")
 
     def check_embed_page() -> None:
-        status, _, _ = _get(f"{base_url}/embed/{quote_id}", timeout)
-        if status not in (200, 404):
+        # Special:Embed — the canonical /embed/QN surface is an nginx rewrite
+        # of this page (ops-level, validated on production).
+        status, _, _ = _get(f"{base_url}/wiki/Special:Embed/{quote_id}", timeout)
+        if status != 200:
             raise VerifyError(f"HTTP {status}")
-        if status == 404:
-            raise VerifyError("404 (nginx rewrite not configured yet — ops item)")
 
     def check_citation_json() -> None:
         status, body, _ = _get(
@@ -94,7 +100,7 @@ def self_verify(
         if status != 200 or not body.strip():
             raise VerifyError(f"HTTP {status}, empty body")
 
-    def check_sparql() -> None:
+    def check_sparql_once() -> bool:
         query = (
             f"SELECT ?item WHERE {{ ?item wdt:{instance_of_id} wd:{quotation_class_id} }} LIMIT 5"
         )
@@ -102,11 +108,21 @@ def self_verify(
             f"{sparql_url}?query={urllib.parse.quote(query)}&format=json", timeout
         )
         if status != 200:
-            raise VerifyError(f"HTTP {status}")
+            return False
         if "sparql-results" not in content_type and "json" not in content_type:
-            raise VerifyError(f"unexpected content type {content_type}")
-        if quote_id not in body.decode("utf-8", "replace"):
-            raise VerifyError(f"dogfood quotation {quote_id} not found via SPARQL")
+            return False
+        return quote_id in body.decode("utf-8", "replace")
+
+    def check_sparql() -> None:
+        deadline = time.time() + sparql_wait
+        while True:
+            if check_sparql_once():
+                return
+            if time.time() >= deadline:
+                raise VerifyError(
+                    f"dogfood quotation {quote_id} not found via SPARQL within {sparql_wait}s"
+                )
+            time.sleep(10)
 
     ok = _check("embed api (json fragment)", check_embed_json) and ok
     ok = _check("embed canonical page (/embed/QN)", check_embed_page) and ok
@@ -126,6 +142,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     parser.add_argument("--quote", required=True)
     parser.add_argument("--quotation-class", required=True)
     parser.add_argument("--instance-of", required=True)
+    parser.add_argument("--sparql-wait", type=int, default=0, help="retry SPARQL check for N seconds (WDQS updater sync)")
     args = parser.parse_args(argv)
     ok = self_verify(
         args.api_url,
@@ -134,6 +151,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         args.quote,
         args.quotation_class,
         args.instance_of,
+        sparql_wait=args.sparql_wait,
     )
     return 0 if ok else 1
 

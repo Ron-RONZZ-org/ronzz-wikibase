@@ -37,6 +37,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_MANIFESTS = REPO_ROOT / "extensions" / "EmbeddableContent" / "manifests"
 DEFAULT_CONFIG_OUT = REPO_ROOT / "seed" / "generated" / "ronzz-wikibase.config.php"
 DEFAULT_REPORT_OUT = REPO_ROOT / "seed" / "generated" / "seed-report.wiki"
+DEFAULT_IDS_OUT = REPO_ROOT / "seed" / "generated" / "ids.json"
 
 ANCHOR_LANGUAGE = "en"  # alignment anchor labels are written in English (matches D1)
 CLASS_PAYLOAD_LABELS = {
@@ -238,9 +239,10 @@ class SeedOrchestrator:
         if instance_of_id and quote_class:
             claims[instance_of_id] = [dogfood.entity_claim(instance_of_id, quote_class)]
         if content_text_id:
-            claims.setdefault(content_text_id, []).append(
-                dogfood.monolingual_claim(content_text_id, dogfood.QUOTATION_TEXT, ANCHOR_LANGUAGE)
-            )
+            claims[content_text_id] = [
+                dogfood.monolingual_claim(content_text_id, text, lang)
+                for lang, text in dogfood.QUOTATION_TEXT.items()
+            ]
         if attributed_to_id:
             claims.setdefault(attributed_to_id, []).append(
                 dogfood.entity_claim(attributed_to_id, person_id)
@@ -296,7 +298,7 @@ class SeedOrchestrator:
     def phase_config(self) -> None:
         print("— config emission")
         if self.args.dry_run:
-            print("  [dry-run] would write config fragment + report")
+            print("  [dry-run] would write config fragment + report + ids.json")
             return
         snippet = config_builder.build_config(
             self.property_ids, self.class_ids, self.lexer_ids, self.languages_available
@@ -314,6 +316,24 @@ class SeedOrchestrator:
         report_out.parent.mkdir(parents=True, exist_ok=True)
         report_out.write_text(report, encoding="utf-8")
         print(f"  wrote {report_out}")
+
+        ids_out = Path(self.args.ids_out)
+        ids_out.parent.mkdir(parents=True, exist_ok=True)
+        ids_out.write_text(
+            json.dumps(
+                {
+                    "properties": self.property_ids,
+                    "classes": self.class_ids,
+                    "languages": self.lexer_ids,
+                    "dogfood": self.dogfood_ids,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        print(f"  wrote {ids_out}")
 
         if self.args.publish_report:
             page = self.args.publish_report
@@ -374,6 +394,7 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true", help="plan only, no writes")
     parser.add_argument("--config-out", type=Path, default=DEFAULT_CONFIG_OUT)
     parser.add_argument("--report-out", type=Path, default=DEFAULT_REPORT_OUT)
+    parser.add_argument("--ids-out", type=Path, default=DEFAULT_IDS_OUT, help="machine-readable id map (JSON)")
     parser.add_argument("--publish-report", default="", help="MediaWiki page to publish the report to")
     parser.add_argument("--timeout", type=int, default=60)
     args = parser.parse_args(argv)

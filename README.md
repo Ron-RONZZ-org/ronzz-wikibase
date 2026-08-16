@@ -35,14 +35,30 @@ Customization project for **wikibase.ronzz.org** — the self-hosted Wikibase
 
 ## Development
 
-Unit tests run in the provided Docker image (no MediaWiki needed — the tested
-code is pure PHP):
+### Unit tests (no MediaWiki — pure-PHP logic only)
 
 ```bash
 docker build -f Dockerfile.test -t ronzz-wikibase-test .
 docker run --rm -v "$PWD":/app -w /app ronzz-wikibase-test vendor/bin/phpunit
 python3 -m unittest discover -s seed/tests
 ```
+
+### CI (recommended for the integration layer)
+
+GitHub Actions runs **two jobs** on every push/PR (public repo → unlimited
+minutes; the full stack runs on 16 GB runners, so it never touches your
+machine):
+
+- `unit` — PHPUnit + seed tooling (~2–3 min)
+- `integration` — real wikibase-docker stack (MW 1.46 + WDQS): D1 importers →
+  D2 seed → config-map restart → E2E acceptance → XSS suite
+
+**Recommended loop** (especially on a resource-tight machine): edit → local
+unit tests above → push → CI gate. For an on-demand full validation without
+pushing, run the workflow manually:
+[Actions → CI → Run workflow](https://github.com/Ron-RONZZ-org/ronzz-wikibase/actions)
+(`workflow_dispatch`). For interactive stack debugging, see `dev/README.md`
+(local stack, ~2.5 GiB RAM).
 
 E2E acceptance + XSS suite (against a seeded instance):
 

@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -72,7 +73,6 @@ def check(args: argparse.Namespace) -> int:
         except CheckFailed as exc:
             failures.append(name)
             print(f"  [FAIL] {name}: {exc}")
-
     def embed_html(entity: str, **extra) -> str:
         params = {"action": "embed", "entity": entity, "format": "html", **extra}
         status, body, _ = http_get(f"{api}?{urllib.parse.urlencode(params)}")
@@ -83,9 +83,13 @@ def check(args: argparse.Namespace) -> int:
         for entity in (args.quote, args.code, args.math):
             html = embed_html(entity)
             expect(html.strip() != "", f"empty fragment for {entity}")
-            status, body, ctype = http_get(f"{base}/embed/{entity}")
-            expect(status == 200, f"/embed/{entity}: HTTP {status}")
-            status, _, ctype = http_get(f"{base}/embed/oembed?url={urllib.parse.quote(f'{base}/wiki/Item:{entity}')}")
+            # Special:Embed — the canonical /embed/QN path is an nginx rewrite
+            # of this page (ops-level, validated on production).
+            status, body, ctype = http_get(f"{base}/wiki/Special:Embed/{entity}")
+            expect(status == 200, f"Special:Embed/{entity}: HTTP {status}")
+            status, _, ctype = http_get(
+                f"{base}/wiki/Special:Embed/oembed?url={urllib.parse.quote(f'{base}/wiki/Item:{entity}')}"
+            )
             expect(status == 200 and "json" in ctype, f"oembed for {entity}: HTTP {status}")
 
     def check_embed_negotiation() -> None:
@@ -108,9 +112,21 @@ def check(args: argparse.Namespace) -> int:
         query = (
             "SELECT ?item WHERE { ?item wdt:" + args.instance_of + " wd:" + args.quotation_class + " } LIMIT 10"
         )
-        status, body, ctype = http_get(f"{sparql}?query={urllib.parse.quote(query)}&format=json")
-        expect(status == 200, f"sparql: HTTP {status}")
-        expect(args.quote in body.decode("utf-8", "replace"), "dogfood quotation missing from SPARQL")
+
+        def once() -> bool:
+            status, body, ctype = http_get(f"{sparql}?query={urllib.parse.quote(query)}&format=json")
+            if status != 200 or "json" not in ctype:
+                return False
+            return args.quote in body.decode("utf-8", "replace")
+
+        deadline = time.time() + args.sparql_wait
+        while not once():
+            if time.time() >= deadline:
+                raise CheckFailed(
+                    f"dogfood quotation missing from SPARQL within {args.sparql_wait}s "
+                    "(WDQS updater sync?)"
+                )
+            time.sleep(10)
 
     run("embed surfaces (api + /embed/ + oEmbed)", check_embed_surfaces)
     run("language negotiation (?lang=)", check_embed_negotiation)
@@ -189,7 +205,7 @@ def xss(args: argparse.Namespace) -> int:
     failures = []
     for label, url in [
         ("api", f"{args.api_url}?action=embed&entity={item_id}&format=html"),
-        ("page", f"{args.base_url}/embed/{item_id}"),
+        ("page", f"{args.base_url}/wiki/Special:Embed/{item_id}"),
     ]:
         status, body, _ = http_get(url)
         if status != 200:
@@ -224,6 +240,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     check_p.add_argument("--math", required=True)
     check_p.add_argument("--instance-of", required=True)
     check_p.add_argument("--quotation-class", required=True)
+    check_p.add_argument(
+        "--sparql-wait", type=int, default=0,
+        help="retry the SPARQL check for N seconds (WDQS updater sync)",
+    )
     check_p.set_defaults(handler=check)
 
     xss_p = sub.add_parser("xss", help="XSS suite (creates an injection test item)")
