@@ -123,7 +123,9 @@ jobs:
           echo "--- debug: Special:Embed page ---"
           curl -s -o /dev/null -w "Special:Embed HTTP %{http_code}\n" "$BASE_URL/wiki/Special:Embed/$(jq -r .dogfood.quotation seed/generated/ids.json)"
           echo "--- debug: citation json response ---"
-          curl -s "$API_URL?action=citation&entity=$(jq -r .dogfood.quotation seed/generated/ids.json)&style=json&format=text" | head -c 600; echo
+          curl -s "$API_URL?action=citation&entity=$(jq -r .dogfood.quotation seed/generated/ids.json)&style=json&format=text" | python3 -c "import sys,re,html; t=sys.stdin.read(); m=re.search(r'<p[^>]*>(.*?)</p>', t, re.S); print('BODY:', html.unescape(m.group(1))[:800] if m else t[:800])"
+          echo "--- debug: Special:Embed body ---"
+          curl -s "$BASE_URL/wiki/Special:Embed/$(jq -r .dogfood.quotation seed/generated/ids.json)" | python3 -c "import sys,re,html; t=sys.stdin.read(); m=re.search(r'<p[^>]*>(.*?)</p>', t, re.S); print('BODY:', html.unescape(m.group(1))[:800] if m else t[:800])"
           echo "--- debug: wikibase container log tail ---"
           $COMPOSE logs --tail 60 wikibase 2>&1 | tail -30 || true
           python3 tests/e2e/run_e2e.py check \
