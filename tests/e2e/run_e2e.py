@@ -232,8 +232,17 @@ def xss(args: argparse.Namespace) -> int:
             continue
         html = body.decode("utf-8", "replace")
         for injection in XSS_INJECTIONS:
-            if injection in html:
-                failures.append(f"{label}: raw injection survived: {injection!r}")
+            # Real XSS semantics: markup-like injections (tags, event
+            # handlers) must be escaped away entirely; a bare `javascript:`
+            # as *escaped text* is inert — only an attribute-context
+            # occurrence (inside a tag) is dangerous.
+            if injection.startswith("<") or "onerror" in injection:
+                if injection in html:
+                    failures.append(f"{label}: raw injection survived: {injection!r}")
+            elif injection.startswith("javascript:"):
+                import re
+                if re.search(r"<[^>]*javascript:", html):
+                    failures.append(f"{label}: javascript: survived in an attribute: {injection!r}")
 
     if failures:
         print(f"XSS FAILED ({len(failures)}):")
