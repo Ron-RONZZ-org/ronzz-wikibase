@@ -41,7 +41,7 @@ class ApiEmbed extends ApiBase {
 		try {
 			$result = $this->renderer->render( $id, $format, $lang, null, $acceptLanguages );
 		} catch ( RenderException $e ) {
-			$this->dieWithError( [ 'embeddablecontent-error-' . $e->getErrorCode() ], $e->getErrorCode() );
+			$this->dieWithError( [ 'rawmessage' => $e->getMessage() ], $e->getErrorCode() );
 		}
 
 		$payload = [

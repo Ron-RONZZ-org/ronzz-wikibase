@@ -147,7 +147,7 @@ class SpecialEmbed extends SpecialPage {
 		$response = $this->getRequest()->response();
 		$response->header( 'Content-Type: text/plain; charset=utf-8' );
 		$response->statusHeader( $e->getHttpStatus() );
-		$output->addHTML( $e->getErrorCode() . "\n" );
+		$output->addHTML( $e->getErrorCode() . ': ' . $e->getMessage() . "\n" );
 	}
 
 	private function renderFramedPage( $result, ItemId $id ): void {

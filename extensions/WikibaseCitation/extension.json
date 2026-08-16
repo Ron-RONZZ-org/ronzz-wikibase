@@ -37,7 +37,10 @@
 			"class": "WikibaseCitation\\Api\\ApiCitation",
 			"services": [
 				"WikibaseCitation.StatementToCslConverter",
-				"WikibaseCitation.CitationFormatter"
+				"WikibaseCitation.CitationFormatter",
+				"WikibaseRepo.EntityLookup",
+				"WikibaseRepo.EntityRevisionLookup",
+				"MainObjectStash"
 			]
 		}
 	},
