@@ -128,8 +128,10 @@ jobs:
             curl -s "$BASE_URL/wiki/Special:EntityData/$id.ttl" -o "/tmp/ttl/$id.ttl" || true
           done
           ls /tmp/ttl | wc -l
+          $COMPOSE exec -T wdqs mkdir -p /tmp/ttl || true
+          for f in /tmp/ttl/*.ttl; do $COMPOSE cp "$f" wdqs:/tmp/ttl/ || true; done
           for f in /tmp/ttl/*.ttl; do
-            curl -s -X POST "$SPARQL_URL" -H 'Content-Type: text/turtle' --data-binary "@$f" -o /dev/null || true
+            curl -s -o /dev/null -w "load $(basename $f): %{http_code}\n" -X POST "$SPARQL_URL" --data-urlencode "update=LOAD <file:///tmp/ttl/$(basename $f)>" || true
           done
           $COMPOSE --profile updater up -d wdqs-updater
 
