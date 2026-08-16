@@ -120,6 +120,12 @@ jobs:
 
       - name: E2E acceptance (3 embed surfaces, 5 citation styles, SPARQL)
         run: |
+          echo "--- debug: Special:Embed page ---"
+          curl -s -o /dev/null -w "Special:Embed HTTP %{http_code}\n" "$BASE_URL/wiki/Special:Embed/$(jq -r .dogfood.quotation seed/generated/ids.json)"
+          echo "--- debug: citation json response ---"
+          curl -s "$API_URL?action=citation&entity=$(jq -r .dogfood.quotation seed/generated/ids.json)&style=json&format=text" | head -c 600; echo
+          echo "--- debug: wikibase container log tail ---"
+          $COMPOSE logs --tail 60 wikibase 2>&1 | tail -30 || true
           python3 tests/e2e/run_e2e.py check \
             --api-url "$API_URL" --base-url "$BASE_URL" --sparql-url "$SPARQL_URL" \
             --quote "$(jq -r .dogfood.quotation seed/generated/ids.json)" \

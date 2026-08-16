@@ -104,7 +104,13 @@ def check(args: argparse.Namespace) -> int:
             expect(status == 200, f"citation {style}: HTTP {status}")
             text = body.decode("utf-8", "replace")
             if style == "json":
-                expect(json.loads(text).get("citation", {}).get("type"), "json citation missing type")
+                try:
+                    payload = json.loads(text)
+                except json.JSONDecodeError as exc:
+                    raise CheckFailed(
+                        f"citation json: not JSON (HTTP {status}): {text[:300]!r}"
+                    ) from exc
+                expect(payload.get("citation", {}).get("type"), "json citation missing type")
             else:
                 expect(text.strip() != "", f"citation {style}: empty output")
 
