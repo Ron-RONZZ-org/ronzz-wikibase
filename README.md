@@ -27,13 +27,16 @@ will live here as it is written.
 
 ## Documentation
 
-Full context lives in the private Nextcloud IT docs (not in this repo):
+Instance documentation lives **in this repo** under `docs/`:
 
-- `docs/IT/wikibase/README.md` — instance stack, endpoints, access control
-- `docs/IT/wikibase/decisions/` — ADR-style decisions (`opaque-id.md`,
-  `ontology-alignment.md`, `raw-rdf-in-blazegraph.md`)
-- `docs/IT/wikibase/contribution-guide.md` — editing rules for the instance
-- `docs/IT/ronzz-linux-server-2.md` — server/ops details (private)
+- `docs/README.md` — instance stack, endpoints, access control, skins
+- `docs/contribution-guide.md` — editing rules for the instance (content editors)
+- `docs/wikibase-cli.md` — server-side admin/CLI operations
+- `docs/decisions/` — ADR-style decisions (`opaque-id.md`, `ontology-alignment.md`,
+  `raw-rdf-in-blazegraph.md`)
+
+Private ops/credentials (server config, OCI identity, `.env` paths — e.g.
+`docs/IT/ronzz-linux-server-2.md` in Nextcloud) stay **out of this repo**.
 
 ## Conventions
 

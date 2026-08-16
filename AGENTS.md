@@ -3,10 +3,11 @@
 ## Scope
 
 This repo tracks proposals, designs and issues for the Wikibase customization at
-ronzz.org (wikibase.ronzz.org). It will also hold the extension code once
-implementation starts. **Operational/server credentials never belong in this repo** —
-they live in the private Nextcloud docs (`docs/IT/ronzz-linux-server-2.md`,
-`docs/IT/wikibase/README.md`).
+ronzz.org (wikibase.ronzz.org), holds the instance documentation (`docs/`), and will
+hold the extension code once implementation starts. **Operational/server credentials
+never belong in this repo** — they live in the private Nextcloud docs
+(`docs/IT/ronzz-linux-server-2.md`); everything else about the instance is in
+`docs/` here.
 
 ## Key constraints (already decided — do not relitigate)
 
@@ -35,5 +36,5 @@ they live in the private Nextcloud docs (`docs/IT/ronzz-linux-server-2.md`,
 ## Reference
 
 - Proposals & designs: GitHub issues #1–#5.
-- Decisions: Nextcloud `docs/IT/wikibase/decisions/`.
+- Decisions & instance docs: `docs/` in this repo.
 - MediaWiki/Wikibase docs: mediawiki.org, wikibase-docker (github.com/wmde/wikibase-docker).
