@@ -117,6 +117,10 @@ jobs:
             sleep 2
           done
           curl -sf "$API_URL" > /dev/null
+          # The updater's poll cursor may have advanced past the dogfood
+          # entities created mid-catch-up; restart it so it re-polls from its
+          # stored position in Blazegraph and picks them up.
+          $COMPOSE restart wdqs-updater
 
       - name: E2E acceptance (3 embed surfaces, 5 citation styles, SPARQL)
         run: |
