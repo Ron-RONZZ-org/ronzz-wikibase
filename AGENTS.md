@@ -35,6 +35,6 @@ never belong in this repo** — they live in the private Nextcloud docs
 
 ## Reference
 
-- Proposals & designs: GitHub issues #1–#5.
-- Decisions & instance docs: `docs/` in this repo.
+- Proposals & designs: GitHub issues
+- instance docs: `docs/` in this repo.
 - MediaWiki/Wikibase docs: mediawiki.org, wikibase-docker (github.com/wmde/wikibase-docker).

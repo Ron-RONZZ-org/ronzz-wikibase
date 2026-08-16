@@ -5,26 +5,6 @@ Customization project for **wikibase.ronzz.org** — the self-hosted Wikibase
 issues** for the extensions being built on top of it; the extension code itself
 will live here as it is written.
 
-## Status (Aug 16 2026)
-
-- Instance: MediaWiki 1.46 + Wikibase (source checkout) on `ronzz-linux-server-2`,
-  WDQS/Blazegraph SPARQL live, anon read-only, registration closed.
-- Two extensions planned, replacing retired `ronzzdoi` features (no data migration —
-  ronzzdoi never reached production):
-  - **WikibaseCitation** — entity statements → APA/Vancouver/JSON/BibTeX/RIS
-  - **EmbeddableContent** — quotations / code / KaTeX as entity content + HTML embeds
-- Standalone extensions, never forks of Wikibase (see issues + docs).
-
-## Issue map
-
-| # | Issue | Type |
-|---|-------|------|
-| #1 | Property-vocabulary importer (rdf/rdfs/owl/skos/dcterms/…) | proposal |
-| #2 | WikibaseCitation — entities → citations | proposal |
-| #3 | EmbeddableContent — quotes/code/KaTeX + embeds | proposal |
-| #4 | Design: WikibaseCitation (endpoints, flows, config, deployment) | design (sub-issue of #2) |
-| #5 | Design: EmbeddableContent (surfaces, renderers, security, deployment) | design (sub-issue of #3) |
-
 ## Documentation
 
 Instance documentation lives **in this repo** under `docs/`:
