@@ -2,9 +2,10 @@
 
 ## Scope
 
-This repo tracks proposals, designs and issues for the Wikibase customization at
-ronzz.org (wikibase.ronzz.org), holds the instance documentation (`docs/`), and will
-hold the extension code once implementation starts. **Operational/server credentials
+This repo tracks the v1 plan (GitHub issue #6) and follow-up issues for the
+Wikibase customization at ronzz.org (wikibase.ronzz.org), holds the instance
+documentation (`docs/`), and will hold the extension code once implementation
+starts. **Operational/server credentials
 never belong in this repo** — they live in the private Nextcloud docs
 (`docs/IT/ronzz-linux-server-2.md`); everything else about the instance is in
 `docs/` here.
@@ -26,7 +27,8 @@ never belong in this repo** — they live in the private Nextcloud docs
 
 ## Workflow
 
-1. Proposals/designs are GitHub issues (#1–#5). Discuss in the issue before coding.
+1. The v1 plan is GitHub issue #6 (umbrella — supersedes the earlier #1–#5, now
+   closed). Discuss in the issue before coding.
 2. Extension work targets a dev instance (wikibase-docker reference deployment) —
    never develop directly on the production server.
 3. Content model: properties first, then items (house rule on the instance).
@@ -35,6 +37,6 @@ never belong in this repo** — they live in the private Nextcloud docs
 
 ## Reference
 
-- Proposals & designs: GitHub issues
+- Overall plan: GitHub issue #6 (supersedes #1–#5)
 - instance docs: `docs/` in this repo.
 - MediaWiki/Wikibase docs: mediawiki.org, wikibase-docker (github.com/wmde/wikibase-docker).

@@ -1,9 +1,10 @@
 # ronzz-wikibase
 
 Customization project for **wikibase.ronzz.org** — the self-hosted Wikibase
-(structured-data wiki) at ronzz.org. This repo tracks **proposals, designs and
-issues** for the extensions being built on top of it; the extension code itself
-will live here as it is written.
+(structured-data wiki) at ronzz.org. The v1 plan lives in
+[**GitHub issue #6**](https://github.com/Ron-RONZZ-org/ronzz-wikibase/issues/6)
+(fresh-instance bootstrap + EmbeddableContent + WikibaseCitation); the extension
+code itself will live here as it is written.
 
 ## Documentation
 

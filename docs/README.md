@@ -159,13 +159,12 @@ As of Aug 15 2026 the instance is fresh: **0 items / 0 properties** in Blazegrap
   — `opaque-id.md` (entity IDs stay opaque Q/P), `ontology-alignment.md` (mirror
   properties + equivalence mappings, rejected storage-injection), `raw-rdf-in-blazegraph.md`
   (two-worlds: curated entities + native RDF).
-- **Proposals & designs → GitHub issues**: tracked in the
-  [**Ron-RONZZ-org/ronzz-wikibase**](https://github.com/Ron-RONZZ-org/ronzz-wikibase)
-  repo — `import-script` property importer (#1), WikibaseCitation proposal (#2) +
-  design (#4), EmbeddableContent proposal (#3) + design (#5). The last two replace
-  retired `ronzzdoi` features; no data migration (ronzzdoi never reached production).
-  Local `proposals/` was removed Aug 16 2026 after migration; decisions stay here in
-  `decisions/`.
+- **Overall plan → GitHub issue #6**: the v1 plan (fresh-instance bootstrap +
+  EmbeddableContent + WikibaseCitation) lives in
+  [**Ron-RONZZ-org/ronzz-wikibase#6**](https://github.com/Ron-RONZZ-org/ronzz-wikibase/issues/6)
+  and supersedes the earlier separate proposals/designs (#1–#5, closed Aug 16 2026).
+  Local `proposals/` was removed Aug 16 2026 after migration to GitHub; decisions
+  stay here in `decisions/`.
 - RAM: WDQS (Blazegraph Java) uses ~1.3 GiB RSS — this was the ~1.6 GiB freed when
   stopped Aug 2026.
 - Backups: covered by the OCI boot-volume policy (`daily-5d`) — crash-consistent
