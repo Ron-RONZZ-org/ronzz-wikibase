@@ -6,6 +6,19 @@ Customization project for **wikibase.ronzz.org** — the self-hosted Wikibase
 (fresh-instance bootstrap + EmbeddableContent + WikibaseCitation); the extension
 code itself will live here as it is written.
 
+## Repository layout
+
+- `extensions/EmbeddableContent/` — D1: vocabulary manifests (`manifests/`,
+  properties · classes · languages) + `maintenance/importVocabulary.php`; D3
+  embed rendering lands here.
+- `extensions/WikibaseCitation/` — D1: citation map manifests + `maintenance/importCitationMap.php`;
+  D4 citation API lands here.
+- `tools/` — manifest generators (e.g. `generate_language_manifest.py`, which
+  derives the language vocabulary from the installed Pygments lexers).
+- `tests/` — PHPUnit unit tests for the pure-PHP manifest readers (no MediaWiki
+  runtime needed; run `composer test`).
+- `seed/` — the instance seed orchestrator (D2, not yet present).
+
 ## Documentation
 
 Instance documentation lives **in this repo** under `docs/`:
