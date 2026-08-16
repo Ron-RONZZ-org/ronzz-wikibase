@@ -1,0 +1,15 @@
+# PHP
+/vendor/
+composer.lock
+
+# Node (citation sidecar)
+/node_modules/
+package-lock.json
+
+# MediaWiki extension build artifacts
+*.log
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
