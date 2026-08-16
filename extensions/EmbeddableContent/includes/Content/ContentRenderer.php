@@ -97,12 +97,22 @@ class ContentRenderer {
 		if ( $payload === [] ) {
 			$payloadProperty = $this->config->payloadPropertyIds()[$kind] ?? '?';
 			$props = [];
+			$values = [];
 			foreach ( $item->getStatements() as $s ) {
 				$props[] = $s->getMainSnak()->getPropertyId()->getSerialization();
+				$snak = $s->getMainSnak();
+				if ( $snak instanceof \Wikibase\DataModel\Snak\PropertyValueSnak
+					&& $snak->getPropertyId()->getSerialization() === $payloadProperty
+				) {
+					$dv = $snak->getDataValue();
+					$values[] = get_class( $dv )
+						. ( $dv instanceof \Wikibase\DataModel\Term\MonolingualTextValue ? ':' . $dv->getLanguageCode() : '' );
+				}
 			}
 			throw new RenderException(
 				"Item $id has no payload for kind '$kind' (payload property $payloadProperty, "
-				. count( $item->getStatements() ) . ' statements: ' . implode( ',', $props ) . ')',
+				. count( $item->getStatements() ) . " statements: " . implode( ',', $props )
+				. '; P2 values: ' . implode( ',', $values ) . ')',
 				'missingpayload',
 				400
 			);
