@@ -10,6 +10,7 @@ License: GPL-2.0-or-later
 
 from __future__ import annotations
 
+import http.cookiejar
 import json
 import urllib.error
 import urllib.parse
@@ -37,6 +38,10 @@ class WikibaseApi:
         self.timeout = timeout
         self.csrf_token: Optional[str] = None
         self.logged_in = False
+        # MediaWiki binds tokens to a session: all requests must share cookies.
+        self._opener = urllib.request.build_opener(
+            urllib.request.HTTPCookieProcessor( http.cookiejar.CookieJar() )
+        )
 
     # ------------------------------------------------------------------ auth
 
@@ -198,7 +203,7 @@ class WikibaseApi:
 
     def _get(self, query: str) -> dict[str, Any]:
         url = f"{self.api_url}?{query}&format=json"
-        with urllib.request.urlopen(url, timeout=self.timeout) as resp:
+        with self._opener.open(url, timeout=self.timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
 
     def _post(self, query: str, **params: Any) -> dict[str, Any]:
@@ -206,7 +211,7 @@ class WikibaseApi:
         body = urllib.parse.urlencode(params).encode("utf-8")
         request = urllib.request.Request(f"{self.api_url}?{query}", data=body, method="POST")
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as resp:
+            with self._opener.open(request, timeout=self.timeout) as resp:
                 return json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
             raise WikibaseApiError(f"HTTP {exc.code} from {self.api_url}: {exc.read()[:500]!r}") from exc
