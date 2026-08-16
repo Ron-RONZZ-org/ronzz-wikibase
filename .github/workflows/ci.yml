@@ -129,12 +129,18 @@ jobs:
           echo "--- debug: Special:Embed body ---"
           curl -s "$BASE_URL/wiki/Special:Embed/$(jq -r .dogfood.quotation seed/generated/ids.json)" | head -c 400; echo
           echo "--- debug: Special:Embed code item body ---"
-          curl -s "$BASE_URL/wiki/Special:Embed/$(jq -r .dogfood.code seed/generated/ids.json)" | head -c 500; echo
+          curl -s "$BASE_URL/wiki/Special:Embed/$(jq -r .dogfood.code seed/generated/ids.json)" | python3 -c "
+import sys, re
+t = sys.stdin.read()
+body = re.sub(r'<[^>]+>', ' ', t)
+body = re.sub(r'\\s+', ' ', body)
+print('BODY:', body[:1500])
+"
           echo "--- debug: wikibase container log tail ---"
           $COMPOSE logs --tail 60 wikibase 2>&1 | tail -30 || true
           echo "--- debug: wdqs container status + logs ---"
-          $COMPOSE ps wdqs wdqs-updater 2>&1 || true
-          $COMPOSE logs --tail 40 wdqs 2>&1 | tail -20 || true
+          $COMPOSE ps -a wdqs wdqs-updater 2>&1 || true
+          $COMPOSE logs --tail 60 wdqs 2>&1 | tail -25 || true
           python3 tests/e2e/run_e2e.py check \
             --api-url "$API_URL" --base-url "$BASE_URL" --sparql-url "$SPARQL_URL" \
             --quote "$(jq -r .dogfood.quotation seed/generated/ids.json)" \
