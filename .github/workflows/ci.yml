@@ -77,14 +77,21 @@ jobs:
         run: |
           mkdir -p seed/generated
           $COMPOSE up -d
+          $COMPOSE ps
 
       - name: Wait for the wiki API
         run: |
           for i in $(seq 1 150); do
-            curl -sf -o /dev/null "$API_URL" && break
+            curl -sf -o /dev/null "$API_URL" && exit 0
             sleep 2
           done
-          curl -sf "$API_URL" > /dev/null
+          echo "wiki did not come up — container status:"
+          $COMPOSE ps
+          echo "--- mediawiki logs ---"
+          $COMPOSE logs --tail 120 mediawiki
+          echo "--- mysql logs ---"
+          $COMPOSE logs --tail 60 mysql
+          exit 1
 
       - name: D1 importers — vocabulary (property, class, language)
         run: |
