@@ -106,7 +106,7 @@ class ContentRenderer {
 				) {
 					$dv = $snak->getDataValue();
 					$values[] = get_class( $dv )
-						. ( $dv instanceof \Wikibase\DataModel\Term\MonolingualTextValue ? ':' . $dv->getLanguageCode() : '' );
+						. ( $dv instanceof \DataValues\MonolingualTextValue ? ':' . $dv->getLanguageCode() : '' );
 				}
 			}
 			throw new RenderException(
@@ -196,7 +196,7 @@ class ContentRenderer {
 				continue;
 			}
 			$value = $this->unwrapEntityValue( $snak->getDataValue() );
-			if ( $value instanceof \Wikibase\DataModel\Term\MonolingualTextValue ) {
+			if ( $value instanceof \DataValues\MonolingualTextValue ) {
 				$result[$value->getLanguageCode()] = $value->getText();
 			} elseif ( $value instanceof \DataValues\StringValue ) {
 				$result[''] = $value->getValue();

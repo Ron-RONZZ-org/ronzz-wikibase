@@ -15,7 +15,7 @@ use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\DataModel\Services\Statement\GuidGenerator;
 use Wikibase\DataModel\Snak\PropertyValueSnak;
-use Wikibase\DataModel\Term\MonolingualTextValue;
+use DataValues\MonolingualTextValue;
 use Wikibase\Repo\WikibaseRepo;
 
 /**
