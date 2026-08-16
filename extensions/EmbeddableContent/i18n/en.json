@@ -1,0 +1,10 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		],
+		"description": "Embeddable content items (quotation, code snippet, mathematical expression) on a Wikibase instance — vocabulary manifests, maintenance scripts, and (later) embed rendering.",
+		"license-name": "GPL-2.0-or-later"
+	},
+	"embeddablecontent-desc": "Embeddable content items (quotation, code snippet, mathematical expression) on a Wikibase instance"
+}

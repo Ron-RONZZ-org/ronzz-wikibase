@@ -1,0 +1,9 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		],
+		"description": "Éléments de contenu intégrables (citation, extrait de code, expression mathématique) sur une instance Wikibase — manifests de vocabulaire, scripts de maintenance, et (plus tard) rendu des intégrations."
+	},
+	"embeddablecontent-desc": "Éléments de contenu intégrables (citation, extrait de code, expression mathématique) sur une instance Wikibase"
+}

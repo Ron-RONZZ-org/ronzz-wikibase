@@ -1,0 +1,5 @@
+label.fr,label.en,label.eo,description.fr,description.en,description.eo,align.uri,align.wikidata
+"contenu de citation","quotation content","citaĵa enhavo","une citation intégrée sur une page","a quotation embedded on a page","citaĵo enigita en paĝon",https://schema.org/Quotation,
+"extrait de code","code snippet","kodpeco","un morceau de code source intégré sur une page","a piece of source code embedded on a page","peco da fontkodo enigita en paĝon",,
+"expression mathématique","mathematical expression","matematika esprimo","une expression mathématique intégrée sur une page","a mathematical expression embedded on a page","matematika esprimo enigita en paĝon",,
+"langage de programmation","programming language","programlingvo","un langage formel avec des instructions pour l'informatique","a formal language with instructions for computing","formala lingvo kun instrukcioj por komputado",https://schema.org/ComputerLanguage,https://www.wikidata.org/wiki/Q9143
