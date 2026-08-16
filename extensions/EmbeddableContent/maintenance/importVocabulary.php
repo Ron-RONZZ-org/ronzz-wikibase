@@ -226,6 +226,7 @@ class ImportVocabulary extends Maintenance {
 			$property->getStatements()->addNewStatement(
 				new PropertyValueSnak( $equivalentPropertyId, new StringValue( $uri ) ),
 				null,
+				null,
 				( new GuidGenerator() )->newGuid( $property->getId() )
 			);
 		}
@@ -253,6 +254,7 @@ class ImportVocabulary extends Maintenance {
 
 		$item->getStatements()->addNewStatement(
 			new PropertyValueSnak( $instanceOfId, $programmingLanguageClassId ),
+			null,
 			null,
 			( new GuidGenerator() )->newGuid( $item->getId() )
 		);
@@ -284,6 +286,7 @@ class ImportVocabulary extends Maintenance {
 		foreach ( $additions as $uri ) {
 			$item->getStatements()->addNewStatement(
 				new PropertyValueSnak( $equivalentClassId, new StringValue( $uri ) ),
+				null,
 				null,
 				( new GuidGenerator() )->newGuid( $item->getId() )
 			);

@@ -190,6 +190,7 @@ abstract class SpecialAddContentItem extends SpecialPage {
 			$item->getStatements()->addNewStatement(
 				new PropertyValueSnak( $parser->parse( $propertyIdString ), $value ),
 				null,
+				null,
 				$guidGenerator->newGuid( $item->getId() )
 			);
 		};
