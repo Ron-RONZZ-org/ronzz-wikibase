@@ -135,7 +135,7 @@ jobs:
           $COMPOSE logs --tail 60 wikibase 2>&1 | tail -15 || true
           echo "--- debug: wdqs container status + logs ---"
           $COMPOSE ps -a wdqs wdqs-updater 2>&1 || true
-          $COMPOSE logs --tail 120 wdqs-updater 2>&1 | grep -E "Unexpected|JsonParse|Exception|ERROR|WARN|Updating via|Started Updater" | head -12 || true
+          $COMPOSE logs --tail 60 wdqs-updater 2>&1 | tail -40 || true
           echo "--- debug: api path probe ---"
           echo "recentchanges body:"; curl -s "$API_URL?action=query&list=recentchanges&rcprop=title%7Cids&rclimit=5&format=json" | head -c 300; echo
           echo "updater-style request:"; curl -s -A "Wikidata-Query-RDF/1.0 (https://github.com/wikimedia/wikidata-query-rdf) Bot/1.0" "$API_URL?action=query&list=recentchanges&rcdir=newer&rcprop=title%7Cids%7Ctimestamp&rcnamespace=0%7C120&rclimit=500&continue=&rcstart=2026-08-16T18%3A00%3A00Z&format=json" | head -c 200; echo
