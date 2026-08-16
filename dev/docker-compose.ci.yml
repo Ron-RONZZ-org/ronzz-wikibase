@@ -105,7 +105,7 @@ services:
     # service. Its getopts only knows h/c/n/l/t/s/S/N/v; the wiki base URL
     # goes to the java Update main via --wikibaseUrl AFTER a `--` separator
     # (getopts stops there, so the arg reaches java instead of leaking).
-    command: ./runUpdate.sh -h http://wdqs:9999 -- --wikibaseUrl http://wikibase --conceptUri http://wikibase/entity/
+    command: ./runUpdate.sh -h http://wdqs:9999 -- --wikibaseUrl http://wikibase --conceptUri http://wikibase
     restart: unless-stopped
     environment:
       WIKIBASE_HOST: wikibase
