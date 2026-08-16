@@ -47,7 +47,7 @@ class WikibaseApi:
         if self.logged_in:
             return
 
-        login_token = self._get("meta=tokens&type=login").get("query", {}).get(
+        login_token = self._get("action=query&meta=tokens&type=login").get("query", {}).get(
             "tokens", {}
         ).get("logintoken")
         if not login_token:
@@ -63,7 +63,7 @@ class WikibaseApi:
             raise WikibaseApiError(f"login failed: {result.get('reason', result)}")
 
         self.logged_in = True
-        self.csrf_token = self._get("meta=tokens&type=csrf").get("query", {}).get(
+        self.csrf_token = self._get("action=query&meta=tokens&type=csrf").get("query", {}).get(
             "tokens", {}
         ).get("csrftoken")
 
