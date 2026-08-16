@@ -96,8 +96,9 @@ services:
   wdqs-updater:
     image: wikibase/wdqs:wdqs0.3.156
     # runUpdate.sh defaults HOST to localhost:9999 — point it at the wdqs
-    # service; the WBS image serves the API at the root, not /w/.
-    command: ./runUpdate.sh -h http://wdqs:9999 --wikibaseUrl http://wikibase/api.php
+    # service. --wikibaseUrl is the *base* URL: the updater appends
+    # /w/api.php itself (Uris.DEFAULT_API_PATH).
+    command: ./runUpdate.sh -h http://wdqs:9999 --wikibaseUrl http://wikibase
     environment:
       WIKIBASE_HOST: wikibase
       WDQS_HOST: wdqs
