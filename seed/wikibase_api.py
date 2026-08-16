@@ -109,18 +109,22 @@ class WikibaseApi:
         datatype: str,
         summary: str,
     ) -> str:
+        # Modern Wikibase dropped wbcreateproperty: creation goes through
+        # wbeditentity with new=property (serialized term objects).
+        data = {
+            "labels": self._term_map(labels),
+            "descriptions": self._term_map(descriptions),
+            "datatype": datatype,
+        }
         result = self._post(
-            "action=wbcreateproperty",
+            "action=wbeditentity&new=property",
             token=self.require_csrf(),
-            datatype=datatype,
-            labels=json.dumps(labels, ensure_ascii=False),
-            descriptions=json.dumps(descriptions, ensure_ascii=False),
+            data=json.dumps(data, ensure_ascii=False),
             summary=summary,
         )
-        prop = result.get("property", {})
-        entity_id = prop.get("id")
+        entity_id = result.get("entity", {}).get("id")
         if not entity_id:
-            raise WikibaseApiError(f"wbcreateproperty failed: {result}")
+            raise WikibaseApiError(f"wbeditentity(new=property) failed: {result}")
         return entity_id
 
     def create_item(
@@ -129,18 +133,27 @@ class WikibaseApi:
         descriptions: dict[str, str],
         summary: str,
     ) -> str:
+        data = {
+            "labels": self._term_map(labels),
+            "descriptions": self._term_map(descriptions),
+        }
         result = self._post(
-            "action=wbcreateitem",
+            "action=wbeditentity&new=item",
             token=self.require_csrf(),
-            labels=json.dumps(labels, ensure_ascii=False),
-            descriptions=json.dumps(descriptions, ensure_ascii=False),
+            data=json.dumps(data, ensure_ascii=False),
             summary=summary,
         )
-        item = result.get("item", {})
-        entity_id = item.get("id")
+        entity_id = result.get("entity", {}).get("id")
         if not entity_id:
-            raise WikibaseApiError(f"wbcreateitem failed: {result}")
+            raise WikibaseApiError(f"wbeditentity(new=item) failed: {result}")
         return entity_id
+
+    @staticmethod
+    def _term_map(terms: dict[str, str]) -> dict[str, dict[str, str]]:
+        return {
+            lang: {"language": lang, "value": text}
+            for lang, text in terms.items()
+        }
 
     def add_claims(self, entity_id: str, claims: dict[str, list[dict[str, Any]]], summary: str) -> None:
         """Appends claims to an entity, preserving labels/descriptions and
