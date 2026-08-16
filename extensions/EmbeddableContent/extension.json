@@ -1,6 +1,6 @@
 {
 	"name": "EmbeddableContent",
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"author": [
 		"ronzz.org"
 	],
@@ -18,6 +18,84 @@
 		"EmbeddableContent": [
 			"i18n"
 		]
+	},
+	"config": {
+		"EmbeddableContentConfig": {
+			"value": [],
+			"description": "Instance-specific config map emitted by the seed (issue #6 D2): instanceOf, classes, payloadProperties, programmingLanguage, provenance, fallbackLanguages, lexers."
+		}
+	},
+	"ServiceWiringFiles": [
+		"includes/ServiceWiring.php"
+	],
+	"SpecialPages": {
+		"Embed": {
+			"class": "EmbeddableContent\\Spec\\SpecialEmbed",
+			"services": [
+				"EmbeddableContent.ContentRenderer"
+			]
+		},
+		"AddQuotation": {
+			"class": "EmbeddableContent\\Spec\\SpecialAddQuotation"
+		},
+		"AddCodeSnippet": {
+			"class": "EmbeddableContent\\Spec\\SpecialAddCodeSnippet"
+		},
+		"AddMath": {
+			"class": "EmbeddableContent\\Spec\\SpecialAddMath"
+		}
+	},
+	"APIModules": {
+		"embed": {
+			"class": "EmbeddableContent\\Api\\ApiEmbed",
+			"services": [
+				"EmbeddableContent.ContentRenderer"
+			]
+		}
+	},
+	"HookHandlers": {
+		"main": {
+			"class": "EmbeddableContent\\Hooks"
+		}
+	},
+	"Hooks": {
+		"BeforePageDisplay": "main"
+	},
+	"ResourceModules": {
+		"ext.embeddableContent.embed": {
+			"styles": [
+				"embed.css"
+			],
+			"scripts": [
+				"math.js"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.gadget": {
+			"scripts": [
+				"gadget.js"
+			],
+			"dependencies": [
+				"mediawiki.api",
+				"mediawiki.notification",
+				"mediawiki.util"
+			],
+			"messages": [
+				"embeddablecontent-gadget-copyembed",
+				"embeddablecontent-gadget-copycitation",
+				"embeddablecontent-gadget-copied"
+			],
+			"targets": [
+				"desktop"
+			]
+		}
+	},
+	"ResourceFileModulePaths": {
+		"localBasePath": "resources",
+		"remoteExtPath": "EmbeddableContent/resources"
 	},
 	"manifest_version": 2
 }

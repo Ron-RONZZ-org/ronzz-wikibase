@@ -3,7 +3,38 @@
 		"authors": [
 			"ronzz.org"
 		],
-		"description": "Éléments de contenu intégrables (citation, extrait de code, expression mathématique) sur une instance Wikibase — manifests de vocabulaire, scripts de maintenance, et (plus tard) rendu des intégrations."
+		"description": "Éléments de contenu intégrables (citation, extrait de code, expression mathématique) sur une instance Wikibase — manifests de vocabulaire, scripts de maintenance, rendu des intégrations et pages de création de contenu."
 	},
-	"embeddablecontent-desc": "Éléments de contenu intégrables (citation, extrait de code, expression mathématique) sur une instance Wikibase"
+	"embeddablecontent-desc": "Éléments de contenu intégrables (citation, extrait de code, expression mathématique) sur une instance Wikibase",
+	"special-embed": "Intégrer",
+	"special-addquotation": "Ajouter une citation",
+	"special-addcodesnippet": "Ajouter un extrait de code",
+	"special-addmath": "Ajouter une expression mathématique",
+	"embeddablecontent-error-title": "Erreur d'intégration",
+	"embeddablecontent-error-invalidentity": "Identifiant d'entité invalide.",
+	"embeddablecontent-error-entitynotfound": "Entité introuvable.",
+	"embeddablecontent-error-notembeddable": "Cet élément n'est pas un élément de contenu intégrable.",
+	"embeddablecontent-error-missingpayload": "Cet élément n'a pas de contenu.",
+	"embeddablecontent-frame-viewentity": "Voir l'entité",
+	"embeddablecontent-gadget-copyembed": "Copier le code d'intégration",
+	"embeddablecontent-gadget-copycitation": "Copier la citation",
+	"embeddablecontent-gadget-copied": "Copié dans le presse-papiers.",
+	"embeddablecontent-add-label": "Libellé",
+	"embeddablecontent-add-payload": "Contenu",
+	"embeddablecontent-add-quotation-payload": "Texte de la citation",
+	"embeddablecontent-add-language": "Langue",
+	"embeddablecontent-add-attributedto": "Attribué à (identifiant d'élément)",
+	"embeddablecontent-add-sourceurl": "URL de la source",
+	"embeddablecontent-add-source": "Source (identifiant d'élément)",
+	"embeddablecontent-add-date": "Date",
+	"embeddablecontent-add-entityid-help": "Saisir un identifiant d'élément existant, p. ex. Q5.",
+	"embeddablecontent-add-date-help": "Facultatif. Format AAAA-MM-JJ.",
+	"embeddablecontent-add-submit": "Enregistrer l'élément",
+	"embeddablecontent-add-error-required": "Le libellé et le contenu sont obligatoires.",
+	"embeddablecontent-add-error-config": "La carte de configuration du contenu intégrable est incomplète ; exécuter le seed.",
+	"embeddablecontent-add-error-baditemid": "Identifiant d'élément invalide pour « $1 ».",
+	"embeddablecontent-add-error-badurl": "URL de source invalide (http/https uniquement).",
+	"embeddablecontent-add-error-anon": "Les utilisateurs anonymes ne peuvent pas créer d'éléments de contenu.",
+	"embeddablecontent-add-error-save": "Échec de l'enregistrement ; vérifier la saisie et réessayer.",
+	"embeddablecontent-add-edit-summary": "Élément de contenu ajouté : $1"
 }

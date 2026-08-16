@@ -3,7 +3,38 @@
 		"authors": [
 			"ronzz.org"
 		],
-		"description": "Enigeblaj enhavaj elementoj (citaĵo, kodero, matematika esprimo) en Wikibase-instancujo — vortaraj manifestoj, prizorgaj skriptoj kaj (poste) bildigo de enigoj."
+		"description": "Enigeblaj enhavaj elementoj (citaĵo, kodero, matematika esprimo) en Wikibase-instancujo — vortaraj manifestoj, prizorgaj skriptoj, bildigo de enigoj kaj paĝoj por krei enhavon."
 	},
-	"embeddablecontent-desc": "Enigeblaj enhavaj elementoj (citaĵo, kodero, matematika esprimo) en Wikibase-instancujo"
+	"embeddablecontent-desc": "Enigeblaj enhavaj elementoj (citaĵo, kodero, matematika esprimo) en Wikibase-instancujo",
+	"special-embed": "Enigi",
+	"special-addquotation": "Aldoni citaĵon",
+	"special-addcodesnippet": "Aldoni kodpecon",
+	"special-addmath": "Aldoni matematikan esprimon",
+	"embeddablecontent-error-title": "Eniga eraro",
+	"embeddablecontent-error-invalidentity": "Nevalida ento-identigilo.",
+	"embeddablecontent-error-entitynotfound": "Ento ne trovita.",
+	"embeddablecontent-error-notembeddable": "Ĉi tiu elemento ne estas enigebla enhav-elemento.",
+	"embeddablecontent-error-missingpayload": "Ĉi tiu elemento havas neniun enhavon.",
+	"embeddablecontent-frame-viewentity": "Rigardi la enton",
+	"embeddablecontent-gadget-copyembed": "Kopii enig-kodon",
+	"embeddablecontent-gadget-copycitation": "Kopii citaĵon",
+	"embeddablecontent-gadget-copied": "Kopiita al tondejo.",
+	"embeddablecontent-add-label": "Etikedo",
+	"embeddablecontent-add-payload": "Enhavo",
+	"embeddablecontent-add-quotation-payload": "Teksto de la citaĵo",
+	"embeddablecontent-add-language": "Lingvo",
+	"embeddablecontent-add-attributedto": "Atribuita al (elemento-identigilo)",
+	"embeddablecontent-add-sourceurl": "Fonta URL",
+	"embeddablecontent-add-source": "Fonto (elemento-identigilo)",
+	"embeddablecontent-add-date": "Dato",
+	"embeddablecontent-add-entityid-help": "Enigu ekzistantan elemento-identigilon, ekz. Q5.",
+	"embeddablecontent-add-date-help": "Nedeviga. Formato JJJJ-MM-TT.",
+	"embeddablecontent-add-submit": "Konservi elementon",
+	"embeddablecontent-add-error-required": "Etikedo kaj enhavo estas devigaj.",
+	"embeddablecontent-add-error-config": "La enigebla-enhavo agordmapo estas nekompleta; rulu la seed.",
+	"embeddablecontent-add-error-baditemid": "Nevalida elemento-identigilo por « $1 ».",
+	"embeddablecontent-add-error-badurl": "Nevalida fonta URL (nur http/https).",
+	"embeddablecontent-add-error-anon": "Anonimuloj ne povas krei enhav-elementojn.",
+	"embeddablecontent-add-error-save": "Konservado malsukcesis; kontrolu la enigaĵon kaj reprovu.",
+	"embeddablecontent-add-edit-summary": "Enhav-elemento aldonita: $1"
 }
