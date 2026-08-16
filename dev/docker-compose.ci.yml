@@ -31,7 +31,7 @@ services:
       MW_ADMIN_PASS: ${MW_ADMIN_PASS:-ci-admin-pass-2026}
       MW_ADMIN_EMAIL: ${MW_ADMIN_EMAIL:-ci@example.org}
       MW_SITE_LANG: fr
-      MW_WG_SERVER: http://127.0.0.1:8082
+      MW_WG_SERVER: http://wikibase
       DB_SERVER: mysql:3306
       DB_USER: wikiuser
       DB_PASS: sqlpass
@@ -105,7 +105,7 @@ services:
     # service. Its getopts only knows h/c/n/l/t/s/S/N/v; the wiki base URL
     # goes to the java Update main via --wikibaseUrl AFTER a `--` separator
     # (getopts stops there, so the arg reaches java instead of leaking).
-    command: ./runUpdate.sh -h http://wdqs:9999 -- --wikibaseUrl http://wikibase
+    command: ./runUpdate.sh -h http://wdqs:9999 -- --wikibaseUrl http://wikibase --conceptUri http://wikibase/entity/
     restart: unless-stopped
     environment:
       WIKIBASE_HOST: wikibase
