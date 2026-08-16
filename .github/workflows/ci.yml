@@ -117,12 +117,11 @@ jobs:
             sleep 2
           done
           curl -sf "$API_URL" > /dev/null
-          # The 0.3.156 updater's time-based backoff polling is unreliable
-          # against a fresh instance (it skips changes created mid-catch-up);
-          # on production it is already caught up and picks up new edits fine.
-          # For deterministic CI acceptance, load the seeded entities' RDF
-          # directly into Blazegraph (Blazegraph accepts TTL POSTs on the
-          # sparql endpoint), then start the updater for ongoing edits.
+          # Best-effort: pre-load the seeded entities' RDF so the SPARQL check
+          # has data even when the 0.3.156 updater's fresh-instance backoff
+          # polling misses mid-catch-up changes; then start the updater for
+          # ongoing edits (on production it is already caught up and picks up
+          # new edits via normal polling).
           mkdir -p /tmp/ttl
           for id in $(jq -r '.. | strings | select(test("^[PQ][0-9]+$"))' seed/generated/ids.json | sort -u); do
             curl -s "$BASE_URL/wiki/Special:EntityData/$id.ttl" -o "/tmp/ttl/$id.ttl" || true
@@ -137,38 +136,6 @@ jobs:
 
       - name: E2E acceptance (3 embed surfaces, 5 citation styles, SPARQL)
         run: |
-          echo "--- debug: Special:Embed page ---"
-          curl -s -o /dev/null -w "Special:Embed HTTP %{http_code}\n" "$BASE_URL/wiki/Special:Embed/$(jq -r .dogfood.quotation seed/generated/ids.json)"
-          echo "--- debug: citation json response ---"
-          curl -s "$API_URL?action=citation&entity=$(jq -r .dogfood.quotation seed/generated/ids.json)&style=json&output=json&format=json" | python3 -c "import sys; print(sys.stdin.read()[:800])"
-          echo "--- debug: embed api without lang ---"
-          curl -s "$API_URL?action=embed&entity=$(jq -r .dogfood.quotation seed/generated/ids.json)&output=html&format=json" | python3 -c "import sys; print(sys.stdin.read()[:400])"
-          echo "--- debug: Special:Embed body ---"
-          curl -s "$BASE_URL/wiki/Special:Embed/$(jq -r .dogfood.quotation seed/generated/ids.json)" | head -c 400; echo
-          echo "--- debug: Special:Embed code item body ---"
-          curl -s "$BASE_URL/wiki/Special:Embed/$(jq -r .dogfood.code seed/generated/ids.json)" | python3 -c "import sys,re; t=sys.stdin.read(); m=re.search(r'(Exception|Error)[^<]{0,400}', t); print('ERR:', m.group(0)[:400] if m else t[-800:])"
-          echo "--- debug: wikibase container log tail ---"
-          echo "updater requests in wiki access log:"; $COMPOSE logs --tail 400 wikibase 2>&1 | grep "Wikidata-Query-RDF" | tail -5 || true
-          $COMPOSE logs --tail 60 wikibase 2>&1 | tail -15 || true
-          echo "--- debug: wdqs container status + logs ---"
-          $COMPOSE ps -a wdqs wdqs-updater 2>&1 || true
-          $COMPOSE logs --tail 60 wdqs-updater 2>&1 | tail -40 || true
-          echo "--- debug: api path probe ---"
-          echo "recentchanges body:"; curl -s "$API_URL?action=query&list=recentchanges&rcprop=title%7Cids&rclimit=5&format=json" | head -c 300; echo
-          echo "updater-style request:"; curl -s -A "Wikidata-Query-RDF/1.0 (https://github.com/wikimedia/wikidata-query-rdf) Bot/1.0" "$API_URL?action=query&list=recentchanges&rcdir=newer&rcprop=title%7Cids%7Ctimestamp&rcnamespace=0%7C120&rclimit=500&continue=&rcstart=2026-08-16T18%3A00%3A00Z&format=json" | head -c 200; echo
-          echo "with Host: wikibase header:"; curl -s -H "Host: wikibase" -A "Wikidata-Query-RDF/1.0 (https://github.com/wikimedia/wikidata-query-rdf) Bot/1.0" "$API_URL?action=query&list=recentchanges&rclimit=1&format=json" | head -c 200; echo
-          echo "with Host: wikibase, no UA:"; curl -s -H "Host: wikibase" "$API_URL?action=query&list=recentchanges&rclimit=1&format=json" | head -c 200; echo
-          echo "poller-feed probe:"; curl -s "$API_URL?action=query&list=recentchanges&rcdir=newer&rcprop=title%7Cids%7Ctimestamp&rcnamespace=0%7C120&rclimit=500&format=json" | python3 -c "import json,sys; d=json.load(sys.stdin); rc=d.get('query',{}).get('recentchanges',[]); print('count:', len(rc)); [print(' ', e.get('rcid'), e.get('title'), e.get('timestamp')) for e in rc[-4:]]; print('continue:', d.get('continue'))"
-          for ua in "Wikidata-Query-RDF/1.0 (https://github.com/wikimedia/wikidata-query-rdf) Bot/1.0" "Java/17.0.10" "curl/8.5.0"; do
-            echo "UA [$ua]:"; curl -s -A "$ua" "$API_URL?action=query&list=recentchanges&rclimit=1&format=json" | head -c 120; echo
-          done
-          curl -s -o /dev/null -w "/w/api.php: %{http_code}\n" "$BASE_URL/w/api.php?action=query&list=recentchanges&format=json"
-          echo "--- debug: in-network probe from wdqs (blazegraph) container ---"
-          $COMPOSE exec -T wdqs sh -c 'echo "with UA:"; curl -s -A "Wikidata-Query-RDF/1.0 Bot/1.0" "http://wikibase/w/api.php?action=query&list=recentchanges&rclimit=1&format=json" | head -c 150; echo; echo "no UA:"; curl -s "http://wikibase/w/api.php?action=query&list=recentchanges&rclimit=1&format=json" | head -c 150; echo' 2>&1 | head -6 || true
-          echo "--- debug: sparql probe ---"
-          curl -sG "$SPARQL_URL" --data-urlencode 'query=SELECT ?s ?p ?o WHERE { ?s ?p ?o } LIMIT 5' --data-urlencode 'format=json' | head -c 300; echo
-          echo "prefix test (wd:Q87):"; curl -sG "$SPARQL_URL" --data-urlencode 'query=SELECT ?p ?o WHERE { wd:Q87 ?p ?o } LIMIT 5' --data-urlencode 'format=json' | head -c 300; echo
-          echo "e2e query:"; curl -sG "$SPARQL_URL" --data-urlencode 'query=SELECT ?item WHERE { ?item wdt:P1 wd:Q1 } LIMIT 10' --data-urlencode 'format=json' | head -c 300; echo
           python3 tests/e2e/run_e2e.py check \
             --api-url "$API_URL" --base-url "$BASE_URL" --sparql-url "$SPARQL_URL" \
             --quote "$(jq -r .dogfood.quotation seed/generated/ids.json)" \
@@ -177,12 +144,11 @@ jobs:
             --instance-of "$(jq -r '."properties"."instance of"' seed/generated/ids.json)" \
             --quotation-class "$(jq -r '."classes"."quotation content"' seed/generated/ids.json)" \
             --sparql-wait 300 --allow-sparql-fail || E2E_RC=$?
-          echo "--- post-check: Q87 triples ---"
-          curl -sG "$SPARQL_URL" --data-urlencode 'query=SELECT ?p ?o WHERE { wd:Q87 ?p ?o } LIMIT 10' --data-urlencode 'format=json' | head -c 500; echo
-          echo "--- post-check: e2e query ---"
-          curl -sG "$SPARQL_URL" --data-urlencode 'query=SELECT ?item WHERE { ?item wdt:P1 wd:Q1 } LIMIT 10' --data-urlencode 'format=json' | head -c 500; echo
-          echo "--- post-check: updater log tail ---"
-          $COMPOSE logs --tail 40 wdqs-updater 2>&1 | tail -25 || true
+          if [ -n "${E2E_RC:-}" ]; then
+            echo "--- E2E failed; diagnostics ---"
+            curl -sG "$SPARQL_URL" --data-urlencode 'query=SELECT ?p ?o WHERE { wd:Q87 ?p ?o } LIMIT 10' --data-urlencode 'format=json' | head -c 400; echo
+            $COMPOSE logs --tail 30 wdqs-updater 2>&1 | tail -20 || true
+          fi
           exit ${E2E_RC:-0}
 
       - name: XSS suite (injections must not survive)
