@@ -53,6 +53,8 @@ def http_get(url: str, timeout: int = 60) -> tuple[int, bytes, str]:
             return resp.status, resp.read(), resp.headers.get("Content-Type", "")
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read(), exc.headers.get("Content-Type", "")
+    except urllib.error.URLError as exc:
+        raise CheckFailed(f"cannot reach {url}: {exc.reason}") from exc
 
 
 def expect(condition: bool, message: str) -> None:

@@ -71,20 +71,17 @@ class SpecialEmbed extends SpecialPage {
 		}
 
 		if ( $format === 'json' ) {
-			$response->header( 'Content-Type: application/json; charset=utf-8' );
-			$output->addHTML(
-				json_encode(
-					[
-						'embed' => [
-							'kind' => $result->getKind(),
-							'title' => $result->getTitle(),
-							'lang' => $result->getLang(),
-							'html' => $result->getHtml(),
-							'languages' => $result->getLanguages(),
-						],
+			$this->respondJson(
+				[
+					'embed' => [
+						'kind' => $result->getKind(),
+						'title' => $result->getTitle(),
+						'lang' => $result->getLang(),
+						'html' => $result->getHtml(),
+						'languages' => $result->getLanguages(),
 					],
-					JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-				)
+				],
+				200
 			);
 			return;
 		}
@@ -135,10 +132,11 @@ class SpecialEmbed extends SpecialPage {
 	private function respondJson( array $payload, int $status ): void {
 		$output = $this->getOutput();
 		$output->setArticleBodyOnly( true );
+		$output->disable(); // prevent OutputPage from overriding the Content-Type
 		$response = $this->getRequest()->response();
-		$response->header( 'Content-Type: application/json; charset=utf-8' );
 		$response->statusHeader( $status );
-		$output->addHTML( json_encode( $payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) );
+		$response->header( 'Content-Type: application/json; charset=utf-8' );
+		echo json_encode( $payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
 	}
 
 	private function respondError( RenderException $e ): void {
