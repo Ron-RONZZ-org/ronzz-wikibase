@@ -5,7 +5,7 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\Maintenance;
 
-use DataValues\UrlValue;
+use DataValues\StringValue;
 use EmbeddableContent\Manifest\ClassManifestRow;
 use EmbeddableContent\Manifest\LanguageManifestRow;
 use EmbeddableContent\Manifest\ManifestException;
@@ -224,7 +224,7 @@ class ImportVocabulary extends Maintenance {
 
 		foreach ( $additions as $uri ) {
 			$property->getStatements()->addNewStatement(
-				new PropertyValueSnak( $equivalentPropertyId, new UrlValue( $uri ) ),
+				new PropertyValueSnak( $equivalentPropertyId, new StringValue( $uri ) ),
 				null,
 				( new GuidGenerator() )->newGuid( $property->getId() )
 			);
@@ -283,7 +283,7 @@ class ImportVocabulary extends Maintenance {
 
 		foreach ( $additions as $uri ) {
 			$item->getStatements()->addNewStatement(
-				new PropertyValueSnak( $equivalentClassId, new UrlValue( $uri ) ),
+				new PropertyValueSnak( $equivalentClassId, new StringValue( $uri ) ),
 				null,
 				( new GuidGenerator() )->newGuid( $item->getId() )
 			);
