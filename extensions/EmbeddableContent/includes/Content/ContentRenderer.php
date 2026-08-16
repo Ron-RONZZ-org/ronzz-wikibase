@@ -26,6 +26,14 @@ class ContentRenderer {
 
 	public const CACHE_TTL = 2592000; // 30 days — revId-keyed, so content is immutable
 
+	/** Tags removed by the sanitizer re-pass (script/iframe/form/etc.). */
+	public const BARRED_TAGS = [
+		'script', 'iframe', 'object', 'embed', 'form', 'input', 'button',
+		'textarea', 'select', 'style', 'link', 'meta', 'svg', 'math', 'video',
+		'audio', 'canvas', 'applet', 'frame', 'frameset', 'noscript', 'noembed',
+		'template',
+	];
+
 	/** @var EmbeddableContentConfig */
 	private $config;
 
@@ -132,8 +140,11 @@ class ContentRenderer {
 		if ( !is_string( $html ) ) {
 			$html = $this->renderKind( $kind, $item, $payload, $negotiated );
 			$html = $this->attachProvenance( $html, $item, $negotiated );
-			// Re-pass through MediaWiki's tag sanitizer (defense in depth).
-			$html = \Sanitizer::removeHTMLtags( $html );
+			// Re-pass through MediaWiki's tag sanitizer (defense in depth,
+			// issue #6 §1.7). MW 1.46 removed removeHTMLtags; removeSomeTags
+			// with an explicit barred-tag list preserves our controlled
+			// fragment markup (blockquote/footer/data-* attributes).
+			$html = \Sanitizer::removeSomeTags( $html, [ 'removeTags' => self::BARRED_TAGS ] );
 			$this->cache->set( $cacheKey, $html, self::CACHE_TTL );
 		}
 
