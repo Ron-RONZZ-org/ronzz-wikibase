@@ -91,6 +91,7 @@ def build_config(
             indent="\t",
         )
         + ";",
+        "$wgWikibaseCitationInstanceOf = " + php_scalar(property_ids.get("instance of")) + ";",
         "$wgWBRepoSettings['sandboxEntityIds'] = [ 'mainItem' => 'Q999999998', 'auxItem' => 'Q999999999' ];",
         "$wgWBRepoSettings['dataRightsUrl'] = 'https://creativecommons.org/publicdomain/zero/1.0/';",
         "$wgWBRepoSettings['rdfDataRightsUrl'] = 'https://creativecommons.org/publicdomain/zero/1.0/';",

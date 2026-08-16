@@ -18,3 +18,7 @@ seed/generated/
 .idea/
 .vscode/
 .DS_Store
+
+# Python
+__pycache__/
+*.pyc
