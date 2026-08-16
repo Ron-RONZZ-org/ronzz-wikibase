@@ -77,6 +77,7 @@ services:
 
   wdqs:
     image: wikibase/wdqs:wdqs0.3.156
+    command: /runBlazegraph.sh
     ports:
       - "127.0.0.1:9999:9999"
     environment:
