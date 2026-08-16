@@ -1,22 +1,28 @@
 # ronzz-wikibase dev/CI stack (issue #6, D6).
 #
-# Reference deployment, matching the production versions where possible:
-#   MediaWiki 1.46 (wikibase/wikibase:mw1.46.0) · WDQS 0.3.156 · MariaDB 11
+# Wikibase Suite (WBS) architecture, pinned to the production-equivalent
+# versions: MediaWiki 1.46 (wikibase/wikibase:mw1.46.0) · WDQS 0.3.156 ·
+# MariaDB 10.11.
 #
-# The wikibase image ships its own extensions; our two extensions are
-# bind-mounted into the extensions dir, and the seed-generated config
-# (seed/generated/ronzz-wikibase.php) is mounted into LocalSettings.d and
-# require_once'd by dev/extra-install.sh on first boot.
+# WBS contract: the image requires a configuration volume at /config
+# (dev/config/). On first boot it generates InstanceSettings.php +
+# LocalSettings.php there; the generated LocalSettings.php loads
+# dev/config/Extensions.php (instance extensions, WBS convention), which loads
+# our two extensions and — once the seed has emitted it — the seed config map
+# (dev/config/ronzz-wikibase-config.php).
 #
-# Usage:
-#   mkdir -p seed/generated
+# A jobrunner container (same image, `jobrunner` command) shares the config
+# volume; the WBS image's default configuration requires it.
+#
+# Usage (see dev/README.md):
+#   mkdir -p dev/config
 #   docker compose -f dev/docker-compose.ci.yml up -d
-#   ... seed (see dev/README.md) ...
-#   docker compose -f dev/docker-compose.ci.yml restart mediawiki
+#   ... seed with --config-out dev/config/ronzz-wikibase-config.php ...
+#   docker compose -f dev/docker-compose.ci.yml restart wikibase
 #   docker compose -f dev/docker-compose.ci.yml down -v   # clean reset
 
 services:
-  mediawiki:
+  wikibase:
     image: wikibase/wikibase:mw1.46.0
     ports:
       - "127.0.0.1:8082:80"
@@ -24,52 +30,71 @@ services:
       MW_ADMIN_NAME: ${MW_ADMIN_NAME:-CIAdmin}
       MW_ADMIN_PASS: ${MW_ADMIN_PASS:-ci-admin-pass-2026}
       MW_ADMIN_EMAIL: ${MW_ADMIN_EMAIL:-ci@example.org}
-      MW_SITE_NAME: "ronzz-wikibase dev"
       MW_SITE_LANG: fr
-      MW_WG_SECRET_KEY: ${MW_WG_SECRET_KEY:-dev-only-secret-key-do-not-use-in-prod}
-      DB_SERVER: mysql
-      DB_NAME: my_wiki
+      MW_WG_SERVER: http://127.0.0.1:8082
+      DB_SERVER: mysql:3306
       DB_USER: wikiuser
       DB_PASS: sqlpass
+      DB_NAME: my_wiki
     volumes:
-      - ./extra-install.sh:/extra-install.sh:ro
-      - ../seed/generated:/var/www/html/LocalSettings.d
+      - ./config:/config
       - ../extensions/EmbeddableContent:/var/www/html/extensions/EmbeddableContent:ro
       - ../extensions/WikibaseCitation:/var/www/html/extensions/WikibaseCitation:ro
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--silent", "--fail", "localhost/wiki/Main_Page"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 300s
+
+  wikibase-jobrunner:
+    image: wikibase/wikibase:mw1.46.0
+    command: jobrunner
+    volumes_from:
+      - wikibase
+    depends_on:
+      wikibase:
+        condition: service_healthy
 
   mysql:
-    image: mariadb:11
+    image: mariadb:10.11
     environment:
       MYSQL_DATABASE: my_wiki
       MYSQL_USER: wikiuser
       MYSQL_PASSWORD: sqlpass
-      MYSQL_ROOT_PASSWORD: sqlpass
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
     volumes:
       - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
 
   wdqs:
     image: wikibase/wdqs:wdqs0.3.156
     ports:
       - "127.0.0.1:9999:9999"
     environment:
-      WIKIBASE_HOST: mediawiki
+      WIKIBASE_HOST: wikibase
       WDQS_HOST: wdqs
       WDQS_PORT: 9999
     depends_on:
-      - mediawiki
+      - wikibase
 
   wdqs-updater:
     image: wikibase/wdqs:wdqs0.3.156
     command: ./runUpdate.sh
     environment:
-      WIKIBASE_HOST: mediawiki
+      WIKIBASE_HOST: wikibase
       WDQS_HOST: wdqs
       WDQS_PORT: 9999
       WIKIBASE_MAX_DAYS_BACK: 90
     depends_on:
-      - mediawiki
       - wdqs
 
 volumes:

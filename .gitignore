@@ -22,3 +22,7 @@ seed/generated/
 # Python
 __pycache__/
 *.pyc
+
+# Dev stack generated config (WBS /config volume)
+dev/config/*
+!dev/config/Extensions.php

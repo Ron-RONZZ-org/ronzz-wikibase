@@ -75,20 +75,20 @@ jobs:
 
       - name: Start the stack
         run: |
-          mkdir -p seed/generated
+          mkdir -p dev/config seed/generated
           $COMPOSE up -d
           $COMPOSE ps
 
-      - name: Wait for the wiki API
+      - name: Wait for the wiki API (first boot installs MediaWiki+Wikibase)
         run: |
-          for i in $(seq 1 150); do
+          for i in $(seq 1 300); do
             curl -sf -o /dev/null "$API_URL" && exit 0
             sleep 2
           done
           echo "wiki did not come up — container status:"
           $COMPOSE ps
-          echo "--- mediawiki logs ---"
-          $COMPOSE logs --tail 120 mediawiki
+          echo "--- wikibase logs ---"
+          $COMPOSE logs --tail 120 wikibase
           echo "--- mysql logs ---"
           $COMPOSE logs --tail 60 mysql
           exit 1
@@ -96,7 +96,7 @@ jobs:
       - name: D1 importers — vocabulary (property, class, language)
         run: |
           for type in property class language; do
-            $COMPOSE exec -T mediawiki php maintenance/run.php \
+            $COMPOSE exec -T wikibase php maintenance/run.php \
               extensions/EmbeddableContent/maintenance/importVocabulary.php --type="$type" || exit 1
           done
 
@@ -105,14 +105,14 @@ jobs:
           python3 -m seed.seed_instance \
             --user "$MW_ADMIN_NAME" --password "$MW_ADMIN_PASS" \
             --api-url "$API_URL" --base-url "$BASE_URL" --sparql-url "$SPARQL_URL" \
-            --config-out seed/generated/ronzz-wikibase.php \
+            --config-out dev/config/ronzz-wikibase-config.php \
             --ids-out seed/generated/ids.json \
             --only=properties,classes,languages,dogfood,config
 
       - name: Restart the wiki to load the emitted config map
         run: |
-          $COMPOSE restart mediawiki
-          for i in $(seq 1 150); do
+          $COMPOSE restart wikibase
+          for i in $(seq 1 300); do
             curl -sf -o /dev/null "$API_URL" && break
             sleep 2
           done
