@@ -147,7 +147,7 @@ jobs:
           echo "updater-style request:"; curl -s -A "Wikidata-Query-RDF/1.0 (https://github.com/wikimedia/wikidata-query-rdf) Bot/1.0" "$API_URL?action=query&list=recentchanges&rcdir=newer&rcprop=title%7Cids%7Ctimestamp&rcnamespace=0%7C120&rclimit=500&continue=&rcstart=2026-08-16T18%3A00%3A00Z&format=json" | head -c 200; echo
           echo "with Host: wikibase header:"; curl -s -H "Host: wikibase" -A "Wikidata-Query-RDF/1.0 (https://github.com/wikimedia/wikidata-query-rdf) Bot/1.0" "$API_URL?action=query&list=recentchanges&rclimit=1&format=json" | head -c 200; echo
           echo "with Host: wikibase, no UA:"; curl -s -H "Host: wikibase" "$API_URL?action=query&list=recentchanges&rclimit=1&format=json" | head -c 200; echo
-          echo "poller-continue probe (rccontinue=...|181):"; curl -s "$API_URL?action=query&list=recentchanges&rcdir=newer&rcprop=title%7Cids%7Ctimestamp&rcnamespace=0%7C120&rclimit=500&continue=-%7C%7C&rccontinue=20260816202633%7C181&format=json" | head -c 400; echo
+          echo "poller-feed probe:"; curl -s "$API_URL?action=query&list=recentchanges&rcdir=newer&rcprop=title%7Cids%7Ctimestamp&rcnamespace=0%7C120&rclimit=500&format=json" | python3 -c "import json,sys; d=json.load(sys.stdin); rc=d.get('query',{}).get('recentchanges',[]); print('count:', len(rc)); [print(' ', e.get('rcid'), e.get('title'), e.get('timestamp')) for e in rc[-4:]]; print('continue:', d.get('continue'))"
           for ua in "Wikidata-Query-RDF/1.0 (https://github.com/wikimedia/wikidata-query-rdf) Bot/1.0" "Java/17.0.10" "curl/8.5.0"; do
             echo "UA [$ua]:"; curl -s -A "$ua" "$API_URL?action=query&list=recentchanges&rclimit=1&format=json" | head -c 120; echo
           done
