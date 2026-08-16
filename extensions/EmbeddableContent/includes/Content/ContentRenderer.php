@@ -95,7 +95,13 @@ class ContentRenderer {
 
 		$payload = $this->extractPayload( $item, $kind );
 		if ( $payload === [] ) {
-			throw new RenderException( "Item $id has no payload for kind '$kind'", 'missingpayload', 400 );
+			$payloadProperty = $this->config->payloadPropertyIds()[$kind] ?? '?';
+			throw new RenderException(
+				"Item $id has no payload for kind '$kind' (payload property $payloadProperty, "
+				. count( $item->getStatements() ) . ' statements)',
+				'missingpayload',
+				400
+			);
 		}
 
 		$negotiated = $this->negotiateLanguage( $payload, $lang, $acceptLanguages );

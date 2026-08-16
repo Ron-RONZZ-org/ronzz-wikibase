@@ -5,7 +5,7 @@ declare( strict_types = 1 );
 namespace WikibaseCitation;
 
 use MediaWiki\Title\Title;
-use MediaWiki\WikiPage\WikiPageFactory;
+use MediaWiki\Page\WikiPageFactory;
 use Wikimedia\ObjectCache\BagOStuff;
 
 /**
