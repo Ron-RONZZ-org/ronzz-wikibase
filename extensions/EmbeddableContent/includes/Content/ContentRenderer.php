@@ -126,7 +126,14 @@ class ContentRenderer {
 			);
 		}
 
-		$negotiated = $this->negotiateLanguage( $item, $payload, $lang, $acceptLanguages );
+		// `lang=all` renders every available payload language (multi-language
+		// embed for quotations); otherwise negotiate a single language.
+		$multi = ( $lang === 'all' );
+		if ( $multi ) {
+			$negotiated = 'all';
+		} else {
+			$negotiated = $this->negotiateLanguage( $item, $payload, $lang, $acceptLanguages );
+		}
 		$title = $this->labelFor( $item, $negotiated );
 		$lastModified = $entityRevision ? $entityRevision->getTimestamp() : null;
 
@@ -138,7 +145,15 @@ class ContentRenderer {
 
 		$html = $this->cache->get( $cacheKey );
 		if ( !is_string( $html ) ) {
-			$html = $this->renderKind( $kind, $item, $payload, $negotiated );
+			if ( $multi ) {
+				$fragments = [];
+				foreach ( $payload as $code => $text ) {
+					$fragments[] = $this->renderKind( $kind, $item, [ $code => $text ], (string)$code );
+				}
+				$html = implode( "\n", $fragments );
+			} else {
+				$html = $this->renderKind( $kind, $item, $payload, $negotiated );
+			}
 			$html = $this->attachProvenance( $html, $item, $negotiated );
 			// Re-pass through MediaWiki's tag sanitizer (defense in depth,
 			// issue #6 §1.7). MW 1.46 removed removeHTMLtags; removeSomeTags

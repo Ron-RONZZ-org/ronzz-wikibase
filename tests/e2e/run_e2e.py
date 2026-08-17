@@ -87,9 +87,16 @@ def check(args: argparse.Namespace) -> int:
             html = embed_html(entity)
             expect(html.strip() != "", f"empty fragment for {entity}")
             # Special:Embed — the canonical /embed/QN path is an nginx rewrite
-            # of this page (ops-level, validated on production).
+            # of this page (ops-level, validated on production). Must serve the
+            # BARE fragment (no wiki skin chrome) — that is what an iframe on
+            # a third-party site shows.
             status, body, ctype = http_get(f"{base}/wiki/Special:Embed/{entity}")
+            page = body.decode("utf-8", "replace")
             expect(status == 200, f"Special:Embed/{entity}: HTTP {status}")
+            expect(
+                "<blockquote" in page and 'id="mw-head"' not in page,
+                f"Special:Embed/{entity}: expected a bare fragment, got wiki chrome",
+            )
             status, _, ctype = http_get(
                 f"{base}/wiki/Special:Embed/oembed?url={urllib.parse.quote(f'{base}/wiki/Item:{entity}')}"
             )
@@ -99,6 +106,13 @@ def check(args: argparse.Namespace) -> int:
         html_fr = embed_html(args.quote, lang="fr")
         html_eo = embed_html(args.quote, lang="eo")
         expect(html_fr != html_eo or "lang=" in html_fr, "language negotiation did not vary output")
+        # lang=all: every available payload language is rendered (multi-lang
+        # embed), each blockquote carrying its own lang attribute.
+        html_all = embed_html(args.quote, lang="all")
+        expect(
+            html_all.count('class="wb-embed') >= 2 and 'lang="fr"' in html_all and 'lang="eo"' in html_all,
+            "lang=all did not render multiple languages",
+        )
 
     def check_citation_styles() -> None:
         for style in ("json", "apa", "vancouver", "bibtex", "ris"):

@@ -96,5 +96,7 @@
 	"embeddablecontent-field-pubmed": "PubMed ID",
 	"embeddablecontent-add-describes": "Describes",
 	"embeddablecontent-add-implementationof": "Implementation of",
-	"embeddablecontent-add-error-badlanguage": "Invalid language code for the quotation text."
+	"embeddablecontent-add-error-badlanguage": "Invalid language code for the quotation text.",
+	"embeddablecontent-gadget-embed-auto": "Auto",
+	"embeddablecontent-gadget-embed-all": "All languages"
 }

@@ -89,11 +89,15 @@ class SpecialEmbed extends SpecialPage {
 			return;
 		}
 
-		$output->addHTML( $result->getHtml() );
-
 		if ( $this->wantsFramedPage( $request ) ) {
+			// Explicit ?frame=1 only: a full wiki page (title + view-entity
+			// link + fragment). The fragment is added exactly once.
 			$output->setArticleBodyOnly( false );
 			$this->renderFramedPage( $result, $id );
+		} else {
+			// Default: the bare fragment, no wiki chrome — this is what an
+			// <iframe> embed on a third-party site should show.
+			$output->addHTML( $result->getHtml() );
 		}
 	}
 
@@ -175,10 +179,11 @@ class SpecialEmbed extends SpecialPage {
 	}
 
 	private function wantsFramedPage( $request ): bool {
-		if ( $request->getRawVal( 'frame' ) === '1' ) {
-			return true;
-		}
-		return $request->getHeader( 'Sec-Fetch-Mode' ) === 'navigate';
+		// Framing only on explicit ?frame=1 — NOT on Sec-Fetch-Mode: navigate
+		// (that header is also sent by <iframe> embeds, which would wrap the
+		// bare fragment in the full wiki skin; people want the quote, not the
+		// page chrome).
+		return $request->getRawVal( 'frame' ) === '1';
 	}
 
 	private function parseEntityId( string $input ): ?ItemId {
