@@ -25,7 +25,7 @@ MANIFESTS = REPO_ROOT / "extensions" / "EmbeddableContent" / "manifests"
 class ManifestLoaderTest(unittest.TestCase):
     def test_load_properties_bundled(self):
         rows = manifest_loader.load_properties(MANIFESTS / "properties.csv")
-        self.assertEqual(len(rows), 27)  # 11 core + 16 issue-#7 (external-id, citation metadata, formatter URL)
+        self.assertEqual(len(rows), 29)  # 11 core + 16 issue-#7 (external-id, citation metadata, formatter URL) + 2 content-subject (describes, implementation of)
         instance_of = next(r for r in rows if r["labels"]["en"] == "instance of")
         self.assertEqual(instance_of["datatype"], "wikibase-item")
         self.assertEqual(instance_of["align_uri"], "http://www.w3.org/1999/02/22-rdf-syntax-ns#type")

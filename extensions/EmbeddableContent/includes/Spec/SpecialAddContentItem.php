@@ -41,11 +41,6 @@ abstract class SpecialAddContentItem extends SpecialPage {
 	/** Kind key: quotation | code | math */
 	abstract protected function getKind(): string;
 
-	/** @return string[] */
-	protected function getPayloadLanguages(): array {
-		return $this->config->fallbackLanguages();
-	}
-
 	public function execute( $subPage ) {
 		// Standard special-page header plumbing (title from getDescription(),
 		// noindex + article-related=false); required or the page renders an
@@ -80,14 +75,15 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		];
 
 		if ( $this->getKind() === 'quotation' ) {
-			$languages = [];
-			foreach ( $this->getPayloadLanguages() as $code ) {
-				$languages[$code] = $code;
-			}
+			// All Wikibase-supported languages (500+), not just the
+			// config fallbacks: combobox = pick from the list or type a code.
+			$languageNames = \MediaWiki\MediaWikiServices::getInstance()
+				->getLanguageNameUtils()
+				->getLanguageNames();
 			$fields['language'] = [
-				'type' => 'select',
+				'type' => 'combobox',
 				'label-message' => 'embeddablecontent-add-language',
-				'options' => $languages,
+				'options' => array_flip( $languageNames ),
 				'default' => $this->getLanguage()->getCode(),
 			];
 		} elseif ( $this->getKind() === 'code' ) {
@@ -131,6 +127,15 @@ abstract class SpecialAddContentItem extends SpecialPage {
 				'help-message' => 'embeddablecontent-add-date-help',
 			],
 		];
+
+		// Content-subject entity fields (issue follow-up): math 'describes'
+		// (what the expression is about), code 'implementation of' (the
+		// algorithm/concept the code implements). Optional, entity comboboxes.
+		if ( $this->getKind() === 'math' && $this->config->describesPropertyId() !== null ) {
+			$fields['describes'] = $entityCombobox( 'embeddablecontent-add-describes', false );
+		} elseif ( $this->getKind() === 'code' && $this->config->implementationOfPropertyId() !== null ) {
+			$fields['implementationOf'] = $entityCombobox( 'embeddablecontent-add-implementationof', false );
+		}
 		return $fields;
 	}
 
@@ -149,6 +154,16 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		$payloadPropertyId = $this->config->payloadPropertyIds()[$this->getKind()] ?? null;
 		if ( $classId === null || $payloadPropertyId === null ) {
 			return $this->msg( 'embeddablecontent-add-error-config' )->text();
+		}
+
+		// The quotation language combobox accepts any of the 500+ languages;
+		// reject garbage codes instead of letting Wikibase fail on save.
+		$language = (string)( $data['language'] ?? $this->getLanguage()->getCode() );
+		if (
+			$this->getKind() === 'quotation'
+			&& !\MediaWiki\MediaWikiServices::getInstance()->getLanguageNameUtils()->isValidCode( $language )
+		) {
+			return $this->msg( 'embeddablecontent-add-error-badlanguage' )->text();
 		}
 
 		$attributedTo = $this->parseOptionalItemId( (string)$data['attributedTo'] );
@@ -232,6 +247,27 @@ abstract class SpecialAddContentItem extends SpecialPage {
 			$add( $this->config->provenancePropertyIds()['date'], $date );
 		}
 
+		// Content-subject statements (issue follow-up): math 'describes',
+		// code 'implementation of'. Optional; written only when set.
+		if ( $this->getKind() === 'math' && $this->config->describesPropertyId() !== null ) {
+			$describes = $this->parseOptionalItemId( (string)$data['describes'] );
+			if ( (string)$data['describes'] !== '' && $describes === null ) {
+				return $this->msg( 'embeddablecontent-add-error-baditemid', 'describes' )->text();
+			}
+			if ( $describes !== null ) {
+				$add( $this->config->describesPropertyId(), new EntityIdValue( $describes ) );
+			}
+		}
+		if ( $this->getKind() === 'code' && $this->config->implementationOfPropertyId() !== null ) {
+			$implementationOf = $this->parseOptionalItemId( (string)$data['implementationOf'] );
+			if ( (string)$data['implementationOf'] !== '' && $implementationOf === null ) {
+				return $this->msg( 'embeddablecontent-add-error-baditemid', 'implementation of' )->text();
+			}
+			if ( $implementationOf !== null ) {
+				$add( $this->config->implementationOfPropertyId(), new EntityIdValue( $implementationOf ) );
+			}
+		}
+
 		try {
 			WikibaseRepo::getEntityStore()->saveEntity(
 				$item,
@@ -244,6 +280,9 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		}
 
 		$this->createdItemId = $item->getId();
+		// Modern HTMLForm has no onSuccess step — redirect to the created
+		// item here, otherwise the page just renders empty after submit.
+		$this->onSubmitSuccess();
 		return true;
 	}
 

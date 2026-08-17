@@ -77,19 +77,28 @@ def check(args: argparse.Namespace) -> int:
             failures.append(name)
             print(f"  [FAIL] {name}: {exc}")
     def embed_html(entity: str, **extra) -> str:
-        params = {"action": "embed", "entity": entity, "output": "html", **extra}
+        params = {"action": "embed", "entity": entity, "output": "html", "format": "json", **extra}
         status, body, _ = http_get(f"{api}?{urllib.parse.urlencode(params)}")
         expect(status == 200, f"embed {entity}: HTTP {status}")
-        return body.decode("utf-8", "replace")
+        payload = json.loads(body.decode("utf-8", "replace"))
+        expect("embed" in payload, f"embed {entity}: API error: {payload.get('error')!r}")
+        return payload["embed"]["html"]
 
     def check_embed_surfaces() -> None:
         for entity in (args.quote, args.code, args.math):
             html = embed_html(entity)
             expect(html.strip() != "", f"empty fragment for {entity}")
             # Special:Embed — the canonical /embed/QN path is an nginx rewrite
-            # of this page (ops-level, validated on production).
+            # of this page (ops-level, validated on production). Must serve the
+            # BARE fragment (no wiki skin chrome) — that is what an iframe on
+            # a third-party site shows.
             status, body, ctype = http_get(f"{base}/wiki/Special:Embed/{entity}")
+            page = body.decode("utf-8", "replace")
             expect(status == 200, f"Special:Embed/{entity}: HTTP {status}")
+            expect(
+                'class="wb-embed' in page and 'id="mw-head"' not in page,
+                f"Special:Embed/{entity}: expected a bare fragment, got wiki chrome",
+            )
             status, _, ctype = http_get(
                 f"{base}/wiki/Special:Embed/oembed?url={urllib.parse.quote(f'{base}/wiki/Item:{entity}')}"
             )
@@ -99,6 +108,13 @@ def check(args: argparse.Namespace) -> int:
         html_fr = embed_html(args.quote, lang="fr")
         html_eo = embed_html(args.quote, lang="eo")
         expect(html_fr != html_eo or "lang=" in html_fr, "language negotiation did not vary output")
+        # lang=all: every available payload language is rendered (multi-lang
+        # embed), each blockquote carrying its own lang attribute.
+        html_all = embed_html(args.quote, lang="all")
+        expect(
+            html_all.count('class="wb-embed') >= 2 and 'lang="fr"' in html_all and 'lang="eo"' in html_all,
+            "lang=all did not render multiple languages",
+        )
 
     def check_citation_styles() -> None:
         for style in ("json", "apa", "vancouver", "bibtex", "ris"):
@@ -106,18 +122,23 @@ def check(args: argparse.Namespace) -> int:
             status, body, ctype = http_get(f"{api}?{urllib.parse.urlencode(params)}")
             expect(status == 200, f"citation {style}: HTTP {status}")
             text = body.decode("utf-8", "replace")
+            # Fail on API error payloads for EVERY style (a fatalling
+            # formatter used to slip through as HTTP 200 + non-empty text).
+            try:
+                payload = json.loads(text)
+            except json.JSONDecodeError as exc:
+                raise CheckFailed(
+                    f"citation {style}: not JSON (HTTP {status}): {text[:300]!r}"
+                ) from exc
+            if "error" in payload:
+                raise CheckFailed(f"citation {style}: API error: {payload['error']!r}")
             if style == "json":
-                try:
-                    payload = json.loads(text)
-                except json.JSONDecodeError as exc:
-                    raise CheckFailed(
-                        f"citation json: not JSON (HTTP {status}): {text[:300]!r}"
-                    ) from exc
-                if "error" in payload:
-                    raise CheckFailed(f"citation json: API error: {payload['error']!r}")
                 expect(payload.get("citation", {}).get("type"), "json citation missing type")
             else:
-                expect(text.strip() != "", f"citation {style}: empty output")
+                expect(
+                    isinstance(payload.get("citation"), str) and payload["citation"].strip() != "",
+                    f"citation {style}: empty output",
+                )
 
     def check_sparql() -> None:
         # Prefixes must be declared explicitly: the store defaults for

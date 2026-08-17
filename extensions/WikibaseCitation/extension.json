@@ -14,6 +14,7 @@
 	"AutoloadNamespaces": {
 		"WikibaseCitation\\": "includes/"
 	},
+	"callback": "WikibaseCitation\\Hooks::onRegistration",
 	"MessagesDirs": {
 		"WikibaseCitation": [
 			"i18n"

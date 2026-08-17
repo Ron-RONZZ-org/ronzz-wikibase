@@ -58,6 +58,22 @@ class EmbeddableContentConfig {
 		return $this->requireString( 'programmingLanguage' );
 	}
 
+	/**
+	 * Content-subject property for mathematical expressions ('describes').
+	 * Nullable: absent on instances seeded before this property existed.
+	 */
+	public function describesPropertyId(): ?string {
+		return $this->optionalString( 'describes' );
+	}
+
+	/**
+	 * Content-subject property for code snippets ('implementation of').
+	 * Nullable: absent on instances seeded before this property existed.
+	 */
+	public function implementationOfPropertyId(): ?string {
+		return $this->optionalString( 'implementationOf' );
+	}
+
 	/** @return array<string,string> canonical provenance key => property id */
 	public function provenancePropertyIds(): array {
 		$allowed = [ 'attributedTo', 'sourceUrl', 'source', 'date' ];
@@ -213,6 +229,11 @@ class EmbeddableContentConfig {
 			throw new InvalidArgumentException( "EmbeddableContentConfig: missing or invalid '$key'" );
 		}
 		return $value;
+	}
+
+	private function optionalString( string $key ): ?string {
+		$value = $this->raw[$key] ?? null;
+		return is_string( $value ) && $value !== '' ? $value : null;
 	}
 
 	private function assertShape(): void {

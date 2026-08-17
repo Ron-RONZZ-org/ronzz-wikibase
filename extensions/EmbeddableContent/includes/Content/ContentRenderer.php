@@ -126,7 +126,14 @@ class ContentRenderer {
 			);
 		}
 
-		$negotiated = $this->negotiateLanguage( $item, $payload, $lang, $acceptLanguages );
+		// `lang=all` renders every available payload language (multi-language
+		// embed for quotations); otherwise negotiate a single language.
+		$multi = ( $lang === 'all' );
+		if ( $multi ) {
+			$negotiated = 'all';
+		} else {
+			$negotiated = $this->negotiateLanguage( $item, $payload, $lang, $acceptLanguages );
+		}
 		$title = $this->labelFor( $item, $negotiated );
 		$lastModified = $entityRevision ? $entityRevision->getTimestamp() : null;
 
@@ -138,7 +145,15 @@ class ContentRenderer {
 
 		$html = $this->cache->get( $cacheKey );
 		if ( !is_string( $html ) ) {
-			$html = $this->renderKind( $kind, $item, $payload, $negotiated );
+			if ( $multi ) {
+				$fragments = [];
+				foreach ( $payload as $code => $text ) {
+					$fragments[] = $this->renderKind( $kind, $item, [ $code => $text ], (string)$code );
+				}
+				$html = implode( "\n", $fragments );
+			} else {
+				$html = $this->renderKind( $kind, $item, $payload, $negotiated );
+			}
 			$html = $this->attachProvenance( $html, $item, $negotiated );
 			// Re-pass through MediaWiki's tag sanitizer (defense in depth,
 			// issue #6 §1.7). MW 1.46 removed removeHTMLtags; removeSomeTags
@@ -357,17 +372,30 @@ class ContentRenderer {
 	 * the configured fallback languages, then the first available.
 	 */
 	private function labelFor( Item $item, string $lang ): string {
-		$label = $item->getFingerprint()->getLabel( $lang );
+		$label = $this->safeGetLabel( $item, $lang );
 		if ( $label !== null ) {
 			return $label->getText();
 		}
 		foreach ( $this->config->fallbackLanguages() as $fallback ) {
-			$label = $item->getFingerprint()->getLabel( $fallback );
+			$label = $this->safeGetLabel( $item, $fallback );
 			if ( $label !== null ) {
 				return $label->getText();
 			}
 		}
 		$labels = $item->getFingerprint()->getLabels()->toTextArray();
 		return $labels === [] ? $item->getId()->getSerialization() : reset( $labels );
+	}
+
+	/**
+	 * TermList::getByLanguage throws OutOfBoundsException for languages the
+	 * item does not carry (e.g. the synthetic 'all' marker) — the fallback
+	 * chain must not fatal on those.
+	 */
+	private function safeGetLabel( Item $item, string $lang ): ?\Wikibase\DataModel\Term\Term {
+		try {
+			return $item->getFingerprint()->getLabel( $lang );
+		} catch ( \OutOfBoundsException $e ) {
+			return null;
+		}
 	}
 }

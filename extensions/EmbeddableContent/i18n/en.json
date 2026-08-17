@@ -24,11 +24,11 @@
 	"embeddablecontent-add-payload": "Content",
 	"embeddablecontent-add-quotation-payload": "Quotation text",
 	"embeddablecontent-add-language": "Language",
-	"embeddablecontent-add-attributedto": "Attributed to (item id)",
+	"embeddablecontent-add-attributedto": "Attributed to",
 	"embeddablecontent-add-sourceurl": "Source URL",
-	"embeddablecontent-add-source": "Source (item id)",
+	"embeddablecontent-add-source": "Source",
 	"embeddablecontent-add-date": "Date",
-	"embeddablecontent-add-entityid-help": "Enter an existing item id, e.g. Q5.",
+	"embeddablecontent-add-entityid-help": "Type an entity label to search and pick it, or enter an item id directly (e.g. Q5).",
 	"embeddablecontent-add-date-help": "Optional. Format YYYY-MM-DD.",
 	"embeddablecontent-add-submit": "Save item",
 	"embeddablecontent-add-error-required": "Label and content are required.",
@@ -93,5 +93,10 @@
 	"embeddablecontent-field-doi": "DOI",
 	"embeddablecontent-field-isbn": "ISBN-13",
 	"embeddablecontent-field-openalex": "OpenAlex Work ID",
-	"embeddablecontent-field-pubmed": "PubMed ID"
+	"embeddablecontent-field-pubmed": "PubMed ID",
+	"embeddablecontent-add-describes": "Describes",
+	"embeddablecontent-add-implementationof": "Implementation of",
+	"embeddablecontent-add-error-badlanguage": "Invalid language code for the quotation text.",
+	"embeddablecontent-gadget-embed-auto": "Auto",
+	"embeddablecontent-gadget-embed-all": "All languages"
 }

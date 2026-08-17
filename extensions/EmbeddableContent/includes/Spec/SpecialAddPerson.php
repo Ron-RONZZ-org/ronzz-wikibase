@@ -67,6 +67,16 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 		return (string)( $record['label'] ?? '' );
 	}
 
+	/** @return array<string,string> authority identifiers relevant to persons */
+	protected function externalIdRecordMap(): array {
+		return [
+			'wikidata' => 'wikidataId',
+			'orcid' => 'orcid',
+			'viaf' => 'viafId',
+			'isni' => 'isni',
+		];
+	}
+
 	protected function enrichRecord( array $record ): array {
 		if ( !empty( $record['harvested'] ) ) {
 			return $record;

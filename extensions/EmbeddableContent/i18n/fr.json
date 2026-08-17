@@ -23,11 +23,11 @@
 	"embeddablecontent-add-payload": "Contenu",
 	"embeddablecontent-add-quotation-payload": "Texte de la citation",
 	"embeddablecontent-add-language": "Langue",
-	"embeddablecontent-add-attributedto": "Attribué à (identifiant d'élément)",
+	"embeddablecontent-add-attributedto": "Attribué à",
 	"embeddablecontent-add-sourceurl": "URL de la source",
-	"embeddablecontent-add-source": "Source (identifiant d'élément)",
+	"embeddablecontent-add-source": "Source",
 	"embeddablecontent-add-date": "Date",
-	"embeddablecontent-add-entityid-help": "Saisir un identifiant d'élément existant, p. ex. Q5.",
+	"embeddablecontent-add-entityid-help": "Saisissez le nom d'une entité pour la rechercher et la sélectionner, ou entrez directement un identifiant d'élément (p. ex. Q5).",
 	"embeddablecontent-add-date-help": "Facultatif. Format AAAA-MM-JJ.",
 	"embeddablecontent-add-submit": "Enregistrer l'élément",
 	"embeddablecontent-add-error-required": "Le libellé et le contenu sont obligatoires.",
@@ -92,5 +92,10 @@
 	"embeddablecontent-field-doi": "DOI",
 	"embeddablecontent-field-isbn": "ISBN-13",
 	"embeddablecontent-field-openalex": "Identifiant OpenAlex",
-	"embeddablecontent-field-pubmed": "Identifiant PubMed"
+	"embeddablecontent-field-pubmed": "Identifiant PubMed",
+	"embeddablecontent-add-describes": "Décrit",
+	"embeddablecontent-add-implementationof": "Implémentation de",
+	"embeddablecontent-add-error-badlanguage": "Code de langue invalide pour le texte de la citation.",
+	"embeddablecontent-gadget-embed-auto": "Auto",
+	"embeddablecontent-gadget-embed-all": "Toutes les langues"
 }
