@@ -45,8 +45,31 @@ class FlowError(Exception):
 # ---------------------------------------------------------------- plumbing
 
 
-def make_opener() -> urllib.request.OpenerDirector:
-    return urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+class HostRewritingRedirect(urllib.request.HTTPRedirectHandler):
+    """Rewrites redirect targets to the base URL's host.
+
+    MediaWiki redirects (login, form success, post-PRG) use the wiki's
+    canonical $wgServer — which on a docker stack is an internal container
+    hostname (e.g. http://wikibase) that the runner cannot resolve. Keep the
+    path, swap the host back to the base URL.
+    """
+
+    def __init__(self, base_url: str) -> None:
+        self.base = urllib.parse.urlparse(base_url)
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        u = urllib.parse.urlparse(newurl)
+        if u.hostname and u.hostname != self.base.hostname:
+            newurl = urllib.parse.urlunparse(
+                (self.base.scheme, self.base.netloc, u.path, u.params, u.query, u.fragment))
+        return urllib.request.Request(newurl, headers=req.headers, method=req.get_method())
+
+
+def make_opener(base_url: str) -> urllib.request.OpenerDirector:
+    return urllib.request.build_opener(
+        urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()),
+        HostRewritingRedirect(base_url),
+    )
 
 
 def api_call(op, api: str, params: dict, post: bool = False) -> dict:
@@ -270,7 +293,7 @@ def main() -> int:
     api = args.api_url or base + "/api.php"
     password = open(args.password_file).read().strip()
 
-    op = make_opener()
+    op = make_opener(base)
     login(op, api, args.user, password)
     print(f"[ok] logged in as {args.user}")
 
