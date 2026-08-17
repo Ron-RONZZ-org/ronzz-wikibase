@@ -256,7 +256,8 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			if ( $reference ) {
 				$referenceSnaks = $this->importReferenceSnaks( $record );
 				if ( $referenceSnaks !== null ) {
-					$statement->addNewReference( $referenceSnaks );
+					// addNewReference() is variadic over Snak — spread the list.
+					$statement->addNewReference( ...$referenceSnaks );
 				}
 			}
 			$item->getStatements()->addStatement( $statement );
