@@ -158,8 +158,12 @@ class ContentRenderer {
 			// Re-pass through MediaWiki's tag sanitizer (defense in depth,
 			// issue #6 §1.7). MW 1.46 removed removeHTMLtags; removeSomeTags
 			// with an explicit barred-tag list preserves our controlled
-			// fragment markup (blockquote/footer/data-* attributes).
-			$html = \Sanitizer::removeSomeTags( $html, [ 'removeTags' => self::BARRED_TAGS ] );
+			// fragment markup — footer and a must be whitelisted or they
+			// get escaped as text (observed on quote/code embeds).
+			$html = \Sanitizer::removeSomeTags( $html, [
+				'removeTags' => self::BARRED_TAGS,
+				'extraTags' => [ 'footer', 'a' ],
+			] );
 			$this->cache->set( $cacheKey, $html, self::CACHE_TTL );
 		}
 
