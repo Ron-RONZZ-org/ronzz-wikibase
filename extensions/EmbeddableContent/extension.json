@@ -110,7 +110,9 @@
 			"messages": [
 				"embeddablecontent-gadget-copyembed",
 				"embeddablecontent-gadget-copycitation",
-				"embeddablecontent-gadget-copied"
+				"embeddablecontent-gadget-copied",
+				"embeddablecontent-gadget-embed-auto",
+				"embeddablecontent-gadget-embed-all"
 			],
 			"targets": [
 				"desktop"
