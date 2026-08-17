@@ -26,6 +26,8 @@ final class WikidataPersonProviderTest extends TestCase {
 
 		$this->assertCount( 2, $records );
 		$this->assertSame( 'Douglas Adams', $records[0]->label );
+		$this->assertSame( 'English writer', $records[0]->description );
+		$this->assertNull( $records[1]->description );
 		$this->assertSame( 'Q42', $records[0]->wikidataId );
 		$this->assertSame( 'wikidata', $records[0]->provider );
 	}
@@ -61,6 +63,7 @@ final class WikidataPersonProviderTest extends TestCase {
 
 		$this->assertInstanceOf( PersonRecord::class, $record );
 		$this->assertSame( 'Douglas Adams', $record->label );
+		$this->assertSame( 'English writer and humorist', $record->description );
 		$this->assertSame( 'Douglas', $record->givenName );
 		$this->assertSame( 'Adams', $record->familyName );
 		$this->assertSame( '0000-0001-2345-6789', $record->orcid );

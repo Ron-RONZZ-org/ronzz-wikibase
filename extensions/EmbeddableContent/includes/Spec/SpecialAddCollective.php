@@ -55,6 +55,11 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 		return (string)( $record['label'] ?? '' );
 	}
 
+	/** @return array<string,string> authority identifiers relevant to collectives */
+	protected function externalIdRecordMap(): array {
+		return [ 'wikidata' => 'wikidataId' ];
+	}
+
 	protected function enrichRecord( array $record ): array {
 		if ( !empty( $record['harvested'] ) ) {
 			return $record;

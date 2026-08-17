@@ -23,6 +23,7 @@ class WikidataPersonProvider implements PersonProvider {
 		foreach ( $this->core->searchRaw( $name ) as $row ) {
 			$out[] = new PersonRecord(
 				label: (string)( $row['label'] ?? $row['id'] ),
+				description: isset( $row['description'] ) ? (string)$row['description'] : null,
 				wikidataId: $row['id'],
 				provider: 'wikidata',
 				providerId: $row['id']
@@ -49,6 +50,7 @@ class WikidataPersonProvider implements PersonProvider {
 		);
 		return new PersonRecord(
 			label: $harvest['label'],
+			description: $harvest['description'],
 			givenName: $this->core->itemLabel( $harvest['claims'], 'P735', $itemLabels ),
 			familyName: $this->core->itemLabel( $harvest['claims'], 'P734', $itemLabels ),
 			orcid: $this->core->stringValue( $harvest['claims'], 'P496' ),

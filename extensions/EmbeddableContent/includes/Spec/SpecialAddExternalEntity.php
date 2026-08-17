@@ -271,14 +271,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		}
 
 		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-' . $this->kindKey() . '-review-title' )->text() );
-		$fields = $this->reviewFieldSpecs( $record );
-		$fields['class'] = [
-			'type' => 'select',
-			'label-message' => 'embeddablecontent-extselect-class',
-			'options' => $this->classOptions(),
-			'default' => $this->defaultClassItemId( $record ) ?? '',
-			'required' => true,
-		];
+		$fields = $this->reviewFieldSpecs( $record ) + $this->classFieldSpec( $record );
 
 		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
 		$form->setTitle( $this->getPageTitle( $token . '/review/' . $index ) )
@@ -335,13 +328,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 
 	private function executeManual(): void {
 		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-' . $this->kindKey() . '-manual-title' )->text() );
-		$fields = $this->manualFieldSpecs();
-		$fields['class'] = [
-			'type' => 'select',
-			'label-message' => 'embeddablecontent-extselect-class',
-			'options' => $this->classOptions(),
-			'required' => true,
-		];
+		$fields = $this->manualFieldSpecs() + $this->classFieldSpec();
 
 		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
 		$form->setTitle( $this->getPageTitle( 'manual' ) )
@@ -449,6 +436,27 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		] ];
 	}
 
+	/**
+	 * Class field for the review/manual steps: a select when there is more
+	 * than one class option, otherwise a hidden field (a single-option
+	 * dropdown is noise — e.g. AddPerson is always a person).
+	 *
+	 * @return array<string,mixed> fieldname => descriptor
+	 */
+	protected function classFieldSpec( ?array $record = null ): array {
+		$options = $this->classOptions();
+		if ( count( $options ) === 1 ) {
+			return [ 'class' => [ 'type' => 'hidden', 'default' => (string)reset( $options ) ] ];
+		}
+		return [ 'class' => [
+			'type' => 'select',
+			'label-message' => 'embeddablecontent-extselect-class',
+			'options' => $options,
+			'default' => $record !== null ? ( $this->defaultClassItemId( $record ) ?? '' ) : '',
+			'required' => true,
+		] ];
+	}
+
 	/** @return array<string,mixed> */
 	protected function plainTextField( string $messageKey, string $default, int $maxlength = 250 ): array {
 		return [
@@ -518,6 +526,13 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	/** Compact radio label for a candidate (details live in the table). */
 	protected function candidateOptionLabel( array $record ): string {
 		$label = $this->primaryLabel( $record );
+		if ( !empty( $record['description'] ) ) {
+			$description = (string)$record['description'];
+			if ( mb_strlen( $description ) > 80 ) {
+				$description = mb_substr( $description, 0, 77 ) . '…';
+			}
+			$label .= ' — ' . $description;
+		}
 		if ( !empty( $record['issuedYear'] ) ) {
 			$label .= ' (' . $record['issuedYear'] . ')';
 		}
@@ -650,21 +665,12 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 
 	/**
 	 * ExternalId statements for the record: canonical key => record field.
+	 * Kind-specific: each subclass declares only the identifiers relevant to
+	 * its entity type (a person has no DOI/ISBN, a work has no ORCID/VIAF).
 	 *
 	 * @return array<string,string> externalIds key => record field name
 	 */
-	protected function externalIdRecordMap(): array {
-		return [
-			'wikidata' => 'wikidataId',
-			'orcid' => 'orcid',
-			'viaf' => 'viafId',
-			'isni' => 'isni',
-			'doi' => 'doi',
-			'isbn' => 'isbn',
-			'openalex' => 'openalexId',
-			'pubmed' => 'pubmedId',
-		];
-	}
+	abstract protected function externalIdRecordMap(): array;
 
 	/**
 	 * Builds the authority-ID statement specs present in the config map.
@@ -735,7 +741,8 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	/** @return string[] */
 	protected function recordSummary( array $record ): array {
 		$bits = [];
-		foreach ( [ 'wikidataId', 'orcid', 'viafId', 'doi', 'isbn', 'openalexId', 'pubmedId' ] as $field ) {
+		// Only the kind-relevant identifiers (per-subclass externalIdRecordMap).
+		foreach ( $this->externalIdRecordMap() as $field ) {
 			if ( !empty( $record[$field] ) ) {
 				$bits[] = (string)$record[$field];
 			}

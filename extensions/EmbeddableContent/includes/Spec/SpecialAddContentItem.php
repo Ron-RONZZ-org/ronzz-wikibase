@@ -244,6 +244,9 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		}
 
 		$this->createdItemId = $item->getId();
+		// Modern HTMLForm has no onSuccess step — redirect to the created
+		// item here, otherwise the page just renders empty after submit.
+		$this->onSubmitSuccess();
 		return true;
 	}
 

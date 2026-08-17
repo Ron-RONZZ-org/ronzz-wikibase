@@ -78,6 +78,17 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		return (string)( $record['title'] ?? '' );
 	}
 
+	/** @return array<string,string> authority identifiers relevant to works */
+	protected function externalIdRecordMap(): array {
+		return [
+			'wikidata' => 'wikidataId',
+			'doi' => 'doi',
+			'isbn' => 'isbn',
+			'openalex' => 'openalexId',
+			'pubmed' => 'pubmedId',
+		];
+	}
+
 	protected function enrichRecord( array $record ): array {
 		if ( !empty( $record['harvested'] ) ) {
 			return $record;

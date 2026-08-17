@@ -10,10 +10,11 @@ namespace EmbeddableContent\Fetch;
  *
  * @license GPL-2.0-or-later
  */
-final class PersonRecord {
+	final class PersonRecord {
 
 	public function __construct(
 		public readonly string $label,
+		public readonly ?string $description = null,
 		public readonly ?string $givenName = null,
 		public readonly ?string $familyName = null,
 		public readonly ?string $orcid = null,

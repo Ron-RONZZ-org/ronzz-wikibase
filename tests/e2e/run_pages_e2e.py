@@ -287,14 +287,18 @@ def flow_quotation(op, base: str, api: str, label: str, payload: str, person_qid
         "wpEditToken": token,
         "wpSubmit": "1",
     })
-    # The form's success response is not reliably a redirect — resolve the
-    # created item by its (unique) label instead.
+    # Success must redirect to the created item (issue follow-up). With a
+    # unique label per run the redirect is deterministic; fall back to
+    # label resolution only if create-or-skip reused a stale item.
+    m = re.search(r"/wiki/Item:(Q\d+)$", url)
+    if m:
+        return m.group(1)
     for _ in range(10):
         qid = resolve_label(op, api, label, "item")
         if qid:
             return qid
         time.sleep(2)
-    raise FlowError(f"Special:AddQuotation did not create an item: {url} {find_error(body)}")
+    raise FlowError(f"Special:AddQuotation did not redirect to an item: {url} {find_error(body)}")
 
 
 def delete_item(op, api: str, qid: str) -> None:
