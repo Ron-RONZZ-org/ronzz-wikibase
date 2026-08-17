@@ -1,0 +1,25 @@
+/*
+ * Entity-page toolbar (copy embed / copy citation) — prominently displayed
+ * under the page title (issue #6 §4.4).
+ */
+.wb-embed-toolbar {
+	margin: 4px 0 12px;
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.wb-embed-toolbar-btn {
+	border: 1px solid #a2a9b1;
+	background: #f8f9fa;
+	color: #202122;
+	border-radius: 2px;
+	padding: 4px 12px;
+	font-size: 0.9em;
+	cursor: pointer;
+}
+
+.wb-embed-toolbar-btn:hover {
+	background: #ffffff;
+	border-color: #72777d;
+}

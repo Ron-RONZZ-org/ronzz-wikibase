@@ -1,8 +1,13 @@
 /* eslint-disable no-jquery/no-global-selector */
 /*
- * Entity-page gadget: "copy embed" + "copy citation" (issue #6 §4.4).
- * Read-side only; the Special pages are the write-side. The citation copy
- * fetches the WikibaseCitation API (action=citation) and copies the result.
+ * Entity-page toolbar: "copy embed" + "copy citation" buttons, prominently
+ * displayed under the page title (issue #6 §4.4 — follow-up: visible buttons
+ * instead of portlet links hidden in the ⋯ "More options" menu).
+ *
+ * The toolbar renders only the actions that apply to the item: the embed
+ * button appears when the item is embeddable (action=embed succeeds), the
+ * citation button when a citation can be built (action=citation succeeds).
+ * Both are read-side; the Special pages are the write-side.
  */
 ( function () {
 	'use strict';
@@ -48,38 +53,65 @@
 		}
 	}
 
-	function addPortletLink( id, text, handler ) {
-		mw.util.addPortletLink( 'p-cactions', '#', text, id, null, null, id )
-			.addEventListener( 'click', function ( e ) {
-				e.preventDefault();
-				handler();
-			} );
+	function makeButton( id, messageKey, handler ) {
+		var $btn = $( '<button>' )
+			.attr( 'id', id )
+			.attr( 'type', 'button' )
+			.addClass( 'wb-embed-toolbar-btn' )
+			.text( mw.msg( messageKey ) )
+			.on( 'click', handler );
+		return $btn;
 	}
 
-	// Defer until the page (and user) is ready.
-	mw.loader.using( 'mediawiki.notification' ).then( function () {
-		if ( !entityId ) {
+	function renderToolbar( buttons ) {
+		var $toolbar = $( '<div>' )
+			.addClass( 'wb-embed-toolbar' )
+			.append( buttons );
+		// Under the page title, above the entity view.
+		$( '#firstHeading' ).after( $toolbar );
+	}
+
+	mw.loader.using( [ 'mediawiki.api', 'mediawiki.notification' ] ).then( function () {
+		if ( !entityId || $( '#firstHeading' ).length === 0 ) {
 			return;
 		}
-		addPortletLink( 'ca-wb-embed-copy', mw.msg( 'embeddablecontent-gadget-copyembed' ), function () {
-			copyText( embedSnippet() );
-		} );
-		mw.loader.using( 'mediawiki.api' ).then( function () {
-			var api = new mw.Api();
-			api.get( {
-				action: 'citation',
-				entity: entityId,
-				style: 'apa',
-				output: 'text'
-			} ).done( function ( data ) {
-				var citation = ( data && data.citation ) || '';
-				if ( !citation ) {
-					return;
-				}
-				addPortletLink( 'ca-wb-embed-cite', mw.msg( 'embeddablecontent-gadget-copycitation' ), function () {
-					copyText( citation );
-				} );
-			} );
-		} );
+		var api = new mw.Api();
+		var buttons = [];
+		var checkDone = 0;
+
+		function maybeRender() {
+			checkDone++;
+			if ( checkDone < 2 ) {
+				return;
+			}
+			if ( buttons.length > 0 ) {
+				renderToolbar( buttons );
+			}
+		}
+
+		// Embed button: only for embeddable items.
+		api.get( { action: 'embed', entity: entityId, output: 'html' } ).done( function ( data ) {
+			if ( !data.error ) {
+				buttons.push( makeButton(
+					'ca-wb-embed-copy',
+					'embeddablecontent-gadget-copyembed',
+					function () { copyText( embedSnippet() ); }
+				) );
+			}
+			maybeRender();
+		} ).fail( maybeRender );
+
+		// Citation button: only when a citation can be built.
+		api.get( { action: 'citation', entity: entityId, style: 'apa', output: 'text' } ).done( function ( data ) {
+			var citation = ( data && data.citation && !data.error ) ? data.citation : '';
+			if ( citation ) {
+				buttons.push( makeButton(
+					'ca-wb-embed-cite',
+					'embeddablecontent-gadget-copycitation',
+					function () { copyText( citation ); }
+				) );
+			}
+			maybeRender();
+		} ).fail( maybeRender );
 	} );
 }() );

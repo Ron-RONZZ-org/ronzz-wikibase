@@ -93,5 +93,8 @@
 	"embeddablecontent-field-doi": "DOI",
 	"embeddablecontent-field-isbn": "ISBN-13",
 	"embeddablecontent-field-openalex": "OpenAlex Work ID",
-	"embeddablecontent-field-pubmed": "PubMed ID"
+	"embeddablecontent-field-pubmed": "PubMed ID",
+	"embeddablecontent-add-describes": "Describes",
+	"embeddablecontent-add-implementationof": "Implementation of",
+	"embeddablecontent-add-error-badlanguage": "Invalid language code for the quotation text."
 }

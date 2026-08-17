@@ -25,7 +25,7 @@ class ManifestReaderTest extends TestCase {
 
 	public function testBundledPropertiesManifestParses(): void {
 		$rows = $this->reader->readProperties( self::EXT . '/manifests/properties.csv' );
-		$this->assertCount( 27, $rows ); // 11 core + 16 issue-#7
+		$this->assertCount( 29, $rows ); // 11 core + 16 issue-#7 + 2 content-subject
 
 		$instanceOf = $rows[0];
 		$this->assertSame( 'instance of', $instanceOf->getLabels()['en'] );

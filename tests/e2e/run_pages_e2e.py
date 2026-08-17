@@ -274,6 +274,23 @@ def flow_collective(op, base: str, api: str, name: str) -> str:
     return flow_search_select_create(op, base, api, "AddCollective", {"wpname": name})
 
 
+def flow_math(op, base: str, api: str, label: str, latex: str, describes_qid: str) -> str:
+    """Special:AddMath with the 'describes' subject field (issue follow-up)."""
+    url, body = page_get(op, base, "/wiki/Special:AddMath")
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "wplabel": label,
+        "wppayload": latex,
+        "wpdescribes": describes_qid,
+        "wpEditToken": token,
+        "wpSubmit": "1",
+    })
+    m = re.search(r"/wiki/Item:(Q\d+)$", url)
+    if not m:
+        raise FlowError(f"Special:AddMath did not redirect to an item: {url} {find_error(body)}")
+    return m.group(1)
+
+
 def flow_quotation(op, base: str, api: str, label: str, payload: str, person_qid: str) -> str:
     url, body = page_get(op, base, "/wiki/Special:AddQuotation")
     token = edit_token(body)
@@ -342,6 +359,8 @@ def main() -> int:
     person_class = resolve("person", "item")
     scholarly_class = resolve("scholarly article", "item")
     quotation_class = resolve("quotation content", "item")
+    math_class = resolve("mathematical expression", "item")
+    describes_prop = resolve("describes", "property")
     wikidata_id_prop = resolve("Wikidata ID", "property")
     doi_prop = resolve("DOI", "property")
     source_url_prop = resolve("source URL", "property")
@@ -426,6 +445,16 @@ def main() -> int:
         assert first_value(claims, resolve("content text", "property")) is not None, \
             f"{quotation} missing content payload"
         print(f"[ok] Special:AddQuotation -> {quotation}: quotation class + payload + attribution")
+
+        # 5. Special:AddMath with the 'describes' subject field (issue follow-up).
+        math_label = f"Page-flow E2E math {int(time.time())}"
+        math_item = track(flow_math(op, base, api, math_label, "E = mc^2", person))
+        claims, label = entity_claims(op, api, math_item)
+        assert first_value(claims, instance_of) == math_class, \
+            f"{math_item} instance-of != mathematical expression"
+        assert first_value(claims, describes_prop) == person, \
+            f"{math_item} describes mismatch (wanted {person})"
+        print(f"[ok] Special:AddMath -> {math_item}: math class + describes statement")
     finally:
         if not args.keep:
             for qid in created:

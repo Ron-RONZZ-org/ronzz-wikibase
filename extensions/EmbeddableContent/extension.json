@@ -99,6 +99,9 @@
 			"scripts": [
 				"gadget.js"
 			],
+			"styles": [
+				"gadget.css"
+			],
 			"dependencies": [
 				"mediawiki.api",
 				"mediawiki.notification",

@@ -92,5 +92,8 @@
 	"embeddablecontent-field-doi": "DOI",
 	"embeddablecontent-field-isbn": "ISBN-13",
 	"embeddablecontent-field-openalex": "OpenAlex-verko-ID",
-	"embeddablecontent-field-pubmed": "PubMed-ID"
+	"embeddablecontent-field-pubmed": "PubMed-ID",
+	"embeddablecontent-add-describes": "Priskribas",
+	"embeddablecontent-add-implementationof": "Implemento de",
+	"embeddablecontent-add-error-badlanguage": "Nevalida lingvokodo por la citaĵa teksto."
 }

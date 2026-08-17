@@ -22,6 +22,10 @@ PROPERTY_KINDS = {
     "source URL": ("provenance", "sourceUrl"),
     "source": ("provenance", "source"),
     "date": ("provenance", "date"),
+    # Issue follow-up: content-subject properties (math 'describes', code
+    # 'implementation of'); both align to Wikidata main subject (P921).
+    "describes": ("describes", None),
+    "implementation of": ("implementationOf", None),
 }
 
 # Issue #7: authority ExternalId properties (Special pages write these).
@@ -106,6 +110,8 @@ def build_config(
     payload_props: dict[str, str] = {}
     provenance: dict[str, str] = {}
     programming_language = None
+    describes = None
+    implementation_of = None
     for label, (section, key) in PROPERTY_KINDS.items():
         if label not in property_ids:
             continue
@@ -116,6 +122,10 @@ def build_config(
             provenance[key] = prop_id
         elif section == "programmingLanguage":
             programming_language = prop_id
+        elif section == "describes":
+            describes = prop_id
+        elif section == "implementationOf":
+            implementation_of = prop_id
 
     external_ids: dict[str, str] = {}
     for label, key in EXTERNAL_ID_KINDS.items():
@@ -141,6 +151,8 @@ def build_config(
         "sourceClasses": source_classes,
         "payloadProperties": payload_props,
         "programmingLanguage": programming_language,
+        "describes": describes,
+        "implementationOf": implementation_of,
         "provenance": provenance,
         "externalIds": external_ids,
         "citationMetadata": citation_metadata,

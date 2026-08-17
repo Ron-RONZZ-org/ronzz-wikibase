@@ -106,18 +106,23 @@ def check(args: argparse.Namespace) -> int:
             status, body, ctype = http_get(f"{api}?{urllib.parse.urlencode(params)}")
             expect(status == 200, f"citation {style}: HTTP {status}")
             text = body.decode("utf-8", "replace")
+            # Fail on API error payloads for EVERY style (a fatalling
+            # formatter used to slip through as HTTP 200 + non-empty text).
+            try:
+                payload = json.loads(text)
+            except json.JSONDecodeError as exc:
+                raise CheckFailed(
+                    f"citation {style}: not JSON (HTTP {status}): {text[:300]!r}"
+                ) from exc
+            if "error" in payload:
+                raise CheckFailed(f"citation {style}: API error: {payload['error']!r}")
             if style == "json":
-                try:
-                    payload = json.loads(text)
-                except json.JSONDecodeError as exc:
-                    raise CheckFailed(
-                        f"citation json: not JSON (HTTP {status}): {text[:300]!r}"
-                    ) from exc
-                if "error" in payload:
-                    raise CheckFailed(f"citation json: API error: {payload['error']!r}")
                 expect(payload.get("citation", {}).get("type"), "json citation missing type")
             else:
-                expect(text.strip() != "", f"citation {style}: empty output")
+                expect(
+                    isinstance(payload.get("citation"), str) and payload["citation"].strip() != "",
+                    f"citation {style}: empty output",
+                )
 
     def check_sparql() -> None:
         # Prefixes must be declared explicitly: the store defaults for
