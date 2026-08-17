@@ -141,8 +141,23 @@ def check(args: argparse.Namespace) -> int:
     def check_entity_creation_pages() -> None:
         # Issue #7: the three external-authority pages are registered and
         # login-gated (anonymous must not trigger server-side fetches).
+        # The login redirect points at the wiki's canonical hostname
+        # (unresolvable from the runner), so redirects are NOT followed.
+        class NoRedirect(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, req, fp, code, msg, headers, newurl):
+                return None
+
+        opener = urllib.request.build_opener(NoRedirect())
         for page in ("AddPerson", "AddSource", "AddCollective"):
-            status, _, _ = http_get(f"{base}/wiki/Special:{page}")
+            url = f"{base}/wiki/Special:{page}"
+            request = urllib.request.Request(url, headers={"User-Agent": "ronzz-wikibase-e2e/1.0"})
+            try:
+                with opener.open(request, timeout=60) as resp:
+                    status = resp.status
+            except urllib.error.HTTPError as exc:
+                status = exc.code
+            except urllib.error.URLError as exc:
+                raise CheckFailed(f"cannot reach {url}: {exc.reason}") from exc
             expect(
                 status == 302 or status == 200,
                 f"Special:{page}: expected login redirect (302) or render (200), got HTTP {status}",
