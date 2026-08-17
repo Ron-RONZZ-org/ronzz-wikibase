@@ -24,6 +24,7 @@ class WikidataWorkProvider implements WorkProvider {
 		foreach ( $this->core->searchRaw( $title ) as $row ) {
 			$out[] = new WorkRecord(
 				title: (string)( $row['label'] ?? $row['id'] ),
+				description: isset( $row['description'] ) ? (string)$row['description'] : null,
 				wikidataId: $row['id'],
 				provider: 'wikidata',
 				providerId: $row['id']
@@ -55,6 +56,7 @@ class WikidataWorkProvider implements WorkProvider {
 		);
 		return new WorkRecord(
 			title: $harvest['label'],
+			description: $harvest['description'],
 			containerTitle: $this->core->itemLabel( $harvest['claims'], 'P1433', $itemLabels ),
 			publisher: $this->core->itemLabel( $harvest['claims'], 'P123', $itemLabels ),
 			volume: $this->core->stringValue( $harvest['claims'], 'P478' ),

@@ -17,6 +17,7 @@ final class WorkRecord {
 	 */
 	public function __construct(
 		public readonly string $title,
+		public readonly ?string $description = null,
 		public readonly ?string $containerTitle = null,
 		public readonly ?string $publisher = null,
 		public readonly ?string $volume = null,
