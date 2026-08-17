@@ -91,12 +91,15 @@ class SeedOrchestrator:
     def find(self, label: str, entity_type: str, language: str) -> Optional[str]:
         if self.args.dry_run:
             return None  # dry-run is fully offline: plan only
-        # Exact-label match only: wbsearchentities ranks fuzzy hits first
-        # (e.g. "source" can rank "source URL" / "code source" higher), and a
-        # wrong property would reject its statement value type at write time.
+        # Exact-label match only. wbsearchentities fuzzy-ranks hits (e.g.
+        # "source" can rank "source URL" / "code source" higher) and returns
+        # `label` in the wiki's DISPLAY language (usually en) — the searched
+        # language's term is in `match.text`. Compare against both.
         wanted = label.strip().lower()
         for hit in self.api.search_entities(label, entity_type, language):
-            if str(hit.get("label", "")).strip().lower() == wanted:
+            match_text = str(hit.get("match", {}).get("text", "")).strip().lower()
+            hit_label = str(hit.get("label", "")).strip().lower()
+            if match_text == wanted or hit_label == wanted:
                 return hit.get("id")
         return None
 
