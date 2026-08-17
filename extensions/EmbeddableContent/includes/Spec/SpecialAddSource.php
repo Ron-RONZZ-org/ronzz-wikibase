@@ -71,19 +71,17 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	}
 
 	protected function candidateOptions( array $records ): array {
-		$options = [];
-		foreach ( $records as $index => $record ) {
-			$summary = implode( ' · ', $this->recordSummary( $record ) );
-			$label = (string)$record['title'];
-			if ( !empty( $record['issuedYear'] ) ) {
-				$label .= ' (' . $record['issuedYear'] . ')';
-			}
-			$options[ $label . ( $summary !== '' ? " — {$summary}" : '' ) ] = (string)$index;
-		}
-		return $options;
+		return $this->candidateOptionLabels( $records );
 	}
 
-	protected function createFromRecord( array $record, string $classItemId ): string {
+	protected function primaryLabel( array $record ): string {
+		return (string)( $record['title'] ?? '' );
+	}
+
+	protected function enrichRecord( array $record ): array {
+		if ( !empty( $record['harvested'] ) ) {
+			return $record;
+		}
 		// Harvest on pick: enrich with the full Wikidata work record
 		// (container, publisher, pages, volume, issue, DOI, ISBN, …).
 		if ( !empty( $record['wikidataId'] ) && ( $record['provider'] ?? '' ) === 'wikidata' ) {
@@ -92,8 +90,32 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				$record = array_merge( $record, (array)$harvest->records[0] );
 			}
 		}
+		$record['harvested'] = true;
+		return $record;
+	}
+
+	protected function reviewFieldSpecs( array $record ): array {
+		return $this->labelFieldSpec( 'title', 'embeddablecontent-extsearch-title', (string)( $record['title'] ?? '' ) )
+			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
+			+ [
+				'containerTitle' => $this->plainTextField( 'embeddablecontent-field-publishedin', (string)( $record['containerTitle'] ?? '' ) ),
+				'publisher' => $this->plainTextField( 'embeddablecontent-field-publisher', (string)( $record['publisher'] ?? '' ) ),
+				'volume' => $this->plainTextField( 'embeddablecontent-field-volume', (string)( $record['volume'] ?? '' ) ),
+				'issue' => $this->plainTextField( 'embeddablecontent-field-issue', (string)( $record['issue'] ?? '' ) ),
+				'pages' => $this->plainTextField( 'embeddablecontent-field-pages', (string)( $record['pages'] ?? '' ) ),
+				'issuedYear' => $this->plainTextField(
+					'embeddablecontent-field-year',
+					(string)( $record['issuedYear'] ?? '' ),
+					4
+				),
+			]
+			+ $this->externalIdFieldSpecs( $record );
+	}
+
+	protected function createFromRecord( array $record, string $classItemId ): string {
+		$record = $this->enrichRecord( $record );
 		$specs = $this->externalIdStatements( $record ) + $this->citationMetadataStatements( $record );
-		return $this->createOrSkipItem( (string)$record['title'], $classItemId, $specs, $record );
+		return $this->createOrSkipItem( $this->primaryLabel( $record ), $classItemId, $specs, $record );
 	}
 
 	protected function classOptions(): array {

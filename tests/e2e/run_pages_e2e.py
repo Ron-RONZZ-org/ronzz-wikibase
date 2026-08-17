@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """E2E for the issue-#7 Special pages + the v1 content form (page flows).
 
-Drives the REAL two-step page flows against a live (login-gated) instance —
+Drives the REAL Special-page flows against a live (login-gated) instance —
 `Special:AddPerson` / `Special:AddSource` / `Special:AddCollective`
-(search -> select -> create, incl. harvest-on-pick) and the v1
-`Special:AddQuotation` form — then verifies the created items carry the
-expected class, authority IDs, citation metadata and import-provenance
-references.
+(search -> select -> review -> create, incl. harvest-on-pick and the issue-#12
+hand-edition step), the manual-entry fallback (`Special:AddPerson/manual`)
+and the v1 `Special:AddQuotation` form — then verifies the created items
+carry the expected class, authority IDs, citation metadata and
+import-provenance references.
 
 Usage::
 
@@ -195,7 +196,8 @@ def first_reference_url(claims: dict, prop_id: str) -> str | None:
 
 def flow_search_select_create(op, base: str, api: str, special: str, search_fields: dict,
                               pick_index: int = 0) -> str:
-    """Runs the two-step Special page flow; returns the created (or reused) item id."""
+    """Runs the three-step Special page flow (search -> select -> review ->
+    create, issue #12); returns the created (or reused) item id."""
     url, body = page_get(op, base, f"/wiki/Special:{special}")
     if "does not have permission" in body or "wpEditToken" not in body:
         raise FlowError(f"Special:{special} not usable (logged-in? got {len(body)} bytes)")
@@ -209,26 +211,54 @@ def flow_search_select_create(op, base: str, api: str, special: str, search_fiel
     m = re.search(rf"/wiki/Special:{special}/([0-9a-f]+)$", url)
     if not m:
         raise FlowError(f"Special:{special} search did not redirect to a selection page: {url} {find_error(body)}")
-    sel_url = url
+    token = m.group(1)
 
+    # Selection step: detailed candidate table + radio + class picker.
     candidates = ooui_options(body, "mw-input-wpcandidates")
     classes = ooui_options(body, "mw-input-wpclass")
     if not candidates or not classes:
         raise FlowError(f"Special:{special} selection page rendered no candidates/classes")
     index = str(min(pick_index, len(candidates) - 1))
-    # Honor the inferred default class (the select's pre-selected value).
     cls = ooui_widget(body, "mw-input-wpclass").get("value") or classes[0]["data"]
     token2 = edit_token(body)
 
-    url, body = page_post(op, sel_url, {
+    url, body = page_post(op, url, {
         "wpcandidates": index,
         "wpclass": cls,
         "wpEditToken": token2,
         "wpSubmit": "1",
     })
+    m = re.search(rf"/wiki/Special:{special}/{token}/review/{index}$", url)
+    if not m:
+        raise FlowError(
+            f"Special:{special} select did not redirect to the review step: {url} {find_error(body)}")
+
+    # Review step: pre-filled editable form; submit without changes (issue #12).
+    token3 = edit_token(body)
+    url, body = page_post(op, url, {
+        "wpEditToken": token3,
+        "wpSubmit": "1",
+    })
     m = re.search(r"/wiki/Item:(Q\d+)$", url)
     if not m:
-        raise FlowError(f"Special:{special} create did not redirect to an item: {url} {find_error(body)}")
+        raise FlowError(f"Special:{special} review did not redirect to an item: {url} {find_error(body)}")
+    return m.group(1)
+
+
+def flow_manual(op, base: str, api: str, special: str, label: str, class_item: str) -> str:
+    """Manual-entry fallback (issue #12): Special:<name>/manual creates from
+    blank (no external record)."""
+    url, body = page_get(op, base, f"/wiki/Special:{special}/manual")
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "wplabel": label,
+        "wpclass": class_item,
+        "wpEditToken": token,
+        "wpSubmit": "1",
+    })
+    m = re.search(r"/wiki/Item:(Q\d+)$", url)
+    if not m:
+        raise FlowError(f"Special:{special}/manual did not create an item: {url} {find_error(body)}")
     return m.group(1)
 
 
@@ -366,6 +396,18 @@ def main() -> int:
             f"{collective} instance-of not an agent class ({first_value(claims, instance_of)})"
         assert first_value(claims, wikidata_id_prop), f"{collective} missing Wikidata ID"
         print(f"[ok] AddCollective -> {collective} ({label}): agent class + Wikidata ID")
+
+        # 3b. Manual-entry fallback (issue #12): Special:AddPerson/manual
+        #     creates from blank, no external record, no import reference.
+        manual_label = f"Manual E2E person {int(time.time())}"
+        manual = track(flow_manual(op, base, api, "AddPerson", manual_label, person_class))
+        claims, label = entity_claims(op, api, manual)
+        assert first_value(claims, instance_of) == person_class, \
+            f"{manual} instance-of != person ({first_value(claims, instance_of)})"
+        assert label == manual_label, f"{manual} label mismatch ({label!r})"
+        assert first_value(claims, wikidata_id_prop) is None, \
+            f"{manual} must not carry authority IDs (manual entry)"
+        print(f"[ok] AddPerson/manual -> {manual}: created from blank, no import reference")
 
         # 4. v1 content form — Special:AddQuotation with provenance.
         # Unique label per run: create-or-skip would otherwise reuse a stale

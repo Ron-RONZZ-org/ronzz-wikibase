@@ -48,19 +48,17 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 	}
 
 	protected function candidateOptions( array $records ): array {
-		$options = [];
-		foreach ( $records as $index => $record ) {
-			$summary = implode( ' · ', $this->recordSummary( $record ) );
-			$label = (string)$record['label'];
-			if ( !empty( $record['description'] ) ) {
-				$label .= ' — ' . $record['description'];
-			}
-			$options[ $label . ( $summary !== '' ? " ({$summary})" : '' ) ] = (string)$index;
-		}
-		return $options;
+		return $this->candidateOptionLabels( $records );
 	}
 
-	protected function createFromRecord( array $record, string $classItemId ): string {
+	protected function primaryLabel( array $record ): string {
+		return (string)( $record['label'] ?? '' );
+	}
+
+	protected function enrichRecord( array $record ): array {
+		if ( !empty( $record['harvested'] ) ) {
+			return $record;
+		}
 		// Harvest on pick: enrich with the full Wikidata record (class hints
 		// for the inference, description).
 		if ( !empty( $record['wikidataId'] ) && ( $record['provider'] ?? '' ) === 'wikidata' ) {
@@ -69,8 +67,20 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 				$record = array_merge( $record, (array)$harvest->records[0] );
 			}
 		}
+		$record['harvested'] = true;
+		return $record;
+	}
+
+	protected function reviewFieldSpecs( array $record ): array {
+		return $this->labelFieldSpec( 'label', 'embeddablecontent-add-label', (string)( $record['label'] ?? '' ) )
+			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
+			+ $this->externalIdFieldSpecs( $record );
+	}
+
+	protected function createFromRecord( array $record, string $classItemId ): string {
+		$record = $this->enrichRecord( $record );
 		$specs = $this->externalIdStatements( $record );
-		return $this->createOrSkipItem( (string)$record['label'], $classItemId, $specs, $record );
+		return $this->createOrSkipItem( $this->primaryLabel( $record ), $classItemId, $specs, $record );
 	}
 
 	protected function classOptions(): array {
