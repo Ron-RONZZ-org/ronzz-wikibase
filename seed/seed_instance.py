@@ -91,8 +91,13 @@ class SeedOrchestrator:
     def find(self, label: str, entity_type: str, language: str) -> Optional[str]:
         if self.args.dry_run:
             return None  # dry-run is fully offline: plan only
+        # Exact-label match only: wbsearchentities ranks fuzzy hits first
+        # (e.g. "source" can rank "source URL" / "code source" higher), and a
+        # wrong property would reject its statement value type at write time.
+        wanted = label.strip().lower()
         for hit in self.api.search_entities(label, entity_type, language):
-            return hit.get("id")
+            if str(hit.get("label", "")).strip().lower() == wanted:
+                return hit.get("id")
         return None
 
     def ensure_login(self) -> None:
