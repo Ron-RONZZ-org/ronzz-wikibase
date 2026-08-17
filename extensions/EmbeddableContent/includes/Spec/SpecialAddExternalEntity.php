@@ -24,14 +24,20 @@ use Wikibase\Repo\WikibaseRepo;
 
 /**
  * Base class for the issue-#7 entity-creation pages: fetch from external
- * authorities (import-on-reference), preview/select, create-or-skip the local
+ * authorities (import-on-reference), review/correct, create-or-skip the local
  * stub item.
  *
- * Two-step flow (token in the session, subpage carries the token):
+ * Flow (token in the session, subpage carries the token; issue #12):
  *   1. search  — kind-specific inputs → ProviderClient → candidates stored
  *                in the session under the token → redirect to /<token>
- *   2. select  — radio over candidates + class picker → create-or-skip →
- *                redirect to the created (or existing) item
+ *   2. select  — detailed candidate table + radio + class picker → the picked
+ *                record is enriched (harvest-on-pick) → redirect to
+ *                /<token>/review/<index>
+ *   3. review  — editable, pre-filled form with the harvested record; the
+ *                user can correct errors in the external data by hand →
+ *                create-or-skip → redirect to the created (or existing) item
+ *   manual    — /manual: create from blank by hand when the search has no
+ *                good result (no external record, no import reference)
  *
  * Imported statements carry authority IDs (externalIds), citation metadata
  * (citationMetadata) and an import-provenance reference (source URL + date),
@@ -88,6 +94,24 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	/** Default class item id for the selection step (harvest inference). */
 	abstract protected function defaultClassItemId( array $record ): ?string;
 
+	/** Primary display label of a record (label vs title). */
+	abstract protected function primaryLabel( array $record ): string;
+
+	/**
+	 * Editable HTMLForm field specs for the review step, pre-filled from the
+	 * record (issue #12). Field names double as record keys.
+	 *
+	 * @return array<string,mixed>
+	 */
+	abstract protected function reviewFieldSpecs( array $record ): array;
+
+	/**
+	 * Enriches a light search record with the full authority record
+	 * (harvest-on-pick, issue #7). Idempotent: returns the record unchanged
+	 * once marked as harvested.
+	 */
+	abstract protected function enrichRecord( array $record ): array;
+
 	public function execute( $subPage ) {
 		// Standard special-page header plumbing (title from getDescription(),
 		// noindex + article-related=false); the step handlers may then
@@ -97,12 +121,21 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// users must not be able to trigger them (abuse/rate-limit surface).
 		$this->requireLogin();
 		$this->getOutput()->enableOOUI();
-		$token = trim( (string)$subPage );
-		if ( $token !== '' ) {
-			$this->executeSelection( $token );
+		$parts = explode( '/', trim( (string)$subPage ) );
+		$first = $parts[0] ?? '';
+		if ( $first === '' ) {
+			$this->executeSearch();
 			return;
 		}
-		$this->executeSearch();
+		if ( $first === 'manual' ) {
+			$this->executeManual();
+			return;
+		}
+		if ( ( $parts[1] ?? '' ) === 'review' && ( $parts[2] ?? '' ) !== '' ) {
+			$this->executeReview( $first, (int)$parts[2] );
+			return;
+		}
+		$this->executeSelection( $first );
 	}
 
 	// ------------------------------------------------------------- step 1
@@ -116,6 +149,16 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			->setSubmitID( 'wb-ext-add-search' )
 			->setWrapperLegendMsg( 'embeddablecontent-extsearch-legend' );
 		$form->show();
+		// Manual fallback (issue #12): always offered, also shown on zero hits.
+		$this->getOutput()->addHTML(
+			\MediaWiki\Html\Html::rawElement(
+				'p',
+				[ 'class' => 'wb-ext-manual' ],
+				$this->msg( 'embeddablecontent-manual-hint' )->parse()
+				. ' <a href="' . htmlspecialchars( $this->getPageTitle( 'manual' )->getFullURL() ) . '">'
+				. $this->msg( 'embeddablecontent-manual-link' )->escaped() . '</a>'
+			)
+		);
 	}
 
 	/**
@@ -154,21 +197,19 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	// ------------------------------------------------------------- step 2
 
 	private function executeSelection( string $token ): void {
-		$session = $this->getRequest()->getSession();
-		$records = $session->get( self::SESSION_PREFIX . $token );
-		if ( !is_array( $records ) || $records === [] ) {
-			$this->getOutput()->addHTML(
-				\MediaWiki\Html\Html::errorBox(
-					$this->msg( 'embeddablecontent-extselect-expired' )->escaped()
-					. ' <a href="' . htmlspecialchars( $this->getPageTitle()->getFullURL() ) . '">'
-					. $this->msg( 'embeddablecontent-extselect-retry' )->escaped() . '</a>'
-				)
-			);
+		$records = $this->loadSessionRecords( $token );
+		if ( $records === null ) {
+			$this->showExpired();
 			return;
 		}
 
 		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-' . $this->kindKey() . '-select-title' )->text() );
 		$firstRecord = $records[0] ?? [];
+
+		// Detailed candidate display (issue #12): provider, description,
+		// year and the full identifier set — plain radio labels are not
+		// enough for same-name disambiguation.
+		$this->getOutput()->addHTML( $this->candidateDetailsHtml( $records ) );
 
 		$form = HTMLForm::factory( 'ooui', [
 			'candidates' => [
@@ -188,7 +229,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		], $this->getContext() );
 
 		$form->setTitle( $this->getPageTitle( $token ) )
-			->setSubmitTextMsg( 'embeddablecontent-extselect-create' )
+			->setSubmitTextMsg( 'embeddablecontent-extselect-continue' )
 			->setSubmitCallback( fn ( array $data ) => $this->onSelectSubmit( $data, $token, $records ) )
 			->setSubmitID( 'wb-ext-add-create' )
 			->setWrapperLegendMsg( 'embeddablecontent-extselect-legend' );
@@ -211,6 +252,74 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			return $this->msg( 'embeddablecontent-extselect-classrequired' )->text();
 		}
 
+		// Enrich now (harvest-on-pick) so the review step shows the full
+		// record; the user can correct errors before anything is created.
+		$records[$index] = $this->enrichRecord( $record );
+		$this->getRequest()->getSession()->set( self::SESSION_PREFIX . $token, $records );
+		$this->getOutput()->redirect( $this->getPageTitle( $token . '/review/' . $index )->getFullURL() );
+		return true;
+	}
+
+	// ------------------------------------------------------------- step 3
+
+	private function executeReview( string $token, int $index ): void {
+		$records = $this->loadSessionRecords( $token );
+		$record = $records[$index] ?? null;
+		if ( $record === null ) {
+			$this->showExpired();
+			return;
+		}
+
+		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-' . $this->kindKey() . '-review-title' )->text() );
+		$fields = $this->reviewFieldSpecs( $record );
+		$fields['class'] = [
+			'type' => 'select',
+			'label-message' => 'embeddablecontent-extselect-class',
+			'options' => $this->classOptions(),
+			'default' => $this->defaultClassItemId( $record ) ?? '',
+			'required' => true,
+		];
+
+		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
+		$form->setTitle( $this->getPageTitle( $token . '/review/' . $index ) )
+			->setSubmitTextMsg( 'embeddablecontent-extselect-create' )
+			->setSubmitCallback( fn ( array $data ) => $this->onReviewSubmit( $data, $token, $index, $records ) )
+			->setSubmitID( 'wb-ext-add-create' )
+			->setWrapperLegendMsg( 'embeddablecontent-review-legend' );
+		$form->show();
+	}
+
+	/**
+	 * Applies the user's hand-edits to the harvested record and creates the
+	 * item (issue #12).
+	 *
+	 * @param array<string,mixed> $data
+	 * @param array<int,array<string,mixed>> $records
+	 * @return bool|string
+	 */
+	public function onReviewSubmit( array $data, string $token, int $index, array $records ) {
+		$record = $records[$index] ?? null;
+		if ( $record === null || !is_array( $record ) ) {
+			return $this->msg( 'embeddablecontent-extselect-expired' )->text();
+		}
+		$classItemId = (string)( $data['class'] ?? ( $this->defaultClassItemId( $record ) ?? '' ) );
+		if ( $classItemId === '' ) {
+			return $this->msg( 'embeddablecontent-extselect-classrequired' )->text();
+		}
+
+		// Fields present in the POST overwrite the record; absent fields keep
+		// the harvested value.
+		foreach ( $this->reviewFieldSpecs( $record ) as $name => $_ ) {
+			if ( !array_key_exists( $name, $data ) ) {
+				continue;
+			}
+			$value = is_array( $data[$name] ) ? '' : (string)$data[$name];
+			$record[$name] = ( $name === 'issuedYear' && $value !== '' ) ? (int)$value : $value;
+		}
+		if ( trim( $this->primaryLabel( $record ) ) === '' ) {
+			return $this->msg( 'embeddablecontent-add-error-required' )->text();
+		}
+
 		try {
 			$itemId = $this->createFromRecord( $record, $classItemId );
 		} catch ( \Throwable $e ) {
@@ -218,13 +327,219 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		}
 
 		$this->getRequest()->getSession()->remove( self::SESSION_PREFIX . $token );
-		$this->getOutput()->redirect(
-			WikibaseRepo::getEntityTitleStoreLookup()->getTitleForId( new ItemId( $itemId ) )->getFullURL()
-		);
+		$this->redirectToItem( $itemId );
+		return true;
+	}
+
+	// ------------------------------------------------------------- manual
+
+	private function executeManual(): void {
+		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-' . $this->kindKey() . '-manual-title' )->text() );
+		$fields = $this->manualFieldSpecs();
+		$fields['class'] = [
+			'type' => 'select',
+			'label-message' => 'embeddablecontent-extselect-class',
+			'options' => $this->classOptions(),
+			'required' => true,
+		];
+
+		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
+		$form->setTitle( $this->getPageTitle( 'manual' ) )
+			->setSubmitTextMsg( 'embeddablecontent-extselect-create' )
+			->setSubmitCallback( [ $this, 'onManualSubmit' ] )
+			->setSubmitID( 'wb-ext-add-manual' )
+			->setWrapperLegendMsg( 'embeddablecontent-manual-legend' );
+		$form->show();
+	}
+
+	/**
+	 * Creates the item from blank (no external record): no import reference.
+	 *
+	 * @param array<string,mixed> $data
+	 * @return bool|string
+	 */
+	public function onManualSubmit( array $data ) {
+		$classItemId = (string)( $data['class'] ?? '' );
+		if ( $classItemId === '' ) {
+			return $this->msg( 'embeddablecontent-extselect-classrequired' )->text();
+		}
+		$record = [];
+		foreach ( $this->manualFieldSpecs() as $name => $_ ) {
+			if ( !array_key_exists( $name, $data ) ) {
+				continue;
+			}
+			$value = is_array( $data[$name] ) ? '' : trim( (string)$data[$name] );
+			if ( $value === '' ) {
+				continue;
+			}
+			$record[$name] = ( $name === 'issuedYear' ) ? (int)$value : $value;
+		}
+		$label = $this->primaryLabel( $record );
+		if ( $label === '' ) {
+			return $this->msg( 'embeddablecontent-add-error-required' )->text();
+		}
+		try {
+			$specs = $this->externalIdStatements( $record ) + $this->citationMetadataStatements( $record );
+			$itemId = $this->createOrSkipItem( $label, $classItemId, $specs, $record );
+		} catch ( \Throwable $e ) {
+			return $this->msg( 'embeddablecontent-extcreate-error', get_class( $e ), $e->getMessage() )->text();
+		}
+		$this->redirectToItem( $itemId );
 		return true;
 	}
 
 	// ------------------------------------------------------------- shared
+
+	/** @return array<int,array<string,mixed>>|null */
+	private function loadSessionRecords( string $token ): ?array {
+		$records = $this->getRequest()->getSession()->get( self::SESSION_PREFIX . $token );
+		return is_array( $records ) && $records !== [] ? $records : null;
+	}
+
+	private function showExpired(): void {
+		$this->getOutput()->addHTML(
+			\MediaWiki\Html\Html::errorBox(
+				$this->msg( 'embeddablecontent-extselect-expired' )->escaped()
+				. ' <a href="' . htmlspecialchars( $this->getPageTitle()->getFullURL() ) . '">'
+				. $this->msg( 'embeddablecontent-extselect-retry' )->escaped() . '</a>'
+			)
+		);
+	}
+
+	private function redirectToItem( string $itemId ): void {
+		$this->getOutput()->redirect(
+			WikibaseRepo::getEntityTitleStoreLookup()->getTitleForId( new ItemId( $itemId ) )->getFullURL()
+		);
+	}
+
+	/**
+	 * Manual-entry form specs: the same editable fields as the review step,
+	 * empty (issue #12).
+	 *
+	 * @return array<string,mixed>
+	 */
+	protected function manualFieldSpecs(): array {
+		return $this->reviewFieldSpecs( [] );
+	}
+
+	/**
+	 * Shared field builders for the review/manual forms.
+	 *
+	 * @return array<string,mixed>
+	 */
+	protected function labelFieldSpec( string $messageKey, string $default ): array {
+		return [
+			'type' => 'text',
+			'label-message' => $messageKey,
+			'default' => $default,
+			'maxlength' => 250,
+			'required' => true,
+		];
+	}
+
+	/** @return array<string,mixed> */
+	protected function descriptionFieldSpec( string $default ): array {
+		return [
+			'type' => 'text',
+			'label-message' => 'embeddablecontent-field-description',
+			'default' => $default,
+			'maxlength' => 500,
+		];
+	}
+
+	/** @return array<string,mixed> */
+	protected function plainTextField( string $messageKey, string $default, int $maxlength = 250 ): array {
+		return [
+			'type' => 'text',
+			'label-message' => $messageKey,
+			'default' => $default,
+			'maxlength' => $maxlength,
+		];
+	}
+
+	/**
+	 * Text fields for the config's external-id properties, pre-filled from
+	 * the record; the field name doubles as the record key.
+	 *
+	 * @return array<string,mixed>
+	 */
+	protected function externalIdFieldSpecs( array $record ): array {
+		$fields = [];
+		foreach ( $this->externalIdRecordMap() as $key => $field ) {
+			if ( $this->config->externalIdPropertyIds()[$key] === null ) {
+				continue;
+			}
+			$fields[$field] = $this->plainTextField(
+				'embeddablecontent-field-' . $key,
+				(string)( $record[$field] ?? '' ),
+				$key === 'isbn' ? 17 : 250
+			);
+		}
+		return $fields;
+	}
+
+	/**
+	 * Detailed candidate table for the selection step (issue #12): provider
+	 * badge, label, description/container, year and the full identifier set.
+	 *
+	 * @param array<int,array<string,mixed>> $records
+	 */
+	protected function candidateDetailsHtml( array $records ): string {
+		$rows = '';
+		foreach ( $records as $index => $record ) {
+			$provider = (string)( $record['provider'] ?? '' );
+			$badge = $provider !== ''
+				? '<span class="wb-ext-provider">[' . htmlspecialchars( ucfirst( $provider ) ) . ']</span> '
+				: '';
+			$label = htmlspecialchars( $this->primaryLabel( $record ) );
+			$bits = [];
+			foreach ( [ 'description', 'containerTitle', 'publisher' ] as $key ) {
+				if ( !empty( $record[$key] ) ) {
+					$bits[] = htmlspecialchars( (string)$record[$key] );
+					break;
+				}
+			}
+			if ( !empty( $record['issuedYear'] ) ) {
+				$bits[] = htmlspecialchars( (string)$record['issuedYear'] );
+			}
+			$ids = array_map( 'htmlspecialchars', $this->recordSummary( $record ) );
+			$details = implode( ' · ', $bits );
+			$rows .= '<tr><td class="wb-ext-num">' . ( $index + 1 ) . '</td><td>' . $badge
+				. '<strong>' . $label . '</strong>'
+				. ( $details !== '' ? '<br>' . $details : '' )
+				. ( $ids !== [] ? ' <span class="wb-ext-ids">(' . implode( ', ', $ids ) . ')</span>' : '' )
+				. '</td></tr>';
+		}
+		return '<table class="wikitable wb-ext-candidates"><tbody>' . $rows . '</tbody></table>';
+	}
+
+	/** Compact radio label for a candidate (details live in the table). */
+	protected function candidateOptionLabel( array $record ): string {
+		$label = $this->primaryLabel( $record );
+		if ( !empty( $record['issuedYear'] ) ) {
+			$label .= ' (' . $record['issuedYear'] . ')';
+		}
+		$provider = (string)( $record['provider'] ?? '' );
+		if ( $provider !== '' ) {
+			$label = '[' . $provider . '] ' . $label;
+		}
+		return $label;
+	}
+
+	/**
+	 * Radio options numbered to match the candidate detail table
+	 * (issue #12): option label => record index.
+	 *
+	 * @param array<int,array<string,mixed>> $records
+	 * @return array<string,string>
+	 */
+	protected function candidateOptionLabels( array $records ): array {
+		$options = [];
+		foreach ( $records as $index => $record ) {
+			$options[ ( $index + 1 ) . '. ' . $this->candidateOptionLabel( $record ) ] = (string)$index;
+		}
+		return $options;
+	}
 
 	/**
 	 * Create-or-skip: reuses an existing local item with the same primary
