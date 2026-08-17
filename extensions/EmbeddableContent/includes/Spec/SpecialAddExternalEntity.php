@@ -246,8 +246,11 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 
 		$guidGenerator = new GuidGenerator();
 		$add = function ( $propertyId, $value, $reference = true ) use ( $item, $guidGenerator, $record ): void {
+			// NOTE: Statement::__construct is (mainSnak, qualifiers, references, guid).
 			$statement = new Statement(
 				new PropertyValueSnak( new \Wikibase\DataModel\Entity\NumericPropertyId( $propertyId ), $value ),
+				null,
+				null,
 				$guidGenerator->newGuid( $item->getId() )
 			);
 			if ( $reference ) {
