@@ -15,7 +15,7 @@ import csv
 from pathlib import Path
 from typing import Any
 
-ALLOWED_DATATYPES = {"wikibase-item", "monolingualtext", "string", "url", "time"}
+ALLOWED_DATATYPES = {"wikibase-item", "monolingualtext", "string", "url", "time", "external-id"}
 
 
 class ManifestError(Exception):
@@ -50,6 +50,7 @@ def load_properties(path: str | Path) -> list[dict[str, Any]]:
                 "datatype": datatype,
                 "align_uri": _optional_url(row.get("align.uri", ""), path, index),
                 "align_wikidata": _optional_url(row.get("align.wikidata", ""), path, index),
+                "formatter_url": _optional_url(row.get("formatter.url", ""), path, index),
             }
         )
     return result

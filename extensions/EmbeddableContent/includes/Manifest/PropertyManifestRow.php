@@ -28,18 +28,23 @@ class PropertyManifestRow {
 	/** @var string|null Wikidata counterpart URI for the alignment statement */
 	private $alignWikidata;
 
+	/** @var string|null formatter URL template (external-id properties only) */
+	private $formatterUrl;
+
 	public function __construct(
 		array $labels,
 		array $descriptions,
 		string $datatype,
 		?string $alignUri,
-		?string $alignWikidata
+		?string $alignWikidata,
+		?string $formatterUrl = null
 	) {
 		$this->labels = $labels;
 		$this->descriptions = $descriptions;
 		$this->datatype = $datatype;
 		$this->alignUri = $alignUri;
 		$this->alignWikidata = $alignWikidata;
+		$this->formatterUrl = $formatterUrl;
 	}
 
 	/** @return array<string,string> */
@@ -62,5 +67,9 @@ class PropertyManifestRow {
 
 	public function getAlignWikidata(): ?string {
 		return $this->alignWikidata;
+	}
+
+	public function getFormatterUrl(): ?string {
+		return $this->formatterUrl;
 	}
 }

@@ -41,6 +41,8 @@ class ImportCitationMap extends Maintenance {
 
 	private const DEFAULT_PROPERTY_MAP_PAGE = 'MediaWiki:Citation-property-map.json';
 	private const DEFAULT_TYPE_MAP_PAGE = 'MediaWiki:Citation-type-map.json';
+	private const DEFAULT_SOURCE_PROPERTY_MAP_PAGE = 'MediaWiki:Citation-source-property-map.json';
+	private const DEFAULT_SOURCE_TYPE_MAP_PAGE = 'MediaWiki:Citation-source-type-map.json';
 
 	/** @var string */
 	private $extensionDir;
@@ -71,8 +73,12 @@ class ImportCitationMap extends Maintenance {
 		);
 		$this->addOption( 'property-map', 'Property map manifest path (default: the bundled manifest)', false, true );
 		$this->addOption( 'type-map', 'Type map manifest path (default: the bundled manifest)', false, true );
+		$this->addOption( 'source-property-map', 'Source property map manifest path (issue #7)', false, true );
+		$this->addOption( 'source-type-map', 'Source type map manifest path (issue #7)', false, true );
 		$this->addOption( 'page-property-map', 'Page title for the resolved property map', false, true );
 		$this->addOption( 'page-type-map', 'Page title for the resolved type map', false, true );
+		$this->addOption( 'page-source-property-map', 'Page title for the resolved source property map', false, true );
+		$this->addOption( 'page-source-type-map', 'Page title for the resolved source type map', false, true );
 		$this->addOption( 'dry-run', 'Resolve and print the maps without writing' );
 		$this->addOption( 'force', 'Overwrite an existing page' );
 		$this->addOption( 'strict', 'Fail on unresolved labels instead of skipping them' );
@@ -96,6 +102,12 @@ class ImportCitationMap extends Maintenance {
 			$typeMap = $reader->readTypeMap(
 				$this->getOption( 'type-map' ) ?? $this->extensionDir . '/manifests/citation-type-map.json'
 			);
+			$sourcePropertyMap = $reader->readPropertyMap(
+				$this->getOption( 'source-property-map' ) ?? $this->extensionDir . '/manifests/citation-source-property-map.json'
+			);
+			$sourceTypeMap = $reader->readTypeMap(
+				$this->getOption( 'source-type-map' ) ?? $this->extensionDir . '/manifests/citation-source-type-map.json'
+			);
 		} catch ( CitationMapException $e ) {
 			$this->fatalError( $e->getMessage() );
 		}
@@ -107,6 +119,14 @@ class ImportCitationMap extends Maintenance {
 		$this->publishMap(
 			$this->getOption( 'page-type-map' ) ?? self::DEFAULT_TYPE_MAP_PAGE,
 			$this->resolveTypeMap( $typeMap )
+		);
+		$this->publishMap(
+			$this->getOption( 'page-source-property-map' ) ?? self::DEFAULT_SOURCE_PROPERTY_MAP_PAGE,
+			$this->resolvePropertyMap( $sourcePropertyMap )
+		);
+		$this->publishMap(
+			$this->getOption( 'page-source-type-map' ) ?? self::DEFAULT_SOURCE_TYPE_MAP_PAGE,
+			$this->resolveTypeMap( $sourceTypeMap )
 		);
 
 		$this->output(

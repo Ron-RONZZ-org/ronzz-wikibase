@@ -23,10 +23,51 @@ PROPERTY_KINDS = {
     "source": ("provenance", "source"),
     "date": ("provenance", "date"),
 }
+
+# Issue #7: authority ExternalId properties (Special pages write these).
+EXTERNAL_ID_KINDS = {
+    "Wikidata ID": "wikidata",
+    "ORCID": "orcid",
+    "VIAF ID": "viaf",
+    "ISNI": "isni",
+    "DOI": "doi",
+    "ISBN-13": "isbn",
+    "OpenAlex Work ID": "openalex",
+    "PubMed ID": "pubmed",
+}
+
+# Issue #7: citation-metadata properties (full harvest).
+CITATION_METADATA_KINDS = {
+    "given name": "givenName",
+    "family name": "familyName",
+    "published in": "publishedIn",
+    "publisher": "publisher",
+    "page(s)": "pages",
+    "volume": "volume",
+    "issue": "issue",
+}
+
 CLASS_KINDS = {
     "quotation content": "quotation",
     "code snippet": "code",
     "mathematical expression": "math",
+}
+
+# Issue #7: agent classes (AddPerson / AddCollective).
+AGENT_CLASS_KINDS = {
+    "person": "person",
+    "organization": "organization",
+    "group of humans": "groupOfHumans",
+}
+
+# Issue #7: source/work classes (AddSource).
+SOURCE_CLASS_KINDS = {
+    "book": "book",
+    "scholarly article": "scholarlyArticle",
+    "website": "website",
+    "song": "song",
+    "film": "film",
+    "video": "video",
 }
 
 
@@ -35,15 +76,32 @@ def build_config(
     class_ids: dict[str, str],
     lexer_ids: dict[str, str],
     fallback_languages: list[str],
+    wikidata_class_qids: dict[str, str] | None = None,
 ) -> str:
     """Returns a PHP snippet assigning $wgEmbeddableContentConfig and the
-    Wikibase settings the seed is responsible for."""
+    Wikibase settings the seed is responsible for.
+
+    wikidata_class_qids maps an English class label to its Wikidata QID
+    (from the classes manifest align.wikidata column); used to derive the
+    Wikidata-QID -> local class key maps for harvest class inference.
+    """
+    wikidata_class_qids = wikidata_class_qids or {}
 
     classes: dict[str, str] = {}
     payload: dict[str, str] = {}
     for label, kind in CLASS_KINDS.items():
         if label in class_ids:
             classes[kind] = class_ids[label]
+
+    agent_classes: dict[str, str] = {}
+    for label, kind in AGENT_CLASS_KINDS.items():
+        if label in class_ids:
+            agent_classes[kind] = class_ids[label]
+
+    source_classes: dict[str, str] = {}
+    for label, kind in SOURCE_CLASS_KINDS.items():
+        if label in class_ids:
+            source_classes[kind] = class_ids[label]
 
     payload_props: dict[str, str] = {}
     provenance: dict[str, str] = {}
@@ -59,12 +117,36 @@ def build_config(
         elif section == "programmingLanguage":
             programming_language = prop_id
 
+    external_ids: dict[str, str] = {}
+    for label, key in EXTERNAL_ID_KINDS.items():
+        if label in property_ids:
+            external_ids[key] = property_ids[label]
+
+    citation_metadata: dict[str, str] = {}
+    for label, key in CITATION_METADATA_KINDS.items():
+        if label in property_ids:
+            citation_metadata[key] = property_ids[label]
+
+    source_class_by_qid = _class_by_qid(
+        wikidata_class_qids, class_ids, SOURCE_CLASS_KINDS
+    )
+    agent_class_by_qid = _class_by_qid(
+        wikidata_class_qids, class_ids, AGENT_CLASS_KINDS
+    )
+
     config: dict[str, Any] = {
         "instanceOf": property_ids.get("instance of"),
         "classes": classes,
+        "agentClasses": agent_classes,
+        "sourceClasses": source_classes,
         "payloadProperties": payload_props,
         "programmingLanguage": programming_language,
         "provenance": provenance,
+        "externalIds": external_ids,
+        "citationMetadata": citation_metadata,
+        "formatterUrl": property_ids.get("formatter URL"),
+        "sourceClassByWikidata": source_class_by_qid,
+        "agentClassByWikidata": agent_class_by_qid,
         "fallbackLanguages": fallback_languages,
         "lexers": dict(sorted(lexer_ids.items())),
     }
@@ -98,6 +180,21 @@ def build_config(
         "",
     ]
     return "\n".join(line for line in lines if "=> None" not in line and "=>null" not in line)
+
+
+def _class_by_qid(
+    wikidata_class_qids: dict[str, str],
+    class_ids: dict[str, str],
+    kinds: dict[str, str],
+) -> dict[str, str]:
+    """Derives {wikidata QID: local class key} for the classes in `kinds`
+    that exist locally and carry a Wikidata alignment in the manifest."""
+    result: dict[str, str] = {}
+    for label, kind in kinds.items():
+        qid = wikidata_class_qids.get(label)
+        if qid and label in class_ids:
+            result[qid] = kind
+    return result
 
 
 def build_report(

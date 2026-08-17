@@ -22,7 +22,7 @@
 	"config": {
 		"EmbeddableContentConfig": {
 			"value": [],
-			"description": "Instance-specific config map emitted by the seed (issue #6 D2): instanceOf, classes, payloadProperties, programmingLanguage, provenance, fallbackLanguages, lexers."
+			"description": "Instance-specific config map emitted by the seed (issue #6 D2 + issue #7): instanceOf, classes, agentClasses, sourceClasses, payloadProperties, programmingLanguage, provenance, externalIds, citationMetadata, formatterUrl, sourceClassByWikidata, agentClassByWikidata, fallbackLanguages, lexers."
 		}
 	},
 	"ServiceWiringFiles": [
@@ -43,6 +43,27 @@
 		},
 		"AddMath": {
 			"class": "EmbeddableContent\\Spec\\SpecialAddMath"
+		},
+		"AddPerson": {
+			"class": "EmbeddableContent\\Spec\\SpecialAddPerson",
+			"services": [
+				"EmbeddableContent.Config",
+				"EmbeddableContent.ProviderClient"
+			]
+		},
+		"AddSource": {
+			"class": "EmbeddableContent\\Spec\\SpecialAddSource",
+			"services": [
+				"EmbeddableContent.Config",
+				"EmbeddableContent.ProviderClient"
+			]
+		},
+		"AddCollective": {
+			"class": "EmbeddableContent\\Spec\\SpecialAddCollective",
+			"services": [
+				"EmbeddableContent.Config",
+				"EmbeddableContent.ProviderClient"
+			]
 		}
 	},
 	"APIModules": {
@@ -90,6 +111,19 @@
 			],
 			"targets": [
 				"desktop"
+			]
+		},
+		"ext.embeddableContent.entitysuggest": {
+			"scripts": [
+				"entitysuggest.js"
+			],
+			"dependencies": [
+				"mediawiki.api",
+				"oojs-ui"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
 			]
 		}
 	},

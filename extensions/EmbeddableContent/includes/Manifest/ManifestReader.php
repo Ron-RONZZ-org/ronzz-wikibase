@@ -14,7 +14,7 @@ namespace EmbeddableContent\Manifest;
  * - `label.<lang>` and `description.<lang>`: one column pair per language;
  *   the declared language sets must be identical.
  * - properties.csv additionally: `datatype` (required), `align.uri`,
- *   `align.wikidata` (optional).
+ *   `align.wikidata`, `formatter.url` (optional — external-id properties only).
  * - classes.csv: `align.uri`, `align.wikidata` (optional).
  * - languages.csv: `lexer` (required), `wikidata_qid` (optional).
  *
@@ -29,6 +29,7 @@ class ManifestReader {
 		'string',
 		'url',
 		'time',
+		'external-id',
 	];
 
 	/**
@@ -62,7 +63,8 @@ class ManifestReader {
 				$descriptions,
 				$datatype,
 				$this->optionalUrl( $row, 'align.uri', $path, $line ),
-				$this->optionalUrl( $row, 'align.wikidata', $path, $line )
+				$this->optionalUrl( $row, 'align.wikidata', $path, $line ),
+				$this->optionalUrl( $row, 'formatter.url', $path, $line )
 			);
 		}
 

@@ -138,10 +138,21 @@ def check(args: argparse.Namespace) -> int:
                 )
             time.sleep(10)
 
+    def check_entity_creation_pages() -> None:
+        # Issue #7: the three external-authority pages are registered and
+        # login-gated (anonymous must not trigger server-side fetches).
+        for page in ("AddPerson", "AddSource", "AddCollective"):
+            status, _, _ = http_get(f"{base}/wiki/Special:{page}")
+            expect(
+                status == 302 or status == 200,
+                f"Special:{page}: expected login redirect (302) or render (200), got HTTP {status}",
+            )
+
     run("embed surfaces (api + /embed/ + oEmbed)", check_embed_surfaces)
     run("language negotiation (?lang=)", check_embed_negotiation)
     run("citation styles (json/apa/vancouver/bibtex/ris)", check_citation_styles)
     run("sparql instance-of check", check_sparql)
+    run("entity-creation pages registered + login-gated (issue #7)", check_entity_creation_pages)
 
     if args.allow_sparql_fail and "sparql instance-of check" in failures:
         print(

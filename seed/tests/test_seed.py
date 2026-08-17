@@ -25,18 +25,27 @@ MANIFESTS = REPO_ROOT / "extensions" / "EmbeddableContent" / "manifests"
 class ManifestLoaderTest(unittest.TestCase):
     def test_load_properties_bundled(self):
         rows = manifest_loader.load_properties(MANIFESTS / "properties.csv")
-        self.assertEqual(len(rows), 11)
+        self.assertEqual(len(rows), 27)  # 11 core + 16 issue-#7 (external-id, citation metadata, formatter URL)
         instance_of = next(r for r in rows if r["labels"]["en"] == "instance of")
         self.assertEqual(instance_of["datatype"], "wikibase-item")
         self.assertEqual(instance_of["align_uri"], "http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
         content_text = next(r for r in rows if r["labels"]["en"] == "content text")
         self.assertIsNone(content_text["align_wikidata"])
+        orcid = next(r for r in rows if r["labels"]["en"] == "ORCID")
+        self.assertEqual(orcid["datatype"], "external-id")
+        self.assertEqual(orcid["formatter_url"], "https://orcid.org/$1")
+        doi = next(r for r in rows if r["labels"]["en"] == "DOI")
+        self.assertEqual(doi["formatter_url"], "https://doi.org/$1")
+        formatter = next(r for r in rows if r["labels"]["en"] == "formatter URL")
+        self.assertEqual(formatter["datatype"], "url")
 
     def test_load_classes_bundled(self):
         rows = manifest_loader.load_classes(MANIFESTS / "classes.csv")
-        self.assertEqual(len(rows), 4)
+        self.assertEqual(len(rows), 13)  # 4 content + 9 issue-#7 (agents + works)
         quotation = next(r for r in rows if r["labels"]["en"] == "quotation content")
         self.assertEqual(quotation["align_uri"], "https://schema.org/Quotation")
+        person = next(r for r in rows if r["labels"]["en"] == "person")
+        self.assertEqual(person["align_wikidata"], "https://www.wikidata.org/wiki/Q5")
 
     def test_load_languages_bundled(self):
         rows = manifest_loader.load_languages(MANIFESTS / "languages.csv")
@@ -82,6 +91,31 @@ class ConfigBuilderTest(unittest.TestCase):
         self.assertIn("$wgWikibaseCitationInstanceOf = 'P31';", snippet)
         self.assertIn("'author' => 'P6'", snippet)  # wellKnownReferencePropertyIds
         self.assertIn("['length'] = 50000", snippet)
+
+    def test_config_fragment_issue7_sections(self):
+        snippet = config_builder.build_config(
+            property_ids={
+                "instance of": "P31",
+                "Wikidata ID": "P10", "ORCID": "P11", "DOI": "P12",
+                "given name": "P13", "published in": "P14", "formatter URL": "P15",
+            },
+            class_ids={"person": "Q20", "book": "Q21", "scholarly article": "Q22"},
+            lexer_ids={},
+            fallback_languages=["fr", "en", "eo"],
+            wikidata_class_qids={"person": "Q5", "book": "Q571", "scholarly article": "Q13442814"},
+        )
+        self.assertIn("'externalIds'", snippet)
+        self.assertIn("'orcid' => 'P11'", snippet)
+        self.assertIn("'citationMetadata'", snippet)
+        self.assertIn("'givenName' => 'P13'", snippet)
+        self.assertIn("'formatterUrl' => 'P15'", snippet)
+        self.assertIn("'sourceClasses'", snippet)
+        self.assertIn("'book' => 'Q21'", snippet)
+        self.assertIn("'agentClasses'", snippet)
+        self.assertIn("'person' => 'Q20'", snippet)
+        # harvest inference maps: Wikidata QID -> local class key
+        self.assertIn("'Q571' => 'book'", snippet)
+        self.assertIn("'Q5' => 'person'", snippet)
 
     def test_report_lists_vocabulary(self):
         report = config_builder.build_report(

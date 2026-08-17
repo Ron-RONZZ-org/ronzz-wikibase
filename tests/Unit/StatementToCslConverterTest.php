@@ -38,8 +38,21 @@ class StatementToCslConverterTest extends TestCase {
 				][$field] ?? null;
 			}
 
+			public function getSourcePropertyForField( string $field ): ?string {
+				return [
+					'container-title' => 'P21',
+					'publisher' => 'P22',
+					'volume' => 'P23',
+					'DOI' => 'P24',
+				][$field] ?? null;
+			}
+
 			public function getTypeForClass( string $classId ): ?string {
 				return $classId === 'Q5' ? 'article' : null;
+			}
+
+			public function getTypeForSourceClass( string $classId ): ?string {
+				return $classId === 'Q20' ? 'book' : null;
 			}
 		};
 	}
@@ -52,11 +65,39 @@ class StatementToCslConverterTest extends TestCase {
 					$item->setLabel( 'en', 'Ada Lovelace' );
 					return $item;
 				}
+				if ( $entityId->getSerialization() === 'Q20' ) {
+					$item = new Item( new ItemId( 'Q20' ) );
+					$item->setLabel( 'en', 'Notes by the Translator' );
+					$item->setLabel( 'fr', 'Notes de la traductrice' );
+					$item->getStatements()->addNewStatement(
+						new PropertyValueSnak( new PropertyId( 'P31' ), new EntityIdValue( new ItemId( 'Q20' ) ) )
+					);
+					$item->getStatements()->addNewStatement(
+						new PropertyValueSnak( new PropertyId( 'P21' ), new StringValue( 'Scientific Memoirs' ) )
+					);
+					$item->getStatements()->addNewStatement(
+						new PropertyValueSnak( new PropertyId( 'P22' ), new StringValue( 'R. & J. E. Taylor' ) )
+					);
+					$item->getStatements()->addNewStatement(
+						new PropertyValueSnak( new PropertyId( 'P24' ), new StringValue( '10.1000/notes' ) )
+					);
+					return $item;
+				}
+				if ( $entityId->getSerialization() === 'Q30' ) {
+					// A book source WITHOUT `published in`: container-title
+					// must fall back to the label.
+					$item = new Item( new ItemId( 'Q30' ) );
+					$item->setLabel( 'en', 'The Old Man and the Sea' );
+					$item->getStatements()->addNewStatement(
+						new PropertyValueSnak( new PropertyId( 'P31' ), new EntityIdValue( new ItemId( 'Q20' ) ) )
+					);
+					return $item;
+				}
 				return null;
 			}
 
 			public function hasEntity( EntityId $entityId ) {
-				return $entityId->getSerialization() === 'Q10';
+				return in_array( $entityId->getSerialization(), [ 'Q10', 'Q20', 'Q30' ], true );
 			}
 		};
 	}
@@ -140,5 +181,49 @@ class StatementToCslConverterTest extends TestCase {
 
 		$csl = $converter->toCslJson( $item );
 		$this->assertArrayNotHasKey( 'author', $csl );
+	}
+
+	public function testTypeFollowsSourceClassAndSourceFieldsAreResolved(): void {
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31'
+		);
+		$item = new Item();
+		$item->setLabel( 'en', 'A quotation from a book' );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P31' ), new EntityIdValue( new ItemId( 'Q5' ) ) ) );
+		// `source` statement (P8) pointing at the book item Q20.
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P8' ), new EntityIdValue( new ItemId( 'Q20' ) ) ) );
+
+		$csl = $converter->toCslJson( $item );
+
+		// Issue #7: CSL type follows the SOURCE class (Q20 -> book).
+		$this->assertSame( 'book', $csl['type'] );
+		$this->assertSame( 'Scientific Memoirs', $csl['container-title'] );
+		$this->assertSame( 'R. & J. E. Taylor', $csl['publisher'] );
+		$this->assertSame( '10.1000/notes', $csl['DOI'] );
+		// Source-level volume is unmapped in the fake -> omitted, not fatal.
+		$this->assertArrayNotHasKey( 'volume', $csl );
+	}
+
+	public function testContainerTitleFallsBackToSourceLabelForBooks(): void {
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31'
+		);
+		$item = new Item();
+		$item->setLabel( 'en', 'Another quotation' );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P31' ), new EntityIdValue( new ItemId( 'Q5' ) ) ) );
+		// Source Q30 is a book WITHOUT `published in` (P21).
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P8' ), new EntityIdValue( new ItemId( 'Q30' ) ) ) );
+
+		$csl = $converter->toCslJson( $item );
+
+		// Label fallback: the source item's label IS the container title.
+		$this->assertSame( 'The Old Man and the Sea', $csl['container-title'] );
+		$this->assertSame( 'book', $csl['type'] );
 	}
 }

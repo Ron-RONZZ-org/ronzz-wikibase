@@ -48,6 +48,7 @@ abstract class SpecialAddContentItem extends SpecialPage {
 
 	public function execute( $subPage ) {
 		$this->getOutput()->addModuleStyles( 'ext.embeddableContent.embed' );
+		$this->getOutput()->addModules( 'ext.embeddableContent.entitysuggest' );
 		$form = HTMLForm::factory( 'ooui', $this->buildFields(), $this->getContext() );
 		$form->setTitle( $this->getPageTitle() )
 			->setSubmitTextMsg( 'embeddablecontent-add-submit' )
@@ -98,23 +99,27 @@ abstract class SpecialAddContentItem extends SpecialPage {
 			];
 		}
 
-		// Uniform provenance block (issue #6 §4.1).
-		$fields += [
-			'attributedTo' => [
-				'type' => 'text',
-				'label-message' => 'embeddablecontent-add-attributedto',
-				'required' => $this->getKind() === 'quotation', // house rule: author required for quotations
+		// Uniform provenance block (issue #6 §4.1). Issue #7: the plain
+		// item-id fields are entity search+autofill comboboxes backed by
+		// wbsearchentities (ext.embeddableContent.entitysuggest); the
+		// submitted value stays an item id (parseOptionalItemId unchanged).
+		$entityCombobox = static function ( string $messageKey, bool $required ): array {
+			return [
+				'type' => 'combobox',
+				'options' => [],
+				'label-message' => $messageKey,
+				'required' => $required,
+				'cssclass' => 'wb-entity-combobox',
 				'help-message' => 'embeddablecontent-add-entityid-help',
-			],
+			];
+		};
+		$fields += [
+			'attributedTo' => $entityCombobox( 'embeddablecontent-add-attributedto', $this->getKind() === 'quotation' ),
 			'sourceUrl' => [
 				'type' => 'url',
 				'label-message' => 'embeddablecontent-add-sourceurl',
 			],
-			'source' => [
-				'type' => 'text',
-				'label-message' => 'embeddablecontent-add-source',
-				'help-message' => 'embeddablecontent-add-entityid-help',
-			],
+			'source' => $entityCombobox( 'embeddablecontent-add-source', false ),
 			'date' => [
 				'type' => 'text',
 				'label-message' => 'embeddablecontent-add-date',

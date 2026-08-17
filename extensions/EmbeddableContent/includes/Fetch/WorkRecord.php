@@ -12,6 +12,9 @@ namespace EmbeddableContent\Fetch;
  */
 final class WorkRecord {
 
+	/**
+	 * @param string[] $classWikidataIds instance-of class QIDs from the authority
+	 */
 	public function __construct(
 		public readonly string $title,
 		public readonly ?string $containerTitle = null,
@@ -25,6 +28,7 @@ final class WorkRecord {
 		public readonly ?string $pubmedId = null,
 		public readonly ?string $wikidataId = null,
 		public readonly ?int $issuedYear = null,
+		public readonly array $classWikidataIds = [],
 		public readonly string $provider = '',
 		public readonly ?string $providerId = null
 	) {

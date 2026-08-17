@@ -66,6 +66,7 @@ class WikidataWorkProvider implements WorkProvider {
 			pubmedId: $this->core->stringValue( $harvest['claims'], 'P698' ),
 			wikidataId: $qid,
 			issuedYear: $this->core->yearValue( $harvest['claims'], 'P577' ),
+			classWikidataIds: $this->core->itemValueIds( $harvest['claims'], [ 'P31' ] ),
 			provider: 'wikidata',
 			providerId: $qid
 		);

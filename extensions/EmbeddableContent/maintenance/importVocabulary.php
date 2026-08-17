@@ -172,6 +172,9 @@ class ImportVocabulary extends Maintenance {
 		}
 
 		$this->alignProperty( $property, $row->getAlignUri(), $row->getAlignWikidata() );
+		if ( $row->getDatatype() === 'external-id' && $row->getFormatterUrl() !== null ) {
+			$this->setFormatterUrl( $property, $row->getFormatterUrl() );
+		}
 	}
 
 	private function importClassRow( ClassManifestRow $row ): void {
@@ -232,6 +235,33 @@ class ImportVocabulary extends Maintenance {
 			);
 		}
 		$this->saveUpdate( $property, 'Align property with equivalent property' );
+	}
+
+	/**
+	 * Adds a `formatter URL` statement to an external-id property so RDF
+	 * export emits dereferenceable URIs for its values. The formatter URL
+	 * property is resolved by label like every other mechanism property.
+	 */
+	private function setFormatterUrl( Property $property, string $formatterUrl ): void {
+		$formatterUrlId = $this->findEntityIdByLabel( 'formatter URL', Property::ENTITY_TYPE, self::ANCHOR_LANGUAGE );
+		if ( $formatterUrlId === null ) {
+			$this->error(
+				sprintf(
+					'Cannot set formatter URL for "%s": the "formatter URL" property is not seeded',
+					$this->primaryLabel( $property->getFingerprint()->getLabels()->toTextArray() )
+				)
+			);
+			$this->statistics['errors']++;
+			return;
+		}
+
+		$property->getStatements()->addNewStatement(
+			new PropertyValueSnak( $formatterUrlId, new StringValue( $formatterUrl ) ),
+			null,
+			null,
+			( new GuidGenerator() )->newGuid( $property->getId() )
+		);
+		$this->saveUpdate( $property, 'Set formatter URL' );
 	}
 
 	private function alignClass( Item $item, ?string $alignUri, ?string $alignWikidata ): void {

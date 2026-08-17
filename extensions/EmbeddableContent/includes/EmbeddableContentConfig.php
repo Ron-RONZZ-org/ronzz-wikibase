@@ -100,7 +100,96 @@ class EmbeddableContentConfig {
 		return null;
 	}
 
-	/** @return string[] */
+	/**
+	 * Issue #7: authority ExternalId property ids (Special:AddPerson etc.).
+	 *
+	 * @return array<string,string> canonical key => property id (absent keys omitted)
+	 */
+	public function externalIdPropertyIds(): array {
+		return $this->requireStringMap( 'externalIds', [
+			'wikidata', 'orcid', 'viaf', 'isni', 'doi', 'isbn', 'openalex', 'pubmed',
+		] );
+	}
+
+	/**
+	 * Issue #7: citation-metadata property ids (full harvest statements).
+	 *
+	 * @return array<string,string> canonical key => property id
+	 */
+	public function citationMetadataPropertyIds(): array {
+		return $this->requireStringMap( 'citationMetadata', [
+			'givenName', 'familyName', 'publishedIn', 'publisher', 'pages', 'volume', 'issue',
+		] );
+	}
+
+	/**
+	 * Issue #7: source/work class ids (Special:AddSource class picker).
+	 *
+	 * @return array<string,string> canonical key => item id
+	 */
+	public function sourceClasses(): array {
+		return $this->requireStringMap( 'sourceClasses', [
+			'book', 'scholarlyArticle', 'website', 'song', 'film', 'video',
+		] );
+	}
+
+	/**
+	 * Issue #7: agent class ids (Special:AddPerson / AddCollective).
+	 *
+	 * @return array<string,string> canonical key => item id
+	 */
+	public function agentClasses(): array {
+		return $this->requireStringMap( 'agentClasses', [
+			'person', 'organization', 'groupOfHumans',
+		] );
+	}
+
+	/**
+	 * Issue #7: Wikidata QID → local source-class key (harvest class inference).
+	 *
+	 * @return array<string,string>
+	 */
+	public function sourceClassByWikidata(): array {
+		return $this->optionalStringMap( 'sourceClassByWikidata' );
+	}
+
+	/**
+	 * Issue #7: Wikidata QID → local agent-class key (harvest class inference).
+	 *
+	 * @return array<string,string>
+	 */
+	public function agentClassByWikidata(): array {
+		return $this->optionalStringMap( 'agentClassByWikidata' );
+	}
+
+	/**
+	 * Issue #7: `formatter URL` property id, or null when not configured.
+	 */
+	public function formatterUrlPropertyId(): ?string {
+		$value = $this->raw['formatterUrl'] ?? null;
+		return is_string( $value ) && $value !== '' ? $value : null;
+	}
+
+	/**
+	 * Lenient string=>string map getter (no key filtering — e.g. the
+	 * QID→class-key inference maps).
+	 *
+	 * @return array<string,string>
+	 */
+	private function optionalStringMap( string $key ): array {
+		$value = $this->raw[$key] ?? [];
+		if ( !is_array( $value ) ) {
+			throw new InvalidArgumentException( "EmbeddableContentConfig: $key must be a map" );
+		}
+		$result = [];
+		foreach ( $value as $mapKey => $mapValue ) {
+			if ( is_string( $mapKey ) && is_string( $mapValue ) ) {
+				$result[$mapKey] = $mapValue;
+			}
+		}
+		return $result;
+	}
+
 	private function requireStringMap( string $key, array $allowedKeys ): array {
 		$value = $this->raw[$key] ?? [];
 		if ( !is_array( $value ) ) {

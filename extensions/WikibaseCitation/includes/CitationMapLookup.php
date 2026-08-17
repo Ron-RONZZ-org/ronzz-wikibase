@@ -12,7 +12,15 @@ namespace WikibaseCitation;
  */
 interface CitationMapLookup {
 
+	/** CSL field → property id, resolved on the CONTENT item. */
 	public function getPropertyForField( string $field ): ?string;
 
+	/** CSL field → property id, resolved on the SOURCE item (issue #7 full harvest). */
+	public function getSourcePropertyForField( string $field ): ?string;
+
+	/** Content class item id → CSL type. */
 	public function getTypeForClass( string $classId ): ?string;
+
+	/** Source class item id → CSL type (issue #7: type follows source class). */
+	public function getTypeForSourceClass( string $classId ): ?string;
 }

@@ -20,6 +20,7 @@ final class WikidataWorkProviderTest extends TestCase {
 					'Q571' => [
 						'labels' => [ 'en' => [ 'value' => 'The Old Man and the Sea' ] ],
 						'claims' => [
+							'P31' => [ [ 'mainsnak' => [ 'datavalue' => [ 'value' => [ 'id' => 'Q571' ] ] ] ] ],
 							'P1433' => [ [ 'mainsnak' => [ 'datavalue' => [ 'value' => [ 'id' => 'Q999' ] ] ] ] ],
 							'P123' => [ [ 'mainsnak' => [ 'datavalue' => [ 'value' => [ 'id' => 'Q888' ] ] ] ] ],
 							'P478' => [ [ 'mainsnak' => [ 'datavalue' => [ 'value' => '42' ] ] ] ],
@@ -56,6 +57,7 @@ final class WikidataWorkProviderTest extends TestCase {
 		$this->assertSame( 'W2000000001', $record->openalexId );
 		$this->assertSame( '12345678', $record->pubmedId );
 		$this->assertSame( 2019, $record->issuedYear );
+		$this->assertSame( [ 'Q571' ], $record->classWikidataIds );
 	}
 
 	public function testByDoiResolvesViaSparql(): void {

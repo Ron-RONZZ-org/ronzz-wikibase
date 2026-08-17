@@ -18,9 +18,20 @@ use Wikibase\DataModel\Statement\Statement;
  * property map (CSL field => local property id). Deterministic; missing
  * fields are omitted, never fatal (issue #6 §7).
  *
+ * Issue #7 additions:
+ *  - CSL type follows the SOURCE class (content-class × source-class aware)
+ *  - source-level fields (container-title/publisher/page/volume/issue/DOI/
+ *    ISBN) are read from the `source` item via the source property map;
+ *    container-title falls back to the source item's label (books)
+ *
  * @license GPL-2.0-or-later
  */
 class StatementToCslConverter {
+
+	/** Source-level CSL fields resolved against the source item. */
+	private const SOURCE_LEVEL_FIELDS = [
+		'container-title', 'publisher', 'page', 'volume', 'issue', 'DOI', 'ISBN',
+	];
 
 	/** @var EntityLookup */
 	private $entityLookup;
@@ -50,8 +61,13 @@ class StatementToCslConverter {
 	 * @return array<string,mixed> CSL-JSON
 	 */
 	public function toCslJson( Item $item ): array {
-		$classIds = $this->classIdsOf( $item );
-		$csl = [ 'type' => $this->typeMapper->getTypeForClasses( $classIds ) ];
+		$sourceItem = $this->sourceItemOf( $item );
+		$contentClassIds = $this->classIdsOf( $item );
+		$sourceClassIds = $sourceItem !== null ? $this->classIdsOf( $sourceItem ) : [];
+
+		$csl = [
+			'type' => $this->typeMapper->getTypeForContentAndSource( $contentClassIds, $sourceClassIds ),
+		];
 
 		$label = $this->labelOf( $item );
 		if ( $label !== '' ) {
@@ -68,9 +84,6 @@ class StatementToCslConverter {
 			}
 			return [ [ 'literal' => $name ] ];
 		}, $csl, 'author' );
-		$this->addFromStatement( $item, 'container-title', static function ( $value ) {
-			return (string)$value;
-		}, $csl, 'container-title' );
 		$this->addFromStatement( $item, 'issued', static function ( $value ) {
 			return $value instanceof TimeValue
 				? [ 'date-parts' => [ [ (int)substr( ltrim( $value->getTime(), '+' ), 0, 4 ) ] ] ]
@@ -80,7 +93,86 @@ class StatementToCslConverter {
 			return (string)$value;
 		}, $csl, 'URL' );
 
+		// Issue #7: source-level fields from the source item.
+		foreach ( self::SOURCE_LEVEL_FIELDS as $field ) {
+			$this->addFromSource( $sourceItem, $field, $csl );
+		}
+		if ( $sourceItem !== null && !isset( $csl['container-title'] ) ) {
+			// Books: the container IS the source item (label fallback).
+			$sourceLabel = $this->labelOf( $sourceItem );
+			if ( $sourceLabel !== '' ) {
+				$csl['container-title'] = $sourceLabel;
+			}
+		}
+
 		return $csl;
+	}
+
+	/**
+	 * Resolves the `source` statement value to its item, or null.
+	 */
+	private function sourceItemOf( Item $item ): ?Item {
+		$sourcePropertyId = $this->propertyMap->getPropertyForField( 'container-title' );
+		if ( $sourcePropertyId === null ) {
+			return null;
+		}
+		$statement = $this->bestStatement( $item, $sourcePropertyId );
+		if ( $statement === null ) {
+			return null;
+		}
+		$snak = $statement->getMainSnak();
+		if ( !$snak instanceof PropertyValueSnak ) {
+			return null;
+		}
+		$value = $snak->getDataValue();
+		if ( $value instanceof EntityIdValue ) {
+			$value = $value->getEntityId();
+		}
+		if ( !$value instanceof ItemId ) {
+			return null;
+		}
+		$target = $this->entityLookup->getEntity( $value );
+		return $target instanceof Item ? $target : null;
+	}
+
+	/**
+	 * Reads a source-level CSL field from the source item via the source
+	 * property map; item-typed values fall back to their labels.
+	 *
+	 * @param array<string,mixed> $csl
+	 */
+	private function addFromSource( ?Item $sourceItem, string $field, array &$csl ): void {
+		if ( $sourceItem === null ) {
+			return;
+		}
+		$propertyId = $this->propertyMap->getSourcePropertyForField( $field );
+		if ( $propertyId === null ) {
+			return;
+		}
+		$statement = $this->bestStatement( $sourceItem, $propertyId );
+		if ( $statement === null ) {
+			return;
+		}
+		$snak = $statement->getMainSnak();
+		if ( !$snak instanceof PropertyValueSnak ) {
+			return;
+		}
+
+		$value = $snak->getDataValue();
+		if ( $value instanceof EntityIdValue ) {
+			$value = $value->getEntityId();
+		}
+		if ( $value instanceof ItemId ) {
+			$target = $this->entityLookup->getEntity( $value );
+			$value = $target instanceof Item ? $this->labelOf( $target ) : $value->getSerialization();
+		} elseif ( $value instanceof StringValue ) {
+			$value = $value->getValue();
+		}
+
+		if ( $value === null || $value === '' ) {
+			return;
+		}
+		$csl[$field] = $value;
 	}
 
 	/**
@@ -88,6 +180,7 @@ class StatementToCslConverter {
 	 * (transformed by $transform) to $csl under $field.
 	 *
 	 * @param callable $transform callable(mixed $value): mixed
+	 * @param array<string,mixed> $csl
 	 */
 	private function addFromStatement(
 		Item $item,
@@ -115,7 +208,7 @@ class StatementToCslConverter {
 			$value = $value->getEntityId();
 		}
 
-		// Author/container values are items; fall back to their labels.
+		// Author values are items; fall back to their labels.
 		if ( $value instanceof ItemId ) {
 			$target = $this->entityLookup->getEntity( $value );
 			$value = $target instanceof Item ? $this->labelOf( $target ) : $value->getSerialization();

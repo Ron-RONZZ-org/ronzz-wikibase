@@ -26,3 +26,4 @@ __pycache__/
 # Dev stack generated config (WBS /config volume)
 dev/config/*
 !dev/config/Extensions.php
+seed/tests/out/

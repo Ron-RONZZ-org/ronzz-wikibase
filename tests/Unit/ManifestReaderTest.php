@@ -25,7 +25,7 @@ class ManifestReaderTest extends TestCase {
 
 	public function testBundledPropertiesManifestParses(): void {
 		$rows = $this->reader->readProperties( self::EXT . '/manifests/properties.csv' );
-		$this->assertCount( 11, $rows );
+		$this->assertCount( 27, $rows ); // 11 core + 16 issue-#7
 
 		$instanceOf = $rows[0];
 		$this->assertSame( 'instance of', $instanceOf->getLabels()['en'] );
@@ -49,11 +49,24 @@ class ManifestReaderTest extends TestCase {
 			'https://www.wikidata.org/wiki/Property:P1628',
 			$equivalentProperty->getAlignWikidata()
 		);
+
+		// Issue #7: external-id authority properties carry formatter URLs.
+		$orcid = null;
+		foreach ( $rows as $row ) {
+			if ( $row->getLabels()['en'] === 'ORCID' ) {
+				$orcid = $row;
+				break;
+			}
+		}
+		$this->assertNotNull( $orcid );
+		$this->assertSame( 'external-id', $orcid->getDatatype() );
+		$this->assertSame( 'https://orcid.org/$1', $orcid->getFormatterUrl() );
+		$this->assertSame( 'https://www.wikidata.org/wiki/Property:P496', $orcid->getAlignWikidata() );
 	}
 
 	public function testBundledClassesManifestParses(): void {
 		$rows = $this->reader->readClasses( self::EXT . '/manifests/classes.csv' );
-		$this->assertCount( 4, $rows );
+		$this->assertCount( 13, $rows ); // 4 content + 9 issue-#7
 
 		$this->assertSame( 'quotation content', $rows[0]->getLabels()['en'] );
 		$this->assertSame( 'https://schema.org/Quotation', $rows[0]->getAlignUri() );

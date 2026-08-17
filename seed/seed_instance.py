@@ -141,6 +141,23 @@ class SeedOrchestrator:
                         SUMMARY_PREFIX + "align property",
                     )
 
+            if row["datatype"] == "external-id" and row.get("formatter_url"):
+                self.set_formatter_url(entity_id, row["formatter_url"])
+
+    def set_formatter_url(self, property_id: str, formatter_url: str) -> None:
+        """Sets the `formatter URL` statement on an external-id property so
+        RDF export emits dereferenceable URIs for its values (issue #7)."""
+        formatter_id = self.find("formatter URL", "property", ANCHOR_LANGUAGE)
+        if formatter_id is None:
+            raise SystemExit(
+                'Cannot set formatter URL: the "formatter URL" property is not seeded'
+            )
+        self.api.add_claims(
+            property_id,
+            {formatter_id: [dogfood.url_claim(formatter_id, formatter_url)]},
+            SUMMARY_PREFIX + "set formatter URL",
+        )
+
     def phase_classes(self) -> None:
         print("— classes")
         equiv_class_id = None
@@ -301,8 +318,17 @@ class SeedOrchestrator:
         if self.args.dry_run:
             print("  [dry-run] would write config fragment + report + ids.json")
             return
+        wikidata_class_qids = {
+            row["labels"][ANCHOR_LANGUAGE]: url.rstrip("/").rsplit("/", 1)[-1]
+            for row in self.classes
+            if (url := row.get("align_wikidata")) and url.rstrip("/").rsplit("/", 1)[-1].startswith("Q")
+        }
         snippet = config_builder.build_config(
-            self.property_ids, self.class_ids, self.lexer_ids, self.languages_available
+            self.property_ids,
+            self.class_ids,
+            self.lexer_ids,
+            self.languages_available,
+            wikidata_class_qids,
         )
         report = config_builder.build_report(
             self.property_ids, self.class_ids, self.lexer_ids, self.dogfood_ids, self.languages_available
