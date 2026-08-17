@@ -104,7 +104,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	// ------------------------------------------------------------- step 1
 
 	private function executeSearch(): void {
-		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-' . $this->kindKey() . '-title' ) );
+		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-' . $this->kindKey() . '-title' )->text() );
 		$form = HTMLForm::factory( 'ooui', $this->buildSearchFields(), $this->getContext() );
 		$form->setTitle( $this->getPageTitle() )
 			->setSubmitTextMsg( 'embeddablecontent-extsearch-submit' )
@@ -163,7 +163,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			return;
 		}
 
-		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-' . $this->kindKey() . '-select-title' ) );
+		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-' . $this->kindKey() . '-select-title' )->text() );
 		$firstRecord = $records[0] ?? [];
 
 		$form = HTMLForm::factory( 'ooui', [
