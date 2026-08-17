@@ -16,18 +16,26 @@ Customization project for **wikibase.ronzz.org** — the self-hosted Wikibase
 | D5 — tests & acceptance (unit + E2E + XSS + page flows) | implemented |
 | D6 — deployment + docs | **deployed to production Aug 17 2026** (seeded + verified) |
 | Issue #7 — external-authority entity creation | implemented + deployed (`Special:AddPerson` / `AddSource` / `AddCollective`, fetch layer, citation type/source overhaul) |
+| Issue #11 — special-page visibility + `Special:Embed` 500 | fixed + deployed (`getDescription()`/`setHeaders()`, `showErrorPage()`, regression E2E) |
+| Issue #12 — external-search UX | implemented + deployed (search → select → review → create, manual fallback, detailed candidates) |
+| Embeds + autocomplete polish (PRs #15–#19) | implemented + deployed (visible toolbar w/ absolute snippet + language selector, bare-fragment embeds, KaTeX math + highlight.js code in a minimal embed skin, entity-combobox autocomplete, `describes`/`implementation of` fields, all-language quotation input, subdued provenance/printfooter) |
 
 ## Repository layout
 
 - `extensions/EmbeddableContent/` — vocabulary manifests (`manifests/`, incl.
   the issue-#7 ExternalId authority + citation-metadata properties and
   agent/work classes) + `maintenance/importVocabulary.php`; D3 renderer,
-  `Special:Embed`, `api.php?action=embed`, oEmbed, the content pages
-  (`Special:AddQuotation` / `AddCodeSnippet` / `AddMath`), the issue-#7
-  external-authority pages (`Special:AddPerson` / `AddSource` / `AddCollective`,
-  login-gated, import-on-reference), the `includes/Fetch/` provider layer
-  (Wikidata hub + dblp SPARQL, OpenAlex, Crossref, Open Library, ORCID —
-  SSRF-allowlisted), entity-page gadget (copy embed / copy citation).
+  `Special:Embed` (bare-fragment embeds rendered through a minimal `embed`
+  skin; vendored KaTeX + highlight.js for math/code), `api.php?action=embed`,
+  oEmbed, the content pages (`Special:AddQuotation` / `AddCodeSnippet` /
+  `AddMath` — all-language quotation input, `describes`/`implementation of`
+  subject fields, redirect-to-created-item), the issue-#7 external-authority
+  pages (`Special:AddPerson` / `AddSource` / `AddCollective`, login-gated,
+  search → select → review → create, manual fallback, detailed candidates
+  incl. descriptions), the `includes/Fetch/` provider layer (Wikidata hub +
+  dblp SPARQL, OpenAlex, Crossref, Open Library, ORCID — SSRF-allowlisted),
+  entity-page toolbar gadget (copy embed with absolute URL + language
+  selector / copy citation) and entity-combobox autocomplete.
 - `extensions/WikibaseCitation/` — citation map manifests +
   `maintenance/importCitationMap.php` (publishes the 4 admin-editable
   `MediaWiki:Citation-*` pages); D4 `api.php?action=citation` with
