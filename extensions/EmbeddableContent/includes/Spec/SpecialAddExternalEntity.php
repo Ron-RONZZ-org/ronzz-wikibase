@@ -247,7 +247,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		$guidGenerator = new GuidGenerator();
 		$add = function ( $propertyId, $value, $reference = true ) use ( $item, $guidGenerator, $record ): void {
 			$statement = new Statement(
-				new PropertyValueSnak( new \Wikibase\DataModel\Entity\PropertyId( $propertyId ), $value ),
+				new PropertyValueSnak( new \Wikibase\DataModel\Entity\NumericPropertyId( $propertyId ), $value ),
 				$guidGenerator->newGuid( $item->getId() )
 			);
 			if ( $reference ) {
@@ -285,11 +285,11 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		$now = new \DateTimeImmutable( 'now', new \DateTimeZone( 'UTC' ) );
 		return new SnakList( [
 			new PropertyValueSnak(
-				new \Wikibase\DataModel\Entity\PropertyId( $provenance['sourceUrl'] ),
+				new \Wikibase\DataModel\Entity\NumericPropertyId( $provenance['sourceUrl'] ),
 				new StringValue( $url )
 			),
 			new PropertyValueSnak(
-				new \Wikibase\DataModel\Entity\PropertyId( $provenance['date'] ),
+				new \Wikibase\DataModel\Entity\NumericPropertyId( $provenance['date'] ),
 				new TimeValue(
 					'+' . $now->format( 'Y-m-d' ) . 'T00:00:00Z',
 					0, 0, 0,
