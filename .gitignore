@@ -13,3 +13,6 @@ package-lock.json
 .idea/
 .vscode/
 .DS_Store
+
+# opencode worktree plugin (auto-created per environment)
+/.opencode/
