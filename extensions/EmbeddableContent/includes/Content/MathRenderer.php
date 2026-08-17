@@ -21,9 +21,13 @@ class MathRenderer {
 	}
 
 	public function render( string $latex ): string {
+		// Strip one layer of $$…$$ / $…$ delimiters: the client-side KaTeX
+		// renderer expects bare TeX (the fallback text should match).
+		$clean = preg_replace( '/^\$\$?/', '', $latex ) ?? $latex;
+		$clean = preg_replace( '/\$\$?$/', '', $clean ) ?? $clean;
 		return '<span class="wb-embed wb-embed-math" data-latex="'
-			. $this->sanitizer->escapeAttribute( $latex ) . '">'
-			. $this->sanitizer->escapeText( $latex )
+			. $this->sanitizer->escapeAttribute( $clean ) . '">'
+			. $this->sanitizer->escapeText( $clean )
 			. '</span>';
 	}
 }

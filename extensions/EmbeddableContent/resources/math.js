@@ -19,6 +19,9 @@
 			if ( !latex ) {
 				return;
 			}
+			// Strip one layer of $$…$$ / $…$ delimiters — katex.render()
+			// expects bare TeX.
+			latex = latex.replace( /^\$\$?/, '' ).replace( /\$\$?$/, '' );
 			try {
 				window.katex.render( latex, span, {
 					throwOnError: false,
