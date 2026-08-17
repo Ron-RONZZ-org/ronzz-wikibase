@@ -65,3 +65,11 @@ body.skin-embedskin footer,
 	font-size: 0.72em;
 	color: #72777d;
 }
+
+/* MediaWiki's "Retrieved from …" printfooter on the embed page: keep it
+   (attribution), but style it like the provenance footer — small, subdued. */
+body.skin-embedskin .printfooter {
+	margin-top: 0.6em;
+	font-size: 0.72em;
+	color: #72777d;
+}
