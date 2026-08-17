@@ -21,7 +21,10 @@
 	}
 
 	function embedSnippet() {
-		return '<iframe src="' + mw.util.getUrl( 'Special:Embed/' + entityId ) +
+		// Absolute URL: the snippet is meant to be pasted on OTHER sites —
+		// a relative src would resolve against the consumer's origin.
+		var server = mw.config.get( 'wgServer' ) || '';
+		return '<iframe src="' + server + mw.util.getUrl( 'Special:Embed/' + entityId ) +
 			'" loading="lazy" style="width:100%;border:0;min-height:120px"></iframe>';
 	}
 
