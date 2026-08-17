@@ -55,3 +55,13 @@ body.wb-embed-page .katex-display {
 	overflow-x: auto;
 	overflow-y: hidden;
 }
+
+/* The sanitizer strips the class attribute from the extra-tag footer — keep
+   the provenance footer styling via the tag selector. Deliberately subdued:
+   small, low-contrast provenance line under the content. */
+body.wb-embed-page footer,
+.wb-embed footer {
+	margin-top: 0.6em;
+	font-size: 0.72em;
+	color: #72777d;
+}
