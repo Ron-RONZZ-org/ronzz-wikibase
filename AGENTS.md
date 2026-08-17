@@ -35,6 +35,13 @@ never belong in this repo** — they live in the private Nextcloud docs
 4. Test layers: PHPUnit unit + MediaWiki integration + E2E (curl the endpoints:
    `tests/e2e/run_e2e.py` acceptance/XSS, `tests/e2e/run_pages_e2e.py` for the
    issue-#7 page flows); XSS suite is mandatory for EmbeddableContent.
+5. **WDQS updater quirk (0.3.156)**: on a *fresh* instance its backoff polling
+   can skip entities created while it is mid-catch-up. This is known, bounded
+   (catch-up only; steady-state production polling is unaffected), and
+   documented — see `dev/README.md`, issue #6, and the upstream ticket
+   (wmde/wikibase-suite#962). **Do not re-debug it.** The SPARQL acceptance
+   check runs as a warning in CI (`--allow-sparql-fail`) and is *fatal* in the
+   seed's self-verification, which is the production safety net for this quirk.
 
 ## CI (GitHub Actions — public repo, unlimited minutes)
 
@@ -59,4 +66,5 @@ never belong in this repo** — they live in the private Nextcloud docs
 - Overall plan: GitHub issue #6 (supersedes #1–#5)
 - instance docs: `docs/` in this repo.
 - MediaWiki/Wikibase docs: mediawiki.org, wikibase-docker (github.com/wmde/wikibase-docker).
+- Known environment quirks: WDQS updater catch-up backoff (see Workflow #5).
 - Dev/CI stack: `dev/README.md`; workflows: `.github/workflows/ci.yml`.

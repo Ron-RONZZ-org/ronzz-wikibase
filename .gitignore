@@ -27,3 +27,6 @@ __pycache__/
 dev/config/*
 !dev/config/Extensions.php
 seed/tests/out/
+
+# opencode worktree plugin (auto-created per environment)
+/.opencode/
