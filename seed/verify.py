@@ -22,6 +22,13 @@ class VerifyError(Exception):
     """Raised when a self-verification check fails."""
 
 
+# Concept URI of the instance (WDQS entity namespace). Must match the
+# updater's --conceptUri (see docs/README.md). Queries MUST declare their
+# prefixes explicitly — the store's default `wd:`/`wdt:` point at
+# wikidata.org, not at this instance.
+CONCEPT_URI = "https://wikibase.ronzz.org"
+
+
 def _get(url: str, timeout: int = 60) -> tuple[int, bytes, str]:
     request = urllib.request.Request(url, headers={"User-Agent": "ronzz-wikibase-seed/1.0"})
     try:
@@ -102,6 +109,7 @@ def self_verify(
 
     def check_sparql_once() -> bool:
         query = (
+            f"PREFIX wd: <{CONCEPT_URI}/entity/> PREFIX wdt: <{CONCEPT_URI}/prop/direct/> "
             f"SELECT ?item WHERE {{ ?item wdt:{instance_of_id} wd:{quotation_class_id} }} LIMIT 5"
         )
         status, body, content_type = _get(
