@@ -210,7 +210,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		try {
 			$itemId = $this->createFromRecord( $record, $classItemId );
 		} catch ( \Throwable $e ) {
-			return $this->msg( 'embeddablecontent-extcreate-error', get_class( $e ) )->text();
+			return $this->msg( 'embeddablecontent-extcreate-error', get_class( $e ), $e->getMessage() )->text();
 		}
 
 		$this->getRequest()->getSession()->remove( self::SESSION_PREFIX . $token );

@@ -64,6 +64,6 @@
 	"embeddablecontent-extselect-retry": "Start a new search.",
 	"embeddablecontent-extselect-invalid": "No record selected.",
 	"embeddablecontent-extselect-classrequired": "Choose a class for the new item.",
-	"embeddablecontent-extcreate-error": "Creating the item failed ($1). Please try again or create it manually.",
+	"embeddablecontent-extcreate-error": "Creating the item failed ($1: $2). Please try again or create it manually.",
 	"embeddablecontent-extcreate-edit-summary": "Imported $1 from an external authority"
 }

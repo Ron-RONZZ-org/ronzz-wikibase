@@ -63,6 +63,6 @@
 	"embeddablecontent-extselect-retry": "Komenci novan serĉon.",
 	"embeddablecontent-extselect-invalid": "Neniu registro elektita.",
 	"embeddablecontent-extselect-classrequired": "Elektu klason por la nova ero.",
-	"embeddablecontent-extcreate-error": "La kreado de la ero malsukcesis ($1). Provu denove aŭ kreu ĝin permane.",
+	"embeddablecontent-extcreate-error": "La kreado de la ero malsukcesis ($1: $2). Provu denove aŭ kreu ĝin permane.",
 	"embeddablecontent-extcreate-edit-summary": "Importis $1 el ekstera aŭtoritato"
 }

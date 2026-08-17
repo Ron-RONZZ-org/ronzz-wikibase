@@ -63,6 +63,6 @@
 	"embeddablecontent-extselect-retry": "Lancer une nouvelle recherche.",
 	"embeddablecontent-extselect-invalid": "Aucun enregistrement sélectionné.",
 	"embeddablecontent-extselect-classrequired": "Choisissez une classe pour le nouvel élément.",
-	"embeddablecontent-extcreate-error": "La création de l'élément a échoué ($1). Réessayez ou créez-le manuellement.",
+	"embeddablecontent-extcreate-error": "La création de l.élément a échoué ($1 : $2). Réessayez ou créez-le manuellement.",
 	"embeddablecontent-extcreate-edit-summary": "Importé $1 depuis une autorité externe"
 }
