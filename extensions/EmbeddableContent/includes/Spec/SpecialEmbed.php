@@ -31,6 +31,9 @@ class SpecialEmbed extends SpecialPage {
 	}
 
 	public function execute( $subPage ) {
+		// Standard special-page header plumbing (title from getDescription(),
+		// noindex + article-related=false); handlers may override the title.
+		$this->setHeaders();
 		$request = $this->getRequest();
 		$output = $this->getOutput();
 
@@ -139,6 +142,14 @@ class SpecialEmbed extends SpecialPage {
 		echo json_encode( $payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
 	}
 
+	private function showErrorPage( string $titleKey, string $messageKey ): void {
+		$output = $this->getOutput();
+		$output->setPageTitle( $this->msg( $titleKey )->text() );
+		$output->addHTML(
+			\MediaWiki\Html\Html::errorBox( $this->msg( $messageKey )->escaped() )
+		);
+	}
+
 	private function respondError( RenderException $e ): void {
 		$output = $this->getOutput();
 		$output->setArticleBodyOnly( true );
@@ -187,6 +198,18 @@ class SpecialEmbed extends SpecialPage {
 			return $this->parseEntityId( $m[1] );
 		}
 		return null;
+	}
+
+	/**
+	 * MW 1.43+ resolves the special-page description from the bare lowercase
+	 * page name (strtolower( $this->mName )); our i18n uses the legacy
+	 * `special-<name>` keys. Override to keep the page listed on
+	 * Special:SpecialPages (T360723 skips pages whose description message
+	 * is disabled) and to render a proper page title — same pattern as
+	 * Wikibase's SpecialWikibasePage.
+	 */
+	public function getDescription() {
+		return $this->msg( 'special-' . strtolower( $this->getName() ) );
 	}
 
 	protected function getGroupName(): string {
