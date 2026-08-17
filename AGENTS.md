@@ -32,8 +32,9 @@ never belong in this repo** — they live in the private Nextcloud docs
 2. Extension work targets a dev instance (wikibase-docker reference deployment) —
    never develop directly on the production server.
 3. Content model: properties first, then items (house rule on the instance).
-4. Test layers: PHPUnit unit + MediaWiki integration + E2E (curl the endpoints);
-   XSS suite is mandatory for EmbeddableContent.
+4. Test layers: PHPUnit unit + MediaWiki integration + E2E (curl the endpoints:
+   `tests/e2e/run_e2e.py` acceptance/XSS, `tests/e2e/run_pages_e2e.py` for the
+   issue-#7 page flows); XSS suite is mandatory for EmbeddableContent.
 
 ## CI (GitHub Actions — public repo, unlimited minutes)
 
@@ -42,8 +43,9 @@ never belong in this repo** — they live in the private Nextcloud docs
 - **`integration` job** — full wikibase-docker stack (MW 1.46 + MariaDB + WDQS)
   on a 16 GB runner: D1 importers → D2 seed → wiki restart with the emitted
   config map → E2E acceptance (3 embed surfaces, 5 citation styles, SPARQL) →
-  XSS suite. Triggered on push/PR and via **`workflow_dispatch`** (on-demand
-  full validation without pushing). Depends on `unit`.
+  XSS suite → page-flow E2E (`run_pages_e2e.py`, issue-#7 Special pages).
+  Triggered on push/PR and via **`workflow_dispatch`** (on-demand full
+  validation without pushing). Depends on `unit`.
 - **Recommended loop on resource-tight machines** (this box: ~3.6 GiB free —
   the full stack needs ~2.5 GiB): edit → local unit tests
   (`docker run --rm -v "$PWD":/app -w /app ronzz-wikibase-test vendor/bin/phpunit`)

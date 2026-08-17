@@ -62,6 +62,11 @@ python3 tests/e2e/run_e2e.py check --api-url http://127.0.0.1:8082/api.php \
 python3 tests/e2e/run_e2e.py xss --api-url http://127.0.0.1:8082/api.php \
   --base-url http://127.0.0.1:8082 --user CIAdmin --password ci-admin-pass-2026
 
+# 5. Page-flow E2E (issue-#7 Special pages; self-cleaning)
+python3 tests/e2e/run_pages_e2e.py --base-url http://127.0.0.1:8082 \
+  --api-url http://127.0.0.1:8082/api.php \
+  --user CIAdmin --password-file <(echo -n ci-admin-pass-2026)
+
 # Clean reset (keeps nothing):
 docker compose -f dev/docker-compose.ci.yml down -v
 ```
