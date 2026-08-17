@@ -72,7 +72,7 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 	}
 
 	protected function reviewFieldSpecs( array $record ): array {
-		return $this->labelFieldSpec( 'embeddablecontent-add-label', (string)( $record['label'] ?? '' ) )
+		return $this->labelFieldSpec( 'label', 'embeddablecontent-add-label', (string)( $record['label'] ?? '' ) )
 			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
 			+ $this->externalIdFieldSpecs( $record );
 	}

@@ -424,27 +424,29 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 
 	/**
 	 * Shared field builders for the review/manual forms.
+	 * The label/description builders return a full `fieldname => descriptor`
+	 * entry (array union `+` requires distinct top-level keys).
 	 *
 	 * @return array<string,mixed>
 	 */
-	protected function labelFieldSpec( string $messageKey, string $default ): array {
-		return [
+	protected function labelFieldSpec( string $fieldName, string $messageKey, string $default ): array {
+		return [ $fieldName => [
 			'type' => 'text',
 			'label-message' => $messageKey,
 			'default' => $default,
 			'maxlength' => 250,
 			'required' => true,
-		];
+		] ];
 	}
 
 	/** @return array<string,mixed> */
 	protected function descriptionFieldSpec( string $default ): array {
-		return [
+		return [ 'description' => [
 			'type' => 'text',
 			'label-message' => 'embeddablecontent-field-description',
 			'default' => $default,
 			'maxlength' => 500,
-		];
+		] ];
 	}
 
 	/** @return array<string,mixed> */

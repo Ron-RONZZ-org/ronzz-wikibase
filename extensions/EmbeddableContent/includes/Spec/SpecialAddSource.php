@@ -95,7 +95,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	}
 
 	protected function reviewFieldSpecs( array $record ): array {
-		return $this->labelFieldSpec( 'embeddablecontent-extsearch-title', (string)( $record['title'] ?? '' ) )
+		return $this->labelFieldSpec( 'title', 'embeddablecontent-extsearch-title', (string)( $record['title'] ?? '' ) )
 			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
 			+ [
 				'containerTitle' => $this->plainTextField( 'embeddablecontent-field-publishedin', (string)( $record['containerTitle'] ?? '' ) ),

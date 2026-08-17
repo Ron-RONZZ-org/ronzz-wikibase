@@ -84,7 +84,7 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 	}
 
 	protected function reviewFieldSpecs( array $record ): array {
-		return $this->labelFieldSpec( 'embeddablecontent-add-label', (string)( $record['label'] ?? '' ) )
+		return $this->labelFieldSpec( 'label', 'embeddablecontent-add-label', (string)( $record['label'] ?? '' ) )
 			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
 			+ [
 				'givenName' => $this->plainTextField( 'embeddablecontent-field-givenname', (string)( $record['givenName'] ?? '' ) ),
