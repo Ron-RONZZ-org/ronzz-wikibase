@@ -10,6 +10,8 @@ Self-hosted **Wikibase** (structured-data wiki, the software behind Wikidata) on
 | MediaWiki | 1.46.0 (php-fpm 8.3.6) | `/var/www/wikibase/` |
 | Wikibase (repo) | source checkout (RELEASE-NOTES up to 1.44) | `/var/www/wikibase/extensions/Wikibase/` |
 | Skins | **Vector** (default, REL1_46 git clone) + **Timeless** (selectable) | `/var/www/wikibase/skins/{Vector,Timeless}/` |
+| EmbeddableContent (D3 + issue #7) | extension (quotation/code/math embeds, `Special:AddQuotation`/`AddCodeSnippet`/`AddMath`, `Special:AddPerson`/`AddSource`/`AddCollective`) | `/var/www/wikibase/extensions/EmbeddableContent/` |
+| WikibaseCitation (D4) | extension (`action=citation`, citeproc-php) | `/var/www/wikibase/extensions/WikibaseCitation/` |
 | WDQS (Blazegraph SPARQL + updater) | service 0.3.156 | `/var/www/wdqs/service-0.3.156/` |
 | Blazegraph data | journal `/var/www/wdqs/data/wikidata.jnl` (DiskRW, 200 MB max) | `/var/www/wdqs/data/` |
 | MySQL DB | database `wikibase` (local MySQL, legacy) | — |
@@ -127,8 +129,7 @@ curl -s "http://127.0.0.1:8081/api.php?action=query&meta=siteinfo&format=json"
 curl -s "http://127.0.0.1:8081/api.php?action=query&list=allpages&apnamespace=120&format=json"
 ```
 
-As of Aug 15 2026 the instance is fresh: **0 items / 0 properties** in Blazegraph
-(only WDQS's own `schema.org/dateModified` self-triple).
+As of the **Aug 17 2026 v1 deployment**: seeded vocabulary — **27 properties** (incl. 8 ExternalId authority properties with formatter URLs: Wikidata ID, ORCID, VIAF, ISNI, DOI, ISBN-13, OpenAlex Work ID, PubMed ID; plus citation metadata: given/family name, published in, publisher, page(s), volume, issue) and **13 classes** (quotation content, code snippet, mathematical expression, programming language, person, organization, group of humans, book, scholarly article, website, song, film, video), **80 Pygments language items**, and 5 dogfood entities (person/book/quotation/code/math). The seed's self-verification is green; `Special:AddPerson` / `AddSource` / `AddCollective` import entities from external authorities (Wikidata hub + dblp SPARQL, OpenAlex, Crossref, Open Library, ORCID).
 
 ### Skins (installed Aug 15 2026)
 
