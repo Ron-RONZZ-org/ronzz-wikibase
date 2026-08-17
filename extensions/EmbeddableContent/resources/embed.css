@@ -31,7 +31,7 @@
 }
 
 /* Bare embed page (embedskin): no wiki chrome, clean white background */
-body.wb-embed-page {
+body.skin-embedskin {
 	background: #fff;
 	color: #202122;
 	margin: 0;
@@ -40,17 +40,17 @@ body.wb-embed-page {
 	line-height: 1.5;
 }
 
-body.wb-embed-page #mw-content-text {
+body.skin-embedskin #mw-content-text {
 	margin: 0;
 	padding: 0;
 }
 
-body.wb-embed-page .mw-body-content {
+body.skin-embedskin .mw-body-content {
 	font-size: 1em;
 }
 
 /* KaTeX display blocks should breathe */
-body.wb-embed-page .katex-display {
+body.skin-embedskin .katex-display {
 	margin: 0.6em 0;
 	overflow-x: auto;
 	overflow-y: hidden;
@@ -59,7 +59,7 @@ body.wb-embed-page .katex-display {
 /* The sanitizer strips the class attribute from the extra-tag footer — keep
    the provenance footer styling via the tag selector. Deliberately subdued:
    small, low-contrast provenance line under the content. */
-body.wb-embed-page footer,
+body.skin-embedskin footer,
 .wb-embed footer {
 	margin-top: 0.6em;
 	font-size: 0.72em;
