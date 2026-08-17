@@ -372,17 +372,30 @@ class ContentRenderer {
 	 * the configured fallback languages, then the first available.
 	 */
 	private function labelFor( Item $item, string $lang ): string {
-		$label = $item->getFingerprint()->getLabel( $lang );
+		$label = $this->safeGetLabel( $item, $lang );
 		if ( $label !== null ) {
 			return $label->getText();
 		}
 		foreach ( $this->config->fallbackLanguages() as $fallback ) {
-			$label = $item->getFingerprint()->getLabel( $fallback );
+			$label = $this->safeGetLabel( $item, $fallback );
 			if ( $label !== null ) {
 				return $label->getText();
 			}
 		}
 		$labels = $item->getFingerprint()->getLabels()->toTextArray();
 		return $labels === [] ? $item->getId()->getSerialization() : reset( $labels );
+	}
+
+	/**
+	 * TermList::getByLanguage throws OutOfBoundsException for languages the
+	 * item does not carry (e.g. the synthetic 'all' marker) — the fallback
+	 * chain must not fatal on those.
+	 */
+	private function safeGetLabel( Item $item, string $lang ): ?\Wikibase\DataModel\Term\Term {
+		try {
+			return $item->getFingerprint()->getLabel( $lang );
+		} catch ( \OutOfBoundsException $e ) {
+			return null;
+		}
 	}
 }

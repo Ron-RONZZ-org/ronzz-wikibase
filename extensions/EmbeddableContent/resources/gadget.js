@@ -122,8 +122,8 @@
 		}
 
 		// Embed button: only for embeddable items (the API reports the
-		// available payload languages for the selector).
-		api.get( { action: 'embed', entity: entityId, output: 'html' } ).done( function ( data ) {
+		// available payload languages for the selector — only in json mode).
+		api.get( { action: 'embed', entity: entityId, output: 'json' } ).done( function ( data ) {
 			if ( !data.error && data.embed ) {
 				children = children.concat( embedControls( data.embed.languages ) );
 			}

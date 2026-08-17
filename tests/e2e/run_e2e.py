@@ -77,10 +77,12 @@ def check(args: argparse.Namespace) -> int:
             failures.append(name)
             print(f"  [FAIL] {name}: {exc}")
     def embed_html(entity: str, **extra) -> str:
-        params = {"action": "embed", "entity": entity, "output": "html", **extra}
+        params = {"action": "embed", "entity": entity, "output": "html", "format": "json", **extra}
         status, body, _ = http_get(f"{api}?{urllib.parse.urlencode(params)}")
         expect(status == 200, f"embed {entity}: HTTP {status}")
-        return body.decode("utf-8", "replace")
+        payload = json.loads(body.decode("utf-8", "replace"))
+        expect("embed" in payload, f"embed {entity}: API error: {payload.get('error')!r}")
+        return payload["embed"]["html"]
 
     def check_embed_surfaces() -> None:
         for entity in (args.quote, args.code, args.math):
@@ -94,7 +96,7 @@ def check(args: argparse.Namespace) -> int:
             page = body.decode("utf-8", "replace")
             expect(status == 200, f"Special:Embed/{entity}: HTTP {status}")
             expect(
-                "<blockquote" in page and 'id="mw-head"' not in page,
+                'class="wb-embed' in page and 'id="mw-head"' not in page,
                 f"Special:Embed/{entity}: expected a bare fragment, got wiki chrome",
             )
             status, _, ctype = http_get(
