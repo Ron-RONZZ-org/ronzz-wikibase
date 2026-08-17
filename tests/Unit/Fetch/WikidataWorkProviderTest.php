@@ -13,12 +13,30 @@ use PHPUnit\Framework\TestCase;
  */
 final class WikidataWorkProviderTest extends TestCase {
 
+	public function testSearchByTitleMapsDescriptions(): void {
+		$http = ( new FakeHttpClient() )->onJson( 'action=wbsearchentities', [
+			'search' => [
+				[ 'id' => 'Q123', 'label' => 'The Old Man and the Sea', 'description' => '1952 novel by Ernest Hemingway' ],
+				[ 'id' => 'Q456', 'label' => 'Old Man and the Sea' ],
+			],
+		] );
+		$provider = new WikidataWorkProvider( $http );
+
+		$records = $provider->searchByTitle( 'old man and the sea' );
+
+		$this->assertCount( 2, $records );
+		$this->assertSame( '1952 novel by Ernest Hemingway', $records[0]->description );
+		$this->assertNull( $records[1]->description );
+		$this->assertSame( 'Q123', $records[0]->wikidataId );
+	}
+
 	public function testByWikidataIdHarvestsCitationMetadata(): void {
 		$http = ( new FakeHttpClient() )
 			->onJson( 'action=wbgetentities&ids=Q571&props=labels%7Cdescriptions%7Cclaims', [
 				'entities' => [
 					'Q571' => [
 						'labels' => [ 'en' => [ 'value' => 'The Old Man and the Sea' ] ],
+						'descriptions' => [ 'en' => [ 'value' => '1952 novel by Ernest Hemingway' ] ],
 						'claims' => [
 							'P31' => [ [ 'mainsnak' => [ 'datavalue' => [ 'value' => [ 'id' => 'Q571' ] ] ] ] ],
 							'P1433' => [ [ 'mainsnak' => [ 'datavalue' => [ 'value' => [ 'id' => 'Q999' ] ] ] ] ],
@@ -47,6 +65,7 @@ final class WikidataWorkProviderTest extends TestCase {
 
 		$this->assertInstanceOf( WorkRecord::class, $record );
 		$this->assertSame( 'The Old Man and the Sea', $record->title );
+		$this->assertSame( '1952 novel by Ernest Hemingway', $record->description );
 		$this->assertSame( 'Nature', $record->containerTitle );
 		$this->assertSame( 'Springer', $record->publisher );
 		$this->assertSame( '42', $record->volume );

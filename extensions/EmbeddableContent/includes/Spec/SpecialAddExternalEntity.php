@@ -503,10 +503,11 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 				: '';
 			$label = htmlspecialchars( $this->primaryLabel( $record ) );
 			$bits = [];
+			// Description plus (for works) the container/publisher — showing
+			// all three keeps the journal visible alongside the description.
 			foreach ( [ 'description', 'containerTitle', 'publisher' ] as $key ) {
 				if ( !empty( $record[$key] ) ) {
 					$bits[] = htmlspecialchars( (string)$record[$key] );
-					break;
 				}
 			}
 			if ( !empty( $record['issuedYear'] ) ) {

@@ -60,7 +60,8 @@ class SpecialEmbed extends SpecialPage {
 			return;
 		}
 
-		$output->setArticleBodyOnly( true );
+		// Headers are set per path: json/oEmbed/error responses use
+		// articleBodyOnly internally; the html path uses the embed skin.
 		$response = $request->response();
 		$response->header( 'ETag: ' . $result->getEtag() );
 		if ( $result->getLastModified() !== null ) {
@@ -89,10 +90,22 @@ class SpecialEmbed extends SpecialPage {
 			return;
 		}
 
+		// HTML output: render with the minimal "embed" skin so the page has
+		// a <head> (ResourceLoader modules — KaTeX, highlight.js, embed CSS)
+		// but no wiki chrome. The bare fragment alone would have no head at
+		// all (articleBodyOnly), so client-side rendering could never run.
+		$output->setArticleBodyOnly( false );
+		$output->addModules( 'ext.embeddableContent.embed' );
+		try {
+			$skin = \MediaWiki\MediaWikiServices::getInstance()->getSkinFactory()->makeSkin( 'embedskin' );
+			$this->getContext()->setSkin( $skin );
+		} catch ( \Throwable $e ) {
+			// Skin unavailable — the default skin still renders the head.
+		}
+
 		if ( $this->wantsFramedPage( $request ) ) {
-			// Explicit ?frame=1 only: a full wiki page (title + view-entity
-			// link + fragment). The fragment is added exactly once.
-			$output->setArticleBodyOnly( false );
+			// Explicit ?frame=1 only: title + view-entity link + fragment.
+			// The fragment is added exactly once.
 			$this->renderFramedPage( $result, $id );
 		} else {
 			// Default: the bare fragment, no wiki chrome — this is what an
