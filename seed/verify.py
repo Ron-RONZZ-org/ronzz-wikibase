@@ -67,8 +67,10 @@ def self_verify(
     ok = True
 
     def check_embed_json() -> None:
+        # lang=en keeps the fragment deterministic regardless of the instance
+        # content-language / fallback chain (the dogfood en text is asserted).
         status, body, _ = _get(
-            f"{api_url}?action=embed&entity={quote_id}&format=json", timeout
+            f"{api_url}?action=embed&entity={quote_id}&lang=en&format=json", timeout
         )
         if status != 200:
             raise VerifyError(f"HTTP {status}")
@@ -88,8 +90,9 @@ def self_verify(
             raise VerifyError(f"HTTP {status}")
 
     def check_citation_json() -> None:
+        # `output` only accepts html|text; format=json already yields JSON.
         status, body, _ = _get(
-            f"{api_url}?action=citation&entity={quote_id}&style=json&format=json&output=json", timeout
+            f"{api_url}?action=citation&entity={quote_id}&style=json&format=json", timeout
         )
         if status != 200:
             raise VerifyError(f"HTTP {status}")
