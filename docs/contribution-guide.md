@@ -173,7 +173,39 @@ works verbatim here.
 6. **Ask the admin** (`Rongzhou`) for an account, for deletions, or to install
    bulk tools.
 
-## 11. Official docs
+## 11. Importing authors, sources and collectives from external authorities (issue #7)
+
+Instead of hand-creating an item per author or source, use the external-authority
+pages (semantic-tools sidebar). They fetch metadata from public services
+(Wikidata, dblp, OpenAlex, Crossref, Open Library, ORCID), let you pick the
+right record, and create a local stub item with the authority identifiers
+(ORCID, VIAF, ISNI, DOI, ISBN, …) and citation metadata (given/family name,
+published in, publisher, pages, volume, issue) — every imported statement
+carries an `imported from <authority>` reference.
+
+| Page | Creates | Input |
+|---|---|---|
+| **`Special:AddPerson`** | a `person` item | ORCID iD, Wikidata Q, or a name |
+| **`Special:AddSource`** | a work item (book / scholarly article / website / song / film / video) | DOI, ISBN-13, or a title |
+| **`Special:AddCollective`** | a non-person agent item (organization, company, band, collective, institution) | a name |
+
+Workflow: search → review the candidates (same-name disambiguation) → confirm
+the class (pre-inferred from the authority) → create. Repeating a lookup for an
+already-imported label reuses the existing item (create-or-skip). English label
+comes from the authority; add fr/eo labels afterwards. Fetch failures degrade
+to manual item creation (`Special:NewItem`).
+
+Notes:
+
+- The authority lookups run **only when you click search** — never on page load.
+- The provenance form on `Special:AddQuotation` (and the other content pages)
+  has entity **search + autofill** for `attributed to` / `source`: type a name,
+  pick the entity, the item id is filled in. Manually typed ids still work.
+- Citations use the source item's harvested metadata (journal name, publisher,
+  volume/issue/pages, DOI, ISBN) and cite the source **type** correctly (a book
+  quote cites as a book, a song quote as a song).
+
+## 12. Official docs
 
 - Wikibase: https://www.mediawiki.org/wiki/Wikibase
 - Wikibase API: https://www.wikidata.org/w/api.php (action=wb…)

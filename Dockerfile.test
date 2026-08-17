@@ -1,0 +1,8 @@
+# Local unit-test image: PHP CLI + intl + composer (citeproc-php needs ext-intl).
+# Build once, iterate fast:
+#   docker build -f Dockerfile.test -t ronzz-wikibase-test .
+#   docker run --rm -v "$PWD":/app -w /app ronzz-wikibase-test vendor/bin/phpunit
+FROM composer:2
+RUN apk add --no-cache icu-dev \
+    && docker-php-ext-install intl \
+    && docker-php-ext-enable intl

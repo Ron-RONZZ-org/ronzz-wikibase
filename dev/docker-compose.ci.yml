@@ -1,0 +1,130 @@
+# ronzz-wikibase dev/CI stack (issue #6, D6).
+#
+# Wikibase Suite (WBS) architecture, pinned to the production-equivalent
+# versions: MediaWiki 1.46 (wikibase/wikibase:mw1.46.0) · WDQS 0.3.156 ·
+# MariaDB 10.11.
+#
+# WBS contract: the image requires a configuration volume at /config
+# (dev/config/). On first boot it generates InstanceSettings.php +
+# LocalSettings.php there; the generated LocalSettings.php loads
+# dev/config/Extensions.php (instance extensions, WBS convention), which loads
+# our two extensions and — once the seed has emitted it — the seed config map
+# (dev/config/ronzz-wikibase-config.php).
+#
+# A jobrunner container (same image, `jobrunner` command) shares the config
+# volume; the WBS image's default configuration requires it.
+#
+# Usage (see dev/README.md):
+#   mkdir -p dev/config
+#   docker compose -f dev/docker-compose.ci.yml up -d
+#   ... seed with --config-out dev/config/ronzz-wikibase-config.php ...
+#   docker compose -f dev/docker-compose.ci.yml restart wikibase
+#   docker compose -f dev/docker-compose.ci.yml down -v   # clean reset
+
+services:
+  wikibase:
+    image: wikibase/wikibase:mw1.46.0
+    ports:
+      - "127.0.0.1:8082:80"
+    environment:
+      MW_ADMIN_NAME: ${MW_ADMIN_NAME:-CIAdmin}
+      MW_ADMIN_PASS: ${MW_ADMIN_PASS:-ci-admin-pass-2026}
+      MW_ADMIN_EMAIL: ${MW_ADMIN_EMAIL:-ci@example.org}
+      MW_SITE_LANG: fr
+      MW_WG_SERVER: http://wikibase
+      DB_SERVER: mysql:3306
+      DB_USER: wikiuser
+      DB_PASS: sqlpass
+      DB_NAME: my_wiki
+    volumes:
+      - ./config:/config
+      - ../extensions/EmbeddableContent:/var/www/html/extensions/EmbeddableContent:ro
+      - ../extensions/WikibaseCitation:/var/www/html/extensions/WikibaseCitation:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--silent", "--fail", "localhost/wiki/Main_Page"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 300s
+
+  wikibase-jobrunner:
+    image: wikibase/wikibase:mw1.46.0
+    command: jobrunner
+    volumes_from:
+      - wikibase
+    depends_on:
+      wikibase:
+        condition: service_healthy
+
+  mysql:
+    image: mariadb:10.11
+    environment:
+      MYSQL_DATABASE: my_wiki
+      MYSQL_USER: wikiuser
+      MYSQL_PASSWORD: sqlpass
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+
+  wdqs:
+    image: wikibase/wdqs:wdqs0.3.156
+    command: /runBlazegraph.sh
+    ports:
+      - "127.0.0.1:9999:9999"
+    environment:
+      WIKIBASE_HOST: wikibase
+      WDQS_HOST: wdqs
+      WDQS_PORT: 9999
+    # Blazegraph aborts without a high fd limit:
+    # "unable to allocate file descriptor table" (see wmde/wikibase-suite).
+    ulimits:
+      nofile:
+        soft: 32768
+        hard: 32768
+    healthcheck:
+      test: ["CMD", "curl", "--silent", "--fail", "localhost:9999/bigdata/namespace/wdq/sparql"]
+      interval: 10s
+      timeout: 10s
+      retries: 18
+      start_period: 180s
+    depends_on:
+      - wikibase
+
+  wdqs-updater:
+    # Started explicitly AFTER the seed (profiles): the updater's time-based
+    # backoff mode skips changes created while it is mid-catch-up, so it must
+    # only start once all entities exist. Start with:
+    #   docker compose -f dev/docker-compose.ci.yml --profile updater up -d
+    profiles:
+      - updater
+    image: wikibase/wdqs:wdqs0.3.156
+    # runUpdate.sh defaults HOST to localhost:9999 — point it at the wdqs
+    # service. Its getopts only knows h/c/n/l/t/s/S/N/v; the wiki base URL
+    # goes to the java Update main via --wikibaseUrl AFTER a `--` separator
+    # (getopts stops there, so the arg reaches java instead of leaking).
+    command: ./runUpdate.sh -h http://wdqs:9999 -- --wikibaseUrl http://wikibase --conceptUri http://wikibase
+    restart: unless-stopped
+    environment:
+      WIKIBASE_HOST: wikibase
+      WDQS_HOST: wdqs
+      WDQS_PORT: 9999
+      WIKIBASE_MAX_DAYS_BACK: 90
+    ulimits:
+      nofile:
+        soft: 32768
+        hard: 32768
+    depends_on:
+      wdqs:
+        condition: service_healthy
+
+volumes:
+  db-data:

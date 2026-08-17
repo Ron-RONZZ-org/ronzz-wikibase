@@ -1,0 +1,135 @@
+{
+	"name": "EmbeddableContent",
+	"version": "0.2.0",
+	"author": [
+		"ronzz.org"
+	],
+	"url": "https://github.com/Ron-RONZZ-org/ronzz-wikibase",
+	"descriptionmsg": "embeddablecontent-desc",
+	"license-name": "GPL-2.0-or-later",
+	"type": "other",
+	"requires": {
+		"MediaWiki": ">= 1.46.0"
+	},
+	"AutoloadNamespaces": {
+		"EmbeddableContent\\": "includes/"
+	},
+	"MessagesDirs": {
+		"EmbeddableContent": [
+			"i18n"
+		]
+	},
+	"config": {
+		"EmbeddableContentConfig": {
+			"value": [],
+			"description": "Instance-specific config map emitted by the seed (issue #6 D2 + issue #7): instanceOf, classes, agentClasses, sourceClasses, payloadProperties, programmingLanguage, provenance, externalIds, citationMetadata, formatterUrl, sourceClassByWikidata, agentClassByWikidata, fallbackLanguages, lexers."
+		}
+	},
+	"ServiceWiringFiles": [
+		"includes/ServiceWiring.php"
+	],
+	"SpecialPages": {
+		"Embed": {
+			"class": "EmbeddableContent\\Spec\\SpecialEmbed",
+			"services": [
+				"EmbeddableContent.ContentRenderer"
+			]
+		},
+		"AddQuotation": {
+			"class": "EmbeddableContent\\Spec\\SpecialAddQuotation"
+		},
+		"AddCodeSnippet": {
+			"class": "EmbeddableContent\\Spec\\SpecialAddCodeSnippet"
+		},
+		"AddMath": {
+			"class": "EmbeddableContent\\Spec\\SpecialAddMath"
+		},
+		"AddPerson": {
+			"class": "EmbeddableContent\\Spec\\SpecialAddPerson",
+			"services": [
+				"EmbeddableContent.Config",
+				"EmbeddableContent.ProviderClient"
+			]
+		},
+		"AddSource": {
+			"class": "EmbeddableContent\\Spec\\SpecialAddSource",
+			"services": [
+				"EmbeddableContent.Config",
+				"EmbeddableContent.ProviderClient"
+			]
+		},
+		"AddCollective": {
+			"class": "EmbeddableContent\\Spec\\SpecialAddCollective",
+			"services": [
+				"EmbeddableContent.Config",
+				"EmbeddableContent.ProviderClient"
+			]
+		}
+	},
+	"APIModules": {
+		"embed": {
+			"class": "EmbeddableContent\\Api\\ApiEmbed",
+			"services": [
+				"EmbeddableContent.ContentRenderer"
+			]
+		}
+	},
+	"HookHandlers": {
+		"main": {
+			"class": "EmbeddableContent\\Hooks"
+		}
+	},
+	"Hooks": {
+		"BeforePageDisplay": "main"
+	},
+	"ResourceModules": {
+		"ext.embeddableContent.embed": {
+			"styles": [
+				"embed.css"
+			],
+			"scripts": [
+				"math.js"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.gadget": {
+			"scripts": [
+				"gadget.js"
+			],
+			"dependencies": [
+				"mediawiki.api",
+				"mediawiki.notification",
+				"mediawiki.util"
+			],
+			"messages": [
+				"embeddablecontent-gadget-copyembed",
+				"embeddablecontent-gadget-copycitation",
+				"embeddablecontent-gadget-copied"
+			],
+			"targets": [
+				"desktop"
+			]
+		},
+		"ext.embeddableContent.entitysuggest": {
+			"scripts": [
+				"entitysuggest.js"
+			],
+			"dependencies": [
+				"mediawiki.api",
+				"oojs-ui"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		}
+	},
+	"ResourceFileModulePaths": {
+		"localBasePath": "resources",
+		"remoteExtPath": "EmbeddableContent/resources"
+	},
+	"manifest_version": 2
+}

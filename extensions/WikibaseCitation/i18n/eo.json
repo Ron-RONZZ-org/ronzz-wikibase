@@ -1,0 +1,11 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		],
+		"description": "Citi Wikibase-elementojn (citaĵo, kodero, matematika esprimo) en normaj cistiloj — citaĵaj eco-/tipomapoj kaj la citaĵa API."
+	},
+	"wikibasecitation-desc": "Citi Wikibase-elementojn en normaj cistiloj",
+	"wikibasecitation-error-invalidentity": "Nevalida ento-identigilo.",
+	"wikibasecitation-error-notfound": "Ento ne trovita."
+}

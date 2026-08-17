@@ -1,0 +1,16 @@
+{
+	"name": "wikibase/wikibase-citation",
+	"description": "Cite Wikibase entities in standard citation styles (json, APA, Vancouver, BibTeX, RIS).",
+	"license": "GPL-2.0-or-later",
+	"require": {
+		"seboettg/citeproc-php": "^2.5"
+	},
+	"require-dev": {
+		"phpunit/phpunit": "^10.5"
+	},
+	"autoload": {
+		"psr-4": {
+			"WikibaseCitation\\": "includes/"
+		}
+	}
+}

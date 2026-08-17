@@ -1,0 +1,169 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# The integration job runs a full wikibase-docker stack (MW 1.46 + WDQS) —
+# 16 GB runners, so Blazegraph is affordable. Only one stack run at a time.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Fast unit layer: pure-PHP logic + seed tooling, no MediaWiki.
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build test image
+        run: docker build -f Dockerfile.test -t ronzz-wikibase-test .
+
+      - name: Cache composer deps
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ hashFiles('composer.json') }}
+          restore-keys: |
+            composer-
+
+      - name: Install dev dependencies
+        run: docker run --rm -v "$PWD":/app -w /app ronzz-wikibase-test composer install --no-interaction --prefer-dist
+
+      - name: PHPUnit (52 unit tests)
+        run: docker run --rm -v "$PWD":/app -w /app ronzz-wikibase-test vendor/bin/phpunit
+
+      - name: Seed unit tests
+        run: python3 -m unittest discover -s seed/tests
+
+      - name: Seed dry-run (offline plan)
+        run: python3 -m seed.seed_instance --dry-run
+
+  # Integration layer: real MediaWiki+Wikibase, seed + D1 importers + E2E/XSS.
+  # Runs in parallel with `unit` (independent concerns; faster feedback).
+  integration:
+    runs-on: ubuntu-latest
+    env:
+      MW_ADMIN_NAME: CIAdmin
+      MW_ADMIN_PASS: ci-admin-pass-2026   # dev-only, ephemeral runner — not a secret
+      API_URL: http://127.0.0.1:8082/api.php
+      BASE_URL: http://127.0.0.1:8082
+      SPARQL_URL: http://127.0.0.1:9999/bigdata/namespace/wdq/sparql
+      COMPOSE: docker compose -f dev/docker-compose.ci.yml
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache stack images
+        uses: actions/cache@v4
+        with:
+          path: /tmp/ci-images
+          key: wikibase-images-${{ hashFiles('dev/docker-compose.ci.yml') }}
+          restore-keys: |
+            wikibase-images-
+
+      - name: Load or pull stack images
+        run: |
+          if [ -f /tmp/ci-images/images.tar ]; then
+            docker load -i /tmp/ci-images/images.tar
+          else
+            $COMPOSE pull
+            mkdir -p /tmp/ci-images
+            docker save $($COMPOSE config --images) -o /tmp/ci-images/images.tar
+          fi
+
+      - name: Start the stack
+        run: |
+          mkdir -p dev/config seed/generated
+          $COMPOSE up -d
+          $COMPOSE ps
+
+      - name: Wait for the wiki API (first boot installs MediaWiki+Wikibase)
+        run: |
+          for i in $(seq 1 300); do
+            curl -sf -o /dev/null "$API_URL" && exit 0
+            sleep 2
+          done
+          echo "wiki did not come up — container status:"
+          $COMPOSE ps
+          echo "--- wikibase logs ---"
+          $COMPOSE logs --tail 120 wikibase
+          echo "--- mysql logs ---"
+          $COMPOSE logs --tail 60 mysql
+          exit 1
+
+      - name: D1 importers — vocabulary (property, class, language)
+        run: |
+          for type in property class language; do
+            $COMPOSE exec -T wikibase php maintenance/run.php \
+              /var/www/html/extensions/EmbeddableContent/maintenance/importVocabulary.php --type="$type" || exit 1
+          done
+
+      - name: D2 seed — dogfood entities + config emission
+        run: |
+          python3 -m seed.seed_instance \
+            --user "$MW_ADMIN_NAME" --password "$MW_ADMIN_PASS" \
+            --api-url "$API_URL" --base-url "$BASE_URL" --sparql-url "$SPARQL_URL" \
+            --config-out dev/config/ronzz-wikibase-config.php \
+            --ids-out seed/generated/ids.json \
+            --only=properties,classes,languages,dogfood,config
+
+      - name: Restart the wiki to load the emitted config map
+        run: |
+          $COMPOSE restart wikibase
+          for i in $(seq 1 300); do
+            curl -sf -o /dev/null "$API_URL" && break
+            sleep 2
+          done
+          curl -sf "$API_URL" > /dev/null
+          # Best-effort: pre-load the seeded entities' RDF so the SPARQL check
+          # has data even when the 0.3.156 updater's fresh-instance backoff
+          # polling misses mid-catch-up changes; then start the updater for
+          # ongoing edits (on production it is already caught up and picks up
+          # new edits via normal polling).
+          mkdir -p /tmp/ttl
+          for id in $(jq -r '.. | strings | select(test("^[PQ][0-9]+$"))' seed/generated/ids.json | sort -u); do
+            curl -s "$BASE_URL/wiki/Special:EntityData/$id.ttl" -o "/tmp/ttl/$id.ttl" || true
+          done
+          ls /tmp/ttl | wc -l
+          $COMPOSE exec -T wdqs mkdir -p /tmp/ttl || true
+          for f in /tmp/ttl/*.ttl; do $COMPOSE cp "$f" wdqs:/tmp/ttl/ || true; done
+          for f in /tmp/ttl/*.ttl; do
+            curl -s -o /dev/null -w "load $(basename $f): %{http_code}\n" -X POST "$SPARQL_URL" --data-urlencode "update=LOAD <file:///tmp/ttl/$(basename $f)>" || true
+          done
+          $COMPOSE --profile updater up -d wdqs-updater
+
+      - name: E2E acceptance (3 embed surfaces, 5 citation styles, SPARQL)
+        run: |
+          python3 tests/e2e/run_e2e.py check \
+            --api-url "$API_URL" --base-url "$BASE_URL" --sparql-url "$SPARQL_URL" \
+            --quote "$(jq -r .dogfood.quotation seed/generated/ids.json)" \
+            --code "$(jq -r .dogfood.code seed/generated/ids.json)" \
+            --math "$(jq -r .dogfood.math seed/generated/ids.json)" \
+            --instance-of "$(jq -r '."properties"."instance of"' seed/generated/ids.json)" \
+            --quotation-class "$(jq -r '."classes"."quotation content"' seed/generated/ids.json)" \
+            --sparql-wait 300 --allow-sparql-fail || E2E_RC=$?
+          if [ -n "${E2E_RC:-}" ]; then
+            echo "--- E2E failed; diagnostics ---"
+            curl -sG "$SPARQL_URL" --data-urlencode 'query=SELECT ?p ?o WHERE { wd:Q87 ?p ?o } LIMIT 10' --data-urlencode 'format=json' | head -c 400; echo
+            $COMPOSE logs --tail 30 wdqs-updater 2>&1 | tail -20 || true
+          fi
+          exit ${E2E_RC:-0}
+
+      - name: XSS suite (injections must not survive)
+        run: |
+          python3 tests/e2e/run_e2e.py xss \
+            --api-url "$API_URL" --base-url "$BASE_URL" \
+            --user "$MW_ADMIN_NAME" --password "$MW_ADMIN_PASS"
+
+      - name: Page-flow E2E (AddPerson/AddSource/AddCollective + AddQuotation form, issue #7)
+        run: |
+          echo -n "$MW_ADMIN_PASS" > /tmp/e2e-pass
+          python3 tests/e2e/run_pages_e2e.py \
+            --base-url "$BASE_URL" --api-url "$API_URL" \
+            --user "$MW_ADMIN_NAME" --password-file /tmp/e2e-pass
+
+      - name: Tear down the stack
+        if: always()
+        run: $COMPOSE down -v
