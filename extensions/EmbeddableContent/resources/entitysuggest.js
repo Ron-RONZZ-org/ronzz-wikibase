@@ -12,7 +12,12 @@
 	'use strict';
 
 	mw.loader.using( 'oojs-ui' ).then( function () {
-		$( '.wb-entity-combobox' ).each( function () {
+		// HTMLForm puts the cssclass on BOTH the outer field wrapper
+		// (.mw-htmlform-field-HTMLComboboxField) and the OOUI widget; only
+		// the widget carries data-ooui and can be infused. Selecting both and
+		// infusing the outer one throws, aborting the .each() loop and
+		// leaving every combobox unwired.
+		$( '.wb-entity-combobox[data-ooui]' ).each( function () {
 			var $el = $( this );
 			var combo = OO.ui.ComboBoxInputWidget.static.infuse( $el );
 			var api = new mw.Api();
