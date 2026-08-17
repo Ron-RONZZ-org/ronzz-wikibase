@@ -61,6 +61,14 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 	}
 
 	protected function createFromRecord( array $record, string $classItemId ): string {
+		// Harvest on pick: enrich with the full Wikidata record (class hints
+		// for the inference, description).
+		if ( !empty( $record['wikidataId'] ) && ( $record['provider'] ?? '' ) === 'wikidata' ) {
+			$harvest = $this->client->harvestEntity( $record['wikidataId'] );
+			if ( $harvest->records !== [] ) {
+				$record = array_merge( $record, (array)$harvest->records[0] );
+			}
+		}
 		$specs = $this->externalIdStatements( $record );
 		return $this->createOrSkipItem( (string)$record['label'], $classItemId, $specs, $record );
 	}

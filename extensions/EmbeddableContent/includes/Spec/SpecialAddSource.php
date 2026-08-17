@@ -84,6 +84,14 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	}
 
 	protected function createFromRecord( array $record, string $classItemId ): string {
+		// Harvest on pick: enrich with the full Wikidata work record
+		// (container, publisher, pages, volume, issue, DOI, ISBN, …).
+		if ( !empty( $record['wikidataId'] ) && ( $record['provider'] ?? '' ) === 'wikidata' ) {
+			$harvest = $this->client->harvestWork( $record['wikidataId'] );
+			if ( $harvest->records !== [] ) {
+				$record = array_merge( $record, (array)$harvest->records[0] );
+			}
+		}
 		$specs = $this->externalIdStatements( $record ) + $this->citationMetadataStatements( $record );
 		return $this->createOrSkipItem( (string)$record['title'], $classItemId, $specs, $record );
 	}

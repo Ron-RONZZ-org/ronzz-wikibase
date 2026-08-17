@@ -69,6 +69,14 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 	}
 
 	protected function createFromRecord( array $record, string $classItemId ): string {
+		// Harvest on pick: enrich the light search record with the full
+		// Wikidata record (given/family names, ORCID, VIAF, ISNI).
+		if ( !empty( $record['wikidataId'] ) ) {
+			$harvest = $this->client->harvestPerson( $record['wikidataId'] );
+			if ( $harvest->records !== [] ) {
+				$record = array_merge( $record, (array)$harvest->records[0] );
+			}
+		}
 		$specs = $this->externalIdStatements( $record ) + $this->citationMetadataStatements( $record );
 		return $this->createOrSkipItem( (string)$record['label'], $classItemId, $specs, $record );
 	}
