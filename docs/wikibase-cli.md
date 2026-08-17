@@ -64,6 +64,12 @@ printf "%s" "
 * semantic-tools
 ** special:newitem|newitem
 ** special:newproperty|newproperty
+** special:addperson|addperson
+** special:addsource|addsource
+** special:addcollective|addcollective
+** special:addquotation|addquotation
+** special:addcodesnippet|addcodesnippet
+** special:addmath|addmath
 " | sudo -u ronzz php maintenance/run.php edit.php --user=Rongzhou -s "Sidebar" "MediaWiki:Sidebar"
 
 # 2) Create the section heading + link-label messages:
@@ -71,6 +77,18 @@ printf "Semantic tools\n" | sudo -u ronzz php maintenance/run.php edit.php \
   --user=Rongzhou "MediaWiki:semantic-tools"
 printf "Create new property\n" | sudo -u ronzz php maintenance/run.php edit.php \
   --user=Rongzhou "MediaWiki:newproperty"
+printf "Add person\n" | sudo -u ronzz php maintenance/run.php edit.php \
+  --user=Rongzhou "MediaWiki:addperson"
+printf "Add source\n" | sudo -u ronzz php maintenance/run.php edit.php \
+  --user=Rongzhou "MediaWiki:addsource"
+printf "Add collective\n" | sudo -u ronzz php maintenance/run.php edit.php \
+  --user=Rongzhou "MediaWiki:addcollective"
+printf "Add quotation\n" | sudo -u ronzz php maintenance/run.php edit.php \
+  --user=Rongzhou "MediaWiki:addquotation"
+printf "Add code snippet\n" | sudo -u ronzz php maintenance/run.php edit.php \
+  --user=Rongzhou "MediaWiki:addcodesnippet"
+printf "Add mathematical expression\n" | sudo -u ronzz php maintenance/run.php edit.php \
+  --user=Rongzhou "MediaWiki:addmath"
 # (repeat for every label key used in the sidebar)
 
 # 3) Restart php-fpm — REQUIRED, see Gotcha below:
@@ -80,7 +98,8 @@ sudo systemctl restart php8.3-fpm
 Resulting sidebar sections (current state): **Navigation** → **Search** →
 **Page tools** (renamed from "Tools" via `MediaWiki:Toolbox`) →
 **Semantic tools** (NewItem, NewProperty, ListProperties, ListDatatypes,
-ItemDisambiguation, EntityData).
+ItemDisambiguation, EntityData, plus the EmbeddableContent pages — AddPerson,
+AddSource, AddCollective, AddQuotation, AddCodeSnippet, AddMath).
 
 ## ⚠️ Gotcha: CACHE_ACCEL (APCu) is per-process — CLI caches are not the live cache
 

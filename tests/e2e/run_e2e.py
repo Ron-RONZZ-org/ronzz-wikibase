@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 import time
 import urllib.error
@@ -167,11 +168,63 @@ def check(args: argparse.Namespace) -> int:
                 f"Special:{page}: expected login redirect (302) or render (200), got HTTP {status}",
             )
 
+    def check_specialpages_listing() -> None:
+        # Regression (issue #11): all EmbeddableContent special pages must be
+        # listed on Special:SpecialPages under their i18n description, and the
+        # non-login-gated ones must render a non-empty page title.
+        pages = {
+            "Embed": "Embed",
+            "AddQuotation": "Add quotation",
+            "AddCodeSnippet": "Add code snippet",
+            "AddMath": "Add mathematical expression",
+            "AddPerson": "Add person",
+            "AddSource": "Add source",
+            "AddCollective": "Add collective",
+        }
+        status, body, _ = http_get(f"{base}/wiki/Special:SpecialPages")
+        html = body.decode("utf-8", "replace")
+        expect(status == 200, f"Special:SpecialPages: HTTP {status}")
+        for page, description in pages.items():
+            marker = f'href="/wiki/Special:{page}" title="Special:{page}">{description}</a>'
+            expect(
+                marker in html,
+                f"Special:SpecialPages: {page} ('{description}') not listed",
+            )
+        # Non-login-gated pages: non-empty <h1>/<title> (they used to render
+        # an empty title because execute() never called setHeaders()).
+        for page in ("AddQuotation", "AddCodeSnippet", "AddMath"):
+            status, body, _ = http_get(f"{base}/wiki/Special:{page}")
+            html = body.decode("utf-8", "replace")
+            expect(status == 200, f"Special:{page}: HTTP {status}")
+            m = re.search(r"<h1[^>]*>(.*?)</h1>", html, re.S)
+            heading = re.sub(r"<[^>]+>", "", m.group(1)).strip() if m else ""
+            expect(
+                heading != "",
+                f"Special:{page}: empty page title (setHeaders/getDescription regression)",
+            )
+
+    def check_embed_error_paths() -> None:
+        # Regression (issue #11): Special:Embed with no/invalid subpage must
+        # render an error page (200), not throw (undefined showErrorPage).
+        for path in ("Special:Embed", "Special:Embed/NotAnId"):
+            status, body, _ = http_get(f"{base}/wiki/{path}")
+            html = body.decode("utf-8", "replace")
+            expect(status == 200, f"{path}: HTTP {status} (was 500)")
+            expect(
+                "Invalid entity id" in html or "Invalid" in html,
+                f"{path}: expected an error message, got: {html[:200]!r}",
+            )
+        # Valid entity: still renders the embed.
+        status, body, _ = http_get(f"{base}/wiki/Special:Embed/{args.quote}")
+        expect(status == 200, f"Special:Embed/{args.quote}: HTTP {status}")
+
     run("embed surfaces (api + /embed/ + oEmbed)", check_embed_surfaces)
     run("language negotiation (?lang=)", check_embed_negotiation)
     run("citation styles (json/apa/vancouver/bibtex/ris)", check_citation_styles)
     run("sparql instance-of check", check_sparql)
     run("entity-creation pages registered + login-gated (issue #7)", check_entity_creation_pages)
+    run("special pages listed on Special:SpecialPages + non-empty titles (issue #11)", check_specialpages_listing)
+    run("Special:Embed error paths render 200 (issue #11)", check_embed_error_paths)
 
     if args.allow_sparql_fail and "sparql instance-of check" in failures:
         print(

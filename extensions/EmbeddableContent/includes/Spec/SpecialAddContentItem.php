@@ -47,6 +47,10 @@ abstract class SpecialAddContentItem extends SpecialPage {
 	}
 
 	public function execute( $subPage ) {
+		// Standard special-page header plumbing (title from getDescription(),
+		// noindex + article-related=false); required or the page renders an
+		// empty <h1>/<title>.
+		$this->setHeaders();
 		$this->getOutput()->addModuleStyles( 'ext.embeddableContent.embed' );
 		$this->getOutput()->addModules( 'ext.embeddableContent.entitysuggest' );
 		$form = HTMLForm::factory( 'ooui', $this->buildFields(), $this->getContext() );
@@ -282,6 +286,18 @@ abstract class SpecialAddContentItem extends SpecialPage {
 
 	/** @var ItemId|null */
 	private $createdItemId;
+
+	/**
+	 * MW 1.43+ resolves the special-page description from the bare lowercase
+	 * page name (strtolower( $this->mName )); our i18n uses the legacy
+	 * `special-<name>` keys. Override to keep the pages listed on
+	 * Special:SpecialPages (T360723 skips pages whose description message
+	 * is disabled) and to render a proper page title — same pattern as
+	 * Wikibase's SpecialWikibasePage.
+	 */
+	public function getDescription() {
+		return $this->msg( 'special-' . strtolower( $this->getName() ) );
+	}
 
 	protected function getGroupName(): string {
 		return 'wikibase';

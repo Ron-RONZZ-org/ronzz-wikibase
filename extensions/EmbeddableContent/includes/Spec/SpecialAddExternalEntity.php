@@ -89,6 +89,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	abstract protected function defaultClassItemId( array $record ): ?string;
 
 	public function execute( $subPage ) {
+		// Standard special-page header plumbing (title from getDescription(),
+		// noindex + article-related=false); the step handlers may then
+		// override the title for their specific screen.
+		$this->setHeaders();
 		// The search step performs server-side external fetches — anonymous
 		// users must not be able to trigger them (abuse/rate-limit surface).
 		$this->requireLogin();
@@ -420,6 +424,18 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			}
 		}
 		return $bits;
+	}
+
+	/**
+	 * MW 1.43+ resolves the special-page description from the bare lowercase
+	 * page name (strtolower( $this->mName )); our i18n uses the legacy
+	 * `special-<name>` keys. Override to keep the pages listed on
+	 * Special:SpecialPages (T360723 skips pages whose description message
+	 * is disabled) and to render a proper page title — same pattern as
+	 * Wikibase's SpecialWikibasePage.
+	 */
+	public function getDescription() {
+		return $this->msg( 'special-' . strtolower( $this->getName() ) );
 	}
 
 	protected function getGroupName(): string {
