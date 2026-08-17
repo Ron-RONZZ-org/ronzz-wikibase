@@ -236,17 +236,8 @@ class SeedOrchestrator:
                 print(f"  [dry-run] create {kind}")
             return
 
-        person_id = self.api.create_item(
-            dogfood.PERSON_LABELS, dogfood.PERSON_DESCRIPTIONS, SUMMARY_PREFIX + "create person"
-        )
-        self.dogfood_ids["person"] = person_id
-        print(f"  created person ({person_id})")
-
-        book_id = self.api.create_item(
-            dogfood.BOOK_LABELS, dogfood.BOOK_DESCRIPTIONS, SUMMARY_PREFIX + "create book"
-        )
-        self.dogfood_ids["book"] = book_id
-        print(f"  created book ({book_id})")
+        person_id, _ = self.dogfood_item(dogfood.PERSON_LABELS, dogfood.PERSON_DESCRIPTIONS, "person")
+        book_id, _ = self.dogfood_item(dogfood.BOOK_LABELS, dogfood.BOOK_DESCRIPTIONS, "book")
 
         instance_of_id = self.find("instance of", "property", ANCHOR_LANGUAGE)
         attributed_to_id = self.find("attributed to", "property", ANCHOR_LANGUAGE)
@@ -277,13 +268,11 @@ class SeedOrchestrator:
             claims.setdefault(source_id, []).append(dogfood.entity_claim(source_id, book_id))
         if date_id:
             claims.setdefault(date_id, []).append(dogfood.time_claim(date_id, "+1843-01-01T00:00:00Z", 9))
-        quote_id = self.api.create_item(
-            dogfood.QUOTATION_LABELS, dogfood.QUOTATION_DESCRIPTIONS, SUMMARY_PREFIX + "create quotation"
+        quote_id, quote_created = self.dogfood_item(
+            dogfood.QUOTATION_LABELS, dogfood.QUOTATION_DESCRIPTIONS, "quotation"
         )
-        if claims:
+        if quote_created and claims:
             self.api.add_claims(quote_id, claims, SUMMARY_PREFIX + "populate quotation")
-        self.dogfood_ids["quotation"] = quote_id
-        print(f"  created quotation ({quote_id})")
 
         code_claims = {}
         if instance_of_id and code_class:
@@ -296,13 +285,11 @@ class SeedOrchestrator:
             code_claims.setdefault(prog_lang_id, []).append(dogfood.entity_claim(prog_lang_id, python_id))
         if attributed_to_id:
             code_claims.setdefault(attributed_to_id, []).append(dogfood.entity_claim(attributed_to_id, person_id))
-        code_id = self.api.create_item(
-            dogfood.CODE_LABELS, dogfood.CODE_DESCRIPTIONS, SUMMARY_PREFIX + "create code snippet"
+        code_id, code_created = self.dogfood_item(
+            dogfood.CODE_LABELS, dogfood.CODE_DESCRIPTIONS, "code"
         )
-        if code_claims:
+        if code_created and code_claims:
             self.api.add_claims(code_id, code_claims, SUMMARY_PREFIX + "populate code snippet")
-        self.dogfood_ids["code"] = code_id
-        print(f"  created code snippet ({code_id})")
 
         math_claims = {}
         if instance_of_id and math_class:
@@ -313,13 +300,24 @@ class SeedOrchestrator:
             )
         if attributed_to_id:
             math_claims.setdefault(attributed_to_id, []).append(dogfood.entity_claim(attributed_to_id, person_id))
-        math_id = self.api.create_item(
-            dogfood.MATH_LABELS, dogfood.MATH_DESCRIPTIONS, SUMMARY_PREFIX + "create math item"
+        math_id, math_created = self.dogfood_item(
+            dogfood.MATH_LABELS, dogfood.MATH_DESCRIPTIONS, "math"
         )
-        if math_claims:
+        if math_created and math_claims:
             self.api.add_claims(math_id, math_claims, SUMMARY_PREFIX + "populate math item")
-        self.dogfood_ids["math"] = math_id
-        print(f"  created math item ({math_id})")
+
+    def dogfood_item(self, labels: dict[str, str], descriptions: dict[str, str], kind: str) -> tuple[str, bool]:
+        """Create-or-skip a dogfood entity by its English label (idempotent
+        like every other seed phase). Returns (entity id, created)."""
+        existing = self.find(labels[ANCHOR_LANGUAGE], "item", ANCHOR_LANGUAGE)
+        if existing:
+            self.dogfood_ids[kind] = existing
+            print(f"  skip {kind} ({existing})")
+            return existing, False
+        entity_id = self.api.create_item(labels, descriptions, SUMMARY_PREFIX + f"create {kind}")
+        self.dogfood_ids[kind] = entity_id
+        print(f"  created {kind} ({entity_id})")
+        return entity_id, True
 
     def phase_config(self) -> None:
         print("— config emission")
