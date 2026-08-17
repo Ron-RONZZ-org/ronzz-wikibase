@@ -119,8 +119,12 @@ def check(args: argparse.Namespace) -> int:
                 expect(text.strip() != "", f"citation {style}: empty output")
 
     def check_sparql() -> None:
+        # Prefixes must be declared explicitly: the store defaults for
+        # wd:/wdt: point at wikidata.org, not at this instance.
         query = (
-            "SELECT ?item WHERE { ?item wdt:" + args.instance_of + " wd:" + args.quotation_class + " } LIMIT 10"
+            "PREFIX wd: <" + args.concept_uri + "/entity/> PREFIX wdt: <"
+            + args.concept_uri + "/prop/direct/> "
+            + "SELECT ?item WHERE { ?item wdt:" + args.instance_of + " wd:" + args.quotation_class + " } LIMIT 10"
         )
 
         def once() -> bool:
@@ -289,6 +293,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     check_p.add_argument("--api-url", required=True)
     check_p.add_argument("--base-url", required=True)
     check_p.add_argument("--sparql-url", required=True)
+    check_p.add_argument("--concept-uri", default="https://wikibase.ronzz.org",
+                         help="WDQS entity concept URI (prefix base)")
     check_p.add_argument("--quote", required=True)
     check_p.add_argument("--code", required=True)
     check_p.add_argument("--math", required=True)
