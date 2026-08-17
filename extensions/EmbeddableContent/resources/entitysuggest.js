@@ -26,8 +26,18 @@
 			combo.on( 'change', OO.ui.debounce( function ( value ) {
 				value = String( value || '' ).trim();
 				if ( value.length < 2 || /^[QP]\d+$/i.test( value ) ) {
-					return; // already an entity id — no suggestion needed
+					// Emptied input or a typed entity id: clear stale
+					// suggestions so a later retype starts fresh.
+					if ( value === '' || /^[QP]\d+$/i.test( value ) ) {
+						combo.setOptions( [] );
+						combo.getMenu().toggle( false );
+					}
+					return;
 				}
+				// Keep the RAW api.get() request as `pending`: a .then()
+				// derivative is a plain promise without .abort(), so the
+				// second search used to throw "pending.abort is not a
+				// function" and never update the suggestions.
 				if ( pending ) {
 					pending.abort();
 				}
@@ -38,7 +48,8 @@
 					type: 'item',
 					limit: 10,
 					format: 'json'
-				} ).then( function ( data ) {
+				} );
+				pending.then( function ( data ) {
 					var options = ( data.search || [] ).map( function ( row ) {
 						var label = row.id;
 						if ( row.label ) {
@@ -50,6 +61,8 @@
 						return { data: row.id, label: label };
 					} );
 					combo.setOptions( options );
+					// setOptions does not open the menu on its own.
+					combo.getMenu().toggle( true );
 				} ).catch( function () {
 					// Non-fatal: the combobox still accepts a typed item id,
 					// which the server-side parseOptionalItemId validates.
