@@ -12,6 +12,7 @@ Self-hosted **Wikibase** (structured-data wiki, the software behind Wikidata) on
 | Skins | **Vector** (default, REL1_46 git clone) + **Timeless** (selectable) | `/var/www/wikibase/skins/{Vector,Timeless}/` |
 | EmbeddableContent (D3 + issue #7) | extension (quotation/code/math embeds, `Special:AddQuotation`/`AddCodeSnippet`/`AddMath`, `Special:AddPerson`/`AddSource`/`AddCollective`) | `/var/www/wikibase/extensions/EmbeddableContent/` |
 | WikibaseCitation (D4) | extension (`action=citation`, citeproc-php) | `/var/www/wikibase/extensions/WikibaseCitation/` |
+| SyntaxHighlight_GeSHi (Aug 18 2026) | extension (Pygments code highlighting + built-in copy button on wiki pages; official REL1_46) | `/var/www/wikibase/extensions/SyntaxHighlight_GeSHi/` |
 | WDQS (Blazegraph SPARQL + updater) | service 0.3.156 | `/var/www/wdqs/service-0.3.156/` |
 | Blazegraph data | journal `/var/www/wdqs/data/wikidata.jnl` (DiskRW, 200 MB max) | `/var/www/wdqs/data/` |
 | MySQL DB | database `wikibase` (local MySQL, legacy) | — |
@@ -61,7 +62,8 @@ Open `https://wikibase.ronzz.org/` and log in. Entity namespaces: **Item = 120**
 
 > **For editors**: see the **`contribution-guide.md`** (same folder) for
 > step-by-step instructions on creating properties/items, statements, API bulk editing,
-> and house rules.
+> and house rules. On-wiki help lives at `https://wikibase.ronzz.org/wiki/Help:Contributing`
+> (incl. **`Help:Contributing/code`** for code-block content, added Aug 18 2026).
 >
 > **For admins**: see **`wikibase-cli.md`** (same folder) for server-side CLI
 > operations (editing `MediaWiki:` pages, maintenance scripts, cache gotchas).
