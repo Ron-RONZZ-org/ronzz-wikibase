@@ -1,27 +1,14 @@
 # AGENTS.md — content-creation Agent Instructions
 
-## Summary
-
-Creating and editing wiki content on ronzz-wikibase (wikibase.ronzz.org)
-through the `mediawiki-mcp-server`. All pages referenced below are **live wiki
-pages** — edit them via the MCP tools, never by writing files in this
+wiki content on ronzz-wikibase (wikibase.ronzz.org) are created and edited
+through the `mediawiki-mcp-server`MCP tools, not by writing files in this
 directory.
 
-## Purpose and Expected Behavior
+When creating content, you MUST follow the [style guide](https://wikibase.ronzz.org/wiki/Help:Contributing/styleGuide)
 
-This module governs **on-wiki content**: entity terms (labels, descriptions,
-aliases) and classic wiki pages (`Help:` namespace). It is the enforcement
-point of the instance language policy (en/fr/eo) as taught by the
-`Help:Contributing` family.
+Translation is out of scope for new pages: ignore it for new pages. Only activate [the translation workflow](./AGENTS-translation.md) when user specifically asks you to.
 
-Translation is deliberately out of scope here: it is a rare,
-approval-gated workflow. If the team leader has approved marking a page,
-load **`AGENTS-translation.md`** in this directory — it holds the marking
-workflow, translation policy and markup rules.
-
-Deployment context: see [repo root AGENTS.md](../AGENTS.md) for the
-ronzz-wikibase deployment info, then the `mediawiki-mcp-server` section below
-for wiki-side identity.
+Deployment context: see [repo root AGENTS.md](../AGENTS.md) for the ronzz-wikibase deployment info.
 
 ### `mediawiki-mcp-server`
 
@@ -38,46 +25,6 @@ for wiki-side identity.
   causes an edit conflict, and a stale source means you clobber changes.
 - **Verify after every edit**: page size via `prop=revisions` (a size
   collapse means truncation) + rendered HTML via `action=parse`.
-
-## Constraints and Invariants
-
-- **Language policy**: official languages are **en, fr, eo**, best-effort.
-  Guides must not mention other languages (adding languages is deliberately
-  undecided). Content should be multilingual: entity terms (labels,
-  descriptions, aliases) and wiki pages — wiki pages get translation markup
-  only once approved (see `AGENTS-translation.md`).
-- Examples must use real entities: P1 = "instance of" (no aliases yet),
-  Q1 = "Spike test item". Do not copy Wikidata P-numbers (ontology alignment
-  as data, equivalence statements instead).
-- Credentials never enter this repo (see Summary).
-- Content is authored **on the wiki** (live pages) — never as files in this
-  directory.
-
-## Input/Output Expectations
-
-- **Input**: page titles + wikitext — plain for unapproved pages; entity
-  terms via `wikibase-edit-entity`. Translation-marking input and output are
-  covered in `AGENTS-translation.md`.
-
-## Documentation Reference
-
-- `docs/contribution-guide.md` — pointer: the editor guide lives on-wiki at
-  the `Help:Contributing` family (migrated 2026-08-19)
-- Live wiki pages (authored via MCP, never local files):
-  - `[[Help:Contributing]]` — hub for contributors
-  - `[[Help:Contributing/access]]` — who can do what, logging in, accounts
-  - `[[Help:Contributing/entities]]` — data model, properties, items, statements, merge/delete
-  - `[[Help:Contributing/query]]` — SPARQL querying
-  - `[[Help:Contributing/house-rules]]` — instance rules
-  - `[[Help:Contributing/import]]` — importing from external authorities
-  - `[[Help:Contributing/api]]` — API and bulk editing
-  - `[[Help:Contributing/styleGuide]]` — writing rules (short sentences, no padding, tables for comparison, show don't tell)
-  - `[[Help:Contributing/code]]` — code blocks and syntax highlighting
-  - `[[Help:Contributing/richMediaContent]]` — media workflow: uploading and embedding files
-  - `[[Cheatsheets:Main]]` — dev cheatsheets hub (issue #20; `Cheatsheets:` namespace = 2000)
-  - `[[Cheatsheets:SPARQL]]` — pilot cheatsheet (same namespace)
-- Translation-specific pages (`Help:Contributing/languages*`) are referenced
-  from `AGENTS-translation.md`.
 
 ## Domain-Specific Rules for Agents
 
@@ -137,6 +84,3 @@ for wiki-side identity.
     parts → pattern" rather than abstract syntax explanations.
   - **Use real entity IDs, verified at authoring time** (P1 = instance of,
     Q1 = Spike test item — see Constraints and Invariants).
-- Translation markup rules (opt-in marking, `<translate>` units, tvar
-  linking, re-mark/purge cycles) apply only to pages approved by the team
-  leader — see `AGENTS-translation.md`.
