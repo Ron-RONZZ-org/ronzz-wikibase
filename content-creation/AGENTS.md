@@ -90,6 +90,15 @@ Steps after creating/updating a translatable page via MCP:
   are NOT decoded inside `<syntaxhighlight>`, so write raw characters
   (`<syntaxhighlight lang="text" inline><pre></syntaxhighlight>`, not
   `&lt;pre&gt;`).
+- **Links inside translatable units — never wrap a whole link in a tvar.** A
+  tvar freezes both the target and the label; the label must stay translatable
+  (`Translation admin` → `Administrateur de traduction`). Write the label in
+  the unit text and link with `[[Special:MyLanguage/Page|Label]]` so readers
+  also reach their language version of the target. A tvar around a link is
+  acceptable only when its visible text is language-independent: an entity ID
+  (`[[Special:EntityPage/Q1]]`), a page name used as a bare label
+  (`<tvar name="hub">[[Help:Contributing/languages]]</tvar>`), or a Special
+  page name.
 - A line starting with a space inside a table cell triggers `<pre>`; use
   `<br/>` to keep single-line cells.
 - Every translatable page must start with `<languages/>` and wrap each unit
