@@ -199,7 +199,7 @@ The following module-specific AGENTS files are located in their respective direc
 
 | Module | AGENTS File | Documentation |
 |---|---|---|
-| content-creation | `content-creation/AGENTS.md` | on-wiki `Help:Contributing` family (live pages; `docs/contribution-guide.md` is a pointer) |
+| content-creation | `content-creation/AGENTS.md`, `content-creation/AGENTS-translation.md` (approval-gated translation companion) | on-wiki `Help:Contributing` family (live pages; `docs/contribution-guide.md` is a pointer) |
 | dev | `dev/AGENTS.md` | `dev/README.md` |
 | docs | `docs/AGENTS.md` | `docs/README.md` |
 | extensions | `extensions/AGENTS.md` | `docs/README.md` (stack), `docs/decisions/` |

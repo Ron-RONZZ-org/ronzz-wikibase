@@ -10,10 +10,14 @@ directory.
 ## Purpose and Expected Behavior
 
 This module governs **on-wiki content**: entity terms (labels, descriptions,
-aliases), classic wiki pages (`Help:` namespace), and their translation
-markup. It is the enforcement point of the instance language policy
-(en/fr/eo) and of the `<translate>`/`<tvar>` conventions taught by the
+aliases) and classic wiki pages (`Help:` namespace). It is the enforcement
+point of the instance language policy (en/fr/eo) as taught by the
 `Help:Contributing` family.
+
+Translation is deliberately out of scope here: it is a rare,
+approval-gated workflow. If the team leader has approved marking a page,
+load **`AGENTS-translation.md`** in this directory — it holds the marking
+workflow, translation policy and markup rules.
 
 Deployment context: see [repo root AGENTS.md](../AGENTS.md) for the
 ronzz-wikibase deployment info, then the `mediawiki-mcp-server` section below
@@ -23,72 +27,17 @@ for wiki-side identity.
 
 - The MCP server authenticates as **SeedBot** (user ID 5). Groups: bot,
   bureaucrat, sysop, `*`, user, autoconfirmed.
-- **There is no `translationadmin` group** on this wiki. The Translate
-  extension's marking right is `pagetranslation`, granted to **sysop**.
-  SeedBot is sysop, so it can already mark pages — no group change is needed.
 - Bot credentials live outside this repo at
   `~/.config/mediawiki-mcp/ronzz-wikibase.json` (bot password, username
   `SeedBot@MCP`). Never copy credentials into this repo.
-
-### Translation marking workflow
-
-**Only for pages approved for marking** — i.e. pages that have reached
-editorial stabilisation (team leader's call — see
-[Translation policy](#translation-policy)). The MCP server has **no marking
-tool**.
-Use API module **`action=markfortranslation`** (`MarkForTranslationActionApi`, NOT `action=pagetranslation` as found on some older MediaWiki versions).
-Parameters: `title` (or `pageid`), `revid` (the latest page revision), `token`;
-optional `prioritylanguages`, `transclusion`, `nofuzzyunits`, `fuzzyunits`.
-
-Steps after the team leader approves marking a page:
-
-1. **Login + CSRF + mark** (password read from the config file, never echoed):
-
-   ```bash
-   CFG=~/.config/mediawiki-mcp/ronzz-wikibase.json
-   SERVER=$(jq -r '.wikis["wikibase.ronzz.org"].server' "$CFG")
-   SCRIPT=$(jq -r '.wikis["wikibase.ronzz.org"].scriptpath' "$CFG")
-   USER=$(jq -r '.wikis["wikibase.ronzz.org"].username' "$CFG")
-   API="$SERVER$SCRIPT/api.php"
-   JAR=$(mktemp)
-   LT=$(curl -s -c "$JAR" "$API?action=query&meta=tokens&type=login&format=json" | jq -r '.query.tokens.logintoken')
-   curl -s -b "$JAR" -c "$JAR" --data-urlencode "lgname=$USER" \
-     --data-urlencode "lgpassword=$(jq -r '.wikis["wikibase.ronzz.org"].password' "$CFG")" \
-     --data-urlencode "lgtoken=$LT" --data-urlencode "format=json" "$API?action=login" >/dev/null
-   CSRF=$(curl -s -b "$JAR" "$API?action=query&meta=tokens&type=csrf&format=json" | jq -r '.query.tokens.csrftoken')
-   curl -s -b "$JAR" --data-urlencode "action=markfortranslation" \
-     --data-urlencode "title=PAGE_TITLE" --data-urlencode "revid=REV_ID" \
-     --data-urlencode "token=$CSRF" --data-urlencode "format=json" "$API"
-   rm -f "$JAR"
-   ```
-
-   Expect `{"markfortranslation":{"result":"Success","unitcount":N}}`
-   (re-mark of an existing page) or `{"result":"Success","firstmark":"",...}`
-   (first mark).
-
-2. **Purge** the page so the parser cache re-renders the language bar
-   (marking does NOT bump the page revision): `action=purge` with
-   `titles=...|...&forcelinkupdate=1` and the same CSRF token.
-
-3. **Verify**: the rendered page shows the `<languages/>` bar as
-   "Other languages: English" — it appears only on marked pages.
-
-## Translation policy
-
-- Official languages remain **en, fr, eo**, best-effort — but multilingual
-  content is **sequenced, not day-one**. New pages are authored **without**
-  translation markup.
-- **No `<languages/>`, `<translate>` or `<!--T:n-->` markers until editorial
-  stabilisation.** Whether a page is stable enough to mark is the **team
-  leader's call** — not the author's, not the bot's.
-- Until approved, author plain wikitext in **unit-shaped chunks** (one idea
-  per paragraph, self-contained tables, standalone code blocks) so the later
-  `<translate>` conversion is mechanical and yields clean units.
-- Mark **page-by-page**, never a whole series at once. Re-mark only when a
-  marked page's unit structure changes (see marking workflow above).
-- Rationale: markers make large restructuring cumbersome (marker
-  renumbering, re-marking, fuzzy units, translator churn); churn-prone
-  content (e.g. cheatsheets) must not carry them until it stabilises.
+- **`update-page` replaces the FULL page content** — sending a fragment (a
+  section or a snippet) silently truncates the page. Always send the
+  complete new source, or use `mode=append`/`prepend`/`section` explicitly.
+- **Fetch `latestId` + the current source immediately before editing** —
+  someone (or you) may have edited since you last read; a stale `latestId`
+  causes an edit conflict, and a stale source means you clobber changes.
+- **Verify after every edit**: page size via `prop=revisions` (a size
+  collapse means truncation) + rendered HTML via `action=parse`.
 
 ## Constraints and Invariants
 
@@ -96,10 +45,7 @@ Steps after the team leader approves marking a page:
   Guides must not mention other languages (adding languages is deliberately
   undecided). Content should be multilingual: entity terms (labels,
   descriptions, aliases) and wiki pages — wiki pages get translation markup
-  only once approved (see Translation policy).
-- A page **approved for marking** must start with `<languages/>` and wrap
-  each unit in `<translate>` with a `<!--T:n-->` marker; keep markers
-  sequential when writing them by hand (the extension renumbers on marking).
+  only once approved (see `AGENTS-translation.md`).
 - Examples must use real entities: P1 = "instance of" (no aliases yet),
   Q1 = "Spike test item". Do not copy Wikidata P-numbers (ontology alignment
   as data, equivalence statements instead).
@@ -109,13 +55,9 @@ Steps after the team leader approves marking a page:
 
 ## Input/Output Expectations
 
-- **Input**: page titles + wikitext — plain for unapproved pages, or with
-  `<translate>`/`<tvar>` markup once marking is approved (or entity terms
-  via `wikibase-edit-entity`).
-- **Marking output**: `{"markfortranslation":{"result":"Success","unitcount":N}}`
-  (re-mark) or `{"result":"Success","firstmark":"",...}` (first mark).
-- **Verification**: the rendered page shows the `<languages/>` bar with
-  "Other languages: English" (only on marked pages).
+- **Input**: page titles + wikitext — plain for unapproved pages; entity
+  terms via `wikibase-edit-entity`. Translation-marking input and output are
+  covered in `AGENTS-translation.md`.
 
 ## Documentation Reference
 
@@ -132,25 +74,13 @@ Steps after the team leader approves marking a page:
   - `[[Help:Contributing/styleGuide]]` — writing rules (short sentences, no padding, tables for comparison, show don't tell)
   - `[[Help:Contributing/code]]` — code blocks and syntax highlighting
   - `[[Help:Contributing/richMediaContent]]` — media workflow: uploading and embedding files
-  - `[[Help:Contributing/languages]]` — hub: entities/properties + classic wiki pages, two roles
-  - `[[Help:Contributing/languages/translationAdmin]]` — marking and managing pages
-  - `[[Help:Contributing/languages/translator]]` — translating units
   - `[[Cheatsheets:Main]]` — dev cheatsheets hub (issue #20; `Cheatsheets:` namespace = 2000)
   - `[[Cheatsheets:SPARQL]]` — pilot cheatsheet (same namespace)
+- Translation-specific pages (`Help:Contributing/languages*`) are referenced
+  from `AGENTS-translation.md`.
 
 ## Domain-Specific Rules for Agents
 
-- **Translation markup is opt-in, not default.** Do not add `<languages/>`,
-  `<translate>` or `<!--T:n-->` to a page unless the team leader has
-  approved marking it (see Translation policy). Unmarked pages are plain
-  wikitext; the marker rules below apply only to pages being marked.
-- **Per-list-item `<translate>` units inside `<ol><li>` are rejected** —
-  error `pt-shake-position: Translation unit markers in unexpected position`.
-  Wrap the whole `<ol>` in a single `<translate>` block.
-- A unit marker must be followed by a **space or newline** — the parser only
-  accepts `<!--T:n--> text` or `<!--T:n-->\n` (`TranslatablePageParser.php`:
-  `$rer1 = '~^<!--T:(.*?)-->( |\n)~'`). A marker glued to content
-  (`<!--T:n-->text`) fails with `pt-shake-position`.
 - **Never use live `<code>` tags on wiki pages — prefer
   `<syntaxhighlight lang="text" inline>`.** `<code>` is raw HTML: it does not
   escape its content (`<` and `&` inside it are read as markup). The code
@@ -161,15 +91,52 @@ Steps after the team leader approves marking a page:
   inside `<syntaxhighlight>`, so write raw characters
   (`<syntaxhighlight lang="text" inline><pre></syntaxhighlight>`, not
   `&lt;pre&gt;`).
-- **Links inside translatable units — never wrap a whole link in a tvar.** A
-  tvar freezes both the target and the label; the label must stay
-  translatable (`Translation admin` → `Administrateur de traduction`). Write
-  the label in the unit text and link with `[[Special:MyLanguage/Page|Label]]`
-  so readers also reach their language version of the target. A tvar around a
-  link is acceptable only when its visible text is language-independent: an
-  entity ID (`[[Special:EntityPage/Q1]]`), a page name used as a bare label
-  (`<tvar name="hub">[[Help:Contributing/languages]]</tvar>`), or a Special
-  page name.
-- A line starting with a space inside a table cell triggers `<pre>`; use
-  `<br/>` to keep single-line cells.
-- Re-mark after edits that change the unit structure; re-purge after marking.
+- **Rendering pitfalls** (all silent failures — verify the rendered HTML via
+  `action=parse` after every edit):
+  - `<syntaxhighlight inline>` **at line start renders as a block `<pre>`**
+    even with the `inline` attribute — it splits paragraphs/list items. Keep
+    inline tags mid-sentence, or put the code inside a table cell.
+  - **`||` inside a table cell is a cell separator** — `&& || !` in a cell
+    splits it into two columns. Wrap the expression in
+    `<syntaxhighlight lang="…" inline>` to protect it.
+  - **Tables need `{| … |}` delimiters** — a row fragment like `| Result ||`
+    without the opening `{| class="wikitable"` renders as literal text, not
+    a table.
+  - **External links can't span a newline** — `[https://… URL\nlabel]`
+    renders the `[` literally. Keep URL and label on one line.
+  - **Unknown custom tags get HTML-escaped** — a placeholder like `<graph>…`
+    renders as literal `<graph>` text. Use `<syntaxhighlight inline>`.
+  - **A line starting with a space inside a table cell triggers `<pre>`**;
+    use `<br/>` to keep single-line cells.
+  - **`line highlight="N"` gives a numbered code block with highlighted
+    lines** — prefer it over a separate diff block to show what a modifier
+    adds.
+- **Reference content (cheatsheets, syntax guides)** — assume the reader
+  already knows the topic; these pages are **not** tutorials:
+  - **Point to a tutorial, don't write one** — link the canonical tutorial
+    at the top and keep the page as syntax reference.
+  - **Generic content, not instance-coupled** — write against a well-known
+    public reference (Wikidata); instance-specific facts (endpoints,
+    prefixes, property IDs) belong on the instance's own page (e.g.
+    `Help:Contributing/query`), linked from the reference.
+  - **Show, don't tell** — every construct gets an example query + its
+    **actual, verified result** underneath. Abstract fragments
+    (`[] ex:age 42`) confuse; real queries with real output teach.
+  - **Verify every example live before writing it** — run the query against
+    the endpoint; IDs, counts and outputs change and must be current
+    (2026-08-19: P31 vs P1 confusion, HAVING + label-service quirk).
+  - **Gotchas need a negative + positive pair** — show the failing query
+    (and its empty/wrong result) next to the fixed one, both **inside** the
+    `<blockquote>`.
+  - **Compare with without/with side-by-side** — for modifiers (DISTINCT,
+    LIMIT, …), a two-column table "without / with" + `line highlight` on the
+    key line beats a separate diff block.
+  - **One running example, established at the top** — reuse it throughout
+    the page so readers build familiarity.
+  - **Teach intuition, not grammar** — frame patterns as "question → known
+    parts → pattern" rather than abstract syntax explanations.
+  - **Use real entity IDs, verified at authoring time** (P1 = instance of,
+    Q1 = Spike test item — see Constraints and Invariants).
+- Translation markup rules (opt-in marking, `<translate>` units, tvar
+  linking, re-mark/purge cycles) apply only to pages approved by the team
+  leader — see `AGENTS-translation.md`.
