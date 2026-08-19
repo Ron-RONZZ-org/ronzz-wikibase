@@ -125,6 +125,39 @@ Open `https://wikibase.ronzz.org/` and log in. Entity namespaces: **Item = 120**
   `$wgFileExtensions[]` addition (e.g. `'pdf'`).
 - **Disk**: 32 GiB free on `/` at deploy time — 1 GiB files accumulate fast.
 
+### Upload from URL + licensing (Aug 19 2026)
+
+- **Upload-from-URL enabled for logged-in users**: `Special:Upload` now has a
+  "URL" source radio + URL field (before: local file only). Config in
+  `LocalSettings.php`: `$wgAllowCopyUploads = true;`
+  `$wgCopyUploadsFromSpecialUpload = true;`
+  `$wgGroupPermissions['user']['upload_by_url'] = true;`
+  `$wgCopyUploadTimeout = 600;` `$wgCopyUploadAllowOnWikiDomainConfig = true;`.
+  The API path (`action=upload` + `url=`) works too. Backup:
+  `/var/backups/wikibase/LocalSettings.php.pre-uploadurl-ssrf-20260819-151037`.
+- **SSRF guard (mandatory with this feature)**: `$wgHooks['IsUploadAllowedFromUrl']`
+  closure in `LocalSettings.php` refuses loopback/private/link-local/ULA/metadata
+  IPv4+IPv6 ranges (incl. `100.64.0.0/10`, `169.254.0.0/16`, `::1`, `fc00::/7`,
+  `fe80::/10`, `224.0.0.0/4`, `240.0.0.0/4`, `2001:db8::/32`) and is fail-closed
+  on unresolvable hosts. `MediaWiki:Copyupload-allowed-domains` exists but is
+  left **empty** (= all hosts allowed; that message is a secondary
+  MediaWiki-side filter — the hook guard is the real protection).
+  **Verified Aug 19 2026**: `localhost`, `localtest.me` (resolves to loopback),
+  `169.254.169.254`, `10.0.0.1`, `192.168.1.1` all refused (`copyuploadbadurl`);
+  a public URL (gnu.org PNG) uploads fine, both via API and via the web form.
+- **Licensing dropdown fixed**: `MediaWiki:Licenses` created Aug 19 2026 with 6
+  options — CC BY-SA 4.0, CC BY 4.0, CC0 1.0, Public domain, Fair use,
+  No license — plus matching `Template:` pages (`cc-by-sa-4.0`, `cc-by-4.0`,
+  `cc0-1.0`, `pd`, `fairuse`, `no license`) with short license notices.
+  Selecting a license on upload transcludes the template into the file page
+  (verified end-to-end). **Format gotcha (MW 1.46)**: `Licenses::split()` puts
+  the part **before** the pipe as the option value (the template name) and the
+  part **after** as the display text: `* <template>|<display text>` — no spaces
+  around the pipe.
+- **Cache gotcha**: see `wikibase-cli.md` — API edits to `MediaWiki:*` messages
+  only *sometimes* invalidate the message cache on this box; the reliable fix is
+  `sudo systemctl restart php8.3-fpm` (per-process APCu).
+
 ### Media playback: audio & video (TimedMediaHandler, Aug 19 2026)
 
 - **Extension**: `TimedMediaHandler` v0.6.0, cloned from gerrit branch `REL1_46`

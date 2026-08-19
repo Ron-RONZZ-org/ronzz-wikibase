@@ -113,14 +113,23 @@ AddSource, AddCollective, AddQuotation, AddCodeSnippet, AddMath).
 - The live site therefore keeps serving the **stale** interface messages until
   the FPM pool restarts.
 
-**Fix:** after any CLI change to `MediaWiki:*` pages or interface messages,
-restart the pool:
+**Fix:** after any change to `MediaWiki:*` pages or interface messages — via CLI
+*or* via API (`action=edit`) — restart the pool:
 
 ```bash
 sudo systemctl restart php8.3-fpm
 ```
 
 (`systemctl reload` is not sufficient — APCu lives per worker process.)
+
+**API edits are non-deterministically stale (observed Aug 19 2026):** an
+`action=edit` on `MediaWiki:Licenses` updated the message blob store
+(`meta=allmessages` was fresh) but the rendered form served the old options on
+*some* requests only — 3 consecutive fetches gave `0 1 1` marker hits before the
+restart and `1 1 1` after. `purgeMessageBlobStore.php` /
+`rebuildLocalisationCache.php` from the CLI did **not** fix it (their writes go
+into the throwaway CLI APCu, per the gotcha above). The pool restart is the
+reliable invalidation.
 
 **Symptoms if you skip it:** the edited page's raw content is correct via
 `?action=raw` and in the DB, but the rendered site shows the old text/sidebar.
