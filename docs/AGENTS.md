@@ -16,8 +16,9 @@ deployed, how to operate it, and why it is designed the way it is.
 - `docs/README.md` — instance stack (MW 1.46 + Wikibase repo + WDQS 0.3.156 +
   MySQL), endpoints, services, access control, SPARQL/API usage, skins,
   Translate/ULS setup, MCP server setup.
-- `docs/contribution-guide.md` — step-by-step editing rules for content
-  editors (properties/items, statements, API bulk editing, house rules).
+- `docs/contribution-guide.md` — pointer: the editor-facing rules
+  (properties/items, statements, API bulk editing, house rules) live on-wiki
+  at the `Help:Contributing` family.
 - `docs/wikibase-cli.md` — server-side admin/CLI operations (editing
   `MediaWiki:` pages, maintenance scripts, cache gotchas).
 - `docs/decisions/` — ADR-style decisions: `opaque-id.md` (opaque Q/P IDs,
@@ -51,8 +52,8 @@ deployed, how to operate it, and why it is designed the way it is.
 
 - `docs/README.md` — stack table, endpoints, services, gotchas (port 8081),
   access control, SPARQL/API examples, official MediaWiki/Wikibase links
-- `docs/contribution-guide.md` — editor-facing rules (see also
-  `content-creation/AGENTS.md` for the live-wiki workflow)
+- `docs/contribution-guide.md` — pointer to the on-wiki `Help:Contributing`
+  family (see also `content-creation/AGENTS.md` for the live-wiki workflow)
 - `docs/wikibase-cli.md` — admin CLI operations
 - `docs/decisions/` — ADR-style decisions
 - `docs/AGENTS.md` — this file (module conventions)

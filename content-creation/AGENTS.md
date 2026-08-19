@@ -97,10 +97,16 @@ Steps after creating/updating a translatable page via MCP:
 
 ## Documentation Reference
 
-- `docs/contribution-guide.md` — editing rules for the instance (content
-  editors)
+- `docs/contribution-guide.md` — pointer: the editor guide lives on-wiki at
+  the `Help:Contributing` family (migrated 2026-08-19)
 - Live wiki pages (authored via MCP, never local files):
   - `[[Help:Contributing]]` — hub for contributors
+  - `[[Help:Contributing/access]]` — who can do what, logging in, accounts
+  - `[[Help:Contributing/entities]]` — data model, properties, items, statements, merge/delete
+  - `[[Help:Contributing/query]]` — SPARQL querying
+  - `[[Help:Contributing/house-rules]]` — instance rules
+  - `[[Help:Contributing/import]]` — importing from external authorities
+  - `[[Help:Contributing/api]]` — API and bulk editing
   - `[[Help:Contributing/styleGuide]]` — writing rules (short sentences, no padding, tables for comparison, show don't tell)
   - `[[Help:Contributing/code]]` — code blocks and syntax highlighting
   - `[[Help:Contributing/languages]]` — hub: entities/properties + classic wiki pages, two roles

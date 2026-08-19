@@ -3,7 +3,8 @@
 How to perform admin tasks on `wikibase.ronzz.org` directly from the server,
 without logging in through the web UI. Requires **SSH + sudo on
 `ronzz-linux-server-2`** (`158.178.193.231`, user `ubuntu`, passwordless sudo).
-For content editing see `contribution-guide.md`; for the stack see `README.md`.
+For content editing see the on-wiki `Help:Contributing` family
+(`docs/contribution-guide.md` points there); for the stack see `README.md`.
 
 ## Access model
 

@@ -74,7 +74,8 @@ extensions — never forks of Wikibase.
 - `docs/README.md` — stack table (installed extensions + skins/Translate)
 - `docs/decisions/` — `opaque-id.md` (fork maintenance rejected),
   `ontology-alignment.md`, `raw-rdf-in-blazegraph.md`
-- `docs/contribution-guide.md` — editor-facing usage of the content pages
+- `docs/contribution-guide.md` — pointer to the on-wiki `Help:Contributing`
+  family (editor-facing usage of the content pages)
 - `composer.json` — dev-only PHPUnit/data-model deps; WikibaseCitation's
   own `composer.json` (citeproc-php) installs its `vendor/` in the
   extension dir

@@ -105,7 +105,8 @@ python3 tests/e2e/run_pages_e2e.py --base-url https://wikibase.ronzz.org \
 Instance documentation lives **in this repo** under `docs/`:
 
 - `docs/README.md` — instance stack, endpoints, access control, skins
-- `docs/contribution-guide.md` — editing rules for the instance (content editors)
+- `docs/contribution-guide.md` — pointer: editing rules live on-wiki at the
+  `Help:Contributing` family (so non-coders find them)
 - `docs/wikibase-cli.md` — server-side admin/CLI operations
 - `docs/decisions/` — ADR-style decisions (`opaque-id.md`, `ontology-alignment.md`,
   `raw-rdf-in-blazegraph.md`)

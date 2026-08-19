@@ -62,9 +62,10 @@ sudo systemctl restart wdqs-updater
 Open `https://wikibase.ronzz.org/` and log in. Entity namespaces: **Item = 120**,
 **Property = 122** (URL form `/wiki/Item:Q1`). Workflow: Properties first, then Items.
 
-> **For editors**: see the **`contribution-guide.md`** (same folder) for
-> step-by-step instructions on creating properties/items, statements, API bulk editing,
-> and house rules. On-wiki help lives at `https://wikibase.ronzz.org/wiki/Help:Contributing`
+> **For editors**: the step-by-step instructions (creating properties/items,
+> statements, API bulk editing, house rules) live **on-wiki** at
+> `https://wikibase.ronzz.org/wiki/Help:Contributing` (migrated from
+> `contribution-guide.md` in this repo, which now only points there).
 > (incl. **`Help:Contributing/code`** for code-block content, added Aug 18 2026, and
 > **`Help:Contributing/languages`** for entity terms + page translation, added Aug 18 2026
 > and marked for translation — 31 units, `en`/`fr` sample translations live).
