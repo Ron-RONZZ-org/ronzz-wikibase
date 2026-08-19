@@ -134,6 +134,8 @@ Steps after the team leader approves marking a page:
   - `[[Help:Contributing/languages]]` — hub: entities/properties + classic wiki pages, two roles
   - `[[Help:Contributing/languages/translationAdmin]]` — marking and managing pages
   - `[[Help:Contributing/languages/translator]]` — translating units
+  - `[[Cheatsheets:Main]]` — dev cheatsheets hub (issue #20; `Cheatsheets:` namespace = 2000)
+  - `[[Cheatsheets:SPARQL]]` — pilot cheatsheet (same namespace)
 
 ## Domain-Specific Rules for Agents
 

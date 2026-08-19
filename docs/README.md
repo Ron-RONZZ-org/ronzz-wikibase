@@ -69,6 +69,12 @@ Open `https://wikibase.ronzz.org/` and log in. Entity namespaces: **Item = 120**
 > (incl. **`Help:Contributing/code`** for code-block content, added Aug 18 2026, and
 > **`Help:Contributing/languages`** for entity terms + page translation, added Aug 18 2026
 > and marked for translation — 31 units, `en`/`fr` sample translations live).
+> **Dev cheatsheets** (Markdown, Quarto, Bash, Git, SPARQL) live in the
+> **`Cheatsheets:` namespace** (`https://wikibase.ronzz.org/wiki/Cheatsheets:<Topic>`),
+> hub at **`Cheatsheets:Main`** — see issue #20 (namespace is a LocalSettings-only
+> change; no translation markers until editorial stabilisation, per
+> `content-creation/AGENTS.md`; MediaWiki rejects a bare namespace prefix as a
+> page title, hence `Main`).
 >
 > **For admins**: see **`wikibase-cli.md`** (same folder) for server-side CLI
 > operations (editing `MediaWiki:` pages, maintenance scripts, cache gotchas).

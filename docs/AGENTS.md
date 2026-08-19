@@ -15,7 +15,8 @@ deployed, how to operate it, and why it is designed the way it is.
 
 - `docs/README.md` — instance stack (MW 1.46 + Wikibase repo + WDQS 0.3.156 +
   MySQL), endpoints, services, access control, SPARQL/API usage, skins,
-  Translate/ULS setup, MCP server setup.
+  Translate/ULS setup, MCP server setup. On-wiki dev cheatsheets live in the
+  `Cheatsheets:` namespace (issue #20, LocalSettings-only change).
 - `docs/contribution-guide.md` — pointer: the editor-facing rules
   (properties/items, statements, API bulk editing, house rules) live on-wiki
   at the `Help:Contributing` family.
