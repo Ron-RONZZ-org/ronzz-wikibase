@@ -81,6 +81,15 @@ Steps after creating/updating a translatable page via MCP:
   accepts `<!--T:n--> text` or `<!--T:n-->\n` (`TranslatablePageParser.php`:
   `$rer1 = '~^<!--T:(.*?)-->( |\n)~'`). A marker glued to content
   (`<!--T:n-->text`) fails with `pt-shake-position`.
+- **Never use live `<code>` tags on wiki pages — prefer
+  `<syntaxhighlight lang="text" inline>`.** `<code>` is raw HTML: it does not
+  escape its content (`<` and `&` inside it are read as markup). The code guide
+  (`[[Help:Contributing/code]]`) teaches this, so pages must practice what the
+  guides preach. Notes: `lang` is required — `<syntaxhighlight inline>` without
+  it lands the page in Category:Pages with syntax highlighting errors; entities
+  are NOT decoded inside `<syntaxhighlight>`, so write raw characters
+  (`<syntaxhighlight lang="text" inline><pre></syntaxhighlight>`, not
+  `&lt;pre&gt;`).
 - A line starting with a space inside a table cell triggers `<pre>`; use
   `<br/>` to keep single-line cells.
 - Every translatable page must start with `<languages/>` and wrap each unit
