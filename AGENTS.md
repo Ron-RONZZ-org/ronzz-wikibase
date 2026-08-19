@@ -25,10 +25,23 @@ documentation (`docs/`), and hosts the custom extension code
 (EmbeddableContent, WikibaseCitation) plus the seed tooling that bootstrapped
 the instance.
 
-**Operational/server credentials never belong in this repo** — they live in
-the private Nextcloud docs
-(`~/shared-ronzz-nextcloud/docs/IT/ronzz-linux-server-2.md`); everything else
-about the instance is in `docs/` here.
+---
+
+## Deployment
+
+- **Production is deployed on `ronzz-linux-server-2`** (158.178.193.231),
+  serving wikibase.ronzz.org. All server-wide operations — the OS, services
+  (nginx, php-fpm, WDQS/Blazegraph + updater, MySQL), OCI identity, `.env`
+  paths, credentials and maintenance runbooks — are documented in the
+  **private Nextcloud ops doc**
+  `~/shared-ronzz-nextcloud/docs/IT/ronzz-linux-server-2.md`.
+- **Operational/server credentials never belong in this repo** — anything
+  server-wide lives in that ops doc, never here. Instance-specific facts
+  (stack, endpoints, access control, decisions) live in `docs/` in this
+  repo.
+- Never develop directly on the production server — extension work targets
+  the dev/CI wikibase-docker stack (see Coding Guidelines #6 and
+  `dev/AGENTS.md`).
 
 ---
 
@@ -44,6 +57,7 @@ about the instance is in `docs/` here.
 
 | Layer | Technology |
 |-------|-----------|
+| Production host | `ronzz-linux-server-2` (158.178.193.231) — server-wide ops doc: `~/shared-ronzz-nextcloud/docs/IT/ronzz-linux-server-2.md` (private Nextcloud) |
 | Wiki platform | MediaWiki 1.46 + Wikibase (repo), self-hosted at wikibase.ronzz.org |
 | Query service | WDQS (Blazegraph SPARQL 0.3.156) |
 | Database | MySQL / MariaDB |
