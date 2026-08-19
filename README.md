@@ -1,7 +1,12 @@
 # ronzz-wikibase
 
 Customization project for **wikibase.ronzz.org** — the self-hosted Wikibase
-(structured-data wiki) at ronzz.org. The v1 plan lives in
+(structured-data wiki) at ronzz.org.
+
+[![CI](https://github.com/Ron-RONZZ-org/ronzz-wikibase/actions/workflows/ci.yml/badge.svg)](https://github.com/Ron-RONZZ-org/ronzz-wikibase/actions/workflows/ci.yml)
+[![License: GPL-2.0-or-later](https://img.shields.io/badge/license-GPL--2.0--or--later-blue.svg)](LICENSE)
+
+The v1 plan lives in
 [**GitHub issue #6**](https://github.com/Ron-RONZZ-org/ronzz-wikibase/issues/6)
 (fresh-instance bootstrap + EmbeddableContent + WikibaseCitation).
 
@@ -51,6 +56,11 @@ Customization project for **wikibase.ronzz.org** — the self-hosted Wikibase
   `tests/e2e/` suites against a seeded live instance: `run_e2e.py`
   (acceptance + XSS) and `run_pages_e2e.py` (issue-#7 page flows:
   AddPerson/AddSource/AddCollective + the AddQuotation form).
+- `dev/` — reference-deployment dev/CI stack (wikibase-docker, WBS).
+- `docs/` — instance documentation (stack, endpoints, contribution guide,
+  CLI ops, ADR-style decisions).
+- Each module directory carries its own `AGENTS.md` with module-specific
+  agent instructions (see the table in `AGENTS.md` at the repo root).
 
 ## Development
 
@@ -109,3 +119,8 @@ Private ops/credentials (server config, OCI identity, `.env` paths — e.g.
   MediaWiki integration tests; **GPL-2.0-or-later** for extensions.
 - Commit with [Conventional Commits](https://www.conventionalcommits.org/).
 - See `AGENTS.md` in this repo for agent guidance.
+
+## License
+
+[GPL-2.0-or-later](LICENSE) — the custom extensions and tooling. Wikibase
+itself and the Wikimedia software it runs on keep their own licenses.

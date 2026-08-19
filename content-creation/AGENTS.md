@@ -1,10 +1,25 @@
-# Instructions for creating and editing wiki content on ronzz-wikibase
+# AGENTS.md — content-creation Agent Instructions
 
-(wikibase.ronzz.org) through the mediawiki-mcp-server. All pages referenced
-below are **live wiki pages** — edit them via the MCP tools, never by writing
-files in this directory.
+## Summary
 
-## Identity and rights (prevent re-discovery)
+Creating and editing wiki content on ronzz-wikibase (wikibase.ronzz.org)
+through the `mediawiki-mcp-server`. All pages referenced below are **live wiki
+pages** — edit them via the MCP tools, never by writing files in this
+directory.
+
+## Purpose and Expected Behavior
+
+This module governs **on-wiki content**: entity terms (labels, descriptions,
+aliases), classic wiki pages (`Help:` namespace), and their translation
+markup. It is the enforcement point of the instance language policy
+(en/fr/eo) and of the `<translate>`/`<tvar>` conventions taught by the
+`Help:Contributing` family.
+
+Deployment context: see [repo root AGENTS.md](../AGENTS.md) for the
+ronzz-wikibase deployment info, then the `mediawiki-mcp-server` section below
+for wiki-side identity.
+
+### `mediawiki-mcp-server`
 
 - The MCP server authenticates as **SeedBot** (user ID 5). Groups: bot,
   bureaucrat, sysop, `*`, user, autoconfirmed.
@@ -15,10 +30,10 @@ files in this directory.
   `~/.config/mediawiki-mcp/ronzz-wikibase.json` (bot password, username
   `SeedBot@MCP`). Never copy credentials into this repo.
 
-## Translation marking workflow
+### Translation marking workflow
 
-The MCP server has **no marking tool**. 
-You should use API module **`action=markfortranslation`** (`MarkForTranslationActionApi`, NOT `action=pagetranslation` as found on some older MediaWiki versions).
+The MCP server has **no marking tool**.
+Use API module **`action=markfortranslation`** (`MarkForTranslationActionApi`, NOT `action=pagetranslation` as found on some older MediaWiki versions).
 Parameters: `title` (or `pageid`), `revid` (the latest page revision), `token`;
 optional `prioritylanguages`, `transclusion`, `nofuzzyunits`, `fuzzyunits`.
 
@@ -55,24 +70,44 @@ Steps after creating/updating a translatable page via MCP:
 3. **Verify**: the rendered page shows the `<languages/>` bar as
    "Other languages: English" — it appears only on marked pages.
 
-## Language policy
+## Constraints and Invariants
 
-- Official languages: **en, fr, eo**, best-effort. Guides must not mention
-  other languages (adding languages is deliberately undecided).
-- Content should be multilingual:
-  - entity terms (labels, descriptions, aliases)
-  - wiki pages
+- **Language policy**: official languages are **en, fr, eo**, best-effort.
+  Guides must not mention other languages (adding languages is deliberately
+  undecided). Content should be multilingual: entity terms (labels,
+  descriptions, aliases) and wiki pages.
+- Every translatable page must start with `<languages/>` and wrap each unit
+  in `<translate>` with a `<!--T:n-->` marker; keep markers sequential when
+  writing them by hand (the extension renumbers on marking).
+- Examples must use real entities: P1 = "instance of" (no aliases yet),
+  Q1 = "Spike test item". Do not copy Wikidata P-numbers (ontology alignment
+  as data, equivalence statements instead).
+- Credentials never enter this repo (see Summary).
+- Content is authored **on the wiki** (live pages) — never as files in this
+  directory.
 
-## Help:Contributing family (live wiki pages)
+## Input/Output Expectations
 
-- `[[Help:Contributing]]` — hub for contributors
-- `[[Help:Contributing/styleGuide]]` — writing rules (short sentences, no padding, tables for comparison, show don't tell)
-- `[[Help:Contributing/code]]` — code blocks and syntax highlighting
-- `[[Help:Contributing/languages]]` — hub: entities/properties + classic wiki pages, two roles
-- `[[Help:Contributing/languages/translationAdmin]]` — marking and managing pages
-- `[[Help:Contributing/languages/translator]]` — translating units
+- **Input**: page titles + wikitext with `<translate>`/`<tvar>` markup (or
+  entity terms via `wikibase-edit-entity`).
+- **Marking output**: `{"markfortranslation":{"result":"Success","unitcount":N}}`
+  (re-mark) or `{"result":"Success","firstmark":"",...}` (first mark).
+- **Verification**: the rendered page shows the `<languages/>` bar with
+  "Other languages: English" (only on marked pages).
 
-## Pitfalls
+## Documentation Reference
+
+- `docs/contribution-guide.md` — editing rules for the instance (content
+  editors)
+- Live wiki pages (authored via MCP, never local files):
+  - `[[Help:Contributing]]` — hub for contributors
+  - `[[Help:Contributing/styleGuide]]` — writing rules (short sentences, no padding, tables for comparison, show don't tell)
+  - `[[Help:Contributing/code]]` — code blocks and syntax highlighting
+  - `[[Help:Contributing/languages]]` — hub: entities/properties + classic wiki pages, two roles
+  - `[[Help:Contributing/languages/translationAdmin]]` — marking and managing pages
+  - `[[Help:Contributing/languages/translator]]` — translating units
+
+## Domain-Specific Rules for Agents
 
 - **Per-list-item `<translate>` units inside `<ol><li>` are rejected** —
   error `pt-shake-position: Translation unit markers in unexpected position`.
@@ -83,27 +118,23 @@ Steps after creating/updating a translatable page via MCP:
   (`<!--T:n-->text`) fails with `pt-shake-position`.
 - **Never use live `<code>` tags on wiki pages — prefer
   `<syntaxhighlight lang="text" inline>`.** `<code>` is raw HTML: it does not
-  escape its content (`<` and `&` inside it are read as markup). The code guide
-  (`[[Help:Contributing/code]]`) teaches this, so pages must practice what the
-  guides preach. Notes: `lang` is required — `<syntaxhighlight inline>` without
-  it lands the page in Category:Pages with syntax highlighting errors; entities
-  are NOT decoded inside `<syntaxhighlight>`, so write raw characters
+  escape its content (`<` and `&` inside it are read as markup). The code
+  guide (`[[Help:Contributing/code]]`) teaches this, so pages must practice
+  what the guides preach. Notes: `lang` is required —
+  `<syntaxhighlight inline>` without it lands the page in
+  Category:Pages with syntax highlighting errors; entities are NOT decoded
+  inside `<syntaxhighlight>`, so write raw characters
   (`<syntaxhighlight lang="text" inline><pre></syntaxhighlight>`, not
   `&lt;pre&gt;`).
 - **Links inside translatable units — never wrap a whole link in a tvar.** A
-  tvar freezes both the target and the label; the label must stay translatable
-  (`Translation admin` → `Administrateur de traduction`). Write the label in
-  the unit text and link with `[[Special:MyLanguage/Page|Label]]` so readers
-  also reach their language version of the target. A tvar around a link is
-  acceptable only when its visible text is language-independent: an entity ID
-  (`[[Special:EntityPage/Q1]]`), a page name used as a bare label
+  tvar freezes both the target and the label; the label must stay
+  translatable (`Translation admin` → `Administrateur de traduction`). Write
+  the label in the unit text and link with `[[Special:MyLanguage/Page|Label]]`
+  so readers also reach their language version of the target. A tvar around a
+  link is acceptable only when its visible text is language-independent: an
+  entity ID (`[[Special:EntityPage/Q1]]`), a page name used as a bare label
   (`<tvar name="hub">[[Help:Contributing/languages]]</tvar>`), or a Special
   page name.
 - A line starting with a space inside a table cell triggers `<pre>`; use
   `<br/>` to keep single-line cells.
-- Every translatable page must start with `<languages/>` and wrap each unit
-  in `<translate>` with a `<!--T:n-->` marker; keep markers sequential when
-  writing them by hand (the extension renumbers on marking).
-- Examples must use real entities: P1 = "instance of" (no aliases yet),
-  Q1 = "Spike test item". Do not copy Wikidata P-numbers (ontology alignment
-  as data, equivalence statements instead).
+- Re-mark after edits that change the unit structure; re-purge after marking.
