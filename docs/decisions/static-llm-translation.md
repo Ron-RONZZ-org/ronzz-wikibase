@@ -103,5 +103,8 @@ clean wikitext**, with browser machine translation as the reader-side complement
 - `docs/README.md` §Translation & multilingual content (rewritten Aug 19 2026)
 - `content-creation/AGENTS-translation.md` — static translation maintenance convention
 - `content-creation/glossary.md` — en/fr/eo canonical terms for LLM translation
-- Translate extension unmarking: `TranslatablePageMarker::unmarkPage()` (`unlink` deletes
-  translation pages) — https://www.mediawiki.org/wiki/Help:Extension:Translate/Page_translation_administration
+- Translate extension unmarking: `Special:PageTranslation` with `do=unlink`/`do=unmark`
+  (`TranslatablePageMarker::unmarkPage()`) — `unlink` strips the source-page markup, it does
+  **not** delete the `Translations:` unit pages; those were deleted via the delete API as the
+  **full SeedBot account** (server-side session; the `SeedBot@MCP` bot-password grants exclude
+  both `delete` and `pagetranslation`) — https://www.mediawiki.org/wiki/Help:Extension:Translate/Page_translation_administration

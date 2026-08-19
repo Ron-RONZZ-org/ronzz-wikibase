@@ -29,8 +29,10 @@ Since the ADR [`docs/decisions/static-llm-translation.md`](../docs/decisions/sta
 2. Translate with the LLM using the glossary (`glossary.md`) and the preservation rules below.
 3. Save to `Page/<lang>` (e.g. `Help:Contributing/code/fr`) with the
    `{{Translation|lang=…|based-on=<revid>|date=…}}` banner as the first line.
-4. If the language is new, add the copy to the EN page's `{{Languages}}` list (and remove it
-   if a copy is deleted).
+4. The EN page's `{{Languages}}` bar already lists the `fr`/`eo` slots unconditionally
+   (ParserFunctions is not installed, so the bar cannot probe page existence) — creating the
+   copy fills its slot; no bar edit is needed. Add the bar to a page that has copies but no
+   bar yet.
 5. Verify: page size via `prop=revisions` (a size collapse means truncation) + rendered HTML
    via `action=parse`.
 

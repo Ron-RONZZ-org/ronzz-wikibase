@@ -314,7 +314,10 @@ As of the **Aug 17 2026 v1 deployment**: seeded vocabulary — **31 properties**
   `Help:Contributing/languages/translationAdmin` folded into
   `Help:Contributing/languages/translator`.
 - **Bot password for MCP/automation**: `SeedBot@MCP` (created Aug 18 2026 via
-  `maintenance/createBotPassword.php`, grants `basic,createeditmovepage,editpage`).
+  `maintenance/createBotPassword.php`; grants updated Aug 19 2026 to
+  `basic,createeditmovepage,editpage,uploadeditmovefile` — `delete` and `pagetranslation` are
+  **not** covered, so page deletion and page-translation management must run as the **full
+  SeedBot account** server-side; see the ops doc).
   Note: bot passwords have a restricted charset (`[0-9a-w]`, base-32-ish) — a
   `secrets.token_urlsafe()` password is *invalid* and login silently fails.
   Credentials: ops doc (server) / MCP config file (see below).
