@@ -13,7 +13,7 @@ Self-hosted **Wikibase** (structured-data wiki, the software behind Wikidata) on
 | EmbeddableContent (D3 + issue #7) | extension (quotation/code/math embeds, `Special:AddQuotation`/`AddCodeSnippet`/`AddMath`, `Special:AddPerson`/`AddSource`/`AddCollective`) | `/var/www/wikibase/extensions/EmbeddableContent/` |
 | WikibaseCitation (D4) | extension (`action=citation`, citeproc-php) | `/var/www/wikibase/extensions/WikibaseCitation/` |
 | SyntaxHighlight_GeSHi (Aug 18 2026) | extension (Pygments code highlighting + built-in copy button on wiki pages; official REL1_46) | `/var/www/wikibase/extensions/SyntaxHighlight_GeSHi/` |
-| Translate + UniversalLanguageSelector (Aug 18 2026) | extensions (translatable pages with `<translate>` markup; `Special:Translate` interface; language selector; official REL1_46) | `/var/www/wikibase/extensions/{Translate,UniversalLanguageSelector}/` |
+| Translate + UniversalLanguageSelector (Aug 18 2026) | extensions — **Translate kept installed but inert** since Aug 19 2026 (no marked pages; static LLM translations, see `docs/decisions/static-llm-translation.md`); ULS language selector active (entity terms, interface; official REL1_46) | `/var/www/wikibase/extensions/{Translate,UniversalLanguageSelector}/` |
 | WDQS (Blazegraph SPARQL + updater) | service 0.3.156 | `/var/www/wdqs/service-0.3.156/` |
 | Blazegraph data | journal `/var/www/wdqs/data/wikidata.jnl` (DiskRW, 200 MB max) | `/var/www/wdqs/data/` |
 | MySQL DB | database `wikibase` (local MySQL, legacy) | — |
@@ -66,13 +66,13 @@ Open `https://wikibase.ronzz.org/` and log in. Entity namespaces: **Item = 120**
 > statements, API bulk editing, house rules) live **on-wiki** at
 > `https://wikibase.ronzz.org/wiki/Help:Contributing` (migrated from
 > `contribution-guide.md` in this repo, which now only points there).
-> (incl. **`Help:Contributing/code`** for code-block content, added Aug 18 2026, and
-> **`Help:Contributing/languages`** for entity terms + page translation, added Aug 18 2026
-> and marked for translation — 31 units, `en`/`fr` sample translations live).
+> (incl. **`Help:Contributing/code`** for code-block content and **`Help:Contributing/languages`**
+> for entity terms + page translation, both added Aug 18 2026; plain wikitext, no translation
+> markup — fr/eo arrive as static `/lang` subpages, see §Translation below).
 > **Dev cheatsheets** (Markdown, Quarto, Bash, Git, SPARQL) live in the
 > **`Cheatsheets:` namespace** (`https://wikibase.ronzz.org/wiki/Cheatsheets:<Topic>`),
 > hub at **`Cheatsheets:Main`** — see issue #20 (namespace is a LocalSettings-only
-> change; no translation markers until editorial stabilisation, per
+> change; plain wikitext, no translation markup, per
 > `content-creation/AGENTS.md`; MediaWiki rejects a bare namespace prefix as a
 > page title, hence `Main`).
 >
@@ -279,26 +279,40 @@ As of the **Aug 17 2026 v1 deployment**: seeded vocabulary — **31 properties**
   only; MySQL `wikibase` DB may want a `mysqldump` cron for strict consistency.
 - SPARQL queries via nginx have a 300 s proxy timeout (`proxy_read_timeout`).
 
-## Translation & multilingual content (Aug 18 2026)
+## Translation & multilingual content (Aug 19 2026)
 
-- **Translate extension** enables translatable pages via `<translate>`/`<tvar>`
-  markup; a translation administrator marks pages with the `pagetranslation`
-  right (`action=markfortranslation` API or the page tab).
-- **Reader-facing behavior**: the source title serves the *source* language
-  (`?uselang=fr` switches UI language only — page content stays source).
-  Translations live on `/lang` subpages (e.g. `Help:Contributing/languages/fr`);
-  `Special:MyLanguage/Help:Contributing/languages` redirects (internal) to the
-  reader's language version. The `<languages/>` tag renders the language bar.
-- **Translation workflow**: translators save units as ordinary edits on
-  `Translations:` namespace pages (e.g. `Translations:Help:Contributing/languages/1/fr`).
-  There is **no `action=translate` API** in this version — `action=edit` on the
-  unit page is the API path.
-- **Render job quirk (fixed)**: unit saves push `RenderTranslationPageJob`s that
-  get claimed inline during the request and can hang in a claimed state (they
-  look like "queue empty" to `runJobs.php` because claimed jobs are skipped).
-  Fix: `$wgJobRunRate = 0;` + a cron `runJobs.php` every 5 min (added Aug 18 2026).
-  If translation pages stop updating, check `job` table for stuck rows:
-  `UPDATE job SET job_token='' WHERE job_cmd='RenderTranslationPageJob';`
+**Model: static LLM-maintained copies — no translation markup.** Decision and rationale:
+`docs/decisions/static-llm-translation.md` (Aug 19 2026).
+
+- **Pages are plain wikitext.** No `<languages/>`, `<translate>`, `<tvar>` or `<!--T:n-->`
+  markers anywhere. Translation markup was tried on the migrated `Help:Contributing` pages
+  (Aug 18-19) and abandoned: the unit/tvar noise made routine editing impractical on pages
+  still being authored (`Help:Contributing/code` alone got 15 edits in 19 days, unit numbers
+  drifted within days).
+- **fr/eo versions are static subpages** (`Help:Contributing/code/fr`), produced by LLM
+  translation of the clean wikitext against the glossary
+  (`content-creation/glossary.md`). Each copy carries a
+  `{{Translation|lang=fr|based-on=<revid>|date=…}}` banner; source pages link their copies
+  with a `{{Languages}}` bar.
+- **Drift signaling**: the `based-on` revision on each copy + the convention that editing an
+  EN page regenerates its fr/eo copies in the same session (`content-creation/AGENTS-translation.md`).
+  The old unit-level "outdated" flags are gone — see the ADR.
+- **Reader side**: browser machine translation covers fr in all browsers; **eo is not
+  auto-translatable in Firefox/Safari** (Chrome only), so the static eo copies are the only
+  reliable eo path.
+- **Entity terms are untouched**: labels/descriptions/aliases stay Wikibase-native
+  multilingual; ULS remains active for language selection.
+- **Translate extension state**: installed, **inert** (zero marked pages; `Special:PageTranslation`
+  empty). Historical quirks apply only if it is re-enabled (re-enable = re-mark pages via
+  `action=markfortranslation`, `pagetranslation` right, sysop):
+  - Render-job quirk (fixed Aug 18 2026): unit saves push `RenderTranslationPageJob`s that can
+    hang in a claimed state. Fix: `$wgJobRunRate = 0;` + a cron `runJobs.php` every 5 min
+    (still in place; inert without marked pages). Stuck rows:
+    `UPDATE job SET job_token='' WHERE job_cmd='RenderTranslationPageJob';`
+- **Cleanup record (Aug 19 2026)**: all 10 marked pages unmarked and stripped to plain
+  wikitext; 212 `Translations:` unit pages + auto-generated `/en` subpages deleted;
+  `Help:Contributing/languages/translationAdmin` folded into
+  `Help:Contributing/languages/translator`.
 - **Bot password for MCP/automation**: `SeedBot@MCP` (created Aug 18 2026 via
   `maintenance/createBotPassword.php`, grants `basic,createeditmovepage,editpage`).
   Note: bot passwords have a restricted charset (`[0-9a-w]`, base-32-ish) — a

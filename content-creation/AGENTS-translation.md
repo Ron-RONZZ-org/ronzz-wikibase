@@ -1,117 +1,63 @@
-# AGENTS-translation.md — Translation Instructions (content-creation)
+# AGENTS-translation.md — Static translation maintenance (content-creation)
 
-Translation companion to [`AGENTS.md`](AGENTS.md), loaded **only when the
-team leader has approved marking a page** for translation. Marking is a rare,
-approval-gated event (editorial stabilisation); until it happens, none of the
-rules in this file apply — author plain wikitext per `AGENTS.md`.
+Translation companion to [`AGENTS.md`](AGENTS.md), loaded when a translation task is in play.
+Since the ADR [`docs/decisions/static-llm-translation.md`](../docs/decisions/static-llm-translation.md)
+(Aug 19 2026) there is **no Translate-extension markup** on this wiki — translations are static
+`/lang` subpages maintained by LLM-assisted translation of clean wikitext.
 
 ## Translation policy
 
-- Official languages remain **en, fr, eo**, best-effort — but multilingual
-  content is **sequenced, not day-one**. New pages are authored **without**
-  translation markup.
-- **No `<languages/>`, `<translate>` or `<!--T:n-->` markers until editorial
-  stabilisation.** Whether a page is stable enough to mark is the **team
-  leader's call** — not the author's, not the bot's.
-- Until approved, author plain wikitext in **unit-shaped chunks** (one idea
-  per paragraph, self-contained tables, standalone code blocks) so the later
-  `<translate>` conversion is mechanical and yields clean units.
-- Mark **page-by-page**, never a whole series at once. Re-mark only when a
-  marked page's unit structure changes (see marking workflow below).
-- Rationale: markers make large restructuring cumbersome (marker
-  renumbering, re-marking, fuzzy units, translator churn); churn-prone
-  content (e.g. cheatsheets) must not carry them until it stabilises.
+- **Never add translation markup** — no `<languages/>`, `<translate>`, `<tvar>`,
+  `<!--T:n-->`, no `Special:MyLanguage` links. Pages are plain wikitext.
+- **fr/eo copies are static subpages** (`Help:Contributing/code/fr`), linked from the source
+  page with a `{{Languages}}` bar, each opening with
+  `{{Translation|lang=fr|based-on=<revid>|date=YYYY-MM-DD}}` (the drift signal: which EN
+  revision it mirrors).
+- **Translate on demand, not en masse.** Only pages that have settled editorially, or pages
+  the user explicitly asks for. Do not create translations of pages still being restructured
+  (the 2026-08-18 mistake: 10 pages marked mid-migration, `code` churned 15 edits in 19 days).
+- **Same-session regeneration**: when an EN page with fr/eo copies is edited, regenerate those
+  copies in the same session — the new EN revision becomes the `based-on`. If EN pages are
+  edited outside a session (e.g. by hand), flag the stale copies to the user rather than
+  silently leaving them.
+- **Browser machine translation complements, never replaces, the static copies** — eo is not
+  auto-translatable in Firefox/Safari (Chrome only); fr is covered everywhere.
 
-## Marking rights
+## Translation workflow
 
-- **There is no `translationadmin` group** on this wiki. The Translate
-  extension's marking right is `pagetranslation`, granted to **sysop**.
-  SeedBot is sysop, so it can already mark pages — no group change is needed.
-- The MCP server has **no marking tool**; use the MediaWiki API directly
-  (workflow below).
+1. Fetch the current EN wikitext (clean — no markup) and its latest revision ID.
+2. Translate with the LLM using the glossary (`glossary.md`) and the preservation rules below.
+3. Save to `Page/<lang>` (e.g. `Help:Contributing/code/fr`) with the
+   `{{Translation|lang=…|based-on=<revid>|date=…}}` banner as the first line.
+4. If the language is new, add the copy to the EN page's `{{Languages}}` list (and remove it
+   if a copy is deleted).
+5. Verify: page size via `prop=revisions` (a size collapse means truncation) + rendered HTML
+   via `action=parse`.
 
-## Translation marking workflow
+## Preservation rules (prompt instructions for the LLM)
 
-**Only for pages approved for marking** — i.e. pages that have reached
-editorial stabilisation (team leader's call — see
-[Translation policy](#translation-policy)).
-Use API module **`action=markfortranslation`** (`MarkForTranslationActionApi`, NOT `action=pagetranslation` as found on some older MediaWiki versions).
-Parameters: `title` (or `pageid`), `revid` (the latest page revision), `token`;
-optional `prioritylanguages`, `transclusion`, `nofuzzyunits`, `fuzzyunits`.
+- Keep `[[…]]` wikilinks, entity IDs (`Q\d+`/`P\d+`), URLs, and `<syntaxhighlight>`/`<pre>`/
+  `<code>` blocks **verbatim**.
+- Translate heading text but keep the `== … ==` structure and section order.
+- Keep table structure; translate header cells and prose only.
+- Keep template calls; translate only visible prose parameters (never `name=`, `id=`, numeric
+  arguments that are IDs).
+- Never translate proper nouns (see `glossary.md`).
+- Flag uncertain terms to the user instead of guessing — extend `glossary.md` when a term
+  recurs.
 
-Steps after the team leader approves marking a page:
+## What is archived (do not revive)
 
-1. **Login + CSRF + mark** (password read from the config file, never echoed):
-
-   ```bash
-   CFG=~/.config/mediawiki-mcp/ronzz-wikibase.json
-   SERVER=$(jq -r '.wikis["wikibase.ronzz.org"].server' "$CFG")
-   SCRIPT=$(jq -r '.wikis["wikibase.ronzz.org"].scriptpath' "$CFG")
-   USER=$(jq -r '.wikis["wikibase.ronzz.org"].username' "$CFG")
-   API="$SERVER$SCRIPT/api.php"
-   JAR=$(mktemp)
-   LT=$(curl -s -c "$JAR" "$API?action=query&meta=tokens&type=login&format=json" | jq -r '.query.tokens.logintoken')
-   curl -s -b "$JAR" -c "$JAR" --data-urlencode "lgname=$USER" \
-     --data-urlencode "lgpassword=$(jq -r '.wikis["wikibase.ronzz.org"].password' "$CFG")" \
-     --data-urlencode "lgtoken=$LT" --data-urlencode "format=json" "$API?action=login" >/dev/null
-   CSRF=$(curl -s -b "$JAR" "$API?action=query&meta=tokens&type=csrf&format=json" | jq -r '.query.tokens.csrftoken')
-   curl -s -b "$JAR" --data-urlencode "action=markfortranslation" \
-     --data-urlencode "title=PAGE_TITLE" --data-urlencode "revid=REV_ID" \
-     --data-urlencode "token=$CSRF" --data-urlencode "format=json" "$API"
-   rm -f "$JAR"
-   ```
-
-   Expect `{"markfortranslation":{"result":"Success","unitcount":N}}`
-   (re-mark of an existing page) or `{"result":"Success","firstmark":"",...}`
-   (first mark).
-
-2. **Purge** the page so the parser cache re-renders the language bar
-   (marking does NOT bump the page revision): `action=purge` with
-   `titles=...|...&forcelinkupdate=1` and the same CSRF token.
-
-3. **Verify**: the rendered page shows the `<languages/>` bar as
-   "Other languages: English" — it appears only on marked pages.
-
-## Markup rules for approved pages
-
-- **Translation markup is opt-in, not default.** Do not add `<languages/>`,
-  `<translate>` or `<!--T:n-->` to a page unless the team leader has
-  approved marking it (see Translation policy). Unmarked pages are plain
-  wikitext.
-- An approved page must start with `<languages/>` and wrap each unit in
-  `<translate>` with a `<!--T:n-->` marker; keep markers sequential when
-  writing them by hand (the extension renumbers on marking).
-- **Per-list-item `<translate>` units inside `<ol><li>` are rejected** —
-  error `pt-shake-position: Translation unit markers in unexpected position`.
-  Wrap the whole `<ol>` in a single `<translate>` block.
-- A unit marker must be followed by a **space or newline** — the parser only
-  accepts `<!--T:n--> text` or `<!--T:n-->\n` (`TranslatablePageParser.php`:
-  `$rer1 = '~^<!--T:(.*?)-->( |\n)~'`). A marker glued to content
-  (`<!--T:n-->text`) fails with `pt-shake-position`.
-- **Links inside translatable units — never wrap a whole link in a tvar.** A
-  tvar freezes both the target and the label; the label must stay
-  translatable (`Translation admin` → `Administrateur de traduction`). Write
-  the label in the unit text and link with `[[Special:MyLanguage/Page|Label]]`
-  so readers also reach their language version of the target. A tvar around a
-  link is acceptable only when its visible text is language-independent: an
-  entity ID (`[[Special:EntityPage/Q1]]`), a page name used as a bare label
-  (`<tvar name="hub">[[Help:Contributing/languages]]</tvar>`), or a Special
-  page name.
-- Re-mark after edits that change the unit structure; re-purge after marking.
-
-## Input/Output Expectations
-
-- **Input**: page titles + wikitext with `<translate>`/`<tvar>` markup once
-  marking is approved (plus the latest `revid` for the marking call).
-- **Marking output**: `{"markfortranslation":{"result":"Success","unitcount":N}}`
-  (re-mark) or `{"result":"Success","firstmark":"",...}` (first mark).
-- **Verification**: the rendered page shows the `<languages/>` bar with
-  "Other languages: English" (only on marked pages).
+- The Translate-extension marking workflow (`action=markfortranslation`, `pagetranslation`,
+  `Special:Translate`, `Translations:` namespace) is **archived** — see the ADR's cleanup
+  record. The extension remains installed but inert; re-enabling is a deliberate, user-approved
+  decision (revisit trigger: a translator community appears), not something to improvise.
+- `Help:Contributing/languages/translationAdmin` was folded into
+  `Help:Contributing/languages/translator` (no marking role exists anymore).
 
 ## Documentation Reference
 
-- `[[Help:Contributing/languages]]` — hub: entities/properties + classic wiki
-  pages, two roles
-- `[[Help:Contributing/languages/translationAdmin]]` — marking and managing
-  pages
-- `[[Help:Contributing/languages/translator]]` — translating units
+- `[[Help:Contributing/languages]]` — hub: entity terms + page translation (the static-copy model)
+- `[[Help:Contributing/languages/translator]]` — how translations are produced and maintained
+- `glossary.md` (this directory) — en/fr/eo canonical terms
+- `docs/decisions/static-llm-translation.md` — the decision + rationale + cleanup record

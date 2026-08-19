@@ -17,5 +17,6 @@ Page map (migrated from the former sections of this file):
 | §11 Importing from external authorities | `Help:Contributing/import` |
 | §12 Multilingual content & translating pages | `Help:Contributing/languages` (pre-existing) |
 
-All migrated pages are marked for translation (en source; fr/eo arrive via
-`Special:Translate`). For server/ops details see `README.md` in this repo.
+Migrated pages are plain wikitext — no translation markup. fr/eo versions are static subpages
+maintained by LLM translation (see `docs/decisions/static-llm-translation.md` and
+`content-creation/AGENTS-translation.md`). For server/ops details see `README.md` in this repo.

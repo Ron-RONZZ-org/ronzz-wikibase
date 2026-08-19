@@ -6,7 +6,11 @@ directory.
 
 When creating content, you MUST follow the [style guide](https://wikibase.ronzz.org/wiki/Help:Contributing/styleGuide)
 
-Translation is out of scope for new pages: ignore it for new pages. Only activate [the translation workflow](./AGENTS-translation.md) when user specifically asks you to.
+Translation = static `fr`/`eo` subpages, never translation markup: pages stay plain wikitext
+(no `<translate>`/`<tvar>`/`<languages/>`), and `/lang` copies are created or refreshed only
+when the user asks or when you edit a page that has them — see
+[AGENTS-translation.md](./AGENTS-translation.md) and
+[docs/decisions/static-llm-translation.md](../docs/decisions/static-llm-translation.md).
 
 Deployment context: see [repo root AGENTS.md](../AGENTS.md) for the ronzz-wikibase deployment info.
 
