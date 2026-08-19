@@ -8,7 +8,7 @@ Self-hosted **Wikibase** (structured-data wiki, the software behind Wikidata) on
 | Component | Version / Detail | Location |
 |-----------|------------------|----------|
 | MediaWiki | 1.46.0 (php-fpm 8.3.6) | `/var/www/wikibase/` |
-| Wikibase (repo) | source checkout (RELEASE-NOTES up to 1.44) | `/var/www/wikibase/extensions/Wikibase/` |
+| Wikibase (repo + client, same wiki) | source checkout (RELEASE-NOTES up to 1.44); **client enabled Aug 19 2026** — sitelinks + parser functions (see [Semantic dynamic content](#semantic-dynamic-content-same-wiki-repoclient-aug-19-2026)) | `/var/www/wikibase/extensions/Wikibase/` |
 | Skins | **Vector** (default, REL1_46 git clone) + **Timeless** (selectable) | `/var/www/wikibase/skins/{Vector,Timeless}/` |
 | EmbeddableContent (D3 + issue #7) | extension (quotation/code/math embeds, `Special:AddQuotation`/`AddCodeSnippet`/`AddMath`, `Special:AddPerson`/`AddSource`/`AddCollective`) | `/var/www/wikibase/extensions/EmbeddableContent/` |
 | WikibaseCitation (D4) | extension (`action=citation`, citeproc-php) | `/var/www/wikibase/extensions/WikibaseCitation/` |
@@ -202,6 +202,35 @@ Open `https://wikibase.ronzz.org/` and log in. Entity namespaces: **Item = 120**
 - **Interwiki `d` prefix for `[[d:Q42]]` links is NOT yet added** (verified Aug 15 2026:
   49 prefixes, `d`/`wd` missing). Add via `maintenance/updateInterwiki.php` or SQL INSERT
   into `interwiki` (`d` → `https://www.wikidata.org/wiki/$1`).
+
+### Semantic dynamic content: same-wiki repo+client (Aug 19 2026)
+
+The wiki is now its own Wikibase **client** as well as the repo. Wiki pages can pull
+item data at view time via the client parser functions; items can be linked to wiki
+pages via sitelinks.
+
+- **Config** (`LocalSettings.php`, backup `/var/backups/wikibase/LocalSettings.php.pre-sitelinks-client-20260819-*`):
+  `$wgEnableWikibaseClient = true` (was `false`),
+  `$wgWBRepoSettings['siteLinkGroups'] = [ 'ronzz' ]`,
+  `$wgWBClientSettings['siteGlobalID'] = 'wikibase'`,
+  `$wgWBClientSettings['siteLinkGroups'] = [ 'ronzz' ]`,
+  `$wgWBClientSettings['repoDatabase'] = false; $wgWBClientSettings['changesDatabase'] = false`.
+- **Site entry** (`maintenance/addSite.php`): global id `wikibase`, group `ronzz`,
+  interwiki `wb`, page path `https://wikibase.ronzz.org/wiki/$1`, file path
+  `https://wikibase.ronzz.org/$1`. **The file path is the script path** — the client
+  builds the API URL as `getFileUrl('api.php')`; pointing it at `/images/` broke
+  `wbsetsitelink` with `no-external-page` (fixed Aug 19 2026).
+- **Validated Aug 19 2026**: `{{#statements:}}` (rich: links + language spans) and
+  `{{#property:}}` (escaped plain text) render live, with `from=<id>` and
+  label-as-property (`instance of` → P1); page↔item mapping works at parse time
+  (`wikibase_item` page property, persisted on page save); item pages show a
+  Sitelinks section. Live pairs: Q55 ↔ `Cheatsheets:Markdown`, Q77 ↔
+  `Cheatsheets:SPARQL`.
+- **On-wiki docs**: `Help:Contributing/semanticDynamicContent`.
+- **Not available**: Scribunto is not installed — no `{{#invoke:Wikibase}}` Lua
+  modules (parser functions only). Data bridge not enabled.
+- **Parity**: dev/CI (WBS image) already loads repo + client by default; production
+  now matches.
 
 ### Query SPARQL (curl)
 
