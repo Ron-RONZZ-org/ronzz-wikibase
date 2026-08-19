@@ -119,10 +119,44 @@ Open `https://wikibase.ronzz.org/` and log in. Entity namespaces: **Item = 120**
 - **For files >100 MB use chunked API uploads** (`action=upload` with `stash=1` + `chunk`,
   finalize with `filekey`) — PyWikiBot/MWBot do this automatically. `$wgEnableAsyncUploads`
   stays **off** (job-queue assembly; not needed).
-- **File types**: default extensions only — `png, gif, jpg, jpeg, webp` (MW 1.46 default;
-  `svg` is NOT included). Anything else needs an explicit `$wgFileExtensions[]` addition
-  (e.g. `'pdf'`).
+- **File types**: images — `png, gif, jpg, jpeg, webp` (MW 1.46 default; `svg` is NOT
+  included). Audio/video — `ogg, ogv, oga, webm` (added Aug 19 2026 with
+  TimedMediaHandler, see "Media playback" below). Anything else needs an explicit
+  `$wgFileExtensions[]` addition (e.g. `'pdf'`).
 - **Disk**: 32 GiB free on `/` at deploy time — 1 GiB files accumulate fast.
+
+### Media playback: audio & video (TimedMediaHandler, Aug 19 2026)
+
+- **Extension**: `TimedMediaHandler` v0.6.0, cloned from gerrit branch `REL1_46`
+  (`git clone --depth 1 -b REL1_46 https://gerrit.wikimedia.org/r/mediawiki/extensions/TimedMediaHandler`)
+  into `extensions/`, owned `ronzz:ronzz` like the other extensions.
+- **Config** (`LocalSettings.php`): `wfLoadExtension( 'TimedMediaHandler' );` +
+  `$wgFileExtensions = array_merge( $wgFileExtensions, [ 'ogg', 'ogv', 'oga', 'webm' ] );`.
+  TMH uses `/usr/bin/ffmpeg` (its default `$wgFFmpegLocation`; ffmpeg was already on the
+  box; **no ffprobe needed** in REL1_46). `update.php --quick` created the transcode
+  tables; php8.3-fpm restarted. Backup:
+  `/var/backups/wikibase/LocalSettings.php.pre-timedmedia-20260819-1145`.
+- **Transcode storage gotcha (fixed)**: transcodes are stored under `images/transcoded/`.
+  `images/` is owned by `www-data` (uploads run under php-fpm), but the runJobs cron
+  runs as **ronzz** — so the first transcode jobs failed with
+  `Could not create directory mwstore://local-backend/local-transcoded/...`.
+  Fix: `images/transcoded` created as `ronzz:www-data`, mode `775` (writable by both
+  the web server and the cron user).
+- **Formats**: TMH plays **Ogg (Theora/Vorbis/Opus) and WebM (VP8/VP9)** inline.
+  MP3/MP4 are NOT supported for playback (Wikimedia patent policy) and are not in
+  `$wgFileExtensions` — they would upload as plain link-only files if added.
+- **Transcoding**: background jobs (type `webVideoTranscodePrioritized`), picked up by
+  the existing 5-minute runJobs cron. Verified Aug 19 2026: `File:Example.ogv` →
+  `240p.vp9.webm` (≈120 s) and `File:Example.ogg` → `mp3` both succeeded; check status
+  via `api.php?action=query&prop=transcodestatus`. Re-queue failed/stuck jobs with
+  `maintenance/run.php extensions/TimedMediaHandler/maintenance/requeueTranscodes.php
+  --file=File:X` (**one `--file` per invocation** — multiple break the parser).
+- **Example files** (both PD NASA, uploaded via SeedBot, from Wikimedia Commons):
+  `File:Example.ogg` (Apollo 11 launch-day comms relayed through Canary Station,
+  Vorbis, ~123 s) and `File:Example.ogv` (Buzz Aldrin descending the LM ladder,
+  Theora).
+- **On-wiki docs**: `Help:Contributing/richMediaContent` — "Embedding audio" and
+  "Embedding video" sections with live players (rev 716, Aug 19 2026).
 
 ### Federation with Wikidata (official pattern)
 
