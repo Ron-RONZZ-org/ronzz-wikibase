@@ -13,6 +13,7 @@ Self-hosted **Wikibase** (structured-data wiki, the software behind Wikidata) on
 | EmbeddableContent (D3 + issue #7) | extension (quotation/code/math embeds, `Special:AddQuotation`/`AddCodeSnippet`/`AddMath`, `Special:AddPerson`/`AddSource`/`AddCollective`) | `/var/www/wikibase/extensions/EmbeddableContent/` |
 | WikibaseCitation (D4) | extension (`action=citation`, citeproc-php) | `/var/www/wikibase/extensions/WikibaseCitation/` |
 | SyntaxHighlight_GeSHi (Aug 18 2026) | extension (Pygments code highlighting + built-in copy button on wiki pages; official REL1_46) | `/var/www/wikibase/extensions/SyntaxHighlight_GeSHi/` |
+| Translate + UniversalLanguageSelector (Aug 18 2026) | extensions (translatable pages with `<translate>` markup; `Special:Translate` interface; language selector; official REL1_46) | `/var/www/wikibase/extensions/{Translate,UniversalLanguageSelector}/` |
 | WDQS (Blazegraph SPARQL + updater) | service 0.3.156 | `/var/www/wdqs/service-0.3.156/` |
 | Blazegraph data | journal `/var/www/wdqs/data/wikidata.jnl` (DiskRW, 200 MB max) | `/var/www/wdqs/data/` |
 | MySQL DB | database `wikibase` (local MySQL, legacy) | — |
@@ -41,6 +42,7 @@ Self-hosted **Wikibase** (structured-data wiki, the software behind Wikidata) on
 | `wdqs-updater.service` | Polls MediaWiki recent changes → syncs RDF into Blazegraph |
 | `php8.3-fpm.service` | PHP-FPM (MediaWiki) |
 | `nginx` | TLS + proxying (`wikibase.ronzz.org.conf` in sites-available/enabled) |
+| `cron` (user `ronzz`) | `runJobs.php` every 5 min (job queue — see note below) |
 
 All run as user `ronzz`. Updater polls `--wikibaseUrl http://127.0.0.1:8081`
 (`--entityNamespaces 120,122`, concept URI `https://wikibase.ronzz.org`).
@@ -63,7 +65,9 @@ Open `https://wikibase.ronzz.org/` and log in. Entity namespaces: **Item = 120**
 > **For editors**: see the **`contribution-guide.md`** (same folder) for
 > step-by-step instructions on creating properties/items, statements, API bulk editing,
 > and house rules. On-wiki help lives at `https://wikibase.ronzz.org/wiki/Help:Contributing`
-> (incl. **`Help:Contributing/code`** for code-block content, added Aug 18 2026).
+> (incl. **`Help:Contributing/code`** for code-block content, added Aug 18 2026, and
+> **`Help:Contributing/languages`** for entity terms + page translation, added Aug 18 2026
+> and marked for translation — 31 units, `en`/`fr` sample translations live).
 >
 > **For admins**: see **`wikibase-cli.md`** (same folder) for server-side CLI
 > operations (editing `MediaWiki:` pages, maintenance scripts, cache gotchas).
@@ -173,3 +177,44 @@ As of the **Aug 17 2026 v1 deployment**: seeded vocabulary — **27 properties**
 - Backups: covered by the OCI boot-volume policy (`daily-5d`) — crash-consistent
   only; MySQL `wikibase` DB may want a `mysqldump` cron for strict consistency.
 - SPARQL queries via nginx have a 300 s proxy timeout (`proxy_read_timeout`).
+
+## Translation & multilingual content (Aug 18 2026)
+
+- **Translate extension** enables translatable pages via `<translate>`/`<tvar>`
+  markup; a translation administrator marks pages with the `pagetranslation`
+  right (`action=markfortranslation` API or the page tab).
+- **Reader-facing behavior**: the source title serves the *source* language
+  (`?uselang=fr` switches UI language only — page content stays source).
+  Translations live on `/lang` subpages (e.g. `Help:Contributing/languages/fr`);
+  `Special:MyLanguage/Help:Contributing/languages` redirects (internal) to the
+  reader's language version. The `<languages/>` tag renders the language bar.
+- **Translation workflow**: translators save units as ordinary edits on
+  `Translations:` namespace pages (e.g. `Translations:Help:Contributing/languages/1/fr`).
+  There is **no `action=translate` API** in this version — `action=edit` on the
+  unit page is the API path.
+- **Render job quirk (fixed)**: unit saves push `RenderTranslationPageJob`s that
+  get claimed inline during the request and can hang in a claimed state (they
+  look like "queue empty" to `runJobs.php` because claimed jobs are skipped).
+  Fix: `$wgJobRunRate = 0;` + a cron `runJobs.php` every 5 min (added Aug 18 2026).
+  If translation pages stop updating, check `job` table for stuck rows:
+  `UPDATE job SET job_token='' WHERE job_cmd='RenderTranslationPageJob';`
+- **Bot password for MCP/automation**: `SeedBot@MCP` (created Aug 18 2026 via
+  `maintenance/createBotPassword.php`, grants `basic,createeditmovepage,editpage`).
+  Note: bot passwords have a restricted charset (`[0-9a-w]`, base-32-ish) — a
+  `secrets.token_urlsafe()` password is *invalid* and login silently fails.
+  Credentials: ops doc (server) / MCP config file (see below).
+
+## MCP server for the wiki (Aug 18 2026)
+
+- **ProfessionalWiki MediaWiki-MCP-Server** (`@professional-wiki/mediawiki-mcp-server`,
+  v0.17) exposes read tools (`get-page`, `search-page`, `whoami`,
+  `wikibase-search-entities`, `wikibase-get-entity`) and write tools
+  (`create-page`, `update-page`, `wikibase-edit-entity`, `wikibase-add-statement`, …).
+- Config + bot credentials live **outside this repo** at
+  `~/.config/mediawiki-mcp/ronzz-wikibase.json` on the workstation;
+  opencode entry in `~/.config/opencode/opencode.jsonc` (`mcp.mediawiki-mcp-server`,
+  `type: local`, `CONFIG` env var).
+- **Known limitation**: `wbsearchentities` label search returns nothing for
+  non-ID queries — the Wikibase `domains/search` path needs Elasticsearch /
+  CirrusSearch, which is **not installed** (pre-existing; ID search like `Q1`
+  works).

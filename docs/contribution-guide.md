@@ -205,7 +205,30 @@ Notes:
   volume/issue/pages, DOI, ISBN) and cite the source **type** correctly (a book
   quote cites as a book, a song quote as a song).
 
-## 12. Official docs
+## 12. Multilingual content & translating pages (Aug 18 2026)
+
+The knowledge base is multilingual by design (see on-wiki
+**`Help:Contributing/languages`** for the full house rules).
+
+**Entity terms** (labels/descriptions/aliases): stored per language *inside* each
+entity — open the entity in edit mode, use the "In more languages" section, pick a
+language code (`en`, `fr`, `de`, `eo`, …) and enter the value. No page translation
+involved.
+
+**Wiki pages**: marked for translation by a translation administrator
+(`pagetranslation` right), then translated through
+[`Special:Translate`](https://wikibase.ronzz.org/wiki/Special:Translate):
+
+1. Pick a page group (e.g. `page-Help:Contributing/languages`) and a language.
+2. Translate unit by unit; save each unit.
+3. Translated pages appear at `/lang` subpages — readers using
+   `Special:MyLanguage/…` links get their language automatically.
+
+House rules: translate only the human-readable text (never `tvar` placeholders or
+markup); keep terminology consistent with the entity terms used in the data layer;
+machine translation is a starting point, always review it before saving.
+
+## 13. Official docs
 
 - Wikibase: https://www.mediawiki.org/wiki/Wikibase
 - Wikibase API: https://www.wikidata.org/w/api.php (action=wb…)
