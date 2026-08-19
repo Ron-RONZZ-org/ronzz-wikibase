@@ -131,6 +131,7 @@ Steps after the team leader approves marking a page:
   - `[[Help:Contributing/api]]` — API and bulk editing
   - `[[Help:Contributing/styleGuide]]` — writing rules (short sentences, no padding, tables for comparison, show don't tell)
   - `[[Help:Contributing/code]]` — code blocks and syntax highlighting
+  - `[[Help:Contributing/richMediaContent]]` — media workflow: uploading and embedding files
   - `[[Help:Contributing/languages]]` — hub: entities/properties + classic wiki pages, two roles
   - `[[Help:Contributing/languages/translationAdmin]]` — marking and managing pages
   - `[[Help:Contributing/languages/translator]]` — translating units
