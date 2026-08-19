@@ -97,6 +97,33 @@ Open `https://wikibase.ronzz.org/` and log in. Entity namespaces: **Item = 120**
   in `extensions/Wikibase/repo/extension-repo.json` — they must be revoked from `*`
   **and re-granted to `user`** (otherwise logged-in users lose entity editing too).
 
+### File uploads (1 GiB limit, Aug 19 2026)
+
+- **Enabled with a 1 GiB cap**: `$wgMaxUploadSize = 1073741824` in `LocalSettings.php`
+  (uploads were already on — `$wgEnableUploads = true` in the Wikibase block — but the
+  effective cap was 100 MB MW default, *and* nginx/PHP defaults hard-blocked anything
+  above 1 MB anyway).
+- **Warning threshold kept at 50 MB** — `$wgUploadSizeWarning = 52428800` (explicit,
+  decision: do not suppress; note the MW 1.46 default is `false` = no warning).
+- **Three layers must move together** (any one silently caps the rest):
+  - *nginx* `wikibase.ronzz.org.conf` — `client_max_body_size 1G; client_body_timeout 600s;
+    fastcgi_read_timeout 600s;` on **both** the `:443` and internal `127.0.0.1:8081` server
+    blocks (nginx default 1M → 413).
+  - *php8.3-fpm pool `www`* (`/etc/php/8.3/fpm/pool.d/www.conf`) —
+    `upload_max_filesize`/`post_max_size` = `1G`, `max_execution_time`/`max_input_time` = `600`,
+    `memory_limit` = `512M` (defaults 2M/8M/30s/60s/128M; pool-scoped — the SnappyMail/Hesk
+    pools are untouched).
+  - *MediaWiki* — `$wgMaxUploadSize` (default 100 MB).
+- **Verified Aug 19 2026**: 12,586,816-byte incompressible PNG uploaded via API as SeedBot
+  over `127.0.0.1:8081` → Success → stored under `images/` → page deleted, no leftovers.
+- **For files >100 MB use chunked API uploads** (`action=upload` with `stash=1` + `chunk`,
+  finalize with `filekey`) — PyWikiBot/MWBot do this automatically. `$wgEnableAsyncUploads`
+  stays **off** (job-queue assembly; not needed).
+- **File types**: default extensions only — `png, gif, jpg, jpeg, webp` (MW 1.46 default;
+  `svg` is NOT included). Anything else needs an explicit `$wgFileExtensions[]` addition
+  (e.g. `'pdf'`).
+- **Disk**: 32 GiB free on `/` at deploy time — 1 GiB files accumulate fast.
+
 ### Federation with Wikidata (official pattern)
 
 - **Recommended: federated statements** — no config; create a property with datatype
