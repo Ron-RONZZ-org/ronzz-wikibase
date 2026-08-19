@@ -32,12 +32,15 @@ for wiki-side identity.
 
 ### Translation marking workflow
 
-The MCP server has **no marking tool**.
+**Only for pages approved for marking** — i.e. pages that have reached
+editorial stabilisation (team leader's call — see
+[Translation policy](#translation-policy)). The MCP server has **no marking
+tool**.
 Use API module **`action=markfortranslation`** (`MarkForTranslationActionApi`, NOT `action=pagetranslation` as found on some older MediaWiki versions).
 Parameters: `title` (or `pageid`), `revid` (the latest page revision), `token`;
 optional `prioritylanguages`, `transclusion`, `nofuzzyunits`, `fuzzyunits`.
 
-Steps after creating/updating a translatable page via MCP:
+Steps after the team leader approves marking a page:
 
 1. **Login + CSRF + mark** (password read from the config file, never echoed):
 
@@ -70,15 +73,33 @@ Steps after creating/updating a translatable page via MCP:
 3. **Verify**: the rendered page shows the `<languages/>` bar as
    "Other languages: English" — it appears only on marked pages.
 
+## Translation policy
+
+- Official languages remain **en, fr, eo**, best-effort — but multilingual
+  content is **sequenced, not day-one**. New pages are authored **without**
+  translation markup.
+- **No `<languages/>`, `<translate>` or `<!--T:n-->` markers until editorial
+  stabilisation.** Whether a page is stable enough to mark is the **team
+  leader's call** — not the author's, not the bot's.
+- Until approved, author plain wikitext in **unit-shaped chunks** (one idea
+  per paragraph, self-contained tables, standalone code blocks) so the later
+  `<translate>` conversion is mechanical and yields clean units.
+- Mark **page-by-page**, never a whole series at once. Re-mark only when a
+  marked page's unit structure changes (see marking workflow above).
+- Rationale: markers make large restructuring cumbersome (marker
+  renumbering, re-marking, fuzzy units, translator churn); churn-prone
+  content (e.g. cheatsheets) must not carry them until it stabilises.
+
 ## Constraints and Invariants
 
 - **Language policy**: official languages are **en, fr, eo**, best-effort.
   Guides must not mention other languages (adding languages is deliberately
   undecided). Content should be multilingual: entity terms (labels,
-  descriptions, aliases) and wiki pages.
-- Every translatable page must start with `<languages/>` and wrap each unit
-  in `<translate>` with a `<!--T:n-->` marker; keep markers sequential when
-  writing them by hand (the extension renumbers on marking).
+  descriptions, aliases) and wiki pages — wiki pages get translation markup
+  only once approved (see Translation policy).
+- A page **approved for marking** must start with `<languages/>` and wrap
+  each unit in `<translate>` with a `<!--T:n-->` marker; keep markers
+  sequential when writing them by hand (the extension renumbers on marking).
 - Examples must use real entities: P1 = "instance of" (no aliases yet),
   Q1 = "Spike test item". Do not copy Wikidata P-numbers (ontology alignment
   as data, equivalence statements instead).
@@ -88,8 +109,9 @@ Steps after creating/updating a translatable page via MCP:
 
 ## Input/Output Expectations
 
-- **Input**: page titles + wikitext with `<translate>`/`<tvar>` markup (or
-  entity terms via `wikibase-edit-entity`).
+- **Input**: page titles + wikitext — plain for unapproved pages, or with
+  `<translate>`/`<tvar>` markup once marking is approved (or entity terms
+  via `wikibase-edit-entity`).
 - **Marking output**: `{"markfortranslation":{"result":"Success","unitcount":N}}`
   (re-mark) or `{"result":"Success","firstmark":"",...}` (first mark).
 - **Verification**: the rendered page shows the `<languages/>` bar with
@@ -115,6 +137,10 @@ Steps after creating/updating a translatable page via MCP:
 
 ## Domain-Specific Rules for Agents
 
+- **Translation markup is opt-in, not default.** Do not add `<languages/>`,
+  `<translate>` or `<!--T:n-->` to a page unless the team leader has
+  approved marking it (see Translation policy). Unmarked pages are plain
+  wikitext; the marker rules below apply only to pages being marked.
 - **Per-list-item `<translate>` units inside `<ol><li>` are rejected** —
   error `pt-shake-position: Translation unit markers in unexpected position`.
   Wrap the whole `<ol>` in a single `<translate>` block.
