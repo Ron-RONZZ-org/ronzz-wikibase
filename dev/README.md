@@ -45,6 +45,11 @@ docker compose -f dev/docker-compose.ci.yml exec -T wikibase \
 docker compose -f dev/docker-compose.ci.yml exec -T wikibase \
   php maintenance/run.php extensions/EmbeddableContent/maintenance/importVocabulary.php --type=language
 
+# 1b. D1 citation maps (issue #24: {{#cite}}/{{#citations:}} read them at
+#     request time — without them citations render title-only):
+docker compose -f dev/docker-compose.ci.yml exec -T wikibase \
+  php maintenance/run.php extensions/WikibaseCitation/maintenance/importCitationMap.php --force
+
 # 2. Seed: dogfood entities + config emission into the /config volume
 python3 -m seed.seed_instance \
   --user CIAdmin --password ci-admin-pass-2026 \
