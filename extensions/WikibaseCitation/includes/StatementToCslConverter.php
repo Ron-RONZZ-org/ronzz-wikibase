@@ -107,16 +107,7 @@ class StatementToCslConverter {
 			$csl['title'] = $label;
 		}
 
-		$this->addFromStatement( $item, 'author', static function ( $value ) {
-			// citeproc-php only renders family/given names; split the label
-			// deterministically (last word = family). Single-word names fall
-			// back to a literal name.
-			$name = (string)$value;
-			if ( preg_match( '/^(.*?)\s+(\S+)$/u', $name, $m ) === 1 ) {
-				return [ [ 'given' => $m[1], 'family' => $m[2] ] ];
-			}
-			return [ [ 'literal' => $name ] ];
-		}, $csl, 'author', $preferredLanguage );
+		$this->addAuthor( $item, $csl, $preferredLanguage );
 		$this->addFromStatement( $item, 'issued', static function ( $value ) {
 			return $value instanceof TimeValue
 				? [ 'date-parts' => [ [ (int)substr( ltrim( $value->getTime(), '+' ), 0, 4 ) ] ] ]
@@ -144,6 +135,131 @@ class StatementToCslConverter {
 		$this->addSourceStatementQualifier( $item, $csl, $preferredLanguage );
 
 		return $csl;
+	}
+
+	/**
+	 * Resolves the `author` field (source map: content 'author' → property).
+	 * An item-typed author (the normal case — a person item) is rendered
+	 * from its harvested `given name` / `family name` statements, deriving
+	 * a missing part from the label (e.g. given "Lucian" + label "Lucian of
+	 * Samosata" → family "of Samosata"); plain-string authors keep the
+	 * legacy deterministic label split. Empty values are omitted.
+	 *
+	 * @param array<string,mixed> $csl
+	 */
+	private function addAuthor( Item $item, array &$csl, ?string $preferredLanguage ): void {
+		$propertyId = $this->propertyMap->getPropertyForField( 'author' );
+		if ( $propertyId === null ) {
+			return;
+		}
+		$statement = $this->bestStatement( $item, $propertyId );
+		if ( $statement === null ) {
+			return;
+		}
+		$snak = $statement->getMainSnak();
+		if ( !$snak instanceof PropertyValueSnak ) {
+			return;
+		}
+		$value = $snak->getDataValue();
+		if ( $value instanceof EntityIdValue ) {
+			$value = $value->getEntityId();
+		}
+		if ( $value instanceof ItemId ) {
+			$authorItem = $this->entityLookup->getEntity( $value );
+			if ( $authorItem instanceof Item ) {
+				$csl['author'] = $this->authorName( $authorItem, $preferredLanguage );
+				return;
+			}
+			$value = $value->getSerialization();
+		} elseif ( $value instanceof StringValue ) {
+			$value = $value->getValue();
+		}
+		if ( $value === null || $value === '' ) {
+			return;
+		}
+		$csl['author'] = $this->splitNameLabel( (string)$value );
+	}
+
+	/**
+	 * Builds a CSL name for an author item: `given name` / `family name`
+	 * statements (source map fields, the issue-#7 harvest) when present,
+	 * deriving a missing part from the label (given-name prefix or
+	 * family-name suffix); without statements, the legacy label split.
+	 *
+	 * @return array<int,array<string,string>>
+	 */
+	private function authorName( Item $authorItem, ?string $preferredLanguage ): array {
+		$given = $this->statementValue( $authorItem, 'givenName', $preferredLanguage );
+		$family = $this->statementValue( $authorItem, 'familyName', $preferredLanguage );
+		if ( $given === null && $family === null ) {
+			return $this->splitNameLabel( $this->labelOf( $authorItem, $preferredLanguage ) );
+		}
+
+		$label = $this->labelOf( $authorItem, $preferredLanguage );
+		if ( $given === null || $given === '' ) {
+			// Derive the given name from the label minus the family suffix.
+			if ( $family !== null && $family !== '' && $label !== ''
+				&& str_ends_with( $label, $family )
+			) {
+				$given = trim( substr( $label, 0, -strlen( $family ) ) );
+			}
+		}
+		if ( $family === null || $family === '' ) {
+			// Derive the family name from the label minus the given prefix.
+			if ( $given !== null && $given !== '' && $label !== ''
+				&& str_starts_with( $label, $given )
+			) {
+				$family = trim( substr( $label, strlen( $given ) ) );
+			}
+		}
+		if ( $given !== '' || $family !== '' ) {
+			return [ [ 'given' => $given ?? '', 'family' => $family ?? '' ] ];
+		}
+		return $this->splitNameLabel( $label );
+	}
+
+	/**
+	 * Legacy deterministic split: last word = family, the rest = given.
+	 * Single-word names fall back to a literal name.
+	 *
+	 * @return array<int,array<string,string>>
+	 */
+	private function splitNameLabel( string $name ): array {
+		if ( preg_match( '/^(.*?)\s+(\S+)$/u', $name, $m ) === 1 ) {
+			return [ [ 'given' => $m[1], 'family' => $m[2] ] ];
+		}
+		return [ [ 'literal' => $name ] ];
+	}
+
+	/**
+	 * Best-ranked string value of a source-map field on the item, or null.
+	 * Item-typed values fall back to their labels (preferred language).
+	 */
+	private function statementValue( Item $item, string $field, ?string $preferredLanguage ): ?string {
+		$propertyId = $this->propertyMap->getSourcePropertyForField( $field );
+		if ( $propertyId === null ) {
+			return null;
+		}
+		$statement = $this->bestStatement( $item, $propertyId );
+		if ( $statement === null ) {
+			return null;
+		}
+		$snak = $statement->getMainSnak();
+		if ( !$snak instanceof PropertyValueSnak ) {
+			return null;
+		}
+		$value = $snak->getDataValue();
+		if ( $value instanceof EntityIdValue ) {
+			$value = $value->getEntityId();
+		}
+		if ( $value instanceof ItemId ) {
+			$target = $this->entityLookup->getEntity( $value );
+			return $target instanceof Item ? $this->labelOf( $target, $preferredLanguage ) : $value->getSerialization();
+		}
+		if ( $value instanceof StringValue ) {
+			$value = $value->getValue();
+		}
+		return is_string( $value ) && $value !== '' ? $value : null;
 	}
 
 	/**
