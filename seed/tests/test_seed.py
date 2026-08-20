@@ -21,11 +21,35 @@ from seed_instance import SeedOrchestrator  # noqa: E402
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 MANIFESTS = REPO_ROOT / "extensions" / "EmbeddableContent" / "manifests"
 
+# Labels the seed (D2) resolves by exact en-label match (see seed_instance.py's
+# find() calls and the CONTENT_TYPE map, and config_builder.py for the content
+# classes). Dropping any of these breaks the bootstrap, so their presence is
+# the contract — not a magic row count.
+REQUIRED_PROPERTY_LABELS = [
+    "instance of", "equivalent property", "equivalent class", "formatter URL",
+    "attributed to", "content text", "code source", "LaTeX source",
+]
+REQUIRED_CLASS_LABELS = [
+    "quotation content", "code snippet", "mathematical expression", "programming language",
+]
+INSTANCE_LANGUAGES = {"en", "fr", "eo"}  # instance language policy
+
 
 class ManifestLoaderTest(unittest.TestCase):
+    def assert_trilingual(self, row, context):
+        missing = INSTANCE_LANGUAGES - set(row["labels"])
+        self.assertEqual(missing, set(), f"{context}: missing manifest languages: {sorted(missing)}")
+
     def test_load_properties_bundled(self):
         rows = manifest_loader.load_properties(MANIFESTS / "properties.csv")
-        self.assertEqual(len(rows), 29)  # 11 core + 16 issue-#7 (external-id, citation metadata, formatter URL) + 2 content-subject (describes, implementation of)
+        self.assertTrue(rows)
+        for label in REQUIRED_PROPERTY_LABELS:
+            self.assertTrue(
+                any(r["labels"]["en"] == label for r in rows),
+                f'required property label "{label}" missing from the bundled manifest',
+            )
+        for row in rows:
+            self.assert_trilingual(row, row["labels"]["en"])
         instance_of = next(r for r in rows if r["labels"]["en"] == "instance of")
         self.assertEqual(instance_of["datatype"], "wikibase-item")
         self.assertEqual(instance_of["align_uri"], "http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
@@ -41,7 +65,14 @@ class ManifestLoaderTest(unittest.TestCase):
 
     def test_load_classes_bundled(self):
         rows = manifest_loader.load_classes(MANIFESTS / "classes.csv")
-        self.assertEqual(len(rows), 13)  # 4 content + 9 issue-#7 (agents + works)
+        self.assertTrue(rows)
+        for label in REQUIRED_CLASS_LABELS:
+            self.assertTrue(
+                any(r["labels"]["en"] == label for r in rows),
+                f'required class label "{label}" missing from the bundled manifest',
+            )
+        for row in rows:
+            self.assert_trilingual(row, row["labels"]["en"])
         quotation = next(r for r in rows if r["labels"]["en"] == "quotation content")
         self.assertEqual(quotation["align_uri"], "https://schema.org/Quotation")
         person = next(r for r in rows if r["labels"]["en"] == "person")
@@ -49,7 +80,12 @@ class ManifestLoaderTest(unittest.TestCase):
 
     def test_load_languages_bundled(self):
         rows = manifest_loader.load_languages(MANIFESTS / "languages.csv")
-        self.assertEqual(len(rows), 80)
+        self.assertTrue(rows)
+        for row in rows:
+            self.assert_trilingual(row, row["lexer"])
+            # Pygments lexer names are lowercase — a case change silently breaks
+            # the code-snippet language dropdown contract.
+            self.assertEqual(row["lexer"], row["lexer"].lower(), f'lexer "{row["lexer"]}" must be lowercase')
         python = next(r for r in rows if r["lexer"] == "python")
         self.assertEqual(python["labels"]["en"], "Python")
 
@@ -62,6 +98,20 @@ class ManifestLoaderTest(unittest.TestCase):
         path.write_text(
             "label.en,label.fr,label.eo,description.en,description.fr,description.eo,datatype\n"
             "x,x,x,d,d,d,not-a-datatype\n",
+            encoding="utf-8",
+        )
+        try:
+            with self.assertRaises(manifest_loader.ManifestError):
+                manifest_loader.load_properties(path)
+        finally:
+            path.unlink()
+
+    def test_formatter_url_on_non_external_id_rejected(self, tmp_path=None):
+        path = Path(__file__).parent / "bad_fmt_props.csv"
+        path.write_text(
+            "label.en,label.fr,label.eo,description.en,description.fr,description.eo,"
+            "datatype,align.uri,align.wikidata,formatter.url\n"
+            "x,x,x,d,d,d,string,,,https://example.org/$1\n",
             encoding="utf-8",
         )
         try:
