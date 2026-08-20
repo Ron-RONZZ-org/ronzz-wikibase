@@ -9,7 +9,7 @@ javascript:) must never survive into rendered fragments.
 Usage::
 
     python3 tests/e2e/run_e2e.py check --base-url https://wikibase.ronzz.org \\
-        --quote Q5 --code Q6 --math Q7 --instance-of P31 --quotation-class Q1
+        --quote Q5 --code Q6 --math Q7 --instance-of P1 --quotation-class Q1
 
     python3 tests/e2e/run_e2e.py xss --api-url ... --user 'User@bot' --password '***'
 
