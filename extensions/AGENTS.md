@@ -40,6 +40,13 @@ extensions — never forks of Wikibase.
   vendored CSL styles in `styles/`) and native BibTeX/RIS serializers.
 - Issue #7: CSL type follows the **source** class; harvested source fields
   (published in, publisher, pages, volume, issue, DOI, ISBN). No Node sidecar.
+- **Cite-by-QID (planned, issues #24/#25, spec `docs/decisions/cite-by-qid.md`)**:
+  `{{#cite:Q42|style=|output=}}` parser function (usable inside `<ref>` with the
+  stock Cite extension) + `{{#citations}}` bibliography collector, both backed by
+  a shared `CitationEngine` service (refactor of `ApiCitation::execute()`).
+  Prerequisite: `StatementToCslConverter` self-cite fix — a source-class item
+  must read source-level fields from itself, not only as the target of a content
+  item's `source` statement.
 
 ## Constraints and Invariants
 

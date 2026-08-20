@@ -25,7 +25,10 @@ deployed, how to operate it, and why it is designed the way it is.
 - `docs/decisions/` — ADR-style decisions: `opaque-id.md` (opaque Q/P IDs,
   fork maintenance rejected), `ontology-alignment.md` (mirror properties +
   equivalence mappings, no storage-injection), `raw-rdf-in-blazegraph.md`
-  (two-worlds: curated entities + native RDF under its own URI namespace).
+  (two-worlds: curated entities + native RDF under its own URI namespace),
+  `cite-by-qid.md` (citations as a derived view over items — `{{#cite}}`/
+  `{{#citations}}` parser functions, issues #24/#25; accepted but not yet
+  implemented).
 
 ## Constraints and Invariants
 
