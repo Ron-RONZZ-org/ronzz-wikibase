@@ -186,6 +186,11 @@ def build_config(
         )
         + ";",
         "$wgWikibaseCitationInstanceOf = " + php_scalar(property_ids.get("instance of")) + ";",
+        # Issue #24 (cite-by-QID): source classes enable the self-cite
+        # behaviour of the citation converter (a source item cited directly
+        # is its own source). Values of the EmbeddableContent sourceClasses
+        # map, as a plain list.
+        "$wgWikibaseCitationSourceClasses = " + php_array(list(source_classes.values())) + ";",
         "$wgWBRepoSettings['sandboxEntityIds'] = [ 'mainItem' => 'Q999999998', 'auxItem' => 'Q999999999' ];",
         "$wgWBRepoSettings['dataRightsUrl'] = 'https://creativecommons.org/publicdomain/zero/1.0/';",
         "$wgWBRepoSettings['rdfDataRightsUrl'] = 'https://creativecommons.org/publicdomain/zero/1.0/';",

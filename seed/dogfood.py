@@ -102,6 +102,19 @@ def url_claim(property_id: str, url: str) -> dict[str, Any]:
     }
 
 
+def string_claim(property_id: str, text: str) -> dict[str, Any]:
+    """Statement with a plain string value (publisher, DOI, ISBN, …)."""
+    return {
+        "mainsnak": {
+            "snaktype": "value",
+            "property": property_id,
+            "datavalue": {"value": text, "type": "string"},
+        },
+        "type": "statement",
+        "rank": "normal",
+    }
+
+
 def entity_claim(property_id: str, entity_id: str) -> dict[str, Any]:
     """Statement with a wikibase-item value."""
     return {

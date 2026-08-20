@@ -25,7 +25,7 @@ MANIFESTS = REPO_ROOT / "extensions" / "EmbeddableContent" / "manifests"
 class ManifestLoaderTest(unittest.TestCase):
     def test_load_properties_bundled(self):
         rows = manifest_loader.load_properties(MANIFESTS / "properties.csv")
-        self.assertEqual(len(rows), 29)  # 11 core + 16 issue-#7 (external-id, citation metadata, formatter URL) + 2 content-subject (describes, implementation of)
+        self.assertEqual(len(rows), 30)  # 11 core + 16 issue-#7 (external-id, citation metadata, formatter URL) + 2 content-subject (describes, implementation of) + image (P32, Aug 19 2026)
         instance_of = next(r for r in rows if r["labels"]["en"] == "instance of")
         self.assertEqual(instance_of["datatype"], "wikibase-item")
         self.assertEqual(instance_of["align_uri"], "http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
@@ -116,6 +116,10 @@ class ConfigBuilderTest(unittest.TestCase):
         # harvest inference maps: Wikidata QID -> local class key
         self.assertIn("'Q571' => 'book'", snippet)
         self.assertIn("'Q5' => 'person'", snippet)
+        # issue #24: WikibaseCitation source-class list (self-cite config)
+        self.assertIn("$wgWikibaseCitationSourceClasses", snippet)
+        self.assertIn("'Q21',", snippet)
+        self.assertIn("'Q22',", snippet)
 
     def test_report_lists_vocabulary(self):
         report = config_builder.build_report(

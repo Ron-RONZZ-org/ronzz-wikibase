@@ -237,7 +237,7 @@ class SeedOrchestrator:
             return
 
         person_id, _ = self.dogfood_item(dogfood.PERSON_LABELS, dogfood.PERSON_DESCRIPTIONS, "person")
-        book_id, _ = self.dogfood_item(dogfood.BOOK_LABELS, dogfood.BOOK_DESCRIPTIONS, "book")
+        book_id, book_created = self.dogfood_item(dogfood.BOOK_LABELS, dogfood.BOOK_DESCRIPTIONS, "book")
 
         instance_of_id = self.find("instance of", "property", ANCHOR_LANGUAGE)
         attributed_to_id = self.find("attributed to", "property", ANCHOR_LANGUAGE)
@@ -251,6 +251,28 @@ class SeedOrchestrator:
         quote_class = self.class_ids.get("quotation content")
         code_class = self.class_ids.get("code snippet")
         math_class = self.class_ids.get("mathematical expression")
+
+        # Issue #24 (cite-by-QID): the dogfood book is a real source-class
+        # item — instance-of book + harvested citation metadata — so the
+        # self-cite path (a source item cited directly) has data to render
+        # and the E2E can guard it (DOI/ISBN present). add_claims is
+        # idempotent (skips existing), so this converges on re-runs even
+        # when the book pre-exists (e.g. production, created Aug 17 2026).
+        book_claims = {}
+        book_class = self.class_ids.get("book")
+        if instance_of_id and book_class:
+            book_claims[instance_of_id] = [dogfood.entity_claim(instance_of_id, book_class)]
+        publisher_id = self.find("publisher", "property", ANCHOR_LANGUAGE)
+        doi_id = self.find("DOI", "property", ANCHOR_LANGUAGE)
+        isbn_id = self.find("ISBN-13", "property", ANCHOR_LANGUAGE)
+        if publisher_id:
+            book_claims.setdefault(publisher_id, []).append(dogfood.string_claim(publisher_id, "R. & J. E. Taylor"))
+        if doi_id:
+            book_claims.setdefault(doi_id, []).append(dogfood.string_claim(doi_id, "10.1000/notes"))
+        if isbn_id:
+            book_claims.setdefault(isbn_id, []).append(dogfood.string_claim(isbn_id, "978-1-2345-6789-0"))
+        if book_claims:
+            self.api.add_claims(book_id, book_claims, SUMMARY_PREFIX + "populate book")
 
         claims = {}
         if instance_of_id and quote_class:
@@ -390,6 +412,7 @@ class SeedOrchestrator:
             quotation_class,
             instance_of,
             self.args.timeout,
+            book_id=self.dogfood_ids.get("book"),
         )
         if not ok:
             raise SystemExit("self-verification failed")
