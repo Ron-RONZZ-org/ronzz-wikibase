@@ -17,6 +17,35 @@ class ManifestReaderTest extends TestCase {
 
 	private const EXT = __DIR__ . '/../../extensions/EmbeddableContent';
 
+	/**
+	 * Labels the seed (D2) resolves by exact en-label match — see
+	 * seed/seed_instance.py (`find( "instance of" | "equivalent property" |
+	 * "equivalent class" | "formatter URL" | "attributed to" | content-type
+	 * payload properties)` and the CONTENT_TYPE map) and seed/config_builder.php
+	 * (content classes). Dropping any of these breaks the bootstrap, so their
+	 * presence is the contract — not a magic row count.
+	 */
+	private const REQUIRED_PROPERTY_LABELS = [
+		'instance of',
+		'equivalent property',
+		'equivalent class',
+		'formatter URL',
+		'attributed to',
+		'content text',
+		'code source',
+		'LaTeX source',
+	];
+
+	private const REQUIRED_CLASS_LABELS = [
+		'quotation content',
+		'code snippet',
+		'mathematical expression',
+		'programming language',
+	];
+
+	/** Instance language policy (en/fr/eo) — every manifest row must cover all three. */
+	private const INSTANCE_LANGUAGES = [ 'en', 'fr', 'eo' ];
+
 	private ManifestReader $reader;
 
 	protected function setUp(): void {
@@ -25,9 +54,24 @@ class ManifestReaderTest extends TestCase {
 
 	public function testBundledPropertiesManifestParses(): void {
 		$rows = $this->reader->readProperties( self::EXT . '/manifests/properties.csv' );
-		$this->assertCount( 30, $rows ); // 11 core + 16 issue-#7 + 2 content-subject + image (P32, Aug 19 2026)
+		$this->assertNotEmpty( $rows );
 
-		$instanceOf = $rows[0];
+		// The bootstrap contract: labels the seed resolves by exact match.
+		foreach ( self::REQUIRED_PROPERTY_LABELS as $label ) {
+			$this->assertNotNull(
+				$this->findByEnLabel( $rows, $label ),
+				"required property label \"$label\" missing from the bundled manifest"
+			);
+		}
+
+		// Every row must carry the instance's three languages.
+		foreach ( $rows as $row ) {
+			$this->assertTrilingual( $row, $row->getLabels()['en'] ?? 'row' );
+		}
+
+		// `instance of` anchors every entity creation in the seed.
+		$instanceOf = $this->findByEnLabel( $rows, 'instance of' );
+		$this->assertNotNull( $instanceOf );
 		$this->assertSame( 'instance of', $instanceOf->getLabels()['en'] );
 		$this->assertSame( 'instance de', $instanceOf->getLabels()['fr'] );
 		$this->assertSame( 'ekzemplo de', $instanceOf->getLabels()['eo'] );
@@ -35,50 +79,71 @@ class ManifestReaderTest extends TestCase {
 		$this->assertSame( 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', $instanceOf->getAlignUri() );
 		$this->assertSame( 'https://www.wikidata.org/wiki/Property:P31', $instanceOf->getAlignWikidata() );
 
-		// Payload properties carry no alignment.
-		$contentText = $rows[1];
-		$this->assertSame( 'monolingualtext', $contentText->getDatatype() );
-		$this->assertNull( $contentText->getAlignUri() );
-		$this->assertNull( $contentText->getAlignWikidata() );
-
 		// `equivalent property` aligns to wd:P1628 (equivalent property) — NOT
 		// P2888 (exact match); regression guard for the D1 data fix.
-		$equivalentProperty = $rows[9];
-		$this->assertSame( 'equivalent property', $equivalentProperty->getLabels()['en'] );
+		$equivalentProperty = $this->findByEnLabel( $rows, 'equivalent property' );
+		$this->assertNotNull( $equivalentProperty );
 		$this->assertSame(
 			'https://www.wikidata.org/wiki/Property:P1628',
 			$equivalentProperty->getAlignWikidata()
 		);
 
 		// Issue #7: external-id authority properties carry formatter URLs.
-		$orcid = null;
-		foreach ( $rows as $row ) {
-			if ( $row->getLabels()['en'] === 'ORCID' ) {
-				$orcid = $row;
-				break;
-			}
-		}
+		$orcid = $this->findByEnLabel( $rows, 'ORCID' );
 		$this->assertNotNull( $orcid );
 		$this->assertSame( 'external-id', $orcid->getDatatype() );
 		$this->assertSame( 'https://orcid.org/$1', $orcid->getFormatterUrl() );
 		$this->assertSame( 'https://www.wikidata.org/wiki/Property:P496', $orcid->getAlignWikidata() );
+
+		// Payload properties carry no alignment.
+		$contentText = $this->findByEnLabel( $rows, 'content text' );
+		$this->assertNotNull( $contentText );
+		$this->assertSame( 'monolingualtext', $contentText->getDatatype() );
+		$this->assertNull( $contentText->getAlignUri() );
+		$this->assertNull( $contentText->getAlignWikidata() );
 	}
 
 	public function testBundledClassesManifestParses(): void {
 		$rows = $this->reader->readClasses( self::EXT . '/manifests/classes.csv' );
-		$this->assertCount( 13, $rows ); // 4 content + 9 issue-#7
+		$this->assertNotEmpty( $rows );
 
-		$this->assertSame( 'quotation content', $rows[0]->getLabels()['en'] );
-		$this->assertSame( 'https://schema.org/Quotation', $rows[0]->getAlignUri() );
-		$this->assertSame( 'programming language', $rows[3]->getLabels()['en'] );
-		$this->assertSame( 'https://www.wikidata.org/wiki/Q9143', $rows[3]->getAlignWikidata() );
+		foreach ( self::REQUIRED_CLASS_LABELS as $label ) {
+			$this->assertNotNull(
+				$this->findByEnLabel( $rows, $label ),
+				"required class label \"$label\" missing from the bundled manifest"
+			);
+		}
+
+		foreach ( $rows as $row ) {
+			$this->assertTrilingual( $row, $row->getLabels()['en'] ?? 'row' );
+		}
+
+		$quotationContent = $this->findByEnLabel( $rows, 'quotation content' );
+		$this->assertNotNull( $quotationContent );
+		$this->assertSame( 'https://schema.org/Quotation', $quotationContent->getAlignUri() );
+
+		$programmingLanguage = $this->findByEnLabel( $rows, 'programming language' );
+		$this->assertNotNull( $programmingLanguage );
+		$this->assertSame( 'https://www.wikidata.org/wiki/Q9143', $programmingLanguage->getAlignWikidata() );
 	}
 
 	public function testBundledLanguagesManifestParses(): void {
 		$rows = $this->reader->readLanguages( self::EXT . '/manifests/languages.csv' );
-		$this->assertCount( 80, $rows );
+		$this->assertNotEmpty( $rows );
 
-		$python = $rows[array_search( 'python', array_map( static fn ( $row ) => $row->getLexer(), $rows ), true )];
+		foreach ( $rows as $row ) {
+			$this->assertTrilingual( $row, $row->getLabels()['en'] ?? $row->getLexer() );
+			// Pygments lexer names are lowercase — a case change silently breaks
+			// the code-snippet language dropdown contract.
+			$this->assertSame(
+				strtolower( $row->getLexer() ),
+				$row->getLexer(),
+				"lexer \"{$row->getLexer()}\" must be lowercase"
+			);
+		}
+
+		$python = $this->findByLexer( $rows, 'python' );
+		$this->assertNotNull( $python );
 		$this->assertSame( 'Python', $python->getLabels()['en'] );
 		$this->assertNull( $python->getWikidataQid() );
 	}
@@ -94,6 +159,14 @@ class ManifestReaderTest extends TestCase {
 			"foo,foo,foo,desc,desc,desc,not-a-datatype,,\n" );
 		$this->expectException( ManifestException::class );
 		$this->expectExceptionMessage( 'invalid datatype "not-a-datatype"' );
+		$this->reader->readProperties( $path );
+	}
+
+	public function testFormatterUrlOnNonExternalIdThrows(): void {
+		$path = $this->writeTemp( "label.en,label.fr,label.eo,description.en,description.fr,description.eo,datatype,align.uri,align.wikidata,formatter.url\n" .
+			"foo,foo,foo,desc,desc,desc,string,,,https://example.org/\$1\n" );
+		$this->expectException( ManifestException::class );
+		$this->expectExceptionMessage( 'formatter URL requires datatype "external-id"' );
 		$this->reader->readProperties( $path );
 	}
 
@@ -177,6 +250,29 @@ class ManifestReaderTest extends TestCase {
 		$this->expectException( ManifestException::class );
 		$this->expectExceptionMessage( 'duplicate lexer "python"' );
 		$this->reader->readLanguages( $path );
+	}
+
+	private function findByEnLabel( array $rows, string $label ): ?object {
+		foreach ( $rows as $row ) {
+			if ( $row->getLabels()['en'] === $label ) {
+				return $row;
+			}
+		}
+		return null;
+	}
+
+	private function findByLexer( array $rows, string $lexer ): ?object {
+		foreach ( $rows as $row ) {
+			if ( $row->getLexer() === $lexer ) {
+				return $row;
+			}
+		}
+		return null;
+	}
+
+	private function assertTrilingual( object $row, string $context ): void {
+		$missing = array_diff( self::INSTANCE_LANGUAGES, array_keys( $row->getLabels() ) );
+		$this->assertSame( [], $missing, "$context: missing manifest languages: " . implode( ',', $missing ) );
 	}
 
 	private function writeTemp( string $contents ): string {

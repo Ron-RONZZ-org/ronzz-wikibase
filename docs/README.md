@@ -75,6 +75,22 @@ Open `https://wikibase.ronzz.org/` and log in. Entity namespaces: **Item = 120**
 > change; plain wikitext, no translation markup, per
 > `content-creation/AGENTS.md`; MediaWiki rejects a bare namespace prefix as a
 > page title, hence `Main`).
+> **Technology dissections** (how things actually work, no prior knowledge
+> assumed) live in the **`HowItWorks:` namespace**
+> (`https://wikibase.ronzz.org/wiki/HowItWorks:<Technology>`), hub at
+> **`HowItWorks:Main`** → `Category:HowItWorks` — see issue #23 (same
+> LocalSettings-only mechanism, NS 2002; plain wikitext, no translation
+> markup; pilot page: `HowItWorks:MediaWiki`, sitelinked to item Q164).
+>
+> **Search** (verified Aug 20 2026): both custom namespaces are already in
+> `$wgNamespacesToBeSearchedDefault` (see the ops doc `wikibase.md` namespace
+> blocks) and `Special:Search` finds pages in them — "MediaWiki" →
+> `HowItWorks:MediaWiki`, "Markdown" → `Cheatsheets:Markdown`, "SPARQL" →
+> `Cheatsheets:SPARQL`. **Known quirk**: the API module `list=search` returns
+> 0 hits *without* an explicit `srnamespace=` even when `Special:Search` works
+> (MW 1.46 + SearchMySQL — tracked as a follow-up in the ops doc). If search
+> ever goes empty after bulk authoring, re-run `rebuildtextindex.php` (see
+> `wikibase.md`).
 >
 > **For admins**: see **`wikibase-cli.md`** (same folder) for server-side CLI
 > operations (editing `MediaWiki:` pages, maintenance scripts, cache gotchas).

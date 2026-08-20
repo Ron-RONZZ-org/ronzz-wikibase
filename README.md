@@ -94,11 +94,15 @@ E2E acceptance + XSS suite (against a seeded instance):
 
 ```bash
 python3 tests/e2e/run_e2e.py check --base-url https://wikibase.ronzz.org \
-    --quote Q5 --code Q6 --math Q7 --instance-of P31 --quotation-class Q1
+    --quote Q5 --code Q6 --math Q7 --instance-of P1 --quotation-class Q1
 python3 tests/e2e/run_e2e.py xss --api-url ... --user 'User@bot' --password '***'
 python3 tests/e2e/run_pages_e2e.py --base-url https://wikibase.ronzz.org \
     --user SeedBot --password-file seed/.seedbot.pass   # page flows, self-cleaning
 ```
+
+`--instance-of` is **P1** on production (`instance of`; P31 is *subclass of* — the
+E2E example previously said P31). Property IDs are opaque and instance-specific:
+CI and `dev/README.md` resolve them from `seed/generated/ids.json` instead.
 
 ## Documentation
 

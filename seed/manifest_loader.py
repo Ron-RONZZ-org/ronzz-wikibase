@@ -43,6 +43,12 @@ def load_properties(path: str | Path) -> list[dict[str, Any]]:
         datatype = row.get("datatype", "")
         if datatype not in ALLOWED_DATATYPES:
             raise ManifestError(f"{path} line {index}: invalid datatype {datatype!r}")
+        formatter_url = _optional_url(row.get("formatter.url", ""), path, index)
+        if formatter_url and datatype != "external-id":
+            raise ManifestError(
+                f"{path} line {index}: formatter URL requires datatype "
+                f'"external-id" (got {datatype!r})'
+            )
         result.append(
             {
                 "labels": labels,
@@ -50,7 +56,7 @@ def load_properties(path: str | Path) -> list[dict[str, Any]]:
                 "datatype": datatype,
                 "align_uri": _optional_url(row.get("align.uri", ""), path, index),
                 "align_wikidata": _optional_url(row.get("align.wikidata", ""), path, index),
-                "formatter_url": _optional_url(row.get("formatter.url", ""), path, index),
+                "formatter_url": formatter_url,
             }
         )
     return result
