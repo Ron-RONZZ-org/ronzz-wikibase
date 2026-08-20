@@ -70,4 +70,16 @@ class CitationSanitizerTest extends TestCase {
 	public function testUnbalancedDisallowedTagTextIsKept(): void {
 		$this->assertSame( 'text', $this->sanitizer->sanitizeHtml( 'text<iframe>' ) );
 	}
+
+	public function testWhitespaceRunsAreCollapsed(): void {
+		// citeproc's div structure leaves "\n  " indentation around the
+		// stripped tags — it must not survive as pre-wrapping whitespace.
+		$html = "<div class=\"csl-bib-body\">\n  <div class=\"csl-entry\">Notes du traducteur. (n.d.).</div>\n</div>";
+		$this->assertSame( 'Notes du traducteur. (n.d.).', $this->sanitizer->sanitizeHtml( $html ) );
+	}
+
+	public function testInlineTagsKeepSingleSpaces(): void {
+		$html = 'In <i>Notes du traducteur</i>. R. &amp; J. E. Taylor.';
+		$this->assertSame( $html, $this->sanitizer->sanitizeHtml( $html ) );
+	}
 }

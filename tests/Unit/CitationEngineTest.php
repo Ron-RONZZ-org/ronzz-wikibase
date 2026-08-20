@@ -302,6 +302,19 @@ class CitationEngineTest extends TestCase {
 		$this->assertStringContainsString( 'R. &amp; J. E. Taylor', $out );
 	}
 
+	public function testCacheHitOutputIsSanitized(): void {
+		// Regression (security): the cache-hit path must never serve
+		// unsanitized citeproc HTML — statement values are user-entered,
+		// and the sanitizer must apply to cached output too.
+		$engine = $this->makeEngine( new BagOStuff() );
+		$first = $engine->render( 'Q20', 'apa', 'html' );
+		$second = $engine->render( 'Q20', 'apa', 'html' );  // cache hit
+		foreach ( [ $first, $second ] as $out ) {
+			$this->assertStringNotContainsString( 'csl-bib-body', $out );
+			$this->assertStringNotContainsString( '<div', $out );
+		}
+	}
+
 	public function testJsonStyleIsNeverCached(): void {
 		// The json style bypasses the cache entirely: every call converts.
 		// (Q1's type is 'book': the CSL type follows the SOURCE class Q20.)

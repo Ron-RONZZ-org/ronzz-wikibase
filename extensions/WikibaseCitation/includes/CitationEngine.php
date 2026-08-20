@@ -182,12 +182,16 @@ class CitationEngine {
 			$text = $this->formatter->format( $csl, 'json', $format );
 		} else {
 			$text = $this->formatter->format( $csl, $style, $format );
+			if ( $format === 'html' && ( $style === 'apa' || $style === 'vancouver' ) ) {
+				// Sanitize BEFORE caching: the cache-hit path must never
+				// serve unsanitized citeproc HTML (statement values are
+				// user-entered; the XSS gate is the ADR's security
+				// invariant, and it applies to cached output too).
+				$text = $this->sanitizer->sanitizeHtml( $text );
+			}
 			$this->cache->set( $cacheKey, $text, self::CACHE_TTL );
 		}
 
-		if ( $format === 'html' && ( $style === 'apa' || $style === 'vancouver' ) ) {
-			$text = $this->sanitizer->sanitizeHtml( $text );
-		}
 		return [ $text, $sourceId ];
 	}
 

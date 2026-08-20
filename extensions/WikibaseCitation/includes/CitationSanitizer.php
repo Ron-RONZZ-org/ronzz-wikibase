@@ -32,12 +32,15 @@ class CitationSanitizer {
 	/**
 	 * Sanitizes citation HTML against the allowlist. Disallowed tags are
 	 * removed but their text content is kept; allowed tags keep only a
-	 * `class` attribute whose value passes the class-name check.
+	 * `class` attribute whose value passes the class-name check. Runs of
+	 * whitespace are collapsed to single spaces so the stripped structural
+	 * markup (citeproc's div wrappers) cannot leak `\n  ` indentation into
+	 * the page (a leading space would wrap the citation in a `<pre>` block).
 	 */
 	public function sanitizeHtml( string $html ): string {
 		// HTML comments never belong in citation output.
 		$html = preg_replace( '/<!--.*?-->/s', '', $html ) ?? $html;
-		return preg_replace_callback(
+		$html = preg_replace_callback(
 			'#<(/)?([a-zA-Z][a-zA-Z0-9]*)((?:"[^"]*"|\'[^\']*\'|[^>"\'])*)>#',
 			function ( array $m ): string {
 				$closing = $m[1] === '/';
@@ -52,6 +55,7 @@ class CitationSanitizer {
 			},
 			$html
 		) ?? $html;
+		return trim( preg_replace( '/\s+/u', ' ', $html ) ?? $html );
 	}
 
 	/**
