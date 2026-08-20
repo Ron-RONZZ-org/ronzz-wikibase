@@ -106,17 +106,21 @@ CI and `dev/README.md` resolve them from `seed/generated/ids.json` instead.
 
 ## Documentation
 
-Instance documentation lives **in this repo** under `docs/`:
+Instance documentation: design decisions and contribution pointers stay
+**in this repo** under `docs/`:
 
-- `docs/README.md` — instance stack, endpoints, access control, skins
+- `docs/README.md` — public-safe pointer (official links, ADR pointers)
 - `docs/contribution-guide.md` — pointer: editing rules live on-wiki at the
   `Help:Contributing` family (so non-coders find them)
-- `docs/wikibase-cli.md` — server-side admin/CLI operations
+- `docs/wikibase-cli.md` — pointer stub (full CLI ops moved to the gated wiki)
 - `docs/decisions/` — ADR-style decisions (`opaque-id.md`, `ontology-alignment.md`,
-  `raw-rdf-in-blazegraph.md`)
+  `raw-rdf-in-blazegraph.md`, `cite-by-qid.md`, `static-llm-translation.md`)
 
-Private ops/credentials (server config, OCI identity, `.env` paths — e.g.
-`docs/IT/ronzz-linux-server-2.md` in Nextcloud) stay **out of this repo**.
+**Instance deployment details (stack, endpoints, access control, uploads,
+CLI ops) live on the gated wiki** at `RonzzIT:Wikibase`,
+`RonzzIT:Wikibase/Reference`, `RonzzIT:Wikibase/CLI` (wikibase.ronzz.org,
+`it` group) — moved out of this public repo on 2026-08-20. Private
+ops/credentials (server config, OCI identity, `.env` paths) stay there too.
 
 ## Conventions
 

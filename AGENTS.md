@@ -34,7 +34,7 @@ the instance.
   (nginx, php-fpm, WDQS/Blazegraph + updater, MySQL), OCI identity, `.env`
   paths, credentials and maintenance runbooks — are documented in the
   **private Nextcloud ops doc**
-  `~/shared-ronzz-nextcloud/docs/IT/ronzz-linux-server-2.md`.
+  `RonzzIT:LinuxServer2` (gated wiki page).
 - **Operational/server credentials never belong in this repo** — anything
   server-wide lives in that ops doc, never here. Instance-specific facts
   (stack, endpoints, access control, decisions) live in `docs/` in this
@@ -57,7 +57,7 @@ the instance.
 
 | Layer | Technology |
 |-------|-----------|
-| Production host | `ronzz-linux-server-2` (158.178.193.231) — server-wide ops doc: `~/shared-ronzz-nextcloud/docs/IT/ronzz-linux-server-2.md` (private Nextcloud) |
+| Production host | `ronzz-linux-server-2` (158.178.193.231) — server-wide ops doc: `RonzzIT:LinuxServer2` (gated wiki page) |
 | Wiki platform | MediaWiki 1.46 + Wikibase (repo), self-hosted at wikibase.ronzz.org |
 | Query service | WDQS (Blazegraph SPARQL 0.3.156) |
 | Database | MySQL / MariaDB |
@@ -106,8 +106,10 @@ the instance.
 
 - **Every module directory must have a corresponding `AGENTS.md`** (see the
   Module-Level table below).
-- Instance documentation lives in `docs/` (stack, endpoints, contribution
-  guide, CLI ops, `decisions/` ADR-style decisions).
+- Instance documentation: ADRs + contribution pointers in `docs/`;
+  deployment details (stack, endpoints, CLI ops) live on the gated wiki
+  (`RonzzIT:Wikibase*`, moved 2026-08-20) — contribution guide, CLI ops,
+  `decisions/` ADR-style decisions stay in the repo.
 - On-wiki help lives on the instance itself (`Help:Contributing` family,
   multilingual) — see `content-creation/AGENTS.md`.
 - Private ops/credentials stay out of this repo (see Project Overview).
@@ -201,11 +203,11 @@ The following module-specific AGENTS files are located in their respective direc
 |---|---|---|
 | content-creation | `content-creation/AGENTS.md`, `content-creation/AGENTS-translation.md` (static LLM translation companion), `content-creation/glossary.md` | on-wiki `Help:Contributing` family (live pages; `docs/contribution-guide.md` is a pointer) |
 | dev | `dev/AGENTS.md` | `dev/README.md` |
-| docs | `docs/AGENTS.md` | `docs/README.md` |
-| extensions | `extensions/AGENTS.md` | `docs/README.md` (stack), `docs/decisions/` |
+| docs | `docs/AGENTS.md` | `docs/README.md` (public-safe pointer); instance docs on gated wiki `RonzzIT:Wikibase*` |
+| extensions | `extensions/AGENTS.md` | gated wiki `RonzzIT:Wikibase/Reference` (stack), `docs/decisions/` |
 | seed | `seed/AGENTS.md` | `seed/README.md` |
 | tests | `tests/AGENTS.md` | `tests/e2e/run_e2e.py`, `tests/e2e/run_pages_e2e.py` |
-| tools | `tools/AGENTS.md` | `docs/wikibase-cli.md` |
+| tools | `tools/AGENTS.md` | gated wiki `RonzzIT:Wikibase/CLI` (pointer in `docs/wikibase-cli.md`) |
 
 (Update this table as new modules are added)
 
