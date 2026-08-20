@@ -323,4 +323,38 @@ class StatementToCslConverterTest extends TestCase {
 
 		$this->assertArrayNotHasKey( 'page', $csl );
 	}
+
+	public function testPreferredLanguageSelectsLabel(): void {
+		// The reader's language must win over the hardcoded fr-first order:
+		// Q20 has en "Notes by the Translator" AND fr "Notes de la traductrice".
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31',
+			[ 'Q20' ]
+		);
+		$book = $this->makeEntityLookup()->getEntity( new ItemId( 'Q20' ) );
+
+		$this->assertSame( 'Notes by the Translator', $converter->toCslJson( $book, 'en' )['title'] );
+		$this->assertSame( 'Notes de la traductrice', $converter->toCslJson( $book, 'fr' )['title'] );
+		// Null (no language context) keeps the legacy fr-first order.
+		$this->assertSame( 'Notes de la traductrice', $converter->toCslJson( $book, null )['title'] );
+	}
+
+	public function testPreferredLanguageAppliesToAuthorLabels(): void {
+		// Q10 (Ada Lovelace) has only an en label — any preference falls
+		// back to the other languages, then any remaining label.
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31',
+			[ 'Q20' ]
+		);
+		$item = $this->makeItem();  // attributed to Q10
+
+		$csl = $converter->toCslJson( $item, 'eo' );
+		$this->assertSame( [ [ 'given' => 'Ada', 'family' => 'Lovelace' ] ], $csl['author'] );
+	}
 }

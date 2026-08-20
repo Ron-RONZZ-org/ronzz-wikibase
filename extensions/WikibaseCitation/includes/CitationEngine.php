@@ -83,8 +83,8 @@ class CitationEngine {
 	 *
 	 * @throws CitationException on invalid id / unknown entity / bad style
 	 */
-	public function render( string $entityId, string $style, string $format = 'text' ): string {
-		return $this->renderWithSourceId( $entityId, $style, $format )[0];
+	public function render( string $entityId, string $style, string $format = 'text', ?string $language = null ): string {
+		return $this->renderWithSourceId( $entityId, $style, $format, $language )[0];
 	}
 
 	/**
@@ -100,13 +100,13 @@ class CitationEngine {
 	 * @throws CitationException on the first invalid id / unknown entity /
 	 *  bad style
 	 */
-	public function renderList( array $entityIds, string $style, string $format = 'text' ): array {
+	public function renderList( array $entityIds, string $style, string $format = 'text', ?string $language = null ): array {
 		$sourceIds = [];
 		if ( $style === 'json' ) {
 			$csls = [];
 			foreach ( $entityIds as $entityId ) {
 				$item = $this->loadItem( $entityId );
-				$csls[] = $this->converter->toCslJson( $item );
+				$csls[] = $this->converter->toCslJson( $item, $language );
 				$sourceId = $this->sourceItemIdOf( $item );
 				if ( $sourceId !== null ) {
 					$sourceIds[] = $sourceId->getSerialization();
@@ -117,7 +117,7 @@ class CitationEngine {
 
 		$chunks = [];
 		foreach ( $entityIds as $entityId ) {
-			[ $text, $sourceId ] = $this->renderWithSourceId( $entityId, $style, $format );
+			[ $text, $sourceId ] = $this->renderWithSourceId( $entityId, $style, $format, $language );
 			$chunks[] = $text;
 			if ( $sourceId !== null ) {
 				$sourceIds[] = $sourceId->getSerialization();
@@ -146,8 +146,8 @@ class CitationEngine {
 	 *
 	 * @throws CitationException on invalid id / unknown entity
 	 */
-	public function renderToCsl( string $entityId ): array {
-		return $this->converter->toCslJson( $this->loadItem( $entityId ) );
+	public function renderToCsl( string $entityId, ?string $language = null ): array {
+		return $this->converter->toCslJson( $this->loadItem( $entityId ), $language );
 	}
 
 	/**
@@ -155,11 +155,15 @@ class CitationEngine {
 	 * (null when the item is neither a source class nor has a `source`
 	 * statement). Both come from the single entity load of this call.
 	 *
+	 * @param string|null $language preferred label language (reader/user
+	 *  language). Part of the cache key — English and French readers get
+	 *  separate renders of the same entity.
+	 *
 	 * @return array{0:string,1:?ItemId} [citation text, source item id]
 	 *
 	 * @throws CitationException on invalid id / unknown entity / bad style
 	 */
-	public function renderWithSourceId( string $entityId, string $style, string $format = 'text' ): array {
+	public function renderWithSourceId( string $entityId, string $style, string $format = 'text', ?string $language = null ): array {
 		if ( !in_array( $style, CitationFormatter::STYLES, true ) ) {
 			throw new CitationException( "Unsupported citation style: '$style'" );
 		}
@@ -169,14 +173,15 @@ class CitationEngine {
 		$revId = $revision !== null ? $revision->getRevisionId() : 0;
 
 		$cacheKey = $this->cache->makeKey(
-			'WikibaseCitation', 'citation', $item->getId()->getSerialization(), (string)$revId, $style, $format
+			'WikibaseCitation', 'citation', $item->getId()->getSerialization(), (string)$revId,
+			$style, $format, $language ?? ''
 		);
 		$cached = $this->cache->get( $cacheKey );
 		if ( is_string( $cached ) ) {
 			return [ $cached, $sourceId ];
 		}
 
-		$csl = $this->converter->toCslJson( $item );
+		$csl = $this->converter->toCslJson( $item, $language );
 		if ( $style === 'json' ) {
 			// json output is the JSON string, and it is never cached.
 			$text = $this->formatter->format( $csl, 'json', $format );

@@ -118,9 +118,11 @@ class CitationEngineTest extends TestCase {
 						$item->setLabel( 'en', 'Ada Lovelace' );
 						return $item;
 					case 'Q20':
-						// A BOOK (source class) with full harvested metadata.
+						// A BOOK (source class) with full harvested metadata
+						// and labels in en + fr (language selection tests).
 						$item = new Item( new ItemId( 'Q20' ) );
 						$item->setLabel( 'en', 'Notes by the Translator' );
+						$item->setLabel( 'fr', 'Notes de la traductrice' );
 						$item->getStatements()->addNewStatement(
 							new PropertyValueSnak( new PropertyId( 'P31' ), new EntityIdValue( new ItemId( 'Q20' ) ) )
 						);
@@ -201,7 +203,7 @@ class CitationEngineTest extends TestCase {
 	}
 
 	public function testContentItemCiteRenders(): void {
-		$out = $this->makeEngine()->render( 'Q1', 'apa', 'text' );
+		$out = $this->makeEngine()->render( 'Q1', 'apa', 'text', 'en' );
 		$this->assertStringContainsString( 'Analytical Engine', $out );
 		$this->assertStringContainsString( 'Notes by the Translator', $out );
 	}
@@ -331,7 +333,7 @@ class CitationEngineTest extends TestCase {
 
 	public function testRenderListJoinsMultipleEntities(): void {
 		// v2 multi-entity: {{#cite:Q20|Q40}} renders both in one output.
-		$out = $this->makeEngine()->renderList( [ 'Q20', 'Q40' ], 'apa', 'text' );
+		$out = $this->makeEngine()->renderList( [ 'Q20', 'Q40' ], 'apa', 'text', 'en' );
 		$this->assertStringContainsString( 'Notes by the Translator', $out[0] );
 		$this->assertStringContainsString( 'Scientific Memoirs', $out[0] );
 	}
@@ -367,6 +369,31 @@ class CitationEngineTest extends TestCase {
 		$this->expectException( CitationEntityNotFoundException::class );
 		$this->makeEngine()->sourceIdFor( 'Q999' );
 	}
+
+	public function testRenderLanguageSelectsLabels(): void {
+		// Q20 carries en + fr labels: the reader's language must win.
+		$engine = $this->makeEngine();
+		$this->assertStringContainsString( 'Notes by the Translator', $engine->render( 'Q20', 'apa', 'text', 'en' ) );
+		$this->assertStringContainsString( 'Notes de la traductrice', $engine->render( 'Q20', 'apa', 'text', 'fr' ) );
+	}
+
+	public function testCacheKeyIncludesLanguage(): void {
+		// English and French renders of the same entity are separate cache
+		// entries — a fr render must not serve the en render (or vice versa).
+		$map = $this->makeMapLookup();
+		$converter = new CountingConverter(
+			$this->makeEntityLookup(), $map, new CslTypeMapper( $map ), 'P31', [ 'Q20', 'Q40' ]
+		);
+		$engine = $this->makeEngine( new BagOStuff(), $converter );
+
+		$en = $engine->render( 'Q20', 'apa', 'text', 'en' );
+		$enAgain = $engine->render( 'Q20', 'apa', 'text', 'en' );
+		$fr = $engine->render( 'Q20', 'apa', 'text', 'fr' );
+
+		$this->assertSame( 2, $converter->calls );   // en cached, fr missed
+		$this->assertSame( $en, $enAgain );
+		$this->assertNotSame( $en, $fr );
+	}
 }
 
 /**
@@ -378,8 +405,8 @@ class CountingConverter extends StatementToCslConverter {
 	/** @var int */
 	public $calls = 0;
 
-	public function toCslJson( Item $item ): array {
+	public function toCslJson( Item $item, ?string $preferredLanguage = null ): array {
 		$this->calls++;
-		return parent::toCslJson( $item );
+		return parent::toCslJson( $item, $preferredLanguage );
 	}
 }
