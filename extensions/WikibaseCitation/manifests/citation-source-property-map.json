@@ -5,5 +5,7 @@
 	"volume": "volume",
 	"issue": "issue",
 	"DOI": "DOI",
-	"ISBN": "ISBN-13"
+	"ISBN": "ISBN-13",
+	"givenName": "given name",
+	"familyName": "family name"
 }

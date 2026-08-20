@@ -50,6 +50,9 @@ class Citations {
 	 */
 	public const PLACEHOLDER = 'UNIQ-wbc-citations-00000001-QINU';
 
+	/** ParserOutput extension-data key for the reader's language (accumulated mode). */
+	public const LANGUAGE_DATA_KEY = 'WikibaseCitationCitedSourcesLanguage';
+
 	/**
 	 * @param string[] $args raw arguments (explicit entity ids or none)
 	 * @return array{text:string,noparse:bool,isHTML?:bool}
@@ -65,6 +68,9 @@ class Citations {
 		if ( $opts['entities'] !== [] ) {
 			return self::explicit( $engine, $dependencies, $parser, $opts['entities'] );
 		}
+		// Remember the reader's language for the ParserAfterTidy
+		// substitution (accumulated mode renders there, not here).
+		$parser->getOutput()->setExtensionData( self::LANGUAGE_DATA_KEY, $parser->getOptions()->getUserLangObj()->getCode() );
 		// Accumulated mode: plain text (the placeholder marker); noparse
 		// keeps it out of the preprocessor, so ParserAfterTidy sees it
 		// intact in the final text.
@@ -87,6 +93,7 @@ class Citations {
 	): array {
 		$sources = [];
 		$errors = '';
+		$language = $parser->getOptions()->getUserLangObj()->getCode();
 		foreach ( $entityIds as $entityId ) {
 			try {
 				$sourceId = $engine->sourceIdFor( $entityId );
@@ -102,7 +109,7 @@ class Citations {
 		$dependencies->register( $parser, $entityIds );
 		$sources = array_values( array_unique( $sources ) );
 
-		return [ 'text' => $errors . self::buildBibliography( $engine, $sources ), 'noparse' => true, 'isHTML' => true ];
+		return [ 'text' => $errors . self::buildBibliography( $engine, $sources, $language ), 'noparse' => true, 'isHTML' => true ];
 	}
 
 	/**
@@ -113,20 +120,20 @@ class Citations {
 	 *
 	 * @param string[] $sourceIds deduplicated source item ids in citation order
 	 */
-	public static function buildBibliography( CitationEngine $engine, array $sourceIds ): string {
+	public static function buildBibliography( CitationEngine $engine, array $sourceIds, ?string $language = null ): string {
 		if ( $sourceIds === [] ) {
 			return '';
 		}
 		$entries = '';
 		foreach ( $sourceIds as $sourceId ) {
-			$entries .= '<li>' . self::renderEntry( $engine, $sourceId ) . "</li>\n";
+			$entries .= '<li>' . self::renderEntry( $engine, $sourceId, $language ) . "</li>\n";
 		}
 		return '<ol class="wikibasecitation-sources">' . "\n" . $entries . '</ol>';
 	}
 
-	private static function renderEntry( CitationEngine $engine, string $sourceId ): string {
+	private static function renderEntry( CitationEngine $engine, string $sourceId, ?string $language = null ): string {
 		try {
-			return $engine->render( $sourceId, 'apa', 'html' );
+			return $engine->render( $sourceId, 'apa', 'html', $language );
 		} catch ( CitationException $e ) {
 			// wfMessage()->text() HTML-escapes message + params.
 			return '<span class="error">'

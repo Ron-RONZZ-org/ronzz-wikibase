@@ -74,9 +74,21 @@ class StatementToCslConverter {
 	}
 
 	/**
+	 * Default label-language order when no preferred language is given
+	 * (legacy behaviour, kept for API callers without a language context).
+	 */
+	private const DEFAULT_LABEL_LANGUAGES = [ 'fr', 'en', 'eo' ];
+
+	/**
+	 * @param string|null $preferredLanguage language code of the reader /
+	 *  render context (user language for parser functions, request language
+	 *  for the API). Labels are resolved in that language first, then the
+	 *  default order, then any remaining label. Null keeps the legacy
+	 *  fr-first order.
+	 *
 	 * @return array<string,mixed> CSL-JSON
 	 */
-	public function toCslJson( Item $item ): array {
+	public function toCslJson( Item $item, ?string $preferredLanguage = null ): array {
 		$sourceItem = $this->sourceItemOf( $item );
 		if ( $sourceItem === null && $this->isSourceClass( $item ) ) {
 			// Issue #24: a source-class item cited directly is its own source —
@@ -90,37 +102,28 @@ class StatementToCslConverter {
 			'type' => $this->typeMapper->getTypeForContentAndSource( $contentClassIds, $sourceClassIds ),
 		];
 
-		$label = $this->labelOf( $item );
+		$label = $this->labelOf( $item, $preferredLanguage );
 		if ( $label !== '' ) {
 			$csl['title'] = $label;
 		}
 
-		$this->addFromStatement( $item, 'author', static function ( $value ) {
-			// citeproc-php only renders family/given names; split the label
-			// deterministically (last word = family). Single-word names fall
-			// back to a literal name.
-			$name = (string)$value;
-			if ( preg_match( '/^(.*?)\s+(\S+)$/u', $name, $m ) === 1 ) {
-				return [ [ 'given' => $m[1], 'family' => $m[2] ] ];
-			}
-			return [ [ 'literal' => $name ] ];
-		}, $csl, 'author' );
+		$this->addAuthor( $item, $csl, $preferredLanguage );
 		$this->addFromStatement( $item, 'issued', static function ( $value ) {
 			return $value instanceof TimeValue
 				? [ 'date-parts' => [ [ (int)substr( ltrim( $value->getTime(), '+' ), 0, 4 ) ] ] ]
 				: [ 'literal' => (string)$value ];
-		}, $csl, 'issued' );
+		}, $csl, 'issued', $preferredLanguage );
 		$this->addFromStatement( $item, 'URL', static function ( $value ) {
 			return (string)$value;
-		}, $csl, 'URL' );
+		}, $csl, 'URL', $preferredLanguage );
 
 		// Issue #7: source-level fields from the source item.
 		foreach ( self::SOURCE_LEVEL_FIELDS as $field ) {
-			$this->addFromSource( $sourceItem, $field, $csl );
+			$this->addFromSource( $sourceItem, $field, $csl, $preferredLanguage );
 		}
 		if ( $sourceItem !== null && !isset( $csl['container-title'] ) ) {
 			// Books: the container IS the source item (label fallback).
-			$sourceLabel = $this->labelOf( $sourceItem );
+			$sourceLabel = $this->labelOf( $sourceItem, $preferredLanguage );
 			if ( $sourceLabel !== '' ) {
 				$csl['container-title'] = $sourceLabel;
 			}
@@ -129,9 +132,134 @@ class StatementToCslConverter {
 		// Issue #25 (v2): quote-position locator — a `page(s)` QUALIFIER on
 		// the content item's `source` statement is the exact quote location
 		// and overrides the work-level page range read from the source item.
-		$this->addSourceStatementQualifier( $item, $csl );
+		$this->addSourceStatementQualifier( $item, $csl, $preferredLanguage );
 
 		return $csl;
+	}
+
+	/**
+	 * Resolves the `author` field (source map: content 'author' → property).
+	 * An item-typed author (the normal case — a person item) is rendered
+	 * from its harvested `given name` / `family name` statements, deriving
+	 * a missing part from the label (e.g. given "Lucian" + label "Lucian of
+	 * Samosata" → family "of Samosata"); plain-string authors keep the
+	 * legacy deterministic label split. Empty values are omitted.
+	 *
+	 * @param array<string,mixed> $csl
+	 */
+	private function addAuthor( Item $item, array &$csl, ?string $preferredLanguage ): void {
+		$propertyId = $this->propertyMap->getPropertyForField( 'author' );
+		if ( $propertyId === null ) {
+			return;
+		}
+		$statement = $this->bestStatement( $item, $propertyId );
+		if ( $statement === null ) {
+			return;
+		}
+		$snak = $statement->getMainSnak();
+		if ( !$snak instanceof PropertyValueSnak ) {
+			return;
+		}
+		$value = $snak->getDataValue();
+		if ( $value instanceof EntityIdValue ) {
+			$value = $value->getEntityId();
+		}
+		if ( $value instanceof ItemId ) {
+			$authorItem = $this->entityLookup->getEntity( $value );
+			if ( $authorItem instanceof Item ) {
+				$csl['author'] = $this->authorName( $authorItem, $preferredLanguage );
+				return;
+			}
+			$value = $value->getSerialization();
+		} elseif ( $value instanceof StringValue ) {
+			$value = $value->getValue();
+		}
+		if ( $value === null || $value === '' ) {
+			return;
+		}
+		$csl['author'] = $this->splitNameLabel( (string)$value );
+	}
+
+	/**
+	 * Builds a CSL name for an author item: `given name` / `family name`
+	 * statements (source map fields, the issue-#7 harvest) when present,
+	 * deriving a missing part from the label (given-name prefix or
+	 * family-name suffix); without statements, the legacy label split.
+	 *
+	 * @return array<int,array<string,string>>
+	 */
+	private function authorName( Item $authorItem, ?string $preferredLanguage ): array {
+		$given = $this->statementValue( $authorItem, 'givenName', $preferredLanguage );
+		$family = $this->statementValue( $authorItem, 'familyName', $preferredLanguage );
+		if ( $given === null && $family === null ) {
+			return $this->splitNameLabel( $this->labelOf( $authorItem, $preferredLanguage ) );
+		}
+
+		$label = $this->labelOf( $authorItem, $preferredLanguage );
+		if ( $given === null || $given === '' ) {
+			// Derive the given name from the label minus the family suffix.
+			if ( $family !== null && $family !== '' && $label !== ''
+				&& str_ends_with( $label, $family )
+			) {
+				$given = trim( substr( $label, 0, -strlen( $family ) ) );
+			}
+		}
+		if ( $family === null || $family === '' ) {
+			// Derive the family name from the label minus the given prefix.
+			if ( $given !== null && $given !== '' && $label !== ''
+				&& str_starts_with( $label, $given )
+			) {
+				$family = trim( substr( $label, strlen( $given ) ) );
+			}
+		}
+		if ( $given !== '' || $family !== '' ) {
+			return [ [ 'given' => $given ?? '', 'family' => $family ?? '' ] ];
+		}
+		return $this->splitNameLabel( $label );
+	}
+
+	/**
+	 * Legacy deterministic split: last word = family, the rest = given.
+	 * Single-word names fall back to a literal name.
+	 *
+	 * @return array<int,array<string,string>>
+	 */
+	private function splitNameLabel( string $name ): array {
+		if ( preg_match( '/^(.*?)\s+(\S+)$/u', $name, $m ) === 1 ) {
+			return [ [ 'given' => $m[1], 'family' => $m[2] ] ];
+		}
+		return [ [ 'literal' => $name ] ];
+	}
+
+	/**
+	 * Best-ranked string value of a source-map field on the item, or null.
+	 * Item-typed values fall back to their labels (preferred language).
+	 */
+	private function statementValue( Item $item, string $field, ?string $preferredLanguage ): ?string {
+		$propertyId = $this->propertyMap->getSourcePropertyForField( $field );
+		if ( $propertyId === null ) {
+			return null;
+		}
+		$statement = $this->bestStatement( $item, $propertyId );
+		if ( $statement === null ) {
+			return null;
+		}
+		$snak = $statement->getMainSnak();
+		if ( !$snak instanceof PropertyValueSnak ) {
+			return null;
+		}
+		$value = $snak->getDataValue();
+		if ( $value instanceof EntityIdValue ) {
+			$value = $value->getEntityId();
+		}
+		if ( $value instanceof ItemId ) {
+			$target = $this->entityLookup->getEntity( $value );
+			return $target instanceof Item ? $this->labelOf( $target, $preferredLanguage ) : $value->getSerialization();
+		}
+		if ( $value instanceof StringValue ) {
+			$value = $value->getValue();
+		}
+		return is_string( $value ) && $value !== '' ? $value : null;
 	}
 
 	/**
@@ -141,7 +269,7 @@ class StatementToCslConverter {
 	 *
 	 * @param array<string,mixed> $csl
 	 */
-	private function addSourceStatementQualifier( Item $item, array &$csl ): void {
+	private function addSourceStatementQualifier( Item $item, array &$csl, ?string $preferredLanguage ): void {
 		$pagePropertyId = $this->propertyMap->getSourcePropertyForField( 'page' );
 		$statement = $this->sourceStatement( $item );
 		if ( $pagePropertyId === null || $statement === null ) {
@@ -160,7 +288,7 @@ class StatementToCslConverter {
 			}
 			if ( $value instanceof ItemId ) {
 				$target = $this->entityLookup->getEntity( $value );
-				$value = $target instanceof Item ? $this->labelOf( $target ) : $value->getSerialization();
+				$value = $target instanceof Item ? $this->labelOf( $target, $preferredLanguage ) : $value->getSerialization();
 			} elseif ( $value instanceof StringValue ) {
 				$value = $value->getValue();
 			}
@@ -217,7 +345,7 @@ class StatementToCslConverter {
 	 *
 	 * @param array<string,mixed> $csl
 	 */
-	private function addFromSource( ?Item $sourceItem, string $field, array &$csl ): void {
+	private function addFromSource( ?Item $sourceItem, string $field, array &$csl, ?string $preferredLanguage ): void {
 		if ( $sourceItem === null ) {
 			return;
 		}
@@ -240,7 +368,7 @@ class StatementToCslConverter {
 		}
 		if ( $value instanceof ItemId ) {
 			$target = $this->entityLookup->getEntity( $value );
-			$value = $target instanceof Item ? $this->labelOf( $target ) : $value->getSerialization();
+			$value = $target instanceof Item ? $this->labelOf( $target, $preferredLanguage ) : $value->getSerialization();
 		} elseif ( $value instanceof StringValue ) {
 			$value = $value->getValue();
 		}
@@ -263,7 +391,8 @@ class StatementToCslConverter {
 		string $field,
 		callable $transform,
 		array &$csl,
-		string $cslKey
+		string $cslKey,
+		?string $preferredLanguage
 	): void {
 		$propertyId = $this->propertyMap->getPropertyForField( $field );
 		if ( $propertyId === null ) {
@@ -287,7 +416,7 @@ class StatementToCslConverter {
 		// Author values are items; fall back to their labels.
 		if ( $value instanceof ItemId ) {
 			$target = $this->entityLookup->getEntity( $value );
-			$value = $target instanceof Item ? $this->labelOf( $target ) : $value->getSerialization();
+			$value = $target instanceof Item ? $this->labelOf( $target, $preferredLanguage ) : $value->getSerialization();
 		} elseif ( $value instanceof StringValue ) {
 			$value = $value->getValue();
 		}
@@ -370,11 +499,19 @@ class StatementToCslConverter {
 		return $best;
 	}
 
-	private function labelOf( Item $item ): string {
+	private function labelOf( Item $item, ?string $preferredLanguage ): string {
 		$labels = $item->getFingerprint()->getLabels()->toTextArray();
-		foreach ( [ 'fr', 'en', 'eo' ] as $preferred ) {
-			if ( isset( $labels[$preferred] ) ) {
-				return $labels[$preferred];
+		if ( $preferredLanguage !== null && $preferredLanguage !== '' ) {
+			if ( isset( $labels[$preferredLanguage] ) ) {
+				return $labels[$preferredLanguage];
+			}
+		}
+		foreach ( self::DEFAULT_LABEL_LANGUAGES as $code ) {
+			if ( $code === $preferredLanguage ) {
+				continue;
+			}
+			if ( isset( $labels[$code] ) ) {
+				return $labels[$code];
 			}
 		}
 		return $labels === [] ? '' : reset( $labels );

@@ -45,6 +45,8 @@ class StatementToCslConverterTest extends TestCase {
 					'volume' => 'P23',
 					'page' => 'P23',
 					'DOI' => 'P24',
+					'givenName' => 'P25',
+					'familyName' => 'P26',
 				][$field] ?? null;
 			}
 
@@ -64,6 +66,28 @@ class StatementToCslConverterTest extends TestCase {
 				if ( $entityId->getSerialization() === 'Q10' ) {
 					$item = new Item( new ItemId( 'Q10' ) );
 					$item->setLabel( 'en', 'Ada Lovelace' );
+					return $item;
+				}
+				if ( $entityId->getSerialization() === 'Q11' ) {
+					// A person with a harvested `given name` but no family
+					// name (the "Lucian of Samosata" case).
+					$item = new Item( new ItemId( 'Q11' ) );
+					$item->setLabel( 'en', 'Lucian of Samosata' );
+					$item->getStatements()->addNewStatement(
+						new PropertyValueSnak( new PropertyId( 'P25' ), new StringValue( 'Lucian' ) )
+					);
+					return $item;
+				}
+				if ( $entityId->getSerialization() === 'Q12' ) {
+					// A person with BOTH harvested names.
+					$item = new Item( new ItemId( 'Q12' ) );
+					$item->setLabel( 'en', 'Grace Hopper' );
+					$item->getStatements()->addNewStatement(
+						new PropertyValueSnak( new PropertyId( 'P25' ), new StringValue( 'Grace' ) )
+					);
+					$item->getStatements()->addNewStatement(
+						new PropertyValueSnak( new PropertyId( 'P26' ), new StringValue( 'Hopper' ) )
+					);
 					return $item;
 				}
 				if ( $entityId->getSerialization() === 'Q20' ) {
@@ -98,7 +122,7 @@ class StatementToCslConverterTest extends TestCase {
 			}
 
 			public function hasEntity( EntityId $entityId ) {
-				return in_array( $entityId->getSerialization(), [ 'Q10', 'Q20', 'Q30' ], true );
+				return in_array( $entityId->getSerialization(), [ 'Q10', 'Q11', 'Q12', 'Q20', 'Q30' ], true );
 			}
 		};
 	}
@@ -322,5 +346,90 @@ class StatementToCslConverterTest extends TestCase {
 		$csl = $converter->toCslJson( $item );
 
 		$this->assertArrayNotHasKey( 'page', $csl );
+	}
+
+	public function testPreferredLanguageSelectsLabel(): void {
+		// The reader's language must win over the hardcoded fr-first order:
+		// Q20 has en "Notes by the Translator" AND fr "Notes de la traductrice".
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31',
+			[ 'Q20' ]
+		);
+		$book = $this->makeEntityLookup()->getEntity( new ItemId( 'Q20' ) );
+
+		$this->assertSame( 'Notes by the Translator', $converter->toCslJson( $book, 'en' )['title'] );
+		$this->assertSame( 'Notes de la traductrice', $converter->toCslJson( $book, 'fr' )['title'] );
+		// Null (no language context) keeps the legacy fr-first order.
+		$this->assertSame( 'Notes de la traductrice', $converter->toCslJson( $book, null )['title'] );
+	}
+
+	public function testPreferredLanguageAppliesToAuthorLabels(): void {
+		// Q10 (Ada Lovelace) has only an en label — any preference falls
+		// back to the other languages, then any remaining label.
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31',
+			[ 'Q20' ]
+		);
+		$item = $this->makeItem();  // attributed to Q10
+
+		$csl = $converter->toCslJson( $item, 'eo' );
+		$this->assertSame( [ [ 'given' => 'Ada', 'family' => 'Lovelace' ] ], $csl['author'] );
+	}
+
+	public function testAuthorNameUsesHarvestedGivenName(): void {
+		// Regression: "Lucian of Samosata" + harvested `given name → Lucian`
+		// must render "of Samosata, Lucian", not the naive split's
+		// "Samosata, L. of." (family derived from the label minus the given
+		// prefix).
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31',
+			[ 'Q20' ]
+		);
+		$item = new Item();
+		$item->setLabel( 'en', 'A quotation by Lucian' );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P31' ), new EntityIdValue( new ItemId( 'Q5' ) ) ) );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P6' ), new EntityIdValue( new ItemId( 'Q11' ) ) ) );
+
+		$csl = $converter->toCslJson( $item, 'en' );
+		$this->assertSame( [ [ 'given' => 'Lucian', 'family' => 'of Samosata' ] ], $csl['author'] );
+	}
+
+	public function testAuthorNamePrefersHarvestedFamilyStatement(): void {
+		// Both given + family harvested → used as-is (Q12 Grace Hopper).
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31',
+			[ 'Q20' ]
+		);
+		$item = new Item();
+		$item->setLabel( 'en', 'A quotation by Grace' );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P31' ), new EntityIdValue( new ItemId( 'Q5' ) ) ) );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P6' ), new EntityIdValue( new ItemId( 'Q12' ) ) ) );
+
+		$csl = $converter->toCslJson( $item, 'en' );
+		$this->assertSame( [ [ 'given' => 'Grace', 'family' => 'Hopper' ] ], $csl['author'] );
+	}
+
+	public function testAuthorWithoutStatementsKeepsLegacySplit(): void {
+		// Q10 (Ada Lovelace) has no given/family statements → legacy split.
+		$csl = $converter = ( new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31',
+			[ 'Q20' ]
+		) )->toCslJson( $this->makeItem(), 'en' );
+		$this->assertSame( [ [ 'given' => 'Ada', 'family' => 'Lovelace' ] ], $converter['author'] );
 	}
 }

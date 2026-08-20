@@ -36,9 +36,10 @@ class ApiCitation extends ApiBase {
 		try {
 			// style=json returns the raw CSL-JSON structure (nested in the
 			// result); every other style is the formatted string.
+			$language = $this->getLanguage()->getCode();
 			$citationText = $style === 'json'
-				? $this->engine->renderToCsl( $params['entity'] )
-				: $this->engine->render( $params['entity'], $style, $format );
+				? $this->engine->renderToCsl( $params['entity'], $language )
+				: $this->engine->render( $params['entity'], $style, $format, $language );
 		} catch ( InvalidCitationIdException $e ) {
 			$this->dieWithError( [ 'wikibasecitation-error-invalidentity' ], 'invalidentity' );
 		} catch ( CitationException $e ) {

@@ -55,6 +55,9 @@ class CiteQ {
 
 		$style = $opts['style'] !== '' ? $opts['style'] : self::DEFAULT_STYLE;
 		$format = $opts['output'] !== '' ? $opts['output'] : self::DEFAULT_OUTPUT;
+		// Labels follow the READER's language (the parser cache splits per
+		// user language automatically, see ParserOptions::getUserLangObj).
+		$language = $parser->getOptions()->getUserLangObj()->getCode();
 
 		if ( $entities === [] ) {
 			// wfMessage()->text() HTML-escapes message + params: the result
@@ -66,10 +69,10 @@ class CiteQ {
 
 		try {
 			if ( count( $entities ) === 1 ) {
-				[ $html, $sourceId ] = $engine->renderWithSourceId( $entities[0], $style, $format );
+				[ $html, $sourceId ] = $engine->renderWithSourceId( $entities[0], $style, $format, $language );
 				$sourceIds = $sourceId !== null ? [ $sourceId->getSerialization() ] : [];
 			} else {
-				[ $html, $sourceIds ] = $engine->renderList( $entities, $style, $format );
+				[ $html, $sourceIds ] = $engine->renderList( $entities, $style, $format, $language );
 			}
 		} catch ( InvalidCitationIdException $e ) {
 			return self::html( self::error(

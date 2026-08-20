@@ -95,7 +95,10 @@ class Hooks {
 		}
 		$sourceIds = array_values( array_unique( $sourceIds ) );
 
-		$html = Citations::buildBibliography( $engine, $sourceIds );
+		// The reader's language was recorded by the {{#citations:}} call
+		// (accumulated mode); labels must follow it, not a hardcoded order.
+		$language = $parser->getOutput()->getExtensionData( Citations::LANGUAGE_DATA_KEY );
+		$html = Citations::buildBibliography( $engine, $sourceIds, is_string( $language ) ? $language : null );
 		$text = str_replace( Citations::PLACEHOLDER, $html, $text );
 	}
 
