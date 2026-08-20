@@ -8,5 +8,9 @@
 	},
 	"wikibasecitation-desc": "Cite Wikibase entities in standard citation styles",
 	"wikibasecitation-error-invalidentity": "Invalid entity id.",
-	"wikibasecitation-error-notfound": "Entity not found."
+	"wikibasecitation-error-notfound": "Entity not found.",
+	"wikibasecitation-cite-error-missing-id": "No entity id given. Usage: {{#cite:Q42|style=apa|output=html}}.",
+	"wikibasecitation-cite-error-invalidentity": "Invalid entity id: $1.",
+	"wikibasecitation-cite-error-notfound": "Entity $1 not found.",
+	"wikibasecitation-cite-error-style": "Could not render a citation for $1 in the style \"$2\"."
 }

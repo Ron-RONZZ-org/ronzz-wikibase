@@ -57,6 +57,7 @@ def self_verify(
     instance_of_id: str,
     timeout: int = 60,
     sparql_wait: int = 0,
+    book_id: str | None = None,
 ) -> bool:
     """Runs the acceptance checks; returns True when all pass.
 
@@ -110,6 +111,28 @@ def self_verify(
         if status != 200 or not body.strip():
             raise VerifyError(f"HTTP {status}, empty body")
 
+    def check_book_self_cite() -> None:
+        # Issue #24 (cite-by-QID): the dogfood book is a source-class item —
+        # citing it directly must read the source-level fields from ITSELF
+        # (publisher/DOI/ISBN), not omit them (production safety net for the
+        # self-cite fix).
+        if book_id is None:
+            return
+        status, body, _ = _get(
+            f"{api_url}?action=citation&entity={book_id}&style=json&format=json", timeout
+        )
+        if status != 200:
+            raise VerifyError(f"HTTP {status}")
+        try:
+            payload = json.loads(body)
+        except json.JSONDecodeError as exc:
+            raise VerifyError(f"invalid JSON: {exc}") from exc
+        csl = payload.get("citation", {})
+        if not isinstance(csl, dict) or csl.get("DOI") != "10.1000/notes":
+            raise VerifyError("book self-cite: DOI missing (self-cite fix broken)")
+        if not csl.get("ISBN"):
+            raise VerifyError("book self-cite: ISBN missing (self-cite fix broken)")
+
     def check_sparql_once() -> bool:
         query = (
             f"PREFIX wd: <{CONCEPT_URI}/entity/> PREFIX wdt: <{CONCEPT_URI}/prop/direct/> "
@@ -139,6 +162,7 @@ def self_verify(
     ok = _check("embed canonical page (/embed/QN)", check_embed_page) and ok
     ok = _check("citation api (style=json)", check_citation_json) and ok
     ok = _check("citation api (style=apa)", check_citation_apa) and ok
+    ok = _check("book self-cite (source-class item cites itself)", check_book_self_cite) and ok
     ok = _check("sparql (instance-of quotation)", check_sparql) and ok
     return ok
 

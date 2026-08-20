@@ -20,6 +20,9 @@
 			"i18n"
 		]
 	},
+	"ExtensionMessagesFiles": {
+		"WikibaseCitationMagic": "i18n/WikibaseCitation.i18n.magic.php"
+	},
 	"config": {
 		"WikibaseCitationInstanceOf": {
 			"value": null,
@@ -28,6 +31,19 @@
 		"WikibaseCitationStyleDir": {
 			"value": null,
 			"description": "Directory with apa.csl / vancouver.csl. Defaults to the extension styles/ dir."
+		},
+		"WikibaseCitationSourceClasses": {
+			"value": [],
+			"description": "Class item ids that are sources themselves (book, scholarly article, ...) — enables the self-cite behaviour of the converter (issue #24). Defaults to the values of EmbeddableContentConfig['sourceClasses'] when unset."
+		}
+	},
+	"Hooks": {
+		"ParserFirstCallInit": "main",
+		"ParserAfterTidy": "main"
+	},
+	"HookHandlers": {
+		"main": {
+			"class": "WikibaseCitation\\Hooks"
 		}
 	},
 	"ServiceWiringFiles": [
@@ -37,11 +53,7 @@
 		"citation": {
 			"class": "WikibaseCitation\\Api\\ApiCitation",
 			"services": [
-				"WikibaseCitation.StatementToCslConverter",
-				"WikibaseCitation.CitationFormatter",
-				"WikibaseRepo.EntityLookup",
-				"WikibaseRepo.EntityRevisionLookup",
-				"MainObjectStash"
+				"WikibaseCitation.CitationEngine"
 			]
 		}
 	},

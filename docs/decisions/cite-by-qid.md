@@ -169,3 +169,62 @@ New files: `includes/CitationEngine.php`, `includes/ParserFunctions/CiteQ.php`,
 - Wikidata `{{Cite Q}}` proposal (never deployed): https://www.wikidata.org/wiki/Template:Cite_Q
 - MediaWiki Cite extension: https://www.mediawiki.org/wiki/Extension:Cite
 - citeproc-php: https://github.com/seboettg/citeproc-php
+
+## Implementation notes (issue #24, v1)
+
+- **`{{reflist}}` is not a stock Cite parser function on MW 1.46** — Cite
+  registers only `<ref>` and `<references/>`; `{{reflist}}` is a template
+  convention. The wikitext contract above works verbatim with
+  `<references/>`; `{{reflist}}` requires a `Template:Reflist` on the
+  instance.
+- **Zero-argument parser functions need a trailing colon on MW**: the
+  preprocessor routes `{{#…}}` to the parser-function branch only when a
+  colon is present (`Parser::braceSubstitution` matches `/[:：]/u`), so the
+  bibliography function is spelled **`{{#citations:}}`** (verified live on
+  production, Aug 20 2026) — `{{#citations}}` without the colon renders
+  literally. The Wikitext contract above should be read with this spelling.
+- `{{#citations}}` cannot render at call time (refs inside `<ref>` are
+  expanded during the same document-order DOM walk, but Cite renders ref
+  content in `ParserAfterParse` when no `<references/>` is present). v1
+  emits an unregistered `UNIQ-…-QINU` marker substituted by a
+  `ParserAfterTidy` handler — order-independent, mirroring Cite's own late
+  rendering. (An HTML-comment placeholder is stripped by the sanitizer, and
+  a *registered* strip marker is unstripped before `ParserAfterTidy` fires —
+  the unregistered marker passes through both.)
+- The allowlist sanitizer applies to the shared `html` path (apa/vancouver,
+  the citeproc-php output); `json`/`bibtex`/`ris` html outputs are already
+  escaped and keep their `<pre>` wrappers.
+- The seed's dogfood book carries `instance of → book` + publisher/DOI/ISBN
+  statements so the self-cite path has harvest data to render (E2E guard).
+
+## Implementation notes (issue #25, v2)
+
+- **Multi-entity refs** — `{{#cite:Q42|Q7}}` renders a CSL bibliography of
+  several items in one output (e.g. one footnote): positional arguments
+  matching the entity-id pattern (`Q\d+`) are entity ids, any other
+  positional argument keeps the v1 style/output meaning, so
+  `{{#cite:Q42|vancouver}}` still works. Each entity renders through the
+  single-entity path (per-entity cache), outputs are joined.
+- **ParserCache invalidation** — the anticipated
+  `ParserOutput::addCacheDependency()` **does not exist on MW 1.46**; the
+  stock mechanism is templatelinks-based (`LinksUpdate::queueRecursiveJobs`
+  → `RefreshLinksJob` re-parses transcluding pages when the dependency
+  changes). Citing pages therefore record a template dependency on the cited
+  entities + their source items via `ParserOutput::addTemplate()` — editing
+  a source re-renders every citing page automatically (job-queue latency;
+  production cron runs `runJobs.php` every 5 min). The entity pages are not
+  really transcluded — they appear under WhatLinksHere's "transclusions"
+  filter, the documented tradeoff of using the stock mechanism.
+- **Explicit-args mode** — `{{#citations:Q42|Q7}}` renders the sources of
+  exactly those entities immediately (no parse-time accumulation
+  dependency); no arguments keeps the accumulated mode.
+- **Embed auto-collect** — at `ParserAfterTidy`, the rendered HTML is
+  scanned for embed URLs (`Special:Embed/<id>`, `/embed/<id>`,
+  `action=embed&entity=<id>`); the embedded entities' source items join the
+  accumulated bibliography. Best-effort: malformed/unknown ids are ignored,
+  and on-wiki `<iframe>` embedding is limited by the Sanitizer (bare embed
+  URLs as links/text are the reliable surface).
+- **Quote-position qualifier** — a `page(s)` qualifier on the content item's
+  `source` statement becomes the CSL `page` locator (quote-level accuracy),
+  overriding the work-level page range read from the source item. Also
+  improves the existing `action=citation` API output for content items.

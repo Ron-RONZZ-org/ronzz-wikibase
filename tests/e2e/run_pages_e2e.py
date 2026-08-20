@@ -7,7 +7,10 @@ Drives the REAL Special-page flows against a live (login-gated) instance —
 hand-edition step), the manual-entry fallback (`Special:AddPerson/manual`)
 and the v1 `Special:AddQuotation` form — then verifies the created items
 carry the expected class, authority IDs, citation metadata and
-import-provenance references.
+import-provenance references. Issue #24 adds the cite-by-QID flow: a
+self-cleaning scratch page with `<ref>{{#cite:…}}</ref>` + `<references/>` +
+`{{#citations:}}`, asserting the footnotes and the deduped bibliography
+(requires the stock Cite extension on the instance).
 
 Usage::
 
@@ -325,6 +328,90 @@ def delete_item(op, api: str, qid: str) -> None:
                        "reason": "page-flow E2E cleanup (run_pages_e2e.py)", "format": "json"}, post=True)
 
 
+def flow_cite_by_qid(op, base: str, api: str, book_qid: str, quote_qid: str, extra_source_qid: str) -> None:
+    """Issue #24/#25: on-wiki cite-by-QID on a self-cleaning scratch page.
+
+    Creates a scratch page with `<ref>{{#cite:…}}</ref>` + `<references/>` +
+    `{{#citations:}}`, asserts the rendered footnotes and the deduped
+    bibliography (source DOI present — guards the self-cite fix), plus the
+    v2 features: a multi-entity ref (book + quotation in one footnote),
+    the explicit-args bibliography (`{{#citations:Qbook|Qquote}}`) and the
+    embed auto-collect (an embedded source item joins the accumulated
+    bibliography). Requires the stock Cite extension (installed on the CI
+    stack / production).
+    """
+    page_title = f"Cite-by-QID E2E {int(time.time())}"
+    wikitext = f"""E2E scratch page for cite-by-QID (issue #24/#25).
+
+A quotation, citing its source item through the content item.<ref>{{{{#cite:{quote_qid}}}}}</ref>
+
+The same source, cited directly (self-cite).<ref name="book">{{{{#cite:{book_qid}|style=vancouver}}}}</ref>
+Another ref to the same book.<ref name="book2">{{{{#cite:{book_qid}}}}}</ref>
+
+A multi-entity ref, book + quotation in one footnote.<ref>{{{{#cite:{book_qid}|{quote_qid}}}}}</ref>
+
+An embedded source item (v2 auto-collect): {base}/wiki/Special:Embed/{extra_source_qid}
+
+== References ==
+<references/>
+
+== Sources ==
+{{{{#citations:}}}}
+
+Explicit bibliography (v2): {{{{#citations:{book_qid}|{quote_qid}}}}}
+"""
+    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = csrf["query"]["tokens"]["csrftoken"]
+    r = api_call(op, api, {
+        "action": "edit", "title": page_title, "text": wikitext,
+        "token": token, "summary": "page-flow E2E scratch (issue #24/#25, cite-by-QID)",
+        "format": "json",
+    }, post=True)
+    if r.get("edit", {}).get("result") != "Success":
+        raise FlowError(f"scratch page creation failed: {r!r}")
+
+    try:
+        _, body = page_get(op, base, "/wiki/" + urllib.parse.quote(page_title.replace(" ", "_")))
+        if '<span class="error"' in body or "errorbox" in body:
+            raise FlowError("scratch page rendered parser errors (cite-by-QID)")
+
+        # 1. Footnotes: the ref content holds the citation (self-cite guard:
+        #    the book's harvested DOI must appear even though no content item
+        #    stands between the page and the source item).
+        refs = re.findall(r'<span class="reference-text">(.*?)</span>', body, re.S)
+        if not refs:
+            raise FlowError("no footnote rendered — is the stock Cite extension loaded?")
+        if not any("10.1000/notes" in ref for ref in refs):
+            raise FlowError("footnote missing the source DOI (self-cite fix broken)")
+
+        # 2. v2 multi-entity ref: ONE footnote holds BOTH citations
+        #    (book DOI + quotation author).
+        if not any("10.1000/notes" in ref and "Lovelace" in ref for ref in refs):
+            raise FlowError("multi-entity ref did not render both citations in one footnote")
+
+        # 3. Bibliographies: the accumulated {{#citations:}} (book + the
+        #    embed-auto-collected article = 2 entries) and the explicit
+        #    {{#citations:Qbook|Qquote}} (both resolve to the book = 1 entry).
+        ols = re.findall(r'<ol class="wikibasecitation-sources">(.*?)</ol>', body, re.S)
+        if len(ols) != 2:
+            raise FlowError(f"expected 2 bibliography lists (accumulated + explicit), got {len(ols)}")
+        accumulated, explicit = ols
+        if accumulated.count("<li>") != 2:
+            raise FlowError(f"accumulated bibliography has {accumulated.count('<li>')} entries, expected 2 (book + embed-collected article)")
+        if "10.1371/journal.pbio.2001414" not in accumulated:
+            raise FlowError("embed auto-collect did not add the embedded article to the bibliography")
+        if explicit.count("<li>") != 1:
+            raise FlowError(f"explicit bibliography has {explicit.count('<li>')} entries, expected 1 (dedupe by source item)")
+        if "10.1000/notes" not in explicit:
+            raise FlowError("explicit bibliography entry missing the source DOI")
+        print(f"[ok] cite-by-QID scratch page: footnotes + multi-entity ref + explicit + embed auto-collect")
+    finally:
+        csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+        token = csrf["query"]["tokens"]["csrftoken"]
+        api_call(op, api, {"action": "delete", "title": page_title, "token": token,
+                           "reason": "page-flow E2E cleanup (run_pages_e2e.py)", "format": "json"}, post=True)
+
+
 # ------------------------------------------------------------------- main
 
 
@@ -455,6 +542,19 @@ def main() -> int:
         assert first_value(claims, describes_prop) == person, \
             f"{math_item} describes mismatch (wanted {person})"
         print(f"[ok] Special:AddMath -> {math_item}: math class + describes statement")
+
+        # 6. Cite-by-QID (issue #24 v1 + #25 v2): {{#cite}} inside <ref>,
+        #    {{#citations:}} accumulated + explicit, embed auto-collect.
+        #    The dogfood book must be a source-class item with harvested
+        #    metadata (seed enrichment) for the self-cite assertions; the
+        #    AddSource-created article feeds the embed auto-collect.
+        book_class = resolve("book", "item")
+        book = resolve("Notes by the Translator", "item")
+        claims, label = entity_claims(op, api, book)
+        assert first_value(claims, instance_of) == book_class, \
+            f"{book} instance-of != book ({first_value(claims, instance_of)}) — dogfood book not source-class"
+        quote_dogfood = resolve("The Analytical Engine has no pretensions whatever to originate anything", "item")
+        flow_cite_by_qid(op, base, api, book, quote_dogfood, source)
     finally:
         if not args.keep:
             for qid in created:

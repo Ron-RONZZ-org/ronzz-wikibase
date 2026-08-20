@@ -7,5 +7,9 @@
 	},
 	"wikibasecitation-desc": "Citer les entités Wikibase dans les styles de citation standard",
 	"wikibasecitation-error-invalidentity": "Identifiant d'entité invalide.",
-	"wikibasecitation-error-notfound": "Entité introuvable."
+	"wikibasecitation-error-notfound": "Entité introuvable.",
+	"wikibasecitation-cite-error-missing-id": "Aucun identifiant d'entité fourni. Usage : {{#cite:Q42|style=apa|output=html}}.",
+	"wikibasecitation-cite-error-invalidentity": "Identifiant d'entité invalide : $1.",
+	"wikibasecitation-cite-error-notfound": "Entité $1 introuvable.",
+	"wikibasecitation-cite-error-style": "Impossible de générer une citation pour $1 dans le style « $2 »."
 }

@@ -30,7 +30,14 @@ jobs:
             composer-
 
       - name: Install dev dependencies
-        run: docker run --rm -v "$PWD":/app -w /app ronzz-wikibase-test composer install --no-interaction --prefer-dist
+        # GIT_CONFIG_COUNT: the floating composer:2 image's git enforces the
+        # safe.directory ownership check on the mounted repo (runner-owned
+        # files vs container root) and `git config --global` itself is
+        # unreliable in that image — inject the exception via env instead.
+        run: |
+          docker run --rm -v "$PWD":/app -w /app \
+            -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/app \
+            ronzz-wikibase-test composer install --no-interaction --prefer-dist
 
       - name: PHPUnit (52 unit tests)
         run: docker run --rm -v "$PWD":/app -w /app ronzz-wikibase-test vendor/bin/phpunit
@@ -101,9 +108,39 @@ jobs:
       # container does not.
       - name: Install WikibaseCitation composer deps (citeproc-php)
         run: |
-          docker run --rm -e HOME=/tmp -v "$PWD":/app -w /app/extensions/WikibaseCitation \
+          docker run --rm -e HOME=/tmp \
+            -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/app \
+            -v "$PWD":/app -w /app/extensions/WikibaseCitation \
             composer:2 composer install --no-interaction --prefer-dist --no-dev \
             --no-progress --ignore-platform-req=ext-intl
+
+      # Issue #24: the WBS image does not bundle the stock Cite extension
+      # (needed for <ref>/<references/> and {{#cite}} inside footnotes).
+      # Install it into the container (git clone, tarball fallback) and
+      # restart so the guarded wfLoadExtension('Cite') in Extensions.php
+      # activates it before the E2E runs.
+      - name: Install the stock Cite extension (issue #24)
+        run: |
+          $COMPOSE exec -T -u root wikibase bash -c '
+            set -e
+            if [ ! -d /var/www/html/extensions/Cite ]; then
+              if command -v git >/dev/null 2>&1; then
+                git clone --depth 1 -b REL1_46 \
+                  https://github.com/wikimedia/mediawiki-extensions-Cite.git \
+                  /var/www/html/extensions/Cite
+              else
+                curl -sL https://github.com/wikimedia/mediawiki-extensions-Cite/archive/refs/heads/REL1_46.tar.gz \
+                  | tar -xz -C /var/www/html/extensions/
+                mv /var/www/html/extensions/mediawiki-extensions-Cite-REL1_46 \
+                  /var/www/html/extensions/Cite
+              fi
+            fi'
+          $COMPOSE restart wikibase
+          for i in $(seq 1 300); do
+            curl -sf -o /dev/null "$API_URL" && break
+            sleep 2
+          done
+          curl -sf "$API_URL" > /dev/null
 
       - name: D1 importers — vocabulary (property, class, language)
         run: |
@@ -111,6 +148,16 @@ jobs:
             $COMPOSE exec -T wikibase php maintenance/run.php \
               /var/www/html/extensions/EmbeddableContent/maintenance/importVocabulary.php --type="$type" || exit 1
           done
+
+      # Issue #24: the citation maps (CSL field => property, class => CSL
+      # type) must be published before any citation renders — the API and
+      # the parser functions read them at request time. Missing maps made
+      # the E2E's self-cite DOI assertion fail on the CI stack (same gap
+      # found + fixed on production Aug 20 2026).
+      - name: D1 citation maps (WikibaseCitation importCitationMap)
+        run: |
+          $COMPOSE exec -T wikibase php maintenance/run.php \
+            /var/www/html/extensions/WikibaseCitation/maintenance/importCitationMap.php --force || exit 1
 
       - name: D2 seed — dogfood entities + config emission
         run: |

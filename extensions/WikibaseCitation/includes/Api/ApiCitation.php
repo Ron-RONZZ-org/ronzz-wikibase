@@ -5,57 +5,27 @@ declare( strict_types = 1 );
 namespace WikibaseCitation\Api;
 
 use MediaWiki\Api\ApiBase;
-use Wikibase\DataModel\Entity\Item;
-use Wikibase\DataModel\Entity\ItemId;
-use Wikibase\DataModel\Services\Lookup\EntityLookup;
-use Wikibase\Lib\Store\EntityRevisionLookup;
-use Wikibase\Repo\WikibaseRepo;
+use WikibaseCitation\CitationEngine;
+use WikibaseCitation\CitationException;
 use WikibaseCitation\CitationFormatter;
-use WikibaseCitation\StatementToCslConverter;
-use Wikimedia\ObjectCache\BagOStuff;
+use WikibaseCitation\InvalidCitationIdException;
 
 /**
  * api.php?action=citation&entity=Q1&style=json|apa|vancouver|bibtex|ris&format=html|text
- * (issue #6 §7). EntityLookup -> statements -> CSL-JSON (via the admin-editable
- * citation maps) -> formatting. revId-keyed cache like embeds; missing fields
- * are omitted, never fatal.
+ * (issue #6 §7). Thin surface: parameter validation + result shape; the
+ * rendering itself is the shared CitationEngine (issue #24) — entity id →
+ * item → CSL-JSON → formatted string, revId-keyed cache, sanitized html.
  *
  * @license GPL-2.0-or-later
  */
 class ApiCitation extends ApiBase {
 
-	private const CACHE_TTL = 300;
+	/** @var CitationEngine */
+	private $engine;
 
-	/** @var StatementToCslConverter */
-	private $converter;
-
-	/** @var CitationFormatter */
-	private $formatter;
-
-	/** @var EntityLookup */
-	private $entityLookup;
-
-	/** @var EntityRevisionLookup */
-	private $revisionLookup;
-
-	/** @var BagOStuff */
-	private $cache;
-
-	public function __construct(
-		$mainModule,
-		$moduleName,
-		StatementToCslConverter $converter,
-		CitationFormatter $formatter,
-		EntityLookup $entityLookup,
-		EntityRevisionLookup $revisionLookup,
-		BagOStuff $cache
-	) {
+	public function __construct( $mainModule, $moduleName, CitationEngine $engine ) {
 		parent::__construct( $mainModule, $moduleName );
-		$this->converter = $converter;
-		$this->formatter = $formatter;
-		$this->entityLookup = $entityLookup;
-		$this->revisionLookup = $revisionLookup;
-		$this->cache = $cache;
+		$this->engine = $engine;
 	}
 
 	public function execute() {
@@ -63,37 +33,23 @@ class ApiCitation extends ApiBase {
 		$style = $params['style'];
 		$format = $params['output'];
 
-		$id = $this->parseItemId( $params['entity'] );
-		if ( $id === null ) {
+		try {
+			// style=json returns the raw CSL-JSON structure (nested in the
+			// result); every other style is the formatted string.
+			$citationText = $style === 'json'
+				? $this->engine->renderToCsl( $params['entity'] )
+				: $this->engine->render( $params['entity'], $style, $format );
+		} catch ( InvalidCitationIdException $e ) {
 			$this->dieWithError( [ 'wikibasecitation-error-invalidentity' ], 'invalidentity' );
-		}
-
-		$revision = $this->revisionLookup->getEntityRevision( $id );
-		$item = $revision !== null ? $revision->getEntity() : $this->entityLookup->getEntity( $id );
-		if ( !$item instanceof Item ) {
+		} catch ( CitationException $e ) {
 			$this->dieWithError( [ 'wikibasecitation-error-notfound' ], 'entitynotfound' );
-		}
-
-		$revId = $revision !== null ? $revision->getRevisionId() : 0;
-		$cacheKey = $this->cache->makeKey(
-			'WikibaseCitation', 'citation', $id->getSerialization(), (string)$revId, $style, $format
-		);
-
-		$cached = $this->cache->get( $cacheKey );
-		if ( is_string( $cached ) ) {
-			$citationText = $cached;
-		} else {
-			$csl = $this->converter->toCslJson( $item );
-			$citationText = $style === 'json' ? $csl : $this->formatter->format( $csl, $style, $format );
-			if ( $style !== 'json' ) {
-				$this->cache->set( $cacheKey, $citationText, self::CACHE_TTL );
-			}
 		}
 
 		$this->getMain()->getRequest()->response()->header( 'Access-Control-Allow-Origin: *' );
 
 		$result = $this->getResult();
-		$result->addValue( null, 'entity', $id->getSerialization() );
+		$normalized = $this->engine->normalizeItemId( $params['entity'] );
+		$result->addValue( null, 'entity', $normalized !== null ? $normalized->getSerialization() : $params['entity'] );
 		$result->addValue( null, 'style', $style );
 		$result->addValue( null, 'citation', $citationText );
 	}
@@ -129,14 +85,5 @@ class ApiCitation extends ApiBase {
 
 	public function getModuleDescription() {
 		return 'Cite a Wikibase content item in json, APA, Vancouver, BibTeX or RIS format.';
-	}
-
-	private function parseItemId( string $input ): ?ItemId {
-		try {
-			$entityId = WikibaseRepo::getEntityIdParser()->parse( $input );
-			return $entityId instanceof ItemId ? $entityId : null;
-		} catch ( \Throwable $e ) {
-			return null;
-		}
 	}
 }

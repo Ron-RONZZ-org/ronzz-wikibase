@@ -7,6 +7,14 @@
 wfLoadExtension( 'EmbeddableContent' );
 wfLoadExtension( 'WikibaseCitation' );
 
+// Issue #24 (cite-by-QID): `{{#cite:Q42}}` inside `<ref>` needs the stock
+// Cite extension. The WBS image does not bundle Cite — the CI / local stack
+// installs it into /var/www/html/extensions/Cite (see .github/workflows/ci.yml
+// and dev/README.md). The guard keeps the wiki bootable without it.
+if ( is_dir( '/var/www/html/extensions/Cite' ) ) {
+	wfLoadExtension( 'Cite' );
+}
+
 // Dev-only: surface exception details instead of a bare 500.
 $wgShowExceptionDetails = true;
 

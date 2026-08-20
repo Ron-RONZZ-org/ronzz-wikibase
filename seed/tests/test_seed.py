@@ -166,6 +166,10 @@ class ConfigBuilderTest(unittest.TestCase):
         # harvest inference maps: Wikidata QID -> local class key
         self.assertIn("'Q571' => 'book'", snippet)
         self.assertIn("'Q5' => 'person'", snippet)
+        # issue #24: WikibaseCitation source-class list (self-cite config)
+        self.assertIn("$wgWikibaseCitationSourceClasses", snippet)
+        self.assertIn("'Q21',", snippet)
+        self.assertIn("'Q22',", snippet)
 
     def test_report_lists_vocabulary(self):
         report = config_builder.build_report(

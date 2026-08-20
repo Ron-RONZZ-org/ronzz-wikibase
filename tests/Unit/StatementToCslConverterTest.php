@@ -43,6 +43,7 @@ class StatementToCslConverterTest extends TestCase {
 					'container-title' => 'P21',
 					'publisher' => 'P22',
 					'volume' => 'P23',
+					'page' => 'P23',
 					'DOI' => 'P24',
 				][$field] ?? null;
 			}
@@ -225,5 +226,101 @@ class StatementToCslConverterTest extends TestCase {
 		// Label fallback: the source item's label IS the container title.
 		$this->assertSame( 'The Old Man and the Sea', $csl['container-title'] );
 		$this->assertSame( 'book', $csl['type'] );
+	}
+
+	public function testSourceClassItemCitedDirectlyIsItsOwnSource(): void {
+		// Regression (issue #24): a source-class item cited directly must
+		// read the source-level fields from ITSELF — publisher / DOI /
+		// container must be present, not omitted.
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31',
+			[ 'Q20' ]   // Q20 is the book source class
+		);
+		$book = $this->makeEntityLookup()->getEntity( new ItemId( 'Q20' ) );
+		$this->assertInstanceOf( Item::class, $book );
+
+		$csl = $converter->toCslJson( $book );
+
+		$this->assertSame( 'book', $csl['type'] );
+		$this->assertSame( 'Scientific Memoirs', $csl['container-title'] );
+		$this->assertSame( 'R. & J. E. Taylor', $csl['publisher'] );
+		$this->assertSame( '10.1000/notes', $csl['DOI'] );
+	}
+
+	public function testSourceItemWithoutSourceClassesKeepsOldBehaviour(): void {
+		// Without the source-class config the converter must NOT self-cite:
+		// the source-level fields stay omitted (pre-#24 behaviour).
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31'
+		);
+		$book = $this->makeEntityLookup()->getEntity( new ItemId( 'Q20' ) );
+
+		$csl = $converter->toCslJson( $book );
+
+		$this->assertArrayNotHasKey( 'publisher', $csl );
+		$this->assertArrayNotHasKey( 'DOI', $csl );
+	}
+
+	public function testIsSourceClassMatchesConfiguredClasses(): void {
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31',
+			[ 'Q20' ]
+		);
+		$book = $this->makeEntityLookup()->getEntity( new ItemId( 'Q20' ) );
+		$quotation = $this->makeItem();
+
+		$this->assertTrue( $converter->isSourceClass( $book ) );
+		$this->assertFalse( $converter->isSourceClass( $quotation ) );
+	}
+
+	public function testPageQualifierOnSourceStatementBecomesLocator(): void {
+		// v2 (issue #25): a page(s) QUALIFIER on the content item's `source`
+		// statement is the quote-level locator → CSL 'page' (overrides the
+		// work-level page range read from the source item).
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31',
+			[ 'Q20' ]
+		);
+		$item = new Item();
+		$item->setLabel( 'en', 'A quotation with a page qualifier' );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P31' ), new EntityIdValue( new ItemId( 'Q5' ) ) ) );
+		// Source statement with a page(s) qualifier (P23 → '42–44').
+		$statement = new Statement( new PropertyValueSnak( new PropertyId( 'P8' ), new EntityIdValue( new ItemId( 'Q20' ) ) ) );
+		$statement->getQualifiers()->addSnak( new PropertyValueSnak( new PropertyId( 'P23' ), new StringValue( '42–44' ) ) );
+		$item->getStatements()->addStatement( $statement );
+
+		$csl = $converter->toCslJson( $item );
+
+		$this->assertSame( '42–44', $csl['page'] );
+	}
+
+	public function testMissingPageQualifierLeavesNoLocator(): void {
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31',
+			[ 'Q20' ]
+		);
+		$item = new Item();
+		$item->setLabel( 'en', 'A quotation without a page qualifier' );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P31' ), new EntityIdValue( new ItemId( 'Q5' ) ) ) );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P8' ), new EntityIdValue( new ItemId( 'Q20' ) ) ) );
+
+		$csl = $converter->toCslJson( $item );
+
+		$this->assertArrayNotHasKey( 'page', $csl );
 	}
 }
