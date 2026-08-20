@@ -105,6 +105,34 @@ jobs:
             composer:2 composer install --no-interaction --prefer-dist --no-dev \
             --no-progress --ignore-platform-req=ext-intl
 
+      # Issue #24: the WBS image does not bundle the stock Cite extension
+      # (needed for <ref>/<references/> and {{#cite}} inside footnotes).
+      # Install it into the container (git clone, tarball fallback) and
+      # restart so the guarded wfLoadExtension('Cite') in Extensions.php
+      # activates it before the E2E runs.
+      - name: Install the stock Cite extension (issue #24)
+        run: |
+          $COMPOSE exec -T -u root wikibase bash -c '
+            set -e
+            if [ ! -d /var/www/html/extensions/Cite ]; then
+              if command -v git >/dev/null 2>&1; then
+                git clone --depth 1 -b REL1_46 \
+                  https://github.com/wikimedia/mediawiki-extensions-Cite.git \
+                  /var/www/html/extensions/Cite
+              else
+                curl -sL https://github.com/wikimedia/mediawiki-extensions-Cite/archive/refs/heads/REL1_46.tar.gz \
+                  | tar -xz -C /var/www/html/extensions/
+                mv /var/www/html/extensions/mediawiki-extensions-Cite-REL1_46 \
+                  /var/www/html/extensions/Cite
+              fi
+            fi'
+          $COMPOSE restart wikibase
+          for i in $(seq 1 300); do
+            curl -sf -o /dev/null "$API_URL" && break
+            sleep 2
+          done
+          curl -sf "$API_URL" > /dev/null
+
       - name: D1 importers — vocabulary (property, class, language)
         run: |
           for type in property class language; do

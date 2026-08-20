@@ -24,6 +24,19 @@ docker compose -f dev/docker-compose.ci.yml up -d
 # wait until the wiki answers (first boot installs MediaWiki+Wikibase; ~2-5 min):
 for i in $(seq 1 300); do curl -sf -o /dev/null http://127.0.0.1:8082/api.php && break; sleep 2; done
 
+# 0. Install the stock Cite extension (issue #24: {{#cite}} inside <ref>).
+#    The WBS image does not bundle Cite; Extensions.php loads it only when
+#    the directory exists, so install it now and restart:
+docker compose -f dev/docker-compose.ci.yml exec -T -u root wikibase bash -c '
+  set -e
+  if [ ! -d /var/www/html/extensions/Cite ]; then
+    git clone --depth 1 -b REL1_46 \
+      https://github.com/wikimedia/mediawiki-extensions-Cite.git \
+      /var/www/html/extensions/Cite
+  fi'
+docker compose -f dev/docker-compose.ci.yml restart wikibase
+for i in $(seq 1 300); do curl -sf -o /dev/null http://127.0.0.1:8082/api.php && break; sleep 2; done
+
 # 1. D1 importers (vocabulary via maintenance scripts)
 docker compose -f dev/docker-compose.ci.yml exec -T wikibase \
   php maintenance/run.php extensions/EmbeddableContent/maintenance/importVocabulary.php --type=property
