@@ -24,6 +24,13 @@ use Wikibase\DataModel\Statement\Statement;
  *    ISBN) are read from the `source` item via the source property map;
  *    container-title falls back to the source item's label (books)
  *
+ * Issue #24 (cite-by-QID) addition: self-cite — when the cited item itself
+ * belongs to a configured source class (book / scholarly article / …) and
+ * carries no `source` statement, it is treated as its own source, so the
+ * source-level fields are read from the item itself (citing a source item
+ * directly no longer omits publisher / page(s) / volume / issue / DOI /
+ * ISBN).
+ *
  * @license GPL-2.0-or-later
  */
 class StatementToCslConverter {
@@ -45,16 +52,25 @@ class StatementToCslConverter {
 	/** @var string|null instance-of property id (from extension config) */
 	private $instanceOfPropertyId;
 
+	/** @var string[] source class item ids (from extension config, default []) */
+	private $sourceClasses;
+
+	/**
+	 * @param string[] $sourceClasses Class item ids that are sources themselves
+	 *  (self-cite, issue #24). Default [] disables the self-cite behaviour.
+	 */
 	public function __construct(
 		EntityLookup $entityLookup,
 		CitationMapLookup $propertyMap,
 		CslTypeMapper $typeMapper,
-		?string $instanceOfPropertyId = null
+		?string $instanceOfPropertyId = null,
+		array $sourceClasses = []
 	) {
 		$this->entityLookup = $entityLookup;
 		$this->propertyMap = $propertyMap;
 		$this->typeMapper = $typeMapper;
 		$this->instanceOfPropertyId = $instanceOfPropertyId;
+		$this->sourceClasses = $sourceClasses;
 	}
 
 	/**
@@ -62,6 +78,11 @@ class StatementToCslConverter {
 	 */
 	public function toCslJson( Item $item ): array {
 		$sourceItem = $this->sourceItemOf( $item );
+		if ( $sourceItem === null && $this->isSourceClass( $item ) ) {
+			// Issue #24: a source-class item cited directly is its own source —
+			// otherwise the source-level fields below would all be omitted.
+			$sourceItem = $item;
+		}
 		$contentClassIds = $this->classIdsOf( $item );
 		$sourceClassIds = $sourceItem !== null ? $this->classIdsOf( $sourceItem ) : [];
 
@@ -105,18 +126,61 @@ class StatementToCslConverter {
 			}
 		}
 
+		// Issue #25 (v2): quote-position locator — a `page(s)` QUALIFIER on
+		// the content item's `source` statement is the exact quote location
+		// and overrides the work-level page range read from the source item.
+		$this->addSourceStatementQualifier( $item, $csl );
+
 		return $csl;
 	}
 
 	/**
-	 * Resolves the `source` statement value to its item, or null.
+	 * Reads the `page(s)` qualifier of the content item's `source`
+	 * statement into the CSL `page` locator (issue #25 v2). Item-typed
+	 * qualifier values fall back to their labels; empty values are omitted.
+	 *
+	 * @param array<string,mixed> $csl
 	 */
-	private function sourceItemOf( Item $item ): ?Item {
-		$sourcePropertyId = $this->propertyMap->getPropertyForField( 'container-title' );
-		if ( $sourcePropertyId === null ) {
-			return null;
+	private function addSourceStatementQualifier( Item $item, array &$csl ): void {
+		$pagePropertyId = $this->propertyMap->getSourcePropertyForField( 'page' );
+		$statement = $this->sourceStatement( $item );
+		if ( $pagePropertyId === null || $statement === null ) {
+			return;
 		}
-		$statement = $this->bestStatement( $item, $sourcePropertyId );
+		foreach ( $statement->getQualifiers() as $snak ) {
+			if ( !$snak instanceof PropertyValueSnak ) {
+				continue;
+			}
+			if ( $snak->getPropertyId()->getSerialization() !== $pagePropertyId ) {
+				continue;
+			}
+			$value = $snak->getDataValue();
+			if ( $value instanceof EntityIdValue ) {
+				$value = $value->getEntityId();
+			}
+			if ( $value instanceof ItemId ) {
+				$target = $this->entityLookup->getEntity( $value );
+				$value = $target instanceof Item ? $this->labelOf( $target ) : $value->getSerialization();
+			} elseif ( $value instanceof StringValue ) {
+				$value = $value->getValue();
+			}
+			if ( $value === null || $value === '' ) {
+				continue;
+			}
+			// The qualifier is the quote-level locator: it wins over the
+			// work-level page range already read from the source item.
+			$csl['page'] = $value;
+			return;
+		}
+	}
+
+	/**
+	 * Resolves the `source` statement value to its item, or null. Public so
+	 * the CitationEngine can reuse it for the {{#citations:}} bibliography
+	 * accumulation (issue #24).
+	 */
+	public function sourceItemOf( Item $item ): ?Item {
+		$statement = $this->sourceStatement( $item );
 		if ( $statement === null ) {
 			return null;
 		}
@@ -133,6 +197,18 @@ class StatementToCslConverter {
 		}
 		$target = $this->entityLookup->getEntity( $value );
 		return $target instanceof Item ? $target : null;
+	}
+
+	/**
+	 * The best-ranked `source` statement of a content item, or null (the
+	 * `source` property id is the map's `container-title` entry, issue #6 §7).
+	 */
+	private function sourceStatement( Item $item ): ?Statement {
+		$sourcePropertyId = $this->propertyMap->getPropertyForField( 'container-title' );
+		if ( $sourcePropertyId === null ) {
+			return null;
+		}
+		return $this->bestStatement( $item, $sourcePropertyId );
 	}
 
 	/**
@@ -220,6 +296,24 @@ class StatementToCslConverter {
 			return;
 		}
 		$csl[$cslKey] = $transform( $value );
+	}
+
+	/**
+	 * True when the item belongs to a configured source class (issue #24
+	 * self-cite). Class membership is checked against the injected config
+	 * list; an empty list disables the behaviour.
+	 */
+	public function isSourceClass( Item $item ): bool {
+		if ( $this->sourceClasses === [] ) {
+			return false;
+		}
+		$sourceClasses = array_flip( $this->sourceClasses );
+		foreach ( $this->classIdsOf( $item ) as $classId ) {
+			if ( isset( $sourceClasses[$classId] ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**

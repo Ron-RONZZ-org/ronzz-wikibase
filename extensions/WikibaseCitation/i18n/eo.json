@@ -7,5 +7,9 @@
 	},
 	"wikibasecitation-desc": "Citi Wikibase-elementojn en normaj cistiloj",
 	"wikibasecitation-error-invalidentity": "Nevalida ento-identigilo.",
-	"wikibasecitation-error-notfound": "Ento ne trovita."
+	"wikibasecitation-error-notfound": "Ento ne trovita.",
+	"wikibasecitation-cite-error-missing-id": "Neniu ento-identigilo donita. Uzado: {{#cite:Q42|style=apa|output=html}}.",
+	"wikibasecitation-cite-error-invalidentity": "Nevalida ento-identigilo: $1.",
+	"wikibasecitation-cite-error-notfound": "Ento $1 ne trovita.",
+	"wikibasecitation-cite-error-style": "Ne eblis generi citaĵon por $1 en la stilo „$2“."
 }
