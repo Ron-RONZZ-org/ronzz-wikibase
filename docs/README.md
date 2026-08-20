@@ -75,6 +75,12 @@ Open `https://wikibase.ronzz.org/` and log in. Entity namespaces: **Item = 120**
 > change; plain wikitext, no translation markup, per
 > `content-creation/AGENTS.md`; MediaWiki rejects a bare namespace prefix as a
 > page title, hence `Main`).
+> **Technology dissections** (how things actually work, no prior knowledge
+> assumed) live in the **`HowItWorks:` namespace**
+> (`https://wikibase.ronzz.org/wiki/HowItWorks:<Technology>`), hub at
+> **`HowItWorks:Main`** → `Category:HowItWorks` — see issue #23 (same
+> LocalSettings-only mechanism, NS 2002; plain wikitext, no translation
+> markup; pilot page: `HowItWorks:MediaWiki`, sitelinked to item Q164).
 >
 > **For admins**: see **`wikibase-cli.md`** (same folder) for server-side CLI
 > operations (editing `MediaWiki:` pages, maintenance scripts, cache gotchas).

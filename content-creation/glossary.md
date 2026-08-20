@@ -42,5 +42,5 @@ Mark uncertain entries with `(verify)` until confirmed on the instance.
 ## Proper nouns (never translate)
 
 `Wikibase`, `SeedBot`, `Rongzhou`, `Ronzz`, `wikibase.ronzz.org`, `Cheatsheets:` (namespace
-prefix), `Help:Contributing` (page-title prefix), entity IDs (`Q\d+`, `P\d+`), property names
+prefix), `HowItWorks:` (namespace prefix), `Help:Contributing` (page-title prefix), entity IDs (`Q\d+`, `P\d+`), property names
 as rendered (`instance of`, `subclass of` — keep in the position they play in statements).
