@@ -40,13 +40,24 @@ extensions — never forks of Wikibase.
   vendored CSL styles in `styles/`) and native BibTeX/RIS serializers.
 - Issue #7: CSL type follows the **source** class; harvested source fields
   (published in, publisher, pages, volume, issue, DOI, ISBN). No Node sidecar.
-- **Cite-by-QID (planned, issues #24/#25, spec `docs/decisions/cite-by-qid.md`)**:
+- **Cite-by-QID (issues #24 v1 + #25 v2, spec `docs/decisions/cite-by-qid.md`)**:
   `{{#cite:Q42|style=|output=}}` parser function (usable inside `<ref>` with the
-  stock Cite extension) + `{{#citations}}` bibliography collector, both backed by
-  a shared `CitationEngine` service (refactor of `ApiCitation::execute()`).
-  Prerequisite: `StatementToCslConverter` self-cite fix — a source-class item
-  must read source-level fields from itself, not only as the target of a content
-  item's `source` statement.
+  stock Cite extension) + `{{#citations:}}` bibliography collector, both backed
+  by the shared `CitationEngine` service (the single rendering path — entity id
+  → item → CSL-JSON → formatted string with the revId-keyed BagOStuff cache).
+  `{{#citations:}}` accumulates source ids via ParserOutput extension data
+  (deduped by source item) and substitutes its placeholder in `ParserAfterTidy`;
+  explicit `{{#citations:Q42|Q7}}` renders immediately. v2: multi-entity refs
+  (`{{#cite:Q42|Q7}}`), ParserCache invalidation via `ParserOutput::addTemplate()`
+  on cited entities + sources (templatelinks/RefreshLinksJob — the 1.46
+  substitute for the non-existent `addCacheDependency()`), embed auto-collect
+  (HTML scan at ParserAfterTidy for `Special:Embed`/`action=embed` ids), and a
+  `page(s)` qualifier on the `source` statement → CSL locator.
+  The `html` output is allowlist-sanitized (`CitationSanitizer`) before it
+  reaches any caller. Self-cite prerequisite: a source-class item cited
+  directly reads source-level fields from itself
+  (`WikibaseCitationSourceClasses` config, defaulted from
+  `EmbeddableContentConfig['sourceClasses']`).
 
 ## Constraints and Invariants
 
