@@ -9,8 +9,7 @@
 		"phpunit/phpunit": "^10.5",
 		"seboettg/citeproc-php": "^2.5",
 		"wikibase/data-model": "^9.0",
-		"wikibase/data-model-services": "^3.0",
-		"wikimedia/objectcache": "^2.0"
+		"wikibase/data-model-services": "^3.0"
 	},
 	"autoload": {
 		"psr-4": {
