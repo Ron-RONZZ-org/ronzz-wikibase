@@ -154,3 +154,29 @@ Deployment context: see [repo root AGENTS.md](../AGENTS.md) for the ronzz-wikiba
     parts → pattern" rather than abstract syntax explanations.
   - **Use real entity IDs, verified at authoring time** (P1 = instance of,
     Q1 = Spike test item — see Constraints and Invariants).
+- **Technology dissections (`HowItWorks:` namespace)** — the explanatory
+  layer that parallels the Cheatsheets reference layer (issue #23): sheets
+  assume the reader knows the topic ("quick ref"); dissections assume **no
+  prior knowledge** and explain the mechanism:
+  - **Parts → flow → why**: name the components and their roles first, then
+    walk the mechanism stage by stage (numbered steps), then the design
+    tradeoffs. The anatomy is fixed: What it is / The parts / How it works /
+    Why it works that way / Diagram / Gotchas & myths / Try it yourself /
+    Further reading.
+  - **Generic knowledge, never instance-coupled** — instance facts
+    (endpoints, versions, LocalSettings) belong in `docs/`, not on these
+    pages; the "Try it yourself" commands are verified live at authoring
+    time (this instance doubles as the test bench) but written in a form
+    that works on any installation.
+  - **Explain the tradeoff, not just the mechanism** — "why it works that
+    way" is the differentiator; every architectural choice gets its cost
+    stated (e.g. parser stability vs wikitext complexity, caching vs
+    invalidation).
+  - **Gotchas are myths** — negative + positive pairs as a Myth/Reality
+    table inside `<blockquote>`, placed under the construct they concern
+    (see https://wikibase.ronzz.org/wiki/HowItWorks:MediaWiki#Gotchas_&_myths).
+  - **Cross-link to the reference layer** — sheet = syntax, dissection =
+    machinery (e.g. `Cheatsheets:SPARQL` ↔ a future `HowItWorks:WDQS`).
+  - **Hub is `HowItWorks:Main`** redirecting to `Category:HowItWorks`; the
+    category description carries the index table (technology / what it
+    dissects / audience).
