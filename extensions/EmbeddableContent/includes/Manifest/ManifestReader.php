@@ -14,7 +14,8 @@ namespace EmbeddableContent\Manifest;
  * - `label.<lang>` and `description.<lang>`: one column pair per language;
  *   the declared language sets must be identical.
  * - properties.csv additionally: `datatype` (required), `align.uri`,
- *   `align.wikidata`, `formatter.url` (optional — external-id properties only).
+ *   `align.wikidata`, `formatter.url` (optional; external-id properties
+ *   only — enforced by readProperties).
  * - classes.csv: `align.uri`, `align.wikidata` (optional).
  * - languages.csv: `lexer` (required), `wikidata_qid` (optional).
  *
@@ -58,13 +59,23 @@ class ManifestReader {
 			$descriptions = $this->extractTerms( $row, $manifest->languages, 'description', $path, $line );
 			$this->assertUniqueLabels( $labels, $seenLabels, $path, $line );
 
+			$formatterUrl = $this->optionalUrl( $row, 'formatter.url', $path, $line );
+			if ( $formatterUrl !== null && $datatype !== 'external-id' ) {
+				throw new ManifestException(
+					sprintf(
+						'%s line %d: formatter URL requires datatype "external-id" (got "%s")',
+						$path, $line, $datatype
+					)
+				);
+			}
+
 			$rows[] = new PropertyManifestRow(
 				$labels,
 				$descriptions,
 				$datatype,
 				$this->optionalUrl( $row, 'align.uri', $path, $line ),
 				$this->optionalUrl( $row, 'align.wikidata', $path, $line ),
-				$this->optionalUrl( $row, 'formatter.url', $path, $line )
+				$formatterUrl
 			);
 		}
 
