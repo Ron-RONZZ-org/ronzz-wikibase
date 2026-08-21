@@ -265,16 +265,52 @@ def flow_manual(op, base: str, api: str, special: str, label: str, class_item: s
     return m.group(1)
 
 
-def flow_software(op, base: str, api: str, name: str,
-                  extra_fields: dict | None = None) -> tuple[str, str]:
+def flow_software_manual(op, base: str, api: str, label: str, class_item: str,
+                         extra_fields: dict | None = None) -> tuple[str, str]:
+    """Special:AddSoftware/manual — create from blank (no authority record),
+    following the /complete/<qid> finalize redirect to the FOSS page.
+
+    Unlike the search flow, the manual path ALWAYS creates a fresh item
+    (create-or-skip cannot reuse a timestamped label), so it deterministically
+    exercises the multi-value entity fields: extra_fields carries comma-
+    separated item ids, e.g. {"wphasUse": "Q1, Q2"}.
+
+    Returns (item qid, FOSS page title).
+    """
+    url, body = page_get(op, base, "/wiki/Special:AddSoftware/manual")
+    token = edit_token(body)
+    fields = {
+        "wplabel": label,
+        "wpclass": class_item,
+        "wpEditToken": token,
+        "wpSubmit": "1",
+    }
+    if extra_fields:
+        fields.update(extra_fields)
+    url, body = page_post(op, url, fields)
+    m = re.search(r"/wiki/(FOSS:[^?#]+)$", url)
+    if not m:
+        raise FlowError(
+            f"AddSoftware/manual did not redirect to a FOSS page: {url} {find_error(body)}")
+    page_title = urllib.parse.unquote(m.group(1)).replace("_", " ")
+
+    r = api_call(op, api, {"action": "query", "titles": page_title,
+                           "prop": "pageprops", "format": "json"})
+    qid = None
+    for page in r.get("query", {}).get("pages", {}).values():
+        qid = page.get("pageprops", {}).get("wikibase_item")
+    if not qid:
+        raise FlowError(f"AddSoftware/manual page {page_title} has no wikibase_item "
+                        f"(finalize step did not map the sitelink)")
+    return qid, page_title
+
+
+def flow_software(op, base: str, api: str, name: str) -> tuple[str, str]:
     """Special:AddSoftware search -> select -> review -> create (issue #26).
 
     Unlike the other flows, success redirects to the created FOSS: page (the
     item + page + sitelink are created together). Returns (item qid, FOSS
     page title) — the qid is resolved from the page's wikibase_item property.
-
-    extra_fields: additional review-form fields (name -> value) merged into
-    the submit, e.g. multi-value entity fields ("wphasUse": "Q1, Q2").
     """
     url, body = page_get(op, base, "/wiki/Special:AddSoftware")
     if "does not have permission" in body or "wpEditToken" not in body:
@@ -305,11 +341,9 @@ def flow_software(op, base: str, api: str, name: str,
         raise FlowError(
             f"AddSoftware select did not redirect to the review step: {url} {find_error(body)}")
 
-    # Review step: submit the pre-filled form, plus any extra fields.
-    fields = {"wpEditToken": edit_token(body), "wpSubmit": "1"}
-    if extra_fields:
-        fields.update(extra_fields)
-    url, body = page_post(op, url, fields)
+    # Review step: submit the pre-filled form unchanged.
+    token3 = edit_token(body)
+    url, body = page_post(op, url, {"wpEditToken": token3, "wpSubmit": "1"})
     m = re.search(r"/wiki/(FOSS:[^?#]+)$", url)
     if not m:
         raise FlowError(f"AddSoftware review did not redirect to a FOSS page: {url} {find_error(body)}")
@@ -605,20 +639,12 @@ def main() -> int:
         #     item + FOSS:<Name> page + sitelink in one flow (issue #26).
         foss_class = resolve("free and open-source software", "item")
         official_website = resolve("official website", "property")
-        has_use = resolve("has use", "property")
-        # Multi-value entity fields (follow-up): two item ids in the 'has
-        # use' field must produce one statement PER id on the created item.
-        software_qid, foss_page = flow_software(
-            op, base, api, args.software,
-            extra_fields={"wphasUse": f"{foss_class}, {person}"})
+        software_qid, foss_page = flow_software(op, base, api, args.software)
         software = track(software_qid)
         claims, label = entity_claims(op, api, software)
         assert first_value(claims, instance_of) == foss_class, \
             f"{software} instance-of != free and open-source software ({first_value(claims, instance_of)})"
         assert first_value(claims, wikidata_id_prop), f"{software} missing Wikidata ID"
-        has_use_statements = claims.get(has_use, [])
-        assert len(has_use_statements) == 2, \
-            f"{software} expected 2 has-use statements for two item ids, got {len(has_use_statements)}"
         # The page carries the {{FOSS}} skeleton (raw content check).
         _, raw = page_get(op, base, "/wiki/" + urllib.parse.quote(foss_page.replace(" ", "_")) + "?action=raw")
         assert "{{FOSS}}" in raw, f"{foss_page} does not transclude {{FOSS}}"
@@ -635,10 +661,30 @@ def main() -> int:
         # only a warning (not a failure) when the authority lacks them.
         website = first_value(claims, official_website)
         print(f"[ok] AddSoftware -> {software} ({label}): FOSS class + Wikidata ID, "
-              f"page {foss_page}, sitelinked, 2 has-use statements"
-              + (f", website={website}" if website else ", no harvested website"))
+              f"page {foss_page}, sitelinked" + (f", website={website}" if website else ", no harvested website"))
         if software in created:  # only delete pages this run actually created
             created_pages.append(foss_page)
+
+        # 3d. AddSoftware/manual + multi-value entity fields (follow-up):
+        #     the manual path always creates a FRESH item (create-or-skip
+        #     cannot reuse a timestamped label), so it deterministically
+        #     exercises multi-value: two item ids in the 'has use' field
+        #     must produce one statement PER id on the created item.
+        has_use = resolve("has use", "property")
+        software_manual_label = f"Page-flow E2E software {int(time.time())}"
+        software_manual, foss_manual_page = flow_software_manual(
+            op, base, api, software_manual_label, foss_class,
+            extra_fields={"wphasUse": f"{foss_class}, {person}"})
+        software_manual = track(software_manual)
+        claims, _ = entity_claims(op, api, software_manual)
+        has_use_statements = claims.get(has_use, [])
+        assert len(has_use_statements) == 2, \
+            f"{software_manual} expected 2 has-use statements for two item ids, " \
+            f"got {len(has_use_statements)}"
+        print(f"[ok] AddSoftware/manual -> {software_manual}: multi-value has-use "
+              f"({len(has_use_statements)} statements)")
+        if software_manual in created:
+            created_pages.append(foss_manual_page)
 
         # 4. v1 content form — Special:AddQuotation with provenance.
         # Unique label per run: create-or-skip would otherwise reuse a stale
