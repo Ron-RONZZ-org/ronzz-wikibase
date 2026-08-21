@@ -809,7 +809,8 @@ def main() -> int:
         assert image_url and "logo.png" in str(image_url), \
             f"{logo_qid} missing image statement pointing at the logo ({image_url!r})"
         _, raw = page_get(op, base, "/wiki/" + urllib.parse.quote(logo_page.replace(" ", "_")) + "?action=raw")
-        assert f"logo=[[File:{logo_label}-logo.png" in raw, \
+        # File DB keys normalize spaces to underscores — match the stored form.
+        assert f"logo=[[File:{logo_label.replace(' ', '_')}-logo.png" in raw, \
             f"{logo_page} skeleton does not pass the logo to the infobox; raw: {raw[:200]!r}"
         print(f"[ok] AddSoftware/manual (logo) -> {logo_qid}: File:{logo_label}-logo.png uploaded, "
               f"image statement + infobox logo on {logo_page}")
