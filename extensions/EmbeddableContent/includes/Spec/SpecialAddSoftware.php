@@ -613,11 +613,14 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 			return $title; // idempotent: already uploaded on an earlier run
 		}
 		$verify = $base->verifyUpload();
-		if ( !$verify->isOK() ) {
-			throw new \RuntimeException( 'verifyUpload: ' . implode( '; ', $verify->getErrorsArray() === []
-				? [ $verify->getMessage()->getParams()[0] ?? 'rejected' ]
-				: array_map( static fn ( $e ) => $e[0], $verify->getErrorsArray() )
-			) );
+		if ( $verify !== [] ) {
+			// verifyUpload() returns an ARRAY: [] on success, ['status' => …]
+			// with details on failure (UploadBase::VERIFICATION_ERROR etc.).
+			$details = $verify['details'] ?? [];
+			$detail = is_array( $details ) && $details !== []
+				? (string)( $details[0] ?? '' )
+				: (string)( $verify['status'] ?? 'rejected' );
+			throw new \RuntimeException( 'verifyUpload rejected (' . $detail . ')' );
 		}
 		$label = $this->primaryLabel( $record );
 		$pageText = "Logo of {$label}, uploaded via Special:AddSoftware.";
