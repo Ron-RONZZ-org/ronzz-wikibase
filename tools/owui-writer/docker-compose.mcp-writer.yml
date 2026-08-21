@@ -1,0 +1,38 @@
+# Open WebUI wiki writer — MCP endpoint service
+#
+# Merge this service into /opt/openwebui/docker-compose.yml (same compose file as the
+# open-webui service, so it joins the same network and is reachable by the OWUI backend
+# at http://mediawiki-mcp-writer:8080/mcp). See README.md in this directory.
+#
+# Pre-flight (manual steps, see README.md):
+#   1. create wiki user OpenWebuiWriter + bot password OpenWebuiWriter@Writer
+#      (grants: basic, createeditmovefile, editpage, uploadeditmovefile)
+#   2. write /opt/openwebui/config/mediawiki-mcp-writer.json from
+#      ronzz-wikibase-writer.json.example (0600, real bot password)
+#
+# No host ports are published: the endpoint is reachable ONLY from the compose network.
+# Do not publish it without a security re-review (see docs/decisions/owui-wiki-writer.md).
+
+services:
+  mediawiki-mcp-writer:
+    image: ghcr.io/professionalwiki/mediawiki-mcp-server:v0.17.0   # pin at deploy time (check releases)
+    restart: unless-stopped
+    volumes:
+      - /opt/openwebui/config/mediawiki-mcp-writer.json:/app/config.json:ro
+    environment:
+      MCP_TRANSPORT: http              # Streamable HTTP at the fixed /mcp path
+      PORT: "8080"
+      MCP_BIND: 0.0.0.0                # container-internal; only the compose network reaches it
+      MCP_ALLOWED_HOSTS: mediawiki-mcp-writer
+      # Shared writer identity by design (see ADR): HTTP transport refuses static
+      # bot-password credentials without this flag. Endpoint is internal-only.
+      MCP_ALLOW_STATIC_FALLBACK: "true"
+      MCP_LOG_LEVEL: info
+    # Optional healthcheck — /health and /ready exist in the image; adjust the probe
+    # binary to what the image actually ships (wget/curl).
+    # healthcheck:
+    #   test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/ready"]
+    #   interval: 30s
+    #   timeout: 5s
+    #   retries: 3
+    #   start_period: 15s

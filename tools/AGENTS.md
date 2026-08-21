@@ -3,9 +3,10 @@
 ## Summary
 
 Developer tooling for ronzz-wikibase: the language-manifest generator
-(Pygments-derived language items) and the live fetch-layer smoke test.
-Small, stdlib-only helpers that feed the D1 manifests or prove the
-integration layer end-to-end.
+(Pygments-derived language items), the live fetch-layer smoke test, and the
+`owui-writer/` deploy kit (Open WebUI wiki writer — MCP endpoint + least-privilege
+bot). Small, stdlib-only helpers that feed the D1 manifests, prove the
+integration layer end-to-end, or wire the wiki into the LLM writing studio.
 
 ## Purpose and Expected Behavior
 
@@ -26,6 +27,12 @@ integration layer end-to-end.
   Run from the repo root in the test image:
   `docker run --rm -v "$PWD":/app -w /app ronzz-wikibase-test php tools/fetch-smoke.php`.
   Makes a handful of polite requests (one run, then stop).
+- **`tools/owui-writer/`** — deploy kit for the Open WebUI wiki writer: runs the
+  ProfessionalWiki mediawiki-mcp-server as a compose sibling (`mediawiki-mcp-writer`,
+  MCP Streamable HTTP at `/mcp`) so Open WebUI can edit wiki pages through a
+  least-privilege bot password (`OpenWebuiWriter@Writer`). See
+  [`owui-writer/README.md`](owui-writer/README.md) + ADR
+  `docs/decisions/owui-wiki-writer.md`. Contains templates only — **no credentials**.
 
 ## Constraints and Invariants
 

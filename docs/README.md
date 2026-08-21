@@ -37,4 +37,6 @@ Architecture/design choices (ADR-style) live in `docs/decisions/`:
 `opaque-id.md` (entity IDs stay opaque Q/P), `ontology-alignment.md` (mirror
 properties + equivalence mappings), `raw-rdf-in-blazegraph.md` (two-worlds:
 curated entities + native RDF), `cite-by-qid.md` (citations as a derived view),
-`static-llm-translation.md` (static LLM-maintained copies, no translation markup).
+`static-llm-translation.md` (static LLM-maintained copies, no translation markup),
+`owui-wiki-writer.md` (Open WebUI as the LLM writer studio — MCP endpoint +
+least-privilege writer bot).

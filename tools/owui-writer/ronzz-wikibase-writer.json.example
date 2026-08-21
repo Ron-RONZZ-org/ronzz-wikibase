@@ -1,0 +1,13 @@
+{
+  "defaultWiki": "wikibase.ronzz.org",
+  "wikis": {
+    "wikibase.ronzz.org": {
+      "sitename": "Wikibase",
+      "server": "https://wikibase.ronzz.org",
+      "articlepath": "/wiki",
+      "scriptpath": "",
+      "username": "OpenWebuiWriter@Writer",
+      "password": "REPLACE_WITH_GENERATED_BOT_PASSWORD"
+    }
+  }
+}
