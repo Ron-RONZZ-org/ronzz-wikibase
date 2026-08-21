@@ -253,8 +253,10 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 
 		// Sitelink the page ↔ item (repo + client are the same wiki, site
 		// id 'wikibase'); the client maps the page to the item at parse time.
+		// Guard: on create-or-skip reuse the item may already carry the link
+		// — never rewrite existing sitelink state.
 		$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
-		if ( $item instanceof Item ) {
+		if ( $item instanceof Item && !$item->getSiteLinkList()->hasLinkWithSiteId( 'wikibase' ) ) {
 			$item->getSiteLinkList()->setNewSiteLink( 'wikibase', $title->getPrefixedDBkey() );
 			WikibaseRepo::getStore()->newSiteLinkStore()->saveLinksOfItem( $item );
 		}

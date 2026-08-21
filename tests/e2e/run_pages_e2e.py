@@ -602,7 +602,7 @@ def main() -> int:
         website = first_value(claims, official_website)
         print(f"[ok] AddSoftware -> {software} ({label}): FOSS class + Wikidata ID, "
               f"page {foss_page}, sitelinked" + (f", website={website}" if website else ", no harvested website"))
-        if software_qid == software:  # created by this run -> page cleanup tracked
+        if software in created:  # only delete pages this run actually created
             created_pages.append(foss_page)
 
         # 4. v1 content form — Special:AddQuotation with provenance.
