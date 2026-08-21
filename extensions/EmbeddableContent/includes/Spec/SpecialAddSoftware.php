@@ -73,6 +73,10 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 	 */
 	private function executeComplete( string $itemId ): void {
 		$this->setHeaders();
+		// The step performs an edit (finalize the page): login-gated like
+		// every other step of the flow (the legitimate flow redirects here
+		// from the review/manual submit, so the user is already logged in).
+		$this->requireLogin();
 		try {
 			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
 		} catch ( \Throwable $e ) {
