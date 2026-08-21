@@ -236,7 +236,7 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		}
 
 		if ( !$title->exists() ) {
-			$page = \MediaWiki\WikiPage\WikiPage::factory( $title );
+			$page = \MediaWiki\Page\WikiPage::factory( $title );
 			$content = new \MediaWiki\Content\WikitextContent( self::pageSkeleton() );
 			$status = $page->doUserEditContent(
 				$content,
