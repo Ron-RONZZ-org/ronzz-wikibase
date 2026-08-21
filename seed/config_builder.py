@@ -74,6 +74,24 @@ SOURCE_CLASS_KINDS = {
     "video": "video",
 }
 
+# Issue #26: FOSS software properties (Special:AddSoftware statements).
+FOSS_PROPERTY_KINDS = {
+    "developer": "developer",
+    "license": "license",
+    "operating system": "operatingSystem",
+    "official website": "officialWebsite",
+    "source code repository": "sourceRepository",
+    "software version": "softwareVersion",
+    "has use": "hasUse",
+    "replaces": "replaces",
+    "user interface": "userInterface",
+}
+
+# Issue #26: FOSS software class (Special:AddSoftware class picker).
+FOSS_CLASS_KINDS = {
+    "free and open-source software": "foss",
+}
+
 
 def build_config(
     property_ids: dict[str, str],
@@ -106,6 +124,16 @@ def build_config(
     for label, kind in SOURCE_CLASS_KINDS.items():
         if label in class_ids:
             source_classes[kind] = class_ids[label]
+
+    foss_classes: dict[str, str] = {}
+    for label, kind in FOSS_CLASS_KINDS.items():
+        if label in class_ids:
+            foss_classes[kind] = class_ids[label]
+
+    foss_props: dict[str, str] = {}
+    for label, kind in FOSS_PROPERTY_KINDS.items():
+        if label in property_ids:
+            foss_props[kind] = property_ids[label]
 
     payload_props: dict[str, str] = {}
     provenance: dict[str, str] = {}
@@ -149,6 +177,8 @@ def build_config(
         "classes": classes,
         "agentClasses": agent_classes,
         "sourceClasses": source_classes,
+        "fossClasses": foss_classes,
+        "fossProperties": foss_props,
         "payloadProperties": payload_props,
         "programmingLanguage": programming_language,
         "describes": describes,

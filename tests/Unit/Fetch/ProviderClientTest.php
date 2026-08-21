@@ -5,12 +5,14 @@ declare( strict_types = 1 );
 namespace Tests\Unit\Fetch;
 
 use EmbeddableContent\Fetch\CrossrefProvider;
+use EmbeddableContent\Fetch\GitHubSoftwareProvider;
 use EmbeddableContent\Fetch\OpenAlexProvider;
 use EmbeddableContent\Fetch\OpenLibraryProvider;
 use EmbeddableContent\Fetch\OrcidProvider;
 use EmbeddableContent\Fetch\ProviderClient;
 use EmbeddableContent\Fetch\WikidataEntityProvider;
 use EmbeddableContent\Fetch\WikidataPersonProvider;
+use EmbeddableContent\Fetch\WikidataSoftwareProvider;
 use EmbeddableContent\Fetch\WikidataWorkProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -171,5 +173,65 @@ final class ProviderClientTest extends TestCase {
 		] );
 		$result = $client->byDoi( '10.1000/xyz' );
 		$this->assertSame( 'Default wired', $result->records[0]->title );
+	}
+
+	public function testSearchSoftwareCollectsAndDedupesAcrossProviders(): void {
+		$http = new FakeHttpClient();
+		// Wikidata + GitHub both return the same program → dedupe by
+		// wikidataId wins (Wikidata first in the cascade).
+		$http->onJson( 'action=wbsearchentities', [
+			'search' => [ [ 'id' => 'Q1202003', 'label' => 'Flameshot', 'description' => 'screenshot software' ] ],
+		] );
+		$http->onJson( '/search/repositories?q=flameshot', [
+			'items' => [
+				[
+					'full_name' => 'flameshot-org/flameshot',
+					'name' => 'flameshot',
+					'description' => 'Powerful yet simple to use screenshot software',
+					'html_url' => 'https://github.com/flameshot-org/flameshot',
+					'homepage' => 'https://flameshot.org',
+					'language' => 'C++',
+					'license' => [ 'spdx_id' => 'GPL-3.0' ],
+				],
+			],
+		] );
+		$wikidataSoftware = new WikidataSoftwareProvider( $http );
+		$client = new ProviderClient(
+			[], [], [], [], [], [],
+			null, null, null,
+			$wikidataSoftware,
+			[ $wikidataSoftware, new GitHubSoftwareProvider( $http ) ]
+		);
+
+		$result = $client->searchSoftware( 'flameshot' );
+
+		$this->assertCount( 2, $result->records );
+		$this->assertSame( 'Flameshot', $result->records[0]->label );
+		$this->assertSame( 'Q1202003', $result->records[0]->wikidataId );
+		$this->assertSame( 'flameshot-org/flameshot', $result->records[1]->githubFullName );
+		$this->assertSame( [], $result->warnings );
+	}
+
+	public function testHarvestSoftwareHitsTheWikidataHub(): void {
+		$http = new FakeHttpClient();
+		$http->onJson( 'action=wbgetentities', [
+			'entities' => [
+				'Q1202003' => [
+					'labels' => [ 'en' => [ 'value' => 'Flameshot' ] ],
+					'claims' => [ 'P856' => [ [ 'mainsnak' => [ 'datavalue' => [ 'value' => 'https://flameshot.org' ] ] ] ] ],
+				],
+			],
+		] );
+		$client = new ProviderClient(
+			[], [], [], [], [], [],
+			null, null, null,
+			new WikidataSoftwareProvider( $http )
+		);
+
+		$result = $client->harvestSoftware( 'Q1202003' );
+
+		$this->assertCount( 1, $result->records );
+		$this->assertSame( 'Flameshot', $result->records[0]->label );
+		$this->assertSame( 'https://flameshot.org', $result->records[0]->website );
 	}
 }

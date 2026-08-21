@@ -12,3 +12,4 @@ label.fr,label.en,label.eo,description.fr,description.en,description.eo,align.ur
 "chanson","song","kanto","une œuvre musicale chantée","a musical composition with words","muzika verko kun vortoj",https://schema.org/MusicComposition,https://www.wikidata.org/wiki/Q7366
 "film","film","filmo","une œuvre cinématographique","a motion picture","kinoverko",https://schema.org/Movie,https://www.wikidata.org/wiki/Q11424
 "vidéo","video","video","un enregistrement vidéo","a video recording","videoregistraĵo",https://schema.org/VideoObject,https://www.wikidata.org/wiki/Q482994
+"logiciel libre et open source","free and open-source software","libera kaj malfermitkoda programaro","un logiciel à la fois libre et open source","software that is both free (as in freedom) and open-source","programaro, kiu estas kaj libera kaj malfermitkoda",,https://www.wikidata.org/wiki/Q506883

@@ -320,7 +320,12 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		}
 
 		$this->getRequest()->getSession()->remove( self::SESSION_PREFIX . $token );
-		$this->redirectToItem( $itemId );
+		$target = $this->afterCreate( $itemId, $record );
+		if ( $target !== null ) {
+			$this->getOutput()->redirect( $target );
+		} else {
+			$this->redirectToItem( $itemId );
+		}
 		return true;
 	}
 
@@ -366,13 +371,30 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			return $this->msg( 'embeddablecontent-add-error-required' )->text();
 		}
 		try {
-			$specs = $this->externalIdStatements( $record ) + $this->citationMetadataStatements( $record );
-			$itemId = $this->createOrSkipItem( $label, $classItemId, $specs, $record );
+			$itemId = $this->manualCreate( $label, $classItemId, $record );
 		} catch ( \Throwable $e ) {
 			return $this->msg( 'embeddablecontent-extcreate-error', get_class( $e ), $e->getMessage() )->text();
 		}
-		$this->redirectToItem( $itemId );
+		$target = $this->afterCreate( $itemId, $record );
+		if ( $target !== null ) {
+			$this->getOutput()->redirect( $target );
+		} else {
+			$this->redirectToItem( $itemId );
+		}
 		return true;
+	}
+
+	/**
+	 * Creates the item from the manual-form record. Subclasses that build
+	 * kind-specific statements (e.g. Special:AddSoftware's URL/version/
+	 * entity facts) override this; the default mirrors the review path's
+	 * createFromRecord spec logic.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function manualCreate( string $label, string $classItemId, array $record ): string {
+		$specs = $this->externalIdStatements( $record ) + $this->citationMetadataStatements( $record );
+		return $this->createOrSkipItem( $label, $classItemId, $specs, $record );
 	}
 
 	// ------------------------------------------------------------- shared
