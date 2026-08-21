@@ -120,7 +120,11 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 					->getWikiPageFactory()->newFromTitle( $title );
 				$current = $page->getContent() !== null ? $page->getContent()->getWikitextForTransclusion() : '';
 				if ( strpos( $current, self::PENDING_MARKER ) !== false ) {
-					$final = new \MediaWiki\Content\WikitextContent( self::pageSkeleton( false ) );
+					// Strip ONLY the pending marker — the rest of the skeleton
+					// (incl. the logo param from afterCreate) stays intact.
+					$final = new \MediaWiki\Content\WikitextContent(
+						str_replace( "\n<!-- " . self::PENDING_MARKER . " -->", '', $current )
+					);
 					$status = $page->doUserEditContent(
 						$final,
 						$this->getUser(),
