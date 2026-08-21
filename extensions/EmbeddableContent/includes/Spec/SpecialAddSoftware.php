@@ -256,9 +256,7 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		// id 'wikibase'); the client maps the page to the item at parse time.
 		$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
 		if ( $item instanceof Item ) {
-			$item->getSiteLinkList()->setNewSiteLink(
-				new SiteLink( 'wikibase', $title->getPrefixedDBkey() )
-			);
+			$item->getSiteLinkList()->setNewSiteLink( 'wikibase', $title->getPrefixedDBkey() );
 			WikibaseRepo::getStore()->newSiteLinkStore()->saveLinksOfItem( $item );
 		}
 
