@@ -484,7 +484,7 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 				}
 			} else {
 				$title = $this->uploadLogoFromRequest( $record );
-				$upload = $this->getRequest()->getFileUpload( 'wpLogoFile' );
+				$upload = $this->getRequest()->getUpload( 'wpLogoFile' );
 				if ( $title === null
 					&& $upload instanceof \MediaWiki\Request\WebRequestUpload && $upload->getSize() > 0
 				) {
@@ -510,7 +510,7 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 	 */
 	private function uploadLogoFromRequest( array $record ): ?\MediaWiki\Title\Title {
 		$request = $this->getRequest();
-		$upload = $request->getFileUpload( 'wpLogoFile' );
+		$upload = $request->getUpload( 'wpLogoFile' );
 		if ( !$upload instanceof \MediaWiki\Request\WebRequestUpload
 			|| $upload->getSize() <= 0 || $upload->getTempName() === ''
 		) {
