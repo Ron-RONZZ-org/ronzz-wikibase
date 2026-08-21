@@ -7,6 +7,7 @@ namespace EmbeddableContent\Spec;
 use DataValues\StringValue;
 use EmbeddableContent\Content\FragmentSanitizer;
 use EmbeddableContent\Fetch\ProviderResult;
+use EmbeddableContent\Spec\ItemIdList;
 use MediaWiki\Title\Title;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
@@ -25,8 +26,11 @@ use Wikibase\Repo\WikibaseRepo;
  * Item-typed facts (developer, license, operating system, …) reference
  * EXISTING local items via entity comboboxes — the instance's "properties
  * first, then items" house rule; harvested labels are shown as context in
- * the review step. URL/string facts (website, source repository, version)
- * are written directly from the corrected record.
+ * the review step. Each of these fields accepts SEVERAL item ids
+ * (comma-separated, e.g. "Q5, Q179"): a software usually has more than one
+ * developer, operating system or license, so one statement is written per
+ * id. URL/string facts (website, source repository, version) are written
+ * directly from the corrected record.
  *
  * @license GPL-2.0-or-later
  */
@@ -34,7 +38,8 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 
 	/**
 	 * Item-typed FOSS facts written as entity values; each field is an
-	 * entity combobox referencing existing local items.
+	 * entity combobox referencing existing local items, accepting several
+	 * comma-separated item ids (one statement per id).
 	 */
 	private const FOSS_ENTITY_FIELDS = [
 		'developer', 'license', 'operatingSystem', 'programmingLanguage',
@@ -190,12 +195,14 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 
 		foreach ( self::FOSS_ENTITY_FIELDS as $field ) {
 			$harvested = (string)( $record[$field] ?? '' );
+			// Multi-value entity combobox: comma-separated item ids
+			// (entitysuggest.js `wb-entity-combobox-multi` mode). The
+			// userInterface field additionally explains what the fact means.
 			$fields[$field] = [
 				'type' => 'combobox',
 				'options' => [],
 				'label-message' => 'embeddablecontent-field-' . $field,
-				'cssclass' => 'wb-entity-combobox',
-				'help-message' => 'embeddablecontent-add-entityid-help',
+				'cssclass' => 'wb-entity-combobox wb-entity-combobox-multi',
 			];
 			if ( $harvested !== '' ) {
 				// Plain text, HTML-escaped: the label comes from an external
@@ -204,6 +211,11 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 					$this->msg( 'embeddablecontent-software-field-harvested', $harvested )->text()
 				);
 			}
+			$fields[$field]['help'] = ( $fields[$field]['help'] ?? '' )
+				. $this->msg( $field === 'userInterface'
+					? 'embeddablecontent-software-userinterface-help'
+					: 'embeddablecontent-entityid-multiple-hint'
+				)->parse();
 		}
 		return $fields;
 	}
@@ -253,16 +265,20 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		}
 
 		// Item-typed facts: entity combobox values (existing local items).
+		// Each field accepts several comma-separated item ids → one
+		// statement per id (a software has several developers/OSes/licenses).
 		foreach ( self::FOSS_ENTITY_FIELDS as $field ) {
-			$itemId = $this->parseOptionalItemId( (string)( $record[$field] ?? '' ) );
-			if ( $itemId === null ) {
+			$itemIds = $this->parseOptionalItemIds( (string)( $record[$field] ?? '' ) );
+			if ( $itemIds === [] ) {
 				continue;
 			}
 			$propertyId = $field === 'programmingLanguage'
 				// P5 doubles as the FOSS programming-language property.
 				? $this->config->programmingLanguagePropertyId()
 				: $this->config->fossPropertyIds()[$field];
-			$specs[$propertyId] = new EntityIdValue( $itemId );
+			foreach ( $itemIds as $itemId ) {
+				$specs[$propertyId][] = new EntityIdValue( $itemId );
+			}
 		}
 
 		return $specs;
@@ -368,6 +384,25 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 	protected function defaultClassItemId( array $record ): ?string {
 		$fossClasses = $this->config->fossClasses();
 		return $fossClasses['foss'] ?? null;
+	}
+
+	/**
+	 * Parses a possibly multi-valued entity-field input (comma/semicolon/
+	 * whitespace-separated item ids) into validated ItemIds. Invalid
+	 * elements are skipped — same lenient contract as the single-value
+	 * parseOptionalItemId; ids are deduped.
+	 *
+	 * @return ItemId[]
+	 */
+	private function parseOptionalItemIds( string $input ): array {
+		$out = [];
+		foreach ( ItemIdList::split( $input ) as $candidate ) {
+			$id = $this->parseOptionalItemId( $candidate );
+			if ( $id !== null ) {
+				$out[] = $id;
+			}
+		}
+		return $out;
 	}
 
 	private function parseOptionalItemId( string $input ): ?ItemId {

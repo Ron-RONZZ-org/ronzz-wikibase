@@ -598,7 +598,12 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 * Create-or-skip: reuses an existing local item with the same primary
 	 * label (seed semantics), otherwise creates it with the given statements.
 	 *
-	 * @param array<string,mixed> $statementSpecs property id => DataValue
+	 * A spec value is normally a single DataValue (one statement); a value
+	 * given as an ARRAY of DataValue writes one statement per element —
+	 * this is how multi-valued facts (several developers, operating systems,
+	 * licenses, …) land on the item.
+	 *
+	 * @param array<string,mixed> $statementSpecs property id => DataValue | DataValue[]
 	 */
 	protected function createOrSkipItem( string $label, string $classItemId, array $statementSpecs, array $record ): string {
 		$existing = $this->findItemIdByLabel( $label );
@@ -637,7 +642,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 
 		$add( $this->config->instanceOfPropertyId(), new EntityIdValue( new ItemId( $classItemId ) ), false );
 		foreach ( $statementSpecs as $propertyId => $value ) {
-			$add( $propertyId, $value );
+			$values = is_array( $value ) ? $value : [ $value ];
+			foreach ( $values as $v ) {
+				$add( $propertyId, $v );
+			}
 		}
 
 		WikibaseRepo::getEntityStore()->saveEntity(

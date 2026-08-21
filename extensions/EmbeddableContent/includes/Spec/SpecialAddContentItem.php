@@ -8,6 +8,7 @@ use DataValues\StringValue;
 use DataValues\TimeValue;
 use EmbeddableContent\Content\FragmentSanitizer;
 use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\Spec\ItemIdList;
 use MediaWiki\HTMLForm\HTMLForm;
 use MediaWiki\SpecialPage\SpecialPage;
 use Wikibase\DataModel\Entity\EntityIdValue;
@@ -103,14 +104,16 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		// item-id fields are entity search+autofill comboboxes backed by
 		// wbsearchentities (ext.embeddableContent.entitysuggest); the
 		// submitted value stays an item id (parseOptionalItemId unchanged).
-		$entityCombobox = static function ( string $messageKey, bool $required ): array {
+		$entityCombobox = static function ( string $messageKey, bool $required, bool $multi = false ): array {
 			return [
 				'type' => 'combobox',
 				'options' => [],
 				'label-message' => $messageKey,
 				'required' => $required,
-				'cssclass' => 'wb-entity-combobox',
-				'help-message' => 'embeddablecontent-add-entityid-help',
+				'cssclass' => $multi ? 'wb-entity-combobox wb-entity-combobox-multi' : 'wb-entity-combobox',
+				'help-message' => $multi
+					? 'embeddablecontent-entityid-multiple-hint'
+					: 'embeddablecontent-add-entityid-help',
 			];
 		};
 		$fields += [
@@ -130,11 +133,13 @@ abstract class SpecialAddContentItem extends SpecialPage {
 
 		// Content-subject entity fields (issue follow-up): math 'describes'
 		// (what the expression is about), code 'implementation of' (the
-		// algorithm/concept the code implements). Optional, entity comboboxes.
+		// algorithm/concept the code implements). Optional, multi-value
+		// entity comboboxes — an expression can describe several concepts,
+		// code can implement several algorithms.
 		if ( $this->getKind() === 'math' && $this->config->describesPropertyId() !== null ) {
-			$fields['describes'] = $entityCombobox( 'embeddablecontent-add-describes', false );
+			$fields['describes'] = $entityCombobox( 'embeddablecontent-add-describes', false, true );
 		} elseif ( $this->getKind() === 'code' && $this->config->implementationOfPropertyId() !== null ) {
-			$fields['implementationOf'] = $entityCombobox( 'embeddablecontent-add-implementationof', false );
+			$fields['implementationOf'] = $entityCombobox( 'embeddablecontent-add-implementationof', false, true );
 		}
 		return $fields;
 	}
@@ -248,23 +253,25 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		}
 
 		// Content-subject statements (issue follow-up): math 'describes',
-		// code 'implementation of'. Optional; written only when set.
+		// code 'implementation of'. Optional, multi-valued — one statement
+		// per valid item id; any invalid element is a hard error (same
+		// strictness as the single-value contract below).
 		if ( $this->getKind() === 'math' && $this->config->describesPropertyId() !== null ) {
-			$describes = $this->parseOptionalItemId( (string)$data['describes'] );
-			if ( (string)$data['describes'] !== '' && $describes === null ) {
-				return $this->msg( 'embeddablecontent-add-error-baditemid', 'describes' )->text();
+			$result = $this->splitItemIds( (string)$data['describes'], 'describes' );
+			if ( $result['error'] !== null ) {
+				return $result['error'];
 			}
-			if ( $describes !== null ) {
-				$add( $this->config->describesPropertyId(), new EntityIdValue( $describes ) );
+			foreach ( $result['ids'] as $id ) {
+				$add( $this->config->describesPropertyId(), new EntityIdValue( $id ) );
 			}
 		}
 		if ( $this->getKind() === 'code' && $this->config->implementationOfPropertyId() !== null ) {
-			$implementationOf = $this->parseOptionalItemId( (string)$data['implementationOf'] );
-			if ( (string)$data['implementationOf'] !== '' && $implementationOf === null ) {
-				return $this->msg( 'embeddablecontent-add-error-baditemid', 'implementation of' )->text();
+			$result = $this->splitItemIds( (string)$data['implementationOf'], 'implementation of' );
+			if ( $result['error'] !== null ) {
+				return $result['error'];
 			}
-			if ( $implementationOf !== null ) {
-				$add( $this->config->implementationOfPropertyId(), new EntityIdValue( $implementationOf ) );
+			foreach ( $result['ids'] as $id ) {
+				$add( $this->config->implementationOfPropertyId(), new EntityIdValue( $id ) );
 			}
 		}
 
@@ -302,6 +309,30 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		} catch ( \Throwable $e ) {
 			return null;
 		}
+	}
+
+	/**
+	 * Parses a multi-valued entity-field input (comma/semicolon-separated
+	 * item ids). Empty input → no ids; a non-empty input with ANY invalid
+	 * element is an error (returned as a user-facing message string), so a
+	 * typo in one id never silently drops statements.
+	 *
+	 * @return array{ids: ItemId[], error: ?string}
+	 */
+	private function splitItemIds( string $input, string $fieldLabel ): array {
+		$candidates = ItemIdList::split( $input );
+		if ( $candidates === [] ) {
+			return [ 'ids' => [], 'error' => null ];
+		}
+		$parsed = [];
+		foreach ( $candidates as $candidate ) {
+			$id = $this->parseOptionalItemId( $candidate );
+			if ( $id === null ) {
+				return [ 'ids' => [], 'error' => $this->msg( 'embeddablecontent-add-error-baditemid', $fieldLabel )->text() ];
+			}
+			$parsed[] = $id;
+		}
+		return [ 'ids' => $parsed, 'error' => null ];
 	}
 
 	private function parseDate( string $input ): ?TimeValue {

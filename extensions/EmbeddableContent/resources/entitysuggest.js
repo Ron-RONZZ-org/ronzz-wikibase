@@ -1,12 +1,20 @@
 /**
- * Entity search + autofill for the provenance comboboxes
- * (issue #7: Special:AddQuotation / AddCodeSnippet / AddMath provenance block).
+ * Entity search + autofill for the entity comboboxes
+ * (issue #7: provenance blocks on AddQuotation / AddCodeSnippet / AddMath;
+ * issue #26: Special:AddSoftware item-typed facts).
  *
  * The server renders the fields as OOUI ComboBoxInputWidgets
  * (HTMLForm type `combobox`, cssclass `wb-entity-combobox`); this module
  * wires them to wbsearchentities (the instance's own Wikibase API): typing
  * suggests matching entities, picking one fills the field with its item id.
  * The submitted value remains an item id (e.g. "Q42").
+ *
+ * Fields with the extra cssclass `wb-entity-combobox-multi` accept SEVERAL
+ * item ids, comma-separated ("Q42, Q179"). For those fields:
+ *   - typing searches only the LAST comma/semicolon-separated segment, so a
+ *     query runs against the freshly-typed text, not the whole list;
+ *   - picking a suggestion REPLACES that trailing query segment with the
+ *     picked id (previously-picked ids are kept, duplicates dropped).
  */
 ( function () {
 	'use strict';
@@ -19,16 +27,27 @@
 		// leaving every combobox unwired.
 		$( '.wb-entity-combobox[data-ooui]' ).each( function () {
 			var $el = $( this );
+			var multi = $el.hasClass( 'wb-entity-combobox-multi' );
 			var combo = OO.ui.ComboBoxInputWidget.static.infuse( $el );
 			var api = new mw.Api();
 			var pending = null;
 
+			// The search query: for multi-value fields only the last
+			// comma/semicolon-separated segment (what the user is typing).
+			var querySegment = function ( value ) {
+				var q = String( value || '' );
+				if ( multi ) {
+					q = q.split( /[,;]\s*/ ).pop();
+				}
+				return String( q || '' ).trim();
+			};
+
 			combo.on( 'change', OO.ui.debounce( function ( value ) {
-				value = String( value || '' ).trim();
-				if ( value.length < 2 || /^[QP]\d+$/i.test( value ) ) {
+				var q = querySegment( value );
+				if ( q.length < 2 || /^[QP]\d+$/i.test( q ) ) {
 					// Emptied input or a typed entity id: clear stale
 					// suggestions so a later retype starts fresh.
-					if ( value === '' || /^[QP]\d+$/i.test( value ) ) {
+					if ( q === '' || /^[QP]\d+$/i.test( q ) ) {
 						combo.setOptions( [] );
 						combo.getMenu().toggle( false );
 					}
@@ -43,7 +62,7 @@
 				}
 				pending = api.get( {
 					action: 'wbsearchentities',
-					search: value,
+					search: q,
 					language: mw.config.get( 'wgUserLanguage' ) || 'en',
 					type: 'item',
 					limit: 10,
@@ -65,9 +84,49 @@
 					combo.getMenu().toggle( true );
 				} ).catch( function () {
 					// Non-fatal: the combobox still accepts a typed item id,
-					// which the server-side parseOptionalItemId validates.
+					// which the server-side parse validates.
 				} );
 			}, 250 ) );
+
+			if ( multi ) {
+				// The widget's own menu-choose handler REPLACES the whole
+				// value with the picked id — which would drop every
+				// previously-picked id. To rebuild the list we need the value
+				// as it was BEFORE the pick. A native DOM 'input' listener
+				// captures exactly that: it fires on user typing/paste, but
+				// NOT on programmatic setValue(), so it never sees the
+				// widget's own post-pick overwrite.
+				var inputEl = combo.input.$input[ 0 ];
+				var lastUserValue = String( inputEl ? inputEl.value : '' );
+				if ( inputEl ) {
+					inputEl.addEventListener( 'input', function () {
+						lastUserValue = inputEl.value;
+					} );
+				}
+				// 'choose' fires on suggestion activation (click/enter) —
+				// AFTER the widget's own fill. Rebuild the full list from
+				// lastUserValue, replacing its trailing query segment with
+				// the picked id (duplicates dropped).
+				combo.getMenu().on( 'choose', function ( item ) {
+					if ( !item ) {
+						return;
+					}
+					var id = String( item.getData() );
+					var picked = [];
+					( String( lastUserValue || '' ).split( /[,;]\s*/ ) ).forEach( function ( seg ) {
+						seg = String( seg || '' ).trim().toUpperCase();
+						if ( /^[QP]\d+$/.test( seg ) && picked.indexOf( seg ) === -1 ) {
+							picked.push( seg );
+						}
+					} );
+					if ( picked.indexOf( id ) === -1 ) {
+						picked.push( id );
+					}
+					combo.setValue( picked.join( ', ' ) );
+					combo.setOptions( [] );
+					combo.getMenu().toggle( false );
+				} );
+			}
 		} );
 	} );
 }() );
