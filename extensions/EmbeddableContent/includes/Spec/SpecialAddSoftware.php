@@ -613,9 +613,10 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 			return $title; // idempotent: already uploaded on an earlier run
 		}
 		$verify = $base->verifyUpload();
-		if ( $verify !== [] ) {
-			// verifyUpload() returns an ARRAY: [] on success, ['status' => …]
-			// with details on failure (UploadBase::VERIFICATION_ERROR etc.).
+		if ( ( $verify['status'] ?? null ) !== \MediaWiki\Upload\UploadBase::OK ) {
+			// verifyUpload() returns an ARRAY with 'status' => OK (0) on
+			// success; any other status carries the failure (VERIFICATION_
+			// ERROR etc.) with 'details'.
 			$details = $verify['details'] ?? [];
 			$detail = is_array( $details ) && $details !== []
 				? (string)( $details[0] ?? '' )
