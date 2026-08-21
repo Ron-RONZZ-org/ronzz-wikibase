@@ -29,6 +29,17 @@ $wgNamespacesWithSubpages[NS_FOSS] = true; // FOSS:Name/fr static translations
 $wgContentNamespaces[] = NS_FOSS;
 $wgNamespacesToBeSearchedDefault[NS_FOSS] = true; // custom NS are NOT searched by default
 
+// ---- Wikibase client (same-wiki) — mirrors production LocalSettings ----
+// Without this the client hooks never run: {{#statements:}} renders nothing
+// and the wikibase_item page property is never set (issue #30 discovered
+// this in CI: Special:AddSoftware's page↔item mapping silently no-op'd).
+$wgEnableWikibaseClient = true;
+$wgWBRepoSettings['siteLinkGroups'] = [ 'ronzz' ];
+$wgWBClientSettings['siteGlobalID'] = 'wikibase';
+$wgWBClientSettings['siteLinkGroups'] = [ 'ronzz' ];
+$wgWBClientSettings['repoDatabase'] = false;
+$wgWBClientSettings['changesDatabase'] = false;
+
 if ( file_exists( __DIR__ . '/ronzz-wikibase-config.php' ) ) {
 	require_once __DIR__ . '/ronzz-wikibase-config.php';
 }
