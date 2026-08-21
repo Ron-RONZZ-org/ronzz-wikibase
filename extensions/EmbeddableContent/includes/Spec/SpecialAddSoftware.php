@@ -312,6 +312,12 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 				$this->getUser(),
 				EDIT_UPDATE
 			);
+			// ALSO write the sitelink table synchronously: the entity save's
+			// secondary data update (ItemHandler::saveLinksOfItem) may run
+			// deferred, and the finalize step's parse — which happens in the
+			// immediately-following request — reads the TABLE. Diff-based, so
+			// re-running it here is a harmless no-op when it already landed.
+			WikibaseRepo::getStore()->newSiteLinkStore()->saveLinksOfItem( $item );
 		}
 
 		if ( !$title->exists() ) {
