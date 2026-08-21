@@ -606,9 +606,10 @@ def main() -> int:
         r = api_call(op, api, {"action": "wbgetentities", "ids": software,
                                "props": "sitelinks", "format": "json"})
         sitelinks = r.get("entities", {}).get(software, {}).get("sitelinks", {})
-        assert any(sl.get("site") == "wikibase" and sl.get("title") == foss_page
-                   for sl in sitelinks.values()), \
-            f"{software} missing wikibase sitelink to {foss_page}"
+        if not any(sl.get("site") == "wikibase" and sl.get("title") == foss_page
+                   for sl in sitelinks.values()):
+            raise FlowError(f"{software} missing wikibase sitelink to {foss_page}; "
+                            f"actual sitelinks: {json.dumps(sitelinks)}")
         # Volatile facts come from the harvest — present for Flameshot, but
         # only a warning (not a failure) when the authority lacks them.
         website = first_value(claims, official_website)

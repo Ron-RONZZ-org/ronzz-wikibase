@@ -263,6 +263,21 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 				// still exists — surface the item instead of erroring.
 				return null;
 			}
+			// The page's save-time parse runs BEFORE this request's DB writes
+			// commit, so the client's sitelink lookup can miss the fresh link
+			// and leave the wikibase_item page property unset (the infobox
+			// would render empty). Re-save the page AFTER commit (deferred)
+			// so the parse deterministically maps the page to the item.
+			\DeferredUpdates::addCallableUpdate( static function () use ( $title, $content ) {
+				$page = \MediaWiki\MediaWikiServices::getInstance()
+					->getWikiPageFactory()->newFromTitle( $title );
+				$page->doUserEditContent(
+					$content,
+					\MediaWiki\User\User::newSystemUser( 'Maintenance script' ),
+					'Refreshing page–item link after sitelink creation',
+					EDIT_UPDATE | EDIT_MINOR
+				);
+			} );
 		}
 
 		return $title->getFullURL();
