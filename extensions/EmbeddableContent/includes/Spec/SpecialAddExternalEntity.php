@@ -397,6 +397,19 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		return $this->createOrSkipItem( $label, $classItemId, $specs, $record );
 	}
 
+	/**
+	 * Post-create hook: runs after the item is created (review and manual
+	 * paths), before the redirect. Subclasses may create linked pages or
+	 * sitelinks and return a redirect target URL; the default keeps the
+	 * item redirect.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return string|null redirect target URL, or null for the item redirect
+	 */
+	protected function afterCreate( string $itemId, array $record ): ?string {
+		return null;
+	}
+
 	// ------------------------------------------------------------- shared
 
 	/** @return array<int,array<string,mixed>>|null */
