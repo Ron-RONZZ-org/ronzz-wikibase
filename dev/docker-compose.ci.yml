@@ -32,6 +32,9 @@ services:
       MW_ADMIN_EMAIL: ${MW_ADMIN_EMAIL:-ci@example.org}
       MW_SITE_LANG: fr
       MW_WG_SERVER: http://wikibase
+      # Production parity: uploads enabled (the page-flow E2E's logo flow
+      # uploads a File via Special:AddSoftware/manual).
+      MW_WG_ENABLE_UPLOADS: "true"
       DB_SERVER: mysql:3306
       DB_USER: wikiuser
       DB_PASS: sqlpass

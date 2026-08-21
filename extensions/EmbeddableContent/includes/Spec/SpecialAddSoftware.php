@@ -588,10 +588,13 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 
 	/**
 	 * Runs verifyUpload + performUpload on a prepared UploadBase. Returns
-	 * the file title, or null on failure. Already-existing files are
-	 * returned as-is (idempotent re-runs).
+	 * the file title, or null when no logo was provided / already present.
+	 * A FAILED verification or upload throws — the caller (beforeCreate)
+	 * surfaces the reason in a warning box instead of silently dropping the
+	 * logo.
 	 *
 	 * @param array<string,mixed> $record
+	 * @throws \RuntimeException when the upload is rejected
 	 */
 	private function performLogoUpload( \MediaWiki\Upload\UploadBase $base, array $record ): ?\MediaWiki\Title\Title {
 		$title = $base->getTitle();
@@ -603,7 +606,10 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		}
 		$verify = $base->verifyUpload();
 		if ( !$verify->isOK() ) {
-			return null;
+			throw new \RuntimeException( 'verifyUpload: ' . implode( '; ', $verify->getErrorsArray() === []
+				? [ $verify->getMessage()->getParams()[0] ?? 'rejected' ]
+				: array_map( static fn ( $e ) => $e[0], $verify->getErrorsArray() )
+			) );
 		}
 		$label = $this->primaryLabel( $record );
 		$pageText = "Logo of {$label}, uploaded via Special:AddSoftware.";
@@ -613,7 +619,10 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 			false,
 			$this->getUser()
 		);
-		return $status->isOK() ? $title : null;
+		if ( !$status->isOK() ) {
+			throw new \RuntimeException( 'performUpload: ' . $status->getMessage()->getParams()[0] ?? 'rejected' );
+		}
+		return $title;
 	}
 
 	/** Default FOSS: page skeleton — prose lives on the page, facts in the item. */

@@ -418,8 +418,14 @@ def flow_software_logo(op, base: str, api: str, label: str, class_item: str) -> 
     })
     m = re.search(r"/wiki/(FOSS:[^?#]+)$", url)
     if not m:
+        # Diagnostics: surface the server-side logo-upload warning box, which
+        # carries the verifyUpload/performUpload reason (e.g. uploads
+        # disabled, MIME mismatch).
+        diag = re.sub(r"<[^>]+>", " ", body)
+        i = diag.find("Logo upload failed")
+        hint = " ".join(diag[max(0, i - 60):i + 220].split())[:260] if i >= 0 else find_error(body)
         raise FlowError(
-            f"AddSoftware/manual (logo) did not redirect to a FOSS page: {url} {find_error(body)}")
+            f"AddSoftware/manual (logo) did not redirect to a FOSS page: {url} {hint}")
     page_title = urllib.parse.unquote(m.group(1)).replace("_", " ")
 
     r = api_call(op, api, {"action": "query", "titles": page_title,
