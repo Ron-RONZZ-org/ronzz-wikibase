@@ -117,9 +117,13 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// noindex + article-related=false); the step handlers may then
 		// override the title for their specific screen.
 		$this->setHeaders();
-		// The search step performs server-side external fetches — anonymous
-		// users must not be able to trigger them (abuse/rate-limit surface).
-		$this->requireLogin();
+		// No requireLogin() here: the page LOAD performs no external fetches,
+		// and gating it excluded bot-password sessions — MediaWiki bot
+		// passwords are API-only by design (BotPasswordSessionProvider serves
+		// no non-API request), so an MCP/automation session could never view
+		// the forms. The abuse surface is the SEARCH SUBMIT (server-side
+		// external fetches) and the manual/review CREATION — those handlers
+		// enforce login (onSearchSubmit/onManualSubmit).
 		$this->getOutput()->enableOOUI();
 		$parts = explode( '/', trim( (string)$subPage ) );
 		$first = $parts[0] ?? '';
@@ -166,6 +170,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 * @return bool
 	 */
 	public function onSearchSubmit( array $data ) {
+		$loginError = $this->loginRequiredError();
+		if ( $loginError !== null ) {
+			return $loginError;
+		}
 		try {
 			$result = $this->search( $data );
 		} catch ( \Throwable $e ) {
@@ -309,6 +317,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			$value = is_array( $data[$name] ) ? '' : (string)$data[$name];
 			$record[$name] = ( $name === 'issuedYear' && $value !== '' ) ? (int)$value : $value;
 		}
+		$this->beforeCreate( $record );
 		if ( trim( $this->primaryLabel( $record ) ) === '' ) {
 			return $this->msg( 'embeddablecontent-add-error-required' )->text();
 		}
@@ -351,6 +360,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 * @return bool|string
 	 */
 	public function onManualSubmit( array $data ) {
+		$loginError = $this->loginRequiredError();
+		if ( $loginError !== null ) {
+			return $loginError;
+		}
 		$classItemId = (string)( $data['class'] ?? '' );
 		if ( $classItemId === '' ) {
 			return $this->msg( 'embeddablecontent-extselect-classrequired' )->text();
@@ -366,6 +379,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			}
 			$record[$name] = ( $name === 'issuedYear' ) ? (int)$value : $value;
 		}
+		$this->beforeCreate( $record );
 		$label = $this->primaryLabel( $record );
 		if ( $label === '' ) {
 			return $this->msg( 'embeddablecontent-add-error-required' )->text();
@@ -382,6 +396,17 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			$this->redirectToItem( $itemId );
 		}
 		return true;
+	}
+
+	/**
+	 * Runs after the record is assembled from the form, before the item is
+	 * created (review AND manual paths). Subclasses may upload files or
+	 * validate cross-field constraints by mutating $record (e.g.
+	 * Special:AddSoftware's logo upload writes $record['logoFileTitle']).
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function beforeCreate( array &$record ): void {
 	}
 
 	/**
@@ -411,6 +436,18 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	}
 
 	// ------------------------------------------------------------- shared
+
+	/**
+	 * Login gate for the write/abuse surfaces (search submit performs
+	 * server-side external fetches, manual submit creates items). Returns an
+	 * error message for anonymous/bot sessions, null when logged in. The
+	 * page LOADS are deliberately NOT gated (see execute()).
+	 */
+	private function loginRequiredError(): ?string {
+		return $this->getUser()->isAnon()
+			? $this->msg( 'embeddablecontent-extsearch-loginrequired' )->text()
+			: null;
+	}
 
 	/** @return array<int,array<string,mixed>>|null */
 	private function loadSessionRecords( string $token ): ?array {

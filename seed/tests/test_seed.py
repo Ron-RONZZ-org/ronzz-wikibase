@@ -89,6 +89,23 @@ class ManifestLoaderTest(unittest.TestCase):
         python = next(r for r in rows if r["lexer"] == "python")
         self.assertEqual(python["labels"]["en"], "Python")
 
+    def test_load_preseed_bundled(self):
+        # issue follow-up: preseed items for Special:AddSoftware comboboxes
+        # (operating systems, FOSS licenses, user interfaces) + their parent
+        # classes — each item must name a class that exists in classes.csv.
+        rows = manifest_loader.load_preseed(MANIFESTS / "preseed.csv")
+        self.assertTrue(rows)
+        class_labels = {r["labels"]["en"] for r in manifest_loader.load_classes(MANIFESTS / "classes.csv")}
+        for row in rows:
+            self.assert_trilingual(row, row["labels"]["en"])
+            self.assertIn(row["class_label"], class_labels,
+                          f'preseed class "{row["class_label"]}" missing from classes.csv')
+        labels = [r["labels"]["en"] for r in rows]
+        # the exact preseed contract Special:AddSoftware depends on
+        for expected in ["Linux", "Android", "Windows", "GNU AGPL-3.0", "MIT License",
+                         "GUI (graphical user interface)", "CLI (command-line interface)"]:
+            self.assertIn(expected, labels, f"preseed item {expected!r} missing")
+
     def test_manifest_languages(self):
         langs = manifest_loader.manifest_languages(MANIFESTS / "properties.csv")
         self.assertEqual(langs, ["fr", "en", "eo"])
@@ -179,7 +196,7 @@ class ConfigBuilderTest(unittest.TestCase):
                 "developer": "P33", "license": "P34", "operating system": "P35",
                 "official website": "P36", "source code repository": "P37",
                 "software version": "P38", "has use": "P39", "replaces": "P40",
-                "user interface": "P41",
+                "user interface": "P41", "documentation URL": "P42", "image": "P32",
             },
             class_ids={"free and open-source software": "Q16"},
             lexer_ids={},
@@ -197,6 +214,8 @@ class ConfigBuilderTest(unittest.TestCase):
         self.assertIn("'hasUse' => 'P39'", snippet)
         self.assertIn("'replaces' => 'P40'", snippet)
         self.assertIn("'userInterface' => 'P41'", snippet)
+        self.assertIn("'documentationUrl' => 'P42'", snippet)
+        self.assertIn("'image' => 'P32'", snippet)
 
     def test_report_lists_vocabulary(self):
         report = config_builder.build_report(
@@ -235,6 +254,7 @@ class SeedPhaseConfigTest(unittest.TestCase):
         self.orchestrator.class_ids = {"quotation content": "Q1"}
         self.orchestrator.lexer_ids = {"python": "Q57"}
         self.orchestrator.dogfood_ids = {"quotation": "Q87"}
+        self.orchestrator.preseed_ids = {"Linux": "Q300"}
         self.orchestrator.languages_available = ["fr", "en", "eo"]
 
     def test_emits_ids_json(self):
@@ -242,6 +262,7 @@ class SeedPhaseConfigTest(unittest.TestCase):
         ids = json.loads((Path(__file__).parent / "out" / "ids.json").read_text())
         self.assertEqual(ids["dogfood"]["quotation"], "Q87")
         self.assertEqual(ids["properties"]["instance of"], "P1")
+        self.assertEqual(ids["preseed"]["Linux"], "Q300")
 
 
 if __name__ == "__main__":

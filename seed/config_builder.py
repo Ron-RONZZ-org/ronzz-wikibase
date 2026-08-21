@@ -85,6 +85,8 @@ FOSS_PROPERTY_KINDS = {
     "has use": "hasUse",
     "replaces": "replaces",
     "user interface": "userInterface",
+    "documentation URL": "documentationUrl",
+    "image": "image",
 }
 
 # Issue #26: FOSS software class (Special:AddSoftware class picker).

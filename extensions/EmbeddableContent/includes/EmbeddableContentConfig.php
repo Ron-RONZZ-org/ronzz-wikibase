@@ -198,7 +198,8 @@ class EmbeddableContentConfig {
 	public function fossPropertyIds(): array {
 		return $this->requireStringMap( 'fossProperties', [
 			'developer', 'license', 'operatingSystem', 'officialWebsite',
-			'sourceRepository', 'softwareVersion', 'hasUse', 'replaces', 'userInterface',
+			'sourceRepository', 'softwareVersion', 'hasUse', 'replaces',
+			'userInterface', 'documentationUrl', 'image',
 		] );
 	}
 

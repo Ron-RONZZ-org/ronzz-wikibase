@@ -57,6 +57,7 @@ class SeedOrchestrator:
         self.properties: list[dict[str, Any]] = []
         self.classes: list[dict[str, Any]] = []
         self.languages: list[dict[str, Any]] = []
+        self.preseed: list[dict[str, Any]] = []
         self.lang = args.lang or ""
         self.languages_available: list[str] = []
         # resolved id maps, keyed by en label / lexer / dogfood kind
@@ -64,6 +65,7 @@ class SeedOrchestrator:
         self.class_ids: dict[str, str] = {}
         self.lexer_ids: dict[str, str] = {}
         self.dogfood_ids: dict[str, str] = {}
+        self.preseed_ids: dict[str, str] = {}
 
     # ------------------------------------------------------------ manifests
 
@@ -78,10 +80,13 @@ class SeedOrchestrator:
         self.properties = manifest_loader.load_properties(props_path)
         self.classes = manifest_loader.load_classes(classes_path)
         self.languages = manifest_loader.load_languages(langs_path) if langs_path.exists() else []
+        preseed_path = manifests / "preseed.csv"
+        self.preseed = manifest_loader.load_preseed(preseed_path) if preseed_path.exists() else []
         self.languages_available = manifest_loader.manifest_languages(props_path)
         self.lang = self.args.lang or self.languages_available[0]
         print(f"manifests: {len(self.properties)} properties, {len(self.classes)} classes, "
-              f"{len(self.languages)} languages (primary language: {self.lang})")
+              f"{len(self.languages)} languages, {len(self.preseed)} preseed items "
+              f"(primary language: {self.lang})")
 
     # ------------------------------------------------------------- helpers
 
@@ -228,6 +233,44 @@ class SeedOrchestrator:
                 )
             if claims:
                 self.api.add_claims(entity_id, claims, SUMMARY_PREFIX + "classify language item")
+
+    def phase_preseed(self) -> None:
+        """Creates the preseed items (common operating systems, FOSS
+        licenses, user interfaces) that Special:AddSoftware's entity
+        comboboxes reference — each classified `instance of` its manifest
+        class (operating system / software license / user interface).
+        Idempotent: exact-en-label skip, same contract as every phase."""
+        print(f"— preseed items ({len(self.preseed)})")
+        instance_of_id = self.find("instance of", "property", ANCHOR_LANGUAGE)
+        if self.args.dry_run:
+            for row in self.preseed:
+                print(f"  [dry-run] create {row['labels'][ANCHOR_LANGUAGE]} "
+                      f"(instance of {row['class_label']})")
+            return
+
+        for row in self.preseed:
+            label = row["labels"][ANCHOR_LANGUAGE]
+            existing = self.find(label, "item", ANCHOR_LANGUAGE)
+            if existing:
+                self.preseed_ids[label] = existing
+                print(f"  skip {label} ({existing})")
+                continue
+            if self.args.dry_run:
+                print(f"  [dry-run] create {label}")
+                continue
+            entity_id = self.api.create_item(
+                row["labels"], row["descriptions"], SUMMARY_PREFIX + "create preseed item"
+            )
+            self.preseed_ids[label] = entity_id
+            print(f"  created {label} ({entity_id})")
+
+            class_id = self.class_ids.get(row["class_label"])
+            if instance_of_id and class_id:
+                self.api.add_claims(
+                    entity_id,
+                    {instance_of_id: [dogfood.entity_claim(instance_of_id, class_id)]},
+                    SUMMARY_PREFIX + "classify preseed item",
+                )
 
     def phase_dogfood(self) -> None:
         print("— dogfood entities")
@@ -381,6 +424,7 @@ class SeedOrchestrator:
                     "classes": self.class_ids,
                     "languages": self.lexer_ids,
                     "dogfood": self.dogfood_ids,
+                    "preseed": self.preseed_ids,
                 },
                 indent=2,
                 sort_keys=True,
@@ -425,6 +469,7 @@ class SeedOrchestrator:
         self.run_phase("properties")
         self.run_phase("classes")
         self.run_phase("languages")
+        self.run_phase("preseed")
         self.run_phase("dogfood")
         self.run_phase("config")
         self.run_phase("verify")
@@ -445,7 +490,7 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--only",
         default="",
-        help="comma-separated phases: properties,classes,languages,dogfood,config,verify",
+        help="comma-separated phases: properties,classes,languages,preseed,dogfood,config,verify",
     )
     parser.add_argument("--dry-run", action="store_true", help="plan only, no writes")
     parser.add_argument("--config-out", type=Path, default=DEFAULT_CONFIG_OUT)

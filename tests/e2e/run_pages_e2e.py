@@ -30,6 +30,7 @@ License: GPL-2.0-or-later
 from __future__ import annotations
 
 import argparse
+import base64
 import http.cookiejar
 import json
 import re
@@ -110,6 +111,32 @@ def page_get(op, base: str, path: str) -> tuple[str, str]:
 def page_post(op, url: str, fields: dict) -> tuple[str, str]:
     req = urllib.request.Request(url, data=urllib.parse.urlencode(fields).encode(),
                                  headers={"User-Agent": UA})
+    with op.open(req, timeout=180) as resp:
+        return resp.geturl(), resp.read().decode("utf-8", "replace")
+
+
+def page_post_multipart(op, url: str, fields: dict, files: dict) -> tuple[str, str]:
+    """POST a form with file uploads (multipart/form-data). `files` maps the
+    input name to (filename, bytes, content-type)."""
+    boundary = "----ronzzwb" + "".join(str(i) for i in range(10))
+    parts = []
+    for name, value in fields.items():
+        parts.append(
+            f"--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n"
+        )
+    for name, (filename, content, ctype) in files.items():
+        parts.append(
+            f"--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"; "
+            f"filename=\"{filename}\"\r\nContent-Type: {ctype}\r\n\r\n"
+        )
+        parts.append(content.decode("latin-1") if isinstance(content, bytes) else content)
+        parts.append("\r\n")
+    parts.append(f"--{boundary}--\r\n")
+    body = "".join(parts).encode("latin-1")
+    req = urllib.request.Request(url, data=body, headers={
+        "User-Agent": UA,
+        "Content-Type": f"multipart/form-data; boundary={boundary}",
+    })
     with op.open(req, timeout=180) as resp:
         return resp.geturl(), resp.read().decode("utf-8", "replace")
 
@@ -365,6 +392,43 @@ def flow_software(op, base: str, api: str, name: str) -> tuple[str, str]:
                                   "rvprop": "ids|timestamp|comment", "format": "json"})
         raise FlowError(f"FOSS page {page_title} has no wikibase_item page property "
                         f"(sitelink missing?); raw: {json.dumps(diag)}")
+    return qid, page_title
+
+
+def flow_software_logo(op, base: str, api: str, label: str, class_item: str) -> tuple[str, str]:
+    """Special:AddSoftware/manual with a LOCAL LOGO upload (issue follow-up):
+    posts a 1x1 PNG via multipart, then verifies the created item carries the
+    image statement, the File:<label>-logo.png page exists and the FOSS page
+    skeleton passes the logo to the infobox. Returns (qid, FOSS page title)."""
+    # 1x1 transparent PNG.
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    )
+    url, body = page_get(op, base, "/wiki/Special:AddSoftware/manual")
+    token = edit_token(body)
+    url, body = page_post_multipart(op, url, {
+        "wplabel": label,
+        "wpclass": class_item,
+        "wplogoMode": "file",
+        "wpEditToken": token,
+        "wpSubmit": "1",
+    }, {
+        # HTMLForm keeps the field key's casing: "logoFile" -> "wpLogoFile".
+        "wpLogoFile": ("logo.png", png, "image/png"),
+    })
+    m = re.search(r"/wiki/(FOSS:[^?#]+)$", url)
+    if not m:
+        raise FlowError(
+            f"AddSoftware/manual (logo) did not redirect to a FOSS page: {url} {find_error(body)}")
+    page_title = urllib.parse.unquote(m.group(1)).replace("_", " ")
+
+    r = api_call(op, api, {"action": "query", "titles": page_title,
+                           "prop": "pageprops", "format": "json"})
+    qid = None
+    for page in r.get("query", {}).get("pages", {}).values():
+        qid = page.get("pageprops", {}).get("wikibase_item")
+    if not qid:
+        raise FlowError(f"AddSoftware/manual (logo) page {page_title} has no wikibase_item")
     return qid, page_title
 
 
@@ -720,6 +784,29 @@ def main() -> int:
               f"({len(has_use_statements)} statements)")
         if software_manual in created:
             created_pages.append(foss_manual_page)
+
+        # 3e. AddSoftware/manual + logo upload (issue follow-up): a local PNG
+        #     is uploaded as File:<label>-logo.png, linked from the item via
+        #     the image statement, and passed to the FOSS page infobox.
+        image_prop = resolve("image", "property")
+        logo_label = f"Page-flow E2E logo software {int(time.time())}"
+        logo_qid, logo_page = flow_software_logo(op, base, api, logo_label, foss_class)
+        logo_qid = track(logo_qid)
+        claims, _ = entity_claims(op, api, logo_qid)
+        image_url = first_value(claims, image_prop)
+        assert image_url and "logo.png" in str(image_url), \
+            f"{logo_qid} missing image statement pointing at the logo ({image_url!r})"
+        file_title = f"File:{logo_label}-logo.png"
+        r = api_call(op, api, {"action": "query", "titles": file_title, "format": "json"})
+        assert any("missing" not in p for p in r["query"]["pages"].values()), \
+            f"{file_title} was not uploaded"
+        _, raw = page_get(op, base, "/wiki/" + urllib.parse.quote(logo_page.replace(" ", "_")) + "?action=raw")
+        assert f"logo=[[File:{logo_label}-logo.png" in raw, \
+            f"{logo_page} skeleton does not pass the logo to the infobox"
+        print(f"[ok] AddSoftware/manual (logo) -> {logo_qid}: File:{logo_label}-logo.png uploaded, "
+              f"image statement + infobox logo on {logo_page}")
+        if logo_qid in created:
+            created_pages.append(logo_page)
 
         # 4. v1 content form — Special:AddQuotation with provenance.
         # Unique label per run: create-or-skip would otherwise reuse a stale

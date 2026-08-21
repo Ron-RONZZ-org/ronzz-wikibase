@@ -29,8 +29,14 @@ use Wikibase\Repo\WikibaseRepo;
  * the review step. Each of these fields accepts SEVERAL item ids
  * (comma-separated, e.g. "Q5, Q179"): a software usually has more than one
  * developer, operating system or license, so one statement is written per
- * id. URL/string facts (website, source repository, version) are written
- * directly from the corrected record.
+ * id. Programming language is the exception: it reuses the AddCodeSnippet
+ * lexer combobox (typeable, options from the configured lexers) instead of
+ * free item ids. URL/string facts (website, source repository,
+ * documentation, logo) are written directly from the corrected record.
+ *
+ * The optional logo is uploaded to File:<Name>-logo.<ext> (local file or
+ * paste URL), linked from the item via the `image` statement and rendered
+ * inside the FOSS: page's infobox (Template:FOSS logo parameter).
  *
  * @license GPL-2.0-or-later
  */
@@ -39,11 +45,29 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 	/**
 	 * Item-typed FOSS facts written as entity values; each field is an
 	 * entity combobox referencing existing local items, accepting several
-	 * comma-separated item ids (one statement per id).
+	 * comma-separated item ids (one statement per id). programmingLanguage
+	 * is NOT here — it is a lexer combobox (see reviewFieldSpecs).
 	 */
 	private const FOSS_ENTITY_FIELDS = [
-		'developer', 'license', 'operatingSystem', 'programmingLanguage',
-		'userInterface', 'hasUse',
+		'developer', 'license', 'operatingSystem', 'userInterface', 'hasUse',
+	];
+
+	/**
+	 * Harvested programming-language LABELS ("C++", "C#") → the configured
+	 * Pygments-style lexer key ("cpp", "csharp") — the Wikidata harvest
+	 * returns display names, the lexer combobox keys are lowercase.
+	 */
+	private const LEXER_ALIASES = [
+		'c++' => 'cpp',
+		'c#' => 'csharp',
+		'f#' => 'fsharp',
+		'shell' => 'sh',
+		'javascript' => 'js',
+		'typescript' => 'ts',
+		'objective-c' => 'objc',
+		'html5' => 'html',
+		'c++11' => 'cpp',
+		'python3' => 'python',
 	];
 
 	public function __construct(
@@ -187,10 +211,12 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 					'default' => (string)( $record['sourceRepository'] ?? '' ),
 					'maxlength' => 250,
 				],
-				'softwareVersion' => $this->plainTextField(
-					'embeddablecontent-field-softwareversion',
-					(string)( $record['latestVersion'] ?? '' )
-				),
+				'documentationUrl' => [
+					'type' => 'url',
+					'label-message' => 'embeddablecontent-field-documentationurl',
+					'default' => (string)( $record['documentationUrl'] ?? '' ),
+					'maxlength' => 250,
+				],
 			];
 
 		foreach ( self::FOSS_ENTITY_FIELDS as $field ) {
@@ -217,6 +243,49 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 					: 'embeddablecontent-entityid-multiple-hint'
 				)->parse();
 		}
+
+		// Programming language: the same typeable lexer combobox as
+		// Special:AddCodeSnippet (options = configured lexers) — a picker
+		// beats free item ids, and the instance's 80+ language items are
+		// exactly the lexer set.
+		$lexers = [];
+		foreach ( array_keys( $this->config->lexerItemIds() ) as $lexer ) {
+			$lexers[$lexer] = $lexer;
+		}
+		$harvested = (string)( $record['programmingLanguage'] ?? '' );
+		$fields['programmingLanguage'] = [
+			'type' => 'combobox',
+			'options' => $lexers,
+			'label-message' => 'embeddablecontent-field-programmingLanguage',
+		];
+		if ( $harvested !== '' ) {
+			$fields['programmingLanguage']['help'] = htmlspecialchars(
+				$this->msg( 'embeddablecontent-software-field-harvested', $harvested )->text()
+			);
+		}
+
+		// Logo (optional): local file upload OR pasted URL, toggled by
+		// logoMode; the file is uploaded on create as File:<Name>-logo.<ext>.
+		$fields['logoMode'] = [
+			'type' => 'radio',
+			'label-message' => 'embeddablecontent-software-logo-mode',
+			'options-messages' => [
+				'embeddablecontent-software-logo-mode-file' => 'file',
+				'embeddablecontent-software-logo-mode-url' => 'url',
+			],
+			'default' => 'file',
+		];
+		$fields['logoFile'] = [
+			'type' => 'file',
+			'label-message' => 'embeddablecontent-software-logo-file',
+			'hide-if' => [ '===', 'logoMode', 'url' ],
+		];
+		$fields['logoUrl'] = [
+			'type' => 'url',
+			'label-message' => 'embeddablecontent-software-logo-url',
+			'maxlength' => 500,
+			'hide-if' => [ '===', 'logoMode', 'file' ],
+		];
 		return $fields;
 	}
 
@@ -237,8 +306,10 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 
 	/**
 	 * FOSS statement specs from a (harvested or hand-entered) record:
-	 * website/repository as validated URLs, version as string, and the
-	 * item-typed facts as entity values referencing existing local items.
+	 * website/repository/documentation as validated URLs, programming
+	 * language as the lexer item, the logo file as an `image` statement,
+	 * and the item-typed facts as entity values referencing existing local
+	 * items.
 	 *
 	 * @param array<string,mixed> $record
 	 * @return array<string,\Wikibase\DataModel\DataValue> property id => DataValue
@@ -257,11 +328,29 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		if ( $repository !== null ) {
 			$specs[$this->config->fossPropertyIds()['sourceRepository']] = new StringValue( $repository );
 		}
+		$documentation = $sanitizer->validateUrl( (string)( $record['documentationUrl'] ?? '' ) );
+		if ( $documentation !== null ) {
+			$specs[$this->config->fossPropertyIds()['documentationUrl']] = new StringValue( $documentation );
+		}
 
-		// Version string.
-		$version = trim( (string)( $record['softwareVersion'] ?? '' ) );
-		if ( $version !== '' ) {
-			$specs[$this->config->fossPropertyIds()['softwareVersion']] = new StringValue( $version );
+		// Logo: the uploaded File:<Name>-logo.<ext> page URL (uploaded in
+		// beforeCreate, which sets $record['logoFileTitle']).
+		if ( !empty( $record['logoFileTitle'] ) ) {
+			$fileTitle = \MediaWiki\Title\Title::makeTitle( NS_FILE, (string)$record['logoFileTitle'] );
+			if ( $fileTitle !== null ) {
+				$specs[$this->config->fossPropertyIds()['image']] = new StringValue( $fileTitle->getFullURL() );
+			}
+		}
+
+		// Programming language: lexer combobox value (Pygments-style name)
+		// → the configured lexer item. The harvested value is a display label
+		// ("C++") — alias-map it to the lexer key; unknown names are dropped
+		// (the combobox restricts to configured lexers).
+		$lexer = strtolower( trim( (string)( $record['programmingLanguage'] ?? '' ) ) );
+		$lexer = self::LEXER_ALIASES[$lexer] ?? $lexer;
+		if ( $lexer !== '' && isset( $this->config->lexerItemIds()[$lexer] ) ) {
+			$specs[$this->config->programmingLanguagePropertyId()][] =
+				new EntityIdValue( new ItemId( $this->config->lexerItemIds()[$lexer] ) );
 		}
 
 		// Item-typed facts: entity combobox values (existing local items).
@@ -272,12 +361,8 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 			if ( $itemIds === [] ) {
 				continue;
 			}
-			$propertyId = $field === 'programmingLanguage'
-				// P5 doubles as the FOSS programming-language property.
-				? $this->config->programmingLanguagePropertyId()
-				: $this->config->fossPropertyIds()[$field];
 			foreach ( $itemIds as $itemId ) {
-				$specs[$propertyId][] = new EntityIdValue( $itemId );
+				$specs[$this->config->fossPropertyIds()[$field]][] = new EntityIdValue( $itemId );
 			}
 		}
 
@@ -346,7 +431,9 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 			// below routes through Special:AddSoftware/complete/<id>, which
 			// re-saves the page in a FRESH request (committed sitelink,
 			// empty cache) and removes the marker.
-			$content = new \MediaWiki\Content\WikitextContent( self::pageSkeleton( true ) );
+			$content = new \MediaWiki\Content\WikitextContent(
+				self::pageSkeleton( true, (string)( $record['logoFileTitle'] ?? '' ) )
+			);
 			$status = $page->doUserEditContent(
 				$content,
 				$this->getUser(),
@@ -370,10 +457,174 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 	/** Marker left in the first page revision, removed by the finalize step. */
 	private const PENDING_MARKER = '__FOSS_LINK_PENDING__';
 
+	/** Logo formats accepted for upload (raster + svg). */
+	private const LOGO_EXTENSIONS = [ 'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg' ];
+
+	/**
+	 * Uploads the optional logo (local file or pasted URL, per the logoMode
+	 * toggle) as File:<Label>-logo.<ext> and records the file title in
+	 * $record['logoFileTitle'] for the image statement and the FOSS: page
+	 * skeleton. Idempotent: an already-uploaded file is left alone. A logo
+	 * failure never blocks the item creation — a warning is shown instead.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function beforeCreate( array &$record ): void {
+		$mode = (string)( $record['logoMode'] ?? 'file' );
+		$title = null;
+		try {
+			if ( $mode === 'url' ) {
+				$url = ( new FragmentSanitizer() )->validateUrl( (string)( $record['logoUrl'] ?? '' ) );
+				if ( $url !== null ) {
+					$title = $this->uploadLogoFromUrl( $url, $record );
+				}
+			} else {
+				$title = $this->uploadLogoFromRequest( $record );
+			}
+		} catch ( \Throwable $e ) {
+			$this->getOutput()->addHTML(
+				\MediaWiki\Html\Html::warningBox(
+					htmlspecialchars( $this->msg( 'embeddablecontent-software-logo-error', $e->getMessage() )->text() )
+				)
+			);
+			return;
+		}
+		if ( $title !== null ) {
+			$record['logoFileTitle'] = $title->getDBkey();
+		}
+	}
+
+	/**
+	 * Local-file logo upload (logoMode=file). Returns the file title, or
+	 * null when no file was provided.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function uploadLogoFromRequest( array $record ): ?\MediaWiki\Title\Title {
+		$request = $this->getRequest();
+		$upload = $request->getFileUpload( 'wpLogoFile' );
+		if ( !$upload instanceof \MediaWiki\Request\WebRequestUpload
+			|| $upload->getSize() <= 0 || $upload->getTempName() === ''
+		) {
+			return null;
+		}
+		$tempPath = $upload->getTempName();
+		$mime = \MediaWiki\MediaWikiServices::getInstance()
+			->getMimeAnalyzer()->guessMimeType( $tempPath, false );
+		$destName = $this->logoDestName( $record, $upload->getName(), $mime );
+		if ( $destName === '' ) {
+			return null;
+		}
+		$base = new \MediaWiki\Upload\UploadFromFile();
+		$base->initializePathInfo( $destName, $tempPath, $upload->getSize() );
+		return $this->performLogoUpload( $base, $record );
+	}
+
+	/**
+	 * Paste-URL logo upload (logoMode=url) — goes through UploadFromUrl so
+	 * the instance's SSRF guards (IsUploadAllowedFromUrl) apply.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function uploadLogoFromUrl( string $url, array $record ): ?\MediaWiki\Title\Title {
+		if ( !\MediaWiki\Upload\UploadFromUrl::isAllowed( $this->getUser() ) ) {
+			return null;
+		}
+		$path = parse_url( $url, PHP_URL_PATH );
+		$name = $path !== false && $path !== null && $path !== '' ? basename( $path ) : 'logo';
+		$mime = $this->mimeFromUrl( $url );
+		$destName = $this->logoDestName( $record, $name, $mime );
+		if ( $destName === '' ) {
+			return null;
+		}
+		$base = new \MediaWiki\Upload\UploadFromUrl();
+		$base->initialize( $destName, $url );
+		$tempPath = $base->getTempPath();
+		if ( $tempPath === '' || !is_file( $tempPath ) ) {
+			return null;
+		}
+		return $this->performLogoUpload( $base, $record );
+	}
+
+	/**
+	 * Best-effort remote MIME probe (HEAD) for URL-mode logos; '' when the
+	 * probe fails (the destination-name fallback extension applies).
+	 */
+	private function mimeFromUrl( string $url ): string {
+		try {
+			$http = \MediaWiki\MediaWikiServices::getInstance()->getHttpRequestFactory()
+				->create( $url, [], __METHOD__ );
+			$http->execute();
+			return (string)$http->getResponseHeader( 'Content-Type' );
+		} catch ( \Throwable $e ) {
+			return '';
+		}
+	}
+
+	/**
+	 * Computes the destination file name "<label>-logo.<ext>": the extension
+	 * comes from the original name, restricted to the logo whitelist, with a
+	 * fallback to the MIME type's canonical extension. Returns '' when the
+	 * format is unsupported or the label is unusable.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function logoDestName( array $record, string $originalName, string $mime ): string {
+		$ext = strtolower( (string)pathinfo( $originalName, PATHINFO_EXTENSION ) );
+		if ( !in_array( $ext, self::LOGO_EXTENSIONS, true ) ) {
+			$ext = strtolower( (string)\MediaWiki\MediaWikiServices::getInstance()
+				->getMimeAnalyzer()->getExtensionFromMimeTypeOrNull( $mime ) );
+		}
+		if ( !in_array( $ext, self::LOGO_EXTENSIONS, true ) ) {
+			return '';
+		}
+		$label = (string)preg_replace( '/[#<>\[\]|{}:]/', '', trim( $this->primaryLabel( $record ) ) );
+		$label = trim( (string)preg_replace( '/\s+/', ' ', $label ) );
+		if ( $label === '' ) {
+			return '';
+		}
+		return "{$label}-logo.{$ext}";
+	}
+
+	/**
+	 * Runs verifyUpload + performUpload on a prepared UploadBase. Returns
+	 * the file title, or null on failure. Already-existing files are
+	 * returned as-is (idempotent re-runs).
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function performLogoUpload( \MediaWiki\Upload\UploadBase $base, array $record ): ?\MediaWiki\Title\Title {
+		$title = $base->getTitle();
+		if ( $title === null ) {
+			return null;
+		}
+		if ( $title->exists() ) {
+			return $title; // idempotent: already uploaded on an earlier run
+		}
+		$verify = $base->verifyUpload();
+		if ( !$verify->isOK() ) {
+			return null;
+		}
+		$label = $this->primaryLabel( $record );
+		$pageText = "Logo of {$label}, uploaded via Special:AddSoftware.";
+		$status = $base->performUpload(
+			$this->msg( 'embeddablecontent-software-logo-edit-summary', $label )->inContentLanguage()->text(),
+			$pageText,
+			false,
+			$this->getUser()
+		);
+		return $status->isOK() ? $title : null;
+	}
+
 	/** Default FOSS: page skeleton — prose lives on the page, facts in the item. */
-	private static function pageSkeleton( bool $withMarker = false ): string {
+	private static function pageSkeleton( bool $withMarker = false, string $logoFile = '' ): string {
 		$marker = $withMarker ? "\n<!-- " . self::PENDING_MARKER . " -->\n" : "";
-		return "{{FOSS}}\n\n== Overview ==\n\n<!-- What this software does and who it is for. -->\n\n"
+		// The logo (when uploaded) is passed to Template:FOSS, which hands it
+		// to the infobox so it renders inside the box (see Template:FOSS).
+		$logoParam = $logoFile !== ''
+			? '|logo=[[File:' . $logoFile . '|frameless|220px|Logo]]'
+			: '';
+		return "{{FOSS{$logoParam}}}\n\n== Overview ==\n\n<!-- What this software does and who it is for. -->\n\n"
 			. "== Features ==\n\n== Alternatives ==\n\n== See also ==\n" . $marker;
 	}
 

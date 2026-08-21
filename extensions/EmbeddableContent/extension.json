@@ -128,7 +128,8 @@
 				"embed.css"
 			],
 			"dependencies": [
-				"ext.embeddableContent.katex"
+				"ext.embeddableContent.katex",
+				"oojs-ui"
 			],
 			"messages": [
 				"embeddablecontent-add-math-preview"

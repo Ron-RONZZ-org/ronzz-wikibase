@@ -100,6 +100,33 @@ def load_languages(path: str | Path) -> list[dict[str, Any]]:
     return result
 
 
+def load_preseed(path: str | Path) -> list[dict[str, Any]]:
+    """Loads the preseed items manifest (issue follow-up: common operating
+    systems, FOSS licenses and user interfaces for Special:AddSoftware).
+    Each row names the class (by English label) the item is an instance of."""
+    rows = _read_rows(path)
+    result = []
+    seen = set()
+    for index, row in enumerate(rows, start=2):
+        class_label = row.get("class.en", "").strip()
+        if not class_label:
+            raise ManifestError(f"{path} line {index}: empty class.en")
+        label = row.get("label.en", "").strip()
+        if not label:
+            raise ManifestError(f"{path} line {index}: empty label.en")
+        if label in seen:
+            raise ManifestError(f"{path} line {index}: duplicate preseed item {label!r}")
+        seen.add(label)
+        result.append(
+            {
+                "class_label": class_label,
+                "labels": _terms(row, "label"),
+                "descriptions": _terms(row, "description"),
+            }
+        )
+    return result
+
+
 # ------------------------------------------------------------- internals
 
 

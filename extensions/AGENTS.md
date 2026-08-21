@@ -31,7 +31,20 @@ extensions — never forks of Wikibase.
   `AddCollective` (login-gated, search → select → review → create, manual
   fallback, detailed candidates incl. descriptions + a "see record details"
   link to the canonical authority page; `Special:AddSource` also searches by
-  author — free-text name or Wikidata Q-ids via a mode toggle).
+  author — free-text name or Wikidata Q-ids via a mode toggle). Page LOADS
+  are not login-gated (bot-password sessions are API-only by MW design) —
+  the search/manual SUBMIT handlers enforce login (the external-fetch /
+  item-creation abuse surface).
+- **Special:AddSoftware (issue #26)**: FOSS item + `FOSS:` page + sitelink;
+  entity-combobox facts (developer/license/OS/user-interface/has-use,
+  multi-value), programming language via the shared lexer combobox,
+  validated URL facts (website, repository, documentation URL), optional
+  logo upload (local file or pasted URL → `File:<Name>-logo.<ext>`, `image`
+  statement + rendered in the FOSS infobox), `beforeCreate` hook on the
+  base class for pre-creation side effects. Preseeded vocabulary
+  (`manifests/preseed.csv` + seed `preseed` phase): common operating
+  systems, FOSS licenses and user interfaces classified under their parent
+  classes.
 - **Entity-page toolbar gadget** (copy embed with absolute URL + language
   selector / copy citation) and entity-combobox autocomplete.
 
