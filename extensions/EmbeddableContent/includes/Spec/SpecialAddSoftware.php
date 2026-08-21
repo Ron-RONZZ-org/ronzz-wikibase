@@ -261,7 +261,13 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		if ( !$title->exists() ) {
 			$page = \MediaWiki\MediaWikiServices::getInstance()
 				->getWikiPageFactory()->newFromTitle( $title );
-			$content = new \MediaWiki\Content\WikitextContent( self::pageSkeleton() );
+			// Revision 1 carries a marker: the save-time parse runs before
+			// this request's sitelink write is durably visible on the read
+			// connection, so it cannot set the wikibase_item page property.
+			// A post-commit edit (below) removes the marker — a REAL content
+			// change, so a fresh revision is created and the re-parse maps
+			// the page to the item deterministically.
+			$content = new \MediaWiki\Content\WikitextContent( self::pageSkeleton( true ) );
 			$status = $page->doUserEditContent(
 				$content,
 				$this->getUser(),
@@ -273,18 +279,14 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 				// still exists — surface the item instead of erroring.
 				return null;
 			}
-			// The page's save-time parse runs BEFORE this request's DB writes
-			// commit, so the client's sitelink lookup can miss the fresh link
-			// and leave the wikibase_item page property unset (the infobox
-			// would render empty). Re-save the page AFTER commit (deferred)
-			// so the parse deterministically maps the page to the item.
-			\DeferredUpdates::addCallableUpdate( static function () use ( $title, $content ) {
+			\DeferredUpdates::addCallableUpdate( static function () use ( $title, $label ) {
 				$page = \MediaWiki\MediaWikiServices::getInstance()
 					->getWikiPageFactory()->newFromTitle( $title );
+				$final = new \MediaWiki\Content\WikitextContent( self::pageSkeleton( false ) );
 				$page->doUserEditContent(
-					$content,
+					$final,
 					\MediaWiki\User\User::newSystemUser( 'Maintenance script' ),
-					'Refreshing page–item link after sitelink creation',
+					'Completing the page–item link',
 					EDIT_UPDATE | EDIT_MINOR
 				);
 			} );
@@ -294,9 +296,10 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 	}
 
 	/** Default FOSS: page skeleton — prose lives on the page, facts in the item. */
-	private static function pageSkeleton(): string {
+	private static function pageSkeleton( bool $withMarker = false ): string {
+		$marker = $withMarker ? "\n<!-- __FOSS_LINK_PENDING__ -->\n" : "";
 		return "{{FOSS}}\n\n== Overview ==\n\n<!-- What this software does and who it is for. -->\n\n"
-			. "== Features ==\n\n== Alternatives ==\n\n== See also ==\n";
+			. "== Features ==\n\n== Alternatives ==\n\n== See also ==\n" . $marker;
 	}
 
 	protected function classOptions(): array {
