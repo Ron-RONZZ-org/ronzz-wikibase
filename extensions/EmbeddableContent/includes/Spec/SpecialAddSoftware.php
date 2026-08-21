@@ -238,11 +238,13 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		// Sitelink the page ↔ item FIRST: the page's save-time parse must
 		// find the link or its wikibase_item page property stays stale
 		// ("unexpectedUnconnectedPage") and the infobox renders empty.
+		// Page names are stored WITH SPACES (getItemIdForLink normalizes
+		// underscores away) — getPrefixedDBkey() would be a silent mismatch.
 		// Guard: on create-or-skip reuse the item may already carry the link
 		// — never rewrite existing sitelink state.
 		$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
 		if ( $item instanceof Item && !$item->getSiteLinkList()->hasLinkWithSiteId( 'wikibase' ) ) {
-			$item->getSiteLinkList()->setNewSiteLink( 'wikibase', $title->getPrefixedDBkey() );
+			$item->getSiteLinkList()->setNewSiteLink( 'wikibase', $title->getPrefixedText() );
 			WikibaseRepo::getStore()->newSiteLinkStore()->saveLinksOfItem( $item );
 		}
 
