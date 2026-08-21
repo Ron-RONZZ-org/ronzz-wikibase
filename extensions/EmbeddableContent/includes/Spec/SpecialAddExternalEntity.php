@@ -317,7 +317,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			$value = is_array( $data[$name] ) ? '' : (string)$data[$name];
 			$record[$name] = ( $name === 'issuedYear' && $value !== '' ) ? (int)$value : $value;
 		}
-		$this->beforeCreate( $record );
+		$beforeError = $this->beforeCreate( $record );
+		if ( $beforeError !== null ) {
+			return $beforeError;
+		}
 		if ( trim( $this->primaryLabel( $record ) ) === '' ) {
 			return $this->msg( 'embeddablecontent-add-error-required' )->text();
 		}
@@ -379,9 +382,12 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			}
 			$record[$name] = ( $name === 'issuedYear' ) ? (int)$value : $value;
 		}
-		$this->beforeCreate( $record );
+		$beforeError = $this->beforeCreate( $record );
+		if ( $beforeError !== null ) {
+			return $beforeError;
+		}
 		$label = $this->primaryLabel( $record );
-		if ( $label === '' ) {
+		if ( trim( $label ) === '' ) {
 			return $this->msg( 'embeddablecontent-add-error-required' )->text();
 		}
 		try {
@@ -403,10 +409,15 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 * created (review AND manual paths). Subclasses may upload files or
 	 * validate cross-field constraints by mutating $record (e.g.
 	 * Special:AddSoftware's logo upload writes $record['logoFileTitle']).
+	 * Returning a non-null string ABORTS the creation and shows it as a
+	 * form error — a failure to honour a field the user filled in must never
+	 * be silently swallowed.
 	 *
 	 * @param array<string,mixed> $record
+	 * @return string|null error message, or null to proceed
 	 */
-	protected function beforeCreate( array &$record ): void {
+	protected function beforeCreate( array &$record ): ?string {
+		return null;
 	}
 
 	/**

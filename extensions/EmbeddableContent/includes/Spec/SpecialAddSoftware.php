@@ -464,34 +464,42 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 	 * Uploads the optional logo (local file or pasted URL, per the logoMode
 	 * toggle) as File:<Label>-logo.<ext> and records the file title in
 	 * $record['logoFileTitle'] for the image statement and the FOSS: page
-	 * skeleton. Idempotent: an already-uploaded file is left alone. A logo
-	 * failure never blocks the item creation — a warning is shown instead.
+	 * skeleton. Idempotent: an already-uploaded file is left alone. When the
+	 * user PROVIDED a logo that cannot be uploaded, returns an error message
+	 * (aborting the creation — a failed field must never be silent).
 	 *
 	 * @param array<string,mixed> $record
+	 * @return string|null error message, or null to proceed
 	 */
-	protected function beforeCreate( array &$record ): void {
+	protected function beforeCreate( array &$record ): ?string {
 		$mode = (string)( $record['logoMode'] ?? 'file' );
-		$title = null;
 		try {
 			if ( $mode === 'url' ) {
 				$url = ( new FragmentSanitizer() )->validateUrl( (string)( $record['logoUrl'] ?? '' ) );
 				if ( $url !== null ) {
 					$title = $this->uploadLogoFromUrl( $url, $record );
+					if ( $title === null ) {
+						return $this->msg( 'embeddablecontent-software-logo-error', 'unreachable or unsupported URL' )->text();
+					}
 				}
 			} else {
 				$title = $this->uploadLogoFromRequest( $record );
+				$upload = $this->getRequest()->getFileUpload( 'wpLogoFile' );
+				if ( $title === null
+					&& $upload instanceof \MediaWiki\Request\WebRequestUpload && $upload->getSize() > 0
+				) {
+					return $this->msg( 'embeddablecontent-software-logo-error', 'unsupported file type' )->text();
+				}
 			}
 		} catch ( \Throwable $e ) {
-			$this->getOutput()->addHTML(
-				\MediaWiki\Html\Html::warningBox(
-					htmlspecialchars( $this->msg( 'embeddablecontent-software-logo-error', $e->getMessage() )->text() )
-				)
-			);
-			return;
+			// The upload layer rejected the logo — surface the reason on the
+			// form instead of creating the item without it.
+			return $this->msg( 'embeddablecontent-software-logo-error', $e->getMessage() )->text();
 		}
-		if ( $title !== null ) {
+		if ( !empty( $title ) ) {
 			$record['logoFileTitle'] = $title->getDBkey();
 		}
+		return null;
 	}
 
 	/**

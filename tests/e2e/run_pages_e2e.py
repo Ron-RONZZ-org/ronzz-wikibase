@@ -798,14 +798,16 @@ def main() -> int:
         logo_label = f"Page-flow E2E logo software {int(time.time())}"
         logo_qid, logo_page = flow_software_logo(op, base, api, logo_label, foss_class)
         logo_qid = track(logo_qid)
-        claims, _ = entity_claims(op, api, logo_qid)
-        image_url = first_value(claims, image_prop)
-        assert image_url and "logo.png" in str(image_url), \
-            f"{logo_qid} missing image statement pointing at the logo ({image_url!r})"
+        # Upload first (the File: page) — an upload failure aborts the flow
+        # with the server-side reason; only then check the statement wiring.
         file_title = f"File:{logo_label}-logo.png"
         r = api_call(op, api, {"action": "query", "titles": file_title, "format": "json"})
         assert any("missing" not in p for p in r["query"]["pages"].values()), \
             f"{file_title} was not uploaded"
+        claims, _ = entity_claims(op, api, logo_qid)
+        image_url = first_value(claims, image_prop)
+        assert image_url and "logo.png" in str(image_url), \
+            f"{logo_qid} missing image statement pointing at the logo ({image_url!r})"
         _, raw = page_get(op, base, "/wiki/" + urllib.parse.quote(logo_page.replace(" ", "_")) + "?action=raw")
         assert f"logo=[[File:{logo_label}-logo.png" in raw, \
             f"{logo_page} skeleton does not pass the logo to the infobox"
