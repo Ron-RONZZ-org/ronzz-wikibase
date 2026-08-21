@@ -15,7 +15,7 @@ New user need (2026-08-21): write articles for wikibase.ronzz.org with LLM assis
    human review),
 3. **provider-agnostic, BYOK**.
 
-Existing deck (per `RonzzIT:OpenWebUI`, `RonzzIT:Wikibase`):
+Existing deck (per `RonzzIT:Deployment/OpenWebUI` · `RonzzIT:Runbook/OpenWebUI`, `RonzzIT:Deployment/Wikibase`):
 
 - Open WebUI v0.11.0 at llm.ronzz.org, OIDC via Nextcloud H2CK/oidc, **no LLM connected
   yet**; native MCP support is **Streamable HTTP only** (since v0.6.31); MCP servers are
@@ -93,7 +93,7 @@ Existing deck (per `RonzzIT:OpenWebUI`, `RonzzIT:Wikibase`):
 ## References
 
 - Deploy kit: `tools/owui-writer/` (compose fragment, config example, runbook) — this repo
-- Runbook (on-wiki): `RonzzIT:OpenWebUI` § Wiki writer integration
+- Runbook (on-wiki): `RonzzIT:Runbook/WikiWriterMCP` (ops) · `RonzzIT:Deployment/WikiWriterMCP` (facts)
 - Open WebUI MCP docs (Streamable HTTP only, admin-gated) — https://docs.openwebui.com/features/extensibility/mcp/
 - MCP server deployment docs (HTTP transport, static-credential fallback) —
   https://github.com/ProfessionalWiki/MediaWiki-MCP-Server/blob/master/docs/deployment.md
