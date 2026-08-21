@@ -33,8 +33,8 @@ the instance.
   serving wikibase.ronzz.org. All server-wide operations — the OS, services
   (nginx, php-fpm, WDQS/Blazegraph + updater, MySQL), OCI identity, `.env`
   paths, credentials and maintenance runbooks — are documented in the
-  **private Nextcloud ops doc**
-  `RonzzIT:LinuxServer2` (gated wiki page).
+  **private ops doc**
+  `wikibase.ronzz.org/wiki/RonzzIT:LinuxServer2` (gated wiki page).
 - **Operational/server credentials never belong in this repo** — anything
   server-wide lives in that ops doc, never here. Instance-specific facts
   (stack, endpoints, access control, decisions) live in `docs/` in this
