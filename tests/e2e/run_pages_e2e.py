@@ -519,15 +519,26 @@ def main() -> int:
     created: list[str] = []
     created_pages: list[str] = []
     # Monotonic id counter: only items created ABOVE this id were made by
-    # this run (create-or-skip reuses older items — those must not be deleted).
+    # this run (create-or-skip reuses older items — those must not be
+    # deleted). allpages sorts titles LEXICALLY ("Q99" > "Q180"), so the
+    # max must be computed numerically across the full namespace.
     def max_item_id() -> int:
-        r = api_call(op, api, {"action": "query", "list": "allpages", "apnamespace": 120,
-                               "aplimit": 1, "apdir": "descending", "format": "json"})
-        pages = r.get("query", {}).get("allpages", [])
-        if not pages:
-            return 0
-        m = re.search(r"Q(\d+)$", pages[0].get("title", ""))
-        return int(m.group(1)) if m else 0
+        highest = 0
+        apcontinue = None
+        while True:
+            params = {"action": "query", "list": "allpages", "apnamespace": 120,
+                      "aplimit": 500, "format": "json"}
+            if apcontinue:
+                params["apcontinue"] = apcontinue
+            r = api_call(op, api, params)
+            pages = r.get("query", {}).get("allpages", [])
+            for page in pages:
+                m = re.search(r"Q(\d+)$", page.get("title", ""))
+                if m:
+                    highest = max(highest, int(m.group(1)))
+            apcontinue = r.get("continue", {}).get("apcontinue")
+            if not apcontinue:
+                return highest
 
     max_before = max_item_id()
 
