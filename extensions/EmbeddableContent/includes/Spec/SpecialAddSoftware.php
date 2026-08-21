@@ -235,6 +235,17 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 			return null;
 		}
 
+		// Sitelink the page ↔ item FIRST: the page's save-time parse must
+		// find the link or its wikibase_item page property stays stale
+		// ("unexpectedUnconnectedPage") and the infobox renders empty.
+		// Guard: on create-or-skip reuse the item may already carry the link
+		// — never rewrite existing sitelink state.
+		$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
+		if ( $item instanceof Item && !$item->getSiteLinkList()->hasLinkWithSiteId( 'wikibase' ) ) {
+			$item->getSiteLinkList()->setNewSiteLink( 'wikibase', $title->getPrefixedDBkey() );
+			WikibaseRepo::getStore()->newSiteLinkStore()->saveLinksOfItem( $item );
+		}
+
 		if ( !$title->exists() ) {
 			$page = \MediaWiki\MediaWikiServices::getInstance()
 				->getWikiPageFactory()->newFromTitle( $title );
@@ -250,16 +261,6 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 				// still exists — surface the item instead of erroring.
 				return null;
 			}
-		}
-
-		// Sitelink the page ↔ item (repo + client are the same wiki, site
-		// id 'wikibase'); the client maps the page to the item at parse time.
-		// Guard: on create-or-skip reuse the item may already carry the link
-		// — never rewrite existing sitelink state.
-		$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
-		if ( $item instanceof Item && !$item->getSiteLinkList()->hasLinkWithSiteId( 'wikibase' ) ) {
-			$item->getSiteLinkList()->setNewSiteLink( 'wikibase', $title->getPrefixedDBkey() );
-			WikibaseRepo::getStore()->newSiteLinkStore()->saveLinksOfItem( $item );
 		}
 
 		return $title->getFullURL();
