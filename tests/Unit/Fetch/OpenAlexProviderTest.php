@@ -88,4 +88,34 @@ final class OpenAlexProviderTest extends TestCase {
 		$provider = new OpenAlexProvider( new FakeHttpClient() );
 		$this->assertNull( $provider->byIsbn( '9780684801223' ) );
 	}
+
+	public function testWorkSearchByAuthorNameFiltersByAuthor(): void {
+		$http = ( new FakeHttpClient() )->onJson( '/works', [
+			'results' => [
+				[ 'id' => 'https://openalex.org/W2741809807', 'title' => 'The Feynman Lectures on Physics' ],
+			],
+		] );
+		$provider = new OpenAlexProvider( $http );
+
+		$records = $provider->searchByAuthorName( 'Richard Feynman' );
+
+		$this->assertCount( 1, $records );
+		$this->assertSame( 'The Feynman Lectures on Physics', $records[0]->title );
+		$this->assertSame( 'author.search:Richard Feynman', $http->calls[0]['params']['filter'] ?? null );
+	}
+
+	public function testWorkSearchByAuthorNameNarrowsWithTitle(): void {
+		$http = ( new FakeHttpClient() )->onJson( '/works', [ 'results' => [] ] );
+		$provider = new OpenAlexProvider( $http );
+
+		$provider->searchByAuthorName( 'Richard Feynman', 'Lectures' );
+
+		$this->assertSame( 'Lectures', $http->calls[0]['params']['search'] ?? null );
+	}
+
+	public function testSearchByAuthorEntitiesReturnsEmpty(): void {
+		// OpenAlex filters by A-ids, not Wikidata Q-ids — hub covers entities.
+		$provider = new OpenAlexProvider( new FakeHttpClient() );
+		$this->assertSame( [], $provider->searchByAuthorEntities( [ 'Q42' ] ) );
+	}
 }

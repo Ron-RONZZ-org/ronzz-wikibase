@@ -8,7 +8,8 @@ use EmbeddableContent\Fetch\ProviderResult;
 
 /**
  * Special:AddSource — create a work item (book / scholarly article / website /
- * song / film / video) from an external authority (DOI / ISBN / title lookup),
+ * song / film / video) from an external authority (DOI / ISBN / title lookup,
+ * or author-filtered search with a Wikidata-entity / free-text toggle),
  * issue #7.
  *
  * Class is inferred from the harvest (Wikidata instance-of mapped through the
@@ -37,6 +38,22 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				'required' => false,
 				'maxlength' => 250,
 			],
+			'author' => [
+				'type' => 'text',
+				'label-message' => 'embeddablecontent-extsearch-author',
+				'required' => false,
+				'maxlength' => 250,
+				'help-message' => 'embeddablecontent-extsearch-author-help',
+			],
+			'authorMode' => [
+				'type' => 'radio',
+				'label-message' => 'embeddablecontent-extsearch-author-mode',
+				'options-messages' => [
+					'embeddablecontent-extsearch-author-mode-text' => 'text',
+					'embeddablecontent-extsearch-author-mode-entity' => 'entity',
+				],
+				'default' => 'text',
+			],
 			'doi' => [
 				'type' => 'text',
 				'label-message' => 'embeddablecontent-extsearch-doi',
@@ -64,8 +81,25 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			return $this->client->byIsbn( $isbn );
 		}
 		$title = trim( (string)( $data['title'] ?? '' ) );
+		$author = trim( (string)( $data['author'] ?? '' ) );
+		if ( $author !== '' ) {
+			// Author-filtered search: entity mode resolves the author(s) by
+			// Wikidata Q-ids on the hub, text mode by free-text name across
+			// the cascade. Either narrows the results for common titles.
+			if ( ( $data['authorMode'] ?? 'text' ) === 'entity' ) {
+				$qids = array_values( array_filter(
+					ItemIdList::split( $author ),
+					static fn ( string $id ): bool => preg_match( '/^Q[1-9]\d*$/i', $id ) === 1
+				) );
+				if ( $qids === [] ) {
+					return new ProviderResult( [], [ 'Entity-mode author search needs Wikidata Q-ids (e.g. Q42, Q179)' ] );
+				}
+				return $this->client->searchWorksByAuthorEntities( $qids, $title );
+			}
+			return $this->client->searchWorksByAuthorName( $author, $title );
+		}
 		if ( $title === '' ) {
-			return new ProviderResult( [], [ 'No DOI, ISBN or title given' ] );
+			return new ProviderResult( [], [ 'No DOI, ISBN, title or author given' ] );
 		}
 		return $this->client->searchWorks( $title );
 	}

@@ -98,4 +98,62 @@ final class WikidataWorkProviderTest extends TestCase {
 		$this->assertSame( 'Q123', $record->wikidataId );
 		$this->assertStringContainsString( 'wdt:P356', $http->calls[0]['params']['query'] ?? '' );
 	}
+
+	public function testSearchByAuthorEntitiesMapsSparqlRowsAndDedupes(): void {
+		$http = ( new FakeHttpClient() )->onJson( 'query.wikidata.org', [
+			'head' => [ 'vars' => [] ],
+			'results' => [ 'bindings' => [
+				[
+					'work' => [ 'type' => 'uri', 'value' => 'http://www.wikidata.org/entity/Q123' ],
+					'workLabel' => [ 'type' => 'literal', 'value' => 'The Feynman Lectures on Physics' ],
+					'workDescription' => [ 'type' => 'literal', 'value' => '1964 textbook by Richard Feynman' ],
+					'date' => [ 'type' => 'literal', 'value' => '+1964-01-01T00:00:00Z' ],
+					'class' => [ 'type' => 'uri', 'value' => 'http://www.wikidata.org/entity/Q571' ],
+				],
+				// Second binding for the SAME work (label service, another
+				// language) — must be deduped, not returned twice.
+				[
+					'work' => [ 'type' => 'uri', 'value' => 'http://www.wikidata.org/entity/Q123' ],
+					'workLabel' => [ 'type' => 'literal', 'value' => 'The Feynman Lectures on Physics' ],
+				],
+			] ],
+		] );
+		$provider = new WikidataWorkProvider( $http );
+
+		$records = $provider->searchByAuthorEntities( [ 'Q392' ] );
+
+		$this->assertCount( 1, $records );
+		$this->assertSame( 'Q123', $records[0]->wikidataId );
+		$this->assertSame( 'The Feynman Lectures on Physics', $records[0]->title );
+		$this->assertSame( '1964 textbook by Richard Feynman', $records[0]->description );
+		$this->assertSame( 1964, $records[0]->issuedYear );
+		$this->assertSame( [ 'Q571' ], $records[0]->classWikidataIds );
+		$this->assertStringContainsString( 'wd:Q392', $http->calls[0]['params']['query'] ?? '' );
+	}
+
+	public function testSearchByAuthorEntitiesWithoutQidsReturnsEmpty(): void {
+		$provider = new WikidataWorkProvider( new FakeHttpClient() );
+		$this->assertSame( [], $provider->searchByAuthorEntities( [] ) );
+	}
+
+	public function testSearchByAuthorNameSendsTextQuery(): void {
+		$http = ( new FakeHttpClient() )->onJson( 'query.wikidata.org', [
+			'head' => [ 'vars' => [] ],
+			'results' => [ 'bindings' => [
+				[
+					'work' => [ 'type' => 'uri', 'value' => 'http://www.wikidata.org/entity/Q123' ],
+					'workLabel' => [ 'type' => 'literal', 'value' => 'Some Work' ],
+				],
+			] ],
+		] );
+		$provider = new WikidataWorkProvider( $http );
+
+		$records = $provider->searchByAuthorName( 'Albert Einstein' );
+
+		$this->assertCount( 1, $records );
+		$this->assertSame( 'Q123', $records[0]->wikidataId );
+		$query = $http->calls[0]['params']['query'] ?? '';
+		$this->assertStringContainsString( 'CONTAINS', $query );
+		$this->assertStringContainsString( 'albert einstein', $query );
+	}
 }

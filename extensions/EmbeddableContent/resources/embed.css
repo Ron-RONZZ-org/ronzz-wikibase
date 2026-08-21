@@ -73,3 +73,27 @@ body.skin-embedskin .printfooter {
 	font-size: 0.72em;
 	color: #72777d;
 }
+
+/* Special:AddMath live-preview box (issue follow-up). The `hidden` attribute
+   keeps it invisible until the first Preview click. */
+.wb-math-preview-box {
+	margin: 0.8em 0;
+	padding: 0.5em 1em;
+	background: #f8f9fa;
+	border-left: 3px solid #36c;
+}
+
+.wb-math-preview-title {
+	margin-bottom: 0.4em;
+	font-size: 0.85em;
+	color: #72777d;
+}
+
+.wb-math-preview-content {
+	overflow-x: auto;
+}
+
+/* The injected Preview button sits above the form's submit button. */
+.wb-math-preview-btn {
+	margin-inline-end: 0.5em;
+}

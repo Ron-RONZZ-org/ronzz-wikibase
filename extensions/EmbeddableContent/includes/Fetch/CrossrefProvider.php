@@ -31,6 +31,24 @@ class CrossrefProvider implements WorkProvider {
 		return $this->mapMessages( $data['message']['items'] ?? [] );
 	}
 
+	public function searchByAuthorName( string $author, string $title = '' ): array {
+		$params = [
+			'query.author' => $author,
+			'rows' => 10,
+		];
+		if ( $title !== '' ) {
+			$params['query.title'] = $title;
+		}
+		$data = $this->http->getJson( self::API, $params, $this->timeout );
+		return $this->mapMessages( $data['message']['items'] ?? [] );
+	}
+
+	public function searchByAuthorEntities( array $qids, string $title = '' ): array {
+		// Crossref has no Wikidata-Q author filter — the Wikidata hub handles
+		// semantic-entity author lookups (Phase 1, #7 cascade).
+		return [];
+	}
+
 	public function byDoi( string $doi ): ?WorkRecord {
 		$data = $this->http->getJson( self::API . '/' . rawurlencode( strtolower( $doi ) ), [], $this->timeout );
 		$records = $this->mapMessages( [ $data['message'] ?? [] ] );

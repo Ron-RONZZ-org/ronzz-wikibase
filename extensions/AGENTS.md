@@ -23,12 +23,15 @@ extensions — never forks of Wikibase.
   `api.php?action=embed`, oEmbed, and the content pages
   (`Special:AddQuotation` / `AddCodeSnippet` / `AddMath` — all-language
   quotation input, `describes`/`implementation of` subject fields,
+  code language combobox, math KaTeX preview + delimiter auto-strip,
   redirect-to-created-item).
 - **Issue #7 external authorities** (`includes/Fetch/`): provider layer
   (Wikidata hub + dblp SPARQL, OpenAlex, Crossref, Open Library, ORCID —
   SSRF-allowlisted) driving `Special:AddPerson` / `AddSource` /
   `AddCollective` (login-gated, search → select → review → create, manual
-  fallback, detailed candidates incl. descriptions).
+  fallback, detailed candidates incl. descriptions + a "see record details"
+  link to the canonical authority page; `Special:AddSource` also searches by
+  author — free-text name or Wikidata Q-ids via a mode toggle).
 - **Entity-page toolbar gadget** (copy embed with absolute URL + language
   selector / copy citation) and entity-combobox autocomplete.
 

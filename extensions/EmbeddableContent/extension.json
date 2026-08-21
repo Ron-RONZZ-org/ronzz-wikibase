@@ -120,6 +120,24 @@
 				"mobile"
 			]
 		},
+		"ext.embeddableContent.addmath": {
+			"scripts": [
+				"addmath.js"
+			],
+			"styles": [
+				"embed.css"
+			],
+			"dependencies": [
+				"ext.embeddableContent.katex"
+			],
+			"messages": [
+				"embeddablecontent-add-math-preview"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
 		"ext.embeddableContent.gadget": {
 			"scripts": [
 				"gadget.js"

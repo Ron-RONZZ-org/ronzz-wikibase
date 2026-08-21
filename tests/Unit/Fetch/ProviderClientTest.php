@@ -162,6 +162,74 @@ final class ProviderClientTest extends TestCase {
 		$this->assertSame( 'An OpenLibrary Work', $result->records[1]->title );
 	}
 
+	public function testSearchWorksByAuthorNameCollectsAcrossProviders(): void {
+		$http = new FakeHttpClient();
+		// Wikidata (SPARQL text mode) + Crossref both return a work by the
+		// author; Open Library / OpenAlex return none.
+		$http->onJson( 'query.wikidata.org', [
+			'head' => [ 'vars' => [] ],
+			'results' => [ 'bindings' => [
+				[
+					'work' => [ 'type' => 'uri', 'value' => 'http://www.wikidata.org/entity/Q123' ],
+					'workLabel' => [ 'type' => 'literal', 'value' => 'A Work by Feynman' ],
+				],
+			] ],
+		] );
+		$http->onJson( '/search.json', [ 'docs' => [] ] );
+		// NOTE: register the Crossref needle BEFORE '/works' — the Crossref
+		// URL (api.crossref.org/works?…) also contains '/works', and fake
+		// routes match by substring in registration order.
+		$http->onJson( 'query.author', [ 'message' => [ 'items' => [
+			[ 'title' => [ 'A Work by Feynman' ], 'DOI' => '10.1000/feynman' ],
+		] ] ] );
+		$http->onJson( '/works', [ 'results' => [] ] );
+		$client = new ProviderClient(
+			[],
+			[],
+			[ new WikidataWorkProvider( $http ), new OpenLibraryProvider( $http ), new OpenAlexProvider( $http ), new CrossrefProvider( $http ) ],
+			[],
+			[],
+			[]
+		);
+
+		$result = $client->searchWorksByAuthorName( 'Richard Feynman' );
+
+		// Different authority ids (Q123 vs DOI) — both collected, Wikidata first.
+		$this->assertCount( 2, $result->records );
+		$this->assertSame( 'Q123', $result->records[0]->wikidataId );
+		$this->assertSame( '10.1000/feynman', $result->records[1]->doi );
+		$this->assertSame( [], $result->warnings );
+	}
+
+	public function testSearchWorksByAuthorEntitiesOnlyCallsTheWikidataHub(): void {
+		$http = new FakeHttpClient();
+		$http->onJson( 'query.wikidata.org', [
+			'head' => [ 'vars' => [] ],
+			'results' => [ 'bindings' => [
+				[
+					'work' => [ 'type' => 'uri', 'value' => 'http://www.wikidata.org/entity/Q123' ],
+					'workLabel' => [ 'type' => 'literal', 'value' => 'A Work by Feynman' ],
+				],
+			] ],
+		] );
+		// The non-hub providers return [] WITHOUT HTTP calls — no extra fake
+		// routes registered, so any accidental request would throw.
+		$client = new ProviderClient(
+			[],
+			[],
+			[ new WikidataWorkProvider( $http ), new OpenLibraryProvider( $http ), new OpenAlexProvider( $http ), new CrossrefProvider( $http ) ],
+			[],
+			[],
+			[]
+		);
+
+		$result = $client->searchWorksByAuthorEntities( [ 'Q392' ] );
+
+		$this->assertCount( 1, $result->records );
+		$this->assertSame( 'Q123', $result->records[0]->wikidataId );
+		$this->assertSame( 1, count( $http->calls ) );
+	}
+
 	public function testDefaultFactoryWiresTheCanonicalCascade(): void {
 		$http = new FakeHttpClient();
 		$client = ProviderClient::default( $http );

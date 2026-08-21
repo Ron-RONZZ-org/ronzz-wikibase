@@ -33,6 +33,53 @@ class WikidataWorkProvider implements WorkProvider {
 		return $out;
 	}
 
+	public function searchByAuthorName( string $author, string $title = '' ): array {
+		return $this->mapAuthorRows( $this->core->searchWorksByAuthor( [], $author ) );
+	}
+
+	public function searchByAuthorEntities( array $qids, string $title = '' ): array {
+		if ( $qids === [] ) {
+			return [];
+		}
+		return $this->mapAuthorRows( $this->core->searchWorksByAuthor( $qids ) );
+	}
+
+	/**
+	 * Maps the SPARQL author-search rows to light WorkRecords (the full
+	 * harvest happens on pick, like searchByTitle()).
+	 *
+	 * @param array<int,array<string,mixed>> $rows
+	 * @return WorkRecord[]
+	 */
+	private function mapAuthorRows( array $rows ): array {
+		$out = [];
+		foreach ( $rows as $row ) {
+			$qid = basename( (string)( $row['work']['value'] ?? '' ) );
+			if ( preg_match( '/^Q[1-9]\d*$/i', $qid ) !== 1 ) {
+				continue;
+			}
+			$label = (string)( $row['workLabel']['value'] ?? '' );
+			$out[] = new WorkRecord(
+				title: $label !== '' ? $label : $qid,
+				description: isset( $row['workDescription']['value'] ) ? (string)$row['workDescription']['value'] : null,
+				wikidataId: $qid,
+				issuedYear: $this->core->yearFromTimeValue( (string)( $row['date']['value'] ?? '' ) ),
+				classWikidataIds: $this->qidList( (string)( $row['class']['value'] ?? '' ) ),
+				provider: 'wikidata',
+				providerId: $qid
+			);
+		}
+		return $out;
+	}
+
+	/** @return string[] a single class QID (or empty) */
+	private function qidList( string $value ): array {
+		if ( preg_match( '/(Q[1-9]\d*)$/', $value, $m ) === 1 ) {
+			return [ $m[1] ];
+		}
+		return [];
+	}
+
 	public function byDoi( string $doi ): ?WorkRecord {
 		$qid = $this->core->findItemByExternalId( 'P356', $doi );
 		return $qid === null ? null : $this->byWikidataId( $qid );

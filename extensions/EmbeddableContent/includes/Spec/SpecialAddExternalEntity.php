@@ -553,8 +553,17 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			$rows .= '<tr><td class="wb-ext-num">' . ( $index + 1 ) . '</td><td>' . $badge
 				. '<strong>' . $label . '</strong>'
 				. ( $details !== '' ? '<br>' . $details : '' )
-				. ( $ids !== [] ? ' <span class="wb-ext-ids">(' . implode( ', ', $ids ) . ')</span>' : '' )
-				. '</td></tr>';
+				. ( $ids !== [] ? ' <span class="wb-ext-ids">(' . implode( ', ', $ids ) . ')</span>' : '' );
+			// Link to the record's canonical authority page, opening in a
+			// NEW TAB (target=_blank; rel=noopener noreferrer against
+			// reverse tabnabbing) so the candidate stays comparable.
+			$recordUrl = $this->authorityUrl( $record );
+			if ( $recordUrl !== null ) {
+				$rows .= ' <a class="wb-ext-record-link" href="' . htmlspecialchars( $recordUrl )
+					. '" target="_blank" rel="noopener noreferrer">'
+					. $this->msg( 'embeddablecontent-extselect-seerecord' )->escaped() . '</a>';
+			}
+			$rows .= '</td></tr>';
 		}
 		return '<table class="wikitable wb-ext-candidates"><tbody>' . $rows . '</tbody></table>';
 	}
@@ -685,10 +694,11 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	}
 
 	/**
-	 * Authority URL for the import-provenance reference, derived from the
-	 * record's provider + identifiers.
+	 * Authority URL for the import-provenance reference AND the candidate
+	 * "see record details" link, derived from the record's provider +
+	 * identifiers. Returns null when no canonical URL is derivable.
 	 */
-	private function authorityUrl( array $record ): ?string {
+	protected function authorityUrl( array $record ): ?string {
 		switch ( $record['provider'] ?? '' ) {
 			case 'wikidata':
 				return isset( $record['wikidataId'] ) ? 'https://www.wikidata.org/wiki/' . $record['wikidataId'] : null;

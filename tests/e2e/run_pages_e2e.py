@@ -526,6 +526,10 @@ def main() -> int:
     parser.add_argument("--password-file", required=True)
     parser.add_argument("--keep", action="store_true", help="retain the created test items")
     parser.add_argument("--person", default="Grace Hopper")
+    parser.add_argument("--author", default="Grace Hopper",
+                        help="free-text author for the AddSource author search flow")
+    parser.add_argument("--author-entity", default="Q42",
+                        help="Wikidata author Q-id for the AddSource entity search flow (Q42 = Douglas Adams)")
     parser.add_argument("--doi", default="10.1371/journal.pbio.2001414")
     parser.add_argument("--collective", default="The Beatles")
     parser.add_argument("--software", default="Flameshot")
@@ -555,6 +559,14 @@ def main() -> int:
     wikidata_id_prop = resolve("Wikidata ID", "property")
     doi_prop = resolve("DOI", "property")
     source_url_prop = resolve("source URL", "property")
+    source_classes = {
+        resolve("book", "item"),
+        resolve("scholarly article", "item"),
+        resolve("website", "item"),
+        resolve("song", "item"),
+        resolve("film", "item"),
+        resolve("video", "item"),
+    }
     agent_classes = {
         resolve("person", "item"),
         resolve("organization", "item"),
@@ -614,6 +626,29 @@ def main() -> int:
         assert first_value(claims, doi_prop) == args.doi, f"{source} DOI mismatch"
         assert first_reference_url(claims, doi_prop), f"{source} missing import reference"
         print(f"[ok] AddSource -> {source} ({label[:60]}…): scholarly article, DOI + import reference")
+
+        # 2a. AddSource author search, free-text mode (issue follow-up): the
+        #     author filter narrows the candidates; the created item must be
+        #     a source-class item (class inferred from the harvest/provider).
+        source_author = track(flow_search_select_create(
+            op, base, api, "AddSource",
+            {"wpauthor": args.author, "wpauthorMode": "text"}))
+        claims, label = entity_claims(op, api, source_author)
+        assert first_value(claims, instance_of) in source_classes, \
+            f"{source_author} instance-of not a source class ({first_value(claims, instance_of)})"
+        print(f"[ok] AddSource (author text search) -> {source_author} "
+              f"({label[:60]}…): source class")
+
+        # 2b. AddSource author search, semantic-entity mode: Wikidata Q-ids
+        #     resolve through the hub (works by the author entity).
+        source_entity = track(flow_search_select_create(
+            op, base, api, "AddSource",
+            {"wpauthor": args.author_entity, "wpauthorMode": "entity"}))
+        claims, label = entity_claims(op, api, source_entity)
+        assert first_value(claims, instance_of) in source_classes, \
+            f"{source_entity} instance-of not a source class ({first_value(claims, instance_of)})"
+        print(f"[ok] AddSource (author entity search) -> {source_entity} "
+              f"({label[:60]}…): source class")
 
         # 3. AddCollective — harvest class hints; instance-of must be an agent class
         collective = track(flow_collective(op, base, api, args.collective))
@@ -700,15 +735,21 @@ def main() -> int:
             f"{quotation} missing content payload"
         print(f"[ok] Special:AddQuotation -> {quotation}: quotation class + payload + attribution")
 
-        # 5. Special:AddMath with the 'describes' subject field (issue follow-up).
+        # 5. Special:AddMath with the 'describes' subject field (issue
+        #    follow-up) + delimiter stripping: a $$…$$-wrapped payload must be
+        #    stored as bare TeX (the stored content is what KaTeX renders).
         math_label = f"Page-flow E2E math {int(time.time())}"
-        math_item = track(flow_math(op, base, api, math_label, "E = mc^2", person))
+        math_item = track(flow_math(op, base, api, math_label, "$$E = mc^2$$", person))
         claims, label = entity_claims(op, api, math_item)
         assert first_value(claims, instance_of) == math_class, \
             f"{math_item} instance-of != mathematical expression"
         assert first_value(claims, describes_prop) == person, \
             f"{math_item} describes mismatch (wanted {person})"
-        print(f"[ok] Special:AddMath -> {math_item}: math class + describes statement")
+        latex_prop = resolve("LaTeX source", "property")
+        assert first_value(claims, latex_prop) == "E = mc^2", \
+            f"{math_item} math payload not delimiter-stripped ({first_value(claims, latex_prop)!r})"
+        print(f"[ok] Special:AddMath -> {math_item}: math class + describes statement, "
+              f"payload delimiter-stripped")
 
         # 6. Cite-by-QID (issue #24 v1 + #25 v2): {{#cite}} inside <ref>,
         #    {{#citations:}} accumulated + explicit, embed auto-collect.

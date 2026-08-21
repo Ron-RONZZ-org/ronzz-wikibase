@@ -139,6 +139,36 @@ class ProviderClient {
 		);
 	}
 
+	/**
+	 * Work search by free-text author name (narrowed by an optional title):
+	 * Wikidata → Open Library → OpenAlex → Crossref. The author filter
+	 * narrows down common-title searches.
+	 */
+	public function searchWorksByAuthorName( string $author, string $title = '' ): ProviderResult {
+		return $this->searchCascade(
+			$this->workTitleProviders,
+			static fn ( WorkProvider $p, string $q ) => $p->searchByAuthorName( $q, $title ),
+			$author,
+			fn ( array $records ) => $this->dedupeWorks( $records )
+		);
+	}
+
+	/**
+	 * Work search by Wikidata author ENTITY ids (semantic search; narrowed by
+	 * an optional title). Only the Wikidata hub filters by QID — the other
+	 * work providers return [] for this operation.
+	 *
+	 * @param string[] $qids Wikidata author entity ids
+	 */
+	public function searchWorksByAuthorEntities( array $qids, string $title = '' ): ProviderResult {
+		return $this->searchCascade(
+			$this->workTitleProviders,
+			static fn ( WorkProvider $p, string $q ) => $p->searchByAuthorEntities( $qids, $title ),
+			implode( '|', $qids ),
+			fn ( array $records ) => $this->dedupeWorks( $records )
+		);
+	}
+
 	public function searchEntities( string $name ): ProviderResult {
 		return $this->searchCascade(
 			$this->entityProviders,

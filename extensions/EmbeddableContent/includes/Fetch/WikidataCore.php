@@ -149,6 +149,58 @@ class WikidataCore {
 	}
 
 	/**
+	 * Work search by author via SPARQL on query.wikidata.org. Two modes
+	 * (mutually exclusive):
+	 *  - entity ids:   VALUES over the author Q-ids, matched through P50
+	 *    (semantic author search — the hub capability for Special:AddSource).
+	 *  - free text:    author-entity labels matched case-insensitively.
+	 * Free-text label scans are unbounded on Wikidata's Blazegraph and may
+	 * time out under the per-call timeout — callers treat that as a
+	 * provider warning, never a cascade failure.
+	 *
+	 * @param string[] $qids Wikidata author entity ids (entity mode)
+	 * @param string $authorName free-text author name (text mode)
+	 * @return array<int,array<string,mixed>> raw SPARQL rows, deduped by work
+	 */
+	public function searchWorksByAuthor( array $qids = [], string $authorName = '' ): array {
+		if ( $qids !== [] ) {
+			$values = implode( ' ', array_map(
+				static fn ( string $qid ): string => 'wd:' . $qid,
+				array_values( $qids )
+			) );
+			$authorPattern = "VALUES ?author { {$values} }\n  ?work wdt:P50 ?author .";
+		} else {
+			$escaped = str_replace( [ '\\', '"' ], [ '\\\\', '\\"' ], strtolower( $authorName ) );
+			$authorPattern = "?work wdt:P50 ?author .\n"
+				. "  ?author rdfs:label ?authorLabel .\n"
+				. "  FILTER(CONTAINS(LCASE(?authorLabel), \"{$escaped}\"))";
+		}
+		$query = "SELECT DISTINCT ?work ?workLabel ?workDescription ?date ?class WHERE {\n"
+			. "  {$authorPattern}\n"
+			. "  OPTIONAL { ?work wdt:P577 ?date . }\n"
+			. "  OPTIONAL { ?work wdt:P31 ?class . }\n"
+			. "  SERVICE wikibase:label { bd:serviceParam wikibase:language \"en,fr,eo\". }\n"
+			. "}\nLIMIT 10";
+		$data = $this->http->postForm(
+			self::SPARQL,
+			[ 'query' => $query ],
+			[ 'Accept' => 'application/sparql-results+json' ],
+			$this->timeout
+		);
+		// The label service can emit one row per matched language — dedupe by
+		// work, preferring rows that carry a label.
+		$rows = [];
+		foreach ( $data['results']['bindings'] ?? [] as $binding ) {
+			$work = (string)( $binding['work']['value'] ?? '' );
+			if ( $work === '' || isset( $rows[$work] ) ) {
+				continue;
+			}
+			$rows[$work] = $binding;
+		}
+		return array_values( $rows );
+	}
+
+	/**
 	 * Item-typed claim values (P735/P734/P1433/P123/P31) → entity ids.
 	 *
 	 * @param array<string,mixed> $claims
@@ -203,6 +255,16 @@ class WikidataCore {
 			if ( is_array( $value ) && isset( $value['time'] ) && preg_match( '/^[+-](\d{4})/', (string)$value['time'], $m ) === 1 ) {
 				return (int)$m[1];
 			}
+		}
+		return null;
+	}
+
+	/**
+	 * Extracts the year from a SPARQL time value ("+2019-05-01T00:00:00Z").
+	 */
+	public function yearFromTimeValue( string $time ): ?int {
+		if ( preg_match( '/^[+-](\d{4})/', $time, $m ) === 1 ) {
+			return (int)$m[1];
 		}
 		return null;
 	}

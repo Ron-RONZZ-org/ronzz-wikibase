@@ -60,4 +60,29 @@ final class CrossrefProviderTest extends TestCase {
 		$this->assertSame( 'The Old Man and the Sea', $records[0]->title );
 		$this->assertSame( 1952, $records[0]->issuedYear );
 	}
+
+	public function testSearchByAuthorNameSendsAuthorAndTitleParams(): void {
+		$http = ( new FakeHttpClient() )->onJson( 'query.author', [
+			'message' => [
+				'items' => [
+					[ 'title' => [ 'The Feynman Lectures on Physics' ], 'DOI' => '10.1000/feynman' ],
+				],
+			],
+		] );
+		$provider = new CrossrefProvider( $http );
+
+		$records = $provider->searchByAuthorName( 'Feynman', 'Lectures on Physics' );
+
+		$this->assertCount( 1, $records );
+		$this->assertSame( 'The Feynman Lectures on Physics', $records[0]->title );
+		// Both query params must be sent — the title narrows the author search.
+		$this->assertSame( 'Feynman', $http->calls[0]['params']['query.author'] ?? null );
+		$this->assertSame( 'Lectures on Physics', $http->calls[0]['params']['query.title'] ?? null );
+	}
+
+	public function testSearchByAuthorEntitiesReturnsEmpty(): void {
+		// Crossref cannot filter by Wikidata Q — the hub handles entity lookups.
+		$provider = new CrossrefProvider( new FakeHttpClient() );
+		$this->assertSame( [], $provider->searchByAuthorEntities( [ 'Q42' ] ) );
+	}
 }

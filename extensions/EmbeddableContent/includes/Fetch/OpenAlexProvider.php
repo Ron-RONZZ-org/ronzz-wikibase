@@ -46,6 +46,24 @@ class OpenAlexProvider implements PersonProvider, WorkProvider {
 		return $this->mapWorks( $data['results'] ?? [] );
 	}
 
+	public function searchByAuthorName( string $author, string $title = '' ): array {
+		$params = [
+			'filter' => 'author.search:' . $author,
+			'per-page' => 10,
+		];
+		if ( $title !== '' ) {
+			$params['search'] = $title;
+		}
+		$data = $this->http->getJson( self::API . '/works', $params, $this->timeout );
+		return $this->mapWorks( $data['results'] ?? [] );
+	}
+
+	public function searchByAuthorEntities( array $qids, string $title = '' ): array {
+		// OpenAlex author ids are A-ids, not Wikidata Q-ids — mapping requires
+		// an extra lookup; the Wikidata hub covers semantic-entity lookups.
+		return [];
+	}
+
 	public function byDoi( string $doi ): ?WorkRecord {
 		$data = $this->http->getJson( self::API . '/works/doi:' . rawurlencode( $doi ), [], $this->timeout );
 		$records = $this->mapWorks( [ $data ] );

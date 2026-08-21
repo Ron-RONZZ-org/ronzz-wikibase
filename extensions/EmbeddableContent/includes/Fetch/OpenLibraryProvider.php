@@ -28,8 +28,34 @@ class OpenLibraryProvider implements WorkProvider {
 			'title' => $title,
 			'limit' => 10,
 		], $this->timeout );
+		return $this->mapSearchDocs( $data['docs'] ?? [] );
+	}
+
+	public function searchByAuthorName( string $author, string $title = '' ): array {
+		$params = [
+			'author' => $author,
+			'limit' => 10,
+		];
+		if ( $title !== '' ) {
+			$params['title'] = $title;
+		}
+		$data = $this->http->getJson( self::SEARCH_API, $params, $this->timeout );
+		return $this->mapSearchDocs( $data['docs'] ?? [] );
+	}
+
+	public function searchByAuthorEntities( array $qids, string $title = '' ): array {
+		// Open Library has no Wikidata-Q author filter — the Wikidata hub
+		// handles semantic-entity author lookups (Phase 1).
+		return [];
+	}
+
+	/**
+	 * @param array<int,array<string,mixed>> $docs
+	 * @return WorkRecord[]
+	 */
+	private function mapSearchDocs( array $docs ): array {
 		$out = [];
-		foreach ( $data['docs'] ?? [] as $doc ) {
+		foreach ( $docs as $doc ) {
 			if ( !is_array( $doc ) || empty( $doc['title'] ) ) {
 				continue;
 			}

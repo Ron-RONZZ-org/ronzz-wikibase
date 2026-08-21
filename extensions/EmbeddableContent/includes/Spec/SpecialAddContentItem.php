@@ -7,6 +7,7 @@ namespace EmbeddableContent\Spec;
 use DataValues\StringValue;
 use DataValues\TimeValue;
 use EmbeddableContent\Content\FragmentSanitizer;
+use EmbeddableContent\Content\MathRenderer;
 use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\Spec\ItemIdList;
 use MediaWiki\HTMLForm\HTMLForm;
@@ -55,6 +56,17 @@ abstract class SpecialAddContentItem extends SpecialPage {
 			->setSubmitCallback( [ $this, 'onSubmit' ] )
 			->setSubmitID( 'wb-embed-add-form' );
 		$form->show();
+		if ( $this->getKind() === 'math' ) {
+			// KaTeX live preview: the module wires the Preview button to the
+			// vendored KaTeX, rendering the delimiter-stripped payload.
+			$this->getOutput()->addModules( 'ext.embeddableContent.addmath' );
+			$this->getOutput()->addHTML(
+				'<div id="wb-math-preview-box" class="wb-math-preview-box" hidden>'
+				. '<div class="wb-math-preview-title">'
+				. $this->msg( 'embeddablecontent-add-math-preview-label' )->escaped()
+				. '</div><div id="wb-math-preview-content" class="wb-math-preview-content"></div></div>'
+			);
+		}
 	}
 
 	protected function buildFields(): array {
@@ -88,13 +100,18 @@ abstract class SpecialAddContentItem extends SpecialPage {
 				'default' => $this->getLanguage()->getCode(),
 			];
 		} elseif ( $this->getKind() === 'code' ) {
+			// Programming-language picker for code snippets: a combobox like
+			// the quotation Language field — type to filter the configured
+			// lexers, or pick one from the list. A select widget offered no
+			// typing at all and rendered an empty (unusable) dropdown when
+			// the instance config carried no lexers.
 			$lexers = [];
 			foreach ( array_keys( $this->config->lexerItemIds() ) as $lexer ) {
 				$lexers[$lexer] = $lexer;
 			}
 			$fields['lexer'] = [
-				'type' => 'select',
-				'label-message' => 'embeddablecontent-add-language',
+				'type' => 'combobox',
+				'label-message' => 'embeddablecontent-field-programmingLanguage',
 				'options' => $lexers,
 				'default' => 'text',
 			];
@@ -154,6 +171,12 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		if ( $label === '' || $payload === '' ) {
 			return $this->msg( 'embeddablecontent-add-error-required' )->text();
 		}
+		// Math payloads often arrive wrapped in $…$ / $$…$$ / \(…\) / \[…\]
+		// delimiters (pasted from Markdown or MediaWiki) — strip one layer so
+		// the stored content is the bare TeX, matching what KaTeX renders.
+		if ( $this->getKind() === 'math' ) {
+			$payload = MathRenderer::stripDelimiters( $payload );
+		}
 
 		$classId = $this->config->classIds()[$this->getKind()] ?? null;
 		$payloadPropertyId = $this->config->payloadPropertyIds()[$this->getKind()] ?? null;
@@ -169,6 +192,18 @@ abstract class SpecialAddContentItem extends SpecialPage {
 			&& !\MediaWiki\MediaWikiServices::getInstance()->getLanguageNameUtils()->isValidCode( $language )
 		) {
 			return $this->msg( 'embeddablecontent-add-error-badlanguage' )->text();
+		}
+
+		// The code-snippet lexer combobox accepts free typing (Pygments-style
+		// names are lowercase — normalize before comparing). A value outside
+		// the configured lexers is a hard error: silently skipping the
+		// programming-language statement would drop user input.
+		$lexer = '';
+		if ( $this->getKind() === 'code' ) {
+			$lexer = strtolower( trim( (string)( $data['lexer'] ?? '' ) ) );
+			if ( $lexer !== '' && !isset( $this->config->lexerItemIds()[$lexer] ) ) {
+				return $this->msg( 'embeddablecontent-add-error-badlexer', $data['lexer'] )->text();
+			}
 		}
 
 		$attributedTo = $this->parseOptionalItemId( (string)$data['attributedTo'] );
@@ -232,8 +267,8 @@ abstract class SpecialAddContentItem extends SpecialPage {
 			$add( $payloadPropertyId, new StringValue( $payload ) );
 		}
 
-		if ( $this->getKind() === 'code' ) {
-			$languageItemId = $this->config->lexerItemIds()[(string)$data['lexer']] ?? null;
+		if ( $this->getKind() === 'code' && $lexer !== '' ) {
+			$languageItemId = $this->config->lexerItemIds()[$lexer] ?? null;
 			if ( $languageItemId !== null ) {
 				$add( $this->config->programmingLanguagePropertyId(), $itemValue( $languageItemId ) );
 			}
