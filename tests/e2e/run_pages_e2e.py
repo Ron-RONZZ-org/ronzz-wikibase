@@ -601,11 +601,12 @@ def main() -> int:
         # The page carries the {{FOSS}} skeleton (raw content check).
         _, raw = page_get(op, base, "/wiki/" + urllib.parse.quote(foss_page.replace(" ", "_")) + "?action=raw")
         assert "{{FOSS}}" in raw, f"{foss_page} does not transclude {{FOSS}}"
-        # The item is sitelinked to the FOSS page (site id 'wikibase').
+        # The item is sitelinked to the FOSS page (site id 'wikibase';
+        # sitelink page names are stored with spaces, per the repo store).
         r = api_call(op, api, {"action": "wbgetentities", "ids": software,
                                "props": "sitelinks", "format": "json"})
         sitelinks = r.get("entities", {}).get(software, {}).get("sitelinks", {})
-        assert any(sl.get("site") == "wikibase" and sl.get("title") == foss_page.replace(" ", "_")
+        assert any(sl.get("site") == "wikibase" and sl.get("title") == foss_page
                    for sl in sitelinks.values()), \
             f"{software} missing wikibase sitelink to {foss_page}"
         # Volatile facts come from the harvest — present for Flameshot, but
