@@ -240,12 +240,22 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		// ("unexpectedUnconnectedPage") and the infobox renders empty.
 		// Page names are stored WITH SPACES (getItemIdForLink normalizes
 		// underscores away) — getPrefixedDBkey() would be a silent mismatch.
+		// The sitelink must live in the ENTITY REVISION too (wbgetentities
+		// reads sitelinks from the revision, not the table) — saving the
+		// item writes both: the revision and, via ItemHandler's secondary
+		// data update, the sitelink table.
 		// Guard: on create-or-skip reuse the item may already carry the link
 		// — never rewrite existing sitelink state.
 		$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
 		if ( $item instanceof Item && !$item->getSiteLinkList()->hasLinkWithSiteId( 'wikibase' ) ) {
 			$item->getSiteLinkList()->setNewSiteLink( 'wikibase', $title->getPrefixedText() );
-			WikibaseRepo::getStore()->newSiteLinkStore()->saveLinksOfItem( $item );
+			WikibaseRepo::getEntityStore()->saveEntity(
+				$item,
+				$this->msg( 'embeddablecontent-software-sitelink-edit-summary', $label )
+					->inContentLanguage()->text(),
+				$this->getUser(),
+				EDIT_UPDATE
+			);
 		}
 
 		if ( !$title->exists() ) {

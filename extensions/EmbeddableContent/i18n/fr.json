@@ -113,5 +113,6 @@
 	"embeddablecontent-add-implementationof": "Implémentation de",
 	"embeddablecontent-add-error-badlanguage": "Code de langue invalide pour le texte de la citation.",
 	"embeddablecontent-gadget-embed-auto": "Auto",
-	"embeddablecontent-gadget-embed-all": "Toutes les langues"
+	"embeddablecontent-gadget-embed-all": "Toutes les langues",
+	"embeddablecontent-software-sitelink-edit-summary": "A lié $1 à sa page FOSS"
 }

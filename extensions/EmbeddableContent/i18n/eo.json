@@ -113,5 +113,6 @@
 	"embeddablecontent-add-implementationof": "Implemento de",
 	"embeddablecontent-add-error-badlanguage": "Nevalida lingvokodo por la citaĵa teksto.",
 	"embeddablecontent-gadget-embed-auto": "Aŭtomate",
-	"embeddablecontent-gadget-embed-all": "Ĉiuj lingvoj"
+	"embeddablecontent-gadget-embed-all": "Ĉiuj lingvoj",
+	"embeddablecontent-software-sitelink-edit-summary": "Ligis $1 al sia FOSS-paĝo"
 }

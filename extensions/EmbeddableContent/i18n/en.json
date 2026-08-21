@@ -87,6 +87,7 @@
 	"embeddablecontent-field-sourcerepository": "Source code repository",
 	"embeddablecontent-field-softwareversion": "Latest version",
 	"embeddablecontent-software-page-edit-summary": "Created the FOSS page for $1",
+	"embeddablecontent-software-sitelink-edit-summary": "Linked $1 to its FOSS page",
 	"embeddablecontent-manual-legend": "Create the item manually",
 	"embeddablecontent-manual-hint": "No matching record?",
 	"embeddablecontent-manual-link": "Create the item manually instead",
