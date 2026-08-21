@@ -92,12 +92,18 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 				$current = $page->getContent() !== null ? $page->getContent()->getWikitextForTransclusion() : '';
 				if ( strpos( $current, self::PENDING_MARKER ) !== false ) {
 					$final = new \MediaWiki\Content\WikitextContent( self::pageSkeleton( false ) );
-					$page->doUserEditContent(
+					$status = $page->doUserEditContent(
 						$final,
-						\MediaWiki\User\User::newSystemUser( 'Maintenance script' ),
+						$this->getUser(),
 						'Completing the page–item link',
 						EDIT_UPDATE | EDIT_MINOR
 					);
+					if ( !$status->isOK() ) {
+						// Best-effort: the page still exists with the marker;
+						// the contributor can finish the edit by hand.
+						$this->getOutput()->redirect( $title->getFullURL() );
+						return;
+					}
 				}
 				$target = $title->getFullURL();
 			}

@@ -317,7 +317,14 @@ def flow_software(op, base: str, api: str, name: str) -> tuple[str, str]:
     for page in r.get("query", {}).get("pages", {}).values():
         qid = page.get("pageprops", {}).get("wikibase_item")
     if not qid:
-        raise FlowError(f"FOSS page {page_title} has no wikibase_item page property (sitelink missing?)")
+        # Diagnostics: was the finalize edit applied (2 revisions)? Did the
+        # sitelink land (wbgetentities)?
+        diag = api_call(op, api, {"action": "query", "titles": page_title,
+                                  "prop": "revisions", "rvprop": "ids|comment", "format": "json"})
+        revs = [x.get("comment", "") for p in diag.get("query", {}).get("pages", {}).values()
+                for x in p.get("revisions", [])]
+        raise FlowError(f"FOSS page {page_title} has no wikibase_item page property "
+                        f"(sitelink missing?); revisions={revs}")
     return qid, page_title
 
 
