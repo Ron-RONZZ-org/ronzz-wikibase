@@ -280,6 +280,12 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 				return null;
 			}
 			\DeferredUpdates::addCallableUpdate( static function () use ( $title, $label ) {
+				// This runs in the same PHP process, whose READ connection
+				// still holds a snapshot taken before the sitelink write
+				// committed — without flushing it, the re-parse's sitelink
+				// lookup misses the fresh link again.
+				$lb = \MediaWiki\MediaWikiServices::getInstance()->getDBLoadBalancer();
+				$lb->getConnection( DB_REPLICA )->flushSnapshot( __METHOD__ );
 				$page = \MediaWiki\MediaWikiServices::getInstance()
 					->getWikiPageFactory()->newFromTitle( $title );
 				$final = new \MediaWiki\Content\WikitextContent( self::pageSkeleton( false ) );
