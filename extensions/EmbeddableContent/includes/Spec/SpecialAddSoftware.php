@@ -52,7 +52,53 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		// Entity comboboxes in the review/manual steps need the autofill
 		// module (same wiring as the AddQuotation provenance block).
 		$this->getOutput()->addModules( 'ext.embeddableContent.entitysuggest' );
+		$parts = explode( '/', trim( (string)$subPage ) );
+		if ( ( $parts[0] ?? '' ) === 'complete' && ( $parts[1] ?? '' ) !== '' ) {
+			$this->executeComplete( $parts[1] );
+			return;
+		}
 		parent::execute( $subPage );
+	}
+
+	/**
+	 * Finalizes a just-created FOSS page in a FRESH request: the first
+	 * request's parse ran before the sitelink was committed AND the client's
+	 * in-process sitelink cache had already cached the negative lookup, so
+	 * its wikibase_item page property was left unset. Re-saving the page
+	 * here — new process, committed sitelink, empty lookup cache — makes the
+	 * re-parse deterministically map the page to the item.
+	 *
+	 * Idempotent and safe: only touches pages that carry the pending marker
+	 * AND whose item is sitelinked to them (both set by the legitimate flow).
+	 */
+	private function executeComplete( string $itemId ): void {
+		$this->setHeaders();
+		try {
+			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
+		} catch ( \Throwable $e ) {
+			$item = null;
+		}
+		$target = null;
+		if ( $item instanceof Item && $item->getSiteLinkList()->hasLinkWithSiteId( 'wikibase' ) ) {
+			$pageName = $item->getSiteLinkList()->getBySiteId( 'wikibase' )->getPageName();
+			$title = Title::newFromText( $pageName );
+			if ( $title !== null && $title->exists() ) {
+				$page = \MediaWiki\MediaWikiServices::getInstance()
+					->getWikiPageFactory()->newFromTitle( $title );
+				$current = $page->getContent() !== null ? $page->getContent()->getWikitextForTransclusion() : '';
+				if ( strpos( $current, self::PENDING_MARKER ) !== false ) {
+					$final = new \MediaWiki\Content\WikitextContent( self::pageSkeleton( false ) );
+					$page->doUserEditContent(
+						$final,
+						\MediaWiki\User\User::newSystemUser( 'Maintenance script' ),
+						'Completing the page–item link',
+						EDIT_UPDATE | EDIT_MINOR
+					);
+				}
+				$target = $title->getFullURL();
+			}
+		}
+		$this->getOutput()->redirect( $target ?? $this->getPageTitle()->getFullURL() );
 	}
 
 	protected function kindKey(): string {
@@ -261,12 +307,13 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		if ( !$title->exists() ) {
 			$page = \MediaWiki\MediaWikiServices::getInstance()
 				->getWikiPageFactory()->newFromTitle( $title );
-			// Revision 1 carries a marker: the save-time parse runs before
-			// this request's sitelink write is durably visible on the read
-			// connection, so it cannot set the wikibase_item page property.
-			// A post-commit edit (below) removes the marker — a REAL content
-			// change, so a fresh revision is created and the re-parse maps
-			// the page to the item deterministically.
+			// Revision 1 carries a marker: this request's parse runs before
+			// the sitelink is durably visible AND the client's in-process
+			// sitelink cache would return the cached negative for it — so it
+			// cannot set the wikibase_item property. The redirect target
+			// below routes through Special:AddSoftware/complete/<id>, which
+			// re-saves the page in a FRESH request (committed sitelink,
+			// empty cache) and removes the marker.
 			$content = new \MediaWiki\Content\WikitextContent( self::pageSkeleton( true ) );
 			$status = $page->doUserEditContent(
 				$content,
@@ -279,31 +326,21 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 				// still exists — surface the item instead of erroring.
 				return null;
 			}
-			\DeferredUpdates::addCallableUpdate( static function () use ( $title, $label ) {
-				// This runs in the same PHP process, whose READ connection
-				// still holds a snapshot taken before the sitelink write
-				// committed — without flushing it, the re-parse's sitelink
-				// lookup misses the fresh link again.
-				$lb = \MediaWiki\MediaWikiServices::getInstance()->getDBLoadBalancer();
-				$lb->getConnection( DB_REPLICA )->flushSnapshot( __METHOD__ );
-				$page = \MediaWiki\MediaWikiServices::getInstance()
-					->getWikiPageFactory()->newFromTitle( $title );
-				$final = new \MediaWiki\Content\WikitextContent( self::pageSkeleton( false ) );
-				$page->doUserEditContent(
-					$final,
-					\MediaWiki\User\User::newSystemUser( 'Maintenance script' ),
-					'Completing the page–item link',
-					EDIT_UPDATE | EDIT_MINOR
-				);
-			} );
+			// Round-trip through the finalize step so the page↔item mapping
+			// lands deterministically; fall back to the page itself.
+			$complete = $this->getPageTitle( 'complete/' . $itemId )->getFullURL();
+			return $complete;
 		}
 
 		return $title->getFullURL();
 	}
 
+	/** Marker left in the first page revision, removed by the finalize step. */
+	private const PENDING_MARKER = '__FOSS_LINK_PENDING__';
+
 	/** Default FOSS: page skeleton — prose lives on the page, facts in the item. */
 	private static function pageSkeleton( bool $withMarker = false ): string {
-		$marker = $withMarker ? "\n<!-- __FOSS_LINK_PENDING__ -->\n" : "";
+		$marker = $withMarker ? "\n<!-- " . self::PENDING_MARKER . " -->\n" : "";
 		return "{{FOSS}}\n\n== Overview ==\n\n<!-- What this software does and who it is for. -->\n\n"
 			. "== Features ==\n\n== Alternatives ==\n\n== See also ==\n" . $marker;
 	}
