@@ -11,7 +11,6 @@ use MediaWiki\Title\Title;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
-use Wikibase\DataModel\SiteLink;
 use Wikibase\Repo\WikibaseRepo;
 
 /**
