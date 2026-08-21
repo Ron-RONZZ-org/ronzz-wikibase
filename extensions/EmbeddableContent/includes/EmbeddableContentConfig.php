@@ -18,6 +18,9 @@ use InvalidArgumentException;
  *   'payloadProperties'   => [ 'quotation' => 'P2', 'code' => 'P3', 'math' => 'P4' ],
  *   'programmingLanguage' => 'P5',
  *   'provenance'          => [ 'attributedTo' => 'P6', 'sourceUrl' => 'P7', 'source' => 'P8', 'date' => 'P9' ],
+ *   'sourceClasses'       => [ 'book' => 'Q9', 'scholarlyArticle' => 'Q10', … ],
+ *   'fossClasses'         => [ 'foss' => 'Q16' ],
+ *   'fossProperties'      => [ 'developer' => 'P33', 'license' => 'P34', … ],
  *   'fallbackLanguages'   => [ 'fr', 'en', 'eo' ],
  *   'lexers'              => [ 'python' => 'Q10', 'cpp' => 'Q11' ],
  * ]
@@ -176,6 +179,27 @@ class EmbeddableContentConfig {
 	 */
 	public function agentClassByWikidata(): array {
 		return $this->optionalStringMap( 'agentClassByWikidata' );
+	}
+
+	/**
+	 * Issue #26: FOSS software class ids (Special:AddSoftware class picker).
+	 *
+	 * @return array<string,string> canonical key => item id
+	 */
+	public function fossClasses(): array {
+		return $this->requireStringMap( 'fossClasses', [ 'foss' ] );
+	}
+
+	/**
+	 * Issue #26: FOSS software property ids (Special:AddSoftware statements).
+	 *
+	 * @return array<string,string> canonical key => property id
+	 */
+	public function fossPropertyIds(): array {
+		return $this->requireStringMap( 'fossProperties', [
+			'developer', 'license', 'operatingSystem', 'officialWebsite',
+			'sourceRepository', 'softwareVersion', 'hasUse', 'replaces', 'userInterface',
+		] );
 	}
 
 	/**

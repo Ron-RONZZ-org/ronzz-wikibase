@@ -24,6 +24,7 @@ The v1 plan lives in
 | Issue #11 — special-page visibility + `Special:Embed` 500 | fixed + deployed (`getDescription()`/`setHeaders()`, `showErrorPage()`, regression E2E) |
 | Issue #12 — external-search UX | implemented + deployed (search → select → review → create, manual fallback, detailed candidates) |
 | Embeds + autocomplete polish (PRs #15–#19) | implemented + deployed (visible toolbar w/ absolute snippet + language selector, bare-fragment embeds, KaTeX math + highlight.js code in a minimal embed skin, entity-combobox autocomplete, `describes`/`implementation of` fields, all-language quotation input, subdued provenance/printfooter) |
+| Issue #26 — FOSS software documentation | implemented + deployed (FOSS namespace NS 2008/2009, 9 software properties + `free and open-source software` class Q179, `Template:FOSS`/`FOSS:Main`, `Special:AddSoftware` with Wikidata→GitHub fetch, creates item + `FOSS:` page + sitelink in one flow) |
 
 ## Repository layout
 
@@ -37,8 +38,12 @@ The v1 plan lives in
   subject fields, redirect-to-created-item), the issue-#7 external-authority
   pages (`Special:AddPerson` / `AddSource` / `AddCollective`, login-gated,
   search → select → review → create, manual fallback, detailed candidates
-  incl. descriptions), the `includes/Fetch/` provider layer (Wikidata hub +
-  dblp SPARQL, OpenAlex, Crossref, Open Library, ORCID — SSRF-allowlisted),
+  incl. descriptions), the issue-#26 FOSS pages (`Special:AddSoftware`,
+  login-gated, search → select → review → create, Wikidata + GitHub fetch
+  via `SoftwareProvider`, creates the item + `FOSS:` page (Template:FOSS
+  skeleton) + page↔item sitelink, manual fallback), the `includes/Fetch/`
+  provider layer (Wikidata hub + dblp SPARQL, OpenAlex, Crossref, Open
+  Library, ORCID, GitHub — SSRF-allowlisted),
   entity-page toolbar gadget (copy embed with absolute URL + language
   selector / copy citation) and entity-combobox autocomplete.
 - `extensions/WikibaseCitation/` — citation map manifests +

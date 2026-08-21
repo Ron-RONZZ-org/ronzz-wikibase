@@ -28,6 +28,7 @@ class CurlHttpClient implements HttpClientInterface {
 		'openlibrary.org',
 		'pub.orcid.org',
 		'viaf.org',
+		'api.github.com', // issue #26: GitHubSoftwareProvider (Special:AddSoftware)
 	];
 
 	private const MAX_REDIRECTS = 3;

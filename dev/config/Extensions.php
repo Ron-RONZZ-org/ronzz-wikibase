@@ -18,6 +18,28 @@ if ( is_dir( '/var/www/html/extensions/Cite' ) ) {
 // Dev-only: surface exception details instead of a bare 500.
 $wgShowExceptionDetails = true;
 
+// ---- FOSS namespace (issue #26, FOSS software documentation on-wiki) ----
+// Mirrors the production block in LocalSettings.php (see
+// RonzzIT:Deployment/Wikibase on the instance).
+define( 'NS_FOSS', 2008 ); // free constant id
+define( 'NS_FOSS_TALK', 2009 );
+$wgExtraNamespaces[NS_FOSS] = 'FOSS';
+$wgExtraNamespaces[NS_FOSS_TALK] = 'FOSS_talk';
+$wgNamespacesWithSubpages[NS_FOSS] = true; // FOSS:Name/fr static translations
+$wgContentNamespaces[] = NS_FOSS;
+$wgNamespacesToBeSearchedDefault[NS_FOSS] = true; // custom NS are NOT searched by default
+
+// ---- Wikibase client (same-wiki) — mirrors production LocalSettings ----
+// Without this the client hooks never run: {{#statements:}} renders nothing
+// and the wikibase_item page property is never set (issue #30 discovered
+// this in CI: Special:AddSoftware's page↔item mapping silently no-op'd).
+$wgEnableWikibaseClient = true;
+$wgWBRepoSettings['siteLinkGroups'] = [ 'ronzz' ];
+$wgWBClientSettings['siteGlobalID'] = 'wikibase';
+$wgWBClientSettings['siteLinkGroups'] = [ 'ronzz' ];
+$wgWBClientSettings['repoDatabase'] = false;
+$wgWBClientSettings['changesDatabase'] = false;
+
 if ( file_exists( __DIR__ . '/ronzz-wikibase-config.php' ) ) {
 	require_once __DIR__ . '/ronzz-wikibase-config.php';
 }

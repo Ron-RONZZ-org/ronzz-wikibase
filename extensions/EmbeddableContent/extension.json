@@ -64,6 +64,13 @@
 				"EmbeddableContent.Config",
 				"EmbeddableContent.ProviderClient"
 			]
+		},
+		"AddSoftware": {
+			"class": "EmbeddableContent\\Spec\\SpecialAddSoftware",
+			"services": [
+				"EmbeddableContent.Config",
+				"EmbeddableContent.ProviderClient"
+			]
 		}
 	},
 	"APIModules": {

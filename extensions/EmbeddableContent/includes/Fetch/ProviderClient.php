@@ -16,13 +16,15 @@ namespace EmbeddableContent\Fetch;
  *  - byDoi:               Crossref → OpenAlex → Wikidata (SPARQL) (direct first)
  *  - byIsbn:              Open Library → Crossref → Wikidata (SPARQL)
  *  - entity name search:  Wikidata (only)
+ *  - software name search: Wikidata → GitHub (issue #26)
  *
  * Identifier paths stop at the first hit; searches collect from all
  * providers, dedupe by authority ID (wikidataId > orcid/doi/isbn >
  * normalized label), and cap results. Every per-provider failure is caught
  * and surfaced as a warning on ProviderResult — never silently swallowed,
  * never fatal to the cascade. The Wikidata-hub harvest (wbgetentities pick
- * step) is exposed via harvestPerson()/harvestWork()/harvestEntity().
+ * step) is exposed via harvestPerson()/harvestWork()/harvestEntity()/
+ * harvestSoftware().
  *
  * @license GPL-2.0-or-later
  */
@@ -48,9 +50,13 @@ class ProviderClient {
 	/** @var EntityProvider[] */
 	private array $entityProviders;
 
+	/** @var SoftwareProvider[] */
+	private array $softwareNameProviders;
+
 	private ?WikidataPersonProvider $wikidataPerson;
 	private ?WikidataWorkProvider $wikidataWork;
 	private ?WikidataEntityProvider $wikidataEntity;
+	private ?WikidataSoftwareProvider $wikidataSoftware;
 
 	/**
 	 * @param PersonProvider[] $personNameProviders ordered name-search cascade
@@ -59,6 +65,7 @@ class ProviderClient {
 	 * @param WorkProvider[] $doiProviders ordered byDoi cascade
 	 * @param WorkProvider[] $isbnProviders ordered byIsbn cascade
 	 * @param EntityProvider[] $entityProviders ordered name-search cascade
+	 * @param SoftwareProvider[] $softwareNameProviders ordered software name-search cascade
 	 */
 	public function __construct(
 		array $personNameProviders = [],
@@ -69,7 +76,9 @@ class ProviderClient {
 		array $entityProviders = [],
 		?WikidataPersonProvider $wikidataPerson = null,
 		?WikidataWorkProvider $wikidataWork = null,
-		?WikidataEntityProvider $wikidataEntity = null
+		?WikidataEntityProvider $wikidataEntity = null,
+		?WikidataSoftwareProvider $wikidataSoftware = null,
+		array $softwareNameProviders = []
 	) {
 		$this->personNameProviders = $personNameProviders;
 		$this->personIdProviders = $personIdProviders;
@@ -77,9 +86,11 @@ class ProviderClient {
 		$this->doiProviders = $doiProviders;
 		$this->isbnProviders = $isbnProviders;
 		$this->entityProviders = $entityProviders;
+		$this->softwareNameProviders = $softwareNameProviders;
 		$this->wikidataPerson = $wikidataPerson;
 		$this->wikidataWork = $wikidataWork;
 		$this->wikidataEntity = $wikidataEntity;
+		$this->wikidataSoftware = $wikidataSoftware;
 	}
 
 	/**
@@ -89,6 +100,7 @@ class ProviderClient {
 		$wikidataPerson = new WikidataPersonProvider( $http, $timeout );
 		$wikidataWork = new WikidataWorkProvider( $http, $timeout );
 		$wikidataEntity = new WikidataEntityProvider( $http, $timeout );
+		$wikidataSoftware = new WikidataSoftwareProvider( $http, $timeout );
 		$openalex = new OpenAlexProvider( $http, $timeout );
 		$crossref = new CrossrefProvider( $http, $timeout );
 		$openlibrary = new OpenLibraryProvider( $http, $timeout );
@@ -103,7 +115,9 @@ class ProviderClient {
 			[ $wikidataEntity ],
 			$wikidataPerson,
 			$wikidataWork,
-			$wikidataEntity
+			$wikidataEntity,
+			$wikidataSoftware,
+			[ $wikidataSoftware, new GitHubSoftwareProvider( $http, $timeout ) ]
 		);
 	}
 
@@ -132,6 +146,30 @@ class ProviderClient {
 			$name,
 			fn ( array $records ) => $this->dedupeEntities( $records )
 		);
+	}
+
+	/**
+	 * Issue #26: software name search — Wikidata → GitHub.
+	 */
+	public function searchSoftware( string $name ): ProviderResult {
+		return $this->searchCascade(
+			$this->softwareNameProviders,
+			static fn ( SoftwareProvider $p, string $q ) => $p->searchByName( $q ),
+			$name,
+			fn ( array $records ) => $this->dedupeSoftware( $records )
+		);
+	}
+
+	public function harvestSoftware( string $qid ): ProviderResult {
+		if ( $this->wikidataSoftware === null ) {
+			return new ProviderResult( [], [ 'No Wikidata software hub configured' ] );
+		}
+		try {
+			$record = $this->wikidataSoftware->byWikidataId( $qid );
+		} catch ( ProviderException $e ) {
+			return new ProviderResult( [], [ 'wikidata: ' . $e->getMessage() ] );
+		}
+		return new ProviderResult( $record === null ? [] : [ $record ] );
 	}
 
 	public function byOrcid( string $orcid ): ProviderResult {
@@ -281,6 +319,26 @@ class ProviderClient {
 		$out = [];
 		foreach ( $records as $record ) {
 			$key = $record->wikidataId ?? strtolower( trim( $record->label ) );
+			if ( isset( $seen[$key] ) ) {
+				continue;
+			}
+			$seen[$key] = true;
+			$out[] = $record;
+		}
+		return $out;
+	}
+
+	/**
+	 * @param SoftwareRecord[] $records
+	 * @return SoftwareRecord[]
+	 */
+	private function dedupeSoftware( array $records ): array {
+		$seen = [];
+		$out = [];
+		foreach ( $records as $record ) {
+			$key = $record->wikidataId
+				?? $record->githubFullName
+				?? strtolower( trim( $record->label ) );
 			if ( isset( $seen[$key] ) ) {
 				continue;
 			}

@@ -171,6 +171,33 @@ class ConfigBuilderTest(unittest.TestCase):
         self.assertIn("'Q21',", snippet)
         self.assertIn("'Q22',", snippet)
 
+    def test_config_fragment_foss_sections(self):
+        # issue #26: FOSS vocabulary (Special:AddSoftware).
+        snippet = config_builder.build_config(
+            property_ids={
+                "instance of": "P31",
+                "developer": "P33", "license": "P34", "operating system": "P35",
+                "official website": "P36", "source code repository": "P37",
+                "software version": "P38", "has use": "P39", "replaces": "P40",
+                "user interface": "P41",
+            },
+            class_ids={"free and open-source software": "Q16"},
+            lexer_ids={},
+            fallback_languages=["fr", "en", "eo"],
+        )
+        self.assertIn("'fossClasses'", snippet)
+        self.assertIn("'foss' => 'Q16'", snippet)
+        self.assertIn("'fossProperties'", snippet)
+        self.assertIn("'developer' => 'P33'", snippet)
+        self.assertIn("'license' => 'P34'", snippet)
+        self.assertIn("'operatingSystem' => 'P35'", snippet)
+        self.assertIn("'officialWebsite' => 'P36'", snippet)
+        self.assertIn("'sourceRepository' => 'P37'", snippet)
+        self.assertIn("'softwareVersion' => 'P38'", snippet)
+        self.assertIn("'hasUse' => 'P39'", snippet)
+        self.assertIn("'replaces' => 'P40'", snippet)
+        self.assertIn("'userInterface' => 'P41'", snippet)
+
     def test_report_lists_vocabulary(self):
         report = config_builder.build_report(
             property_ids={"instance of": "P31"},

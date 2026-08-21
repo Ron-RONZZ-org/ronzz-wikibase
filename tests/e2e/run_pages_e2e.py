@@ -265,6 +265,69 @@ def flow_manual(op, base: str, api: str, special: str, label: str, class_item: s
     return m.group(1)
 
 
+def flow_software(op, base: str, api: str, name: str) -> tuple[str, str]:
+    """Special:AddSoftware search -> select -> review -> create (issue #26).
+
+    Unlike the other flows, success redirects to the created FOSS: page (the
+    item + page + sitelink are created together). Returns (item qid, FOSS
+    page title) — the qid is resolved from the page's wikibase_item property.
+    """
+    url, body = page_get(op, base, "/wiki/Special:AddSoftware")
+    if "does not have permission" in body or "wpEditToken" not in body:
+        raise FlowError(f"Special:AddSoftware not usable (logged-in? got {len(body)} bytes)")
+    token = edit_token(body)
+    url, body = page_post(op, url, {"wpname": name, "wpEditToken": token, "wpSubmit": "1"})
+    m = re.search(r"/wiki/Special:AddSoftware/([0-9a-f]+)$", url)
+    if not m:
+        raise FlowError(
+            f"AddSoftware search did not redirect to a selection page: {url} {find_error(body)}")
+    token = m.group(1)
+
+    # Selection step: detailed candidate table + radio + class picker.
+    candidates = ooui_options(body, "mw-input-wpcandidates")
+    classes = ooui_options(body, "mw-input-wpclass")
+    if not candidates or not classes:
+        raise FlowError("AddSoftware selection page rendered no candidates/classes")
+    cls = ooui_widget(body, "mw-input-wpclass").get("value") or classes[0]["data"]
+    token2 = edit_token(body)
+    url, body = page_post(op, url, {
+        "wpcandidates": "0",
+        "wpclass": cls,
+        "wpEditToken": token2,
+        "wpSubmit": "1",
+    })
+    m = re.search(rf"/wiki/Special:AddSoftware/{token}/review/0$", url)
+    if not m:
+        raise FlowError(
+            f"AddSoftware select did not redirect to the review step: {url} {find_error(body)}")
+
+    # Review step: submit the pre-filled form unchanged.
+    token3 = edit_token(body)
+    url, body = page_post(op, url, {"wpEditToken": token3, "wpSubmit": "1"})
+    m = re.search(r"/wiki/(FOSS:[^?#]+)$", url)
+    if not m:
+        raise FlowError(f"AddSoftware review did not redirect to a FOSS page: {url} {find_error(body)}")
+    page_title = urllib.parse.unquote(m.group(1)).replace("_", " ")
+
+    # The created item is the page's wikibase_item (pageproperty, set from
+    # the sitelink at parse time).
+    r = api_call(op, api, {"action": "query", "titles": page_title,
+                           "prop": "pageprops", "format": "json"})
+    qid = None
+    for page in r.get("query", {}).get("pages", {}).values():
+        qid = page.get("pageprops", {}).get("wikibase_item")
+    if not qid:
+        # Diagnostics: raw page state (existence, revisions, props) so a
+        # failure pinpoints whether the finalize edit ran and the parse
+        # mapped the page.
+        diag = api_call(op, api, {"action": "query", "titles": page_title,
+                                  "prop": "revisions|pageprops",
+                                  "rvprop": "ids|timestamp|comment", "format": "json"})
+        raise FlowError(f"FOSS page {page_title} has no wikibase_item page property "
+                        f"(sitelink missing?); raw: {json.dumps(diag)}")
+    return qid, page_title
+
+
 def flow_person(op, base: str, api: str, name: str) -> str:
     return flow_search_select_create(op, base, api, "AddPerson", {"wpname": name})
 
@@ -425,6 +488,7 @@ def main() -> int:
     parser.add_argument("--person", default="Grace Hopper")
     parser.add_argument("--doi", default="10.1371/journal.pbio.2001414")
     parser.add_argument("--collective", default="The Beatles")
+    parser.add_argument("--software", default="Flameshot")
     args = parser.parse_args()
 
     base = args.base_url.rstrip("/")
@@ -460,16 +524,28 @@ def main() -> int:
           f"scholarly article={scholarly_class})")
 
     created: list[str] = []
+    created_pages: list[str] = []
     # Monotonic id counter: only items created ABOVE this id were made by
-    # this run (create-or-skip reuses older items — those must not be deleted).
+    # this run (create-or-skip reuses older items — those must not be
+    # deleted). allpages sorts titles LEXICALLY ("Q99" > "Q180"), so the
+    # max must be computed numerically across the full namespace.
     def max_item_id() -> int:
-        r = api_call(op, api, {"action": "query", "list": "allpages", "apnamespace": 120,
-                               "aplimit": 1, "apdir": "descending", "format": "json"})
-        pages = r.get("query", {}).get("allpages", [])
-        if not pages:
-            return 0
-        m = re.search(r"Q(\d+)$", pages[0].get("title", ""))
-        return int(m.group(1)) if m else 0
+        highest = 0
+        apcontinue = None
+        while True:
+            params = {"action": "query", "list": "allpages", "apnamespace": 120,
+                      "aplimit": 500, "format": "json"}
+            if apcontinue:
+                params["apcontinue"] = apcontinue
+            r = api_call(op, api, params)
+            pages = r.get("query", {}).get("allpages", [])
+            for page in pages:
+                m = re.search(r"Q(\d+)$", page.get("title", ""))
+                if m:
+                    highest = max(highest, int(m.group(1)))
+            apcontinue = r.get("continue", {}).get("apcontinue")
+            if not apcontinue:
+                return highest
 
     max_before = max_item_id()
 
@@ -519,6 +595,36 @@ def main() -> int:
             f"{manual} must not carry authority IDs (manual entry)"
         print(f"[ok] AddPerson/manual -> {manual}: created from blank, no import reference")
 
+        # 3c. Special:AddSoftware — search -> select -> review -> create:
+        #     item + FOSS:<Name> page + sitelink in one flow (issue #26).
+        foss_class = resolve("free and open-source software", "item")
+        official_website = resolve("official website", "property")
+        software_qid, foss_page = flow_software(op, base, api, args.software)
+        software = track(software_qid)
+        claims, label = entity_claims(op, api, software)
+        assert first_value(claims, instance_of) == foss_class, \
+            f"{software} instance-of != free and open-source software ({first_value(claims, instance_of)})"
+        assert first_value(claims, wikidata_id_prop), f"{software} missing Wikidata ID"
+        # The page carries the {{FOSS}} skeleton (raw content check).
+        _, raw = page_get(op, base, "/wiki/" + urllib.parse.quote(foss_page.replace(" ", "_")) + "?action=raw")
+        assert "{{FOSS}}" in raw, f"{foss_page} does not transclude {{FOSS}}"
+        # The item is sitelinked to the FOSS page (site id 'wikibase';
+        # sitelink page names are stored with spaces, per the repo store).
+        r = api_call(op, api, {"action": "wbgetentities", "ids": software,
+                               "props": "sitelinks", "format": "json"})
+        sitelinks = r.get("entities", {}).get(software, {}).get("sitelinks", {})
+        if not any(sl.get("site") == "wikibase" and sl.get("title") == foss_page
+                   for sl in sitelinks.values()):
+            raise FlowError(f"{software} missing wikibase sitelink to {foss_page}; "
+                            f"actual sitelinks: {json.dumps(sitelinks)}")
+        # Volatile facts come from the harvest — present for Flameshot, but
+        # only a warning (not a failure) when the authority lacks them.
+        website = first_value(claims, official_website)
+        print(f"[ok] AddSoftware -> {software} ({label}): FOSS class + Wikidata ID, "
+              f"page {foss_page}, sitelinked" + (f", website={website}" if website else ", no harvested website"))
+        if software in created:  # only delete pages this run actually created
+            created_pages.append(foss_page)
+
         # 4. v1 content form — Special:AddQuotation with provenance.
         # Unique label per run: create-or-skip would otherwise reuse a stale
         # quotation from an earlier (failed) run and fail the assertions.
@@ -557,6 +663,15 @@ def main() -> int:
         flow_cite_by_qid(op, base, api, book, quote_dogfood, source)
     finally:
         if not args.keep:
+            for page in created_pages:
+                try:
+                    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+                    token = csrf["query"]["tokens"]["csrftoken"]
+                    api_call(op, api, {"action": "delete", "title": page, "token": token,
+                                       "reason": "page-flow E2E cleanup (run_pages_e2e.py)", "format": "json"},
+                             post=True)
+                except Exception as exc:  # noqa: BLE001 — best-effort cleanup
+                    print(f"  ! cleanup failed for {page}: {exc}")
             for qid in created:
                 try:
                     delete_item(op, api, qid)

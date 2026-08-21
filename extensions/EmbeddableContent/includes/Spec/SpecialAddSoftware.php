@@ -1,0 +1,385 @@
+<?php
+
+declare( strict_types = 1 );
+
+namespace EmbeddableContent\Spec;
+
+use DataValues\StringValue;
+use EmbeddableContent\Content\FragmentSanitizer;
+use EmbeddableContent\Fetch\ProviderResult;
+use MediaWiki\Title\Title;
+use Wikibase\DataModel\Entity\EntityIdValue;
+use Wikibase\DataModel\Entity\Item;
+use Wikibase\DataModel\Entity\ItemId;
+use Wikibase\Repo\WikibaseRepo;
+
+/**
+ * Special:AddSoftware — create a FOSS software item + its FOSS:<Name> wiki
+ * page from an external authority (Wikidata → GitHub, issue #26).
+ *
+ * Extends the issue-#7 external-entity flow (search → select → review →
+ * create, + /manual) with one extra step: after the item is created, the
+ * FOSS: page is written (transcluding Template:FOSS) and sitelinked to the
+ * item, so {{#statements:}} on the page renders from the item at view time.
+ *
+ * Item-typed facts (developer, license, operating system, …) reference
+ * EXISTING local items via entity comboboxes — the instance's "properties
+ * first, then items" house rule; harvested labels are shown as context in
+ * the review step. URL/string facts (website, source repository, version)
+ * are written directly from the corrected record.
+ *
+ * @license GPL-2.0-or-later
+ */
+class SpecialAddSoftware extends SpecialAddExternalEntity {
+
+	/**
+	 * Item-typed FOSS facts written as entity values; each field is an
+	 * entity combobox referencing existing local items.
+	 */
+	private const FOSS_ENTITY_FIELDS = [
+		'developer', 'license', 'operatingSystem', 'programmingLanguage',
+		'userInterface', 'hasUse',
+	];
+
+	public function __construct(
+		\EmbeddableContent\EmbeddableContentConfig $config,
+		\EmbeddableContent\Fetch\ProviderClient $client
+	) {
+		parent::__construct( 'AddSoftware', $config, $client );
+	}
+
+	public function execute( $subPage ) {
+		// Entity comboboxes in the review/manual steps need the autofill
+		// module (same wiring as the AddQuotation provenance block).
+		$this->getOutput()->addModules( 'ext.embeddableContent.entitysuggest' );
+		$parts = explode( '/', trim( (string)$subPage ) );
+		if ( ( $parts[0] ?? '' ) === 'complete' && ( $parts[1] ?? '' ) !== '' ) {
+			$this->executeComplete( $parts[1] );
+			return;
+		}
+		parent::execute( $subPage );
+	}
+
+	/**
+	 * Finalizes a just-created FOSS page in a FRESH request: the first
+	 * request's parse ran before the sitelink was committed AND the client's
+	 * in-process sitelink cache had already cached the negative lookup, so
+	 * its wikibase_item page property was left unset. Re-saving the page
+	 * here — new process, committed sitelink, empty lookup cache — makes the
+	 * re-parse deterministically map the page to the item.
+	 *
+	 * Idempotent and safe: only touches pages that carry the pending marker
+	 * AND whose item is sitelinked to them (both set by the legitimate flow).
+	 */
+	private function executeComplete( string $itemId ): void {
+		$this->setHeaders();
+		// The step performs an edit (finalize the page): login-gated like
+		// every other step of the flow (the legitimate flow redirects here
+		// from the review/manual submit, so the user is already logged in).
+		$this->requireLogin();
+		try {
+			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
+		} catch ( \Throwable $e ) {
+			$item = null;
+		}
+		$target = null;
+		if ( $item instanceof Item && $item->getSiteLinkList()->hasLinkWithSiteId( 'wikibase' ) ) {
+			$pageName = $item->getSiteLinkList()->getBySiteId( 'wikibase' )->getPageName();
+			$title = Title::newFromText( $pageName );
+			if ( $title !== null && $title->exists() ) {
+				$page = \MediaWiki\MediaWikiServices::getInstance()
+					->getWikiPageFactory()->newFromTitle( $title );
+				$current = $page->getContent() !== null ? $page->getContent()->getWikitextForTransclusion() : '';
+				if ( strpos( $current, self::PENDING_MARKER ) !== false ) {
+					$final = new \MediaWiki\Content\WikitextContent( self::pageSkeleton( false ) );
+					$status = $page->doUserEditContent(
+						$final,
+						$this->getUser(),
+						'Completing the page–item link',
+						EDIT_UPDATE | EDIT_MINOR
+					);
+					if ( !$status->isOK() ) {
+						// Best-effort: the page still exists with the marker;
+						// the contributor can finish the edit by hand.
+						$this->getOutput()->redirect( $title->getFullURL() );
+						return;
+					}
+				}
+				$target = $title->getFullURL();
+			}
+		}
+		$this->getOutput()->redirect( $target ?? $this->getPageTitle()->getFullURL() );
+	}
+
+	protected function kindKey(): string {
+		return 'software';
+	}
+
+	protected function buildSearchFields(): array {
+		return [
+			'name' => [
+				'type' => 'text',
+				'label-message' => 'embeddablecontent-extsearch-name',
+				'required' => true,
+				'maxlength' => 250,
+			],
+		];
+	}
+
+	protected function search( array $data ): ProviderResult {
+		$name = trim( (string)( $data['name'] ?? '' ) );
+		if ( $name === '' ) {
+			return new ProviderResult( [], [ 'No software name given' ] );
+		}
+		return $this->client->searchSoftware( $name );
+	}
+
+	protected function candidateOptions( array $records ): array {
+		return $this->candidateOptionLabels( $records );
+	}
+
+	protected function primaryLabel( array $record ): string {
+		// The review step lets the author correct the label (e.g. drop an
+		// owner/repo prefix from a GitHub candidate).
+		return (string)( $record['label'] ?? '' );
+	}
+
+	/** @return array<string,string> authority identifiers relevant to software */
+	protected function externalIdRecordMap(): array {
+		return [
+			'wikidata' => 'wikidataId',
+		];
+	}
+
+	protected function enrichRecord( array $record ): array {
+		if ( !empty( $record['harvested'] ) ) {
+			return $record;
+		}
+		// Harvest on pick: Wikidata hub for the full software record.
+		if ( !empty( $record['wikidataId'] ) && ( $record['provider'] ?? '' ) === 'wikidata' ) {
+			$harvest = $this->client->harvestSoftware( $record['wikidataId'] );
+			if ( $harvest->records !== [] ) {
+				$record = array_merge( $record, (array)$harvest->records[0] );
+			}
+		}
+		$record['harvested'] = true;
+		return $record;
+	}
+
+	protected function reviewFieldSpecs( array $record ): array {
+		$fields = $this->labelFieldSpec( 'label', 'embeddablecontent-extsearch-name', (string)( $record['label'] ?? '' ) )
+			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
+			+ [
+				'website' => [
+					'type' => 'url',
+					'label-message' => 'embeddablecontent-field-officialwebsite',
+					'default' => (string)( $record['website'] ?? '' ),
+					'maxlength' => 250,
+				],
+				'sourceRepository' => [
+					'type' => 'url',
+					'label-message' => 'embeddablecontent-field-sourcerepository',
+					'default' => (string)( $record['sourceRepository'] ?? '' ),
+					'maxlength' => 250,
+				],
+				'softwareVersion' => $this->plainTextField(
+					'embeddablecontent-field-softwareversion',
+					(string)( $record['latestVersion'] ?? '' )
+				),
+			];
+
+		foreach ( self::FOSS_ENTITY_FIELDS as $field ) {
+			$harvested = (string)( $record[$field] ?? '' );
+			$fields[$field] = [
+				'type' => 'combobox',
+				'options' => [],
+				'label-message' => 'embeddablecontent-field-' . $field,
+				'cssclass' => 'wb-entity-combobox',
+				'help-message' => 'embeddablecontent-add-entityid-help',
+			];
+			if ( $harvested !== '' ) {
+				// Plain text, HTML-escaped: the label comes from an external
+				// API and must never inject markup.
+				$fields[$field]['help'] = htmlspecialchars(
+					$this->msg( 'embeddablecontent-software-field-harvested', $harvested )->text()
+				);
+			}
+		}
+		return $fields;
+	}
+
+	protected function createFromRecord( array $record, string $classItemId ): string {
+		$record = $this->enrichRecord( $record );
+		$specs = $this->softwareStatementSpecs( $record ) + $this->externalIdStatements( $record );
+		return $this->createOrSkipItem( $this->primaryLabel( $record ), $classItemId, $specs, $record );
+	}
+
+	/**
+	 * Manual-entry path: same software statement specs, no harvest (the
+	 * form fields carry everything).
+	 */
+	protected function manualCreate( string $label, string $classItemId, array $record ): string {
+		$specs = $this->softwareStatementSpecs( $record ) + $this->externalIdStatements( $record );
+		return $this->createOrSkipItem( $label, $classItemId, $specs, $record );
+	}
+
+	/**
+	 * FOSS statement specs from a (harvested or hand-entered) record:
+	 * website/repository as validated URLs, version as string, and the
+	 * item-typed facts as entity values referencing existing local items.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,\Wikibase\DataModel\DataValue> property id => DataValue
+	 */
+	protected function softwareStatementSpecs( array $record ): array {
+		$sanitizer = new FragmentSanitizer();
+		$specs = [];
+
+		// URL facts — validated; invalid harvested URLs are dropped rather
+		// than blocking creation (the author saw them on the review form).
+		$website = $sanitizer->validateUrl( (string)( $record['website'] ?? '' ) );
+		if ( $website !== null ) {
+			$specs[$this->config->fossPropertyIds()['officialWebsite']] = new StringValue( $website );
+		}
+		$repository = $sanitizer->validateUrl( (string)( $record['sourceRepository'] ?? '' ) );
+		if ( $repository !== null ) {
+			$specs[$this->config->fossPropertyIds()['sourceRepository']] = new StringValue( $repository );
+		}
+
+		// Version string.
+		$version = trim( (string)( $record['softwareVersion'] ?? '' ) );
+		if ( $version !== '' ) {
+			$specs[$this->config->fossPropertyIds()['softwareVersion']] = new StringValue( $version );
+		}
+
+		// Item-typed facts: entity combobox values (existing local items).
+		foreach ( self::FOSS_ENTITY_FIELDS as $field ) {
+			$itemId = $this->parseOptionalItemId( (string)( $record[$field] ?? '' ) );
+			if ( $itemId === null ) {
+				continue;
+			}
+			$propertyId = $field === 'programmingLanguage'
+				// P5 doubles as the FOSS programming-language property.
+				? $this->config->programmingLanguagePropertyId()
+				: $this->config->fossPropertyIds()[$field];
+			$specs[$propertyId] = new EntityIdValue( $itemId );
+		}
+
+		return $specs;
+	}
+
+	/**
+	 * Creates the FOSS:<Name> wiki page (Template:FOSS skeleton) and
+	 * sitelinks it to the just-created item, so the page renders the item's
+	 * statements at view time. Idempotent: an existing page is left alone,
+	 * the sitelink is (re)asserted.
+	 *
+	 * @return string|null redirect target URL, or null to keep the item redirect
+	 */
+	protected function afterCreate( string $itemId, array $record ): ?string {
+		if ( !defined( 'NS_FOSS' ) ) {
+			// Instance without the FOSS namespace: item-only flow.
+			return null;
+		}
+		$label = $this->primaryLabel( $record );
+		if ( trim( $label ) === '' ) {
+			return null;
+		}
+		$title = Title::newFromText( 'FOSS:' . $label );
+		if ( $title === null || !$title->inNamespace( NS_FOSS ) ) {
+			// Invalid page title (e.g. contains #): keep the item only.
+			return null;
+		}
+
+		// Sitelink the page ↔ item FIRST: the page's save-time parse must
+		// find the link or its wikibase_item page property stays stale
+		// ("unexpectedUnconnectedPage") and the infobox renders empty.
+		// Page names are stored WITH SPACES (getItemIdForLink normalizes
+		// underscores away) — getPrefixedDBkey() would be a silent mismatch.
+		// The sitelink must live in the ENTITY REVISION too (wbgetentities
+		// reads sitelinks from the revision, not the table) — saving the
+		// item writes both: the revision and, via ItemHandler's secondary
+		// data update, the sitelink table.
+		// Guard: on create-or-skip reuse the item may already carry the link
+		// — never rewrite existing sitelink state.
+		$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
+		if ( $item instanceof Item && !$item->getSiteLinkList()->hasLinkWithSiteId( 'wikibase' ) ) {
+			$item->getSiteLinkList()->setNewSiteLink( 'wikibase', $title->getPrefixedText() );
+			WikibaseRepo::getEntityStore()->saveEntity(
+				$item,
+				$this->msg( 'embeddablecontent-software-sitelink-edit-summary', $label )
+					->inContentLanguage()->text(),
+				$this->getUser(),
+				EDIT_UPDATE
+			);
+			// ALSO write the sitelink table synchronously: the entity save's
+			// secondary data update (ItemHandler::saveLinksOfItem) may run
+			// deferred, and the finalize step's parse — which happens in the
+			// immediately-following request — reads the TABLE. Diff-based, so
+			// re-running it here is a harmless no-op when it already landed.
+			WikibaseRepo::getStore()->newSiteLinkStore()->saveLinksOfItem( $item );
+		}
+
+		if ( !$title->exists() ) {
+			$page = \MediaWiki\MediaWikiServices::getInstance()
+				->getWikiPageFactory()->newFromTitle( $title );
+			// Revision 1 carries a marker: this request's parse runs before
+			// the sitelink is durably visible AND the client's in-process
+			// sitelink cache would return the cached negative for it — so it
+			// cannot set the wikibase_item property. The redirect target
+			// below routes through Special:AddSoftware/complete/<id>, which
+			// re-saves the page in a FRESH request (committed sitelink,
+			// empty cache) and removes the marker.
+			$content = new \MediaWiki\Content\WikitextContent( self::pageSkeleton( true ) );
+			$status = $page->doUserEditContent(
+				$content,
+				$this->getUser(),
+				$this->msg( 'embeddablecontent-software-page-edit-summary', $label )->inContentLanguage()->text(),
+				EDIT_NEW
+			);
+			if ( !$status->isOK() ) {
+				// Page creation failed (e.g. protected namespace): the item
+				// still exists — surface the item instead of erroring.
+				return null;
+			}
+			// Round-trip through the finalize step so the page↔item mapping
+			// lands deterministically; fall back to the page itself.
+			$complete = $this->getPageTitle( 'complete/' . $itemId )->getFullURL();
+			return $complete;
+		}
+
+		return $title->getFullURL();
+	}
+
+	/** Marker left in the first page revision, removed by the finalize step. */
+	private const PENDING_MARKER = '__FOSS_LINK_PENDING__';
+
+	/** Default FOSS: page skeleton — prose lives on the page, facts in the item. */
+	private static function pageSkeleton( bool $withMarker = false ): string {
+		$marker = $withMarker ? "\n<!-- " . self::PENDING_MARKER . " -->\n" : "";
+		return "{{FOSS}}\n\n== Overview ==\n\n<!-- What this software does and who it is for. -->\n\n"
+			. "== Features ==\n\n== Alternatives ==\n\n== See also ==\n" . $marker;
+	}
+
+	protected function classOptions(): array {
+		return $this->config->fossClasses();
+	}
+
+	protected function defaultClassItemId( array $record ): ?string {
+		$fossClasses = $this->config->fossClasses();
+		return $fossClasses['foss'] ?? null;
+	}
+
+	private function parseOptionalItemId( string $input ): ?ItemId {
+		$input = trim( $input );
+		if ( $input === '' ) {
+			return null;
+		}
+		try {
+			$id = WikibaseRepo::getEntityIdParser()->parse( $input );
+			return $id instanceof ItemId ? $id : null;
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+	}
+}
