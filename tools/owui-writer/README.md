@@ -40,12 +40,17 @@ sudo -u ronzz php /var/www/wikibase/maintenance/run.php createAndPromote --usern
 `Special:BotPasswords` as `OpenWebuiWriter` → "Writer" with grants:
 
 ```
-basic, createeditmovefile, editpage, uploadeditmovefile
+basic, createeditmovepage, editpage, uploadeditmovefile
 ```
 
 (`basic` is automatic. This allows: edit existing pages, create/move pages, upload/replace
 files. It does **not** allow: delete/undelete, rights management, patrol, pagetranslation —
 exactly the MCP tools the writer must not run. MediaWiki enforces this server-side.)
+
+> **Grant-name gotcha (MW 1.46)**: the valid name is `createeditmovepage`, NOT
+> `createeditmovefile` — the old name fails with "These grants are invalid". Verify with
+> `createBotPassword --showgrants`. Server-side alternative:
+> `sudo -u ronzz php /var/www/wikibase/maintenance/run.php createBotPassword --appid Writer --grants basic,createeditmovepage,editpage,uploadeditmovefile OpenWebuiWriter`
 
 Note the generated `<username>@<botname>` (`OpenWebuiWriter@Writer`) + password.
 
@@ -57,8 +62,16 @@ sudo install -o ubuntu -m 600 ronzz-wikibase-writer.json.example /opt/openwebui/
 # then edit /opt/openwebui/config/mediawiki-mcp-writer.json → set "password" (bot password)
 ```
 
-Credentials live on the server (0600, owner ubuntu like `/opt/openwebui/.env`) — **never on
-the wiki, never in this repo**.
+**Permission gotcha**: the container runs as `nodejs` (uid 100, gid 101). A plain `0600`
+file owned by ubuntu (uid 1001) makes the container crash with `EACCES: permission denied,
+open 'config.json'`. Make it group-readable by the container's gid instead:
+
+```bash
+sudo chgrp 101 /opt/openwebui/config/mediawiki-mcp-writer.json && sudo chmod 640 /opt/openwebui/config/mediawiki-mcp-writer.json
+```
+
+Credentials live on the server (owner ubuntu, group 101, mode 640 — on this host gid 101
+maps to the `lxd` group, whose only member is ubuntu) — **never on the wiki, never in this repo**.
 
 ### 4. Merge the compose fragment
 

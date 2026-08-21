@@ -42,8 +42,9 @@ Existing deck (per `RonzzIT:OpenWebUI`, `RonzzIT:Wikibase`):
    server does too; MCPO exists to bridge stdio/SSE, which we do not need.
 3. **Dedicated least-privilege writer identity.** New plain wiki user `OpenWebuiWriter`
    (no groups) + bot password `OpenWebuiWriter@Writer` with grants
-   `basic, createeditmovefile, editpage, uploadeditmovefile` — section edits, create/move
+   `basic, createeditmovepage, editpage, uploadeditmovefile` — section edits, create/move
    of drafts, image uploads; **not** delete/undelete, rights, patrol, pagetranslation.
+   (MW 1.46 valid grant name is `createeditmovepage` — not the legacy `createeditmovefile`.)
    The HTTP endpoint runs with static credentials + `MCP_ALLOW_STATIC_FALLBACK=true`
    (accepted shared-identity deployment — endpoint stays internal on the compose network).
 4. **Workflow.** Staged pipeline with human checkpoints; the section-rewrite loop is

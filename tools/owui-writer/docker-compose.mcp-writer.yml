@@ -6,16 +6,18 @@
 #
 # Pre-flight (manual steps, see README.md):
 #   1. create wiki user OpenWebuiWriter + bot password OpenWebuiWriter@Writer
-#      (grants: basic, createeditmovefile, editpage, uploadeditmovefile)
+#      (grants: basic, createeditmovepage, editpage, uploadeditmovefile)
 #   2. write /opt/openwebui/config/mediawiki-mcp-writer.json from
-#      ronzz-wikibase-writer.json.example (0600, real bot password)
+#      ronzz-wikibase-writer.json.example (real bot password) — MUST be readable by
+#      the container's nodejs user (uid 100 / gid 101): chgrp 101 + chmod 640
+#      (a plain 0600 makes the container crash with EACCES)
 #
 # No host ports are published: the endpoint is reachable ONLY from the compose network.
 # Do not publish it without a security re-review (see docs/decisions/owui-wiki-writer.md).
 
 services:
   mediawiki-mcp-writer:
-    image: ghcr.io/professionalwiki/mediawiki-mcp-server:v0.17.0   # pin at deploy time (check releases)
+    image: ghcr.io/professionalwiki/mediawiki-mcp-server:0.17.0   # pin at deploy time (check releases; tag has NO v prefix)
     restart: unless-stopped
     volumes:
       - /opt/openwebui/config/mediawiki-mcp-writer.json:/app/config.json:ro
