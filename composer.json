@@ -5,6 +5,7 @@
 	"license": "GPL-2.0-or-later",
 	"require-dev": {
 		"data-values/common": "^1.2",
+		"data-values/number": "^0.12.3 || ^0.13.0",
 		"data-values/time": "^1.0",
 		"phpunit/phpunit": "^10.5",
 		"seboettg/citeproc-php": "^2.5",

@@ -78,4 +78,6 @@ an item" affordance on the page itself.
 - Config map: `sourceClasses` + `sourceParents` (child key → parent key), `sourceProperties`,
   deploy-injected `youtubeApiKey` / `youtubeSearchCacheTtl`.
 - Extension code stays standalone and upstreamable; all entity ids remain config-driven, never
-  hardcoded.
+  hardcoded. The dev-only `composer.json` gained `data-values/number` (where
+  `DataValues\QuantityValue` lives — the same package production Wikibase resolves), mirroring
+  the production dependency set for the quantity statements.
