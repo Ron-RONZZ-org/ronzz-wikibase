@@ -29,6 +29,7 @@ class CurlHttpClient implements HttpClientInterface {
 		'pub.orcid.org',
 		'viaf.org',
 		'api.github.com', // issue #26: GitHubSoftwareProvider (Special:AddSoftware)
+		'www.googleapis.com', // YouTube Data API v3 (Special:AddSource YouTube classes)
 	];
 
 	private const MAX_REDIRECTS = 3;

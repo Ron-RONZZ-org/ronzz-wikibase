@@ -5,8 +5,10 @@ declare( strict_types = 1 );
 namespace EmbeddableContent\Fetch;
 
 /**
- * Normalized work record (book / article / song / film / …) from any provider.
- * Field names follow the #7 field contract and the #8 curated bundle.
+ * Normalized work record (book / article / song / film / YouTube channel or
+ * video / …) from any provider. Field names follow the #7 field contract and
+ * the #8 curated bundle; the YouTube-specific fields are provider-carried
+ * identifiers and the canonical item URL.
  *
  * @license GPL-2.0-or-later
  */
@@ -31,7 +33,11 @@ final class WorkRecord {
 		public readonly ?int $issuedYear = null,
 		public readonly array $classWikidataIds = [],
 		public readonly string $provider = '',
-		public readonly ?string $providerId = null
+		public readonly ?string $providerId = null,
+		public readonly ?string $youtubeChannelId = null,
+		public readonly ?string $youtubeVideoId = null,
+		public readonly ?string $url = null,
+		public readonly ?string $channelTitle = null
 	) {
 	}
 }
