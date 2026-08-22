@@ -15,7 +15,7 @@ import csv
 from pathlib import Path
 from typing import Any
 
-ALLOWED_DATATYPES = {"wikibase-item", "monolingualtext", "string", "url", "time", "external-id"}
+ALLOWED_DATATYPES = {"wikibase-item", "monolingualtext", "string", "url", "time", "quantity", "external-id"}
 
 
 class ManifestError(Exception):
