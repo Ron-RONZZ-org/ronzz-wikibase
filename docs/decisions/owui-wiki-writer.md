@@ -1,6 +1,9 @@
 # Decision: Open WebUI as the LLM-assisted wiki writer studio (MCP endpoint + least-privilege bot)
 
 - **Status**: Accepted (Aug 21 2026) — implementation started
+- **Update (Aug 22 2026)**: writer account renamed `OpenWebuiWriter` → `RonzzWikiCowriterAI`
+  (bot password `RonzzWikiCowriterAI@Writer`, same grants) via core `renameUser.php` —
+  bot-password login + MCP tool calls verified under the new name
 - **Scope**: `llm.ronzz.org` (Open WebUI) ↔ `wikibase.ronzz.org` integration — LLM-assisted
   wiki article writing (research → outline → draft → iterate → human review) with
   section-targeted rewrites and BYOK (bring-your-own-key) providers
@@ -40,8 +43,8 @@ Existing deck (per `RonzzIT:Deployment/OpenWebUI` · `RonzzIT:Runbook/OpenWebUI`
    Open WebUI Admin → Integrations as an MCP server at `http://mediawiki-mcp-writer:8080/mcp`.
    **No MCPO proxy** — Open WebUI speaks Streamable HTTP natively (v0.6.31+) and the MCP
    server does too; MCPO exists to bridge stdio/SSE, which we do not need.
-3. **Dedicated least-privilege writer identity.** New plain wiki user `OpenWebuiWriter`
-   (no groups) + bot password `OpenWebuiWriter@Writer` with grants
+3. **Dedicated least-privilege writer identity.** New plain wiki user `RonzzWikiCowriterAI`
+   (no groups) + bot password `RonzzWikiCowriterAI@Writer` with grants
    `basic, createeditmovepage, editpage, uploadeditmovefile` — section edits, create/move
    of drafts, image uploads; **not** delete/undelete, rights, patrol, pagetranslation.
    (MW 1.46 valid grant name is `createeditmovepage` — not the legacy `createeditmovefile`.)
@@ -69,7 +72,7 @@ Existing deck (per `RonzzIT:Deployment/OpenWebUI` · `RonzzIT:Runbook/OpenWebUI`
 
 ## Consequences
 
-- Every OWUI-initiated edit is attributed to `OpenWebuiWriter` (audit via page history +
+- Every OWUI-initiated edit is attributed to `RonzzWikiCowriterAI` (audit via page history +
   edit summary).
 - **Shared identity is acceptable for ≤2–3 editors.** Revisit triggers: a second human
   editor wants their own attribution, or Extension:OAuth lands on the wiki (then the MCP

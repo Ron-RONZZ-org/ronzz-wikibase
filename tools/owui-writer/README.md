@@ -11,7 +11,7 @@ Editor → llm.ronzz.org (Open WebUI, OIDC) ──tools──▶ mediawiki-mcp-w
                                                           │
                                                           ▼
                                               wikibase.ronzz.org/api.php
-                                              (identity: OpenWebuiWriter@Writer bot password)
+                                              (identity: RonzzWikiCowriterAI@Writer bot password)
 ```
 
 No MCPO, no OpenAPI tool server: Open WebUI speaks MCP **Streamable HTTP** natively (v0.6.31+)
@@ -28,16 +28,16 @@ and the ProfessionalWiki mediawiki-mcp-server does too (fixed `/mcp` path, `MCP_
 
 ### 1. Create the wiki account (registration is closed)
 
-As admin (Rongzhou): `Special:CreateAccount` on wikibase.ronzz.org → user `OpenWebuiWriter`
+As admin (Rongzhou): `Special:CreateAccount` on wikibase.ronzz.org → user `RonzzWikiCowriterAI`
 (plain user, no groups). Alternative, server-side:
 
 ```bash
-sudo -u ronzz php /var/www/wikibase/maintenance/run.php createAndPromote --username=OpenWebuiWriter --force
+sudo -u ronzz php /var/www/wikibase/maintenance/run.php createAndPromote --username=RonzzWikiCowriterAI --force
 ```
 
 ### 2. Create the bot password (least privilege)
 
-`Special:BotPasswords` as `OpenWebuiWriter` → "Writer" with grants:
+`Special:BotPasswords` as `RonzzWikiCowriterAI` → "Writer" with grants:
 
 ```
 basic, createeditmovepage, editpage, uploadeditmovefile
@@ -50,9 +50,9 @@ exactly the MCP tools the writer must not run. MediaWiki enforces this server-si
 > **Grant-name gotcha (MW 1.46)**: the valid name is `createeditmovepage`, NOT
 > `createeditmovefile` — the old name fails with "These grants are invalid". Verify with
 > `createBotPassword --showgrants`. Server-side alternative:
-> `sudo -u ronzz php /var/www/wikibase/maintenance/run.php createBotPassword --appid Writer --grants basic,createeditmovepage,editpage,uploadeditmovefile OpenWebuiWriter`
+> `sudo -u ronzz php /var/www/wikibase/maintenance/run.php createBotPassword --appid Writer --grants basic,createeditmovepage,editpage,uploadeditmovefile RonzzWikiCowriterAI`
 
-Note the generated `<username>@<botname>` (`OpenWebuiWriter@Writer`) + password.
+Note the generated `<username>@<botname>` (`RonzzWikiCowriterAI@Writer`) + password.
 
 ### 3. Write the MCP config on the server
 
@@ -125,7 +125,7 @@ Rules:
 - Read drill: ask the model to `get-page` a known page and summarize it.
 - Section drill (on a scratch page, e.g. `User:Rongzhou/scratch`): flag a section, request a
   rewrite, confirm the model shows a preview, approve, then check the page history shows the
-  edit under `OpenWebuiWriter` with the AI summary.
+  edit under `RonzzWikiCowriterAI` with the AI summary.
 - Conflict drill: edit the page in another tab between preview and approval — the applied
   write must fail/rebase, not clobber.
 

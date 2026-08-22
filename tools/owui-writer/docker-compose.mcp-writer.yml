@@ -5,7 +5,7 @@
 # at http://mediawiki-mcp-writer:8080/mcp). See README.md in this directory.
 #
 # Pre-flight (manual steps, see README.md):
-#   1. create wiki user OpenWebuiWriter + bot password OpenWebuiWriter@Writer
+#   1. create wiki user RonzzWikiCowriterAI + bot password RonzzWikiCowriterAI@Writer
 #      (grants: basic, createeditmovepage, editpage, uploadeditmovefile)
 #   2. write /opt/openwebui/config/mediawiki-mcp-writer.json from
 #      ronzz-wikibase-writer.json.example (real bot password) — MUST be readable by

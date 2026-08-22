@@ -30,7 +30,7 @@ integration layer end-to-end, or wire the wiki into the LLM writing studio.
 - **`tools/owui-writer/`** — deploy kit for the Open WebUI wiki writer: runs the
   ProfessionalWiki mediawiki-mcp-server as a compose sibling (`mediawiki-mcp-writer`,
   MCP Streamable HTTP at `/mcp`) so Open WebUI can edit wiki pages through a
-  least-privilege bot password (`OpenWebuiWriter@Writer`). See
+  least-privilege bot password (`RonzzWikiCowriterAI@Writer`). See
   [`owui-writer/README.md`](owui-writer/README.md) + ADR
   `docs/decisions/owui-wiki-writer.md`. Contains templates only — **no credentials**.
 
