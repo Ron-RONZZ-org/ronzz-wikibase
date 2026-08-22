@@ -45,6 +45,23 @@ extensions — never forks of Wikibase.
   (`manifests/preseed.csv` + seed `preseed` phase): common operating
   systems, FOSS licenses and user interfaces classified under their parent
   classes.
+- **Special:AddSource class-first (issue follow-up, ADR
+  `docs/decisions/class-first-addsource.md`)**: the root page is a class
+  picker routing to class-scoped subpages (`/<classKey>`, `/<classKey>/manual`,
+  `/<classKey>/<token>[/review/<i>]`). Per-class search and review fields;
+  child classes (`bookExcerpt→book`, `webpage→website`,
+  `youtubeVideo→youtubeChannel`) require an existing parent-class item
+  (entity combobox + "import it yourself" link, server-side validated) and
+  auto-write a `part of` statement. Every class requires ≥1 author entity
+  (agent-class validated → `attributed to` statements). `website`/`webpage`/
+  `bookExcerpt` are manual-only classes. Duration is entered as
+  `(HH):MM:SS` and stored as seconds in the `quantity`-datatype property.
+  YouTube import (Data API v3, key deploy-injected + IP-restricted, never
+  in the repo): name search capped at 10, URL lookups exact-only.
+- **Sitelink tab (issue follow-up)**: `SkinTemplateNavigation::Universal`
+  adds a red/blue **Sitelink** tab next to Page/Discussion on every content
+  page — red = not linked (click → OOUI dialog, `wbsearchentities` search or
+  direct Q-id → `wbsetsitelink`), blue = linked (→ Item page).
 - **Entity-page toolbar gadget** (copy embed with absolute URL + language
   selector / copy citation) and entity-combobox autocomplete.
 
