@@ -167,5 +167,14 @@
 	"embeddablecontent-source-error-author-entity": "L'élément auteur $1 n'existe pas. Choisissez une entité existante, ou créez-la d'abord via Special:AddPerson.",
 	"embeddablecontent-source-error-author-class": "L'élément auteur $1 n'est ni une personne, ni une organisation, ni un groupe.",
 	"embeddablecontent-source-error-parent-required": "Sélectionnez l'élément parent dont cette source fait partie.",
-	"embeddablecontent-source-error-parent-class": "L'élément parent $1 n'est pas de la classe parente requise."
+	"embeddablecontent-source-error-parent-class": "L'élément parent $1 n'est pas de la classe parente requise.",
+	"embeddablecontent-sitelink-tab": "Lien d'entité",
+	"embeddablecontent-sitelink-tab-set": "Cette page est liée à l'élément $1",
+	"embeddablecontent-sitelink-tab-unset": "Cette page n'est liée à aucun élément — cliquez pour la lier",
+	"embeddablecontent-sitelink-dialog-title": "Lier cette page à un élément",
+	"embeddablecontent-sitelink-placeholder": "Rechercher un élément par libellé, ou saisir un identifiant Q (p. ex. Q42)",
+	"embeddablecontent-sitelink-link": "Lier",
+	"embeddablecontent-sitelink-cancel": "Annuler",
+	"embeddablecontent-sitelink-badid": "Saisissez un identifiant d'élément valide (p. ex. Q42) ou choisissez un résultat de recherche.",
+	"embeddablecontent-sitelink-error": "Échec de la liaison : $1"
 }

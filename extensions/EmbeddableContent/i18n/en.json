@@ -168,5 +168,14 @@
 	"embeddablecontent-source-error-author-entity": "The author item $1 does not exist. Pick an existing entity, or create it first via Special:AddPerson.",
 	"embeddablecontent-source-error-author-class": "The author item $1 is not a person, organization or group.",
 	"embeddablecontent-source-error-parent-required": "Select the parent item this source is part of.",
-	"embeddablecontent-source-error-parent-class": "The parent item $1 is not of the required parent class."
+	"embeddablecontent-source-error-parent-class": "The parent item $1 is not of the required parent class.",
+	"embeddablecontent-sitelink-tab": "Sitelink",
+	"embeddablecontent-sitelink-tab-set": "This page is linked to item $1",
+	"embeddablecontent-sitelink-tab-unset": "This page is not linked to an item — click to link it",
+	"embeddablecontent-sitelink-dialog-title": "Link this page to an item",
+	"embeddablecontent-sitelink-placeholder": "Search an item by label, or type a Q-id (e.g. Q42)",
+	"embeddablecontent-sitelink-link": "Link",
+	"embeddablecontent-sitelink-cancel": "Cancel",
+	"embeddablecontent-sitelink-badid": "Enter a valid item id (e.g. Q42) or pick a search result.",
+	"embeddablecontent-sitelink-error": "Linking failed: $1"
 }

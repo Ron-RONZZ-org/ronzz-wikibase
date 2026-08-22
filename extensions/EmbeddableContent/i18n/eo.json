@@ -167,5 +167,14 @@
 	"embeddablecontent-source-error-author-entity": "La aŭtora elemento $1 ne ekzistas. Elektu ekzistantan enton, aŭ kreu ĝin unue per Special:AddPerson.",
 	"embeddablecontent-source-error-author-class": "La aŭtora elemento $1 estas nek persono, nek organizaĵo, nek grupo.",
 	"embeddablecontent-source-error-parent-required": "Elektu la patran elementon, al kiu ĉi tiu fonto apartenas.",
-	"embeddablecontent-source-error-parent-class": "La patra elemento $1 ne estas de la postulata patra klaso."
+	"embeddablecontent-source-error-parent-class": "La patra elemento $1 ne estas de la postulata patra klaso.",
+	"embeddablecontent-sitelink-tab": "Entoligo",
+	"embeddablecontent-sitelink-tab-set": "Ĉi tiu paĝo estas ligita al elemento $1",
+	"embeddablecontent-sitelink-tab-unset": "Ĉi tiu paĝo ne estas ligita al elemento — alklaku por ligi ĝin",
+	"embeddablecontent-sitelink-dialog-title": "Ligi ĉi tiun paĝon al elemento",
+	"embeddablecontent-sitelink-placeholder": "Serĉi elementon laŭ etikedo, aŭ tajpu Q-identigilon (ekz. Q42)",
+	"embeddablecontent-sitelink-link": "Ligi",
+	"embeddablecontent-sitelink-cancel": "Nuligi",
+	"embeddablecontent-sitelink-badid": "Enigu validan element-identigilon (ekz. Q42) aŭ elektu serĉrezulton.",
+	"embeddablecontent-sitelink-error": "Ligado malsukcesis: $1"
 }
