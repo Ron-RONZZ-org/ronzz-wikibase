@@ -26,8 +26,12 @@ class Hooks {
 	 * the page is sitelinked to an item (href → Item page), red when not
 	 * (href → Special:NewItem prefilled as a no-JS fallback; the JS module
 	 * intercepts the click and opens the link popup instead).
+	 *
+	 * Hook handler name: MediaWiki maps the hook name SkinTemplateNavigation::
+	 * Universal to the handler method onSkinTemplateNavigation__Universal
+	 * (:: → __).
 	 */
-	public static function onSkinTemplateNavigation( SkinTemplate $skin, array &$links ): void {
+	public static function onSkinTemplateNavigation__Universal( SkinTemplate $skin, array &$links ): void {
 		$title = $skin->getTitle();
 		if ( $title === null || !$title->exists() || !$title->isContentPage() ) {
 			return;
@@ -44,17 +48,17 @@ class Hooks {
 		}
 
 		$itemId = WikibaseRepo::getStore()->newSiteLinkStore()
-			->getItemIdForSiteLink( 'wikibase', $title->getPrefixedText() );
+			->getItemIdForLink( 'wikibase', $title->getPrefixedText() );
 
 		if ( $itemId !== null ) {
-			$links['namespaces']['sitelink'] = [
+			$tab = [
 				'text' => $skin->msg( 'embeddablecontent-sitelink-tab' )->text(),
 				'class' => 'ca-sitelink is-set',
 				'href' => SpecialPage::getTitleFor( 'EntityPage', $itemId->getSerialization() )->getFullURL(),
 				'title' => $skin->msg( 'embeddablecontent-sitelink-tab-set', $itemId->getSerialization() )->text(),
 			];
 		} else {
-			$links['namespaces']['sitelink'] = [
+			$tab = [
 				'text' => $skin->msg( 'embeddablecontent-sitelink-tab' )->text(),
 				'class' => 'ca-sitelink needs-set',
 				'href' => SpecialPage::getTitleFor( 'NewItem' )->getFullURL( [
@@ -64,6 +68,13 @@ class Hooks {
 				'title' => $skin->msg( 'embeddablecontent-sitelink-tab-unset' )->text(),
 			];
 		}
+
+		// MW 1.46 renamed the namespace tab menu to `associated-pages` and
+		// deprecates `namespaces`; the fallback copies namespaces → 
+		// associated-pages only when both have equal counts (adding to one
+		// key breaks the fallback). Set BOTH so every skin sees the tab.
+		$links['namespaces']['sitelink'] = $tab;
+		$links['associated-pages']['sitelink'] = $tab;
 
 		$skin->getOutput()->addModules( 'ext.embeddableContent.sitelinktab' );
 	}
