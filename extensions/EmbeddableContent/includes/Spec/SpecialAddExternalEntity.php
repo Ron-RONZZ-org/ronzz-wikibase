@@ -142,12 +142,32 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		$this->executeSelection( $first );
 	}
 
+	/**
+	 * Subclass URL prefix for step subpages (e.g. a class key in
+	 * Special:AddSource's class-first flow); '' for the plain page. All
+	 * step URLs go through stepTitle() so the prefix stays consistent.
+	 */
+	protected function classUrlPrefix(): string {
+		return '';
+	}
+
+	/**
+	 * Title of a step subpage, honoring the subclass URL prefix.
+	 */
+	protected function stepTitle( string $sub = '' ): Title {
+		$prefix = $this->classUrlPrefix();
+		if ( $prefix === '' ) {
+			return $sub === '' ? $this->getPageTitle() : $this->getPageTitle( $sub );
+		}
+		return $sub === '' ? $this->getPageTitle( $prefix ) : $this->getPageTitle( $prefix . '/' . $sub );
+	}
+
 	// ------------------------------------------------------------- step 1
 
-	private function executeSearch(): void {
+	protected function executeSearch(): void {
 		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-' . $this->kindKey() . '-title' )->text() );
 		$form = HTMLForm::factory( 'ooui', $this->buildSearchFields(), $this->getContext() );
-		$form->setTitle( $this->getPageTitle() )
+		$form->setTitle( $this->stepTitle() )
 			->setSubmitTextMsg( 'embeddablecontent-extsearch-submit' )
 			->setSubmitCallback( [ $this, 'onSearchSubmit' ] )
 			->setSubmitID( 'wb-ext-add-search' )
@@ -159,7 +179,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 				'p',
 				[ 'class' => 'wb-ext-manual' ],
 				$this->msg( 'embeddablecontent-manual-hint' )->parse()
-				. ' <a href="' . htmlspecialchars( $this->getPageTitle( 'manual' )->getFullURL() ) . '">'
+				. ' <a href="' . htmlspecialchars( $this->stepTitle( 'manual' )->getFullURL() ) . '">'
 				. $this->msg( 'embeddablecontent-manual-link' )->escaped() . '</a>'
 			)
 		);
@@ -198,13 +218,13 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			$result->records
 		);
 		$this->getRequest()->getSession()->set( self::SESSION_PREFIX . $token, $records );
-		$this->getOutput()->redirect( $this->getPageTitle( $token )->getFullURL() );
+		$this->getOutput()->redirect( $this->stepTitle( $token )->getFullURL() );
 		return true;
 	}
 
 	// ------------------------------------------------------------- step 2
 
-	private function executeSelection( string $token ): void {
+	protected function executeSelection( string $token ): void {
 		$records = $this->loadSessionRecords( $token );
 		if ( $records === null ) {
 			$this->showExpired();
@@ -219,6 +239,20 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// enough for same-name disambiguation.
 		$this->getOutput()->addHTML( $this->candidateDetailsHtml( $records ) );
 
+		// Class: fixed by the class-first picker, a single option collapses
+		// to a hidden field (mirroring classFieldSpec); the free select
+		// remains for legacy multi-class flows.
+		$classOptions = $this->classOptions();
+		$classField = count( $classOptions ) === 1
+			? [ 'type' => 'hidden', 'default' => (string)reset( $classOptions ) ]
+			: [
+				'type' => 'select',
+				'label-message' => 'embeddablecontent-extselect-class',
+				'options' => $classOptions,
+				'default' => $this->defaultClassItemId( $firstRecord ) ?? '',
+				'required' => true,
+			];
+
 		$form = HTMLForm::factory( 'ooui', [
 			'candidates' => [
 				'type' => 'radio',
@@ -227,16 +261,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 				'default' => '0',
 				'required' => true,
 			],
-			'class' => [
-				'type' => 'select',
-				'label-message' => 'embeddablecontent-extselect-class',
-				'options' => $this->classOptions(),
-				'default' => $this->defaultClassItemId( $firstRecord ) ?? '',
-				'required' => true,
-			],
+			'class' => $classField,
 		], $this->getContext() );
 
-		$form->setTitle( $this->getPageTitle( $token ) )
+		$form->setTitle( $this->stepTitle( $token ) )
 			->setSubmitTextMsg( 'embeddablecontent-extselect-continue' )
 			->setSubmitCallback( fn ( array $data ) => $this->onSelectSubmit( $data, $token, $records ) )
 			->setSubmitID( 'wb-ext-add-create' )
@@ -264,13 +292,13 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// record; the user can correct errors before anything is created.
 		$records[$index] = $this->enrichRecord( $record );
 		$this->getRequest()->getSession()->set( self::SESSION_PREFIX . $token, $records );
-		$this->getOutput()->redirect( $this->getPageTitle( $token . '/review/' . $index )->getFullURL() );
+		$this->getOutput()->redirect( $this->stepTitle( $token . '/review/' . $index )->getFullURL() );
 		return true;
 	}
 
 	// ------------------------------------------------------------- step 3
 
-	private function executeReview( string $token, int $index ): void {
+	protected function executeReview( string $token, int $index ): void {
 		$records = $this->loadSessionRecords( $token );
 		$record = $records[$index] ?? null;
 		if ( $record === null ) {
@@ -282,7 +310,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		$fields = $this->reviewFieldSpecs( $record ) + $this->classFieldSpec( $record );
 
 		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
-		$form->setTitle( $this->getPageTitle( $token . '/review/' . $index ) )
+		$form->setTitle( $this->stepTitle( $token . '/review/' . $index ) )
 			->setSubmitTextMsg( 'embeddablecontent-extselect-create' )
 			->setSubmitCallback( fn ( array $data ) => $this->onReviewSubmit( $data, $token, $index, $records ) )
 			->setSubmitID( 'wb-ext-add-create' )
@@ -343,12 +371,12 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 
 	// ------------------------------------------------------------- manual
 
-	private function executeManual(): void {
+	protected function executeManual(): void {
 		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-' . $this->kindKey() . '-manual-title' )->text() );
 		$fields = $this->manualFieldSpecs() + $this->classFieldSpec();
 
 		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
-		$form->setTitle( $this->getPageTitle( 'manual' ) )
+		$form->setTitle( $this->stepTitle( 'manual' ) )
 			->setSubmitTextMsg( 'embeddablecontent-extselect-create' )
 			->setSubmitCallback( [ $this, 'onManualSubmit' ] )
 			->setSubmitID( 'wb-ext-add-manual' )

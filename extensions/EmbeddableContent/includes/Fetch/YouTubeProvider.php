@@ -221,7 +221,7 @@ final class YouTubeProvider {
 		return preg_match( '/^(\d{4})/', $publishedAt, $m ) === 1 ? (int)$m[1] : null;
 	}
 
-	private static function extractVideoId( string $url ): ?string {
+	public static function extractVideoId( string $url ): ?string {
 		if ( preg_match( '#[?&]v=([A-Za-z0-9_-]{11})#', $url, $m ) === 1 ) {
 			return $m[1];
 		}
@@ -234,7 +234,7 @@ final class YouTubeProvider {
 		return null;
 	}
 
-	private static function extractChannelId( string $url ): ?string {
+	public static function extractChannelId( string $url ): ?string {
 		if ( preg_match( '#/channel/([A-Za-z0-9_-]{1,64})#', $url, $m ) === 1 ) {
 			return $m[1];
 		}

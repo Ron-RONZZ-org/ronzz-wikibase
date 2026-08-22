@@ -165,11 +165,11 @@ class EmbeddableContentConfig {
 	}
 
 	/**
-	 * Property id of the child→parent link statement (`part of`), or null
-	 * when the instance predates it.
+	 * Property id of the child→parent link statement (`part of`), from the
+	 * sourceProperties map; null when the instance predates it.
 	 */
 	public function sourceParentPropertyId(): ?string {
-		return $this->optionalString( 'sourceParentProperty' );
+		return $this->sourcePropertyIds()['partOf'] ?? null;
 	}
 
 	/**

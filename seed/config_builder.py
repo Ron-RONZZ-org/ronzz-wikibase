@@ -217,7 +217,6 @@ def build_config(
         "sourceClasses": source_classes,
         "sourceParents": source_parents,
         "sourceProperties": source_props,
-        "sourceParentProperty": property_ids.get("part of"),
         "fossClasses": foss_classes,
         "fossProperties": foss_props,
         "payloadProperties": payload_props,
