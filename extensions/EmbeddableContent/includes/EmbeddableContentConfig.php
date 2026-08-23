@@ -188,13 +188,16 @@ class EmbeddableContentConfig {
 	/**
 	 * Issue #7: source-class specific property ids (Special:AddSource
 	 * statements): partOf, duration, url, youtubeChannelId, youtubeVideoId,
-	 * chapters. Absent keys are omitted (instance-specific availability).
+	 * chapters. Issue #35 adds the access field keys: license (shared with
+	 * the FOSS vocabulary), accessUrl, file. Absent keys are omitted
+	 * (instance-specific availability).
 	 *
 	 * @return array<string,string> canonical key => property id
 	 */
 	public function sourcePropertyIds(): array {
 		return $this->requireStringMap( 'sourceProperties', [
 			'partOf', 'duration', 'url', 'youtubeChannelId', 'youtubeVideoId', 'chapters',
+			'license', 'accessUrl', 'file',
 		] );
 	}
 

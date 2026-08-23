@@ -68,6 +68,14 @@ $wgWBClientSettings['siteLinkGroups'] = [ 'ronzz' ];
 $wgWBClientSettings['repoDatabase'] = false;
 $wgWBClientSettings['changesDatabase'] = false;
 
+// ---- Issue #35: source files (books etc.) on the upload allow-list ----
+// Mirrors the production LocalSettings.php addition (see
+// RonzzIT:Deployment/Wikibase on the instance). Needed in dev/CI so the
+// page-flow E2E's access-field upload (a PDF fixture) can land.
+$wgFileExtensions[] = 'pdf';
+$wgFileExtensions[] = 'epub';
+$wgFileExtensions[] = 'djvu';
+
 if ( file_exists( __DIR__ . '/ronzz-wikibase-config.php' ) ) {
 	require_once __DIR__ . '/ronzz-wikibase-config.php';
 }

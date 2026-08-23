@@ -58,7 +58,12 @@ extensions — never forks of Wikibase.
 - **AddPerson lifecycle fields**: VIAF/ISNI search (Wikidata-hub-only),
   day-precision date of birth/death + entity-combobox place of birth/death
   with a "This person is deceased" toggle revealing the death fields;
-  `personProperties` config section (P569/P19/P570/P20-aligned).
+  `personProperties` config section (P569/P19/P570/P20-aligned). The label
+  field is gone (issue #35): the label is the full name, auto-derived from
+  given/family (`primaryLabel`); a harvested label-only candidate keeps its
+  label. The search `name` box autofills the manual form as given/family
+  (every word except the last = given, last word = family — pure
+  `NameSplitter`).
 - **AddSource bookExcerpt**: optional chapters (new string property,
   P2635-aligned) + volume fields; blank description auto-generates as
   "Pages a-b (Volume c) of {book}"; blank year/authors infer from the
@@ -79,6 +84,32 @@ extensions — never forks of Wikibase.
   `(HH):MM:SS` and stored as seconds in the `quantity`-datatype property.
   YouTube import (Data API v3, key deploy-injected + IP-restricted, never
   in the repo): name search capped at 10, URL lookups exact-only.
+- **AddSource publisher is entity-only (issue #35)**: book/scholarlyArticle
+  take the publisher as an entity combobox (item-typed `publisher (entity)`
+  property, P123-aligned) — no free-text mode. A harvested STRING publisher
+  resolves to an existing item by exact label, otherwise shown as context
+  with a "create the item first" hint. The legacy string `publisher`
+  property is no longer written; `tools/migrate_string_publishers.py`
+  converts existing string statements (find-or-create publisher item →
+  entity statement → remove string statement; `--dry-run`/`--verify`).
+- **AddSource access field (issue #35)** on book/scholarlyArticle/song/film/
+  bookExcerpt: `accessMode` toggle url (non-direct `access URL` statement,
+  P953-aligned) | download (server-side `UploadFromUrl`, SSRF-guarded) |
+  file (browser `UploadFromFile`). download/file require a license entity
+  (reuses the P275 license property) + show the copyright warning, and save
+  the file as `File:<label>.<ext>` (auto-named, original filename ignored,
+  auto-generated page text) linked via the `file` property (P1325-aligned).
+  `$wgFileExtensions` must include pdf/epub/djvu (production + dev config).
+  A filled-in access field that cannot be honoured aborts creation with a
+  form error.
+- **Manual-addition entry points + search autofill (issue #35)**: the
+  "No matching record? Create the item manually instead" link appears on
+  the zero-hit search page AND the candidate-selection step (both carry
+  `?token=`); the AddSource class picker has a "create manually instead"
+  checkbox routing to `/<classKey>/manual`. Search inputs are stored in the
+  session under the token and prefill the manual forms: AddPerson
+  name→given/family (`NameSplitter`), AddSource title/author(entity)/
+  isbn/doi, AddSoftware/AddCollective name→label.
 - **Sitelink tab (issue follow-up)**: `SkinTemplateNavigation::Universal`
   adds a red/blue **Sitelink** tab next to Page/Discussion on every content
   page — red = not linked (click → OOUI dialog, `wbsearchentities` search or

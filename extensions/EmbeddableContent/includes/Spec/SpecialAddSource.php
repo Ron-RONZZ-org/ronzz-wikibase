@@ -56,6 +56,26 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		return 'source';
 	}
 
+	/**
+	 * Manual-form autofill from the search inputs (issue #35): title/isbn/doi
+	 * pass through via the base (same field names); the search's `author`
+	 * field maps to the manual `authors` field — but ONLY in entity mode
+	 * (Q-ids), because the manual authors field requires item ids: a
+	 * free-text author NAME is a search filter, not a record fact, and
+	 * would fail the server-side author validation.
+	 *
+	 * @param array<string,mixed> $search
+	 * @return array<string,mixed>
+	 */
+	protected function autofillRecord( array $search ): array {
+		$out = parent::autofillRecord( $search );
+		$author = trim( (string)( $search['author'] ?? '' ) );
+		if ( $author !== '' && ( $search['authorMode'] ?? '' ) === 'entity' ) {
+			$out['authors'] = $author;
+		}
+		return $out;
+	}
+
 	protected function classUrlPrefix(): string {
 		return $this->currentClassKey ?? '';
 	}
@@ -130,6 +150,15 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				'options' => $options,
 				'required' => true,
 			],
+			// Manual entry on the picker itself (issue #35): check it and
+			// Continue routes straight to /<classKey>/manual — the search
+			// step is skipped (for manual-only classes it is a no-op).
+			'manual' => [
+				'type' => 'check',
+				'label-message' => 'embeddablecontent-source-pick-manual',
+				'help-message' => 'embeddablecontent-source-pick-manual-help',
+				'default' => false,
+			],
 		], $this->getContext() );
 		$form->setTitle( $this->getPageTitle() )
 			->setSubmitTextMsg( 'embeddablecontent-source-pick-continue' )
@@ -148,7 +177,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		if ( !$this->isSourceClassKey( $classKey ) ) {
 			return $this->msg( 'embeddablecontent-extselect-classrequired' )->text();
 		}
-		$sub = in_array( $classKey, self::MANUAL_ONLY_CLASSES, true )
+		$sub = in_array( $classKey, self::MANUAL_ONLY_CLASSES, true ) || !empty( $data['manual'] )
 			? $classKey . '/manual'
 			: $classKey;
 		$this->getOutput()->redirect( $this->getPageTitle( $sub )->getFullURL() );
@@ -329,22 +358,25 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 
 		switch ( $this->currentClassKey ) {
 			case 'book':
-				$fields['publisher'] = $this->plainTextField( 'embeddablecontent-field-publisher', (string)( $record['publisher'] ?? '' ) );
+				$fields['publisher'] = $this->publisherFieldSpec( $record );
 				$fields['pages'] = $this->plainTextField( 'embeddablecontent-field-pages', (string)( $record['pages'] ?? '' ) );
 				$fields += $this->issuedYearFieldSpec( $record );
+				$fields += $this->accessFieldSpec( $record );
 				break;
 			case 'scholarlyArticle':
 				$fields['containerTitle'] = $this->plainTextField( 'embeddablecontent-field-publishedin', (string)( $record['containerTitle'] ?? '' ) );
-				$fields['publisher'] = $this->plainTextField( 'embeddablecontent-field-publisher', (string)( $record['publisher'] ?? '' ) );
+				$fields['publisher'] = $this->publisherFieldSpec( $record );
 				$fields['volume'] = $this->plainTextField( 'embeddablecontent-field-volume', (string)( $record['volume'] ?? '' ) );
 				$fields['issue'] = $this->plainTextField( 'embeddablecontent-field-issue', (string)( $record['issue'] ?? '' ) );
 				$fields['pages'] = $this->plainTextField( 'embeddablecontent-field-pages', (string)( $record['pages'] ?? '' ) );
 				$fields += $this->issuedYearFieldSpec( $record );
+				$fields += $this->accessFieldSpec( $record );
 				break;
 			case 'film':
 			case 'song':
 				$fields += $this->issuedYearFieldSpec( $record );
 				$fields += $this->durationFieldSpec( $record );
+				$fields += $this->accessFieldSpec( $record );
 				break;
 			case 'video':
 				$fields += $this->issuedYearFieldSpec( $record );
@@ -380,6 +412,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				$fields['volume'] = $this->plainTextField( 'embeddablecontent-field-volume', (string)( $record['volume'] ?? '' ) );
 				$fields['chapters'] = $this->plainTextField( 'embeddablecontent-source-field-chapters', (string)( $record['chapters'] ?? '' ) );
 				$fields += $this->issuedYearFieldSpec( $record );
+				$fields += $this->accessFieldSpec( $record );
 				// The description auto-generates from pages/volume + the
 				// parent book when left blank; year/authors fall back to the
 				// parent book's own statements (see beforeCreate).
@@ -449,6 +482,109 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			'default' => (string)( $record['url'] ?? '' ),
 			'maxlength' => 250,
 		] ];
+	}
+
+	/**
+	 * Publisher field (entity-only, issue #35): an entity combobox
+	 * referencing an existing publisher item. A harvested STRING publisher
+	 * (Open Library etc.) is resolved to a local item by exact label when
+	 * one exists; otherwise the string is shown as context with a
+	 * "create the item first" hint (AddSoftware harvested-fact pattern) —
+	 * the submitted value must be an item id.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function publisherFieldSpec( array $record ): array {
+		$harvested = (string)( $record['publisher'] ?? '' );
+		$default = '';
+		$help = '';
+		if ( $harvested !== '' && preg_match( '/^Q[1-9]\d*$/i', $harvested ) !== 1 ) {
+			$resolved = $this->findItemIdByLabel( $harvested );
+			if ( $resolved !== null ) {
+				$default = $resolved;
+			} else {
+				// Plain text, HTML-escaped: the value comes from an external
+				// API and must never inject markup.
+				$help = htmlspecialchars(
+					$this->msg( 'embeddablecontent-source-field-publisher-unresolved', $harvested )->text()
+				);
+			}
+		} elseif ( $harvested !== '' ) {
+			$default = $harvested;
+		}
+		$field = [
+			'type' => 'combobox',
+			'options' => [],
+			'label-message' => 'embeddablecontent-field-publisher',
+			'cssclass' => 'wb-entity-combobox',
+			'default' => $default,
+			'help' => $this->msg( 'embeddablecontent-source-field-publisher-help' )->parse(),
+		];
+		if ( $help !== '' ) {
+			$field['help'] .= ' ' . $help;
+		}
+		return $field;
+	}
+
+	/**
+	 * Access field group (issue #35): an `accessMode` toggle between
+	 *  - url      — a non-direct access URL (landing page), no license;
+	 *  - download — a direct download link, auto-fetched and saved server-side;
+	 *  - file     — a local file from the browser.
+	 * The download/file modes expand the `license` field (entity combobox,
+	 * reusing the P275-aligned license property) with the copyright warning.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,mixed>
+	 */
+	private function accessFieldSpec( array $record ): array {
+		$mode = (string)( $record['accessMode'] ?? 'url' );
+		return [
+			'accessMode' => [
+				'type' => 'radio',
+				'label-message' => 'embeddablecontent-source-field-access-mode',
+				'options-messages' => [
+					'embeddablecontent-source-field-access-mode-url' => 'url',
+					'embeddablecontent-source-field-access-mode-download' => 'download',
+					'embeddablecontent-source-field-access-mode-file' => 'file',
+				],
+				'default' => $mode,
+				'help-message' => 'embeddablecontent-source-field-access-mode-help',
+			],
+			'accessUrl' => [
+				'type' => 'url',
+				'label-message' => 'embeddablecontent-source-field-access-url',
+				'default' => (string)( $record['accessUrl'] ?? '' ),
+				'maxlength' => 250,
+				'hide-if' => [ '!==', 'accessMode', 'url' ],
+			],
+			'downloadUrl' => [
+				'type' => 'url',
+				'label-message' => 'embeddablecontent-source-field-access-download',
+				'default' => (string)( $record['downloadUrl'] ?? '' ),
+				'maxlength' => 500,
+				'help-message' => 'embeddablecontent-source-field-access-download-help',
+				'hide-if' => [ '!==', 'accessMode', 'download' ],
+			],
+			'accessFile' => [
+				'type' => 'file',
+				'label-message' => 'embeddablecontent-source-field-access-file',
+				'hide-if' => [ '!==', 'accessMode', 'file' ],
+			],
+			// Required is NOT set here: the license is only mandatory in the
+			// download/file modes, and HTMLForm validates required fields
+			// even when hide-if hides them client-side — the requirement is
+			// enforced in beforeCreate (validateAccessField) instead.
+			'license' => [
+				'type' => 'combobox',
+				'options' => [],
+				'label-message' => 'embeddablecontent-source-field-license',
+				'cssclass' => 'wb-entity-combobox',
+				'default' => (string)( $record['license'] ?? '' ),
+				'help' => $this->msg( 'embeddablecontent-source-field-license-help' )->parse(),
+				'hide-if' => [ '===', 'accessMode', 'url' ],
+			],
+		];
 	}
 
 	/**
@@ -572,6 +708,14 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			$record['durationSeconds'] = $seconds;
 		}
 
+		// Access field (issue #35): license + upload for the download/file
+		// modes; a filled-in access field that cannot be honoured aborts the
+		// creation with a form error (never silent).
+		$error = $this->validateAccessField( $record );
+		if ( $error !== null ) {
+			return $error;
+		}
+
 		// bookExcerpt: description autogen + year/authors from the parent
 		// book when blank — before validateAuthors (blank authors must be
 		// inferred, not rejected).
@@ -596,6 +740,207 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		}
 
 		return $this->validateParent( $record );
+	}
+
+	/**
+	 * Access field validation + upload (issue #35): in the `url` mode only
+	 * the URL field exists (validated by the form's url type); the
+	 * `download` and `file` modes require a license entity and produce the
+	 * uploaded file (server-side fetch for download, browser file for file),
+	 * stored as File:<label>.<ext> with auto-generated page text — the
+	 * original filename is ignored. Mutates $record: accessMode normalized,
+	 * license serialized, fileTitle set on upload.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return string|null error message, or null to proceed
+	 */
+	private function validateAccessField( array &$record ): ?string {
+		$mode = (string)( $record['accessMode'] ?? 'url' );
+		if ( !in_array( $mode, [ 'url', 'download', 'file' ], true ) ) {
+			$mode = 'url';
+		}
+		$record['accessMode'] = $mode;
+		if ( $mode === 'url' ) {
+			return null;
+		}
+
+		$licenseId = trim( (string)( $record['license'] ?? '' ) );
+		$licenseItem = $this->parseItemId( $licenseId );
+		if ( $licenseItem === null ) {
+			return $this->msg( 'embeddablecontent-source-error-license' )->text();
+		}
+		$record['license'] = $licenseItem->getSerialization();
+
+		try {
+			if ( $mode === 'file' ) {
+				$title = $this->uploadAccessFileFromRequest( $record );
+				if ( $title === null ) {
+					$upload = $this->getRequest()->getUpload( 'wpAccessFile' );
+					if ( $upload instanceof \MediaWiki\Request\WebRequestUpload && $upload->getSize() > 0 ) {
+						return $this->msg( 'embeddablecontent-source-error-access-upload', 'unsupported file type' )->text();
+					}
+					return $this->msg( 'embeddablecontent-source-error-access-file-required' )->text();
+				}
+			} else {
+				$url = ( new FragmentSanitizer() )->validateUrl( (string)( $record['downloadUrl'] ?? '' ) );
+				if ( $url === null ) {
+					return $this->msg( 'embeddablecontent-source-error-access-upload', 'invalid or unreachable URL' )->text();
+				}
+				$title = $this->uploadAccessFileFromUrl( $url, $record );
+				if ( $title === null ) {
+					return $this->msg( 'embeddablecontent-source-error-access-upload', 'unreachable or unsupported URL' )->text();
+				}
+			}
+		} catch ( \Throwable $e ) {
+			return $this->msg( 'embeddablecontent-source-error-access-upload', $e->getMessage() )->text();
+		}
+		if ( $title !== null ) {
+			$record['fileTitle'] = $title->getDBkey();
+		}
+		return null;
+	}
+
+	/**
+	 * Local-file access upload (accessMode=file). Returns the file title, or
+	 * null when no file was provided (the caller distinguishes "no file"
+	 * from a failed verification).
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function uploadAccessFileFromRequest( array $record ): ?\MediaWiki\Title\Title {
+		$request = $this->getRequest();
+		$upload = $request->getUpload( 'wpAccessFile' );
+		if ( !$upload instanceof \MediaWiki\Request\WebRequestUpload
+			|| $upload->getSize() <= 0 || $upload->getTempName() === ''
+		) {
+			return null;
+		}
+		$tempPath = $upload->getTempName();
+		$mime = \MediaWiki\MediaWikiServices::getInstance()
+			->getMimeAnalyzer()->guessMimeType( $tempPath, false );
+		$destName = $this->accessDestName( $record, $upload->getName(), $mime );
+		if ( $destName === '' ) {
+			return null;
+		}
+		$base = new \MediaWiki\Upload\UploadFromFile();
+		$base->initializePathInfo( $destName, $tempPath, $upload->getSize() );
+		return $this->performAccessUpload( $base, $record );
+	}
+
+	/**
+	 * Direct-download access upload (accessMode=download) — goes through
+	 * UploadFromUrl so the instance's SSRF guards (IsUploadAllowedFromUrl)
+	 * apply. Returns the file title, or null when the fetch failed.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function uploadAccessFileFromUrl( string $url, array $record ): ?\MediaWiki\Title\Title {
+		if ( !\MediaWiki\Upload\UploadFromUrl::isAllowed( $this->getUser() ) ) {
+			return null;
+		}
+		$path = parse_url( $url, PHP_URL_PATH );
+		$name = $path !== false && $path !== null && $path !== '' ? basename( $path ) : 'file';
+		$mime = $this->mimeFromUrl( $url );
+		$destName = $this->accessDestName( $record, $name, $mime );
+		if ( $destName === '' ) {
+			return null;
+		}
+		$base = new \MediaWiki\Upload\UploadFromUrl();
+		$base->initialize( $destName, $url );
+		$tempPath = $base->getTempPath();
+		if ( $tempPath === '' || !is_file( $tempPath ) ) {
+			return null;
+		}
+		return $this->performAccessUpload( $base, $record );
+	}
+
+	/**
+	 * Best-effort remote MIME probe (HEAD) for download-mode files; '' when
+	 * the probe fails (the destination-name extension fallback applies).
+	 */
+	private function mimeFromUrl( string $url ): string {
+		try {
+			$http = \MediaWiki\MediaWikiServices::getInstance()->getHttpRequestFactory()
+				->create( $url, [], __METHOD__ );
+			$http->execute();
+			return (string)$http->getResponseHeader( 'Content-Type' );
+		} catch ( \Throwable $e ) {
+			return '';
+		}
+	}
+
+	/**
+	 * Computes the destination file name "<label>.<ext>" for the access
+	 * upload: the extension comes from the original name, restricted to the
+	 * instance's configured $wgFileExtensions allow-list, with a fallback to
+	 * the MIME type's canonical extension. The original filename is
+	 * otherwise IGNORED (the file is named after the item, issue #35).
+	 * Returns '' when the format is unsupported or the label is unusable.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function accessDestName( array $record, string $originalName, string $mime ): string {
+		$allowed = \MediaWiki\MediaWikiServices::getInstance()
+			->getMainConfig()->get( 'FileExtensions' );
+		$allowed = is_array( $allowed ) ? array_map( 'strtolower', $allowed ) : [];
+		$ext = strtolower( (string)pathinfo( $originalName, PATHINFO_EXTENSION ) );
+		if ( !in_array( $ext, $allowed, true ) ) {
+			$ext = strtolower( (string)( \MediaWiki\MediaWikiServices::getInstance()
+				->getMimeAnalyzer()->getExtensionFromMimeTypeOrNull( $mime ) ?? '' ) );
+		}
+		if ( $ext === '' || !in_array( $ext, $allowed, true ) ) {
+			return '';
+		}
+		$label = (string)preg_replace( '/[#<>\[\]|{}:]/', '', trim( $this->primaryLabel( $record ) ) );
+		$label = trim( (string)preg_replace( '/\s+/', ' ', $label ) );
+		if ( $label === '' ) {
+			return '';
+		}
+		return "{$label}.{$ext}";
+	}
+
+	/**
+	 * Runs verifyUpload + performUpload on a prepared UploadBase for the
+	 * access file; the File: page text is auto-generated from the item label
+	 * and description (the original filename is not used). Returns the file
+	 * title, or null when the target already exists. A FAILED verification
+	 * or upload throws — the caller (validateAccessField) surfaces the
+	 * reason as a form error instead of silently dropping the file.
+	 *
+	 * @param array<string,mixed> $record
+	 * @throws \RuntimeException when the upload is rejected
+	 */
+	private function performAccessUpload( \MediaWiki\Upload\UploadBase $base, array $record ): ?\MediaWiki\Title\Title {
+		$title = $base->getTitle();
+		if ( $title === null ) {
+			return null;
+		}
+		if ( $title->exists() ) {
+			return $title; // idempotent: already uploaded on an earlier run
+		}
+		$verify = $base->verifyUpload();
+		if ( ( $verify['status'] ?? null ) !== \MediaWiki\Upload\UploadBase::OK ) {
+			$details = $verify['details'] ?? [];
+			$detail = is_array( $details ) && $details !== []
+				? (string)( $details[0] ?? '' )
+				: (string)( $verify['status'] ?? 'rejected' );
+			throw new \RuntimeException( 'verifyUpload rejected (' . $detail . ')' );
+		}
+		$label = $this->primaryLabel( $record );
+		$description = trim( (string)( $record['description'] ?? '' ) );
+		// Auto-generated File: page text — description/meta-data/file name
+		// come from the item, never from the original filename (issue #35).
+		$pageText = $this->msg( 'embeddablecontent-source-access-file-page', $label, $description )->text();
+		$status = $base->performUpload(
+			$this->msg( 'embeddablecontent-source-access-file-edit-summary', $label )->inContentLanguage()->text(),
+			$pageText,
+			false,
+			$this->getUser()
+		);
+		if ( !$status->isOK() ) {
+			throw new \RuntimeException( 'performUpload: ' . ( $status->getMessage()->getParams()[0] ?? 'rejected' ) );
+		}
+		return $title;
 	}
 
 	/**
@@ -757,10 +1102,20 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	// ------------------------------------------------------------- creation
 
 	/**
+	 * The publisher is written as an ENTITY value (entity-only, issue #35) —
+	 * exclude it from the base string citation metadata.
+	 *
+	 * @return string[]
+	 */
+	protected function citationMetadataFieldExclusions(): array {
+		return [ 'publisher' ];
+	}
+
+	/**
 	 * Class-aware statement specs (base-class contract): external ids +
 	 * citation metadata + duration (seconds, quantity) + item URL + YouTube
 	 * identifiers + author entities (attributed to) + the child→parent
-	 * `part of` link.
+	 * `part of` link + the entity publisher + the access facts.
 	 *
 	 * @param array<string,mixed> $record
 	 * @return array<string,mixed> property id => DataValue | DataValue[]
@@ -768,6 +1123,15 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	protected function statementSpecs( array $record ): array {
 		$specs = $this->externalIdStatements( $record ) + $this->citationMetadataStatements( $record );
 		$props = $this->config->sourcePropertyIds();
+
+		// Publisher: entity-only — the value is an item id (combobox), written
+		// as an entity statement on the entity-typed publisher property.
+		$publisherId = trim( (string)( $record['publisher'] ?? '' ) );
+		$publisherItem = $this->parseItemId( $publisherId );
+		$publisherProp = $this->config->citationMetadataPropertyIds()['publisher'] ?? null;
+		if ( $publisherItem !== null && $publisherProp !== null ) {
+			$specs[$publisherProp] = new EntityIdValue( $publisherItem );
+		}
 
 		if ( !empty( $record['durationSeconds'] ) && isset( $props['duration'] ) ) {
 			$specs[$props['duration']] = QuantityValue::newFromNumber( (int)$record['durationSeconds'] );
@@ -805,6 +1169,26 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		}
 		if ( !empty( $record['youtubeVideoId'] ) && isset( $props['youtubeVideoId'] ) ) {
 			$specs[$props['youtubeVideoId']] = new StringValue( (string)$record['youtubeVideoId'] );
+		}
+
+		// Access facts (issue #35): non-direct access URL, the uploaded file
+		// (File: page URL) and the license entity — all set by
+		// validateAccessField before creation.
+		$accessUrl = ( new FragmentSanitizer() )->validateUrl( (string)( $record['accessUrl'] ?? '' ) );
+		if ( $accessUrl !== null && isset( $props['accessUrl'] ) ) {
+			$specs[$props['accessUrl']] = new StringValue( $accessUrl );
+		}
+		if ( !empty( $record['fileTitle'] ) && isset( $props['file'] ) ) {
+			$fileTitle = \MediaWiki\Title\Title::makeTitle( NS_FILE, (string)$record['fileTitle'] );
+			if ( $fileTitle !== null ) {
+				$specs[$props['file']] = new StringValue( $fileTitle->getFullURL() );
+			}
+		}
+		if ( !empty( $record['license'] ) && isset( $props['license'] ) ) {
+			$licenseItem = $this->parseItemId( (string)$record['license'] );
+			if ( $licenseItem !== null ) {
+				$specs[$props['license']] = new EntityIdValue( $licenseItem );
+			}
 		}
 
 		// Authors: one `attributed to` statement per entity (≥1 enforced in

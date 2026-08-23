@@ -49,6 +49,11 @@ The v1 plan lives in
   follow-up: `AddPerson`/`AddSource`/`AddCollective` create classic
   `Person:`/`Source:`/`Collective:` pages (per-class templates, sitelinked;
   `bookExcerpt` excluded) — see `docs/decisions/pages-and-fields.md`.
+  Issue #35 follow-up: entity-only publisher (item-typed property + string
+  migration tool), the AddSource `access` field (access URL / direct
+  download / local file with license + uploads), manual-addition entry
+  points with search autofill, and auto full-name person labels — see
+  `docs/decisions/publisher-entity-access-manual.md`.
 - `extensions/WikibaseCitation/` — citation map manifests +
   `maintenance/importCitationMap.php` (publishes the 4 admin-editable
   `MediaWiki:Citation-*` pages); D4 `api.php?action=citation` with
