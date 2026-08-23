@@ -199,6 +199,29 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 		return $specs;
 	}
 
+	// ------------------------------------------------------------- classic page
+	// The base afterCreate() writes a sitelinked Person:<label> page (the
+	// issue-#26 AddSoftware pattern); this class declares the page facts.
+
+	protected function pageNamespace(): ?int {
+		return defined( 'NS_PERSON' ) ? NS_PERSON : null;
+	}
+
+	protected function pageTemplate(): string {
+		return 'Person';
+	}
+
+	/**
+	 * Person: page skeleton — prose lives on the page, facts in the item.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function pageSkeleton( array $record, bool $withMarker = false ): string {
+		$marker = $withMarker ? "\n<!-- " . $this->pagePendingMarker() . " -->\n" : "";
+		return "{{Person}}\n\n== Biography ==\n\n<!-- Life, work, legacy. -->\n\n"
+			. "== Works ==\n\n== See also ==\n" . $marker;
+	}
+
 	protected function classOptions(): array {
 		$classes = $this->config->agentClasses();
 		$options = [];

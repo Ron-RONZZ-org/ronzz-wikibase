@@ -12,6 +12,7 @@ use EmbeddableContent\Duration;
 use EmbeddableContent\Fetch\ProviderResult;
 use EmbeddableContent\Fetch\WorkRecord;
 use EmbeddableContent\Fetch\YouTubeProvider;
+use MediaWiki\Title\Title;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
@@ -491,6 +492,60 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			);
 		}
 		parent::executeManual();
+	}
+
+	// ------------------------------------------------------------- classic page
+	// The base afterCreate() writes a sitelinked Source:<label> page (the
+	// issue-#26 AddSoftware pattern); this class declares the page facts.
+	// bookExcerpt gets NO page — it is part of a book.
+
+	/** Per-class template transcluded by the Source: page skeleton. */
+	private const SOURCE_PAGE_TEMPLATES = [
+		'book' => 'Book',
+		'scholarlyArticle' => 'ScholarlyArticle',
+		'website' => 'Website',
+		'song' => 'Song',
+		'film' => 'Film',
+		'video' => 'Video',
+		'youtubeChannel' => 'YouTubeChannel',
+		'youtubeVideo' => 'YouTubeVideo',
+		'webpage' => 'Webpage',
+	];
+
+	protected function pageNamespace(): ?int {
+		return defined( 'NS_SOURCE' ) ? NS_SOURCE : null;
+	}
+
+	/**
+	 * No classic page for bookExcerpt (a part of a book, not a standalone
+	 * work); every other source class gets a Source: page.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function pageTitleForRecord( array $record ): ?Title {
+		if ( $this->currentClassKey === 'bookExcerpt' ) {
+			return null;
+		}
+		return parent::pageTitleForRecord( $record );
+	}
+
+	protected function pageTemplate(): string {
+		return self::SOURCE_PAGE_TEMPLATES[$this->currentClassKey] ?? '';
+	}
+
+	/**
+	 * Source: page skeleton — prose lives on the page, facts in the item.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function pageSkeleton( array $record, bool $withMarker = false ): string {
+		$template = $this->pageTemplate();
+		$marker = $withMarker ? "\n<!-- " . $this->pagePendingMarker() . " -->\n" : "";
+		if ( $template === '' ) {
+			return $marker;
+		}
+		return "{{" . $template . "}}\n\n== Overview ==\n\n<!-- What this source is and where it comes from. -->\n\n"
+			. "== Content ==\n\n== See also ==\n" . $marker;
 	}
 
 	// ------------------------------------------------------------- validation

@@ -231,6 +231,29 @@ def first_reference_url(claims: dict, prop_id: str) -> str | None:
     return None
 
 
+def flow_final_item(op, base: str, api: str, url: str, body: str, special: str) -> str:
+    """Resolves the created item id after a flow's final submit. Item-only
+    kinds redirect to Item:<id>; page-creating kinds (Person:/Source:/
+    Collective:, issue follow-up) redirect through the complete/<id> finalize
+    round-trip to the classic page, whose wikibase_item page property maps it
+    back to the item."""
+    m = re.search(r"/wiki/Item:(Q\d+)$", url)
+    if m:
+        return m.group(1)
+    m = re.search(r"/wiki/(?:Person|Source|Collective):([^?#]+)$", url)
+    if m:
+        page_title = urllib.parse.unquote(m.group(1)).replace("_", " ")
+        r = api_call(op, api, {"action": "query", "titles": page_title,
+                               "prop": "pageprops", "format": "json"})
+        for page in r.get("query", {}).get("pages", {}).values():
+            qid = page.get("pageprops", {}).get("wikibase_item")
+            if qid:
+                return qid
+        raise FlowError(f"{special} page {page_title} has no wikibase_item "
+                        f"(finalize step did not map the sitelink)")
+    raise FlowError(f"{special} did not redirect to an item or classic page: {url} {find_error(body)}")
+
+
 # ------------------------------------------------------------- page flows
 
 
@@ -286,10 +309,7 @@ def flow_search_select_create(op, base: str, api: str, special: str, search_fiel
         "wpEditToken": token3,
         "wpSubmit": "1",
     })
-    m = re.search(r"/wiki/Item:(Q\d+)$", url)
-    if not m:
-        raise FlowError(f"Special:{special} review did not redirect to an item: {url} {find_error(body)}")
-    return m.group(1)
+    return flow_final_item(op, base, api, url, body, f"Special:{special}")
 
 
 def flow_manual(op, base: str, api: str, special: str, label: str, class_item: str,
@@ -308,10 +328,7 @@ def flow_manual(op, base: str, api: str, special: str, label: str, class_item: s
     if extra_fields:
         fields.update(extra_fields)
     url, body = page_post(op, url, fields)
-    m = re.search(r"/wiki/Item:(Q\d+)$", url)
-    if not m:
-        raise FlowError(f"Special:{special}/manual did not create an item: {url} {find_error(body)}")
-    return m.group(1)
+    return flow_final_item(op, base, api, url, body, f"Special:{special}/manual")
 
 
 def flow_software_manual(op, base: str, api: str, label: str, class_item: str,
@@ -518,10 +535,7 @@ def flow_source_class_first(op, base: str, api: str, class_key: str, search_fiel
     if review_extra:
         review.update(review_extra)
     url, body = page_post(op, url, review)
-    m = re.search(r"/wiki/Item:(Q\d+)$", url)
-    if not m:
-        raise FlowError(f"AddSource/{class_key} review did not redirect to an item: {url} {find_error(body)}")
-    return m.group(1)
+    return flow_final_item(op, base, api, url, body, f"AddSource/{class_key}")
 
 
 def flow_source_class_manual(op, base: str, api: str, class_key: str, fields: dict) -> str:
@@ -532,10 +546,7 @@ def flow_source_class_manual(op, base: str, api: str, class_key: str, fields: di
     post = {"wpEditToken": token, "wpSubmit": "1"}
     post.update(fields)
     url, body = page_post(op, url, post)
-    m = re.search(r"/wiki/Item:(Q\d+)$", url)
-    if not m:
-        raise FlowError(f"AddSource/{class_key}/manual did not create an item: {url} {find_error(body)}")
-    return m.group(1)
+    return flow_final_item(op, base, api, url, body, f"AddSource/{class_key}/manual")
 
 
 def flow_sitelink_tab(op, base: str, api: str, linked_page: str, linked_qid: str) -> None:
@@ -926,8 +937,15 @@ def main() -> int:
             f"{excerpt} year not inferred from the parent book ({date_claim})"
         assert first_value(claims, resolve("attributed to", "property")) == book_author, \
             f"{excerpt} authors not inferred from the parent book"
+        # Caveat: bookExcerpt is part of a book — it must NOT create a
+        # Source: page (unlike the other source classes).
+        page_q = api_call(op, api, {"action": "query", "titles": f"Source:{excerpt_label}",
+                                    "format": "json"})
+        pages = list(page_q.get("query", {}).get("pages", {}).values())
+        assert not pages or "missing" in pages[0], \
+            f"bookExcerpt {excerpt} unexpectedly created a Source: page"
         print(f"[ok] AddSource (bookExcerpt) -> {excerpt}: child class + part-of -> {book}; "
-              f"description autogen + year/authors inferred from parent")
+              f"description autogen + year/authors inferred from parent, no Source: page")
 
         # 2e. YouTube chain: a channel (URL -> ID derived server-side), then a
         #     youtubeVideo child of that channel with a duration in seconds.

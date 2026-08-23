@@ -70,6 +70,29 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 			+ $this->externalIdFieldSpecs( $record );
 	}
 
+	// ------------------------------------------------------------- classic page
+	// The base afterCreate() writes a sitelinked Collective:<label> page
+	// (the issue-#26 AddSoftware pattern); this class declares the page facts.
+
+	protected function pageNamespace(): ?int {
+		return defined( 'NS_COLLECTIVE' ) ? NS_COLLECTIVE : null;
+	}
+
+	protected function pageTemplate(): string {
+		return 'Collective';
+	}
+
+	/**
+	 * Collective: page skeleton — prose lives on the page, facts in the item.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function pageSkeleton( array $record, bool $withMarker = false ): string {
+		$marker = $withMarker ? "\n<!-- " . $this->pagePendingMarker() . " -->\n" : "";
+		return "{{Collective}}\n\n== Overview ==\n\n<!-- What this collective is and does. -->\n\n"
+			. "== History ==\n\n== Members ==\n\n== See also ==\n" . $marker;
+	}
+
 	protected function classOptions(): array {
 		$options = [];
 		foreach ( $this->config->agentClasses() as $key => $id ) {
