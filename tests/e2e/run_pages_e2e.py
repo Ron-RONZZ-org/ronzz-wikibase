@@ -333,8 +333,9 @@ def flow_manual(op, base: str, api: str, special: str, label: str, class_item: s
     fields = {"wpclass": class_item, "wpEditToken": token, "wpSubmit": "1"}
     if special == "AddPerson":
         given, _, family = label.rpartition(" ")
-        fields["wpgivenname"] = given
-        fields["wpfamilyname"] = family
+        # HTMLForm keeps the field-name case: 'givenName' -> 'wpgivenName'.
+        fields["wpgivenName"] = given
+        fields["wpfamilyName"] = family
     else:
         fields["wplabel"] = label
     if extra_fields:
@@ -591,15 +592,15 @@ def flow_person_manual_autofill(op, base: str, api: str, name: str) -> tuple[str
     manual_path = flow_manual_link_from(op, base, body, "AddPerson")
     url2, body2 = page_get(op, base, manual_path)
     expected_given, _, expected_family = name.rpartition(" ")
-    given = input_value(body2, "wpgivenname")
-    family = input_value(body2, "wpfamilyname")
+    given = input_value(body2, "wpgivenName")
+    family = input_value(body2, "wpfamilyName")
     if given != expected_given or family != expected_family:
         raise FlowError(
             f"AddPerson manual form not autofilled from the name search: "
             f"given {given!r}/{family!r} != {expected_given!r}/{expected_family!r}")
     token2 = edit_token(body2)
     url3, body3 = page_post(op, url2, {
-        "wpgivenname": given, "wpfamilyname": family,
+        "wpgivenName": given, "wpfamilyName": family,
         "wpEditToken": token2, "wpSubmit": "1",
     })
     qid = flow_final_item(op, base, api, url3, body3, "AddPerson/manual (autofill)")
