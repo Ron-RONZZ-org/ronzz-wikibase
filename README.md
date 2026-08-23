@@ -56,7 +56,7 @@ The v1 plan lives in
 - `seed/` — instance bootstrap orchestrator (`seed_instance.py`), API client,
   dogfood entities, config/report emission, self-verification (idempotent,
   exact-label skip).
-- `tools/` — manifest generators + `fetch-smoke.php` (live provider smoke test).
+- `tools/` — manifest generators + `fetch-smoke.php` (live provider smoke test) + `add-copy-to-syntaxhighlight.py` (enforces the on-wiki standard that every block-mode `<syntaxhighlight>` carries `copy`; `--audit`/`--dry-run`/`--apply`).
 - `tests/` — PHPUnit unit tests (pure-PHP logic, no MediaWiki runtime) and the
   `tests/e2e/` suites against a seeded live instance: `run_e2e.py`
   (acceptance + XSS) and `run_pages_e2e.py` (issue-#7 page flows:

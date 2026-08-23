@@ -3,10 +3,11 @@
 ## Summary
 
 Developer tooling for ronzz-wikibase: the language-manifest generator
-(Pygments-derived language items), the live fetch-layer smoke test, and the
+(Pygments-derived language items), the live fetch-layer smoke test, the
 `owui-writer/` deploy kit (Open WebUI wiki writer — MCP endpoint + least-privilege
-bot). Small, stdlib-only helpers that feed the D1 manifests, prove the
-integration layer end-to-end, or wire the wiki into the LLM writing studio.
+bot), and the syntaxhighlight `copy` standardizer/auditor. Small, stdlib-only
+helpers that feed the D1 manifests, prove the integration layer end-to-end,
+wire the wiki into the LLM writing studio, or keep the wiki content conformant.
 
 ## Purpose and Expected Behavior
 
@@ -33,6 +34,16 @@ integration layer end-to-end, or wire the wiki into the LLM writing studio.
   least-privilege bot password (`RonzzWikiCowriterAI@Writer`). See
   [`owui-writer/README.md`](owui-writer/README.md) + ADR
   `docs/decisions/owui-wiki-writer.md`. Contains templates only — **no credentials**.
+- **`tools/add-copy-to-syntaxhighlight.py`** — enforces the wiki content
+  standard that every *block-mode* `<syntaxhighlight lang="...">` carries the
+  `copy` attribute (copy button; `Help:Contributing/code` house rule). `inline`
+  blocks and literal tag examples are left untouched. Modes: `--audit` (default;
+  exit 0 = conform, 1 = violations — CI-usable), `--dry-run` (per-page unified
+  diffs), `--apply` (bot edits, summary "Standardize: add copy button to block
+  code snippets"). Logs in with the mediawiki MCP bot credentials from
+  `~/.config/mediawiki-mcp/ronzz-wikibase.json` (or `--user`/`--password`) —
+  never committed, never echoed. Used for the 2026-08-23 migration (179 tags,
+  12 pages). Python stdlib only.
 
 ## Constraints and Invariants
 
@@ -77,3 +88,7 @@ integration layer end-to-end, or wire the wiki into the LLM writing studio.
   prefer `--include`/`--exclude` over full rewrites.
 - Keep the generator and the smoke test dependency-free — they run in
   minimal environments (test image, plain Python 3).
+- The syntaxhighlight `copy` standardizer reads live wiki content — never run
+  `--apply` without a prior `--dry-run` review; the transform is regex-based
+  and deliberately conservative (only tags with `lang=`, no `inline`, no
+  `copy`).
