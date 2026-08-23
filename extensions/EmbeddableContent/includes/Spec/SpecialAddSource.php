@@ -92,6 +92,11 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			$this->executeManual();
 			return;
 		}
+		if ( $second === 'complete' && ( $parts[2] ?? '' ) !== '' ) {
+			// Finalize step for a just-created Source: page (base class).
+			$this->executeComplete( $parts[2] );
+			return;
+		}
 		if ( ( $parts[2] ?? '' ) === 'review' && ( $parts[3] ?? '' ) !== '' ) {
 			$this->executeReview( $second, (int)$parts[3] );
 			return;
@@ -312,20 +317,8 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		}
 	}
 
-	protected function enrichRecord( array $record ): array {
-		if ( !empty( $record['harvested'] ) ) {
-			return $record;
-		}
-		// Harvest on pick: enrich with the full Wikidata work record
-		// (container, publisher, pages, volume, issue, DOI, ISBN, …).
-		if ( !empty( $record['wikidataId'] ) && ( $record['provider'] ?? '' ) === 'wikidata' ) {
-			$harvest = $this->client->harvestWork( $record['wikidataId'] );
-			if ( $harvest->records !== [] ) {
-				$record = array_merge( $record, (array)$harvest->records[0] );
-			}
-		}
-		$record['harvested'] = true;
-		return $record;
+	protected function harvest( string $qid ): ProviderResult {
+		return $this->client->harvestWork( $qid );
 	}
 
 	protected function reviewFieldSpecs( array $record ): array {
@@ -578,24 +571,16 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 
 	// ------------------------------------------------------------- creation
 
-	protected function createFromRecord( array $record, string $classItemId ): string {
-		$record = $this->enrichRecord( $record );
-		return $this->createOrSkipItem( $this->primaryLabel( $record ), $classItemId, $this->sourceStatementSpecs( $record ), $record );
-	}
-
-	protected function manualCreate( string $label, string $classItemId, array $record ): string {
-		return $this->createOrSkipItem( $label, $classItemId, $this->sourceStatementSpecs( $record ), $record );
-	}
-
 	/**
-	 * Class-aware statement specs: external ids + citation metadata +
-	 * duration (seconds, quantity) + item URL + YouTube identifiers +
-	 * author entities (attributed to) + the child→parent `part of` link.
+	 * Class-aware statement specs (base-class contract): external ids +
+	 * citation metadata + duration (seconds, quantity) + item URL + YouTube
+	 * identifiers + author entities (attributed to) + the child→parent
+	 * `part of` link.
 	 *
 	 * @param array<string,mixed> $record
 	 * @return array<string,mixed> property id => DataValue | DataValue[]
 	 */
-	private function sourceStatementSpecs( array $record ): array {
+	protected function statementSpecs( array $record ): array {
 		$specs = $this->externalIdStatements( $record ) + $this->citationMetadataStatements( $record );
 		$props = $this->config->sourcePropertyIds();
 

@@ -105,6 +105,8 @@
 	"embeddablecontent-software-logo-edit-summary": "Uploaded the logo of $1",
 	"embeddablecontent-software-page-edit-summary": "Created the FOSS page for $1",
 	"embeddablecontent-software-sitelink-edit-summary": "Linked $1 to its FOSS page",
+	"embeddablecontent-page-edit-summary": "Created the wiki page for $1",
+	"embeddablecontent-page-sitelink-edit-summary": "Linked $1 to its wiki page",
 	"embeddablecontent-manual-legend": "Create the item manually",
 	"embeddablecontent-manual-hint": "No matching record?",
 	"embeddablecontent-manual-link": "Create the item manually instead",

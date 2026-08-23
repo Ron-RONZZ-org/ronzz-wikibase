@@ -103,6 +103,8 @@
 	"embeddablecontent-software-logo-error": "Échec de l'import du logo : $1. Le logiciel a été créé sans logo.",
 	"embeddablecontent-software-logo-edit-summary": "A importé le logo de $1",
 	"embeddablecontent-software-page-edit-summary": "Page FOSS créée pour $1",
+	"embeddablecontent-page-edit-summary": "Page wiki créée pour $1",
+	"embeddablecontent-page-sitelink-edit-summary": "A lié $1 à sa page wiki",
 	"embeddablecontent-manual-legend": "Créer l'élément manuellement",
 	"embeddablecontent-manual-hint": "Aucun résultat correspondant ?",
 	"embeddablecontent-manual-link": "Créer l'élément manuellement à la place",

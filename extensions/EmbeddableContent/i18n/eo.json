@@ -103,6 +103,8 @@
 	"embeddablecontent-software-logo-error": "Emblema alŝuto malsukcesis: $1. La programaro estis kreita sen emblemo.",
 	"embeddablecontent-software-logo-edit-summary": "Alŝutis la emblemon de $1",
 	"embeddablecontent-software-page-edit-summary": "FOSS-paĝo kreita por $1",
+	"embeddablecontent-page-edit-summary": "Vikipaĝo kreita por $1",
+	"embeddablecontent-page-sitelink-edit-summary": "Ligis $1 al sia vikipaĝo",
 	"embeddablecontent-manual-legend": "Krei la eron permane",
 	"embeddablecontent-manual-hint": "Neniu kongrua rekordo?",
 	"embeddablecontent-manual-link": "Anstataŭe krei la eron permane",

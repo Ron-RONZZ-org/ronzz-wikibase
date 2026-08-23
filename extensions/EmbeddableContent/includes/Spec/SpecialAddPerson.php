@@ -4,7 +4,6 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\Spec;
 
-use DataValues\StringValue;
 use EmbeddableContent\Fetch\ProviderResult;
 
 /**
@@ -77,20 +76,19 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 		];
 	}
 
-	protected function enrichRecord( array $record ): array {
-		if ( !empty( $record['harvested'] ) ) {
-			return $record;
-		}
-		// Harvest on pick: enrich the light search record with the full
-		// Wikidata record (given/family names, ORCID, VIAF, ISNI).
-		if ( !empty( $record['wikidataId'] ) ) {
-			$harvest = $this->client->harvestPerson( $record['wikidataId'] );
-			if ( $harvest->records !== [] ) {
-				$record = array_merge( $record, (array)$harvest->records[0] );
-			}
-		}
-		$record['harvested'] = true;
-		return $record;
+	protected function harvest( string $qid ): ProviderResult {
+		return $this->client->harvestPerson( $qid );
+	}
+
+	/**
+	 * Persons harvest from ANY provider that resolved a Wikidata id (the
+	 * dblp/OpenAlex candidates carry hub-derived Q-ids and are enriched from
+	 * Wikidata) — unlike the other kinds, which only harvest hub records.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function canHarvest( array $record ): bool {
+		return true;
 	}
 
 	protected function reviewFieldSpecs( array $record ): array {
@@ -101,12 +99,6 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 				'familyName' => $this->plainTextField( 'embeddablecontent-field-familyname', (string)( $record['familyName'] ?? '' ) ),
 			]
 			+ $this->externalIdFieldSpecs( $record );
-	}
-
-	protected function createFromRecord( array $record, string $classItemId ): string {
-		$record = $this->enrichRecord( $record );
-		$specs = $this->externalIdStatements( $record ) + $this->citationMetadataStatements( $record );
-		return $this->createOrSkipItem( $this->primaryLabel( $record ), $classItemId, $specs, $record );
 	}
 
 	protected function classOptions(): array {

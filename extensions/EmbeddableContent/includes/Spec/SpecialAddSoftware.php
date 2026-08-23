@@ -8,9 +8,7 @@ use DataValues\StringValue;
 use EmbeddableContent\Content\FragmentSanitizer;
 use EmbeddableContent\Fetch\ProviderResult;
 use EmbeddableContent\Spec\ItemIdList;
-use MediaWiki\Title\Title;
 use Wikibase\DataModel\Entity\EntityIdValue;
-use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\Repo\WikibaseRepo;
 
@@ -77,73 +75,6 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		parent::__construct( 'AddSoftware', $config, $client );
 	}
 
-	public function execute( $subPage ) {
-		// Entity comboboxes in the review/manual steps need the autofill
-		// module (same wiring as the AddQuotation provenance block).
-		$this->getOutput()->addModules( 'ext.embeddableContent.entitysuggest' );
-		$parts = explode( '/', trim( (string)$subPage ) );
-		if ( ( $parts[0] ?? '' ) === 'complete' && ( $parts[1] ?? '' ) !== '' ) {
-			$this->executeComplete( $parts[1] );
-			return;
-		}
-		parent::execute( $subPage );
-	}
-
-	/**
-	 * Finalizes a just-created FOSS page in a FRESH request: the first
-	 * request's parse ran before the sitelink was committed AND the client's
-	 * in-process sitelink cache had already cached the negative lookup, so
-	 * its wikibase_item page property was left unset. Re-saving the page
-	 * here — new process, committed sitelink, empty lookup cache — makes the
-	 * re-parse deterministically map the page to the item.
-	 *
-	 * Idempotent and safe: only touches pages that carry the pending marker
-	 * AND whose item is sitelinked to them (both set by the legitimate flow).
-	 */
-	private function executeComplete( string $itemId ): void {
-		$this->setHeaders();
-		// The step performs an edit (finalize the page): login-gated like
-		// every other step of the flow (the legitimate flow redirects here
-		// from the review/manual submit, so the user is already logged in).
-		$this->requireLogin();
-		try {
-			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
-		} catch ( \Throwable $e ) {
-			$item = null;
-		}
-		$target = null;
-		if ( $item instanceof Item && $item->getSiteLinkList()->hasLinkWithSiteId( 'wikibase' ) ) {
-			$pageName = $item->getSiteLinkList()->getBySiteId( 'wikibase' )->getPageName();
-			$title = Title::newFromText( $pageName );
-			if ( $title !== null && $title->exists() ) {
-				$page = \MediaWiki\MediaWikiServices::getInstance()
-					->getWikiPageFactory()->newFromTitle( $title );
-				$current = $page->getContent() !== null ? $page->getContent()->getWikitextForTransclusion() : '';
-				if ( strpos( $current, self::PENDING_MARKER ) !== false ) {
-					// Strip ONLY the pending marker — the rest of the skeleton
-					// (incl. the logo param from afterCreate) stays intact.
-					$final = new \MediaWiki\Content\WikitextContent(
-						str_replace( "\n<!-- " . self::PENDING_MARKER . " -->", '', $current )
-					);
-					$status = $page->doUserEditContent(
-						$final,
-						$this->getUser(),
-						'Completing the page–item link',
-						EDIT_UPDATE | EDIT_MINOR
-					);
-					if ( !$status->isOK() ) {
-						// Best-effort: the page still exists with the marker;
-						// the contributor can finish the edit by hand.
-						$this->getOutput()->redirect( $title->getFullURL() );
-						return;
-					}
-				}
-				$target = $title->getFullURL();
-			}
-		}
-		$this->getOutput()->redirect( $target ?? $this->getPageTitle()->getFullURL() );
-	}
-
 	protected function kindKey(): string {
 		return 'software';
 	}
@@ -184,19 +115,8 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		];
 	}
 
-	protected function enrichRecord( array $record ): array {
-		if ( !empty( $record['harvested'] ) ) {
-			return $record;
-		}
-		// Harvest on pick: Wikidata hub for the full software record.
-		if ( !empty( $record['wikidataId'] ) && ( $record['provider'] ?? '' ) === 'wikidata' ) {
-			$harvest = $this->client->harvestSoftware( $record['wikidataId'] );
-			if ( $harvest->records !== [] ) {
-				$record = array_merge( $record, (array)$harvest->records[0] );
-			}
-		}
-		$record['harvested'] = true;
-		return $record;
+	protected function harvest( string $qid ): ProviderResult {
+		return $this->client->harvestSoftware( $qid );
 	}
 
 	protected function reviewFieldSpecs( array $record ): array {
@@ -293,32 +213,17 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		return $fields;
 	}
 
-	protected function createFromRecord( array $record, string $classItemId ): string {
-		$record = $this->enrichRecord( $record );
-		$specs = $this->softwareStatementSpecs( $record ) + $this->externalIdStatements( $record );
-		return $this->createOrSkipItem( $this->primaryLabel( $record ), $classItemId, $specs, $record );
-	}
-
-	/**
-	 * Manual-entry path: same software statement specs, no harvest (the
-	 * form fields carry everything).
-	 */
-	protected function manualCreate( string $label, string $classItemId, array $record ): string {
-		$specs = $this->softwareStatementSpecs( $record ) + $this->externalIdStatements( $record );
-		return $this->createOrSkipItem( $label, $classItemId, $specs, $record );
-	}
-
 	/**
 	 * FOSS statement specs from a (harvested or hand-entered) record:
 	 * website/repository/documentation as validated URLs, programming
 	 * language as the lexer item, the logo file as an `image` statement,
-	 * and the item-typed facts as entity values referencing existing local
-	 * items.
+	 * the item-typed facts as entity values referencing existing local
+	 * items, plus the authority external ids (base contract).
 	 *
 	 * @param array<string,mixed> $record
 	 * @return array<string,\Wikibase\DataModel\DataValue> property id => DataValue
 	 */
-	protected function softwareStatementSpecs( array $record ): array {
+	protected function statementSpecs( array $record ): array {
 		$sanitizer = new FragmentSanitizer();
 		$specs = [];
 
@@ -370,96 +275,49 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 			}
 		}
 
-		return $specs;
+		return $specs + $this->externalIdStatements( $record );
+	}
+
+	// ------------------------------------------------------------- classic pages
+	// The FOSS:<Name> wiki page + sitelink machinery (issue #26) lives in the
+	// base class afterCreate(); this class only declares the page facts.
+
+	protected function pageNamespace(): ?int {
+		return defined( 'NS_FOSS' ) ? NS_FOSS : null;
+	}
+
+	protected function pagePendingMarker(): string {
+		return '__FOSS_LINK_PENDING__';
+	}
+
+	protected function pageTemplate(): string {
+		return 'FOSS';
 	}
 
 	/**
-	 * Creates the FOSS:<Name> wiki page (Template:FOSS skeleton) and
-	 * sitelinks it to the just-created item, so the page renders the item's
-	 * statements at view time. Idempotent: an existing page is left alone,
-	 * the sitelink is (re)asserted.
+	 * FOSS: page skeleton — prose lives on the page, facts in the item; the
+	 * logo (when uploaded) is passed to Template:FOSS, which hands it to the
+	 * infobox so it renders inside the box (see Template:FOSS).
 	 *
-	 * @return string|null redirect target URL, or null to keep the item redirect
+	 * @param array<string,mixed> $record
 	 */
-	protected function afterCreate( string $itemId, array $record ): ?string {
-		if ( !defined( 'NS_FOSS' ) ) {
-			// Instance without the FOSS namespace: item-only flow.
-			return null;
-		}
-		$label = $this->primaryLabel( $record );
-		if ( trim( $label ) === '' ) {
-			return null;
-		}
-		$title = Title::newFromText( 'FOSS:' . $label );
-		if ( $title === null || !$title->inNamespace( NS_FOSS ) ) {
-			// Invalid page title (e.g. contains #): keep the item only.
-			return null;
-		}
-
-		// Sitelink the page ↔ item FIRST: the page's save-time parse must
-		// find the link or its wikibase_item page property stays stale
-		// ("unexpectedUnconnectedPage") and the infobox renders empty.
-		// Page names are stored WITH SPACES (getItemIdForLink normalizes
-		// underscores away) — getPrefixedDBkey() would be a silent mismatch.
-		// The sitelink must live in the ENTITY REVISION too (wbgetentities
-		// reads sitelinks from the revision, not the table) — saving the
-		// item writes both: the revision and, via ItemHandler's secondary
-		// data update, the sitelink table.
-		// Guard: on create-or-skip reuse the item may already carry the link
-		// — never rewrite existing sitelink state.
-		$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
-		if ( $item instanceof Item && !$item->getSiteLinkList()->hasLinkWithSiteId( 'wikibase' ) ) {
-			$item->getSiteLinkList()->setNewSiteLink( 'wikibase', $title->getPrefixedText() );
-			WikibaseRepo::getEntityStore()->saveEntity(
-				$item,
-				$this->msg( 'embeddablecontent-software-sitelink-edit-summary', $label )
-					->inContentLanguage()->text(),
-				$this->getUser(),
-				EDIT_UPDATE
-			);
-			// ALSO write the sitelink table synchronously: the entity save's
-			// secondary data update (ItemHandler::saveLinksOfItem) may run
-			// deferred, and the finalize step's parse — which happens in the
-			// immediately-following request — reads the TABLE. Diff-based, so
-			// re-running it here is a harmless no-op when it already landed.
-			WikibaseRepo::getStore()->newSiteLinkStore()->saveLinksOfItem( $item );
-		}
-
-		if ( !$title->exists() ) {
-			$page = \MediaWiki\MediaWikiServices::getInstance()
-				->getWikiPageFactory()->newFromTitle( $title );
-			// Revision 1 carries a marker: this request's parse runs before
-			// the sitelink is durably visible AND the client's in-process
-			// sitelink cache would return the cached negative for it — so it
-			// cannot set the wikibase_item property. The redirect target
-			// below routes through Special:AddSoftware/complete/<id>, which
-			// re-saves the page in a FRESH request (committed sitelink,
-			// empty cache) and removes the marker.
-			$content = new \MediaWiki\Content\WikitextContent(
-				self::pageSkeleton( true, (string)( $record['logoFileTitle'] ?? '' ) )
-			);
-			$status = $page->doUserEditContent(
-				$content,
-				$this->getUser(),
-				$this->msg( 'embeddablecontent-software-page-edit-summary', $label )->inContentLanguage()->text(),
-				EDIT_NEW
-			);
-			if ( !$status->isOK() ) {
-				// Page creation failed (e.g. protected namespace): the item
-				// still exists — surface the item instead of erroring.
-				return null;
-			}
-			// Round-trip through the finalize step so the page↔item mapping
-			// lands deterministically; fall back to the page itself.
-			$complete = $this->getPageTitle( 'complete/' . $itemId )->getFullURL();
-			return $complete;
-		}
-
-		return $title->getFullURL();
+	protected function pageSkeleton( array $record, bool $withMarker = false ): string {
+		$marker = $withMarker ? "\n<!-- " . $this->pagePendingMarker() . " -->\n" : "";
+		$logoFile = (string)( $record['logoFileTitle'] ?? '' );
+		$logoParam = $logoFile !== ''
+			? '|logo=[[File:' . $logoFile . '|frameless|220px|Logo]]'
+			: '';
+		return "{{FOSS{$logoParam}}}\n\n== Overview ==\n\n<!-- What this software does and who it is for. -->\n\n"
+			. "== Features ==\n\n== Alternatives ==\n\n== See also ==\n" . $marker;
 	}
 
-	/** Marker left in the first page revision, removed by the finalize step. */
-	private const PENDING_MARKER = '__FOSS_LINK_PENDING__';
+	protected function pageEditSummary( string $label ): string {
+		return $this->msg( 'embeddablecontent-software-page-edit-summary', $label )->inContentLanguage()->text();
+	}
+
+	protected function pageSitelinkSummary( string $label ): string {
+		return $this->msg( 'embeddablecontent-software-sitelink-edit-summary', $label )->inContentLanguage()->text();
+	}
 
 	/** Logo formats accepted for upload (raster + svg). */
 	private const LOGO_EXTENSIONS = [ 'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg' ];
@@ -639,18 +497,6 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 			throw new \RuntimeException( 'performUpload: ' . $status->getMessage()->getParams()[0] ?? 'rejected' );
 		}
 		return $title;
-	}
-
-	/** Default FOSS: page skeleton — prose lives on the page, facts in the item. */
-	private static function pageSkeleton( bool $withMarker = false, string $logoFile = '' ): string {
-		$marker = $withMarker ? "\n<!-- " . self::PENDING_MARKER . " -->\n" : "";
-		// The logo (when uploaded) is passed to Template:FOSS, which hands it
-		// to the infobox so it renders inside the box (see Template:FOSS).
-		$logoParam = $logoFile !== ''
-			? '|logo=[[File:' . $logoFile . '|frameless|220px|Logo]]'
-			: '';
-		return "{{FOSS{$logoParam}}}\n\n== Overview ==\n\n<!-- What this software does and who it is for. -->\n\n"
-			. "== Features ==\n\n== Alternatives ==\n\n== See also ==\n" . $marker;
 	}
 
 	protected function classOptions(): array {

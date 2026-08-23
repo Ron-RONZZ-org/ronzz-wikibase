@@ -80,12 +80,6 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	abstract protected function candidateOptions( array $records ): array;
 
 	/**
-	 * Creates (or reuses) the local item for the selected record.
-	 * Returns the item id.
-	 */
-	abstract protected function createFromRecord( array $record, string $classItemId ): string;
-
-	/**
 	 * Class options for the selection step: label => item id.
 	 *
 	 * @return array<string,string>
@@ -107,11 +101,11 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	abstract protected function reviewFieldSpecs( array $record ): array;
 
 	/**
-	 * Enriches a light search record with the full authority record
-	 * (harvest-on-pick, issue #7). Idempotent: returns the record unchanged
-	 * once marked as harvested.
+	 * Full authority record for a Wikidata id (harvest-on-pick, issue #7).
+	 * Kind-specific: each subclass delegates to its provider
+	 * (harvestSoftware / harvestPerson / harvestWork / harvestEntity).
 	 */
-	abstract protected function enrichRecord( array $record ): array;
+	abstract protected function harvest( string $qid ): ProviderResult;
 
 	public function execute( $subPage ) {
 		// Standard special-page header plumbing (title from getDescription(),
@@ -126,6 +120,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// external fetches) and the manual/review CREATION — those handlers
 		// enforce login (onSearchSubmit/onManualSubmit).
 		$this->getOutput()->enableOOUI();
+		// Entity comboboxes in the review/manual steps need the autofill
+		// module (AddSoftware entity facts, AddSource authors/parent,
+		// AddPerson place fields); loading it is a no-op without comboboxes.
+		$this->getOutput()->addModules( 'ext.embeddableContent.entitysuggest' );
 		$parts = explode( '/', trim( (string)$subPage ) );
 		$first = $parts[0] ?? '';
 		if ( $first === '' ) {
@@ -138,6 +136,13 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		}
 		if ( ( $parts[1] ?? '' ) === 'review' && ( $parts[2] ?? '' ) !== '' ) {
 			$this->executeReview( $first, (int)$parts[2] );
+			return;
+		}
+		// Finalize a just-created classic page in a FRESH request (the page
+		// is written by afterCreate; this step strips the pending marker —
+		// tokens are 32-hex so `complete` can never collide with them).
+		if ( $first === 'complete' && ( $parts[1] ?? '' ) !== '' ) {
+			$this->executeComplete( $parts[1] );
 			return;
 		}
 		$this->executeSelection( $first );
@@ -450,29 +455,276 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	}
 
 	/**
-	 * Creates the item from the manual-form record. Subclasses that build
-	 * kind-specific statements (e.g. Special:AddSoftware's URL/version/
-	 * entity facts) override this; the default mirrors the review path's
-	 * createFromRecord spec logic.
+	 * Statement specs for the created item, built from the (harvested or
+	 * hand-edited) record. The default writes the authority external ids +
+	 * the citation-metadata facts; subclasses with kind-specific statements
+	 * (AddSoftware's URL/entity facts, AddSource's duration/authors/part-of)
+	 * override and extend.
+	 *
+	 * A spec value is normally a single DataValue (one statement); a value
+	 * given as an ARRAY of DataValue writes one statement per element.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,\Wikibase\DataModel\DataValue|\Wikibase\DataModel\DataValue[]>
+	 */
+	protected function statementSpecs( array $record ): array {
+		return $this->externalIdStatements( $record ) + $this->citationMetadataStatements( $record );
+	}
+
+	/**
+	 * Creates (or reuses) the local item for the selected record.
+	 * Returns the item id.
+	 */
+	protected function createFromRecord( array $record, string $classItemId ): string {
+		$record = $this->enrichRecord( $record );
+		return $this->createOrSkipItem(
+			$this->primaryLabel( $record ),
+			$classItemId,
+			$this->statementSpecs( $record ),
+			$record
+		);
+	}
+
+	/**
+	 * Creates the item from the manual-form record (no external record, no
+	 * import reference). Same statement specs as the review path.
 	 *
 	 * @param array<string,mixed> $record
 	 */
 	protected function manualCreate( string $label, string $classItemId, array $record ): string {
-		$specs = $this->externalIdStatements( $record ) + $this->citationMetadataStatements( $record );
-		return $this->createOrSkipItem( $label, $classItemId, $specs, $record );
+		return $this->createOrSkipItem( $label, $classItemId, $this->statementSpecs( $record ), $record );
+	}
+
+	/**
+	 * Enriches a light search record with the full authority record
+	 * (harvest-on-pick, issue #7). Idempotent: returns the record unchanged
+	 * once marked as harvested. Only harvestable records are enriched
+	 * (canHarvest()); the harvest itself is kind-specific (harvest()).
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function enrichRecord( array $record ): array {
+		if ( !empty( $record['harvested'] ) ) {
+			return $record;
+		}
+		$qid = (string)( $record['wikidataId'] ?? '' );
+		if ( $qid !== '' && $this->canHarvest( $record ) ) {
+			$result = $this->harvest( $qid );
+			if ( $result->records !== [] ) {
+				$record = array_merge( $record, (array)$result->records[0] );
+			}
+		}
+		$record['harvested'] = true;
+		return $record;
+	}
+
+	/**
+	 * Whether a candidate record is eligible for the Wikidata-hub harvest.
+	 * Default: only records the hub itself returned; Special:AddPerson
+	 * overrides to true (its dblp/OpenAlex candidates carry hub-derived
+	 * wikidata ids and are enriched from Wikidata).
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function canHarvest( array $record ): bool {
+		return ( $record['provider'] ?? '' ) === 'wikidata';
+	}
+
+	// ------------------------------------------------------------- classic pages
+
+	/**
+	 * Namespace of the classic wiki page auto-created for a new item, or
+	 * null for item-only flows (the default). Subclasses that create pages
+	 * also override pageTemplate() and may override pageSkeleton()/
+	 * pageEditSummary()/pageSitelinkSummary().
+	 */
+	protected function pageNamespace(): ?int {
+		return null;
+	}
+
+	/** Marker left in the first page revision, removed by the finalize step. */
+	protected function pagePendingMarker(): string {
+		return '__EXTERNAL_LINK_PENDING__';
+	}
+
+	/** Template name transcluded by the default page skeleton (no prefix). */
+	protected function pageTemplate(): string {
+		return '';
+	}
+
+	/**
+	 * Classic page title for a created item, or null when the kind creates
+	 * no page (pageNamespace() null) or the label is unusable as a title
+	 * (empty, or containing title-forbidden characters like #).
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function pageTitleForRecord( array $record ): ?Title {
+		$ns = $this->pageNamespace();
+		if ( $ns === null ) {
+			return null;
+		}
+		$label = trim( $this->primaryLabel( $record ) );
+		if ( $label === '' ) {
+			return null;
+		}
+		$title = Title::newFromText( $ns . ':' . $label );
+		return ( $title !== null && $title->getNamespace() === $ns ) ? $title : null;
+	}
+
+	/**
+	 * Default page skeleton: the kind's template + generic prose sections.
+	 * Subclasses with richer defaults (AddSoftware's FOSS infobox + logo
+	 * parameter) override.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function pageSkeleton( array $record, bool $withMarker = false ): string {
+		$marker = $withMarker ? "\n<!-- " . $this->pagePendingMarker() . " -->\n" : "";
+		return "{{" . $this->pageTemplate() . "}}\n\n== Overview ==\n\n<!-- What this is and why it matters. -->\n\n"
+			. "== See also ==\n" . $marker;
+	}
+
+	/** Edit-summary message for the page creation. */
+	protected function pageEditSummary( string $label ): string {
+		return $this->msg( 'embeddablecontent-page-edit-summary', $label )->inContentLanguage()->text();
+	}
+
+	/** Edit-summary message for the page↔item sitelink assertion. */
+	protected function pageSitelinkSummary( string $label ): string {
+		return $this->msg( 'embeddablecontent-page-sitelink-edit-summary', $label )->inContentLanguage()->text();
 	}
 
 	/**
 	 * Post-create hook: runs after the item is created (review and manual
-	 * paths), before the redirect. Subclasses may create linked pages or
-	 * sitelinks and return a redirect target URL; the default keeps the
-	 * item redirect.
+	 * paths), before the redirect. Default: when the subclass declares a
+	 * pageNamespace, creates the classic wiki page and sitelinks it to the
+	 * item, so the page renders the item's statements at view time
+	 * (AddSoftware issue #26 pattern); returns the page URL, or the
+	 * finalize-step round-trip for a freshly created page. Item-only kinds
+	 * keep the item redirect (null).
 	 *
 	 * @param array<string,mixed> $record
 	 * @return string|null redirect target URL, or null for the item redirect
 	 */
 	protected function afterCreate( string $itemId, array $record ): ?string {
-		return null;
+		$title = $this->pageTitleForRecord( $record );
+		if ( $title === null ) {
+			return null;
+		}
+		$label = $this->primaryLabel( $record );
+
+		// Sitelink the page ↔ item FIRST: the page's save-time parse must
+		// find the link or its wikibase_item page property stays stale
+		// ("unexpectedUnconnectedPage") and the infobox renders empty.
+		// Page names are stored WITH SPACES (getItemIdForLink normalizes
+		// underscores away) — getPrefixedDBkey() would be a silent mismatch.
+		// The sitelink must live in the ENTITY REVISION too (wbgetentities
+		// reads sitelinks from the revision, not the table) — saving the
+		// item writes both: the revision and, via ItemHandler's secondary
+		// data update, the sitelink table.
+		// Guard: on create-or-skip reuse the item may already carry the link
+		// — never rewrite existing sitelink state.
+		$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
+		if ( $item instanceof Item && !$item->getSiteLinkList()->hasLinkWithSiteId( 'wikibase' ) ) {
+			$item->getSiteLinkList()->setNewSiteLink( 'wikibase', $title->getPrefixedText() );
+			WikibaseRepo::getEntityStore()->saveEntity(
+				$item,
+				$this->pageSitelinkSummary( $label ),
+				$this->getUser(),
+				EDIT_UPDATE
+			);
+			// ALSO write the sitelink table synchronously: the entity save's
+			// secondary data update (ItemHandler::saveLinksOfItem) may run
+			// deferred, and the finalize step's parse — which happens in the
+			// immediately-following request — reads the TABLE. Diff-based, so
+			// re-running it here is a harmless no-op when it already landed.
+			WikibaseRepo::getStore()->newSiteLinkStore()->saveLinksOfItem( $item );
+		}
+
+		if ( !$title->exists() ) {
+			$page = \MediaWiki\MediaWikiServices::getInstance()
+				->getWikiPageFactory()->newFromTitle( $title );
+			// Revision 1 carries a marker: this request's parse runs before
+			// the sitelink is durably visible AND the client's in-process
+			// sitelink cache would return the cached negative for it — so it
+			// cannot set the wikibase_item property. The redirect target
+			// below routes through the complete/<id> step, which re-saves the
+			// page in a FRESH request (committed sitelink, empty cache) and
+			// removes the marker.
+			$content = new \MediaWiki\Content\WikitextContent(
+				$this->pageSkeleton( $record, true )
+			);
+			$status = $page->doUserEditContent(
+				$content,
+				$this->getUser(),
+				$this->pageEditSummary( $label ),
+				EDIT_NEW
+			);
+			if ( !$status->isOK() ) {
+				// Page creation failed (e.g. protected namespace): the item
+				// still exists — surface the item instead of erroring.
+				return null;
+			}
+			return $this->stepTitle( 'complete/' . $itemId )->getFullURL();
+		}
+
+		return $title->getFullURL();
+	}
+
+	/**
+	 * Finalizes a just-created classic page in a FRESH request: the first
+	 * request's parse ran before the sitelink was committed AND the client's
+	 * in-process sitelink cache had already cached the negative lookup, so
+	 * its wikibase_item page property was left unset. Re-saving the page
+	 * here — new process, committed sitelink, empty lookup cache — makes the
+	 * re-parse deterministically map the page to the item.
+	 *
+	 * Idempotent and safe: only touches pages that carry the pending marker
+	 * AND whose item is sitelinked to them (both set by the legitimate flow).
+	 */
+	protected function executeComplete( string $itemId ): void {
+		$this->setHeaders();
+		// The step performs an edit (finalize the page): login-gated like
+		// every other step of the flow (the legitimate flow redirects here
+		// from the review/manual submit, so the user is already logged in).
+		$this->requireLogin();
+		try {
+			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
+		} catch ( \Throwable $e ) {
+			$item = null;
+		}
+		$target = null;
+		if ( $item instanceof Item && $item->getSiteLinkList()->hasLinkWithSiteId( 'wikibase' ) ) {
+			$pageName = $item->getSiteLinkList()->getBySiteId( 'wikibase' )->getPageName();
+			$title = Title::newFromText( $pageName );
+			if ( $title !== null && $title->exists() ) {
+				$page = \MediaWiki\MediaWikiServices::getInstance()
+					->getWikiPageFactory()->newFromTitle( $title );
+				$current = $page->getContent() !== null ? $page->getContent()->getWikitextForTransclusion() : '';
+				if ( strpos( $current, $this->pagePendingMarker() ) !== false ) {
+					// Strip ONLY the pending marker — the rest of the skeleton
+					// (incl. subclass params from afterCreate) stays intact.
+					$final = new \MediaWiki\Content\WikitextContent(
+						str_replace( "\n<!-- " . $this->pagePendingMarker() . " -->", '', $current )
+					);
+					$status = $page->doUserEditContent(
+						$final,
+						$this->getUser(),
+						'Completing the page–item link',
+						EDIT_UPDATE | EDIT_MINOR
+					);
+					if ( !$status->isOK() ) {
+						// Best-effort: the page still exists with the marker;
+						// the contributor can finish the edit by hand.
+						$this->getOutput()->redirect( $title->getFullURL() );
+						return;
+					}
+				}
+				$target = $title->getFullURL();
+			}
+		}
+		$this->getOutput()->redirect( $target ?? $this->stepTitle()->getFullURL() );
 	}
 
 	// ------------------------------------------------------------- shared

@@ -60,32 +60,14 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 		return [ 'wikidata' => 'wikidataId' ];
 	}
 
-	protected function enrichRecord( array $record ): array {
-		if ( !empty( $record['harvested'] ) ) {
-			return $record;
-		}
-		// Harvest on pick: enrich with the full Wikidata record (class hints
-		// for the inference, description).
-		if ( !empty( $record['wikidataId'] ) && ( $record['provider'] ?? '' ) === 'wikidata' ) {
-			$harvest = $this->client->harvestEntity( $record['wikidataId'] );
-			if ( $harvest->records !== [] ) {
-				$record = array_merge( $record, (array)$harvest->records[0] );
-			}
-		}
-		$record['harvested'] = true;
-		return $record;
+	protected function harvest( string $qid ): ProviderResult {
+		return $this->client->harvestEntity( $qid );
 	}
 
 	protected function reviewFieldSpecs( array $record ): array {
 		return $this->labelFieldSpec( 'label', 'embeddablecontent-add-label', (string)( $record['label'] ?? '' ) )
 			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
 			+ $this->externalIdFieldSpecs( $record );
-	}
-
-	protected function createFromRecord( array $record, string $classItemId ): string {
-		$record = $this->enrichRecord( $record );
-		$specs = $this->externalIdStatements( $record );
-		return $this->createOrSkipItem( $this->primaryLabel( $record ), $classItemId, $specs, $record );
 	}
 
 	protected function classOptions(): array {
