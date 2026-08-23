@@ -512,31 +512,18 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 	 * Parses a possibly multi-valued entity-field input (comma/semicolon/
 	 * whitespace-separated item ids) into validated ItemIds. Invalid
 	 * elements are skipped — same lenient contract as the single-value
-	 * parseOptionalItemId; ids are deduped.
+	 * parseItemId; ids are deduped.
 	 *
 	 * @return ItemId[]
 	 */
 	private function parseOptionalItemIds( string $input ): array {
 		$out = [];
 		foreach ( ItemIdList::split( $input ) as $candidate ) {
-			$id = $this->parseOptionalItemId( $candidate );
+			$id = $this->parseItemId( $candidate );
 			if ( $id !== null ) {
 				$out[] = $id;
 			}
 		}
 		return $out;
-	}
-
-	private function parseOptionalItemId( string $input ): ?ItemId {
-		$input = trim( $input );
-		if ( $input === '' ) {
-			return null;
-		}
-		try {
-			$id = WikibaseRepo::getEntityIdParser()->parse( $input );
-			return $id instanceof ItemId ? $id : null;
-		} catch ( \Throwable $e ) {
-			return null;
-		}
 	}
 }

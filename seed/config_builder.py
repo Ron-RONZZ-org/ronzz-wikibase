@@ -53,6 +53,15 @@ CITATION_METADATA_KINDS = {
     "issue": "issue",
 }
 
+# Issue #7 (follow-up): person lifecycle properties (Special:AddPerson
+# statements — birth/death dates and places).
+PERSON_PROPERTY_KINDS = {
+    "date of birth": "dateOfBirth",
+    "place of birth": "placeOfBirth",
+    "date of death": "dateOfDeath",
+    "place of death": "placeOfDeath",
+}
+
 CLASS_KINDS = {
     "quotation content": "quotation",
     "code snippet": "code",
@@ -192,6 +201,11 @@ def build_config(
         if label in property_ids:
             citation_metadata[key] = property_ids[label]
 
+    person_props: dict[str, str] = {}
+    for label, key in PERSON_PROPERTY_KINDS.items():
+        if label in property_ids:
+            person_props[key] = property_ids[label]
+
     source_props: dict[str, str] = {}
     for label, key in SOURCE_PROPERTY_KINDS.items():
         if label in property_ids:
@@ -227,6 +241,7 @@ def build_config(
         "provenance": provenance,
         "externalIds": external_ids,
         "citationMetadata": citation_metadata,
+        "personProperties": person_props,
         "formatterUrl": property_ids.get("formatter URL"),
         "sourceClassByWikidata": source_class_by_qid,
         "agentClassByWikidata": agent_class_by_qid,

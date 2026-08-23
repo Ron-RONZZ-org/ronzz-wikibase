@@ -142,6 +142,19 @@ class EmbeddableContentConfig {
 	}
 
 	/**
+	 * Person lifecycle property ids (Special:AddPerson statements): date of
+	 * birth / death (time) and place of birth / death (wikibase-item).
+	 * Absent keys are omitted (instance-specific availability).
+	 *
+	 * @return array<string,string> canonical key => property id
+	 */
+	public function personPropertyIds(): array {
+		return $this->requireStringMap( 'personProperties', [
+			'dateOfBirth', 'placeOfBirth', 'dateOfDeath', 'placeOfDeath',
+		] );
+	}
+
+	/**
 	 * Issue #7: source/work class ids (Special:AddSource class picker).
 	 *
 	 * @return array<string,string> canonical key => item id

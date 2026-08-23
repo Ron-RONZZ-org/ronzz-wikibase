@@ -288,17 +288,22 @@ def flow_search_select_create(op, base: str, api: str, special: str, search_fiel
     return m.group(1)
 
 
-def flow_manual(op, base: str, api: str, special: str, label: str, class_item: str) -> str:
+def flow_manual(op, base: str, api: str, special: str, label: str, class_item: str,
+                extra_fields: dict | None = None) -> str:
     """Manual-entry fallback (issue #12): Special:<name>/manual creates from
-    blank (no external record)."""
+    blank (no external record). extra_fields carries additional review-form
+    fields (e.g. the person birth/death facts), keyed as wp<FieldName>."""
     url, body = page_get(op, base, f"/wiki/Special:{special}/manual")
     token = edit_token(body)
-    url, body = page_post(op, url, {
+    fields = {
         "wplabel": label,
         "wpclass": class_item,
         "wpEditToken": token,
         "wpSubmit": "1",
-    })
+    }
+    if extra_fields:
+        fields.update(extra_fields)
+    url, body = page_post(op, url, fields)
     m = re.search(r"/wiki/Item:(Q\d+)$", url)
     if not m:
         raise FlowError(f"Special:{special}/manual did not create an item: {url} {find_error(body)}")
@@ -796,6 +801,34 @@ def main() -> int:
         assert first_value(claims, wikidata_id_prop), f"{person} missing Wikidata ID"
         assert first_reference_url(claims, wikidata_id_prop), f"{person} missing import reference"
         print(f"[ok] AddPerson -> {person} ({label}): instance-of person, Wikidata ID + import reference")
+
+        # 1b. AddPerson manual with the birth/death facts: day-precision date
+        #     fields + entity-combobox places, with the deceased toggle open.
+        date_of_birth_prop = resolve("date of birth", "property")
+        place_of_birth_prop = resolve("place of birth", "property")
+        date_of_death_prop = resolve("date of death", "property")
+        place_of_death_prop = resolve("place of death", "property")
+        person_manual_label = f"Page-flow E2E person {int(time.time())}"
+        person_manual = track(flow_manual(op, base, api, "AddPerson", person_manual_label,
+                                          person_class, {
+                                              "wpdateOfBirth": "1960-01-02",
+                                              "wpplaceOfBirth": person,
+                                              "wpdeceased": "1",
+                                              "wpdateOfDeath": "2015-03-04",
+                                              "wpplaceOfDeath": person,
+                                          }))
+        claims, _ = entity_claims(op, api, person_manual)
+        assert first_value(claims, date_of_birth_prop) is not None and \
+            first_value(claims, date_of_birth_prop).get("time", "").startswith("+1960-01-02"), \
+            f"{person_manual} date of birth statement not written"
+        assert first_value(claims, place_of_birth_prop) == person, \
+            f"{person_manual} place of birth statement not written"
+        assert first_value(claims, date_of_death_prop).get("time", "").startswith("+2015-03-04"), \
+            f"{person_manual} date of death statement not written (deceased toggle)"
+        assert first_value(claims, place_of_death_prop) == person, \
+            f"{person_manual} place of death statement not written"
+        print(f"[ok] AddPerson/manual -> {person_manual}: birth/death dates + places, "
+              f"deceased toggle")
 
         # 2. AddSource (class-first) — DOI -> Crossref, scholarly article
         #    class fixed by the picker, harvested citation metadata, and the

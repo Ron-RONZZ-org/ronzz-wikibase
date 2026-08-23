@@ -112,6 +112,37 @@ final class ProviderClientTest extends TestCase {
 		$this->assertSame( 'Douglas Adams', $result->records[0]->label );
 	}
 
+	public function testByViafAndByIsniUseTheHub(): void {
+		$http = new FakeHttpClient();
+		// SPARQL lookup answers both P214 and P213 with the same Q42.
+		$http->onJson( 'query.wikidata.org', [
+			'head' => [ 'vars' => [ 'item' ] ],
+			'results' => [ 'bindings' => [ [ 'item' => [ 'type' => 'uri', 'value' => 'http://www.wikidata.org/entity/Q42' ] ] ] ],
+		] );
+		$http->onJson( 'action=wbgetentities', [
+			'entities' => [ 'Q42' => [ 'labels' => [ 'en' => [ 'value' => 'Douglas Adams' ] ], 'claims' => [] ] ],
+		] );
+		$hub = new WikidataPersonProvider( $http );
+		$client = new ProviderClient( [], [], [], [], [], [], $hub );
+
+		$viaf = $client->byViaf( '113230702' );
+		$this->assertCount( 1, $viaf->records );
+		$this->assertSame( 'Q42', $viaf->records[0]->wikidataId );
+
+		$isni = $client->byIsni( '0000 0001 2345 6789' );
+		$this->assertCount( 1, $isni->records );
+		$this->assertSame( 'Q42', $isni->records[0]->wikidataId );
+	}
+
+	public function testByViafWarnsWithoutHub(): void {
+		$client = new ProviderClient();
+
+		$result = $client->byViaf( '113230702' );
+
+		$this->assertSame( [], $result->records );
+		$this->assertNotSame( [], $result->warnings );
+	}
+
 	public function testHarvestWorkAndEntity(): void {
 		$http = new FakeHttpClient();
 		$http->onJson( 'action=wbgetentities', [

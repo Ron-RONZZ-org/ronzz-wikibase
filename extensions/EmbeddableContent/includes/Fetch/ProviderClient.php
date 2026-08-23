@@ -272,6 +272,38 @@ class ProviderClient {
 		);
 	}
 
+	/**
+	 * VIAF lookup — Wikidata-hub only (no other provider resolves VIAF).
+	 */
+	public function byViaf( string $viaf ): ProviderResult {
+		return $this->personHubLookup( $viaf, 'viaf' );
+	}
+
+	/**
+	 * ISNI lookup — Wikidata-hub only (no other provider resolves ISNI).
+	 */
+	public function byIsni( string $isni ): ProviderResult {
+		return $this->personHubLookup( $isni, 'isni' );
+	}
+
+	/**
+	 * @return ProviderResult single-record result, or a warning when the hub
+	 * is not configured or the lookup fails
+	 */
+	private function personHubLookup( string $id, string $kind ): ProviderResult {
+		if ( $this->wikidataPerson === null ) {
+			return new ProviderResult( [], [ 'No Wikidata person hub configured' ] );
+		}
+		try {
+			$record = $kind === 'viaf'
+				? $this->wikidataPerson->byViaf( $id )
+				: $this->wikidataPerson->byIsni( $id );
+		} catch ( ProviderException $e ) {
+			return new ProviderResult( [], [ 'wikidata: ' . $e->getMessage() ] );
+		}
+		return new ProviderResult( $record === null ? [] : [ $record ] );
+	}
+
 	public function byDoi( string $doi ): ProviderResult {
 		return $this->identifierCascade(
 			$this->doiProviders,

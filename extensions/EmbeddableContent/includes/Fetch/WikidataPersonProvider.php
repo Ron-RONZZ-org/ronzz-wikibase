@@ -38,6 +38,23 @@ class WikidataPersonProvider implements PersonProvider {
 	}
 
 	/**
+	 * VIAF lookup via the Wikidata hub. Note: a VIAF id can map to several
+	 * Wikidata items — the SPARQL lookup returns the FIRST match only (same
+	 * LIMIT-1 contract as byOrcid); the review step lets the author correct
+	 * the pick.
+	 */
+	public function byViaf( string $viaf ): ?PersonRecord {
+		$qid = $this->core->findItemByExternalId( 'P214', $viaf );
+		return $qid === null ? null : $this->byWikidataId( $qid );
+	}
+
+	/** ISNI lookup via the Wikidata hub (ISNI is 1:1 with Wikidata items). */
+	public function byIsni( string $isni ): ?PersonRecord {
+		$qid = $this->core->findItemByExternalId( 'P213', $isni );
+		return $qid === null ? null : $this->byWikidataId( $qid );
+	}
+
+	/**
 	 * Full harvest from a Wikidata QID (the hub's pick step).
 	 */
 	public function byWikidataId( string $qid ): ?PersonRecord {
@@ -46,7 +63,7 @@ class WikidataPersonProvider implements PersonProvider {
 			return null;
 		}
 		$itemLabels = $this->core->resolveItemLabels(
-			$this->core->itemValueIds( $harvest['claims'], [ 'P735', 'P734' ] )
+			$this->core->itemValueIds( $harvest['claims'], [ 'P735', 'P734', 'P19', 'P20' ] )
 		);
 		return new PersonRecord(
 			label: $harvest['label'],
@@ -56,6 +73,10 @@ class WikidataPersonProvider implements PersonProvider {
 			orcid: $this->core->stringValue( $harvest['claims'], 'P496' ),
 			viafId: $this->core->stringValue( $harvest['claims'], 'P214' ),
 			isni: $this->core->stringValue( $harvest['claims'], 'P213' ),
+			dateOfBirth: $this->core->timeValue( $harvest['claims'], 'P569' ),
+			placeOfBirth: $this->core->itemId( $harvest['claims'], 'P19' ),
+			dateOfDeath: $this->core->timeValue( $harvest['claims'], 'P570' ),
+			placeOfDeath: $this->core->itemId( $harvest['claims'], 'P20' ),
 			wikidataId: $qid,
 			provider: 'wikidata',
 			providerId: $qid

@@ -835,6 +835,42 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	}
 
 	/**
+	 * Parses a single item id string ("Q42") into an ItemId, or null when
+	 * invalid. Lenient contract shared by the entity-combobox fields
+	 * (AddSoftware facts, AddSource authors/parent, AddPerson places).
+	 */
+	protected function parseItemId( string $input ): ?ItemId {
+		$input = trim( $input );
+		if ( $input === '' ) {
+			return null;
+		}
+		try {
+			$id = WikibaseRepo::getEntityIdParser()->parse( $input );
+			return $id instanceof ItemId ? $id : null;
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+	}
+
+	/**
+	 * "YYYY-MM-DD" (HTMLForm date field) -> day-precision TimeValue, or null
+	 * when the value is malformed (the date widget validates the shape, so
+	 * null only happens for values that bypassed it).
+	 */
+	protected function dateToTimeValue( string $date ): ?TimeValue {
+		$date = trim( $date );
+		if ( preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $date, $m ) !== 1 ) {
+			return null;
+		}
+		return new TimeValue(
+			sprintf( '+%s-%s-%sT00:00:00Z', $m[1], $m[2], $m[3] ),
+			0, 0, 0,
+			TimeValue::PRECISION_DAY,
+			'http://www.wikidata.org/entity/Q1985727'
+		);
+	}
+
+	/**
 	 * Text fields for the config's external-id properties, pre-filled from
 	 * the record; the field name doubles as the record key.
 	 *
