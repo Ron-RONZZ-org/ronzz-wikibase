@@ -1179,8 +1179,10 @@ def main() -> int:
         # 2h. AddSource/book access field, local-file mode (issue #35): the
         #     upload lands as File:<label>.png (auto-named from the item
         #     label, original filename ignored) with the license + file
-        #     statements.
-        license_qid = resolve("CC0 1.0", "item")
+        #     statements. The license item is created by the test itself —
+        #     the CI stack does not run the preseed phase, so no preseeded
+        #     license item is guaranteed to exist.
+        license_qid = create_api_item(op, api, f"Page-flow E2E license {int(time.time())}")
         access_label = f"Page-flow E2E access {int(time.time())}"
         access_book = track(flow_source_book_access_file(
             op, base, api, access_label, person, license_qid))
