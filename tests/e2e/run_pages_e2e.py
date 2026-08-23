@@ -756,6 +756,17 @@ def main() -> int:
         resolve("person", "item"),
         resolve("organization", "item"),
         resolve("group of humans", "item"),
+        resolve("private company", "item"),
+        resolve("public company", "item"),
+        resolve("non-profit organization", "item"),
+        resolve("governmental agency", "item"),
+        resolve("music band", "item"),
+        resolve("educational institution", "item"),
+        resolve("research institute", "item"),
+        resolve("political party", "item"),
+        resolve("trade union", "item"),
+        resolve("religious organization", "item"),
+        resolve("sports team", "item"),
     }
     print(f"[ok] vocabulary resolved (instance-of={instance_of}, person={person_class}, "
           f"scholarly article={scholarly_class})")

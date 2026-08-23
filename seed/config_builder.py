@@ -73,6 +73,19 @@ AGENT_CLASS_KINDS = {
     "person": "person",
     "organization": "organization",
     "group of humans": "groupOfHumans",
+    # Common collective classes (AddCollective class picker + harvest
+    # inference; authors of works may also be classified under these).
+    "private company": "privateCompany",
+    "public company": "publicCompany",
+    "non-profit organization": "nonProfitOrganization",
+    "governmental agency": "governmentalAgency",
+    "music band": "musicBand",
+    "educational institution": "educationalInstitution",
+    "research institute": "researchInstitute",
+    "political party": "politicalParty",
+    "trade union": "tradeUnion",
+    "religious organization": "religiousOrganization",
+    "sports team": "sportsTeam",
 }
 
 # Issue #7: source/work classes (AddSource).
