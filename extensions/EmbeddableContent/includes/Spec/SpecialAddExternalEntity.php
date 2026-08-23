@@ -1128,6 +1128,18 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	}
 
 	/**
+	 * Canonical keys excluded from the base citation-metadata statements.
+	 * Subclasses that write a field themselves (e.g. Special:AddSource
+	 * writes the publisher as an ENTITY value, not the base string) return
+	 * the key here so the base never emits the string statement.
+	 *
+	 * @return string[]
+	 */
+	protected function citationMetadataFieldExclusions(): array {
+		return [];
+	}
+
+	/**
 	 * Builds the citation-metadata statement specs present in the config map.
 	 *
 	 * @return array<string,\Wikibase\DataModel\DataValue>
@@ -1144,6 +1156,9 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			'issue' => 'issue',
 		];
 		foreach ( $map as $key => $field ) {
+			if ( in_array( $key, $this->citationMetadataFieldExclusions(), true ) ) {
+				continue;
+			}
 			$propertyId = $this->config->citationMetadataPropertyIds()[$key] ?? null;
 			if ( $propertyId === null || empty( $record[$field] ) ) {
 				continue;
@@ -1153,7 +1168,13 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		return $specs;
 	}
 
-	private function findItemIdByLabel( string $label ): ?string {
+	/**
+	 * Local item id whose English label matches exactly (case-insensitive),
+	 * or null. Used by create-or-skip and by Special:AddSource's
+	 * publisher-field resolution (harvested publisher string → existing
+	 * publisher item).
+	 */
+	protected function findItemIdByLabel( string $label ): ?string {
 		try {
 			$entries = WikibaseRepo::getMatchingTermsLookupFactory()
 				->getLookupForSource( WikibaseRepo::getLocalEntitySource() )
