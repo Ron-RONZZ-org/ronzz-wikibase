@@ -109,7 +109,45 @@ extensions — never forks of Wikibase.
   checkbox routing to `/<classKey>/manual`. Search inputs are stored in the
   session under the token and prefill the manual forms: AddPerson
   name→given/family (`NameSplitter`), AddSource title/author(entity)/
-  isbn/doi, AddSoftware/AddCollective name→label.
+  isbn/doi, AddSoftware/AddCollective name→label. (Follow-up: the picker
+  checkbox was removed — the link says just "Create the item manually
+  instead", and the titles match their URLs, e.g. `Special:AddSource`.)
+- **Website/webpage URL-first flow (follow-up)**: `/<classKey>` for
+  website/webpage is a URL entry page; the submit runs an SSRF-guarded
+  metadata fetch (`SsrfGuard` literal checks + MW `rejectLocalUrls`
+  transport; `HtmlMetadataParser` regex extraction of `<title>`/`og:*`/
+  `meta description`/first paragraph) and autofills the manual form via the
+  session token. A `/website` URL collapses to its site root; `/website`
+  has no year field.
+- **Fetched page-content review step + per-class pages (follow-up)**: page
+  content — scholarlyArticle abstract+keywords (OpenAlex inverted-index
+  reconstruction, Crossref fallback), book/song/film/person Wikipedia lead
+  intros and `== Plot ==`/`== Lyrics ==` sections (fixed-host
+  `WikipediaContentProvider`, SSRF-safe), website/webpage site metadata —
+  is fetched at harvest-on-pick (`harvestContent` hook, best-effort),
+  reviewed on a dedicated `/review/<i>/content` (and `/manual/content`)
+  step of multi-line textareas with `from {source}:` attributions, then
+  written to content-driven per-class `Source:`/`Person:` page skeletons
+  (sections only when content exists; no blank scaffolds, no See also).
+- **AddSource scholarlyArticle (follow-up)**: entity-only **Journal**
+  (new `journal (entity)` property, P1433-aligned; the citation source map
+  `container-title` points at it), access toggle gains an **N/A** mode,
+  and the license combobox is pre-populated from the seed's `licenses`
+  config map. OpenAlex ids are stored **bare** (`W2741809807`), and
+  `OpenAlex author ID` (P5092-aligned) covers persons.
+- **Special:AddFictionalCharacter (follow-up)**: Wikidata search → review →
+  create (item-only); given/family + multi-value `present in work`
+  ("Appears in", P1441); label autogen `{given} {family} (fictional
+  character)`, description autogen `fictional character in {…}`.
+- **Combobox autocomplete fix (follow-up)**: the entity-suggest module
+  targets `.wb-entity-combobox.oo-ui-comboBoxInputWidget` (not the
+  FieldLayout wrapper, whose data-ooui is a different type), reads the text
+  input via `combo.$input` (no `.input` sub-widget in this OOUI), and
+  queries raw + title-cased + uppercase variants of the typed text because
+  the instance's `wbsearchentities` is case-sensitive (upstream T242644).
+- **Instance data rights are CC BY-SA 4.0** (seed `dataRightsUrl` /
+  `rdfDataRightsUrl`), matching the CC BY-SA sourced page content and
+  contributor licensing.
 - **Sitelink tab (issue follow-up)**: `SkinTemplateNavigation::Universal`
   adds a red/blue **Sitelink** tab next to Page/Discussion on every content
   page — red = not linked (click → OOUI dialog, `wbsearchentities` search or

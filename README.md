@@ -25,6 +25,7 @@ The v1 plan lives in
 | Issue #12 — external-search UX | implemented + deployed (search → select → review → create, manual fallback, detailed candidates) |
 | Embeds + autocomplete polish (PRs #15–#19) | implemented + deployed (visible toolbar w/ absolute snippet + language selector, bare-fragment embeds, KaTeX math + highlight.js code in a minimal embed skin, entity-combobox autocomplete, `describes`/`implementation of` fields, all-language quotation input, subdued provenance/printfooter) |
 | Issue #26 — FOSS software documentation | implemented + deployed (FOSS namespace NS 2008/2009, 9 software properties + `free and open-source software` class Q179, `Template:FOSS`/`FOSS:Main`, `Special:AddSoftware` with Wikidata→GitHub fetch, creates item + `FOSS:` page + sitelink in one flow) |
+| Add-flow follow-up — URL-first fetch, content review, per-class pages, fictional characters | implemented (awaiting deployment): website/webpage URL entry with SSRF-guarded metadata autofill, fetched page content (OpenAlex abstract/keywords, Wikipedia intros/Plot/Lyrics, site metadata) reviewed on a dedicated step and written to per-class `Source:`/`Person:` pages, `Special:AddFictionalCharacter`, entity-only Journal, access N/A mode, CC BY-SA data rights, combobox-autocomplete fix — see `docs/decisions/add-flow-followup.md` |
 
 ## Repository layout
 
@@ -53,7 +54,14 @@ The v1 plan lives in
   migration tool), the AddSource `access` field (access URL / direct
   download / local file with license + uploads), manual-addition entry
   points with search autofill, and auto full-name person labels — see
-  `docs/decisions/publisher-entity-access-manual.md`.
+  `docs/decisions/publisher-entity-access-manual.md`. Issue follow-up:
+  website/webpage URL-first entry (SSRF-guarded metadata fetch), the
+  fetched page-content review step (OpenAlex abstract/keywords, Wikipedia
+  intros + Plot/Lyrics, site metadata), content-driven per-class
+  `Source:`/`Person:` page skeletons, `Special:AddFictionalCharacter`,
+  entity-only Journal, access N/A mode, license-combobox options, and the
+  combobox-autocomplete fix — see
+  `docs/decisions/add-flow-followup.md`.
 - `extensions/WikibaseCitation/` — citation map manifests +
   `maintenance/importCitationMap.php` (publishes the 4 admin-editable
   `MediaWiki:Citation-*` pages); D4 `api.php?action=citation` with
