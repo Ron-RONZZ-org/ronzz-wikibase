@@ -202,6 +202,12 @@ def entity_claims(op, api: str, qid: str) -> dict:
     return entity.get("claims", {}), entity.get("labels", {}).get("en", {}).get("value", "")
 
 
+def entity_descriptions(op, api: str, qid: str) -> dict:
+    r = api_call(op, api, {"action": "wbgetentities", "ids": qid,
+                           "props": "descriptions", "format": "json"})
+    return r.get("entities", {}).get(qid, {}).get("descriptions", {})
+
+
 def first_value(claims: dict, prop_id: str):
     for stmt in claims.get(prop_id, []):
         dv = stmt.get("mainsnak", {}).get("datavalue", {}).get("value")
@@ -847,18 +853,28 @@ def main() -> int:
         print(f"[ok] AddSource (website, manual-only) -> {website}: website class + URL")
 
         # 2d. Child class: bookExcerpt requires an existing book parent,
-        #     auto-links it with a `part of` statement.
+        #     auto-links it with a `part of` statement. Regression: the
+        #     description TERM and the year STATEMENT (date property, year
+        #     precision) are persisted — both were previously discarded.
         book = resolve("Notes by the Translator", "item")  # seed dogfood book
         excerpt_label = f"Page-flow E2E book excerpt {int(time.time())}"
         excerpt = track(flow_source_class_manual(op, base, api, "bookExcerpt", {
             "wptitle": excerpt_label, "wpauthors": person,
-            "wpparent": book, "wppages": "12-30"}))
+            "wpparent": book, "wppages": "12-30",
+            "wpdescription": "Pages 12-30 of a test book.",
+            "wpissuedYear": "1967"}))
         claims, _ = entity_claims(op, api, excerpt)
         assert first_value(claims, instance_of) == book_excerpt_class, \
             f"{excerpt} instance-of != book excerpt ({first_value(claims, instance_of)})"
         assert first_value(claims, part_of_prop) == book, \
             f"{excerpt} missing the part-of link to the parent book"
-        print(f"[ok] AddSource (bookExcerpt) -> {excerpt}: child class + part-of -> {book}")
+        assert entity_descriptions(op, api, excerpt).get("en", "") == "Pages 12-30 of a test book.", \
+            f"{excerpt} description term not persisted"
+        date_claim = first_value(claims, resolve("date", "property"))
+        assert date_claim is not None and str(date_claim.get("time", "")).startswith("+1967"), \
+            f"{excerpt} year statement (date property) not persisted"
+        print(f"[ok] AddSource (bookExcerpt) -> {excerpt}: child class + part-of -> {book}; "
+              f"description term + year statement persisted")
 
         # 2e. YouTube chain: a channel (URL -> ID derived server-side), then a
         #     youtubeVideo child of that channel with a duration in seconds.

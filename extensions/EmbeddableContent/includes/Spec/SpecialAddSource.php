@@ -6,6 +6,7 @@ namespace EmbeddableContent\Spec;
 
 use DataValues\QuantityValue;
 use DataValues\StringValue;
+use DataValues\TimeValue;
 use EmbeddableContent\Content\FragmentSanitizer;
 use EmbeddableContent\Duration;
 use EmbeddableContent\Fetch\ProviderResult;
@@ -600,6 +601,23 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 
 		if ( !empty( $record['durationSeconds'] ) && isset( $props['duration'] ) ) {
 			$specs[$props['duration']] = QuantityValue::newFromNumber( (int)$record['durationSeconds'] );
+		}
+
+		// Year: publication/creation date at YEAR precision on the shared
+		// `date` property (P577-aligned — the citation engine already reads
+		// it as publicationDate). Book-excerpt inference copies this
+		// statement from the parent book item.
+		$year = (int)( $record['issuedYear'] ?? 0 );
+		if ( $year > 0 ) {
+			$dateProp = $this->config->provenancePropertyIds()['date'] ?? null;
+			if ( $dateProp !== null ) {
+				$specs[$dateProp] = new TimeValue(
+					sprintf( '+%04d-00-00T00:00:00Z', $year ),
+					0, 0, 0,
+					TimeValue::PRECISION_YEAR,
+					'http://www.wikidata.org/entity/Q1985727'
+				);
+			}
 		}
 
 		$url = ( new FragmentSanitizer() )->validateUrl( (string)( $record['url'] ?? '' ) );
