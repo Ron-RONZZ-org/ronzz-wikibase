@@ -462,6 +462,7 @@ class SeedOrchestrator:
             self.languages_available,
             wikidata_class_qids,
             previous_youtube_api_key=previous_key,
+            preseed_ids=self.preseed_ids,
         )
         report = config_builder.build_report(
             self.property_ids, self.class_ids, self.lexer_ids, self.dogfood_ids, self.languages_available

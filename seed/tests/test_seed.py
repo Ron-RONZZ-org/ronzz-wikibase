@@ -220,6 +220,40 @@ class ConfigBuilderTest(unittest.TestCase):
         self.assertIn("'documentationUrl' => 'P42'", snippet)
         self.assertIn("'image' => 'P32'", snippet)
 
+    def test_config_fragment_followup_sections(self):
+        """Issue follow-up vocabulary: fictional characters, the journal
+        entity, the person OpenAlex author id, the preseed license options —
+        and the CC BY-SA data-rights change."""
+        snippet = config_builder.build_config(
+            property_ids={
+                "instance of": "P31",
+                "journal (entity)": "P50",
+                "OpenAlex author ID": "P51",
+                "present in work": "P52",
+                "image": "P32",
+                "license": "P34",
+                "date of birth": "P60",
+            },
+            class_ids={"fictional character": "Q90"},
+            lexer_ids={},
+            fallback_languages=["fr", "en", "eo"],
+            preseed_ids={"MIT License": "Q200", "GNU GPL-3.0": "Q201"},
+        )
+        self.assertIn("'fictionalCharacterClasses'", snippet)
+        self.assertIn("'fictionalCharacter' => 'Q90'", snippet)
+        self.assertIn("'fictionalCharacterProperties'", snippet)
+        self.assertIn("'appearsIn' => 'P52'", snippet)
+        self.assertIn("'journal' => 'P50'", snippet)
+        self.assertIn("'openalexAuthor' => 'P51'", snippet)
+        self.assertIn("'licenses'", snippet)
+        self.assertIn("'MIT License' => 'Q200'", snippet)
+        self.assertIn("'GNU GPL-3.0' => 'Q201'", snippet)
+        self.assertIn("'image' => 'P32'", snippet)
+        self.assertIn("'license' => 'P34'", snippet)  # personProperties keys
+        # CC BY-SA 4.0 data rights (was CC0).
+        self.assertIn("['dataRightsUrl'] = 'https://creativecommons.org/licenses/by-sa/4.0/'", snippet)
+        self.assertNotIn("publicdomain/zero/1.0", snippet)
+
     @mock.patch.dict(os.environ, {}, clear=True)
     def test_youtube_key_carry_forward(self):
         """The deploy-injected YouTube key must survive re-emissions: without

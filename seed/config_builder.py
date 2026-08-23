@@ -40,6 +40,8 @@ EXTERNAL_ID_KINDS = {
     "ISBN-13": "isbn",
     "OpenAlex Work ID": "openalex",
     "PubMed ID": "pubmed",
+    # Person OpenAlex author id (P5092-aligned) — Special:AddPerson field.
+    "OpenAlex author ID": "openalexAuthor",
 }
 
 # Issue #7: citation-metadata properties (full harvest).
@@ -51,18 +53,36 @@ CITATION_METADATA_KINDS = {
     # resolves the item-typed "publisher (entity)" property, not the legacy
     # string "publisher" (P23), which the forms no longer write.
     "publisher (entity)": "publisher",
+    # Journal is entity-only too (follow-up): the item-typed "journal
+    # (entity)" property (P1433-aligned) replaces the string "published in"
+    # for scholarly articles.
+    "journal (entity)": "journal",
     "page(s)": "pages",
     "volume": "volume",
     "issue": "issue",
 }
 
 # Issue #7 (follow-up): person lifecycle properties (Special:AddPerson
-# statements — birth/death dates and places).
+# statements — birth/death dates and places, portrait image + license).
 PERSON_PROPERTY_KINDS = {
     "date of birth": "dateOfBirth",
     "place of birth": "placeOfBirth",
     "date of death": "dateOfDeath",
     "place of death": "placeOfDeath",
+    # Portrait facts: the P18-aligned image (url) + the shared P275 license.
+    "image": "image",
+    "license": "license",
+}
+
+# Issue follow-up: fictional-character class (Special:AddFictionalCharacter).
+FICTIONAL_CHARACTER_CLASS_KINDS = {
+    "fictional character": "fictionalCharacter",
+}
+
+# Issue follow-up: fictional-character properties (Special:AddFictionalCharacter
+# statements): the multi-value `present in work` ("appears in") link.
+FICTIONAL_CHARACTER_PROPERTY_KINDS = {
+    "present in work": "appearsIn",
 }
 
 CLASS_KINDS = {
@@ -157,6 +177,7 @@ def build_config(
     fallback_languages: list[str],
     wikidata_class_qids: dict[str, str] | None = None,
     previous_youtube_api_key: str = "",
+    preseed_ids: dict[str, str] | None = None,
 ) -> str:
     """Returns a PHP snippet assigning $wgEmbeddableContentConfig and the
     Wikibase settings the seed is responsible for.
@@ -170,8 +191,13 @@ def build_config(
     is deploy-injected via the environment and must never be silently lost on
     re-emission: an explicitly exported YOUTUBE_API_KEY (even empty — an
     explicit disable) wins; otherwise the previous key is preserved.
+
+    preseed_ids maps preseed-item English labels to their item ids (the
+    common licenses/OSes/UI preseed phase) — emitted as the `licenses` map
+    feeding the review-form license combobox options.
     """
     wikidata_class_qids = wikidata_class_qids or {}
+    preseed_ids = preseed_ids or {}
 
     classes: dict[str, str] = {}
     payload: dict[str, str] = {}
@@ -193,6 +219,16 @@ def build_config(
     for label, kind in FOSS_CLASS_KINDS.items():
         if label in class_ids:
             foss_classes[kind] = class_ids[label]
+
+    fictional_character_classes: dict[str, str] = {}
+    for label, kind in FICTIONAL_CHARACTER_CLASS_KINDS.items():
+        if label in class_ids:
+            fictional_character_classes[kind] = class_ids[label]
+
+    fictional_character_props: dict[str, str] = {}
+    for label, kind in FICTIONAL_CHARACTER_PROPERTY_KINDS.items():
+        if label in property_ids:
+            fictional_character_props[kind] = property_ids[label]
 
     foss_props: dict[str, str] = {}
     for label, kind in FOSS_PROPERTY_KINDS.items():
@@ -262,6 +298,8 @@ def build_config(
         "sourceProperties": source_props,
         "fossClasses": foss_classes,
         "fossProperties": foss_props,
+        "fictionalCharacterClasses": fictional_character_classes,
+        "fictionalCharacterProperties": fictional_character_props,
         "payloadProperties": payload_props,
         "programmingLanguage": programming_language,
         "describes": describes,
@@ -273,6 +311,9 @@ def build_config(
         "formatterUrl": property_ids.get("formatter URL"),
         "sourceClassByWikidata": source_class_by_qid,
         "agentClassByWikidata": agent_class_by_qid,
+        # Known license items (preseed vocabulary) — the review-form license
+        # combobox options (Special:Upload-style list + entity search).
+        "licenses": dict(preseed_ids),
         "fallbackLanguages": fallback_languages,
         "lexers": dict(sorted(lexer_ids.items())),
     }
@@ -318,8 +359,10 @@ def build_config(
         # map, as a plain list.
         "$wgWikibaseCitationSourceClasses = " + php_array(list(source_classes.values())) + ";",
         "$wgWBRepoSettings['sandboxEntityIds'] = [ 'mainItem' => 'Q999999998', 'auxItem' => 'Q999999999' ];",
-        "$wgWBRepoSettings['dataRightsUrl'] = 'https://creativecommons.org/publicdomain/zero/1.0/';",
-        "$wgWBRepoSettings['rdfDataRightsUrl'] = 'https://creativecommons.org/publicdomain/zero/1.0/';",
+        # Instance data rights: CC BY-SA 4.0 (fetched page content carries
+        # CC BY-SA attributions; contributor content is CC BY-SA licensed).
+        "$wgWBRepoSettings['dataRightsUrl'] = 'https://creativecommons.org/licenses/by-sa/4.0/';",
+        "$wgWBRepoSettings['rdfDataRightsUrl'] = 'https://creativecommons.org/licenses/by-sa/4.0/';",
         "",
     ]
     return "\n".join(line for line in lines if "=> None" not in line and "=>null" not in line)
