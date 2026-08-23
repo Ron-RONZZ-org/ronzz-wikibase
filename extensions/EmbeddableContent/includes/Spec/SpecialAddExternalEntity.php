@@ -544,7 +544,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			'type' => 'text',
 			'label-message' => 'embeddablecontent-field-description',
 			'default' => $default,
-			'maxlength' => 500,
+			// Wikibase's term-description limit is 250 chars — the value is
+			// persisted as the item's en term (createOrSkipItem), so the
+			// field must not promise more than the storage accepts.
+			'maxlength' => 250,
 		] ];
 	}
 
@@ -699,6 +702,15 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 
 		$item = new Item();
 		$item->setLabel( 'en', $label );
+		// Persist the (harvested or hand-edited) description as the English
+		// term — previously it was silently discarded. New-item path only:
+		// the create-or-skip reuse above returns early, so an existing item's
+		// term is never clobbered. The term limit (250) matches the form's
+		// descriptionFieldSpec maxlength.
+		$description = trim( (string)( $record['description'] ?? '' ) );
+		if ( $description !== '' ) {
+			$item->setDescription( 'en', $description );
+		}
 
 		WikibaseRepo::getEntityStore()->saveEntity(
 			$item,
