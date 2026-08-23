@@ -47,7 +47,10 @@ CITATION_METADATA_KINDS = {
     "given name": "givenName",
     "family name": "familyName",
     "published in": "publishedIn",
-    "publisher": "publisher",
+    # Publisher is entity-only on the instance (issue #35): the config key
+    # resolves the item-typed "publisher (entity)" property, not the legacy
+    # string "publisher" (P23), which the forms no longer write.
+    "publisher (entity)": "publisher",
     "page(s)": "pages",
     "volume": "volume",
     "issue": "issue",
@@ -119,6 +122,11 @@ SOURCE_PROPERTY_KINDS = {
     "YouTube channel ID": "youtubeChannelId",
     "YouTube video ID": "youtubeVideoId",
     "chapters": "chapters",
+    # Issue #35: access field — the license property is shared with the FOSS
+    # vocabulary (same property id, new config key), access URL + file are new.
+    "license": "license",
+    "access URL": "accessUrl",
+    "file": "file",
 }
 
 # Issue #26: FOSS software properties (Special:AddSoftware statements).

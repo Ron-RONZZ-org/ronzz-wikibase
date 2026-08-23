@@ -305,11 +305,31 @@ class SeedOrchestrator:
         book_class = self.class_ids.get("book")
         if instance_of_id and book_class:
             book_claims[instance_of_id] = [dogfood.entity_claim(instance_of_id, book_class)]
-        publisher_id = self.find("publisher", "property", ANCHOR_LANGUAGE)
+        # Publisher (issue #35): entity-only. The dogfood book's publisher is
+        # an ITEM (find-or-create by label, classified organization), written
+        # as an entity claim on the entity-typed publisher property — the
+        # legacy string publisher property (P23) is no longer written, so a
+        # re-seed must not resurrect a string claim.
+        publisher_entity_id = self.find("publisher (entity)", "property", ANCHOR_LANGUAGE)
+        if publisher_entity_id:
+            publisher_label = "R. & J. E. Taylor"
+            publisher_item, _ = self.dogfood_item(
+                {ANCHOR_LANGUAGE: publisher_label, "fr": publisher_label},
+                {ANCHOR_LANGUAGE: "the publisher of the dogfood book"},
+                "book_publisher",
+            )
+            org_class = self.class_ids.get("organization")
+            if org_class:
+                self.api.add_claims(
+                    publisher_item,
+                    {instance_of_id: [dogfood.entity_claim(instance_of_id, org_class)]},
+                    SUMMARY_PREFIX + "classify dogfood publisher",
+                )
+            book_claims.setdefault(publisher_entity_id, []).append(
+                dogfood.entity_claim(publisher_entity_id, publisher_item)
+            )
         doi_id = self.find("DOI", "property", ANCHOR_LANGUAGE)
         isbn_id = self.find("ISBN-13", "property", ANCHOR_LANGUAGE)
-        if publisher_id:
-            book_claims.setdefault(publisher_id, []).append(dogfood.string_claim(publisher_id, "R. & J. E. Taylor"))
         if doi_id:
             book_claims.setdefault(doi_id, []).append(dogfood.string_claim(doi_id, "10.1000/notes"))
         if isbn_id:
