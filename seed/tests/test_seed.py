@@ -8,9 +8,12 @@ License: GPL-2.0-or-later
 from __future__ import annotations
 
 import json
+import os
 import sys
+import types
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -216,6 +219,48 @@ class ConfigBuilderTest(unittest.TestCase):
         self.assertIn("'userInterface' => 'P41'", snippet)
         self.assertIn("'documentationUrl' => 'P42'", snippet)
         self.assertIn("'image' => 'P32'", snippet)
+
+    @mock.patch.dict(os.environ, {}, clear=True)
+    def test_youtube_key_carry_forward(self):
+        """The deploy-injected YouTube key must survive re-emissions: without
+        YOUTUBE_API_KEY exported, the previous config's key is preserved
+        (hit 2026-08-23 — a deploy silently emptied it); an exported env
+        value (incl. an explicit empty one) wins."""
+        # No env -> the previous key is carried forward.
+        snippet = config_builder.build_config({}, {}, {}, [], {}, previous_youtube_api_key="AIzaPREVIOUS")
+        self.assertIn("'youtubeApiKey' => 'AIzaPREVIOUS'", snippet)
+        # No env, no previous key -> empty (fresh instance).
+        snippet = config_builder.build_config({}, {}, {}, [], {}, previous_youtube_api_key="")
+        self.assertIn("'youtubeApiKey' => ''", snippet)
+
+    @mock.patch.dict(os.environ, {"YOUTUBE_API_KEY": "AIzaNEW"}, clear=True)
+    def test_youtube_key_env_wins(self):
+        """An explicitly exported key rotates the previous one."""
+        snippet = config_builder.build_config({}, {}, {}, [], {}, previous_youtube_api_key="AIzaPREVIOUS")
+        self.assertIn("'youtubeApiKey' => 'AIzaNEW'", snippet)
+        self.assertNotIn("AIzaPREVIOUS", snippet)
+
+    @mock.patch.dict(os.environ, {"YOUTUBE_API_KEY": ""}, clear=True)
+    def test_youtube_key_explicit_empty_disables(self):
+        """An explicitly exported EMPTY key is an explicit disable — it must
+        override the previous key, not be treated as 'unset'."""
+        snippet = config_builder.build_config({}, {}, {}, [], {}, previous_youtube_api_key="AIzaPREVIOUS")
+        self.assertIn("'youtubeApiKey' => ''", snippet)
+        self.assertNotIn("AIzaPREVIOUS", snippet)
+
+    def test_existing_youtube_key_extraction(self):
+        """seed_instance.existing_youtube_key reads the previous config's key
+        (absent file -> '', no key line -> '', key -> the value)."""
+        out = Path(__file__).parent / "out" / "prev-config.php"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text("<?php\n$wgEmbeddableContentConfig = [ 'youtubeApiKey' => 'AIzaOLD' ];\n", encoding="utf-8")
+        args = types.SimpleNamespace(config_out=str(out), dry_run=True, api_url="http://example.invalid/api.php",
+                                     user=None, password=None, timeout=5, lang=None, manifests_dir=str(MANIFESTS))
+        orch = SeedOrchestrator(args)
+        self.assertEqual(orch.existing_youtube_key(Path(out)), "AIzaOLD")
+        out.write_text("<?php\n$wgEmbeddableContentConfig = [];\n", encoding="utf-8")
+        self.assertEqual(orch.existing_youtube_key(Path(out)), "")
+        self.assertEqual(orch.existing_youtube_key(Path(__file__).parent / "out" / "does-not-exist.php"), "")
 
     def test_report_lists_vocabulary(self):
         report = config_builder.build_report(
