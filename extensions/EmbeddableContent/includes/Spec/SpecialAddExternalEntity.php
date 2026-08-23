@@ -180,14 +180,23 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			->setWrapperLegendMsg( 'embeddablecontent-extsearch-legend' );
 		$form->show();
 		// Manual fallback (issue #12): always offered, also shown on zero hits.
-		$this->getOutput()->addHTML(
-			\MediaWiki\Html\Html::rawElement(
-				'p',
-				[ 'class' => 'wb-ext-manual' ],
-				$this->msg( 'embeddablecontent-manual-hint' )->parse()
-				. ' <a href="' . htmlspecialchars( $this->stepTitle( 'manual' )->getFullURL() ) . '">'
-				. $this->msg( 'embeddablecontent-manual-link' )->escaped() . '</a>'
-			)
+		$this->getOutput()->addHTML( $this->manualFallbackHtml() );
+	}
+
+	/**
+	 * "No matching record? Create the item manually instead" link to the
+	 * manual step. $query extra URL parameters (e.g. the session token for
+	 * search-autofill, issue #35).
+	 *
+	 * @param array<string,string> $query
+	 */
+	private function manualFallbackHtml( array $query = [] ): string {
+		return \MediaWiki\Html\Html::rawElement(
+			'p',
+			[ 'class' => 'wb-ext-manual' ],
+			$this->msg( 'embeddablecontent-manual-hint' )->parse()
+			. ' <a href="' . htmlspecialchars( $this->stepTitle( 'manual' )->getFullURL( $query ) ) . '">'
+			. $this->msg( 'embeddablecontent-manual-link' )->escaped() . '</a>'
 		);
 	}
 
@@ -212,10 +221,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			);
 		}
 
-		if ( $result->records === [] ) {
-			return $this->msg( 'embeddablecontent-extsearch-nohits' )->text();
-		}
-
+		// The token is generated even on zero hits: the search inputs are
+		// stored under it so the manual form can autofill what the user
+		// typed (issue #35) — the zero-hit page renders a manual link with
+		// the token, the selection page's link carries it too.
 		$token = \MWCryptRand::generateHex( 16 );
 		// Store plain arrays (records are value objects; the session must be
 		// serializable and the selection step must not depend on classes).
@@ -224,6 +233,13 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			$result->records
 		);
 		$this->getRequest()->getSession()->set( self::SESSION_PREFIX . $token, $records );
+		$this->getRequest()->getSession()->set( self::SESSION_PREFIX . $token . ':search', $data );
+
+		if ( $result->records === [] ) {
+			$this->getOutput()->addHTML( $this->manualFallbackHtml( [ 'token' => $token ] ) );
+			return $this->msg( 'embeddablecontent-extsearch-nohits' )->text();
+		}
+
 		$this->getOutput()->redirect( $this->stepTitle( $token )->getFullURL() );
 		return true;
 	}
@@ -276,6 +292,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			->setSubmitID( 'wb-ext-add-create' )
 			->setWrapperLegendMsg( 'embeddablecontent-extselect-legend' );
 		$form->show();
+		// Manual fallback on the SELECTION step too (issue #35): none of the
+		// candidates is a good match — the link carries the token so the
+		// manual form is prefilled with the search inputs.
+		$this->getOutput()->addHTML( $this->manualFallbackHtml( [ 'token' => $token ] ) );
 	}
 
 	/**
@@ -379,7 +399,12 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 
 	protected function executeManual(): void {
 		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-' . $this->kindKey() . '-manual-title' )->text() );
-		$fields = $this->manualFieldSpecs() + $this->classFieldSpec();
+		// Search autofill (issue #35): when the manual step is reached from a
+		// search (selection page / zero-hit link carries ?token=), the search
+		// inputs prefill the manual fields — the user corrects instead of
+		// retyping.
+		$record = $this->manualAutofillRecord();
+		$fields = $this->reviewFieldSpecs( $record ) + $this->classFieldSpec( $record );
 
 		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
 		$form->setTitle( $this->stepTitle( 'manual' ) )
@@ -388,6 +413,43 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			->setSubmitID( 'wb-ext-add-manual' )
 			->setWrapperLegendMsg( 'embeddablecontent-manual-legend' );
 		$form->show();
+	}
+
+	/**
+	 * Autofill record for the manual form: the search inputs stored under
+	 * the token (see onSearchSubmit) mapped onto the manual fields. Empty
+	 * when the manual step was reached directly (no token).
+	 *
+	 * @return array<string,mixed>
+	 */
+	protected function manualAutofillRecord(): array {
+		$token = $this->getRequest()->getVal( 'token' );
+		if ( $token === null || $token === '' ) {
+			return [];
+		}
+		$search = $this->getRequest()->getSession()->get( self::SESSION_PREFIX . $token . ':search' );
+		return is_array( $search ) ? $this->autofillRecord( $search ) : [];
+	}
+
+	/**
+	 * Maps the search-step inputs onto the manual review fields. The default
+	 * passes through keys shared by both (same field name); subclasses map
+	 * differently-named fields (AddSource author→authors, AddPerson
+	 * name→given/family via NameSplitter, AddSoftware/AddCollective
+	 * name→label).
+	 *
+	 * @param array<string,mixed> $search
+	 * @return array<string,mixed>
+	 */
+	protected function autofillRecord( array $search ): array {
+		$out = [];
+		$manualFields = array_keys( $this->reviewFieldSpecs( [] ) );
+		foreach ( $search as $key => $value ) {
+			if ( is_string( $value ) && in_array( $key, $manualFields, true ) ) {
+				$out[$key] = $value;
+			}
+		}
+		return $out;
 	}
 
 	/**

@@ -83,11 +83,41 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 		return $this->client->searchPersons( $name );
 	}
 
+	/**
+	 * Manual-form autofill from the search inputs (issue #35): the `name`
+	 * search box becomes given/family (all words except the last = given,
+	 * last word = family); identifiers shared with the manual fields (orcid,
+	 * isni, viaf) pass through via the base.
+	 *
+	 * @param array<string,mixed> $search
+	 * @return array<string,mixed>
+	 */
+	protected function autofillRecord( array $search ): array {
+		$out = parent::autofillRecord( $search );
+		$name = trim( (string)( $search['name'] ?? '' ) );
+		if ( $name !== '' ) {
+			$out += NameSplitter::splitFullName( $name );
+		}
+		if ( !empty( $search['viaf'] ) ) {
+			$out['viafId'] = (string)$search['viaf'];
+		}
+		return $out;
+	}
+
 	protected function candidateOptions( array $records ): array {
 		return $this->candidateOptionLabels( $records );
 	}
 
 	protected function primaryLabel( array $record ): string {
+		// The label is the FULL NAME, auto-generated from the given/family
+		// names (issue #35) — an edited given/family set is always reflected
+		// in the label; only a record WITHOUT name parts (a harvested
+		// label-only candidate) keeps its harvested label.
+		$given = trim( (string)( $record['givenName'] ?? '' ) );
+		$family = trim( (string)( $record['familyName'] ?? '' ) );
+		if ( $given !== '' || $family !== '' ) {
+			return trim( $given . ' ' . $family );
+		}
 		return (string)( $record['label'] ?? '' );
 	}
 
@@ -118,8 +148,9 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 
 	protected function reviewFieldSpecs( array $record ): array {
 		$deceased = !empty( $record['dateOfDeath'] ) || !empty( $record['placeOfDeath'] );
-		return $this->labelFieldSpec( 'label', 'embeddablecontent-add-label', (string)( $record['label'] ?? '' ) )
-			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
+		// NO editable label field (issue #35): the label is the full name,
+		// auto-generated from given/family (primaryLabel).
+		return $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
 			+ [
 				'givenName' => $this->plainTextField( 'embeddablecontent-field-givenname', (string)( $record['givenName'] ?? '' ) ),
 				'familyName' => $this->plainTextField( 'embeddablecontent-field-familyname', (string)( $record['familyName'] ?? '' ) ),

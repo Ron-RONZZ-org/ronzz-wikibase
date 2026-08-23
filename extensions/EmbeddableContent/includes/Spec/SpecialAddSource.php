@@ -56,6 +56,24 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		return 'source';
 	}
 
+	/**
+	 * Manual-form autofill from the search inputs (issue #35): title/isbn/doi
+	 * pass through via the base (same field names); the search's `author`
+	 * field maps to the manual `authors` field (the review/manual form calls
+	 * the multi-value author list "authors").
+	 *
+	 * @param array<string,mixed> $search
+	 * @return array<string,mixed>
+	 */
+	protected function autofillRecord( array $search ): array {
+		$out = parent::autofillRecord( $search );
+		$author = trim( (string)( $search['author'] ?? '' ) );
+		if ( $author !== '' ) {
+			$out['authors'] = $author;
+		}
+		return $out;
+	}
+
 	protected function classUrlPrefix(): string {
 		return $this->currentClassKey ?? '';
 	}
@@ -130,6 +148,15 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				'options' => $options,
 				'required' => true,
 			],
+			// Manual entry on the picker itself (issue #35): check it and
+			// Continue routes straight to /<classKey>/manual — the search
+			// step is skipped (for manual-only classes it is a no-op).
+			'manual' => [
+				'type' => 'check',
+				'label-message' => 'embeddablecontent-source-pick-manual',
+				'help-message' => 'embeddablecontent-source-pick-manual-help',
+				'default' => false,
+			],
 		], $this->getContext() );
 		$form->setTitle( $this->getPageTitle() )
 			->setSubmitTextMsg( 'embeddablecontent-source-pick-continue' )
@@ -148,7 +175,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		if ( !$this->isSourceClassKey( $classKey ) ) {
 			return $this->msg( 'embeddablecontent-extselect-classrequired' )->text();
 		}
-		$sub = in_array( $classKey, self::MANUAL_ONLY_CLASSES, true )
+		$sub = in_array( $classKey, self::MANUAL_ONLY_CLASSES, true ) || !empty( $data['manual'] )
 			? $classKey . '/manual'
 			: $classKey;
 		$this->getOutput()->redirect( $this->getPageTitle( $sub )->getFullURL() );

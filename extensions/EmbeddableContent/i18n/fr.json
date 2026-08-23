@@ -210,5 +210,7 @@
 	"embeddablecontent-source-error-access-upload": "Le fichier n'a pas pu être téléversé : $1",
 	"embeddablecontent-source-error-license": "Une licence est requise lors du téléversement d'un fichier.",
 	"embeddablecontent-source-access-file-edit-summary": "A téléversé le fichier de $1",
-	"embeddablecontent-source-access-file-page": "Fichier de $1, téléversé via Special:AddSource.\n\n$2"
+	"embeddablecontent-source-access-file-page": "Fichier de $1, téléversé via Special:AddSource.\n\n$2",
+	"embeddablecontent-source-pick-manual": "Créer l'élément manuellement au lieu de rechercher",
+	"embeddablecontent-source-pick-manual-help": "Aucun enregistrement correspondant ? Créez-le à la main — l'étape de recherche est ignorée."
 }

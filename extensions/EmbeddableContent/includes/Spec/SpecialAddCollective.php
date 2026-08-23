@@ -47,6 +47,18 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 		return $this->client->searchEntities( $name );
 	}
 
+	/**
+	 * Manual-form autofill (issue #35): the search `name` box becomes the
+	 * manual `label` field.
+	 *
+	 * @param array<string,mixed> $search
+	 * @return array<string,mixed>
+	 */
+	protected function autofillRecord( array $search ): array {
+		$name = trim( (string)( $search['name'] ?? '' ) );
+		return $name === '' ? parent::autofillRecord( $search ) : [ 'label' => $name ];
+	}
+
 	protected function candidateOptions( array $records ): array {
 		return $this->candidateOptionLabels( $records );
 	}

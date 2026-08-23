@@ -211,5 +211,7 @@
 	"embeddablecontent-source-error-access-upload": "The file could not be uploaded: $1",
 	"embeddablecontent-source-error-license": "A license is required when uploading a file.",
 	"embeddablecontent-source-access-file-edit-summary": "Uploaded the file of $1",
-	"embeddablecontent-source-access-file-page": "File of $1, uploaded via Special:AddSource.\n\n$2"
+	"embeddablecontent-source-access-file-page": "File of $1, uploaded via Special:AddSource.\n\n$2",
+	"embeddablecontent-source-pick-manual": "Create the item manually instead of searching",
+	"embeddablecontent-source-pick-manual-help": "No matching record? Create it by hand — the search step is skipped."
 }
