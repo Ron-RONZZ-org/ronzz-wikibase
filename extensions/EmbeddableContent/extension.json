@@ -87,7 +87,8 @@
 		}
 	},
 	"Hooks": {
-		"BeforePageDisplay": "main"
+		"BeforePageDisplay": "main",
+		"SkinTemplateNavigation::Universal": "main"
 	},
 	"ResourceModules": {
 		"ext.embeddableContent.embed": {
@@ -160,6 +161,34 @@
 			],
 			"targets": [
 				"desktop"
+			]
+		},
+		"ext.embeddableContent.sitelinktab": {
+			"scripts": [
+				"sitelinktab.js"
+			],
+			"styles": [
+				"sitelinktab.css"
+			],
+			"dependencies": [
+				"mediawiki.api",
+				"oojs-ui",
+				"mediawiki.util"
+			],
+			"messages": [
+				"embeddablecontent-sitelink-tab",
+				"embeddablecontent-sitelink-tab-set",
+				"embeddablecontent-sitelink-tab-unset",
+				"embeddablecontent-sitelink-dialog-title",
+				"embeddablecontent-sitelink-placeholder",
+				"embeddablecontent-sitelink-link",
+				"embeddablecontent-sitelink-cancel",
+				"embeddablecontent-sitelink-badid",
+				"embeddablecontent-sitelink-error"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
 			]
 		},
 		"ext.embeddableContent.highlight": {

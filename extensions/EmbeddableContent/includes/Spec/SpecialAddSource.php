@@ -4,20 +4,44 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\Spec;
 
+use DataValues\QuantityValue;
+use DataValues\StringValue;
+use EmbeddableContent\Content\FragmentSanitizer;
+use EmbeddableContent\Duration;
 use EmbeddableContent\Fetch\ProviderResult;
+use EmbeddableContent\Fetch\WorkRecord;
+use EmbeddableContent\Fetch\YouTubeProvider;
+use Wikibase\DataModel\Entity\EntityIdValue;
+use Wikibase\DataModel\Entity\Item;
+use Wikibase\DataModel\Entity\ItemId;
+use Wikibase\DataModel\Entity\NumericPropertyId;
+use Wikibase\Repo\WikibaseRepo;
 
 /**
  * Special:AddSource — create a work item (book / scholarly article / website /
- * song / film / video) from an external authority (DOI / ISBN / title lookup,
- * or author-filtered search with a Wikidata-entity / free-text toggle),
- * issue #7.
+ * song / film / video / YouTube channel / video, plus the child classes
+ * bookExcerpt / webpage / YouTube video) from an external authority.
  *
- * Class is inferred from the harvest (Wikidata instance-of mapped through the
- * config, or a provider default), with a manual class picker fallback.
+ * Class-first flow (issue #7, follow-up): the page opens on a class picker
+ * (Special:AddSource), then routes to the class-scoped search step
+ * (Special:AddSource/<classKey>), selection and review — each class carrying
+ * its own adapted search and verification fields. Child classes additionally
+ * require an existing parent-class item, picked via an entity combobox and
+ * linked automatically with a `part of` statement. Every class requires at
+ * least one author (entity) at record creation.
  *
  * @license GPL-2.0-or-later
  */
 class SpecialAddSource extends SpecialAddExternalEntity {
+
+	/**
+	 * Classes with no external authority: the picker sends them straight to
+	 * the adapted manual form (no search step).
+	 */
+	private const MANUAL_ONLY_CLASSES = [ 'website', 'webpage', 'bookExcerpt' ];
+
+	/** @var string|null class key selected for the current request */
+	private ?string $currentClassKey = null;
 
 	public function __construct(
 		\EmbeddableContent\EmbeddableContentConfig $config,
@@ -30,7 +54,144 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		return 'source';
 	}
 
+	protected function classUrlPrefix(): string {
+		return $this->currentClassKey ?? '';
+	}
+
+	/**
+	 * Class-first dispatch: / → class picker, /<classKey> → class-scoped
+	 * search (or manual for manual-only classes), /<classKey>/<token>,
+	 * /<classKey>/<token>/review/<i>, /<classKey>/manual.
+	 */
+	public function execute( $subPage ) {
+		$this->setHeaders();
+		$this->getOutput()->enableOOUI();
+		$this->getOutput()->addModules( 'ext.embeddableContent.entitysuggest' );
+
+		$parts = explode( '/', trim( (string)$subPage ) );
+		$first = $parts[0] ?? '';
+
+		if ( $first === '' || !$this->isSourceClassKey( $first ) ) {
+			// Root, or an unknown subpage (e.g. a stale pre-rework token).
+			$this->executeClassPicker();
+			return;
+		}
+
+		$this->currentClassKey = $first;
+		$second = $parts[1] ?? '';
+		if ( $second === '' ) {
+			if ( in_array( $first, self::MANUAL_ONLY_CLASSES, true ) ) {
+				$this->getOutput()->redirect( $this->stepTitle( 'manual' )->getFullURL() );
+				return;
+			}
+			$this->executeSearch();
+			return;
+		}
+		if ( $second === 'manual' ) {
+			$this->executeManual();
+			return;
+		}
+		if ( ( $parts[2] ?? '' ) === 'review' && ( $parts[3] ?? '' ) !== '' ) {
+			$this->executeReview( $second, (int)$parts[3] );
+			return;
+		}
+		$this->executeSelection( $second );
+	}
+
+	// ------------------------------------------------------------- class picker
+
+	private function executeClassPicker(): void {
+		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-source-pick-title' )->text() );
+
+		$options = [];
+		foreach ( $this->config->sourceClasses() as $key => $_ ) {
+			$label = $this->msg( 'embeddablecontent-source-class-' . $key )->text();
+			$parentKey = $this->config->sourceParents()[$key] ?? null;
+			if ( $parentKey !== null ) {
+				$label .= ' ' . $this->msg(
+					'embeddablecontent-source-parent-suffix',
+					$this->msg( 'embeddablecontent-source-class-' . $parentKey )->text()
+				)->text();
+			}
+			$options[$label] = $key;
+		}
+
+		$form = \MediaWiki\HTMLForm\HTMLForm::factory( 'ooui', [
+			'class' => [
+				'type' => 'radio',
+				'label-message' => 'embeddablecontent-source-pick-label',
+				'options' => $options,
+				'required' => true,
+			],
+		], $this->getContext() );
+		$form->setTitle( $this->getPageTitle() )
+			->setSubmitTextMsg( 'embeddablecontent-extselect-continue' )
+			->setSubmitCallback( [ $this, 'onClassPickerSubmit' ] )
+			->setSubmitID( 'wb-ext-add-pick-class' )
+			->setWrapperLegendMsg( 'embeddablecontent-source-pick-legend' );
+		$form->show();
+	}
+
+	/**
+	 * @param array<string,mixed> $data
+	 * @return bool|string
+	 */
+	public function onClassPickerSubmit( array $data ) {
+		$classKey = (string)( $data['class'] ?? '' );
+		if ( !$this->isSourceClassKey( $classKey ) ) {
+			return $this->msg( 'embeddablecontent-extselect-classrequired' )->text();
+		}
+		$sub = in_array( $classKey, self::MANUAL_ONLY_CLASSES, true )
+			? $classKey . '/manual'
+			: $classKey;
+		$this->getOutput()->redirect( $this->getPageTitle( $sub )->getFullURL() );
+		return true;
+	}
+
+	private function isSourceClassKey( string $key ): bool {
+		return isset( $this->config->sourceClasses()[$key] );
+	}
+
+	// ------------------------------------------------------------- step 1 (class-scoped)
+
 	protected function buildSearchFields(): array {
+		switch ( $this->currentClassKey ) {
+			case 'book':
+				return $this->titleAuthorFields() + [ 'isbn' => [
+					'type' => 'text',
+					'label-message' => 'embeddablecontent-extsearch-isbn',
+					'required' => false,
+					'maxlength' => 17,
+					'placeholder' => '978-0-00-000000-0',
+				] ];
+			case 'scholarlyArticle':
+				return $this->titleAuthorFields() + [ 'doi' => [
+					'type' => 'text',
+					'label-message' => 'embeddablecontent-extsearch-doi',
+					'required' => false,
+					'maxlength' => 250,
+					'placeholder' => '10.1000/xxxx',
+				] ];
+			case 'film':
+			case 'song':
+			case 'video':
+				return $this->titleAuthorFields();
+			case 'youtubeChannel':
+			case 'youtubeVideo':
+				return [ 'query' => [
+					'type' => 'text',
+					'label-message' => 'embeddablecontent-extsearch-youtube',
+					'help-message' => 'embeddablecontent-extsearch-youtube-help',
+					'required' => true,
+					'maxlength' => 500,
+				] ];
+			default:
+				return [];
+		}
+	}
+
+	/** @return array<string,mixed> */
+	private function titleAuthorFields(): array {
 		return [
 			'title' => [
 				'type' => 'text',
@@ -54,38 +215,39 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				],
 				'default' => 'text',
 			],
-			'doi' => [
-				'type' => 'text',
-				'label-message' => 'embeddablecontent-extsearch-doi',
-				'required' => false,
-				'maxlength' => 250,
-				'placeholder' => '10.1000/xxxx',
-			],
-			'isbn' => [
-				'type' => 'text',
-				'label-message' => 'embeddablecontent-extsearch-isbn',
-				'required' => false,
-				'maxlength' => 17,
-				'placeholder' => '978-0-00-000000-0',
-			],
 		];
 	}
 
 	protected function search( array $data ): ProviderResult {
-		$doi = trim( (string)( $data['doi'] ?? '' ) );
-		if ( $doi !== '' ) {
-			return $this->client->byDoi( $doi );
+		switch ( $this->currentClassKey ) {
+			case 'book':
+				$isbn = trim( (string)( $data['isbn'] ?? '' ) );
+				if ( $isbn !== '' ) {
+					return $this->client->byIsbn( $isbn );
+				}
+				return $this->searchByTitleAuthor( $data );
+			case 'scholarlyArticle':
+				$doi = trim( (string)( $data['doi'] ?? '' ) );
+				if ( $doi !== '' ) {
+					return $this->client->byDoi( $doi );
+				}
+				return $this->searchByTitleAuthor( $data );
+			case 'film':
+			case 'song':
+			case 'video':
+				return $this->searchByTitleAuthor( $data );
+			case 'youtubeChannel':
+			case 'youtubeVideo':
+				return $this->searchYouTube( $data );
+			default:
+				return new ProviderResult( [], [ $this->msg( 'embeddablecontent-extsearch-nohits' )->text() ] );
 		}
-		$isbn = trim( (string)( $data['isbn'] ?? '' ) );
-		if ( $isbn !== '' ) {
-			return $this->client->byIsbn( $isbn );
-		}
+	}
+
+	private function searchByTitleAuthor( array $data ): ProviderResult {
 		$title = trim( (string)( $data['title'] ?? '' ) );
 		$author = trim( (string)( $data['author'] ?? '' ) );
 		if ( $author !== '' ) {
-			// Author-filtered search: entity mode resolves the author(s) by
-			// Wikidata Q-ids on the hub, text mode by free-text name across
-			// the cascade. Either narrows the results for common titles.
 			if ( ( $data['authorMode'] ?? 'text' ) === 'entity' ) {
 				$qids = array_values( array_filter(
 					ItemIdList::split( $author ),
@@ -99,9 +261,30 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			return $this->client->searchWorksByAuthorName( $author, $title );
 		}
 		if ( $title === '' ) {
-			return new ProviderResult( [], [ 'No DOI, ISBN, title or author given' ] );
+			return new ProviderResult( [], [ 'No title or author given' ] );
 		}
 		return $this->client->searchWorks( $title );
+	}
+
+	/**
+	 * YouTube search: a URL resolves EXACTLY (no match → localized "no match
+	 * for the provided URL"), a name runs the capped search.list.
+	 */
+	private function searchYouTube( array $data ): ProviderResult {
+		$query = trim( (string)( $data['query'] ?? '' ) );
+		if ( $query === '' ) {
+			return new ProviderResult( [], [ $this->msg( 'embeddablecontent-extsearch-nohits' )->text() ] );
+		}
+		if ( YouTubeProvider::isVideoUrl( $query ) || YouTubeProvider::isChannelUrl( $query ) ) {
+			$result = $this->client->byYouTubeUrl( $query );
+			if ( $result->records === [] && $result->warnings === [] ) {
+				return new ProviderResult( [], [ $this->msg( 'embeddablecontent-extsearch-youtube-urlnomatch' )->text() ] );
+			}
+			return $result;
+		}
+		return $this->currentClassKey === 'youtubeChannel'
+			? $this->client->searchYouTubeChannels( $query )
+			: $this->client->searchYouTubeVideos( $query );
 	}
 
 	protected function candidateOptions( array $records ): array {
@@ -112,15 +295,20 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		return (string)( $record['title'] ?? '' );
 	}
 
-	/** @return array<string,string> authority identifiers relevant to works */
+	/** Class-specific authority identifiers (per-class review/create). */
 	protected function externalIdRecordMap(): array {
-		return [
-			'wikidata' => 'wikidataId',
-			'doi' => 'doi',
-			'isbn' => 'isbn',
-			'openalex' => 'openalexId',
-			'pubmed' => 'pubmedId',
-		];
+		switch ( $this->currentClassKey ) {
+			case 'book':
+				return [ 'wikidata' => 'wikidataId', 'isbn' => 'isbn' ];
+			case 'scholarlyArticle':
+				return [ 'wikidata' => 'wikidataId', 'doi' => 'doi', 'openalex' => 'openalexId', 'pubmed' => 'pubmedId' ];
+			case 'film':
+			case 'song':
+			case 'video':
+				return [ 'wikidata' => 'wikidataId' ];
+			default:
+				return [];
+		}
 	}
 
 	protected function enrichRecord( array $record ): array {
@@ -140,55 +328,316 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	}
 
 	protected function reviewFieldSpecs( array $record ): array {
-		return $this->labelFieldSpec( 'title', 'embeddablecontent-extsearch-title', (string)( $record['title'] ?? '' ) )
+		$fields = $this->labelFieldSpec( 'title', 'embeddablecontent-extsearch-title', (string)( $record['title'] ?? '' ) )
 			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
-			+ [
-				'containerTitle' => $this->plainTextField( 'embeddablecontent-field-publishedin', (string)( $record['containerTitle'] ?? '' ) ),
-				'publisher' => $this->plainTextField( 'embeddablecontent-field-publisher', (string)( $record['publisher'] ?? '' ) ),
-				'volume' => $this->plainTextField( 'embeddablecontent-field-volume', (string)( $record['volume'] ?? '' ) ),
-				'issue' => $this->plainTextField( 'embeddablecontent-field-issue', (string)( $record['issue'] ?? '' ) ),
-				'pages' => $this->plainTextField( 'embeddablecontent-field-pages', (string)( $record['pages'] ?? '' ) ),
-				'issuedYear' => $this->plainTextField(
-					'embeddablecontent-field-year',
-					(string)( $record['issuedYear'] ?? '' ),
-					4
-				),
-			]
-			+ $this->externalIdFieldSpecs( $record );
+			+ $this->authorsFieldSpec( $record );
+
+		switch ( $this->currentClassKey ) {
+			case 'book':
+				$fields['publisher'] = $this->plainTextField( 'embeddablecontent-field-publisher', (string)( $record['publisher'] ?? '' ) );
+				$fields['pages'] = $this->plainTextField( 'embeddablecontent-field-pages', (string)( $record['pages'] ?? '' ) );
+				$fields += $this->issuedYearFieldSpec( $record );
+				break;
+			case 'scholarlyArticle':
+				$fields['containerTitle'] = $this->plainTextField( 'embeddablecontent-field-publishedin', (string)( $record['containerTitle'] ?? '' ) );
+				$fields['publisher'] = $this->plainTextField( 'embeddablecontent-field-publisher', (string)( $record['publisher'] ?? '' ) );
+				$fields['volume'] = $this->plainTextField( 'embeddablecontent-field-volume', (string)( $record['volume'] ?? '' ) );
+				$fields['issue'] = $this->plainTextField( 'embeddablecontent-field-issue', (string)( $record['issue'] ?? '' ) );
+				$fields['pages'] = $this->plainTextField( 'embeddablecontent-field-pages', (string)( $record['pages'] ?? '' ) );
+				$fields += $this->issuedYearFieldSpec( $record );
+				break;
+			case 'film':
+			case 'song':
+				$fields += $this->issuedYearFieldSpec( $record );
+				$fields += $this->durationFieldSpec( $record );
+				break;
+			case 'video':
+				$fields += $this->issuedYearFieldSpec( $record );
+				$fields += $this->durationFieldSpec( $record );
+				$fields += $this->urlFieldSpec( $record );
+				break;
+			case 'youtubeChannel':
+				$fields += $this->issuedYearFieldSpec( $record );
+				$fields += $this->urlFieldSpec( $record );
+				$fields['youtubeChannelId'] = $this->plainTextField(
+					'embeddablecontent-source-field-youtubechannelid',
+					(string)( $record['youtubeChannelId'] ?? '' ),
+					64
+				);
+				break;
+			case 'youtubeVideo':
+				$fields += $this->issuedYearFieldSpec( $record );
+				$fields += $this->durationFieldSpec( $record );
+				$fields += $this->urlFieldSpec( $record );
+				$fields['youtubeVideoId'] = $this->plainTextField(
+					'embeddablecontent-source-field-youtubevideoid',
+					(string)( $record['youtubeVideoId'] ?? '' ),
+					16
+				);
+				break;
+			case 'website':
+			case 'webpage':
+				$fields += $this->urlFieldSpec( $record );
+				$fields += $this->issuedYearFieldSpec( $record );
+				break;
+			case 'bookExcerpt':
+				$fields['pages'] = $this->plainTextField( 'embeddablecontent-field-pages', (string)( $record['pages'] ?? '' ) );
+				$fields += $this->issuedYearFieldSpec( $record );
+				break;
+		}
+
+		$fields += $this->externalIdFieldSpecs( $record );
+		$fields += $this->parentFieldSpec( $record );
+		return $fields;
 	}
 
-	protected function createFromRecord( array $record, string $classItemId ): string {
-		$record = $this->enrichRecord( $record );
-		$specs = $this->externalIdStatements( $record ) + $this->citationMetadataStatements( $record );
-		return $this->createOrSkipItem( $this->primaryLabel( $record ), $classItemId, $specs, $record );
+	/** @return array<string,mixed> */
+	private function authorsFieldSpec( array $record ): array {
+		return [ 'authors' => [
+			'type' => 'combobox',
+			'options' => [],
+			'label-message' => 'embeddablecontent-source-field-authors',
+			'cssclass' => 'wb-entity-combobox wb-entity-combobox-multi',
+			'default' => (string)( $record['authors'] ?? '' ),
+			'help' => $this->msg( 'embeddablecontent-source-field-authors-help' )->parse(),
+			'required' => true,
+		] ];
+	}
+
+	/** @return array<string,mixed> */
+	private function issuedYearFieldSpec( array $record ): array {
+		return [ 'issuedYear' => [
+			'type' => 'text',
+			'label-message' => 'embeddablecontent-field-year',
+			'default' => (string)( $record['issuedYear'] ?? '' ),
+			'maxlength' => 4,
+		] ];
+	}
+
+	/** @return array<string,mixed> */
+	private function durationFieldSpec( array $record ): array {
+		$seconds = (int)( $record['durationSeconds'] ?? 0 );
+		return [ 'duration' => [
+			'type' => 'text',
+			'label-message' => 'embeddablecontent-source-field-duration',
+			'default' => $seconds > 0 ? Duration::formatSeconds( $seconds ) : '',
+			'placeholder' => 'MM:SS or HH:MM:SS',
+			'maxlength' => 12,
+			'help' => $this->msg( 'embeddablecontent-source-field-duration-help' )->parse(),
+		] ];
+	}
+
+	/** @return array<string,mixed> */
+	private function urlFieldSpec( array $record ): array {
+		return [ 'url' => [
+			'type' => 'url',
+			'label-message' => 'embeddablecontent-source-field-url',
+			'default' => (string)( $record['url'] ?? '' ),
+			'maxlength' => 250,
+		] ];
+	}
+
+	/**
+	 * Parent-class combobox for child classes (bookExcerpt→book,
+	 * youtubeVideo→youtubeChannel, webpage→website), with the
+	 * "not yet imported? import it yourself" line.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function parentFieldSpec( array $record ): array {
+		$parentKey = $this->config->sourceParents()[$this->currentClassKey] ?? null;
+		if ( $parentKey === null ) {
+			return [];
+		}
+		$parentLabel = $this->msg( 'embeddablecontent-source-class-' . $parentKey )->text();
+		return [ 'parent' => [
+			'type' => 'combobox',
+			'options' => [],
+			'label-message' => 'embeddablecontent-source-field-parent',
+			'cssclass' => 'wb-entity-combobox',
+			'default' => (string)( $record['parent'] ?? '' ),
+			'help' => $this->msg( 'embeddablecontent-source-parent-help', $parentLabel, $parentKey )->parse(),
+			'required' => true,
+		] ];
 	}
 
 	protected function classOptions(): array {
-		$options = [];
-		foreach ( $this->config->sourceClasses() as $key => $id ) {
-			$options[$key] = $id;
-		}
-		return $options;
+		$key = $this->currentClassKey;
+		$id = $this->config->sourceClasses()[$key] ?? null;
+		return $id === null ? [] : [ $key => $id ];
 	}
 
 	protected function defaultClassItemId( array $record ): ?string {
-		// 1. Harvest class hints (Wikidata instance-of → local class).
-		foreach ( $record['classWikidataIds'] ?? [] as $qid ) {
-			$key = $this->config->sourceClassByWikidata()[$qid] ?? null;
-			if ( $key !== null && isset( $this->config->sourceClasses()[$key] ) ) {
-				return $this->config->sourceClasses()[$key];
+		return $this->config->sourceClasses()[$this->currentClassKey] ?? null;
+	}
+
+	protected function executeManual(): void {
+		if ( $this->currentClassKey === 'website' ) {
+			$this->getOutput()->addHTML(
+				\MediaWiki\Html\Html::warningBox( $this->msg( 'embeddablecontent-source-website-explanation' )->parse() )
+			);
+		}
+		parent::executeManual();
+	}
+
+	// ------------------------------------------------------------- validation
+
+	/**
+	 * Cross-field validation before creation (review AND manual paths):
+	 * duration format, author entities (≥1, agent-class), parent item
+	 * (child classes: exists and is instance of the parent class), and the
+	 * YouTube id derived from the URL when not typed. Returning a non-null
+	 * string aborts the creation with the message as a form error.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function beforeCreate( array &$record ): ?string {
+		$rawDuration = trim( (string)( $record['duration'] ?? '' ) );
+		if ( $rawDuration !== '' ) {
+			$seconds = Duration::parseSeconds( $rawDuration );
+			if ( $seconds === null ) {
+				return $this->msg( 'embeddablecontent-source-error-duration' )->text();
+			}
+			$record['durationSeconds'] = $seconds;
+		}
+
+		$error = $this->validateAuthors( $record );
+		if ( $error !== null ) {
+			return $error;
+		}
+
+		// Derive the YouTube identifier from the URL when not typed.
+		if ( $this->currentClassKey === 'youtubeChannel' && empty( $record['youtubeChannelId'] ) ) {
+			$record['youtubeChannelId'] = YouTubeProvider::extractChannelId( (string)( $record['url'] ?? '' ) ) ?? '';
+		}
+		if ( $this->currentClassKey === 'youtubeVideo' && empty( $record['youtubeVideoId'] ) ) {
+			$record['youtubeVideoId'] = YouTubeProvider::extractVideoId( (string)( $record['url'] ?? '' ) ) ?? '';
+		}
+
+		return $this->validateParent( $record );
+	}
+
+	/**
+	 * @param array<string,mixed> $record
+	 */
+	private function validateAuthors( array $record ): ?string {
+		$ids = ItemIdList::split( (string)( $record['authors'] ?? '' ) );
+		if ( $ids === [] ) {
+			return $this->msg( 'embeddablecontent-source-error-noauthor' )->text();
+		}
+		$agentIds = array_values( $this->config->agentClasses() );
+		foreach ( $ids as $id ) {
+			if ( preg_match( '/^Q[1-9]\d*$/', $id ) !== 1 ) {
+				return $this->msg( 'embeddablecontent-add-error-baditemid', $id )->text();
+			}
+			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $id ) );
+			if ( !$item instanceof Item ) {
+				return $this->msg( 'embeddablecontent-source-error-author-entity', $id )->text();
+			}
+			if ( !$this->itemHasClass( $item, $agentIds ) ) {
+				return $this->msg( 'embeddablecontent-source-error-author-class', $id )->text();
 			}
 		}
-		// 2. Provider defaults.
-		$sourceClasses = $this->config->sourceClasses();
-		switch ( $record['provider'] ?? '' ) {
-			case 'crossref':
-			case 'openalex':
-				return $sourceClasses['scholarlyArticle'] ?? null;
-			case 'openlibrary':
-				return $sourceClasses['book'] ?? null;
-		}
-		// 3. First configured source class.
-		return $sourceClasses === [] ? null : reset( $sourceClasses );
+		return null;
 	}
+
+	/**
+	 * @param array<string,mixed> $record
+	 */
+	private function validateParent( array $record ): ?string {
+		$parentKey = $this->config->sourceParents()[$this->currentClassKey] ?? null;
+		if ( $parentKey === null ) {
+			return null; // not a child class
+		}
+		$parentClassId = $this->config->sourceClasses()[$parentKey] ?? null;
+		$parentId = trim( (string)( $record['parent'] ?? '' ) );
+		if ( $parentClassId === null || preg_match( '/^Q[1-9]\d*$/', $parentId ) !== 1 ) {
+			return $this->msg( 'embeddablecontent-source-error-parent-required' )->text();
+		}
+		$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $parentId ) );
+		if ( !$item instanceof Item || !$this->itemHasClass( $item, [ $parentClassId ] ) ) {
+			return $this->msg( 'embeddablecontent-source-error-parent-class', $parentId )->text();
+		}
+		return null;
+	}
+
+	/** @param string[] $classItemIds */
+	private function itemHasClass( Item $item, array $classItemIds ): bool {
+		$propertyId = new NumericPropertyId( $this->config->instanceOfPropertyId() );
+		foreach ( $item->getStatements()->getByPropertyId( $propertyId ) as $statement ) {
+			$value = $statement->getMainSnak()->getDataValue();
+			if ( $value instanceof EntityIdValue
+				&& in_array( $value->getEntityId()->getSerialization(), $classItemIds, true )
+			) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// ------------------------------------------------------------- creation
+
+	protected function createFromRecord( array $record, string $classItemId ): string {
+		$record = $this->enrichRecord( $record );
+		return $this->createOrSkipItem( $this->primaryLabel( $record ), $classItemId, $this->sourceStatementSpecs( $record ), $record );
+	}
+
+	protected function manualCreate( string $label, string $classItemId, array $record ): string {
+		return $this->createOrSkipItem( $label, $classItemId, $this->sourceStatementSpecs( $record ), $record );
+	}
+
+	/**
+	 * Class-aware statement specs: external ids + citation metadata +
+	 * duration (seconds, quantity) + item URL + YouTube identifiers +
+	 * author entities (attributed to) + the child→parent `part of` link.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,mixed> property id => DataValue | DataValue[]
+	 */
+	private function sourceStatementSpecs( array $record ): array {
+		$specs = $this->externalIdStatements( $record ) + $this->citationMetadataStatements( $record );
+		$props = $this->config->sourcePropertyIds();
+
+		if ( !empty( $record['durationSeconds'] ) && isset( $props['duration'] ) ) {
+			$specs[$props['duration']] = QuantityValue::newFromNumber( (int)$record['durationSeconds'] );
+		}
+
+		$url = ( new FragmentSanitizer() )->validateUrl( (string)( $record['url'] ?? '' ) );
+		if ( $url !== null && isset( $props['url'] ) ) {
+			$specs[$props['url']] = new StringValue( $url );
+		}
+
+		if ( !empty( $record['youtubeChannelId'] ) && isset( $props['youtubeChannelId'] ) ) {
+			$specs[$props['youtubeChannelId']] = new StringValue( (string)$record['youtubeChannelId'] );
+		}
+		if ( !empty( $record['youtubeVideoId'] ) && isset( $props['youtubeVideoId'] ) ) {
+			$specs[$props['youtubeVideoId']] = new StringValue( (string)$record['youtubeVideoId'] );
+		}
+
+		// Authors: one `attributed to` statement per entity (≥1 enforced in
+		// beforeCreate; multi-valued specs write one statement per element).
+		$authorIds = ItemIdList::split( (string)( $record['authors'] ?? '' ) );
+		$attributedTo = $this->config->provenancePropertyIds()['attributedTo'] ?? null;
+		if ( $authorIds !== [] && $attributedTo !== null ) {
+			foreach ( $authorIds as $authorId ) {
+				$specs[$attributedTo][] = new EntityIdValue( new ItemId( $authorId ) );
+			}
+		}
+
+		// Child→parent link (`part of`), validated in beforeCreate.
+		$parentId = trim( (string)( $record['parent'] ?? '' ) );
+		if ( $parentId !== '' && isset( $props['partOf'] ) && preg_match( '/^Q[1-9]\d*$/', $parentId ) === 1 ) {
+			$specs[$props['partOf']] = new EntityIdValue( new ItemId( $parentId ) );
+		}
+
+		return $specs;
+	}
+
+	// ------------------------------------------------------------- duration helpers
+
+	/**
+	 * Parses "(HH):MM:SS" (or "MM:SS") into seconds; null on a malformed
+	 * value, so the caller can surface a form error.
+	 */
+	
 }

@@ -1,0 +1,13 @@
+/**
+ * Sitelink tab coloring (issue #7 follow-up): red = page not yet linked to
+ * an item (click opens the link popup), blue = linked (click → Item page).
+ * Generic over skin markup (Vector/Timeless both render the tab as a li with
+ * our ca-sitelink class on it).
+ */
+li.ca-sitelink.needs-set > a {
+	color: #ba0000; /* MediaWiki redlink color */
+}
+
+li.ca-sitelink.is-set > a {
+	color: #3366cc; /* MediaWiki progressive/blue link color */
+}

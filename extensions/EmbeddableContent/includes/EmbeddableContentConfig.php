@@ -149,7 +149,60 @@ class EmbeddableContentConfig {
 	public function sourceClasses(): array {
 		return $this->requireStringMap( 'sourceClasses', [
 			'book', 'scholarlyArticle', 'website', 'song', 'film', 'video',
+			'youtubeChannel', 'youtubeVideo', 'webpage', 'bookExcerpt',
 		] );
+	}
+
+	/**
+	 * Issue #7: source-class parent/child map (child class key => parent
+	 * class key). Child-class creation requires an existing parent-class
+	 * item, picked on the form and linked via the `part of` statement.
+	 *
+	 * @return array<string,string>
+	 */
+	public function sourceParents(): array {
+		return $this->optionalStringMap( 'sourceParents' );
+	}
+
+	/**
+	 * Property id of the child→parent link statement (`part of`), from the
+	 * sourceProperties map; null when the instance predates it.
+	 */
+	public function sourceParentPropertyId(): ?string {
+		return $this->sourcePropertyIds()['partOf'] ?? null;
+	}
+
+	/**
+	 * Issue #7: source-class specific property ids (Special:AddSource
+	 * statements): partOf, duration, url, youtubeChannelId, youtubeVideoId.
+	 * Absent keys are omitted (instance-specific availability).
+	 *
+	 * @return array<string,string> canonical key => property id
+	 */
+	public function sourcePropertyIds(): array {
+		return $this->requireStringMap( 'sourceProperties', [
+			'partOf', 'duration', 'url', 'youtubeChannelId', 'youtubeVideoId',
+		] );
+	}
+
+	/**
+	 * YouTube Data API v3 key for the YouTube provider (deploy-injected via
+	 * the instance environment — never committed to the repo). Empty string
+	 * disables the provider.
+	 */
+	public function youtubeApiKey(): string {
+		$value = $this->raw['youtubeApiKey'] ?? '';
+		return is_string( $value ) ? $value : '';
+	}
+
+	/**
+	 * YouTube search-list result cache TTL in seconds (0 = disabled, the
+	 * default at this instance's scale). A config flip, not a code change,
+	 * if repeat-query quota ever matters.
+	 */
+	public function youtubeSearchCacheTtl(): int {
+		$value = $this->raw['youtubeSearchCacheTtl'] ?? 0;
+		return is_int( $value ) ? $value : (int)$value;
 	}
 
 	/**

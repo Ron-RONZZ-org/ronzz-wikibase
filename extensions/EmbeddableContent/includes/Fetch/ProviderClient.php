@@ -4,6 +4,8 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\Fetch;
 
+use Wikimedia\ObjectCache\BagOStuff;
+
 /**
  * Cascade orchestrator for the fetch design (#7 §Fetch).
  *
@@ -17,6 +19,7 @@ namespace EmbeddableContent\Fetch;
  *  - byIsbn:              Open Library → Crossref → Wikidata (SPARQL)
  *  - entity name search:  Wikidata (only)
  *  - software name search: Wikidata → GitHub (issue #26)
+ *  - YouTube (channels/videos): YouTube Data API v3 (single provider)
  *
  * Identifier paths stop at the first hit; searches collect from all
  * providers, dedupe by authority ID (wikidataId > orcid/doi/isbn >
@@ -57,6 +60,7 @@ class ProviderClient {
 	private ?WikidataWorkProvider $wikidataWork;
 	private ?WikidataEntityProvider $wikidataEntity;
 	private ?WikidataSoftwareProvider $wikidataSoftware;
+	private ?YouTubeProvider $youtube;
 
 	/**
 	 * @param PersonProvider[] $personNameProviders ordered name-search cascade
@@ -78,7 +82,8 @@ class ProviderClient {
 		?WikidataWorkProvider $wikidataWork = null,
 		?WikidataEntityProvider $wikidataEntity = null,
 		?WikidataSoftwareProvider $wikidataSoftware = null,
-		array $softwareNameProviders = []
+		array $softwareNameProviders = [],
+		?YouTubeProvider $youtube = null
 	) {
 		$this->personNameProviders = $personNameProviders;
 		$this->personIdProviders = $personIdProviders;
@@ -91,12 +96,25 @@ class ProviderClient {
 		$this->wikidataWork = $wikidataWork;
 		$this->wikidataEntity = $wikidataEntity;
 		$this->wikidataSoftware = $wikidataSoftware;
+		$this->youtube = $youtube;
 	}
 
 	/**
 	 * Canonical cascade wiring per #7's fetch table.
+	 *
+	 * @param string $youtubeApiKey deploy-injected YouTube Data API key ('' = disabled)
+	 * @param int $youtubeSearchCap name-search result cap (UX choice — the API bills
+	 *  per call, not per result)
+	 * @param int $youtubeCacheTtl seconds to memoize name searches (0 = off)
 	 */
-	public static function default( HttpClientInterface $http, float $timeout = 10.0 ): self {
+	public static function default(
+		HttpClientInterface $http,
+		float $timeout = 10.0,
+		string $youtubeApiKey = '',
+		int $youtubeSearchCap = 10,
+		?BagOStuff $youtubeCache = null,
+		int $youtubeCacheTtl = 0
+	): self {
 		$wikidataPerson = new WikidataPersonProvider( $http, $timeout );
 		$wikidataWork = new WikidataWorkProvider( $http, $timeout );
 		$wikidataEntity = new WikidataEntityProvider( $http, $timeout );
@@ -117,7 +135,10 @@ class ProviderClient {
 			$wikidataWork,
 			$wikidataEntity,
 			$wikidataSoftware,
-			[ $wikidataSoftware, new GitHubSoftwareProvider( $http, $timeout ) ]
+			[ $wikidataSoftware, new GitHubSoftwareProvider( $http, $timeout ) ],
+			$youtubeApiKey === '' ? null : new YouTubeProvider(
+				$http, $youtubeApiKey, $timeout, $youtubeSearchCap, $youtubeCache, $youtubeCacheTtl
+			)
 		);
 	}
 
@@ -188,6 +209,47 @@ class ProviderClient {
 			$name,
 			fn ( array $records ) => $this->dedupeSoftware( $records )
 		);
+	}
+
+	/**
+	 * YouTube channel name search (YouTube Data API v3, capped).
+	 */
+	public function searchYouTubeChannels( string $name ): ProviderResult {
+		return $this->youtubeResult( fn () => $this->youtube->searchChannels( $name ), 'youtube' );
+	}
+
+	/**
+	 * YouTube video name search (YouTube Data API v3, capped).
+	 */
+	public function searchYouTubeVideos( string $name ): ProviderResult {
+		return $this->youtubeResult( fn () => $this->youtube->searchVideos( $name ), 'youtube' );
+	}
+
+	/**
+	 * Exact YouTube URL resolution (channel or video). An empty result set
+	 * means "no match for the provided URL" — the caller localizes it.
+	 */
+	public function byYouTubeUrl( string $url ): ProviderResult {
+		return $this->youtubeResult(
+			static fn ( YouTubeProvider $yt ) => ( $record = $yt->byUrl( $url ) ) !== null ? [ $record ] : [],
+			'youtube'
+		);
+	}
+
+	/**
+	 * @param callable(YouTubeProvider):array $fetch
+	 * @return ProviderResult
+	 */
+	private function youtubeResult( callable $fetch, string $label ): ProviderResult {
+		if ( $this->youtube === null ) {
+			return new ProviderResult( [], [ $label . ': not configured (missing YouTube API key)' ] );
+		}
+		try {
+			$records = $fetch( $this->youtube );
+		} catch ( ProviderException $e ) {
+			return new ProviderResult( [], [ $label . ': ' . $e->getMessage() ] );
+		}
+		return new ProviderResult( array_slice( array_values( $records ), 0, self::RESULT_CAP ) );
 	}
 
 	public function harvestSoftware( string $qid ): ProviderResult {

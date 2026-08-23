@@ -33,6 +33,17 @@ return [
 	'EmbeddableContent.ProviderClient' => static function ( MediaWikiServices $services ): ProviderClient {
 		// External-authority fetch layer (issue #7): SSRF allowlist enforced
 		// inside CurlHttpClient; the canonical cascade wiring from #7 §Fetch.
-		return ProviderClient::default( new CurlHttpClient() );
+		// The YouTube key is deploy-injected (config map, never committed);
+		// '' disables the provider. The name-search cache TTL defaults to 0
+		// (off) — a config flip, not a code change.
+		$config = $services->get( 'EmbeddableContent.Config' );
+		return ProviderClient::default(
+			new CurlHttpClient(),
+			10.0,
+			$config->youtubeApiKey(),
+			10,
+			$services->getMainObjectStash(),
+			$config->youtubeSearchCacheTtl()
+		);
 	},
 ];

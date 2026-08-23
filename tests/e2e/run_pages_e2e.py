@@ -245,11 +245,18 @@ def flow_search_select_create(op, base: str, api: str, special: str, search_fiel
 
     # Selection step: detailed candidate table + radio + class picker.
     candidates = ooui_options(body, "mw-input-wpcandidates")
-    classes = ooui_options(body, "mw-input-wpclass")
-    if not candidates or not classes:
-        raise FlowError(f"Special:{special} selection page rendered no candidates/classes")
+    if not candidates:
+        raise FlowError(f"Special:{special} selection page rendered no candidates")
+    # Class: a select when several classes exist, a HIDDEN single-class
+    # field when the flow fixed the class (issue follow-up, class-first).
+    try:
+        cls = ooui_widget(body, "mw-input-wpclass").get("value")
+    except FlowError:
+        cls = None
+    if cls is None:
+        m = re.search(r'name="wpclass"[^>]*value="(Q\d+)"', body)
+        cls = m.group(1) if m else ""
     index = str(min(pick_index, len(candidates) - 1))
-    cls = ooui_widget(body, "mw-input-wpclass").get("value") or classes[0]["data"]
     token2 = edit_token(body)
 
     url, body = page_post(op, url, {
@@ -352,10 +359,17 @@ def flow_software(op, base: str, api: str, name: str) -> tuple[str, str]:
 
     # Selection step: detailed candidate table + radio + class picker.
     candidates = ooui_options(body, "mw-input-wpcandidates")
-    classes = ooui_options(body, "mw-input-wpclass")
-    if not candidates or not classes:
-        raise FlowError("AddSoftware selection page rendered no candidates/classes")
-    cls = ooui_widget(body, "mw-input-wpclass").get("value") or classes[0]["data"]
+    if not candidates:
+        raise FlowError("AddSoftware selection page rendered no candidates")
+    # Class: a select when several classes exist, a HIDDEN single-class
+    # field when the flow fixed the class (issue follow-up, class-first).
+    try:
+        cls = ooui_widget(body, "mw-input-wpclass").get("value")
+    except FlowError:
+        cls = None
+    if cls is None:
+        m = re.search(r'name="wpclass"[^>]*value="(Q\d+)"', body)
+        cls = m.group(1) if m else ""
     token2 = edit_token(body)
     url, body = page_post(op, url, {
         "wpcandidates": "0",
@@ -442,8 +456,98 @@ def flow_person(op, base: str, api: str, name: str) -> str:
     return flow_search_select_create(op, base, api, "AddPerson", {"wpname": name})
 
 
-def flow_source(op, base: str, api: str, doi: str) -> str:
-    return flow_search_select_create(op, base, api, "AddSource", {"wpdoi": doi})
+def flow_source_class_first(op, base: str, api: str, class_key: str, search_fields: dict,
+                            review_extra: dict | None = None, pick_index: int = 0) -> str:
+    """Class-first AddSource flow (issue follow-up): class picker ->
+    class-scoped search -> selection (hidden class) -> review (authors +
+    class extras) -> create. Returns the created (or reused) item id."""
+    url, body = page_get(op, base, "/wiki/Special:AddSource")
+    if "does not have permission" in body or "wpEditToken" not in body:
+        raise FlowError(f"Special:AddSource not usable (logged-in? got {len(body)} bytes)")
+    token = edit_token(body)
+    url, body = page_post(op, url, {"wpclass": class_key, "wpEditToken": token, "wpSubmit": "1"})
+    m = re.search(rf"/wiki/Special:AddSource/{class_key}$", url)
+    if not m:
+        raise FlowError(f"AddSource class picker did not route to {class_key}: {url} {find_error(body)}")
+    token = edit_token(body)
+    fields = dict(search_fields)
+    fields["wpEditToken"] = token
+    fields["wpSubmit"] = "1"
+    url, body = page_post(op, url, fields)
+    m = re.search(rf"/wiki/Special:AddSource/{class_key}/([0-9a-f]+)$", url)
+    if not m:
+        raise FlowError(
+            f"AddSource/{class_key} search did not redirect to a selection page: {url} {find_error(body)}")
+    token = m.group(1)
+
+    candidates = ooui_options(body, "mw-input-wpcandidates")
+    if not candidates:
+        raise FlowError(f"AddSource/{class_key} selection page rendered no candidates")
+    cls = re.search(r'name="wpclass"[^>]*value="(Q\d+)"', body)
+    cls = cls.group(1) if cls else (ooui_widget(body, "mw-input-wpclass").get("value") or "")
+    index = str(min(pick_index, len(candidates) - 1))
+    token2 = edit_token(body)
+    url, body = page_post(op, url, {
+        "wpcandidates": index,
+        "wpclass": cls,
+        "wpEditToken": token2,
+        "wpSubmit": "1",
+    })
+    m = re.search(rf"/wiki/Special:AddSource/{class_key}/{token}/review/{index}$", url)
+    if not m:
+        raise FlowError(
+            f"AddSource/{class_key} select did not redirect to the review step: {url} {find_error(body)}")
+
+    token3 = edit_token(body)
+    review = {"wpEditToken": token3, "wpSubmit": "1"}
+    if review_extra:
+        review.update(review_extra)
+    url, body = page_post(op, url, review)
+    m = re.search(r"/wiki/Item:(Q\d+)$", url)
+    if not m:
+        raise FlowError(f"AddSource/{class_key} review did not redirect to an item: {url} {find_error(body)}")
+    return m.group(1)
+
+
+def flow_source_class_manual(op, base: str, api: str, class_key: str, fields: dict) -> str:
+    """Class-first manual flow: Special:AddSource/<classKey>/manual creates
+    from blank with the class-scoped fields (the class is a hidden field)."""
+    url, body = page_get(op, base, f"/wiki/Special:AddSource/{class_key}/manual")
+    token = edit_token(body)
+    post = {"wpEditToken": token, "wpSubmit": "1"}
+    post.update(fields)
+    url, body = page_post(op, url, post)
+    m = re.search(r"/wiki/Item:(Q\d+)$", url)
+    if not m:
+        raise FlowError(f"AddSource/{class_key}/manual did not create an item: {url} {find_error(body)}")
+    return m.group(1)
+
+
+def flow_sitelink_tab(op, base: str, api: str, linked_page: str, linked_qid: str) -> None:
+    """Sitelink tab rendering (issue follow-up): red (needs-set) on an
+    unlinked content page, blue (is-set) on a sitelinked page."""
+    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = csrf["query"]["tokens"]["csrftoken"]
+    test_title = f"Page-flow E2E sitelink {int(time.time())}"
+    api_call(op, api, {"action": "edit", "title": test_title, "text": "temporary page",
+                       "token": token, "format": "json"}, post=True)
+    try:
+        _, body = page_get(op, base, "/wiki/" + urllib.parse.quote(test_title.replace(" ", "_")))
+        if "ca-sitelink needs-set" not in body:
+            raise FlowError(f"{test_title} missing the red Sitelink tab (needs-set)")
+        print(f"[ok] Sitelink tab: red (needs-set) on unlinked page {test_title}")
+    finally:
+        try:
+            api_call(op, api, {"action": "delete", "title": test_title, "token": token,
+                               "reason": "page-flow E2E cleanup (run_pages_e2e.py)",
+                               "format": "json"}, post=True)
+        except Exception as exc:  # noqa: BLE001 — best-effort cleanup
+            print(f"  ! cleanup failed for {test_title}: {exc}")
+
+    _, body = page_get(op, base, "/wiki/" + urllib.parse.quote(linked_page.replace(" ", "_")))
+    if "ca-sitelink is-set" not in body:
+        raise FlowError(f"{linked_page} missing the blue Sitelink tab (is-set)")
+    print(f"[ok] Sitelink tab: blue (is-set) on {linked_page} -> item {linked_qid}")
 
 
 def flow_collective(op, base: str, api: str, name: str) -> str:
@@ -628,15 +732,15 @@ def main() -> int:
     describes_prop = resolve("describes", "property")
     wikidata_id_prop = resolve("Wikidata ID", "property")
     doi_prop = resolve("DOI", "property")
-    source_url_prop = resolve("source URL", "property")
-    source_classes = {
-        resolve("book", "item"),
-        resolve("scholarly article", "item"),
-        resolve("website", "item"),
-        resolve("song", "item"),
-        resolve("film", "item"),
-        resolve("video", "item"),
-    }
+    # Class-first AddSource vocabulary (issue follow-up).
+    part_of_prop = resolve("part of", "property")
+    duration_prop = resolve("duration", "property")
+    url_prop = resolve("URL", "property")
+    youtube_channel_id_prop = resolve("YouTube channel ID", "property")
+    website_class = resolve("website", "item")
+    book_excerpt_class = resolve("book excerpt", "item")
+    youtube_channel_class = resolve("YouTube channel", "item")
+    youtube_video_class = resolve("YouTube video", "item")
     agent_classes = {
         resolve("person", "item"),
         resolve("organization", "item"),
@@ -687,38 +791,113 @@ def main() -> int:
         assert first_reference_url(claims, wikidata_id_prop), f"{person} missing import reference"
         print(f"[ok] AddPerson -> {person} ({label}): instance-of person, Wikidata ID + import reference")
 
-        # 2. AddSource — DOI -> Crossref, class inference -> scholarly article,
-        #    harvested citation metadata (container/publisher/volume/…)
-        source = track(flow_source(op, base, api, args.doi))
+        # 2. AddSource (class-first) — DOI -> Crossref, scholarly article
+        #    class fixed by the picker, harvested citation metadata, and the
+        #    required author entity written as attributed-to.
+        source = track(flow_source_class_first(
+            op, base, api, "scholarlyArticle",
+            {"wpdoi": args.doi}, review_extra={"wpauthors": person}))
         claims, label = entity_claims(op, api, source)
         assert first_value(claims, instance_of) == scholarly_class, \
             f"{source} instance-of != scholarly article ({first_value(claims, instance_of)})"
         assert first_value(claims, doi_prop) == args.doi, f"{source} DOI mismatch"
+        assert first_value(claims, resolve("attributed to", "property")) == person, \
+            f"{source} missing the required author entity"
         assert first_reference_url(claims, doi_prop), f"{source} missing import reference"
-        print(f"[ok] AddSource -> {source} ({label[:60]}…): scholarly article, DOI + import reference")
+        print(f"[ok] AddSource (class-first, DOI) -> {source} ({label[:60]}…): "
+              f"scholarly article, author entity, DOI + import reference")
 
-        # 2a. AddSource author search, free-text mode (issue follow-up): the
-        #     author filter narrows the candidates; the created item must be
-        #     a source-class item (class inferred from the harvest/provider).
-        source_author = track(flow_search_select_create(
-            op, base, api, "AddSource",
-            {"wpauthor": args.author, "wpauthorMode": "text"}))
+        # 2a. AddSource author search, free-text mode (class-first): the
+        #     author filter narrows the candidates; the class stays fixed.
+        source_author = track(flow_source_class_first(
+            op, base, api, "scholarlyArticle",
+            {"wpauthor": args.author, "wpauthorMode": "text"},
+            review_extra={"wpauthors": person}))
         claims, label = entity_claims(op, api, source_author)
-        assert first_value(claims, instance_of) in source_classes, \
-            f"{source_author} instance-of not a source class ({first_value(claims, instance_of)})"
-        print(f"[ok] AddSource (author text search) -> {source_author} "
-              f"({label[:60]}…): source class")
+        assert first_value(claims, instance_of) == scholarly_class, \
+            f"{source_author} instance-of != scholarly article ({first_value(claims, instance_of)})"
+        assert first_value(claims, resolve("attributed to", "property")) == person, \
+            f"{source_author} missing the required author entity"
+        print(f"[ok] AddSource (class-first, author text search) -> {source_author} "
+              f"({label[:60]}…): scholarly article + author entity")
 
-        # 2b. AddSource author search, semantic-entity mode: Wikidata Q-ids
-        #     resolve through the hub (works by the author entity).
-        source_entity = track(flow_search_select_create(
-            op, base, api, "AddSource",
-            {"wpauthor": args.author_entity, "wpauthorMode": "entity"}))
+        # 2b. AddSource author search, semantic-entity mode (class-first).
+        source_entity = track(flow_source_class_first(
+            op, base, api, "scholarlyArticle",
+            {"wpauthor": args.author_entity, "wpauthorMode": "entity"},
+            review_extra={"wpauthors": person}))
         claims, label = entity_claims(op, api, source_entity)
-        assert first_value(claims, instance_of) in source_classes, \
-            f"{source_entity} instance-of not a source class ({first_value(claims, instance_of)})"
-        print(f"[ok] AddSource (author entity search) -> {source_entity} "
-              f"({label[:60]}…): source class")
+        assert first_value(claims, instance_of) == scholarly_class, \
+            f"{source_entity} instance-of != scholarly article ({first_value(claims, instance_of)})"
+        print(f"[ok] AddSource (class-first, author entity search) -> {source_entity} "
+              f"({label[:60]}…): scholarly article")
+
+        # 2c. Manual-only class: website goes straight to the adapted manual
+        #     form (Special:AddSource/website -> /website/manual) and writes
+        #     the URL + author statements.
+        website_label = f"Page-flow E2E website {int(time.time())}"
+        website = track(flow_source_class_manual(op, base, api, "website", {
+            "wptitle": website_label, "wpauthors": person,
+            "wpurl": "https://example.org/e2e"}))
+        claims, _ = entity_claims(op, api, website)
+        assert first_value(claims, instance_of) == website_class, \
+            f"{website} instance-of != website ({first_value(claims, instance_of)})"
+        assert first_value(claims, url_prop) == "https://example.org/e2e", \
+            f"{website} missing the URL statement"
+        print(f"[ok] AddSource (website, manual-only) -> {website}: website class + URL")
+
+        # 2d. Child class: bookExcerpt requires an existing book parent,
+        #     auto-links it with a `part of` statement.
+        book = resolve("Notes by the Translator", "item")  # seed dogfood book
+        excerpt_label = f"Page-flow E2E book excerpt {int(time.time())}"
+        excerpt = track(flow_source_class_manual(op, base, api, "bookExcerpt", {
+            "wptitle": excerpt_label, "wpauthors": person,
+            "wpparent": book, "wppages": "12-30"}))
+        claims, _ = entity_claims(op, api, excerpt)
+        assert first_value(claims, instance_of) == book_excerpt_class, \
+            f"{excerpt} instance-of != book excerpt ({first_value(claims, instance_of)})"
+        assert first_value(claims, part_of_prop) == book, \
+            f"{excerpt} missing the part-of link to the parent book"
+        print(f"[ok] AddSource (bookExcerpt) -> {excerpt}: child class + part-of -> {book}")
+
+        # 2e. YouTube chain: a channel (URL -> ID derived server-side), then a
+        #     youtubeVideo child of that channel with a duration in seconds.
+        channel_label = f"Page-flow E2E channel {int(time.time())}"
+        channel = track(flow_source_class_manual(op, base, api, "youtubeChannel", {
+            "wptitle": channel_label, "wpauthors": person,
+            "wpurl": "https://www.youtube.com/channel/UCE2E2e2e2e2e2e2e2e2e2e2"}))
+        claims, _ = entity_claims(op, api, channel)
+        assert first_value(claims, instance_of) == youtube_channel_class, \
+            f"{channel} instance-of != YouTube channel ({first_value(claims, instance_of)})"
+        assert first_value(claims, youtube_channel_id_prop) == "UCE2E2e2e2e2e2e2e2e2e2e2", \
+            f"{channel} YouTube channel ID not derived from the URL"
+        video_label = f"Page-flow E2E youtube video {int(time.time())}"
+        video = track(flow_source_class_manual(op, base, api, "youtubeVideo", {
+            "wptitle": video_label, "wpauthors": person,
+            "wpparent": channel, "wpduration": "1:02:30"}))
+        claims, _ = entity_claims(op, api, video)
+        assert first_value(claims, instance_of) == youtube_video_class, \
+            f"{video} instance-of != YouTube video ({first_value(claims, instance_of)})"
+        assert first_value(claims, part_of_prop) == channel, \
+            f"{video} missing the part-of link to the parent channel"
+        amount = first_value(claims, duration_prop)
+        assert isinstance(amount, dict) and amount.get("amount") == "+3750", \
+            f"{video} duration not stored as 3750 seconds ({amount!r})"
+        print(f"[ok] AddSource (youtubeVideo) -> {video}: child class + part-of -> {channel}, "
+              f"duration 1:02:30 = 3750s")
+
+        # 2f. Author requirement: creation without an author is rejected with
+        #     a form error (a source needs at least one author).
+        noauthor_label = f"Page-flow E2E noauthor {int(time.time())}"
+        url, body = page_get(op, base, "/wiki/Special:AddSource/youtubeVideo/manual")
+        token = edit_token(body)
+        url2, body2 = page_post(op, url, {
+            "wptitle": noauthor_label, "wpEditToken": token, "wpSubmit": "1"})
+        if "/wiki/Item:Q" in url2:
+            raise FlowError("AddSource/youtubeVideo/manual created an item WITHOUT authors (must fail)")
+        if "at least one author" not in body2:
+            raise FlowError("AddSource/youtubeVideo/manual without authors produced no author error")
+        print("[ok] AddSource author requirement: creation without authors rejected")
 
         # 3. AddCollective — harvest class hints; instance-of must be an agent class
         collective = track(flow_collective(op, base, api, args.collective))
@@ -816,6 +995,10 @@ def main() -> int:
               f"image statement + infobox logo on {logo_page}")
         if logo_qid in created:
             created_pages.append(logo_page)
+
+        # 3f. Sitelink tab (issue follow-up): red (needs-set) on a page
+        #     without a sitelink, blue (is-set) on the sitelinked FOSS page.
+        flow_sitelink_tab(op, base, api, foss_page, software)
 
         # 4. v1 content form — Special:AddQuotation with provenance.
         # Unique label per run: create-or-skip would otherwise reuse a stale

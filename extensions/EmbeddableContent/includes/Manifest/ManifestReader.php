@@ -30,6 +30,7 @@ class ManifestReader {
 		'string',
 		'url',
 		'time',
+		'quantity',
 		'external-id',
 	];
 

@@ -10,6 +10,8 @@ License: GPL-2.0-or-later
 
 from __future__ import annotations
 
+import os
+
 from typing import Any
 
 # Property label (en) -> short kind used in the config map.
@@ -72,6 +74,28 @@ SOURCE_CLASS_KINDS = {
     "song": "song",
     "film": "film",
     "video": "video",
+    "YouTube channel": "youtubeChannel",
+    "YouTube video": "youtubeVideo",
+    "web page": "webpage",
+    "book excerpt": "bookExcerpt",
+}
+
+# Issue #7: source-class parent/child relations (child kind => parent kind).
+# Child-class creation requires an existing parent-class item, picked on the
+# form and linked via the `part of` statement.
+SOURCE_PARENT_KINDS = {
+    "book excerpt": ("bookExcerpt", "book"),
+    "YouTube video": ("youtubeVideo", "youtubeChannel"),
+    "web page": ("webpage", "website"),
+}
+
+# Issue #7: source-class specific properties (Special:AddSource statements).
+SOURCE_PROPERTY_KINDS = {
+    "part of": "partOf",
+    "duration": "duration",
+    "URL": "url",
+    "YouTube channel ID": "youtubeChannelId",
+    "YouTube video ID": "youtubeVideoId",
 }
 
 # Issue #26: FOSS software properties (Special:AddSoftware statements).
@@ -167,6 +191,18 @@ def build_config(
         if label in property_ids:
             citation_metadata[key] = property_ids[label]
 
+    source_props: dict[str, str] = {}
+    for label, key in SOURCE_PROPERTY_KINDS.items():
+        if label in property_ids:
+            source_props[key] = property_ids[label]
+
+    # Child class key => parent class key (class keys, not ids — the parent
+    # item is looked up at form time, so only the KEY mapping is stable).
+    source_parents: dict[str, str] = {}
+    for child_label, (child_kind, parent_kind) in SOURCE_PARENT_KINDS.items():
+        if child_label in class_ids:
+            source_parents[child_kind] = parent_kind
+
     source_class_by_qid = _class_by_qid(
         wikidata_class_qids, class_ids, SOURCE_CLASS_KINDS
     )
@@ -179,6 +215,8 @@ def build_config(
         "classes": classes,
         "agentClasses": agent_classes,
         "sourceClasses": source_classes,
+        "sourceParents": source_parents,
+        "sourceProperties": source_props,
         "fossClasses": foss_classes,
         "fossProperties": foss_props,
         "payloadProperties": payload_props,
@@ -193,6 +231,11 @@ def build_config(
         "agentClassByWikidata": agent_class_by_qid,
         "fallbackLanguages": fallback_languages,
         "lexers": dict(sorted(lexer_ids.items())),
+        # YouTube provider (deploy-injected; never committed). Empty key
+        # disables the provider; the TTL is 0 (cache off) by default — a
+        # config flip for when repeat-query quota ever matters.
+        "youtubeApiKey": os.environ.get("YOUTUBE_API_KEY", ""),
+        "youtubeSearchCacheTtl": int(os.environ.get("YOUTUBE_SEARCH_CACHE_TTL", "0") or 0),
     }
     config = {k: v for k, v in config.items() if v not in (None, {}, [])}
 
