@@ -628,7 +628,11 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			if ( $volume !== '' ) {
 				$parts[] = $this->msg( 'embeddablecontent-source-bookexcerpt-desc-volume', $volume )->text();
 			}
-			$parentLabel = $parent->getLabel( 'en' ) ?? '';
+			$parentLabel = '';
+			$labelTerm = $parent->getLabels()->getByLanguage( 'en' );
+			if ( $labelTerm !== null ) {
+				$parentLabel = $labelTerm->getText();
+			}
 			if ( $parts !== [] && $parentLabel !== '' ) {
 				$record['description'] = $this->msg(
 					'embeddablecontent-source-bookexcerpt-desc',

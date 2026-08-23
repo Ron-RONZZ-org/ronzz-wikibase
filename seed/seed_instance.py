@@ -328,6 +328,17 @@ class SeedOrchestrator:
         if book_claims:
             self.api.add_claims(book_id, book_claims, SUMMARY_PREFIX + "populate book")
 
+        # The dogfood person doubles as an author (book/quotation/code) —
+        # classify it as instance-of person so the AddSource author
+        # validation accepts it when bookExcerpt inference copies it from
+        # the parent book.
+        person_claims = {}
+        person_class = self.class_ids.get("person")
+        if instance_of_id and person_class:
+            person_claims[instance_of_id] = [dogfood.entity_claim(instance_of_id, person_class)]
+        if person_claims:
+            self.api.add_claims(person_id, person_claims, SUMMARY_PREFIX + "populate person")
+
         claims = {}
         if instance_of_id and quote_class:
             claims[instance_of_id] = [dogfood.entity_claim(instance_of_id, quote_class)]

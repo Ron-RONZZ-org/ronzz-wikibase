@@ -568,8 +568,15 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		if ( $label === '' ) {
 			return null;
 		}
-		$title = Title::newFromText( $ns . ':' . $label );
-		return ( $title !== null && $title->getNamespace() === $ns ) ? $title : null;
+		try {
+			// makeTitle takes the namespace ID — newFromText('<ns>:<label>')
+			// would need the namespace NAME (the int concatenates into
+			// "2008:Label", a main-namespace title).
+			$title = Title::makeTitle( $ns, $label );
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+		return ( $title !== null && $title->getNamespace() === $ns && $title->isValid() ) ? $title : null;
 	}
 
 	/**

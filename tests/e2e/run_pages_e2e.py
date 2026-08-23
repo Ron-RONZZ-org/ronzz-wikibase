@@ -240,15 +240,21 @@ def flow_final_item(op, base: str, api: str, url: str, body: str, special: str) 
     m = re.search(r"/wiki/Item:(Q\d+)$", url)
     if m:
         return m.group(1)
-    m = re.search(r"/wiki/(?:Person|Source|Collective):([^?#]+)$", url)
+    m = re.search(r"/wiki/((?:Person|Source|Collective):[^?#]+)$", url)
     if m:
         page_title = urllib.parse.unquote(m.group(1)).replace("_", " ")
-        r = api_call(op, api, {"action": "query", "titles": page_title,
-                               "prop": "pageprops", "format": "json"})
-        for page in r.get("query", {}).get("pages", {}).values():
-            qid = page.get("pageprops", {}).get("wikibase_item")
-            if qid:
-                return qid
+        # The wikibase_item page property is written at parse time but its
+        # page_props table row lands via the deferred LinkUpdate — retry a
+        # few times (a cold cache / jobrunner-less stack can lag a beat).
+        qid = None
+        for _ in range(5):
+            r = api_call(op, api, {"action": "query", "titles": page_title,
+                                   "prop": "pageprops", "format": "json"})
+            for page in r.get("query", {}).get("pages", {}).values():
+                qid = page.get("pageprops", {}).get("wikibase_item")
+                if qid:
+                    return qid
+            time.sleep(1)
         raise FlowError(f"{special} page {page_title} has no wikibase_item "
                         f"(finalize step did not map the sitelink)")
     raise FlowError(f"{special} did not redirect to an item or classic page: {url} {find_error(body)}")
