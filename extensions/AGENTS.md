@@ -45,6 +45,27 @@ extensions — never forks of Wikibase.
   (`manifests/preseed.csv` + seed `preseed` phase): common operating
   systems, FOSS licenses and user interfaces classified under their parent
   classes.
+- **Classic pages for Person/Source/Collective (issue follow-up, ADR
+  `docs/decisions/pages-and-fields.md`)**: the AddSoftware page machinery
+  (afterCreate → sitelink → `complete/<id>` finalize) moved into the base
+  class; `Special:AddPerson` creates a `Person:` page (Template:Person),
+  `Special:AddCollective` a `Collective:` page (Template:Collective),
+  `Special:AddSource` a `Source:` page with a per-class template
+  (Book/ScholarlyArticle/Website/Song/Film/Video/YouTubeChannel/
+  YouTubeVideo/Webpage). **bookExcerpt creates NO page** (part of a book).
+  Namespaces Person (2010/2011), Source (2012/2013), Collective (2014/2015)
+  in dev config + production LocalSettings.
+- **AddPerson lifecycle fields**: VIAF/ISNI search (Wikidata-hub-only),
+  day-precision date of birth/death + entity-combobox place of birth/death
+  with a "This person is deceased" toggle revealing the death fields;
+  `personProperties` config section (P569/P19/P570/P20-aligned).
+- **AddSource bookExcerpt**: optional chapters (new string property,
+  P2635-aligned) + volume fields; blank description auto-generates as
+  "Pages a-b (Volume c) of {book}"; blank year/authors infer from the
+  parent book's `date`/`attributed to` statements. The class picker says
+  "Source type" + "Continue". Persistence fixes: the description is stored
+  as the item's en term and the year as a `date` statement (both were
+  discarded before).
 - **Special:AddSource class-first (issue follow-up, ADR
   `docs/decisions/class-first-addsource.md`)**: the root page is a class
   picker routing to class-scoped subpages (`/<classKey>`, `/<classKey>/manual`,
