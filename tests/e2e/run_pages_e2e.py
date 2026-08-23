@@ -322,15 +322,21 @@ def flow_manual(op, base: str, api: str, special: str, label: str, class_item: s
                 extra_fields: dict | None = None) -> str:
     """Manual-entry fallback (issue #12): Special:<name>/manual creates from
     blank (no external record). extra_fields carries additional review-form
-    fields (e.g. the person birth/death facts), keyed as wp<FieldName>."""
+    fields (e.g. the person birth/death facts), keyed as wp<FieldName>.
+
+    AddPerson (issue #35) has NO label field — the label is the full name
+    derived from given/family. The flow splits the label mechanically
+    (last word = family, the NameSplitter convention) so the derived label
+    equals the input."""
     url, body = page_get(op, base, f"/wiki/Special:{special}/manual")
     token = edit_token(body)
-    fields = {
-        "wplabel": label,
-        "wpclass": class_item,
-        "wpEditToken": token,
-        "wpSubmit": "1",
-    }
+    fields = {"wpclass": class_item, "wpEditToken": token, "wpSubmit": "1"}
+    if special == "AddPerson":
+        given, _, family = label.rpartition(" ")
+        fields["wpgivenname"] = given
+        fields["wpfamilyname"] = family
+    else:
+        fields["wplabel"] = label
     if extra_fields:
         fields.update(extra_fields)
     url, body = page_post(op, url, fields)
@@ -553,6 +559,131 @@ def flow_source_class_manual(op, base: str, api: str, class_key: str, fields: di
     post.update(fields)
     url, body = page_post(op, url, post)
     return flow_final_item(op, base, api, url, body, f"AddSource/{class_key}/manual")
+
+
+def input_value(body: str, field: str) -> str:
+    """value attribute of an <input name="wp<field>"> (attribute order varies;
+    OOUI HTMLForm text fields render as plain inputs the JS later infuses)."""
+    m = re.search(r'name="' + field + r'"[^>]*\bvalue="([^"]*)"', body)
+    if not m:
+        m = re.search(r'\bvalue="([^"]*)"[^>]*name="' + field + r'"', body)
+    return m.group(1) if m else ""
+
+
+def flow_manual_link_from(op, base: str, body: str, special: str) -> str:
+    """The tokenised 'create manually' href (/wiki/Special:<special>/manual
+    ?token=<hex>) in a search-result page (zero-hit AND selection pages both
+    carry it since issue #35)."""
+    m = re.search(r"/wiki/Special:" + special + r"/manual\?token=[0-9a-f]+", body)
+    if not m:
+        raise FlowError(f"{special} search page offers no tokenised manual link: {find_error(body)}")
+    return m.group(0)
+
+
+def flow_person_manual_autofill(op, base: str, api: str, name: str) -> tuple[str, str]:
+    """Search autofill (issue #35): Special:AddPerson name search -> the page
+    offers 'create manually' with a token; the manual form is prefilled
+    (given = every word except the last, family = last word, per
+    NameSplitter). Submits the prefilled form; returns (qid, derived label)."""
+    url, body = page_get(op, base, "/wiki/Special:AddPerson")
+    token = edit_token(body)
+    url, body = page_post(op, url, {"wpname": name, "wpEditToken": token, "wpSubmit": "1"})
+    manual_path = flow_manual_link_from(op, base, body, "AddPerson")
+    url2, body2 = page_get(op, base, manual_path)
+    expected_given, _, expected_family = name.rpartition(" ")
+    given = input_value(body2, "wpgivenname")
+    family = input_value(body2, "wpfamilyname")
+    if given != expected_given or family != expected_family:
+        raise FlowError(
+            f"AddPerson manual form not autofilled from the name search: "
+            f"given {given!r}/{family!r} != {expected_given!r}/{expected_family!r}")
+    token2 = edit_token(body2)
+    url3, body3 = page_post(op, url2, {
+        "wpgivenname": given, "wpfamilyname": family,
+        "wpEditToken": token2, "wpSubmit": "1",
+    })
+    qid = flow_final_item(op, base, api, url3, body3, "AddPerson/manual (autofill)")
+    return qid, name
+
+
+def flow_source_book_manual_autofill(op, base: str, api: str, title: str,
+                                     author_qid: str) -> str:
+    """Search autofill (issue #35): AddSource/book title+entity-author search
+    -> tokenised manual link -> the manual form is prefilled (title and
+    authors carried). Submits the prefilled form; returns the created qid."""
+    url, body = page_get(op, base, "/wiki/Special:AddSource/book")
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "wptitle": title, "wpauthor": author_qid, "wpauthorMode": "entity",
+        "wpEditToken": token, "wpSubmit": "1",
+    })
+    manual_path = flow_manual_link_from(op, base, body, "AddSource/book")
+    url2, body2 = page_get(op, base, manual_path)
+    if input_value(body2, "wptitle") != title:
+        raise FlowError(f"AddSource/book manual title not autofilled from the search: {find_error(body2)}")
+    if input_value(body2, "wpauthors") != author_qid:
+        raise FlowError(f"AddSource/book manual authors not autofilled (entity mode): {find_error(body2)}")
+    token2 = edit_token(body2)
+    url3, body3 = page_post(op, url2, {
+        "wptitle": title, "wpauthors": author_qid,
+        "wpEditToken": token2, "wpSubmit": "1",
+    })
+    return flow_final_item(op, base, api, url3, body3, "AddSource/book/manual (autofill)")
+
+
+def flow_source_picker_manual(op, base: str) -> str:
+    """Class-picker 'create manually' checkbox (issue #35): Special:AddSource
+    with the manual checkbox checked routes to /<classKey>/manual, skipping
+    the search step."""
+    url, body = page_get(op, base, "/wiki/Special:AddSource")
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "wpclass": "book", "wpmanual": "1", "wpEditToken": token, "wpSubmit": "1",
+    })
+    if "/wiki/Special:AddSource/book/manual" not in url:
+        raise FlowError(f"picker manual checkbox did not route to /book/manual: {url} {find_error(body)}")
+    return url
+
+
+def flow_source_book_access_file(op, base: str, api: str, label: str,
+                                 author_qid: str, license_qid: str) -> str:
+    """Access field, local-file mode (issue #35): AddSource/book/manual with
+    accessMode=file uploads a 1x1 PNG (multipart), license required; the
+    file lands as File:<label>.png (auto-named, original name ignored) and
+    the item carries the file + license statements."""
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    )
+    url, body = page_get(op, base, "/wiki/Special:AddSource/book/manual")
+    token = edit_token(body)
+    url, body = page_post_multipart(op, url, {
+        "wptitle": label,
+        "wpauthors": author_qid,
+        "wpaccessMode": "file",
+        "wplicense": license_qid,
+        "wpEditToken": token,
+        "wpSubmit": "1",
+    }, {
+        # HTMLForm keeps the field key's casing: "accessFile" -> "wpAccessFile".
+        "wpAccessFile": ("original-name.png", png, "image/png"),
+    })
+    qid = flow_final_item(op, base, api, url, body, "AddSource/book/manual (access file)")
+    return qid
+
+
+def create_api_item(op, api: str, label: str) -> str:
+    """Creates a bare item via the API (labels only) — e.g. the publisher
+    entity for the AddSource publisher-field test."""
+    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = csrf["query"]["tokens"]["csrftoken"]
+    r = api_call(op, api, {
+        "action": "wbeditentity", "new": "item",
+        "data": json.dumps({"labels": {"en": label}}),
+        "token": token, "format": "json",
+    }, post=True)
+    if "entity" not in r:
+        raise FlowError(f"wbeditentity(new=item) failed: {r}")
+    return r["entity"]["id"]
 
 
 def flow_sitelink_tab(op, base: str, api: str, linked_page: str, linked_qid: str) -> None:
@@ -862,6 +993,24 @@ def main() -> int:
         print(f"[ok] AddPerson/manual -> {person_manual}: birth/death dates + places, "
               f"deceased toggle")
 
+        # 1c. AddPerson search autofill (issue #35): a name search offers the
+        #     tokenised manual link (selection AND zero-hit pages); the manual
+        #     form is prefilled — given = every word except the last, family =
+        #     last word — and the label is the derived full name (no label
+        #     field on the form).
+        autofill_name = f"Page-flow E2E autofill {int(time.time())}"
+        autofill_person, derived = flow_person_manual_autofill(op, base, api, autofill_name)
+        autofill_person = track(autofill_person)
+        claims, label = entity_claims(op, api, autofill_person)
+        assert label == derived, \
+            f"{autofill_person} label not derived from given/family ({label!r} != {derived!r})"
+        expected_given, _, expected_family = autofill_name.rpartition(" ")
+        assert first_value(claims, resolve("given name", "property")) == expected_given and \
+            first_value(claims, resolve("family name", "property")) == expected_family, \
+            f"{autofill_person} given/family statements not written from the autofill"
+        print(f"[ok] AddPerson manual autofill -> {autofill_person}: name search prefilled "
+              f"given/family, label derived")
+
         # 2. AddSource (class-first) — DOI -> Crossref, scholarly article
         #    class fixed by the picker, harvested citation metadata, and the
         #    required author entity written as attributed-to.
@@ -991,6 +1140,66 @@ def main() -> int:
         if "at least one author" not in body2:
             raise FlowError("AddSource/youtubeVideo/manual without authors produced no author error")
         print("[ok] AddSource author requirement: creation without authors rejected")
+
+        # 2g. AddSource/book publisher — entity-only (issue #35): the manual
+        #     form takes a publisher ITEM; the created item carries the entity
+        #     publisher statement and NO string statement.
+        publisher_qid = create_api_item(op, api, f"Page-flow E2E publisher {int(time.time())}")
+        book_pub_label = f"Page-flow E2E book publisher {int(time.time())}"
+        book_pub = track(flow_source_class_manual(op, base, api, "book", {
+            "wptitle": book_pub_label, "wpauthors": person,
+            "wppublisher": publisher_qid}))
+        claims, _ = entity_claims(op, api, book_pub)
+        publisher_prop = resolve("publisher (entity)", "property")
+        string_publisher_prop = resolve("publisher", "property")
+        assert first_value(claims, publisher_prop) == publisher_qid, \
+            f"{book_pub} entity publisher statement missing ({first_value(claims, publisher_prop)})"
+        assert claims.get(string_publisher_prop) is None, \
+            f"{book_pub} unexpectedly carries a string publisher statement"
+        print(f"[ok] AddSource/book publisher -> {book_pub}: entity publisher {publisher_qid}, "
+              f"no string statement")
+
+        # 2h. AddSource/book access field, local-file mode (issue #35): the
+        #     upload lands as File:<label>.png (auto-named from the item
+        #     label, original filename ignored) with the license + file
+        #     statements.
+        license_qid = resolve("CC0 1.0", "item")
+        access_label = f"Page-flow E2E access {int(time.time())}"
+        access_book = track(flow_source_book_access_file(
+            op, base, api, access_label, person, license_qid))
+        claims, _ = entity_claims(op, api, access_book)
+        file_prop = resolve("file", "property")
+        license_prop = resolve("license", "property")
+        file_val = first_value(claims, file_prop)
+        assert file_val and access_label.replace(" ", "_") in file_val, \
+            f"{access_book} file statement missing or not auto-named from the label ({file_val})"
+        assert first_value(claims, license_prop) == license_qid, \
+            f"{access_book} license statement missing ({first_value(claims, license_prop)})"
+        file_page = api_call(op, api, {"action": "query", "titles": f"File:{access_label}.png",
+                                       "format": "json"})
+        pages = list(file_page.get("query", {}).get("pages", {}).values())
+        assert pages and "missing" not in pages[0], \
+            f"File:{access_label}.png not created"
+        print(f"[ok] AddSource/book access (local file) -> {access_book}: "
+              f"File:{access_label}.png + license + file statements")
+
+        # 2i. AddSource/book manual autofill (issue #35): title + entity-mode
+        #     author search -> the tokenised manual link prefills title and
+        #     authors.
+        book_autofill_title = f"Page-flow E2E book autofill {int(time.time())}"
+        book_autofill = track(flow_source_book_manual_autofill(
+            op, base, api, book_autofill_title, person))
+        claims, label = entity_claims(op, api, book_autofill)
+        assert label == book_autofill_title, \
+            f"{book_autofill} label mismatch ({label!r})"
+        print(f"[ok] AddSource/book manual autofill -> {book_autofill}: "
+              f"title + author carried from the search")
+
+        # 2j. Class-picker manual checkbox (issue #35): routes straight to
+        #     /<classKey>/manual, skipping the search step.
+        manual_pick_url = flow_source_picker_manual(op, base)
+        print(f"[ok] AddSource picker 'create manually' -> "
+              f"{manual_pick_url.rsplit('/wiki/', 1)[-1]}")
 
         # 3. AddCollective — harvest class hints; instance-of must be an agent class
         collective = track(flow_collective(op, base, api, args.collective))

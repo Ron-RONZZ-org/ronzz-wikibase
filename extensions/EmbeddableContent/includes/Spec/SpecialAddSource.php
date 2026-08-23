@@ -59,8 +59,10 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	/**
 	 * Manual-form autofill from the search inputs (issue #35): title/isbn/doi
 	 * pass through via the base (same field names); the search's `author`
-	 * field maps to the manual `authors` field (the review/manual form calls
-	 * the multi-value author list "authors").
+	 * field maps to the manual `authors` field — but ONLY in entity mode
+	 * (Q-ids), because the manual authors field requires item ids: a
+	 * free-text author NAME is a search filter, not a record fact, and
+	 * would fail the server-side author validation.
 	 *
 	 * @param array<string,mixed> $search
 	 * @return array<string,mixed>
@@ -68,7 +70,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	protected function autofillRecord( array $search ): array {
 		$out = parent::autofillRecord( $search );
 		$author = trim( (string)( $search['author'] ?? '' ) );
-		if ( $author !== '' ) {
+		if ( $author !== '' && ( $search['authorMode'] ?? '' ) === 'entity' ) {
 			$out['authors'] = $author;
 		}
 		return $out;
