@@ -710,6 +710,15 @@ def flow_source_url_entry(op, base: str, api: str, class_key: str, url: str,
     if re.search(r"Special:AddSource/" + class_key + r"/manual/content\?[^'\"]*token=", url_page):
         token3 = edit_token(body)
         url_page, body = page_post(op, url_page, {"wpEditToken": token3, "wpSubmit": "1"})
+        # Debug aid: surface the content-step response when the creation did
+        # not complete (the form re-renders without a redirect).
+        if not re.search(r"/wiki/(?:Item:Q\d+|Source:[^?#]+)$", url_page):
+            text = re.sub(r"<script.*?</script>", "", body, flags=re.S)
+            text = re.sub(r"<[^>]+>", " ", text)
+            text = re.sub(r"\s+", " ", text)
+            i = text.lower().find("expired")
+            snippet = text[max(0, i - 200):i + 200] if i >= 0 else text[-600:]
+            raise FlowError(f"content-step submit did not complete: {url_page}\n{snippet}")
     return flow_final_item(op, base, api, url_page, body, f"AddSource/{class_key} (URL entry)")
 
 
