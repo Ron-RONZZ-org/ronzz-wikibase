@@ -50,6 +50,12 @@ the instance.
   objectcache + message blob store, and `rebuildtextindex.php` for custom
   namespaces (not searched by default). Verify each layer live afterwards
   (siteinfo namespaces, Special: pages 200, forms render the new fields).
+- **Never re-rsync byte-identical content to the server.** When the deployed
+  files already match the target state (e.g. synced from a branch/worktree
+  before the merge, so the merge brings the same bytes into `main`), **skip
+  the deploy** — fewer server ops, less downtime. Verify equality with a
+  read-only checksum compare (`md5sum` both sides) instead of re-syncing;
+  only rsync what actually differs.
 - **Page↔item properties are eventually consistent on production** —
   `$wgJobRunRate = 0` + the 5-min cron means a freshly created classic page's
   `wikibase_item` property (and its infobox) fills in up to a few minutes
