@@ -202,10 +202,14 @@ def entity_claims(op, api: str, qid: str) -> dict:
     return entity.get("claims", {}), entity.get("labels", {}).get("en", {}).get("value", "")
 
 
-def entity_descriptions(op, api: str, qid: str) -> dict:
+def entity_descriptions(op, api: str, qid: str) -> str:
+    """en description TERM of an item ('' when absent). wbgetentities
+    returns terms as {lang: {language, value}} — dig out the value, same
+    shape as the entity_claims label helper."""
     r = api_call(op, api, {"action": "wbgetentities", "ids": qid,
                            "props": "descriptions", "format": "json"})
-    return r.get("entities", {}).get(qid, {}).get("descriptions", {})
+    return r.get("entities", {}).get(qid, {}).get("descriptions", {}) \
+        .get("en", {}).get("value", "")
 
 
 def first_value(claims: dict, prop_id: str):
@@ -914,7 +918,7 @@ def main() -> int:
             f"{excerpt} instance-of != book excerpt ({first_value(claims, instance_of)})"
         assert first_value(claims, part_of_prop) == book, \
             f"{excerpt} missing the part-of link to the parent book"
-        assert entity_descriptions(op, api, excerpt).get("en", "") == \
+        assert entity_descriptions(op, api, excerpt) == \
             "Pages 12-30 (Volume 2) of Notes by the Translator", \
             f"{excerpt} description not auto-generated from pages/volume + parent"
         date_claim = first_value(claims, resolve("date", "property"))
