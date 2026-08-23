@@ -549,6 +549,13 @@ def flow_source_class_first(op, base: str, api: str, class_key: str, search_fiel
     if review_extra:
         review.update(review_extra)
     url, body = page_post(op, url, review)
+    # Issue follow-up: when the harvest fetched page content (abstract/
+    # keywords/intro/plot/…), the review submit routes to the CONTENT step —
+    # submit it too (the contributor confirms the fetched prose).
+    m = re.search(rf"/wiki/Special:AddSource/{class_key}/{token}/review/{index}/content$", url)
+    if m:
+        token4 = edit_token(body)
+        url, body = page_post(op, url, {"wpEditToken": token4, "wpSubmit": "1"})
     return flow_final_item(op, base, api, url, body, f"AddSource/{class_key}")
 
 
@@ -646,18 +653,153 @@ def flow_source_book_manual_autofill(op, base: str, api: str, title: str,
     return flow_final_item(op, base, api, url3, body3, "AddSource/book/manual (autofill)")
 
 
-def flow_source_picker_manual(op, base: str) -> str:
-    """Class-picker 'create manually' checkbox (issue #35): Special:AddSource
-    with the manual checkbox checked routes to /<classKey>/manual, skipping
-    the search step."""
+def flow_source_picker_route(op, base: str) -> str:
+    """Class picker (issue follow-up): the manual-entry checkbox is GONE (the
+    user decides on the next page); picking a class routes to its class-scoped
+    first step (book → the /book search page)."""
+    url, body = page_get(op, base, "/wiki/Special:AddSource")
+    if "wpmanual" in body:
+        raise FlowError("class picker still renders the removed manual checkbox")
+    token = edit_token(body)
+    url, body = page_post(op, url, {"wpclass": "book", "wpEditToken": token, "wpSubmit": "1"})
+    if "/wiki/Special:AddSource/book" not in url:
+        raise FlowError(f"picker did not route to /book: {url} {find_error(body)}")
+    return url
+
+
+def flow_source_url_entry(op, base: str, api: str, class_key: str, url: str,
+                          author_qid: str) -> str:
+    """URL-first flow for the manual-only website/webpage classes (issue
+    follow-up): the first page is a URL entry (Special:AddSource/<classKey>);
+    the metadata of the entered URL is fetched (SSRF-guarded) and prefills the
+    manual form (/manual?token=). example.org serves a <title>Example
+    Domain</title>, so the autofill must be visible before creation."""
+    url_page, body = page_get(op, base, f"/wiki/Special:AddSource/{class_key}")
+    if "mw-input-wpurl" not in body:
+        raise FlowError(f"AddSource/{class_key} first page is not the URL entry: {find_error(body)}")
+    token = edit_token(body)
+    url_page, body = page_post(op, url_page, {
+        "wpurl": url, "wpEditToken": token, "wpSubmit": "1",
+    })
+    m = re.search(r"(Special:AddSource/" + class_key + r"/manual)[^'\"]*token=([0-9a-f]+)", url_page)
+    if not m:
+        raise FlowError(
+            f"AddSource/{class_key} URL entry did not redirect to /manual?token=: {url_page} {find_error(body)}")
+    token = m.group(2)
+    # Title::getFullURL() canonicalises SPECIAL pages to
+    # /w/index.php?title=Special:.../manual&token=<hex> — reuse the redirect
+    # target's path+query for the manual page GET.
+    u = urllib.parse.urlparse(url_page)
+    manual_path = (u.path or "/") + ("?" + u.query if u.query else "")
+    manual_url, body = page_get(op, base, manual_path)
+    # The fetched <title> prefills the manual title field (best-effort fetch:
+    # example.org always answers). OOUI php renders single-quoted attributes.
+    if "value='Example Domain'" not in body and "value='Example" not in body:
+        raise FlowError(f"AddSource/{class_key} manual form not prefilled from the fetched "
+                        f"metadata: {find_error(body)}")
+    m = re.search(r"name='wptitle'[^>]*value='([^']*)'", body)
+    prefilled_title = m.group(1) if m else ""
+    token2 = edit_token(body)
+    # wptitle is prefilled (a browser submits it); the author is still
+    # required (agent-class).
+    fields = {"wptitle": prefilled_title, "wpauthors": author_qid,
+              "wpEditToken": token2, "wpSubmit": "1"}
+    url_page, body = page_post(op, manual_url, fields)
+    # The fetched intro (site description) is reviewed on the content step
+    # (/manual/content?token=) before creation — submit it too.
+    if re.search(r"Special:AddSource/" + class_key + r"/manual/content\?[^'\"]*token=", url_page):
+        token3 = edit_token(body)
+        url_page, body = page_post(op, url_page, {"wpEditToken": token3, "wpSubmit": "1"})
+    return flow_final_item(op, base, api, url_page, body, f"AddSource/{class_key} (URL entry)")
+
+
+def flow_source_content_step(op, base: str, api: str, doi: str, author_qid: str) -> str:
+    """Scholarly-article fetched-content review step (issue follow-up):
+    review → /review/<i>/content with the abstract/keywords textareas →
+    create. Requires the OpenAlex harvest to have found content (live
+    external authority — re-run on timeout per the E2E conventions)."""
     url, body = page_get(op, base, "/wiki/Special:AddSource")
     token = edit_token(body)
+    url, body = page_post(op, url, {"wpclass": "scholarlyArticle", "wpEditToken": token, "wpSubmit": "1"})
+    token = edit_token(body)
+    url, body = page_post(op, url, {"wpdoi": doi, "wpEditToken": token, "wpSubmit": "1"})
+    m = re.search(r"/wiki/Special:AddSource/scholarlyArticle/([0-9a-f]+)$", url)
+    if not m:
+        raise FlowError(f"scholarlyArticle DOI search did not redirect: {url} {find_error(body)}")
+    token = m.group(1)
+
+    url, body = page_get(op, base, f"/wiki/Special:AddSource/scholarlyArticle/{token}")
+    candidates = ooui_options(body, "mw-input-wpcandidates")
+    cls = re.search(r'name="wpclass"[^>]*value="(Q\d+)"', body)
+    cls = cls.group(1) if cls else (ooui_widget(body, "mw-input-wpclass").get("value") or "")
+    index = "0"
+    token2 = edit_token(body)
     url, body = page_post(op, url, {
-        "wpclass": "book", "wpmanual": "1", "wpEditToken": token, "wpSubmit": "1",
+        "wpcandidates": index, "wpclass": cls, "wpEditToken": token2, "wpSubmit": "1",
     })
-    if "/wiki/Special:AddSource/book/manual" not in url:
-        raise FlowError(f"picker manual checkbox did not route to /book/manual: {url} {find_error(body)}")
-    return url
+    m = re.search(rf"/wiki/Special:AddSource/scholarlyArticle/{token}/review/{index}$", url)
+    if not m:
+        raise FlowError(f"scholarlyArticle select did not redirect to review: {url} {find_error(body)}")
+
+    # Review (with the required author), then the content step must follow.
+    token3 = edit_token(body)
+    url, body = page_post(op, url, {"wpauthors": author_qid, "wpEditToken": token3, "wpSubmit": "1"})
+    m = re.search(rf"/wiki/Special:AddSource/scholarlyArticle/{token}/review/{index}/content$", url)
+    if not m:
+        raise FlowError(f"scholarlyArticle review did not route to the content step: {url} {find_error(body)}")
+    if "mw-input-wpabstract" not in body or "mw-input-wpkeywords" not in body:
+        raise FlowError("content step missing the abstract/keywords textareas")
+
+    token4 = edit_token(body)
+    url, body = page_post(op, url, {"wpEditToken": token4, "wpSubmit": "1"})
+    qid = flow_final_item(op, base, api, url, body, "AddSource/scholarlyArticle (content step)")
+    # The Source: page must carry the Abstract section (dynamic sections).
+    m = re.search(r"/wiki/Source:([^?#]+)", url)
+    if m:
+        page_title = urllib.parse.unquote(m.group(1)).replace("_", " ")
+        r = api_call(op, api, {"action": "query", "titles": page_title, "prop": "revisions",
+                               "rvprop": "content", "format": "json"})
+        for p in r.get("query", {}).get("pages", {}).values():
+            content = p.get("revisions", [{}])[0].get("*", "")
+            if "== Abstract ==" not in content:
+                raise FlowError(f"Source:{page_title} has no == Abstract == section:\n{content[:300]}")
+    return qid
+
+
+def flow_fictional_character(op, base: str, api: str) -> str:
+    """Special:AddFictionalCharacter (issue follow-up): Wikidata name search →
+    select → review → create. The label auto-generates as "{given} {family}
+    (fictional character)"; the class is fixed to the fictional-character
+    class (hidden field)."""
+    url, body = page_get(op, base, "/wiki/Special:AddFictionalCharacter")
+    if "wpEditToken" not in body:
+        raise FlowError("Special:AddFictionalCharacter not usable")
+    token = edit_token(body)
+    url, body = page_post(op, url, {"wpname": "Sherlock Holmes", "wpEditToken": token, "wpSubmit": "1"})
+    m = re.search(r"/wiki/Special:AddFictionalCharacter/([0-9a-f]+)$", url)
+    if not m:
+        raise FlowError(f"fictional-character search did not redirect: {url} {find_error(body)}")
+    token = m.group(1)
+
+    url, body = page_get(op, base, f"/wiki/Special:AddFictionalCharacter/{token}")
+    candidates = ooui_options(body, "mw-input-wpcandidates")
+    cls = re.search(r'name="wpclass"[^>]*value="(Q\d+)"', body)
+    cls = cls.group(1) if cls else (ooui_widget(body, "mw-input-wpclass").get("value") or "")
+    index = "0"
+    token2 = edit_token(body)
+    url, body = page_post(op, url, {
+        "wpcandidates": index, "wpclass": cls, "wpEditToken": token2, "wpSubmit": "1",
+    })
+    m = re.search(rf"/wiki/Special:AddFictionalCharacter/{token}/review/{index}$", url)
+    if not m:
+        raise FlowError(f"fictional-character select did not redirect to review: {url} {find_error(body)}")
+
+    token3 = edit_token(body)
+    url, body = page_post(op, url, {"wpEditToken": token3, "wpSubmit": "1"})
+    m = re.search(r"/wiki/Item:(Q\d+)$", url)
+    if not m:
+        raise FlowError(f"fictional-character did not create an item: {url} {find_error(body)}")
+    return m.group(1)
 
 
 def flow_source_book_access_file(op, base: str, api: str, label: str,
@@ -1214,11 +1356,41 @@ def main() -> int:
         print(f"[ok] AddSource/book manual autofill -> {book_autofill}: "
               f"title + author carried from the search")
 
-        # 2j. Class-picker manual checkbox (issue #35): routes straight to
-        #     /<classKey>/manual, skipping the search step.
-        manual_pick_url = flow_source_picker_manual(op, base)
-        print(f"[ok] AddSource picker 'create manually' -> "
-              f"{manual_pick_url.rsplit('/wiki/', 1)[-1]}")
+        # 2j. Class picker (issue follow-up): the manual checkbox is gone;
+        #     picking a class routes to its class-scoped first step.
+        manual_pick_url = flow_source_picker_route(op, base)
+        print(f"[ok] AddSource picker -> {manual_pick_url.rsplit('/wiki/', 1)[-1]}")
+
+        # 2k. Website URL-first flow (issue follow-up): the first page is a
+        #     URL entry; the fetched metadata prefills the manual form.
+        website_url_item = track(flow_source_url_entry(
+            op, base, api, "website", "https://example.org/e2e", person))
+        claims, _ = entity_claims(op, api, website_url_item)
+        assert first_value(claims, instance_of) == website_class, \
+            f"{website_url_item} instance-of != website ({first_value(claims, instance_of)})"
+        print(f"[ok] AddSource/website URL entry -> {website_url_item}: "
+              f"metadata autofill + website class")
+
+        # 2l. Scholarly-article content step (issue follow-up): review routes
+        #     to /review/<i>/content with the fetched abstract/keywords
+        #     textareas; the Source: page carries == Abstract ==.
+        article_item = track(flow_source_content_step(
+            op, base, api, "10.1371/journal.pbio.2001414", person))
+        print(f"[ok] AddSource/scholarlyArticle content step -> {article_item}: "
+              f"abstract/keywords reviewed + written to the page")
+
+        # 2m. Special:AddFictionalCharacter (issue follow-up): Wikidata
+        #     search; label auto-generates with the "(fictional character)"
+        #     suffix; class fixed to the fictional-character class.
+        character_class = resolve("fictional character", "item")
+        character = track(flow_fictional_character(op, base, api))
+        claims, label = entity_claims(op, api, character)
+        assert first_value(claims, instance_of) == character_class, \
+            f"{character} instance-of != fictional character ({first_value(claims, instance_of)})"
+        assert "(fictional character)" in label, \
+            f"{character} label not auto-generated with the suffix ({label!r})"
+        print(f"[ok] AddFictionalCharacter -> {character} ({label[:60]}…): "
+              f"fictional-character class + autogen label")
 
         # 3. AddCollective — harvest class hints; instance-of must be an agent class
         collective = track(flow_collective(op, base, api, args.collective))
