@@ -60,20 +60,8 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 		return [ 'wikidata' => 'wikidataId' ];
 	}
 
-	protected function enrichRecord( array $record ): array {
-		if ( !empty( $record['harvested'] ) ) {
-			return $record;
-		}
-		// Harvest on pick: enrich with the full Wikidata record (class hints
-		// for the inference, description).
-		if ( !empty( $record['wikidataId'] ) && ( $record['provider'] ?? '' ) === 'wikidata' ) {
-			$harvest = $this->client->harvestEntity( $record['wikidataId'] );
-			if ( $harvest->records !== [] ) {
-				$record = array_merge( $record, (array)$harvest->records[0] );
-			}
-		}
-		$record['harvested'] = true;
-		return $record;
+	protected function harvest( string $qid ): ProviderResult {
+		return $this->client->harvestEntity( $qid );
 	}
 
 	protected function reviewFieldSpecs( array $record ): array {
@@ -82,10 +70,27 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 			+ $this->externalIdFieldSpecs( $record );
 	}
 
-	protected function createFromRecord( array $record, string $classItemId ): string {
-		$record = $this->enrichRecord( $record );
-		$specs = $this->externalIdStatements( $record );
-		return $this->createOrSkipItem( $this->primaryLabel( $record ), $classItemId, $specs, $record );
+	// ------------------------------------------------------------- classic page
+	// The base afterCreate() writes a sitelinked Collective:<label> page
+	// (the issue-#26 AddSoftware pattern); this class declares the page facts.
+
+	protected function pageNamespace(): ?int {
+		return defined( 'NS_COLLECTIVE' ) ? NS_COLLECTIVE : null;
+	}
+
+	protected function pageTemplate(): string {
+		return 'Collective';
+	}
+
+	/**
+	 * Collective: page skeleton — prose lives on the page, facts in the item.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function pageSkeleton( array $record, bool $withMarker = false ): string {
+		$marker = $withMarker ? "\n<!-- " . $this->pagePendingMarker() . " -->\n" : "";
+		return "{{Collective}}\n\n== Overview ==\n\n<!-- What this collective is and does. -->\n\n"
+			. "== History ==\n\n== Members ==\n\n== See also ==\n" . $marker;
 	}
 
 	protected function classOptions(): array {

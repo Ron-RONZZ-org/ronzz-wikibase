@@ -45,7 +45,10 @@ The v1 plan lives in
   provider layer (Wikidata hub + dblp SPARQL, OpenAlex, Crossref, Open
   Library, ORCID, GitHub — SSRF-allowlisted),
   entity-page toolbar gadget (copy embed with absolute URL + language
-  selector / copy citation) and entity-combobox autocomplete.
+  selector / copy citation) and entity-combobox autocomplete. Issue
+  follow-up: `AddPerson`/`AddSource`/`AddCollective` create classic
+  `Person:`/`Source:`/`Collective:` pages (per-class templates, sitelinked;
+  `bookExcerpt` excluded) — see `docs/decisions/pages-and-fields.md`.
 - `extensions/WikibaseCitation/` — citation map manifests +
   `maintenance/importCitationMap.php` (publishes the 4 admin-editable
   `MediaWiki:Citation-*` pages); D4 `api.php?action=citation` with
@@ -56,7 +59,7 @@ The v1 plan lives in
 - `seed/` — instance bootstrap orchestrator (`seed_instance.py`), API client,
   dogfood entities, config/report emission, self-verification (idempotent,
   exact-label skip).
-- `tools/` — manifest generators + `fetch-smoke.php` (live provider smoke test).
+- `tools/` — manifest generators + `fetch-smoke.php` (live provider smoke test) + `add-copy-to-syntaxhighlight.py` (enforces the on-wiki standard that every block-mode `<syntaxhighlight>` carries `copy`; `--audit`/`--dry-run`/`--apply`).
 - `tests/` — PHPUnit unit tests (pure-PHP logic, no MediaWiki runtime) and the
   `tests/e2e/` suites against a seeded live instance: `run_e2e.py`
   (acceptance + XSS) and `run_pages_e2e.py` (issue-#7 page flows:

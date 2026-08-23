@@ -247,6 +247,40 @@ class WikidataCore {
 	}
 
 	/**
+	 * First item-id value of a claim, or null ("Q42" from a wikibase-item
+	 * datavalue).
+	 */
+	public function itemId( array $claims, string $propertyId ): ?string {
+		foreach ( $claims[$propertyId] ?? [] as $claim ) {
+			$value = $claim['mainsnak']['datavalue']['value'] ?? null;
+			if ( is_array( $value ) && isset( $value['id'] ) ) {
+				return (string)$value['id'];
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * First time value of a claim as "YYYY-MM-DD" (day precision preserved,
+	 * else the year with -00-00), or null. The date-of-birth/death review
+	 * fields prefill from this string.
+	 */
+	public function timeValue( array $claims, string $propertyId ): ?string {
+		foreach ( $claims[$propertyId] ?? [] as $claim ) {
+			$time = $claim['mainsnak']['datavalue']['value']['time'] ?? null;
+			if ( is_string( $time ) && preg_match( '/^[+-](\d{4})(?:-(\d{2}))?(?:-(\d{2}))?/', $time, $m ) === 1 ) {
+				$month = $m[2] ?? '00';
+				$day = $m[3] ?? '00';
+				// Normalize '00' placeholders so the date widget accepts it.
+				$month = $month === '00' ? '01' : $month;
+				$day = $day === '00' ? '01' : $day;
+				return sprintf( '%04d-%s-%s', (int)$m[1], $month, $day );
+			}
+		}
+		return null;
+	}
+
+	/**
 	 * @param array<string,mixed> $claims
 	 */
 	public function yearValue( array $claims, string $propertyId ): ?int {

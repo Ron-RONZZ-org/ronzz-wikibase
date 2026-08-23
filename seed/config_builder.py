@@ -53,6 +53,15 @@ CITATION_METADATA_KINDS = {
     "issue": "issue",
 }
 
+# Issue #7 (follow-up): person lifecycle properties (Special:AddPerson
+# statements — birth/death dates and places).
+PERSON_PROPERTY_KINDS = {
+    "date of birth": "dateOfBirth",
+    "place of birth": "placeOfBirth",
+    "date of death": "dateOfDeath",
+    "place of death": "placeOfDeath",
+}
+
 CLASS_KINDS = {
     "quotation content": "quotation",
     "code snippet": "code",
@@ -64,6 +73,19 @@ AGENT_CLASS_KINDS = {
     "person": "person",
     "organization": "organization",
     "group of humans": "groupOfHumans",
+    # Common collective classes (AddCollective class picker + harvest
+    # inference; authors of works may also be classified under these).
+    "private company": "privateCompany",
+    "public company": "publicCompany",
+    "non-profit organization": "nonProfitOrganization",
+    "governmental agency": "governmentalAgency",
+    "music band": "musicBand",
+    "educational institution": "educationalInstitution",
+    "research institute": "researchInstitute",
+    "political party": "politicalParty",
+    "trade union": "tradeUnion",
+    "religious organization": "religiousOrganization",
+    "sports team": "sportsTeam",
 }
 
 # Issue #7: source/work classes (AddSource).
@@ -96,6 +118,7 @@ SOURCE_PROPERTY_KINDS = {
     "URL": "url",
     "YouTube channel ID": "youtubeChannelId",
     "YouTube video ID": "youtubeVideoId",
+    "chapters": "chapters",
 }
 
 # Issue #26: FOSS software properties (Special:AddSoftware statements).
@@ -191,6 +214,11 @@ def build_config(
         if label in property_ids:
             citation_metadata[key] = property_ids[label]
 
+    person_props: dict[str, str] = {}
+    for label, key in PERSON_PROPERTY_KINDS.items():
+        if label in property_ids:
+            person_props[key] = property_ids[label]
+
     source_props: dict[str, str] = {}
     for label, key in SOURCE_PROPERTY_KINDS.items():
         if label in property_ids:
@@ -226,6 +254,7 @@ def build_config(
         "provenance": provenance,
         "externalIds": external_ids,
         "citationMetadata": citation_metadata,
+        "personProperties": person_props,
         "formatterUrl": property_ids.get("formatter URL"),
         "sourceClassByWikidata": source_class_by_qid,
         "agentClassByWikidata": agent_class_by_qid,

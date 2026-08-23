@@ -6,11 +6,13 @@ namespace EmbeddableContent\Spec;
 
 use DataValues\QuantityValue;
 use DataValues\StringValue;
+use DataValues\TimeValue;
 use EmbeddableContent\Content\FragmentSanitizer;
 use EmbeddableContent\Duration;
 use EmbeddableContent\Fetch\ProviderResult;
 use EmbeddableContent\Fetch\WorkRecord;
 use EmbeddableContent\Fetch\YouTubeProvider;
+use MediaWiki\Title\Title;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
@@ -91,6 +93,11 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			$this->executeManual();
 			return;
 		}
+		if ( $second === 'complete' && ( $parts[2] ?? '' ) !== '' ) {
+			// Finalize step for a just-created Source: page (base class).
+			$this->executeComplete( $parts[2] );
+			return;
+		}
 		if ( ( $parts[2] ?? '' ) === 'review' && ( $parts[3] ?? '' ) !== '' ) {
 			$this->executeReview( $second, (int)$parts[3] );
 			return;
@@ -125,7 +132,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			],
 		], $this->getContext() );
 		$form->setTitle( $this->getPageTitle() )
-			->setSubmitTextMsg( 'embeddablecontent-extselect-continue' )
+			->setSubmitTextMsg( 'embeddablecontent-source-pick-continue' )
 			->setSubmitCallback( [ $this, 'onClassPickerSubmit' ] )
 			->setSubmitID( 'wb-ext-add-pick-class' )
 			->setWrapperLegendMsg( 'embeddablecontent-source-pick-legend' );
@@ -311,20 +318,8 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		}
 	}
 
-	protected function enrichRecord( array $record ): array {
-		if ( !empty( $record['harvested'] ) ) {
-			return $record;
-		}
-		// Harvest on pick: enrich with the full Wikidata work record
-		// (container, publisher, pages, volume, issue, DOI, ISBN, …).
-		if ( !empty( $record['wikidataId'] ) && ( $record['provider'] ?? '' ) === 'wikidata' ) {
-			$harvest = $this->client->harvestWork( $record['wikidataId'] );
-			if ( $harvest->records !== [] ) {
-				$record = array_merge( $record, (array)$harvest->records[0] );
-			}
-		}
-		$record['harvested'] = true;
-		return $record;
+	protected function harvest( string $qid ): ProviderResult {
+		return $this->client->harvestWork( $qid );
 	}
 
 	protected function reviewFieldSpecs( array $record ): array {
@@ -382,7 +377,26 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				break;
 			case 'bookExcerpt':
 				$fields['pages'] = $this->plainTextField( 'embeddablecontent-field-pages', (string)( $record['pages'] ?? '' ) );
+				$fields['volume'] = $this->plainTextField( 'embeddablecontent-field-volume', (string)( $record['volume'] ?? '' ) );
+				$fields['chapters'] = $this->plainTextField( 'embeddablecontent-source-field-chapters', (string)( $record['chapters'] ?? '' ) );
 				$fields += $this->issuedYearFieldSpec( $record );
+				// The description auto-generates from pages/volume + the
+				// parent book when left blank; year/authors fall back to the
+				// parent book's own statements (see beforeCreate).
+				$fields['description']['help'] = $this->msg(
+					'embeddablecontent-source-bookexcerpt-desc-help'
+				)->parse();
+				$parentLabel = $this->parentClassLabel();
+				$sameAsParent = $this->msg(
+					'embeddablecontent-source-bookexcerpt-sameparent-help',
+					$parentLabel
+				)->parse();
+				$fields['issuedYear']['help'] = $sameAsParent;
+				$fields['authors']['help'] = ( $fields['authors']['help'] ?? '' ) . ' ' . $sameAsParent;
+				// Authors may be left blank: they (like the year) are
+				// inferred from the parent book in beforeCreate, so the
+				// HTMLForm required flag must not block the submit.
+				$fields['authors']['required'] = false;
 				break;
 		}
 
@@ -480,14 +494,71 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		parent::executeManual();
 	}
 
+	// ------------------------------------------------------------- classic page
+	// The base afterCreate() writes a sitelinked Source:<label> page (the
+	// issue-#26 AddSoftware pattern); this class declares the page facts.
+	// bookExcerpt gets NO page — it is part of a book.
+
+	/** Per-class template transcluded by the Source: page skeleton. */
+	private const SOURCE_PAGE_TEMPLATES = [
+		'book' => 'Book',
+		'scholarlyArticle' => 'ScholarlyArticle',
+		'website' => 'Website',
+		'song' => 'Song',
+		'film' => 'Film',
+		'video' => 'Video',
+		'youtubeChannel' => 'YouTubeChannel',
+		'youtubeVideo' => 'YouTubeVideo',
+		'webpage' => 'Webpage',
+	];
+
+	protected function pageNamespace(): ?int {
+		return defined( 'NS_SOURCE' ) ? NS_SOURCE : null;
+	}
+
+	/**
+	 * No classic page for bookExcerpt (a part of a book, not a standalone
+	 * work); every other source class gets a Source: page.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function pageTitleForRecord( array $record ): ?Title {
+		if ( $this->currentClassKey === 'bookExcerpt' ) {
+			return null;
+		}
+		return parent::pageTitleForRecord( $record );
+	}
+
+	protected function pageTemplate(): string {
+		return self::SOURCE_PAGE_TEMPLATES[$this->currentClassKey] ?? '';
+	}
+
+	/**
+	 * Source: page skeleton — prose lives on the page, facts in the item.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function pageSkeleton( array $record, bool $withMarker = false ): string {
+		$template = $this->pageTemplate();
+		$marker = $withMarker ? "\n<!-- " . $this->pagePendingMarker() . " -->\n" : "";
+		if ( $template === '' ) {
+			return $marker;
+		}
+		return "{{" . $template . "}}\n\n== Overview ==\n\n<!-- What this source is and where it comes from. -->\n\n"
+			. "== Content ==\n\n== See also ==\n" . $marker;
+	}
+
 	// ------------------------------------------------------------- validation
 
 	/**
 	 * Cross-field validation before creation (review AND manual paths):
 	 * duration format, author entities (≥1, agent-class), parent item
 	 * (child classes: exists and is instance of the parent class), and the
-	 * YouTube id derived from the URL when not typed. Returning a non-null
-	 * string aborts the creation with the message as a form error.
+	 * YouTube id derived from the URL when not typed. Book excerpts also
+	 * auto-generate their description and infer year/authors from the parent
+	 * book when left blank (BEFORE the author validation, so an inferred
+	 * author set passes). Returning a non-null string aborts the creation
+	 * with the message as a form error.
 	 *
 	 * @param array<string,mixed> $record
 	 */
@@ -499,6 +570,16 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				return $this->msg( 'embeddablecontent-source-error-duration' )->text();
 			}
 			$record['durationSeconds'] = $seconds;
+		}
+
+		// bookExcerpt: description autogen + year/authors from the parent
+		// book when blank — before validateAuthors (blank authors must be
+		// inferred, not rejected).
+		if ( $this->currentClassKey === 'bookExcerpt' ) {
+			$error = $this->fillBookExcerptFromParent( $record );
+			if ( $error !== null ) {
+				return $error;
+			}
 		}
 
 		$error = $this->validateAuthors( $record );
@@ -515,6 +596,104 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		}
 
 		return $this->validateParent( $record );
+	}
+
+	/**
+	 * Book-excerpt conveniences (the parent book item is validated by
+	 * validateParent, which runs after this): when the description is blank,
+	 * auto-generate "Pages a-b (Volume c) of {book}" from the pages/volume
+	 * fields and the parent's label; when the year or the authors are blank,
+	 * copy them from the parent book's own `date` / `attributed to`
+	 * statements. Never errors (the parent was validated) — returns null.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function fillBookExcerptFromParent( array &$record ): ?string {
+		$parentId = trim( (string)( $record['parent'] ?? '' ) );
+		if ( preg_match( '/^Q[1-9]\d*$/', $parentId ) !== 1 ) {
+			return null; // missing/invalid parent is validateParent's error
+		}
+		$parent = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $parentId ) );
+		if ( !$parent instanceof Item ) {
+			return null;
+		}
+
+		if ( trim( (string)( $record['description'] ?? '' ) ) === '' ) {
+			$parts = [];
+			$pages = trim( (string)( $record['pages'] ?? '' ) );
+			if ( $pages !== '' ) {
+				$parts[] = $this->msg( 'embeddablecontent-source-bookexcerpt-desc-pages', $pages )->text();
+			}
+			$volume = trim( (string)( $record['volume'] ?? '' ) );
+			if ( $volume !== '' ) {
+				$parts[] = $this->msg( 'embeddablecontent-source-bookexcerpt-desc-volume', $volume )->text();
+			}
+			$parentLabel = '';
+			$labelTerm = $parent->getLabels()->getByLanguage( 'en' );
+			if ( $labelTerm !== null ) {
+				$parentLabel = $labelTerm->getText();
+			}
+			if ( $parts !== [] && $parentLabel !== '' ) {
+				$record['description'] = $this->msg(
+					'embeddablecontent-source-bookexcerpt-desc',
+					implode( ' ', $parts ),
+					$parentLabel
+				)->text();
+			}
+		}
+
+		if ( empty( $record['issuedYear'] ) ) {
+			$year = $this->itemYear( $parent );
+			if ( $year !== null ) {
+				$record['issuedYear'] = $year;
+			}
+		}
+		if ( empty( $record['authors'] ) ) {
+			$attributedTo = $this->config->provenancePropertyIds()['attributedTo'] ?? null;
+			if ( $attributedTo !== null ) {
+				$parentAuthors = $this->itemEntityValues( $parent, $attributedTo );
+				if ( $parentAuthors !== [] ) {
+					$record['authors'] = implode( ', ', $parentAuthors );
+				}
+			}
+		}
+		return null;
+	}
+
+	/** Year of an item's `date` (P577-aligned) statement, or null. */
+	private function itemYear( Item $item ): ?int {
+		$dateProp = $this->config->provenancePropertyIds()['date'] ?? null;
+		if ( $dateProp === null ) {
+			return null;
+		}
+		foreach ( $item->getStatements()->getByPropertyId( new NumericPropertyId( $dateProp ) ) as $statement ) {
+			$value = $statement->getMainSnak()->getDataValue();
+			if ( $value instanceof TimeValue ) {
+				// "+2020-00-00T00:00:00Z" → 2020
+				return (int)substr( $value->getTime(), 1, 4 );
+			}
+		}
+		return null;
+	}
+
+	/** Entity ids of an item's statements on the given property. */
+	private function itemEntityValues( Item $item, string $propertyId ): array {
+		$out = [];
+		foreach ( $item->getStatements()->getByPropertyId( new NumericPropertyId( $propertyId ) ) as $statement ) {
+			$value = $statement->getMainSnak()->getDataValue();
+			if ( $value instanceof EntityIdValue ) {
+				$out[] = $value->getEntityId()->getSerialization();
+			}
+		}
+		return $out;
+	}
+
+	/** Label of the current class's parent class (e.g. "book"), or ''. */
+	private function parentClassLabel(): string {
+		$parentKey = $this->config->sourceParents()[$this->currentClassKey] ?? null;
+		return $parentKey !== null
+			? $this->msg( 'embeddablecontent-source-class-' . $parentKey )->text()
+			: '';
 	}
 
 	/**
@@ -577,29 +756,43 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 
 	// ------------------------------------------------------------- creation
 
-	protected function createFromRecord( array $record, string $classItemId ): string {
-		$record = $this->enrichRecord( $record );
-		return $this->createOrSkipItem( $this->primaryLabel( $record ), $classItemId, $this->sourceStatementSpecs( $record ), $record );
-	}
-
-	protected function manualCreate( string $label, string $classItemId, array $record ): string {
-		return $this->createOrSkipItem( $label, $classItemId, $this->sourceStatementSpecs( $record ), $record );
-	}
-
 	/**
-	 * Class-aware statement specs: external ids + citation metadata +
-	 * duration (seconds, quantity) + item URL + YouTube identifiers +
-	 * author entities (attributed to) + the child→parent `part of` link.
+	 * Class-aware statement specs (base-class contract): external ids +
+	 * citation metadata + duration (seconds, quantity) + item URL + YouTube
+	 * identifiers + author entities (attributed to) + the child→parent
+	 * `part of` link.
 	 *
 	 * @param array<string,mixed> $record
 	 * @return array<string,mixed> property id => DataValue | DataValue[]
 	 */
-	private function sourceStatementSpecs( array $record ): array {
+	protected function statementSpecs( array $record ): array {
 		$specs = $this->externalIdStatements( $record ) + $this->citationMetadataStatements( $record );
 		$props = $this->config->sourcePropertyIds();
 
 		if ( !empty( $record['durationSeconds'] ) && isset( $props['duration'] ) ) {
 			$specs[$props['duration']] = QuantityValue::newFromNumber( (int)$record['durationSeconds'] );
+		}
+
+		// Chapters (book excerpts): optional count/range string.
+		if ( !empty( $record['chapters'] ) && isset( $props['chapters'] ) ) {
+			$specs[$props['chapters']] = new StringValue( (string)$record['chapters'] );
+		}
+
+		// Year: publication/creation date at YEAR precision on the shared
+		// `date` property (P577-aligned — the citation engine already reads
+		// it as publicationDate). Book-excerpt inference copies this
+		// statement from the parent book item.
+		$year = (int)( $record['issuedYear'] ?? 0 );
+		if ( $year > 0 ) {
+			$dateProp = $this->config->provenancePropertyIds()['date'] ?? null;
+			if ( $dateProp !== null ) {
+				$specs[$dateProp] = new TimeValue(
+					sprintf( '+%04d-00-00T00:00:00Z', $year ),
+					0, 0, 0,
+					TimeValue::PRECISION_YEAR,
+					'http://www.wikidata.org/entity/Q1985727'
+				);
+			}
 		}
 
 		$url = ( new FragmentSanitizer() )->validateUrl( (string)( $record['url'] ?? '' ) );

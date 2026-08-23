@@ -20,6 +20,10 @@ namespace EmbeddableContent\Fetch;
 		public readonly ?string $orcid = null,
 		public readonly ?string $viafId = null,
 		public readonly ?string $isni = null,
+		public readonly ?string $dateOfBirth = null,
+		public readonly ?string $placeOfBirth = null,
+		public readonly ?string $dateOfDeath = null,
+		public readonly ?string $placeOfDeath = null,
 		public readonly ?string $wikidataId = null,
 		public readonly string $provider = '',
 		public readonly ?string $providerId = null

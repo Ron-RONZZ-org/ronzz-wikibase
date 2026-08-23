@@ -29,6 +29,34 @@ $wgNamespacesWithSubpages[NS_FOSS] = true; // FOSS:Name/fr static translations
 $wgContentNamespaces[] = NS_FOSS;
 $wgNamespacesToBeSearchedDefault[NS_FOSS] = true; // custom NS are NOT searched by default
 
+// ---- Person / Source / Collective namespaces (classic pages for items
+// created via Special:AddPerson / AddSource / AddCollective) — same pattern
+// as FOSS. Mirror the production blocks in LocalSettings.php (see
+// RonzzIT:Deployment/Wikibase on the instance).
+define( 'NS_PERSON', 2010 ); // free constant id
+define( 'NS_PERSON_TALK', 2011 );
+$wgExtraNamespaces[NS_PERSON] = 'Person';
+$wgExtraNamespaces[NS_PERSON_TALK] = 'Person_talk';
+$wgNamespacesWithSubpages[NS_PERSON] = true; // Person:Name/fr static translations
+$wgContentNamespaces[] = NS_PERSON;
+$wgNamespacesToBeSearchedDefault[NS_PERSON] = true;
+
+define( 'NS_SOURCE', 2012 ); // free constant id
+define( 'NS_SOURCE_TALK', 2013 );
+$wgExtraNamespaces[NS_SOURCE] = 'Source';
+$wgExtraNamespaces[NS_SOURCE_TALK] = 'Source_talk';
+$wgNamespacesWithSubpages[NS_SOURCE] = true; // Source:Name/fr static translations
+$wgContentNamespaces[] = NS_SOURCE;
+$wgNamespacesToBeSearchedDefault[NS_SOURCE] = true;
+
+define( 'NS_COLLECTIVE', 2014 ); // free constant id
+define( 'NS_COLLECTIVE_TALK', 2015 );
+$wgExtraNamespaces[NS_COLLECTIVE] = 'Collective';
+$wgExtraNamespaces[NS_COLLECTIVE_TALK] = 'Collective_talk';
+$wgNamespacesWithSubpages[NS_COLLECTIVE] = true; // Collective:Name/fr static translations
+$wgContentNamespaces[] = NS_COLLECTIVE;
+$wgNamespacesToBeSearchedDefault[NS_COLLECTIVE] = true;
+
 // ---- Wikibase client (same-wiki) — mirrors production LocalSettings ----
 // Without this the client hooks never run: {{#statements:}} renders nothing
 // and the wikibase_item page property is never set (issue #30 discovered

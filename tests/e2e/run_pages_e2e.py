@@ -202,6 +202,16 @@ def entity_claims(op, api: str, qid: str) -> dict:
     return entity.get("claims", {}), entity.get("labels", {}).get("en", {}).get("value", "")
 
 
+def entity_descriptions(op, api: str, qid: str) -> str:
+    """en description TERM of an item ('' when absent). wbgetentities
+    returns terms as {lang: {language, value}} — dig out the value, same
+    shape as the entity_claims label helper."""
+    r = api_call(op, api, {"action": "wbgetentities", "ids": qid,
+                           "props": "descriptions", "format": "json"})
+    return r.get("entities", {}).get(qid, {}).get("descriptions", {}) \
+        .get("en", {}).get("value", "")
+
+
 def first_value(claims: dict, prop_id: str):
     for stmt in claims.get(prop_id, []):
         dv = stmt.get("mainsnak", {}).get("datavalue", {}).get("value")
@@ -219,6 +229,35 @@ def first_reference_url(claims: dict, prop_id: str) -> str | None:
                     if s.get("datavalue", {}).get("value", "").startswith("http"):
                         return s["datavalue"]["value"]
     return None
+
+
+def flow_final_item(op, base: str, api: str, url: str, body: str, special: str) -> str:
+    """Resolves the created item id after a flow's final submit. Item-only
+    kinds redirect to Item:<id>; page-creating kinds (Person:/Source:/
+    Collective:, issue follow-up) redirect through the complete/<id> finalize
+    round-trip to the classic page, whose wikibase_item page property maps it
+    back to the item."""
+    m = re.search(r"/wiki/Item:(Q\d+)$", url)
+    if m:
+        return m.group(1)
+    m = re.search(r"/wiki/((?:Person|Source|Collective):[^?#]+)$", url)
+    if m:
+        page_title = urllib.parse.unquote(m.group(1)).replace("_", " ")
+        # The wikibase_item page property is written at parse time but its
+        # page_props table row lands via the deferred LinkUpdate — retry a
+        # few times (a cold cache / jobrunner-less stack can lag a beat).
+        qid = None
+        for _ in range(5):
+            r = api_call(op, api, {"action": "query", "titles": page_title,
+                                   "prop": "pageprops", "format": "json"})
+            for page in r.get("query", {}).get("pages", {}).values():
+                qid = page.get("pageprops", {}).get("wikibase_item")
+                if qid:
+                    return qid
+            time.sleep(1)
+        raise FlowError(f"{special} page {page_title} has no wikibase_item "
+                        f"(finalize step did not map the sitelink)")
+    raise FlowError(f"{special} did not redirect to an item or classic page: {url} {find_error(body)}")
 
 
 # ------------------------------------------------------------- page flows
@@ -276,27 +315,26 @@ def flow_search_select_create(op, base: str, api: str, special: str, search_fiel
         "wpEditToken": token3,
         "wpSubmit": "1",
     })
-    m = re.search(r"/wiki/Item:(Q\d+)$", url)
-    if not m:
-        raise FlowError(f"Special:{special} review did not redirect to an item: {url} {find_error(body)}")
-    return m.group(1)
+    return flow_final_item(op, base, api, url, body, f"Special:{special}")
 
 
-def flow_manual(op, base: str, api: str, special: str, label: str, class_item: str) -> str:
+def flow_manual(op, base: str, api: str, special: str, label: str, class_item: str,
+                extra_fields: dict | None = None) -> str:
     """Manual-entry fallback (issue #12): Special:<name>/manual creates from
-    blank (no external record)."""
+    blank (no external record). extra_fields carries additional review-form
+    fields (e.g. the person birth/death facts), keyed as wp<FieldName>."""
     url, body = page_get(op, base, f"/wiki/Special:{special}/manual")
     token = edit_token(body)
-    url, body = page_post(op, url, {
+    fields = {
         "wplabel": label,
         "wpclass": class_item,
         "wpEditToken": token,
         "wpSubmit": "1",
-    })
-    m = re.search(r"/wiki/Item:(Q\d+)$", url)
-    if not m:
-        raise FlowError(f"Special:{special}/manual did not create an item: {url} {find_error(body)}")
-    return m.group(1)
+    }
+    if extra_fields:
+        fields.update(extra_fields)
+    url, body = page_post(op, url, fields)
+    return flow_final_item(op, base, api, url, body, f"Special:{special}/manual")
 
 
 def flow_software_manual(op, base: str, api: str, label: str, class_item: str,
@@ -503,10 +541,7 @@ def flow_source_class_first(op, base: str, api: str, class_key: str, search_fiel
     if review_extra:
         review.update(review_extra)
     url, body = page_post(op, url, review)
-    m = re.search(r"/wiki/Item:(Q\d+)$", url)
-    if not m:
-        raise FlowError(f"AddSource/{class_key} review did not redirect to an item: {url} {find_error(body)}")
-    return m.group(1)
+    return flow_final_item(op, base, api, url, body, f"AddSource/{class_key}")
 
 
 def flow_source_class_manual(op, base: str, api: str, class_key: str, fields: dict) -> str:
@@ -517,10 +552,7 @@ def flow_source_class_manual(op, base: str, api: str, class_key: str, fields: di
     post = {"wpEditToken": token, "wpSubmit": "1"}
     post.update(fields)
     url, body = page_post(op, url, post)
-    m = re.search(r"/wiki/Item:(Q\d+)$", url)
-    if not m:
-        raise FlowError(f"AddSource/{class_key}/manual did not create an item: {url} {find_error(body)}")
-    return m.group(1)
+    return flow_final_item(op, base, api, url, body, f"AddSource/{class_key}/manual")
 
 
 def flow_sitelink_tab(op, base: str, api: str, linked_page: str, linked_qid: str) -> None:
@@ -745,6 +777,17 @@ def main() -> int:
         resolve("person", "item"),
         resolve("organization", "item"),
         resolve("group of humans", "item"),
+        resolve("private company", "item"),
+        resolve("public company", "item"),
+        resolve("non-profit organization", "item"),
+        resolve("governmental agency", "item"),
+        resolve("music band", "item"),
+        resolve("educational institution", "item"),
+        resolve("research institute", "item"),
+        resolve("political party", "item"),
+        resolve("trade union", "item"),
+        resolve("religious organization", "item"),
+        resolve("sports team", "item"),
     }
     print(f"[ok] vocabulary resolved (instance-of={instance_of}, person={person_class}, "
           f"scholarly article={scholarly_class})")
@@ -790,6 +833,34 @@ def main() -> int:
         assert first_value(claims, wikidata_id_prop), f"{person} missing Wikidata ID"
         assert first_reference_url(claims, wikidata_id_prop), f"{person} missing import reference"
         print(f"[ok] AddPerson -> {person} ({label}): instance-of person, Wikidata ID + import reference")
+
+        # 1b. AddPerson manual with the birth/death facts: day-precision date
+        #     fields + entity-combobox places, with the deceased toggle open.
+        date_of_birth_prop = resolve("date of birth", "property")
+        place_of_birth_prop = resolve("place of birth", "property")
+        date_of_death_prop = resolve("date of death", "property")
+        place_of_death_prop = resolve("place of death", "property")
+        person_manual_label = f"Page-flow E2E person {int(time.time())}"
+        person_manual = track(flow_manual(op, base, api, "AddPerson", person_manual_label,
+                                          person_class, {
+                                              "wpdateOfBirth": "1960-01-02",
+                                              "wpplaceOfBirth": person,
+                                              "wpdeceased": "1",
+                                              "wpdateOfDeath": "2015-03-04",
+                                              "wpplaceOfDeath": person,
+                                          }))
+        claims, _ = entity_claims(op, api, person_manual)
+        assert first_value(claims, date_of_birth_prop) is not None and \
+            first_value(claims, date_of_birth_prop).get("time", "").startswith("+1960-01-02"), \
+            f"{person_manual} date of birth statement not written"
+        assert first_value(claims, place_of_birth_prop) == person, \
+            f"{person_manual} place of birth statement not written"
+        assert first_value(claims, date_of_death_prop).get("time", "").startswith("+2015-03-04"), \
+            f"{person_manual} date of death statement not written (deceased toggle)"
+        assert first_value(claims, place_of_death_prop) == person, \
+            f"{person_manual} place of death statement not written"
+        print(f"[ok] AddPerson/manual -> {person_manual}: birth/death dates + places, "
+              f"deceased toggle")
 
         # 2. AddSource (class-first) — DOI -> Crossref, scholarly article
         #    class fixed by the picker, harvested citation metadata, and the
@@ -847,18 +918,40 @@ def main() -> int:
         print(f"[ok] AddSource (website, manual-only) -> {website}: website class + URL")
 
         # 2d. Child class: bookExcerpt requires an existing book parent,
-        #     auto-links it with a `part of` statement.
+        #     auto-links it with a `part of` statement. Blank description /
+        #     year / authors are auto-generated / inferred from the parent
+        #     book: description -> "Pages a-b (Volume c) of {book}", year
+        #     and authors copied from the parent's date / attributed-to
+        #     statements. Also a regression: the description TERM and the
+        #     year STATEMENT are persisted (both were previously discarded).
         book = resolve("Notes by the Translator", "item")  # seed dogfood book
+        book_author = resolve("Ada Lovelace", "item")  # dogfood book's author
         excerpt_label = f"Page-flow E2E book excerpt {int(time.time())}"
         excerpt = track(flow_source_class_manual(op, base, api, "bookExcerpt", {
-            "wptitle": excerpt_label, "wpauthors": person,
-            "wpparent": book, "wppages": "12-30"}))
+            "wptitle": excerpt_label, "wpparent": book,
+            "wppages": "12-30", "wpvolume": "2"}))
         claims, _ = entity_claims(op, api, excerpt)
         assert first_value(claims, instance_of) == book_excerpt_class, \
             f"{excerpt} instance-of != book excerpt ({first_value(claims, instance_of)})"
         assert first_value(claims, part_of_prop) == book, \
             f"{excerpt} missing the part-of link to the parent book"
-        print(f"[ok] AddSource (bookExcerpt) -> {excerpt}: child class + part-of -> {book}")
+        assert entity_descriptions(op, api, excerpt) == \
+            "Pages 12-30 (Volume 2) of Notes by the Translator", \
+            f"{excerpt} description not auto-generated from pages/volume + parent"
+        date_claim = first_value(claims, resolve("date", "property"))
+        assert date_claim is not None and str(date_claim.get("time", "")).startswith("+1843"), \
+            f"{excerpt} year not inferred from the parent book ({date_claim})"
+        assert first_value(claims, resolve("attributed to", "property")) == book_author, \
+            f"{excerpt} authors not inferred from the parent book"
+        # Caveat: bookExcerpt is part of a book — it must NOT create a
+        # Source: page (unlike the other source classes).
+        page_q = api_call(op, api, {"action": "query", "titles": f"Source:{excerpt_label}",
+                                    "format": "json"})
+        pages = list(page_q.get("query", {}).get("pages", {}).values())
+        assert not pages or "missing" in pages[0], \
+            f"bookExcerpt {excerpt} unexpectedly created a Source: page"
+        print(f"[ok] AddSource (bookExcerpt) -> {excerpt}: child class + part-of -> {book}; "
+              f"description autogen + year/authors inferred from parent, no Source: page")
 
         # 2e. YouTube chain: a channel (URL -> ID derived server-side), then a
         #     youtubeVideo child of that channel with a duration in seconds.
