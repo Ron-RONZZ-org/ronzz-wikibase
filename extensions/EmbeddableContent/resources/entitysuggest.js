@@ -20,12 +20,18 @@
 	'use strict';
 
 	mw.loader.using( 'oojs-ui' ).then( function () {
-		// HTMLForm puts the cssclass on BOTH the outer field wrapper
-		// (.mw-htmlform-field-HTMLComboboxField) and the OOUI widget; only
-		// the widget carries data-ooui and can be infused. Selecting both and
-		// infusing the outer one throws, aborting the .each() loop and
-		// leaving every combobox unwired.
-		$( '.wb-entity-combobox[data-ooui]' ).each( function () {
+		// MW 1.46's OOUI HTMLForm renders TWO elements per combobox field
+		// carrying the `wb-entity-combobox` cssclass AND a data-ooui:
+		//   - the outer mw.htmlform.FieldLayout wrapper (data-ooui type
+		//     "mw.htmlform.FieldLayout"), and
+		//   - the actual OO.ui.ComboBoxInputWidget (data-ooui type
+		//     "OO.ui.ComboBoxInputWidget").
+		// Selecting `.wb-entity-combobox[data-ooui]` matches the wrapper
+		// FIRST; infusing a FieldLayout as a ComboBoxInputWidget throws, and
+		// the exception aborts the .each() loop — leaving EVERY combobox on
+		// the page unwired (the Author(s) field symptom, all Add* pages).
+		// Target the widget element itself via its OOUI class instead.
+		$( '.wb-entity-combobox.oo-ui-comboBoxInputWidget' ).each( function () {
 			var $el = $( this );
 			var multi = $el.hasClass( 'wb-entity-combobox-multi' );
 			var combo = OO.ui.ComboBoxInputWidget.static.infuse( $el );
@@ -53,35 +59,63 @@
 					}
 					return;
 				}
-				// Keep the RAW api.get() request as `pending`: a .then()
+				// Keep the RAW api.get() requests as `pending`: a .then()
 				// derivative is a plain promise without .abort(), so the
 				// second search used to throw "pending.abort is not a
 				// function" and never update the suggestions.
 				if ( pending ) {
-					pending.abort();
+					Array.isArray( pending ) ? pending.forEach( function ( r ) { r.abort(); } ) : pending.abort();
 				}
-				pending = api.get( {
-					action: 'wbsearchentities',
-					search: q,
-					language: mw.config.get( 'wgUserLanguage' ) || 'en',
-					type: 'item',
-					limit: 10,
-					format: 'json'
+				// The instance's wbsearchentities is CASE-SENSITIVE by
+				// default (upstream Wikibase T242644 — the term store keeps
+				// wbx_text as VARBINARY and matches the exact-case prefix).
+				// People type lowercase, so query the raw text plus the
+				// likely-case variants in parallel (title-cased per word for
+				// ordinary labels, all-uppercase for acronyms like "GNU")
+				// and merge the deduped hits.
+				var queries = [ q ];
+				var tc = q.replace( /(^|\s)(\S)/g, function ( m, pre, ch ) {
+					return pre + ch.toUpperCase();
 				} );
-				pending.then( function ( data ) {
-					var options = ( data.search || [] ).map( function ( row ) {
-						var label = row.id;
-						if ( row.label ) {
-							label = row.id + ' — ' + row.label;
-						}
-						if ( row.description ) {
-							label += ' (' + row.description + ')';
-						}
-						return { data: row.id, label: label };
+				var up = q.toUpperCase();
+				if ( tc !== q ) {
+					queries.push( tc );
+				}
+				if ( up !== q && up !== tc ) {
+					queries.push( up );
+				}
+				pending = queries.map( function ( sq ) {
+					return api.get( {
+						action: 'wbsearchentities',
+						search: sq,
+						language: mw.config.get( 'wgUserLanguage' ) || 'en',
+						type: 'item',
+						limit: 10,
+						format: 'json'
+					} );
+				} );
+				Promise.all( pending ).then( function ( results ) {
+					var seen = {};
+					var options = [];
+					( results || [] ).forEach( function ( data ) {
+						( data.search || [] ).forEach( function ( row ) {
+							if ( seen[ row.id ] ) {
+								return;
+							}
+							seen[ row.id ] = true;
+							var label = row.id;
+							if ( row.label ) {
+								label = row.id + ' — ' + row.label;
+							}
+							if ( row.description ) {
+								label += ' (' + row.description + ')';
+							}
+							options.push( { data: row.id, label: label } );
+						} );
 					} );
 					combo.setOptions( options );
 					// setOptions does not open the menu on its own.
-					combo.getMenu().toggle( true );
+					combo.getMenu().toggle( options.length > 0 );
 				} ).catch( function () {
 					// Non-fatal: the combobox still accepts a typed item id,
 					// which the server-side parse validates.
@@ -96,7 +130,11 @@
 				// captures exactly that: it fires on user typing/paste, but
 				// NOT on programmatic setValue(), so it never sees the
 				// widget's own post-pick overwrite.
-				var inputEl = combo.input.$input[ 0 ];
+				// NOTE: `combo.$input` IS the text-input element — this
+				// OOUI's ComboBoxInputWidget has no `.input` sub-widget
+				// (the old `combo.input.$input` crashed here, unwiring every
+				// combobox on the page).
+				var inputEl = combo.$input[ 0 ];
 				var lastUserValue = String( inputEl ? inputEl.value : '' );
 				if ( inputEl ) {
 					inputEl.addEventListener( 'input', function () {
