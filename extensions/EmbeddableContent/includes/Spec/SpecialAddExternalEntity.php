@@ -11,6 +11,7 @@ use EmbeddableContent\Fetch\ProviderClient;
 use EmbeddableContent\Fetch\ProviderResult;
 use MediaWiki\HTMLForm\HTMLForm;
 use MediaWiki\SpecialPage\SpecialPage;
+use MediaWiki\Title\Title;
 use Wikimedia\Rdbms\DBError;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;

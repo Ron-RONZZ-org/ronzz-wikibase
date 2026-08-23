@@ -245,11 +245,18 @@ def flow_search_select_create(op, base: str, api: str, special: str, search_fiel
 
     # Selection step: detailed candidate table + radio + class picker.
     candidates = ooui_options(body, "mw-input-wpcandidates")
-    classes = ooui_options(body, "mw-input-wpclass")
-    if not candidates or not classes:
-        raise FlowError(f"Special:{special} selection page rendered no candidates/classes")
+    if not candidates:
+        raise FlowError(f"Special:{special} selection page rendered no candidates")
+    # Class: a select when several classes exist, a HIDDEN single-class
+    # field when the flow fixed the class (issue follow-up, class-first).
+    try:
+        cls = ooui_widget(body, "mw-input-wpclass").get("value")
+    except FlowError:
+        cls = None
+    if cls is None:
+        m = re.search(r'name="wpclass"[^>]*value="(Q\d+)"', body)
+        cls = m.group(1) if m else ""
     index = str(min(pick_index, len(candidates) - 1))
-    cls = ooui_widget(body, "mw-input-wpclass").get("value") or classes[0]["data"]
     token2 = edit_token(body)
 
     url, body = page_post(op, url, {
@@ -352,10 +359,17 @@ def flow_software(op, base: str, api: str, name: str) -> tuple[str, str]:
 
     # Selection step: detailed candidate table + radio + class picker.
     candidates = ooui_options(body, "mw-input-wpcandidates")
-    classes = ooui_options(body, "mw-input-wpclass")
-    if not candidates or not classes:
-        raise FlowError("AddSoftware selection page rendered no candidates/classes")
-    cls = ooui_widget(body, "mw-input-wpclass").get("value") or classes[0]["data"]
+    if not candidates:
+        raise FlowError("AddSoftware selection page rendered no candidates")
+    # Class: a select when several classes exist, a HIDDEN single-class
+    # field when the flow fixed the class (issue follow-up, class-first).
+    try:
+        cls = ooui_widget(body, "mw-input-wpclass").get("value")
+    except FlowError:
+        cls = None
+    if cls is None:
+        m = re.search(r'name="wpclass"[^>]*value="(Q\d+)"', body)
+        cls = m.group(1) if m else ""
     token2 = edit_token(body)
     url, body = page_post(op, url, {
         "wpcandidates": "0",
@@ -469,7 +483,7 @@ def flow_source_class_first(op, base: str, api: str, class_key: str, search_fiel
     candidates = ooui_options(body, "mw-input-wpcandidates")
     if not candidates:
         raise FlowError(f"AddSource/{class_key} selection page rendered no candidates")
-    cls = re.search(r'name="wpclass" value="(Q\d+)"', body)
+    cls = re.search(r'name="wpclass"[^>]*value="(Q\d+)"', body)
     cls = cls.group(1) if cls else (ooui_widget(body, "mw-input-wpclass").get("value") or "")
     index = str(min(pick_index, len(candidates) - 1))
     token2 = edit_token(body)
@@ -824,7 +838,7 @@ def main() -> int:
         website_label = f"Page-flow E2E website {int(time.time())}"
         website = track(flow_source_class_manual(op, base, api, "website", {
             "wptitle": website_label, "wpauthors": person,
-            "wputl": "https://example.org/e2e"}))
+            "wpurl": "https://example.org/e2e"}))
         claims, _ = entity_claims(op, api, website)
         assert first_value(claims, instance_of) == website_class, \
             f"{website} instance-of != website ({first_value(claims, instance_of)})"
@@ -851,7 +865,7 @@ def main() -> int:
         channel_label = f"Page-flow E2E channel {int(time.time())}"
         channel = track(flow_source_class_manual(op, base, api, "youtubeChannel", {
             "wptitle": channel_label, "wpauthors": person,
-            "wputl": "https://www.youtube.com/channel/UCE2E2e2e2e2e2e2e2e2e2e2"}))
+            "wpurl": "https://www.youtube.com/channel/UCE2E2e2e2e2e2e2e2e2e2e2"}))
         claims, _ = entity_claims(op, api, channel)
         assert first_value(claims, instance_of) == youtube_channel_class, \
             f"{channel} instance-of != YouTube channel ({first_value(claims, instance_of)})"

@@ -4,7 +4,6 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\Spec;
 
-use DataValues\EntityIdValue;
 use DataValues\QuantityValue;
 use DataValues\StringValue;
 use EmbeddableContent\Content\FragmentSanitizer;
@@ -12,6 +11,7 @@ use EmbeddableContent\Duration;
 use EmbeddableContent\Fetch\ProviderResult;
 use EmbeddableContent\Fetch\WorkRecord;
 use EmbeddableContent\Fetch\YouTubeProvider;
+use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\DataModel\Entity\NumericPropertyId;
