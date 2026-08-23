@@ -96,4 +96,13 @@ class OpenLibraryProvider implements WorkProvider {
 		}
 		return (int)$m[0];
 	}
+
+	/**
+	 * Open Library has no abstract/keyword payload.
+	 *
+	 * @return array{abstract: ?string, keywords: ?string, source: ?string}
+	 */
+	public function abstractAndKeywordsByDoi( string $doi ): array {
+		return [ 'abstract' => null, 'keywords' => null, 'source' => null ];
+	}
 }

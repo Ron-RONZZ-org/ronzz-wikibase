@@ -87,12 +87,26 @@ class OpenAlexProvider implements PersonProvider, WorkProvider {
 			$out[] = new PersonRecord(
 				label: (string)$author['display_name'],
 				orcid: $this->extractOrcid( $author['orcid'] ?? null ),
+				openalexId: $this->extractOpenAlexId( $author['id'] ?? null ),
 				wikidataId: $this->extractQid( $author['ids']['wikidata'] ?? null ),
 				provider: 'openalex',
 				providerId: $author['id'] ?? null
 			);
 		}
 		return $out;
+	}
+
+	/**
+	 * OpenAlex ids are served as full URLs ("https://openalex.org/W2741809807")
+	 * — the external-id property stores the bare id ("W2741809807", the
+	 * formatter URL renders it back). Same for author A-ids.
+	 */
+	private function extractOpenAlexId( $value ): ?string {
+		if ( !is_string( $value ) ) {
+			return null;
+		}
+		$id = basename( $value );
+		return preg_match( '/^[WA]\d+$/i', $id ) === 1 ? $id : null;
 	}
 
 	/**
@@ -121,15 +135,105 @@ class OpenAlexProvider implements PersonProvider, WorkProvider {
 				issue: isset( $biblio['issue'] ) ? (string)$biblio['issue'] : null,
 				pages: $pages,
 				doi: $this->extractDoi( $work['doi'] ?? null ),
-				openalexId: isset( $work['id'] ) ? (string)$work['id'] : null,
+				openalexId: $this->extractOpenAlexId( $work['id'] ?? null ),
 				pubmedId: $this->extractPmid( $work['ids']['pmid'] ?? null ),
 				wikidataId: $this->extractQid( $work['ids']['wikidata'] ?? null ),
 				issuedYear: $this->extractYear( $work['publication_date'] ?? null ),
 				provider: 'openalex',
-				providerId: isset( $work['id'] ) ? (string)$work['id'] : null
+				providerId: isset( $work['id'] ) ? (string)$work['id'] : null,
+				// Search responses carry the inverted-index abstract + the
+				// keyword list — expose them when present (the page-content
+				// fetch prefers the dedicated by-DOI endpoint, but a search
+				// hit should not lose them).
+				abstract: $this->abstractFromInvertedIndex( $work['abstract_inverted_index'] ?? null ),
+				keywords: $this->keywordsFromWork( $work['keywords'] ?? null )
 			);
 		}
 		return $out;
+	}
+
+	/**
+	 * @return array{abstract: ?string, keywords: ?string, source: ?string}
+	 */
+	public function abstractAndKeywordsByDoi( string $doi ): array {
+		return $this->abstractAndKeywordsFor( 'doi:' . rawurlencode( strtolower( $doi ) ) );
+	}
+
+	/**
+	 * @return array{abstract: ?string, keywords: ?string, source: ?string}
+	 */
+	public function abstractAndKeywordsById( string $openalexId ): array {
+		return $this->abstractAndKeywordsFor( $openalexId );
+	}
+
+	/**
+	 * @return array{abstract: ?string, keywords: ?string, source: ?string}
+	 */
+	private function abstractAndKeywordsFor( string $selector ): array {
+		try {
+			$data = $this->http->getJson( self::API . '/works/' . $selector, [], $this->timeout );
+		} catch ( \Throwable $e ) {
+			return [ 'abstract' => null, 'keywords' => null, 'source' => null ];
+		}
+		if ( !is_array( $data ) || empty( $data['title'] ) ) {
+			return [ 'abstract' => null, 'keywords' => null, 'source' => null ];
+		}
+		return [
+			'abstract' => $this->abstractFromInvertedIndex( $data['abstract_inverted_index'] ?? null ),
+			'keywords' => $this->keywordsFromWork( $data['keywords'] ?? null ),
+			'source' => 'openalex',
+		];
+	}
+
+	/**
+	 * Reconstructs the plain-text abstract from OpenAlex's inverted index
+	 * (word → positions). OpenAlex does not serve a plain-text abstract
+	 * field; the index is the exact token stream (words AND punctuation), so
+	 * joining the tokens at their positions reproduces the original text.
+	 * Returns null when the index is absent; capped at 1500 chars.
+	 *
+	 * @param mixed $index
+	 */
+	private function abstractFromInvertedIndex( $index ): ?string {
+		if ( !is_array( $index ) || $index === [] ) {
+			return null;
+		}
+		$positions = [];
+		foreach ( $index as $word => $poses ) {
+			if ( !is_array( $poses ) ) {
+				continue;
+			}
+			foreach ( $poses as $pos ) {
+				if ( is_int( $pos ) || ( is_string( $pos ) && is_numeric( $pos ) ) ) {
+					$positions[(int)$pos] = (string)$word;
+				}
+			}
+		}
+		if ( $positions === [] ) {
+			return null;
+		}
+		ksort( $positions );
+		$abstract = trim( implode( ' ', $positions ) );
+		// The token join reintroduces stray spaces around punctuation.
+		$abstract = (string)preg_replace( '/\s+([,.;:!?%\)\]])/', '$1', $abstract );
+		$abstract = (string)preg_replace( '/([\(\[])\s+/', '$1', $abstract );
+		$abstract = trim( $abstract );
+		if ( mb_strlen( $abstract ) > 1500 ) {
+			$abstract = mb_substr( $abstract, 0, 1499 ) . '…';
+		}
+		return $abstract;
+	}
+
+	/** Comma-joined OpenAlex keyword list, or null when absent. */
+	private function keywordsFromWork( $keywords ): ?string {
+		if ( !is_array( $keywords ) || $keywords === [] ) {
+			return null;
+		}
+		$keywords = array_values( array_filter(
+			$keywords,
+			static fn ( $k ): bool => is_string( $k ) && $k !== ''
+		) );
+		return $keywords === [] ? null : implode( ', ', $keywords );
 	}
 
 	private function extractOrcid( $orcid ): ?string {

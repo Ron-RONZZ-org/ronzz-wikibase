@@ -46,4 +46,14 @@ interface WorkProvider {
 	public function byDoi( string $doi ): ?WorkRecord;
 
 	public function byIsbn( string $isbn ): ?WorkRecord;
+
+	/**
+	 * Best-effort abstract + keywords for a DOI (the page-content fetch for
+	 * scholarly articles). Providers without abstracts return [].
+	 *
+	 * @return array{abstract: ?string, keywords: ?string, source: ?string}
+	 *   'abstract'/'keywords' null when absent; 'source' one of
+	 *   'openalex'|'crossref' when content was returned
+	 */
+	public function abstractAndKeywordsByDoi( string $doi ): array;
 }

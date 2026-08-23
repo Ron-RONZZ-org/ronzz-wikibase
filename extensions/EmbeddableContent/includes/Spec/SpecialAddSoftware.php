@@ -309,7 +309,9 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 	/**
 	 * FOSS: page skeleton — prose lives on the page, facts in the item; the
 	 * logo (when uploaded) is passed to Template:FOSS, which hands it to the
-	 * infobox so it renders inside the box (see Template:FOSS).
+	 * infobox so it renders inside the box (see Template:FOSS). Only
+	 * sections with content are rendered: an == Overview == from the
+	 * description when present, never an empty scaffold.
 	 *
 	 * @param array<string,mixed> $record
 	 */
@@ -319,8 +321,12 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		$logoParam = $logoFile !== ''
 			? '|logo=[[File:' . $logoFile . '|frameless|220px|Logo]]'
 			: '';
-		return "{{FOSS{$logoParam}}}\n\n== Overview ==\n\n<!-- What this software does and who it is for. -->\n\n"
-			. "== Features ==\n\n== Alternatives ==\n\n== See also ==\n" . $marker;
+		$body = "{{FOSS{$logoParam}}}\n\n";
+		$overview = trim( (string)( $record['description'] ?? '' ) );
+		if ( $overview !== '' ) {
+			$body .= "== Overview ==\n\n{$overview}\n\n";
+		}
+		return $body . $marker;
 	}
 
 	protected function pageEditSummary( string $label ): string {

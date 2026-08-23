@@ -85,4 +85,24 @@ final class CrossrefProviderTest extends TestCase {
 		$provider = new CrossrefProvider( new FakeHttpClient() );
 		$this->assertSame( [], $provider->searchByAuthorEntities( [ 'Q42' ] ) );
 	}
+
+	public function testAbstractAndKeywordsByDoiStripsJatsTags(): void {
+		$http = ( new FakeHttpClient() )->onJson( '/works/10.1000%2Fxyz', [
+			'message' => [
+				'title' => [ 'A paper' ],
+				'abstract' => '<jats:p>The <jats:italic>quick</jats:italic> brown fox.</jats:p>',
+			],
+		] );
+		$data = ( new CrossrefProvider( $http ) )->abstractAndKeywordsByDoi( '10.1000/xyz' );
+
+		$this->assertSame( 'The quick brown fox.', $data['abstract'] );
+		$this->assertSame( 'crossref', $data['source'] );
+	}
+
+	public function testAbstractAndKeywordsByDoiNullWithoutAbstract(): void {
+		$http = ( new FakeHttpClient() )->onJson( '/works/10.1000%2Fxyz', [ 'message' => [ 'title' => [ 'No abstract' ] ] ] );
+		$data = ( new CrossrefProvider( $http ) )->abstractAndKeywordsByDoi( '10.1000/xyz' );
+		$this->assertNull( $data['abstract'] );
+		$this->assertNull( $data['keywords'] );
+	}
 }

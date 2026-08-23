@@ -49,7 +49,7 @@ use Wikibase\Repo\WikibaseRepo;
  */
 abstract class SpecialAddExternalEntity extends SpecialPage {
 
-	private const SESSION_PREFIX = 'extadd:';
+	protected const SESSION_PREFIX = 'extadd:';
 
 	/** @var EmbeddableContentConfig */
 	protected $config;
@@ -131,10 +131,19 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			return;
 		}
 		if ( $first === 'manual' ) {
+			if ( ( $parts[1] ?? '' ) === 'content' ) {
+				$this->executeManualContent();
+				return;
+			}
 			$this->executeManual();
 			return;
 		}
 		if ( ( $parts[1] ?? '' ) === 'review' && ( $parts[2] ?? '' ) !== '' ) {
+			if ( ( $parts[3] ?? '' ) === 'content' ) {
+				// Fetched-content review step: /<token>/review/<i>/content.
+				$this->executeContent( $first, (int)$parts[2] );
+				return;
+			}
 			$this->executeReview( $first, (int)$parts[2] );
 			return;
 		}
@@ -171,22 +180,37 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	// ------------------------------------------------------------- step 1
 
 	protected function executeSearch(): void {
-		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-' . $this->kindKey() . '-title' )->text() );
+		$this->getOutput()->setPageTitle( $this->searchStepTitleMessage()->text() );
 		$form = HTMLForm::factory( 'ooui', $this->buildSearchFields(), $this->getContext() );
 		$form->setTitle( $this->stepTitle() )
 			->setSubmitTextMsg( 'embeddablecontent-extsearch-submit' )
 			->setSubmitCallback( [ $this, 'onSearchSubmit' ] )
 			->setSubmitID( 'wb-ext-add-search' )
-			->setWrapperLegendMsg( 'embeddablecontent-extsearch-legend' );
+			->setWrapperLegendMsg( $this->searchStepLegendMessage() );
 		$form->show();
 		// Manual fallback (issue #12): always offered, also shown on zero hits.
 		$this->getOutput()->addHTML( $this->manualFallbackHtml() );
 	}
 
 	/**
-	 * "No matching record? Create the item manually instead" link to the
-	 * manual step. $query extra URL parameters (e.g. the session token for
-	 * search-autofill, issue #35).
+	 * Page title of the search step. The default is the kind's root title
+	 * (e.g. "Special:AddPerson"); Special:AddSource overrides it with the
+	 * class-scoped "Search for {class} … from an external authority".
+	 */
+	protected function searchStepTitleMessage(): \Message {
+		return $this->msg( 'embeddablecontent-' . $this->kindKey() . '-title' );
+	}
+
+	/** Form-legend message of the search step (kind-scoped). */
+	protected function searchStepLegendMessage(): string {
+		return 'embeddablecontent-' . $this->kindKey() . '-extsearch-legend';
+	}
+
+	/**
+	 * "Create the item manually instead" link to the manual step. $query
+	 * extra URL parameters (e.g. the session token for search-autofill,
+	 * issue #35). The old "No matching record?" preface is gone — the user
+	 * cannot know whether a record matches until they search.
 	 *
 	 * @param array<string,string> $query
 	 */
@@ -194,8 +218,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		return \MediaWiki\Html\Html::rawElement(
 			'p',
 			[ 'class' => 'wb-ext-manual' ],
-			$this->msg( 'embeddablecontent-manual-hint' )->parse()
-			. ' <a href="' . htmlspecialchars( $this->stepTitle( 'manual' )->getFullURL( $query ) ) . '">'
+			'<a href="' . htmlspecialchars( $this->stepTitle( 'manual' )->getFullURL( $query ) ) . '">'
 			. $this->msg( 'embeddablecontent-manual-link' )->escaped() . '</a>'
 		);
 	}
@@ -345,8 +368,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	}
 
 	/**
-	 * Applies the user's hand-edits to the harvested record and creates the
-	 * item (issue #12).
+	 * Applies the user's hand-edits to the harvested record, validates it,
+	 * then either routes to the fetched-content review step (when the record
+	 * carries page content — abstract/keywords/intro/plot/lyrics/…) or
+	 * creates the item directly (issue #12 + follow-up).
 	 *
 	 * @param array<string,mixed> $data
 	 * @param array<int,array<string,mixed>> $records
@@ -371,14 +396,132 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			$value = is_array( $data[$name] ) ? '' : (string)$data[$name];
 			$record[$name] = ( $name === 'issuedYear' && $value !== '' ) ? (int)$value : $value;
 		}
+		// Validate now so errors surface on the RECORD form, not on the
+		// content step. Side effects (file uploads) are idempotent — the
+		// final creation re-runs beforeCreate without duplicating them.
 		$beforeError = $this->beforeCreate( $record );
 		if ( $beforeError !== null ) {
 			return $beforeError;
 		}
+
+		$records[$index] = $record;
+		$this->getRequest()->getSession()->set( self::SESSION_PREFIX . $token, $records );
+
+		if ( $this->recordHasContent( $record ) ) {
+			$this->getOutput()->redirect(
+				$this->stepTitle( $token . '/review/' . $index . '/content' )->getFullURL()
+			);
+			return true;
+		}
+		return $this->createItemAndRedirect( $record, $classItemId, $token );
+	}
+
+	// ------------------------------------------------------------- content step
+	// Fetched page content (abstract/keywords/intro/plot/lyrics/…) is
+	// reviewed on its OWN step after the record review — the record form
+	// stays about facts, the content form about prose. The step is skipped
+	// entirely when nothing was fetched (no blank forms, no clutter).
+
+	/**
+	 * Editable content-field specs for the content review step: one
+	 * MULTI-LINE textarea per fetched content key. The default has no
+	 * content fields; subclasses declare their page-content keys (e.g.
+	 * Special:AddSource per source class, Special:AddPerson biography).
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,mixed> fieldname => descriptor
+	 */
+	protected function contentFieldSpecs( array $record ): array {
+		return [];
+	}
+
+	/** @return string[] content field names (record keys) */
+	protected function contentKeys(): array {
+		return array_keys( $this->contentFieldSpecs( [] ) );
+	}
+
+	/** Whether the record carries any page content for the content step. */
+	protected function recordHasContent( array $record ): bool {
+		foreach ( $this->contentKeys() as $key ) {
+			if ( !empty( $record[$key] ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Overwrites the record's content fields from the content-step POST.
+	 * Cleared fields become '' → the page section is omitted.
+	 *
+	 * @param array<string,mixed> $record
+	 * @param array<string,mixed> $data
+	 * @return array<string,mixed>
+	 */
+	private function applyContentFields( array $record, array $data ): array {
+		foreach ( $this->contentFieldSpecs( $record ) as $name => $_ ) {
+			if ( !array_key_exists( $name, $data ) ) {
+				continue;
+			}
+			$value = is_array( $data[$name] ) ? '' : trim( (string)$data[$name] );
+			$record[$name] = $value;
+		}
+		return $record;
+	}
+
+	protected function executeContent( string $token, int $index ): void {
+		$records = $this->loadSessionRecords( $token );
+		$record = $records[$index] ?? null;
+		if ( $record === null || !is_array( $record ) ) {
+			$this->showExpired();
+			return;
+		}
+		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-content-review-title' )->text() );
+		$fields = $this->contentFieldSpecs( $record ) + $this->classFieldSpec( $record );
+
+		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
+		$form->setTitle( $this->stepTitle( $token . '/review/' . $index . '/content' ) )
+			->setSubmitTextMsg( 'embeddablecontent-extselect-create' )
+			->setSubmitCallback( fn ( array $data ) => $this->onContentSubmit( $data, $token, $index, $records ) )
+			->setSubmitID( 'wb-ext-add-content' )
+			->setWrapperLegendMsg( 'embeddablecontent-content-review-legend' );
+		$form->show();
+	}
+
+	/**
+	 * @param array<string,mixed> $data
+	 * @param array<int,array<string,mixed>> $records
+	 * @return bool|string
+	 */
+	public function onContentSubmit( array $data, string $token, int $index, array $records ) {
+		$record = $records[$index] ?? null;
+		if ( $record === null || !is_array( $record ) ) {
+			return $this->msg( 'embeddablecontent-extselect-expired' )->text();
+		}
+		$record = $this->applyContentFields( $record, $data );
+		$classItemId = (string)( $data['class'] ?? ( $this->defaultClassItemId( $record ) ?? '' ) );
+		if ( $classItemId === '' ) {
+			return $this->msg( 'embeddablecontent-extselect-classrequired' )->text();
+		}
+		$beforeError = $this->beforeCreate( $record );
+		if ( $beforeError !== null ) {
+			return $beforeError;
+		}
+		return $this->createItemAndRedirect( $record, $classItemId, $token );
+	}
+
+	/**
+	 * Shared creation tail: beforeCreate must already have run (each caller
+	 * runs it exactly once), then the item is created and the user is
+	 * redirected (classic page via afterCreate, or the item).
+	 *
+	 * @param array<string,mixed> $record
+	 * @return bool|string
+	 */
+	private function createItemAndRedirect( array $record, string $classItemId, string $token ): bool {
 		if ( trim( $this->primaryLabel( $record ) ) === '' ) {
 			return $this->msg( 'embeddablecontent-add-error-required' )->text();
 		}
-
 		try {
 			$itemId = $this->createFromRecord( $record, $classItemId );
 		} catch ( \Throwable $e ) {
@@ -386,6 +529,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		}
 
 		$this->getRequest()->getSession()->remove( self::SESSION_PREFIX . $token );
+		$this->getRequest()->getSession()->remove( self::SESSION_PREFIX . $token . ':class' );
 		$target = $this->afterCreate( $itemId, $record );
 		if ( $target !== null ) {
 			$this->getOutput()->redirect( $target );
@@ -417,8 +561,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 
 	/**
 	 * Autofill record for the manual form: the search inputs stored under
-	 * the token (see onSearchSubmit) mapped onto the manual fields. Empty
-	 * when the manual step was reached directly (no token).
+	 * the token (see onSearchSubmit) mapped onto the manual fields, or — for
+	 * the website/webpage URL-first flow — the metadata fetched from the
+	 * entered URL (see SpecialAddSource::onUrlEntrySubmit). Empty when the
+	 * manual step was reached directly (no token).
 	 *
 	 * @return array<string,mixed>
 	 */
@@ -427,8 +573,28 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		if ( $token === null || $token === '' ) {
 			return [];
 		}
-		$search = $this->getRequest()->getSession()->get( self::SESSION_PREFIX . $token . ':search' );
-		return is_array( $search ) ? $this->autofillRecord( $search ) : [];
+		$session = $this->getRequest()->getSession();
+		$search = $session->get( self::SESSION_PREFIX . $token . ':search' );
+		if ( is_array( $search ) ) {
+			return $this->autofillRecord( $search );
+		}
+		$urlMeta = $session->get( self::SESSION_PREFIX . $token . ':urlmeta' );
+		return is_array( $urlMeta ) ? $this->autofillRecord( $urlMeta ) : [];
+	}
+
+	/**
+	 * URL-fetched metadata stored under the session token (the
+	 * website/webpage URL-first flow), or [] when absent.
+	 *
+	 * @return array<string,mixed>
+	 */
+	protected function manualUrlMeta(): array {
+		$token = $this->getRequest()->getVal( 'token' );
+		if ( $token === null || $token === '' ) {
+			return [];
+		}
+		$urlMeta = $this->getRequest()->getSession()->get( self::SESSION_PREFIX . $token . ':urlmeta' );
+		return is_array( $urlMeta ) ? $urlMeta : [];
 	}
 
 	/**
@@ -454,6 +620,9 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 
 	/**
 	 * Creates the item from blank (no external record): no import reference.
+	 * When the record carries page content (e.g. the website/webpage
+	 * URL-first flow's fetched intro/keywords), routes through the content
+	 * review step first.
 	 *
 	 * @param array<string,mixed> $data
 	 * @return bool|string
@@ -478,26 +647,84 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			}
 			$record[$name] = ( $name === 'issuedYear' ) ? (int)$value : $value;
 		}
+		// URL-first flow content (website/webpage): the fetched intro and
+		// keywords ride along for the content review step.
+		$urlMeta = $this->manualUrlMeta();
+		foreach ( $this->contentKeys() as $key ) {
+			if ( empty( $record[$key] ) && !empty( $urlMeta[$key] ) ) {
+				$record[$key] = (string)$urlMeta[$key];
+				$record['contentSources'][$key] = 'site';
+			}
+		}
 		$beforeError = $this->beforeCreate( $record );
 		if ( $beforeError !== null ) {
 			return $beforeError;
 		}
-		$label = $this->primaryLabel( $record );
-		if ( trim( $label ) === '' ) {
-			return $this->msg( 'embeddablecontent-add-error-required' )->text();
+		if ( $this->recordHasContent( $record ) ) {
+			$token = \MWCryptRand::generateHex( 16 );
+			$this->getRequest()->getSession()->set( self::SESSION_PREFIX . $token, [ $record ] );
+			$this->getRequest()->getSession()->set( self::SESSION_PREFIX . $token . ':class', $classItemId );
+			$this->getOutput()->redirect(
+				$this->stepTitle( 'manual/content' )->getFullURL( [ 'token' => $token ] )
+			);
+			return true;
 		}
-		try {
-			$itemId = $this->manualCreate( $label, $classItemId, $record );
-		} catch ( \Throwable $e ) {
-			return $this->msg( 'embeddablecontent-extcreate-error', get_class( $e ), $e->getMessage() )->text();
+		return $this->createItemAndRedirect( $record, $classItemId, '' );
+	}
+
+	/**
+	 * Content review step for the manual path (/manual/content?token=): the
+	 * record assembled by onManualSubmit (stored under the token) is edited
+	 * field by field before creation.
+	 */
+	protected function executeManualContent(): void {
+		$token = $this->getRequest()->getVal( 'token' );
+		$records = $this->loadSessionRecords( $token );
+		$record = $records[0] ?? null;
+		if ( $record === null || !is_array( $record ) ) {
+			$this->showExpired();
+			return;
 		}
-		$target = $this->afterCreate( $itemId, $record );
-		if ( $target !== null ) {
-			$this->getOutput()->redirect( $target );
-		} else {
-			$this->redirectToItem( $itemId );
+		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-content-review-title' )->text() );
+		$fields = $this->contentFieldSpecs( $record ) + $this->classFieldSpec( $record );
+
+		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
+		// The token lives in the QUERY (the manual path is /manual/content,
+		// unlike the review path where it is in the subpage) — set the form
+		// action so the POST keeps it.
+		$form->setAction( $this->stepTitle( 'manual/content' )->getFullURL( [ 'token' => $token ] ) )
+			->setSubmitTextMsg( 'embeddablecontent-extselect-create' )
+			->setSubmitCallback( [ $this, 'onManualContentSubmit' ] )
+			->setSubmitID( 'wb-ext-add-content' )
+			->setWrapperLegendMsg( 'embeddablecontent-content-review-legend' );
+		$form->show();
+	}
+
+	/**
+	 * @param array<string,mixed> $data
+	 * @return bool|string
+	 */
+	public function onManualContentSubmit( array $data ) {
+		$token = $this->getRequest()->getVal( 'token' );
+		$records = $this->loadSessionRecords( $token );
+		$record = $records[0] ?? null;
+		if ( $record === null || !is_array( $record ) ) {
+			return $this->msg( 'embeddablecontent-extselect-expired' )->text();
 		}
-		return true;
+		$record = $this->applyContentFields( $record, $data );
+		$classItemId = (string)( $data['class'] ?? '' );
+		if ( $classItemId === '' ) {
+			$classItemId = (string)$this->getRequest()->getSession()
+				->get( self::SESSION_PREFIX . $token . ':class' );
+		}
+		if ( $classItemId === '' ) {
+			return $this->msg( 'embeddablecontent-extselect-classrequired' )->text();
+		}
+		$beforeError = $this->beforeCreate( $record );
+		if ( $beforeError !== null ) {
+			return $beforeError;
+		}
+		return $this->createItemAndRedirect( $record, $classItemId, $token );
 	}
 
 	/**
@@ -561,7 +788,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 * Enriches a light search record with the full authority record
 	 * (harvest-on-pick, issue #7). Idempotent: returns the record unchanged
 	 * once marked as harvested. Only harvestable records are enriched
-	 * (canHarvest()); the harvest itself is kind-specific (harvest()).
+	 * (canHarvest()); the harvest itself is kind-specific (harvest()). After
+	 * the authority harvest, the subclass content hook (harvestContent)
+	 * fetches page content (abstract/keywords/intro/plot/lyrics/…) —
+	 * best-effort, never fatal.
 	 *
 	 * @param array<string,mixed> $record
 	 */
@@ -576,8 +806,38 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 				$record = array_merge( $record, (array)$result->records[0] );
 			}
 		}
+		$record = $this->harvestContent( $record );
 		$record['harvested'] = true;
 		return $record;
+	}
+
+	/**
+	 * Page-content auto-fetch hook (abstract/keywords/intro/plot/lyrics/…),
+	 * called at harvest-on-pick. Subclasses that build classic pages fill
+	 * the record's content keys + record['contentSources'][key]. Best-effort
+	 * contract: never throws, missing content simply omits the page section.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,mixed>
+	 */
+	protected function harvestContent( array $record ): array {
+		return $record;
+	}
+
+	/**
+	 * Attribution line for fetched page content, e.g.:
+	 *   ''from Wikipedia (CC BY-SA 4.0):''
+	 * followed by the content. No line when the content has no recorded
+	 * source (hand-written).
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function attributed( array $record, string $key, string $content ): string {
+		$source = $record['contentSources'][$key] ?? null;
+		if ( $source === null ) {
+			return $content;
+		}
+		return "''" . $this->msg( 'embeddablecontent-content-from-' . $source )->text() . "''\n\n" . $content;
 	}
 
 	/**
@@ -800,11 +1060,12 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 
 	/**
 	 * Login gate for the write/abuse surfaces (search submit performs
-	 * server-side external fetches, manual submit creates items). Returns an
-	 * error message for anonymous/bot sessions, null when logged in. The
-	 * page LOADS are deliberately NOT gated (see execute()).
+	 * server-side external fetches, manual submit creates items, the URL
+	 * fetch is a server-side external fetch too). Returns an error message
+	 * for anonymous/bot sessions, null when logged in. The page LOADS are
+	 * deliberately NOT gated (see execute()).
 	 */
-	private function loginRequiredError(): ?string {
+	protected function loginRequiredError(): ?string {
 		return $this->getUser()->isAnon()
 			? $this->msg( 'embeddablecontent-extsearch-loginrequired' )->text()
 			: null;

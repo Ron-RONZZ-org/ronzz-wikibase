@@ -52,20 +52,20 @@ class WikidataCore {
 	}
 
 	/**
-	 * wbgetentities harvest: labels, description, claims.
+	 * wbgetentities harvest: labels, description, claims, sitelinks.
 	 *
 	 * NOTE: do not pass a `languages` filter — verified live (Aug 16 2026)
 	 * that `languages=en|fr|eo` makes the API return EMPTY labels while
 	 * descriptions/claims still work. Fetch the full payload and filter
 	 * client-side (firstLabel prefers en/fr/eo).
 	 *
-	 * @return array{label: string, description: ?string, claims: array<string,mixed>}|null
+	 * @return array{label: string, description: ?string, claims: array<string,mixed>, sitelinks: array<string,mixed>}|null
 	 */
 	public function harvestRaw( string $qid ): ?array {
 		$data = $this->http->getJson( self::API, [
 			'action' => 'wbgetentities',
 			'ids' => $qid,
-			'props' => 'labels|descriptions|claims',
+			'props' => 'labels|descriptions|claims|sitelinks',
 			'format' => 'json',
 		], $this->timeout );
 		$entity = $data['entities'][$qid] ?? null;
@@ -83,7 +83,18 @@ class WikidataCore {
 			'label' => $label,
 			'description' => $this->firstDescription( $entity['descriptions'] ?? [] ),
 			'claims' => $entity['claims'] ?? [],
+			'sitelinks' => $entity['sitelinks'] ?? [],
 		];
+	}
+
+	/**
+	 * English Wikipedia article title from a harvested sitelink map, or null.
+	 *
+	 * @param array<string,mixed> $sitelinks
+	 */
+	public function enwikiTitle( array $sitelinks ): ?string {
+		$title = $sitelinks['enwiki']['title'] ?? null;
+		return is_string( $title ) && $title !== '' ? $title : null;
 	}
 
 	/**

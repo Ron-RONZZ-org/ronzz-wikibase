@@ -98,6 +98,53 @@ final class ProviderClientTest extends TestCase {
 		$this->assertCount( 1, $result->warnings );
 	}
 
+	public function testWorkAbstractByDoiPrefersOpenAlex(): void {
+		$http = new FakeHttpClient();
+		// Both Crossref and OpenAlex answer; OpenAlex (the higher-coverage
+		// provider) must win — the cascade iterates doiProviders reversed.
+		$http->onJson( '/works/10.1000%2Fxyz', [
+			'message' => [ 'title' => [ 'Crossref one' ], 'abstract' => '<jats:p>Crossref abstract.</jats:p>' ],
+		] );
+		$http->onJson( '/works/doi:', [
+			'id' => 'https://openalex.org/W1', 'title' => 'OpenAlex one',
+			'abstract_inverted_index' => [ 'OpenAlex' => [ 0 ], 'abstract' => [ 1 ], '.' => [ 2 ] ],
+			'keywords' => [ 'oa' ],
+		] );
+		$client = new ProviderClient( [], [], [], [ new CrossrefProvider( $http ), new OpenAlexProvider( $http ) ] );
+
+		$data = $client->workAbstractByDoi( '10.1000/xyz' );
+
+		$this->assertSame( 'OpenAlex abstract.', $data['abstract'] );
+		$this->assertSame( 'oa', $data['keywords'] );
+		$this->assertSame( 'openalex', $data['source'] );
+	}
+
+	public function testWorkAbstractByDoiFallsBackToCrossref(): void {
+		$http = new FakeHttpClient();
+		$http->onJson( '/works/doi:', [ 'id' => 'https://openalex.org/W1', 'title' => 'No abstract here' ] );
+		$http->onJson( '/works/10.1000%2Fxyz', [
+			'message' => [ 'title' => [ 'Crossref one' ], 'abstract' => '<jats:p>Direct Crossref abstract.</jats:p>' ],
+		] );
+		$client = new ProviderClient( [], [], [], [ new CrossrefProvider( $http ), new OpenAlexProvider( $http ) ] );
+
+		$data = $client->workAbstractByDoi( '10.1000/xyz' );
+
+		$this->assertSame( 'Direct Crossref abstract.', $data['abstract'] );
+		$this->assertSame( 'crossref', $data['source'] );
+	}
+
+	public function testWorkAbstractByDoiEmptyWhenNothingAvailable(): void {
+		$http = new FakeHttpClient();
+		$http->onJson( '/works/doi:', [ 'id' => 'https://openalex.org/W1', 'title' => 'No abstract here' ] );
+		$http->onJson( '/works/10.1000%2Fxyz', [ 'message' => [ 'title' => [ 'No abstract' ] ] ] );
+		$client = new ProviderClient( [], [], [], [ new CrossrefProvider( $http ), new OpenAlexProvider( $http ) ] );
+
+		$this->assertSame(
+			[ 'abstract' => null, 'keywords' => null, 'source' => null ],
+			$client->workAbstractByDoi( '10.1000/xyz' )
+		);
+	}
+
 	public function testHarvestPersonUsesTheHub(): void {
 		$http = new FakeHttpClient();
 		$http->onJson( 'action=wbgetentities', [

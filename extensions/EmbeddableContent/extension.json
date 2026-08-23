@@ -65,6 +65,13 @@
 				"EmbeddableContent.ProviderClient"
 			]
 		},
+		"AddFictionalCharacter": {
+			"class": "EmbeddableContent\\Spec\\SpecialAddFictionalCharacter",
+			"services": [
+				"EmbeddableContent.Config",
+				"EmbeddableContent.ProviderClient"
+			]
+		},
 		"AddSoftware": {
 			"class": "EmbeddableContent\\Spec\\SpecialAddSoftware",
 			"services": [

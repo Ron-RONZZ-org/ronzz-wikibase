@@ -12,7 +12,7 @@ namespace EmbeddableContent\Fetch;
  *
  * @license GPL-2.0-or-later
  */
-final class WorkRecord {
+	final class WorkRecord {
 
 	/**
 	 * @param string[] $classWikidataIds instance-of class QIDs from the authority
@@ -37,7 +37,10 @@ final class WorkRecord {
 		public readonly ?string $youtubeChannelId = null,
 		public readonly ?string $youtubeVideoId = null,
 		public readonly ?string $url = null,
-		public readonly ?string $channelTitle = null
+		public readonly ?string $channelTitle = null,
+		public readonly ?string $abstract = null,
+		public readonly ?string $keywords = null,
+		public readonly ?string $enwikiTitle = null
 	) {
 	}
 }

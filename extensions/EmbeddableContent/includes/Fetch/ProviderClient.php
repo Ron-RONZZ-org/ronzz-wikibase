@@ -357,6 +357,55 @@ class ProviderClient {
 	}
 
 	/**
+	 * Abstract + keywords for a scholarly article by DOI (the page-content
+	 * fetch): OpenAlex first (inverted-index reconstruction + keywords),
+	 * Crossref as the direct-text fallback. Never throws; [] when nothing
+	 * is available.
+	 *
+	 * @return array{abstract: ?string, keywords: ?string, source: ?string}
+	 */
+	public function workAbstractByDoi( string $doi ): array {
+		// Reverse the byDoi cascade (crossref → openalex → wikidata) so the
+		// best-coverage provider wins: openalex → crossref → wikidata (no-op).
+		foreach ( array_reverse( $this->doiProviders ) as $provider ) {
+			if ( !$provider instanceof WorkProvider ) {
+				continue;
+			}
+			try {
+				$data = $provider->abstractAndKeywordsByDoi( $doi );
+			} catch ( ProviderException $e ) {
+				continue;
+			}
+			if ( !empty( $data['abstract'] ) || !empty( $data['keywords'] ) ) {
+				return $data;
+			}
+		}
+		return [ 'abstract' => null, 'keywords' => null, 'source' => null ];
+	}
+
+	/**
+	 * Abstract + keywords by a bare OpenAlex work id ("W2741809807").
+	 *
+	 * @return array{abstract: ?string, keywords: ?string, source: ?string}
+	 */
+	public function workAbstractByOpenAlexId( string $openalexId ): array {
+		if ( preg_match( '/^W[1-9]\d*$/i', $openalexId ) !== 1 ) {
+			return [ 'abstract' => null, 'keywords' => null, 'source' => null ];
+		}
+		foreach ( $this->doiProviders as $provider ) {
+			if ( !$provider instanceof OpenAlexProvider ) {
+				continue;
+			}
+			try {
+				return $provider->abstractAndKeywordsById( $openalexId );
+			} catch ( ProviderException $e ) {
+				return [ 'abstract' => null, 'keywords' => null, 'source' => null ];
+			}
+		}
+		return [ 'abstract' => null, 'keywords' => null, 'source' => null ];
+	}
+
+	/**
 	 * @param object[] $providers
 	 * @param callable(object,string):object[] $call
 	 * @param callable(object[]):object[] $dedupe

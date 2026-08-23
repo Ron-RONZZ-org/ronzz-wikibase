@@ -42,8 +42,17 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 */
 	private const MANUAL_ONLY_CLASSES = [ 'website', 'webpage', 'bookExcerpt' ];
 
+	/**
+	 * Classes whose FIRST page is a URL entry (website/webpage): the
+	 * metadata of the entered URL is fetched and prefills the manual form.
+	 */
+	private const URL_ENTRY_CLASSES = [ 'website', 'webpage' ];
+
 	/** @var string|null class key selected for the current request */
 	private ?string $currentClassKey = null;
+
+	/** @var \EmbeddableContent\Fetch\PageMetadataFetcher|null lazily built */
+	private ?\EmbeddableContent\Fetch\PageMetadataFetcher $metadataFetcher = null;
 
 	public function __construct(
 		\EmbeddableContent\EmbeddableContentConfig $config,
@@ -57,12 +66,25 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	}
 
 	/**
+	 * Class-scoped search title: "Search for book … from an external
+	 * authority" — $1 is ONE of the class labels (book / scholarly article /
+	 * song / film), so the user always knows which flow they are in.
+	 */
+	protected function searchStepTitleMessage(): \Message {
+		return $this->msg(
+			'embeddablecontent-source-title',
+			$this->msg( 'embeddablecontent-source-class-' . $this->currentClassKey )->text()
+		);
+	}
+
+	/**
 	 * Manual-form autofill from the search inputs (issue #35): title/isbn/doi
 	 * pass through via the base (same field names); the search's `author`
 	 * field maps to the manual `authors` field — but ONLY in entity mode
 	 * (Q-ids), because the manual authors field requires item ids: a
 	 * free-text author NAME is a search filter, not a record fact, and
-	 * would fail the server-side author validation.
+	 * would fail the server-side author validation. The URL-first flow's
+	 * fetched intro/keywords ride along for the content review step.
 	 *
 	 * @param array<string,mixed> $search
 	 * @return array<string,mixed>
@@ -73,7 +95,88 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		if ( $author !== '' && ( $search['authorMode'] ?? '' ) === 'entity' ) {
 			$out['authors'] = $author;
 		}
+		foreach ( [ 'intro', 'keywords' ] as $key ) {
+			if ( !empty( $search[$key] ) ) {
+				$out[$key] = (string)$search[$key];
+			}
+		}
 		return $out;
+	}
+
+	// ------------------------------------------------------------- URL entry
+	// website/webpage first page: enter a URL, the metadata is fetched and
+	// prefills the manual form (the contributor corrects everything there).
+
+	private function executeUrlEntry(): void {
+		$this->getOutput()->setPageTitle(
+			$this->msg(
+				'embeddablecontent-source-url-title',
+				$this->msg( 'embeddablecontent-source-class-' . $this->currentClassKey )->text()
+			)->text()
+		);
+		if ( $this->currentClassKey === 'website' ) {
+			$this->getOutput()->addHTML(
+				\MediaWiki\Html\Html::warningBox( $this->msg( 'embeddablecontent-source-website-explanation' )->parse() )
+			);
+		}
+		$form = \MediaWiki\HTMLForm\HTMLForm::factory( 'ooui', [
+			'url' => [
+				'type' => 'url',
+				'label-message' => 'embeddablecontent-source-field-url',
+				'required' => true,
+				'maxlength' => 500,
+				'placeholder' => 'https://…',
+				'help-message' => 'embeddablecontent-source-url-help',
+			],
+		], $this->getContext() );
+		$form->setTitle( $this->stepTitle() )
+			->setSubmitTextMsg( 'embeddablecontent-source-url-submit' )
+			->setSubmitCallback( [ $this, 'onUrlEntrySubmit' ] )
+			->setSubmitID( 'wb-ext-add-url' )
+			->setWrapperLegendMsg( 'embeddablecontent-source-url-legend' );
+		$form->show();
+		$this->getOutput()->addHTML( $this->manualFallbackHtml() );
+	}
+
+	/**
+	 * URL-entry submit: SSRF-guarded fetch of the entered URL, metadata
+	 * stored in the session under a token, redirect to the (prefilled)
+	 * manual form. A website URL is collapsed to its site root first.
+	 *
+	 * @param array<string,mixed> $data
+	 * @return bool|string
+	 */
+	public function onUrlEntrySubmit( array $data ) {
+		$loginError = $this->loginRequiredError();
+		if ( $loginError !== null ) {
+			return $loginError;
+		}
+		$raw = trim( (string)( $data['url'] ?? '' ) );
+		$url = \EmbeddableContent\Fetch\SsrfGuard::validate( $raw );
+		if ( $url === null ) {
+			return $this->msg( 'embeddablecontent-source-url-error' )->text();
+		}
+		if ( $this->currentClassKey === 'website' ) {
+			// A website is the SITE, not a page: collapse the entered URL to
+			// its root (https://www.bbc.co.uk/article1 → https://www.bbc.co.uk).
+			$url = \EmbeddableContent\Fetch\SsrfGuard::siteRoot( $url );
+		}
+		$this->metadataFetcher ??= new \EmbeddableContent\Fetch\PageMetadataFetcher();
+		$fetched = $this->metadataFetcher->fetch( $url );
+
+		$token = \MWCryptRand::generateHex( 16 );
+		$urlMeta = [ 'url' => $url ];
+		if ( $fetched !== null ) {
+			$urlMeta += [
+				'title' => $fetched->title,
+				'description' => $fetched->description,
+				'intro' => $fetched->intro,
+				'keywords' => $fetched->keywords,
+			];
+		}
+		$this->getRequest()->getSession()->set( self::SESSION_PREFIX . $token . ':urlmeta', $urlMeta );
+		$this->getOutput()->redirect( $this->stepTitle( 'manual' )->getFullURL( [ 'token' => $token ] ) );
+		return true;
 	}
 
 	protected function classUrlPrefix(): string {
@@ -102,6 +205,12 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		$this->currentClassKey = $first;
 		$second = $parts[1] ?? '';
 		if ( $second === '' ) {
+			if ( in_array( $first, self::URL_ENTRY_CLASSES, true ) ) {
+				// website/webpage: the first page is the URL entry — the
+				// metadata of the entered URL autofills the manual form.
+				$this->executeUrlEntry();
+				return;
+			}
 			if ( in_array( $first, self::MANUAL_ONLY_CLASSES, true ) ) {
 				$this->getOutput()->redirect( $this->stepTitle( 'manual' )->getFullURL() );
 				return;
@@ -110,6 +219,10 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			return;
 		}
 		if ( $second === 'manual' ) {
+			if ( ( $parts[2] ?? '' ) === 'content' ) {
+				$this->executeManualContent();
+				return;
+			}
 			$this->executeManual();
 			return;
 		}
@@ -119,6 +232,10 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			return;
 		}
 		if ( ( $parts[2] ?? '' ) === 'review' && ( $parts[3] ?? '' ) !== '' ) {
+			if ( ( $parts[4] ?? '' ) === 'content' ) {
+				$this->executeContent( $second, (int)$parts[3] );
+				return;
+			}
 			$this->executeReview( $second, (int)$parts[3] );
 			return;
 		}
@@ -130,34 +247,19 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	private function executeClassPicker(): void {
 		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-source-pick-title' )->text() );
 
+		// Plain class options — no "(part of …)" suffix (the parent relation
+		// is picked on the child-class form itself), no redundant field
+		// label: the legend already asks the question.
 		$options = [];
 		foreach ( $this->config->sourceClasses() as $key => $_ ) {
-			$label = $this->msg( 'embeddablecontent-source-class-' . $key )->text();
-			$parentKey = $this->config->sourceParents()[$key] ?? null;
-			if ( $parentKey !== null ) {
-				$label .= ' ' . $this->msg(
-					'embeddablecontent-source-parent-suffix',
-					$this->msg( 'embeddablecontent-source-class-' . $parentKey )->text()
-				)->text();
-			}
-			$options[$label] = $key;
+			$options[$this->msg( 'embeddablecontent-source-class-' . $key )->text()] = $key;
 		}
 
 		$form = \MediaWiki\HTMLForm\HTMLForm::factory( 'ooui', [
 			'class' => [
 				'type' => 'radio',
-				'label-message' => 'embeddablecontent-source-pick-label',
 				'options' => $options,
 				'required' => true,
-			],
-			// Manual entry on the picker itself (issue #35): check it and
-			// Continue routes straight to /<classKey>/manual — the search
-			// step is skipped (for manual-only classes it is a no-op).
-			'manual' => [
-				'type' => 'check',
-				'label-message' => 'embeddablecontent-source-pick-manual',
-				'help-message' => 'embeddablecontent-source-pick-manual-help',
-				'default' => false,
 			],
 		], $this->getContext() );
 		$form->setTitle( $this->getPageTitle() )
@@ -177,10 +279,9 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		if ( !$this->isSourceClassKey( $classKey ) ) {
 			return $this->msg( 'embeddablecontent-extselect-classrequired' )->text();
 		}
-		$sub = in_array( $classKey, self::MANUAL_ONLY_CLASSES, true ) || !empty( $data['manual'] )
-			? $classKey . '/manual'
-			: $classKey;
-		$this->getOutput()->redirect( $this->getPageTitle( $sub )->getFullURL() );
+		// Manual-only classes route to their first step via execute()
+		// (website/webpage: URL entry; bookExcerpt: manual form).
+		$this->getOutput()->redirect( $this->getPageTitle( $classKey )->getFullURL() );
 		return true;
 	}
 
@@ -331,6 +432,153 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		return (string)( $record['title'] ?? '' );
 	}
 
+	// ------------------------------------------------------------- page content
+	// Auto-fetched page content (best-effort, never fatal): abstracts +
+	// keywords for scholarly articles (OpenAlex, Crossref fallback),
+	// Wikipedia lead intros and sections (Plot/Lyrics) for book/song/film.
+	// The content is reviewed on its own step (/review/<i>/content) before
+	// it is written to the Source: page.
+
+	/** @var \EmbeddableContent\Fetch\WikipediaContentProvider|null lazily built */
+	private ?\EmbeddableContent\Fetch\WikipediaContentProvider $wikipedia = null;
+
+	private function wikipediaContent(): \EmbeddableContent\Fetch\WikipediaContentProvider {
+		$this->wikipedia ??= new \EmbeddableContent\Fetch\WikipediaContentProvider(
+			new \EmbeddableContent\Fetch\CurlHttpClient( [ 'en.wikipedia.org' ] )
+		);
+		return $this->wikipedia;
+	}
+
+	protected function harvestContent( array $record ): array {
+		switch ( $this->currentClassKey ) {
+			case 'scholarlyArticle':
+				return $this->harvestArticleContent( $record );
+			case 'book':
+			case 'film':
+			case 'song':
+			case 'youtubeChannel':
+				return $this->harvestWikipediaContent( $record );
+			default:
+				return $record;
+		}
+	}
+
+	/**
+	 * Scholarly-article abstract + keywords: OpenAlex by DOI (inverted-index
+	 * reconstruction), Crossref as the direct-text fallback; by bare OpenAlex
+	 * id when no DOI was harvested.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function harvestArticleContent( array $record ): array {
+		$doi = trim( (string)( $record['doi'] ?? '' ) );
+		$openalexId = trim( (string)( $record['openalexId'] ?? '' ) );
+		if ( $doi === '' && $openalexId === '' ) {
+			return $record;
+		}
+		$data = $doi !== ''
+			? $this->client->workAbstractByDoi( $doi )
+			: $this->client->workAbstractByOpenAlexId( $openalexId );
+		if ( !empty( $data['abstract'] ) ) {
+			$record['abstract'] = (string)$data['abstract'];
+			$record['contentSources']['abstract'] = (string)( $data['source'] ?? 'openalex' );
+		}
+		if ( !empty( $data['keywords'] ) ) {
+			$record['keywords'] = (string)$data['keywords'];
+			$record['contentSources']['keywords'] = (string)( $data['source'] ?? 'openalex' );
+		}
+		return $record;
+	}
+
+	/**
+	 * Wikipedia lead intro (book/song/film/youtubeChannel) + the class
+	 * section (song → Lyrics, film → Plot) from the article wikitext.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function harvestWikipediaContent( array $record ): array {
+		$title = trim( (string)( $record['enwikiTitle'] ?? '' ) );
+		if ( $title === '' ) {
+			return $record;
+		}
+		$wp = $this->wikipediaContent();
+		if ( $this->currentClassKey === 'book' ) {
+			$intro = $wp->intro( $title );
+			if ( $intro !== null ) {
+				$record['summary'] = $intro;
+				$record['contentSources']['summary'] = 'wikipedia';
+			}
+			return $record;
+		}
+		$intro = $wp->intro( $title );
+		if ( $intro !== null ) {
+			$record['intro'] = $intro;
+			$record['contentSources']['intro'] = 'wikipedia';
+		}
+		if ( $this->currentClassKey === 'song' ) {
+			$lyrics = $wp->section( $title, [ 'Lyrics', 'Paroles' ] );
+			if ( $lyrics !== null ) {
+				$record['lyrics'] = $lyrics;
+				$record['contentSources']['lyrics'] = 'wikipedia';
+			}
+		} elseif ( $this->currentClassKey === 'film' ) {
+			$plot = $wp->section( $title, [ 'Plot', 'Synopsis', 'Premise' ] );
+			if ( $plot !== null ) {
+				$record['plot'] = $plot;
+				$record['contentSources']['plot'] = 'wikipedia';
+			}
+		}
+		return $record;
+	}
+
+	/**
+	 * Content-review fields (multi-line textareas, one per fetched content
+	 * key): the contributor confirms, corrects or clears each block before
+	 * it lands on the Source: page.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,mixed>
+	 */
+	protected function contentFieldSpecs( array $record ): array {
+		$keys = $this->contentKeysForClass();
+		$fields = [];
+		foreach ( $keys as $key => $messageKey ) {
+			$field = [
+				'type' => 'textarea',
+				'rows' => 8,
+				'label-message' => $messageKey,
+				'default' => (string)( $record[$key] ?? '' ),
+			];
+			$source = $record['contentSources'][$key] ?? null;
+			if ( $source !== null ) {
+				$field['help'] = $this->msg( 'embeddablecontent-content-from-' . $source )->parse();
+			}
+			$fields[$key] = $field;
+		}
+		return $fields;
+	}
+
+	/** @return array<string,string> content key => label message key */
+	private function contentKeysForClass(): array {
+		switch ( $this->currentClassKey ) {
+			case 'scholarlyArticle':
+				return [ 'abstract' => 'embeddablecontent-content-field-abstract', 'keywords' => 'embeddablecontent-content-field-keywords' ];
+			case 'book':
+				return [ 'summary' => 'embeddablecontent-content-field-summary', 'keywords' => 'embeddablecontent-content-field-keywords' ];
+			case 'song':
+				return [ 'intro' => 'embeddablecontent-content-field-intro', 'lyrics' => 'embeddablecontent-content-field-lyrics' ];
+			case 'film':
+				return [ 'intro' => 'embeddablecontent-content-field-intro', 'plot' => 'embeddablecontent-content-field-plot' ];
+			case 'webpage':
+				return [ 'summary' => 'embeddablecontent-content-field-summary', 'keywords' => 'embeddablecontent-content-field-keywords' ];
+			case 'website':
+			case 'youtubeChannel':
+				return [ 'intro' => 'embeddablecontent-content-field-intro' ];
+			default:
+				return [];
+		}
+	}
+
 	/** Class-specific authority identifiers (per-class review/create). */
 	protected function externalIdRecordMap(): array {
 		switch ( $this->currentClassKey ) {
@@ -364,7 +612,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				$fields += $this->accessFieldSpec( $record );
 				break;
 			case 'scholarlyArticle':
-				$fields['containerTitle'] = $this->plainTextField( 'embeddablecontent-field-publishedin', (string)( $record['containerTitle'] ?? '' ) );
+				$fields['journal'] = $this->journalFieldSpec( $record );
 				$fields['publisher'] = $this->publisherFieldSpec( $record );
 				$fields['volume'] = $this->plainTextField( 'embeddablecontent-field-volume', (string)( $record['volume'] ?? '' ) );
 				$fields['issue'] = $this->plainTextField( 'embeddablecontent-field-issue', (string)( $record['issue'] ?? '' ) );
@@ -405,7 +653,11 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			case 'website':
 			case 'webpage':
 				$fields += $this->urlFieldSpec( $record );
-				$fields += $this->issuedYearFieldSpec( $record );
+				// A website is dynamic — no fixed year (the /website class);
+				// a webpage can carry a publication date.
+				if ( $this->currentClassKey === 'webpage' ) {
+					$fields += $this->issuedYearFieldSpec( $record );
+				}
 				break;
 			case 'bookExcerpt':
 				$fields['pages'] = $this->plainTextField( 'embeddablecontent-field-pages', (string)( $record['pages'] ?? '' ) );
@@ -485,6 +737,48 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	}
 
 	/**
+	 * Journal field (entity-only, scholarlyArticle): an entity combobox
+	 * referencing an existing journal item — the container-title analogue of
+	 * the publisher field. A harvested STRING container title (e.g. "Nature"
+	 * from Wikidata's P1433) is resolved to a local item by exact label when
+	 * one exists; otherwise the string is shown as context with a
+	 * "create the item first" hint. The submitted value must be an item id.
+	 *
+	 * @return array<string,mixed>
+	 */
+	private function journalFieldSpec( array $record ): array {
+		$harvested = (string)( $record['containerTitle'] ?? '' );
+		$default = '';
+		$help = '';
+		if ( $harvested !== '' && preg_match( '/^Q[1-9]\d*$/i', $harvested ) !== 1 ) {
+			$resolved = $this->findItemIdByLabel( $harvested );
+			if ( $resolved !== null ) {
+				$default = $resolved;
+			} else {
+				// Plain text, HTML-escaped: the value comes from an external
+				// API and must never inject markup.
+				$help = htmlspecialchars(
+					$this->msg( 'embeddablecontent-source-field-journal-unresolved', $harvested )->text()
+				);
+			}
+		} elseif ( $harvested !== '' ) {
+			$default = $harvested;
+		}
+		$field = [
+			'type' => 'combobox',
+			'options' => [],
+			'label-message' => 'embeddablecontent-source-field-journal',
+			'cssclass' => 'wb-entity-combobox',
+			'default' => $default,
+			'help' => $this->msg( 'embeddablecontent-source-field-journal-help' )->parse(),
+		];
+		if ( $help !== '' ) {
+			$field['help'] .= ' ' . $help;
+		}
+		return $field;
+	}
+
+	/**
 	 * Publisher field (entity-only, issue #35): an entity combobox
 	 * referencing an existing publisher item. A harvested STRING publisher
 	 * (Open Library etc.) is resolved to a local item by exact label when
@@ -530,9 +824,12 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 * Access field group (issue #35): an `accessMode` toggle between
 	 *  - url      — a non-direct access URL (landing page), no license;
 	 *  - download — a direct download link, auto-fetched and saved server-side;
-	 *  - file     — a local file from the browser.
+	 *  - file     — a local file from the browser;
+	 *  - na       — not applicable (access only via archives, physical
+	 *               copies, …): no access statement is written.
 	 * The download/file modes expand the `license` field (entity combobox,
-	 * reusing the P275-aligned license property) with the copyright warning.
+	 * reusing the P275-aligned license property — options from the seed's
+	 * known license items, Special:Upload-style) with the copyright warning.
 	 *
 	 * @param array<string,mixed> $record
 	 * @return array<string,mixed>
@@ -547,6 +844,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 					'embeddablecontent-source-field-access-mode-url' => 'url',
 					'embeddablecontent-source-field-access-mode-download' => 'download',
 					'embeddablecontent-source-field-access-mode-file' => 'file',
+					'embeddablecontent-source-field-access-mode-na' => 'na',
 				],
 				'default' => $mode,
 				'help-message' => 'embeddablecontent-source-field-access-mode-help',
@@ -577,12 +875,16 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			// enforced in beforeCreate (validateAccessField) instead.
 			'license' => [
 				'type' => 'combobox',
-				'options' => [],
+				'options' => $this->config->licenseItems(),
 				'label-message' => 'embeddablecontent-source-field-license',
 				'cssclass' => 'wb-entity-combobox',
 				'default' => (string)( $record['license'] ?? '' ),
 				'help' => $this->msg( 'embeddablecontent-source-field-license-help' )->parse(),
-				'hide-if' => [ '===', 'accessMode', 'url' ],
+				'hide-if' => [
+					'OR',
+					[ '===', 'accessMode', 'url' ],
+					[ '===', 'accessMode', 'na' ],
+				],
 			],
 		];
 	}
@@ -622,11 +924,9 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	}
 
 	protected function executeManual(): void {
-		if ( $this->currentClassKey === 'website' ) {
-			$this->getOutput()->addHTML(
-				\MediaWiki\Html\Html::warningBox( $this->msg( 'embeddablecontent-source-website-explanation' )->parse() )
-			);
-		}
+		// The website-vs-webpage explanation lives on the URL entry page
+		// (the /website and /webpage first step); the manual form itself is
+		// reached from there (or directly via /manual) and needs no banner.
 		parent::executeManual();
 	}
 
@@ -671,6 +971,10 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 
 	/**
 	 * Source: page skeleton — prose lives on the page, facts in the item.
+	 * Sections are rendered ONLY when the (reviewed) record carries their
+	 * content: no blank sections, no generic Overview/Content/See also
+	 * scaffolding. website/youtubeChannel take a short intro WITHOUT
+	 * headings; the other classes get their meaningful section(s).
 	 *
 	 * @param array<string,mixed> $record
 	 */
@@ -680,8 +984,44 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		if ( $template === '' ) {
 			return $marker;
 		}
-		return "{{" . $template . "}}\n\n== Overview ==\n\n<!-- What this source is and where it comes from. -->\n\n"
-			. "== Content ==\n\n== See also ==\n" . $marker;
+		$body = "{{" . $template . "}}\n\n";
+		if ( in_array( $this->currentClassKey, [ 'website', 'youtubeChannel' ], true ) ) {
+			// Short intro prose, no headings.
+			$intro = trim( (string)( $record['intro'] ?? '' ) );
+			if ( $intro !== '' ) {
+				$body .= $this->attributed( $record, 'intro', $intro ) . "\n\n";
+			}
+			return $body . $marker;
+		}
+		foreach ( $this->pageSectionHeadings() as $key => $heading ) {
+			$content = trim( (string)( $record[$key] ?? '' ) );
+			if ( $content === '' ) {
+				continue;
+			}
+			$body .= "== {$heading} ==\n\n" . $this->attributed( $record, $key, $content ) . "\n\n";
+		}
+		return $body . $marker;
+	}
+
+	/** @return array<string,string> content key => section heading */
+	private function pageSectionHeadings(): array {
+		switch ( $this->currentClassKey ) {
+			case 'scholarlyArticle':
+				return [ 'abstract' => 'Abstract', 'keywords' => 'Key words' ];
+			case 'book':
+				return [ 'summary' => 'Summary', 'keywords' => 'Key words' ];
+			case 'song':
+				return [ 'intro' => 'Overview', 'lyrics' => 'Lyrics' ];
+			case 'film':
+				return [ 'intro' => 'Overview', 'plot' => 'Plot' ];
+			case 'video':
+			case 'youtubeVideo':
+				return [ 'keywords' => 'Key words' ];
+			case 'webpage':
+				return [ 'summary' => 'Summary', 'keywords' => 'Key words' ];
+			default:
+				return [];
+		}
 	}
 
 	// ------------------------------------------------------------- validation
@@ -756,11 +1096,13 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 */
 	private function validateAccessField( array &$record ): ?string {
 		$mode = (string)( $record['accessMode'] ?? 'url' );
-		if ( !in_array( $mode, [ 'url', 'download', 'file' ], true ) ) {
+		if ( !in_array( $mode, [ 'url', 'download', 'file', 'na' ], true ) ) {
 			$mode = 'url';
 		}
 		$record['accessMode'] = $mode;
-		if ( $mode === 'url' ) {
+		// The 'na' mode (access only via archives, physical copies, …) and
+		// the plain 'url' mode need no license and no upload.
+		if ( $mode === 'url' || $mode === 'na' ) {
 			return null;
 		}
 
@@ -1102,13 +1444,14 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	// ------------------------------------------------------------- creation
 
 	/**
-	 * The publisher is written as an ENTITY value (entity-only, issue #35) —
-	 * exclude it from the base string citation metadata.
+	 * The publisher and the journal are written as ENTITY values (entity-only,
+	 * issue #35 + follow-up) — exclude them from the base string citation
+	 * metadata.
 	 *
 	 * @return string[]
 	 */
 	protected function citationMetadataFieldExclusions(): array {
-		return [ 'publisher' ];
+		return [ 'publisher', 'publishedIn' ];
 	}
 
 	/**
@@ -1131,6 +1474,17 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		$publisherProp = $this->config->citationMetadataPropertyIds()['publisher'] ?? null;
 		if ( $publisherItem !== null && $publisherProp !== null ) {
 			$specs[$publisherProp] = new EntityIdValue( $publisherItem );
+		}
+
+		// Journal (scholarlyArticle): entity-only, like the publisher — the
+		// entity-typed journal property (P1433-aligned) replaces the legacy
+		// string container title, which the citation engine resolves to the
+		// journal item's label at render time.
+		$journalId = trim( (string)( $record['journal'] ?? '' ) );
+		$journalItem = $this->parseItemId( $journalId );
+		$journalProp = $this->config->citationMetadataPropertyIds()['journal'] ?? null;
+		if ( $journalItem !== null && $journalProp !== null ) {
+			$specs[$journalProp] = new EntityIdValue( $journalItem );
 		}
 
 		if ( !empty( $record['durationSeconds'] ) && isset( $props['duration'] ) ) {

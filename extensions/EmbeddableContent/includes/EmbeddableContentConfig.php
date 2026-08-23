@@ -127,6 +127,8 @@ class EmbeddableContentConfig {
 	public function externalIdPropertyIds(): array {
 		return $this->requireStringMap( 'externalIds', [
 			'wikidata', 'orcid', 'viaf', 'isni', 'doi', 'isbn', 'openalex', 'pubmed',
+			// Person OpenAlex author id (P5092-aligned "OpenAlex author ID").
+			'openalexAuthor',
 		] );
 	}
 
@@ -138,12 +140,29 @@ class EmbeddableContentConfig {
 	public function citationMetadataPropertyIds(): array {
 		return $this->requireStringMap( 'citationMetadata', [
 			'givenName', 'familyName', 'publishedIn', 'publisher', 'pages', 'volume', 'issue',
+			// Entity-typed journal (P1433-aligned "journal (entity)").
+			'journal',
 		] );
 	}
 
 	/**
+	 * Known license items (label => item id) emitted by the seed from the
+	 * preseed license vocabulary — the review-form license combobox options
+	 * (Special:Upload-style: pick from the list, or type to search).
+	 * Absent on instances seeded without preseed licenses: the combobox
+	 * falls back to entity search only.
+	 *
+	 * @return array<string,string>
+	 */
+	public function licenseItems(): array {
+		return $this->optionalStringMap( 'licenses' );
+	}
+
+	/**
 	 * Person lifecycle property ids (Special:AddPerson statements): date of
-	 * birth / death (time) and place of birth / death (wikibase-item).
+	 * birth / death (time), place of birth / death (wikibase-item), and the
+	 * portrait facts — `image` (url, P18-aligned) + `license`
+	 * (wikibase-item, P275-aligned, shared with the FOSS/access vocab).
 	 * Absent keys are omitted (instance-specific availability).
 	 *
 	 * @return array<string,string> canonical key => property id
@@ -151,6 +170,7 @@ class EmbeddableContentConfig {
 	public function personPropertyIds(): array {
 		return $this->requireStringMap( 'personProperties', [
 			'dateOfBirth', 'placeOfBirth', 'dateOfDeath', 'placeOfDeath',
+			'image', 'license',
 		] );
 	}
 
@@ -261,6 +281,27 @@ class EmbeddableContentConfig {
 	 */
 	public function fossClasses(): array {
 		return $this->requireStringMap( 'fossClasses', [ 'foss' ] );
+	}
+
+	/**
+	 * Issue follow-up: fictional-character class ids
+	 * (Special:AddFictionalCharacter).
+	 *
+	 * @return array<string,string> canonical key => item id
+	 */
+	public function fictionalCharacterClasses(): array {
+		return $this->requireStringMap( 'fictionalCharacterClasses', [ 'fictionalCharacter' ] );
+	}
+
+	/**
+	 * Issue follow-up: fictional-character property ids
+	 * (Special:AddFictionalCharacter statements): the multi-value
+	 * `present in work` ("appears in") link.
+	 *
+	 * @return array<string,string> canonical key => property id
+	 */
+	public function fictionalCharacterPropertyIds(): array {
+		return $this->requireStringMap( 'fictionalCharacterProperties', [ 'appearsIn' ] );
 	}
 
 	/**

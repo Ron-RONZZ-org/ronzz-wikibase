@@ -73,13 +73,16 @@ class WikidataPersonProvider implements PersonProvider {
 			orcid: $this->core->stringValue( $harvest['claims'], 'P496' ),
 			viafId: $this->core->stringValue( $harvest['claims'], 'P214' ),
 			isni: $this->core->stringValue( $harvest['claims'], 'P213' ),
+			openalexId: $this->core->stringValue( $harvest['claims'], 'P5092' ),
 			dateOfBirth: $this->core->timeValue( $harvest['claims'], 'P569' ),
 			placeOfBirth: $this->core->itemId( $harvest['claims'], 'P19' ),
 			dateOfDeath: $this->core->timeValue( $harvest['claims'], 'P570' ),
 			placeOfDeath: $this->core->itemId( $harvest['claims'], 'P20' ),
 			wikidataId: $qid,
+			appearsInIds: $this->core->itemValueIds( $harvest['claims'], [ 'P1441' ] ),
 			provider: 'wikidata',
-			providerId: $qid
+			providerId: $qid,
+			enwikiTitle: $this->core->enwikiTitle( $harvest['sitelinks'] )
 		);
 	}
 }

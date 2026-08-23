@@ -95,14 +95,15 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 	}
 
 	/**
-	 * Collective: page skeleton — prose lives on the page, facts in the item.
+	 * Collective: page skeleton — only sections with content are rendered
+	 * (collectives currently fetch none, so the page is the template alone;
+	 * the contributor adds sections by editing).
 	 *
 	 * @param array<string,mixed> $record
 	 */
 	protected function pageSkeleton( array $record, bool $withMarker = false ): string {
 		$marker = $withMarker ? "\n<!-- " . $this->pagePendingMarker() . " -->\n" : "";
-		return "{{Collective}}\n\n== Overview ==\n\n<!-- What this collective is and does. -->\n\n"
-			. "== History ==\n\n== Members ==\n\n== See also ==\n" . $marker;
+		return "{{Collective}}\n\n" . $marker;
 	}
 
 	protected function classOptions(): array {

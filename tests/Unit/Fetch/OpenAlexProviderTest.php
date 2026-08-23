@@ -33,6 +33,7 @@ final class OpenAlexProviderTest extends TestCase {
 		$this->assertInstanceOf( PersonRecord::class, $records[0] );
 		$this->assertSame( 'Jason Priem', $records[0]->label );
 		$this->assertSame( '0000-0001-6187-6610', $records[0]->orcid );
+		$this->assertSame( 'A5023888391', $records[0]->openalexId );
 		$this->assertSame( 'Q58065621', $records[0]->wikidataId );
 		$this->assertSame( 'openalex', $records[0]->provider );
 	}
@@ -80,6 +81,7 @@ final class OpenAlexProviderTest extends TestCase {
 		$this->assertSame( '4', $records[0]->issue );
 		$this->assertSame( 'e2001414', $records[0]->pages );
 		$this->assertSame( '10.1371/journal.pbio.2001414', $records[0]->doi );
+		$this->assertSame( 'W2741809807', $records[0]->openalexId );
 		$this->assertSame( '28379999', $records[0]->pubmedId );
 		$this->assertSame( 2017, $records[0]->issuedYear );
 	}
@@ -117,5 +119,52 @@ final class OpenAlexProviderTest extends TestCase {
 		// OpenAlex filters by A-ids, not Wikidata Q-ids — hub covers entities.
 		$provider = new OpenAlexProvider( new FakeHttpClient() );
 		$this->assertSame( [], $provider->searchByAuthorEntities( [ 'Q42' ] ) );
+	}
+
+	public function testWorkSearchMapsAbstractAndKeywords(): void {
+		$http = ( new FakeHttpClient() )->onJson( '/works', [
+			'results' => [
+				[
+					'id' => 'https://openalex.org/W2741809807',
+					'title' => 'A paper',
+					'abstract_inverted_index' => [
+						'OpenAlex' => [ 0 ], 'is' => [ 1 ], 'exact' => [ 4 ], 'and' => [ 2 ],
+						'lossless' => [ 3 ], '.' => [ 5 ],
+					],
+					'keywords' => [ 'citation', 'identifiers' ],
+				],
+			],
+		] );
+		$provider = new OpenAlexProvider( $http );
+
+		$records = $provider->searchByTitle( 'a paper' );
+
+		$this->assertSame( 'OpenAlex is and lossless exact.', $records[0]->abstract );
+		$this->assertSame( 'citation, identifiers', $records[0]->keywords );
+	}
+
+	public function testAbstractAndKeywordsByDoiReconstructsInvertedIndex(): void {
+		$http = ( new FakeHttpClient() )->onJson( '/works/doi:', [
+			'id' => 'https://openalex.org/W2741809807',
+			'title' => 'A paper',
+			'abstract_inverted_index' => [
+				'We' => [ 0 ], 'test' => [ 1 ], 'the' => [ 2 ], 'join' => [ 3 ], '.' => [ 4 ],
+			],
+			'keywords' => [ 'testing' ],
+		] );
+		$provider = new OpenAlexProvider( $http );
+
+		$data = $provider->abstractAndKeywordsByDoi( '10.1371/journal.pbio.2001414' );
+
+		$this->assertSame( 'We test the join.', $data['abstract'] );
+		$this->assertSame( 'testing', $data['keywords'] );
+		$this->assertSame( 'openalex', $data['source'] );
+	}
+
+	public function testAbstractAndKeywordsByDoiNullOnAbsentAbstract(): void {
+		$http = ( new FakeHttpClient() )->onJson( '/works/doi:', [ 'id' => 'https://openalex.org/W1', 'title' => 'No abstract' ] );
+		$data = ( new OpenAlexProvider( $http ) )->abstractAndKeywordsByDoi( '10.1/x' );
+		$this->assertNull( $data['abstract'] );
+		$this->assertNull( $data['keywords'] );
 	}
 }

@@ -128,6 +128,7 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 			'orcid' => 'orcid',
 			'viaf' => 'viafId',
 			'isni' => 'isni',
+			'openalexAuthor' => 'openalexId',
 		];
 	}
 
@@ -179,6 +180,38 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 					(string)( $record['placeOfDeath'] ?? '' ),
 					[ 'hide-if' => [ '!==', 'deceased', '1' ] ]
 				),
+				// Portrait (optional): local-file upload OR pasted URL,
+				// toggled by portraitMode; the file is uploaded on create as
+				// File:<label>-portrait.<ext> (AddSoftware logo pattern).
+				// The license is mandatory only when a portrait is actually
+				// provided (enforced in beforeCreate, not by HTMLForm).
+				'portraitMode' => [
+					'type' => 'radio',
+					'label-message' => 'embeddablecontent-person-portrait-mode',
+					'options-messages' => [
+						'embeddablecontent-person-portrait-mode-file' => 'file',
+						'embeddablecontent-person-portrait-mode-url' => 'url',
+					],
+					'default' => 'file',
+				],
+				'portraitFile' => [
+					'type' => 'file',
+					'label-message' => 'embeddablecontent-person-portrait-file',
+					'hide-if' => [ '===', 'portraitMode', 'url' ],
+				],
+				'portraitUrl' => [
+					'type' => 'url',
+					'label-message' => 'embeddablecontent-person-portrait-url',
+					'maxlength' => 500,
+					'hide-if' => [ '===', 'portraitMode', 'file' ],
+				],
+				'portraitLicense' => [
+					'type' => 'combobox',
+					'options' => $this->config->licenseItems(),
+					'label-message' => 'embeddablecontent-person-portrait-license',
+					'cssclass' => 'wb-entity-combobox',
+					'help' => $this->msg( 'embeddablecontent-person-portrait-license-help' )->parse(),
+				],
 			]
 			+ $this->externalIdFieldSpecs( $record );
 	}
@@ -200,7 +233,8 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 	/**
 	 * Person statement specs: the base authority/citation facts plus the
 	 * birth/death facts — dates as day-precision TimeValues, places as
-	 * entity values referencing existing local items.
+	 * entity values referencing existing local items — plus the portrait
+	 * (uploaded File: URL on the `image` property) and its license.
 	 *
 	 * @param array<string,mixed> $record
 	 * @return array<string,\Wikibase\DataModel\DataValue|\Wikibase\DataModel\DataValue[]>
@@ -227,7 +261,247 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 				$specs[$props[$field]] = new EntityIdValue( $itemId );
 			}
 		}
+		// Portrait: the uploaded File:<label>-portrait.<ext> URL (image
+		// statement, P18-aligned) + the image license entity (P275-aligned).
+		if ( !empty( $record['portraitFileTitle'] ) && isset( $props['image'] ) ) {
+			$fileTitle = \MediaWiki\Title\Title::makeTitle( NS_FILE, (string)$record['portraitFileTitle'] );
+			if ( $fileTitle !== null ) {
+				$specs[$props['image']] = new \DataValues\StringValue( $fileTitle->getFullURL() );
+			}
+		}
+		if ( !empty( $record['portraitLicense'] ) && isset( $props['license'] ) ) {
+			$licenseItem = $this->parseItemId( (string)$record['portraitLicense'] );
+			if ( $licenseItem !== null ) {
+				$specs[$props['license']] = new EntityIdValue( $licenseItem );
+			}
+		}
 		return $specs;
+	}
+
+	// ------------------------------------------------------------- portrait
+
+	/** Portrait formats accepted for upload (raster + svg). */
+	private const PORTRAIT_EXTENSIONS = [ 'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg' ];
+
+	/**
+	 * Uploads the optional portrait (local file or pasted URL, per the
+	 * portraitMode toggle) as File:<label>-portrait.<ext> and records the
+	 * file title in $record['portraitFileTitle'] for the image statement.
+	 * When a portrait IS provided, its license is mandatory. Idempotent:
+	 * an already-uploaded file is left alone. A provided portrait that
+	 * cannot be honoured aborts the creation (never silent).
+	 *
+	 * @param array<string,mixed> $record
+	 * @return string|null error message, or null to proceed
+	 */
+	protected function beforeCreate( array &$record ): ?string {
+		$mode = (string)( $record['portraitMode'] ?? 'file' );
+		$title = null;
+		try {
+			if ( $mode === 'url' ) {
+				$url = ( new \EmbeddableContent\Content\FragmentSanitizer() )
+					->validateUrl( (string)( $record['portraitUrl'] ?? '' ) );
+				if ( $url !== null ) {
+					$title = $this->uploadPortraitFromUrl( $url, $record );
+					if ( $title === null ) {
+						return $this->msg( 'embeddablecontent-person-portrait-error', 'unreachable or unsupported URL' )->text();
+					}
+				}
+			} else {
+				$title = $this->uploadPortraitFromRequest( $record );
+				$upload = $this->getRequest()->getUpload( 'wpPortraitFile' );
+				if ( $title === null
+					&& $upload instanceof \MediaWiki\Request\WebRequestUpload && $upload->getSize() > 0
+				) {
+					return $this->msg( 'embeddablecontent-person-portrait-error', 'unsupported file type' )->text();
+				}
+			}
+		} catch ( \Throwable $e ) {
+			return $this->msg( 'embeddablecontent-person-portrait-error', $e->getMessage() )->text();
+		}
+		if ( $title !== null ) {
+			$record['portraitFileTitle'] = $title->getDBkey();
+			$licenseItem = $this->parseItemId( (string)( $record['portraitLicense'] ?? '' ) );
+			if ( $licenseItem === null ) {
+				return $this->msg( 'embeddablecontent-person-portrait-license-required' )->text();
+			}
+			$record['portraitLicense'] = $licenseItem->getSerialization();
+		} else {
+			$record['portraitLicense'] = '';
+		}
+		return null;
+	}
+
+	/**
+	 * Local-file portrait upload (portraitMode=file). Returns the file
+	 * title, or null when no file was provided.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function uploadPortraitFromRequest( array $record ): ?\MediaWiki\Title\Title {
+		$request = $this->getRequest();
+		$upload = $request->getUpload( 'wpPortraitFile' );
+		if ( !$upload instanceof \MediaWiki\Request\WebRequestUpload
+			|| $upload->getSize() <= 0 || $upload->getTempName() === ''
+		) {
+			return null;
+		}
+		$tempPath = $upload->getTempName();
+		$mime = \MediaWiki\MediaWikiServices::getInstance()
+			->getMimeAnalyzer()->guessMimeType( $tempPath, false );
+		$destName = $this->portraitDestName( $record, $upload->getName(), $mime );
+		if ( $destName === '' ) {
+			return null;
+		}
+		$base = new \MediaWiki\Upload\UploadFromFile();
+		$base->initializePathInfo( $destName, $tempPath, $upload->getSize() );
+		return $this->performPortraitUpload( $base, $record );
+	}
+
+	/**
+	 * Paste-URL portrait upload (portraitMode=url) — goes through
+	 * UploadFromUrl so the instance's SSRF guards apply.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function uploadPortraitFromUrl( string $url, array $record ): ?\MediaWiki\Title\Title {
+		if ( !\MediaWiki\Upload\UploadFromUrl::isAllowed( $this->getUser() ) ) {
+			return null;
+		}
+		$path = parse_url( $url, PHP_URL_PATH );
+		$name = $path !== false && $path !== null && $path !== '' ? basename( $path ) : 'portrait';
+		$mime = $this->mimeFromUrl( $url );
+		$destName = $this->portraitDestName( $record, $name, $mime );
+		if ( $destName === '' ) {
+			return null;
+		}
+		$base = new \MediaWiki\Upload\UploadFromUrl();
+		$base->initialize( $destName, $url );
+		$tempPath = $base->getTempPath();
+		if ( $tempPath === '' || !is_file( $tempPath ) ) {
+			return null;
+		}
+		return $this->performPortraitUpload( $base, $record );
+	}
+
+	/**
+	 * Best-effort remote MIME probe (HEAD) for URL-mode portraits; '' when
+	 * the probe fails (the destination-name fallback extension applies).
+	 */
+	private function mimeFromUrl( string $url ): string {
+		try {
+			$http = \MediaWiki\MediaWikiServices::getInstance()->getHttpRequestFactory()
+				->create( $url, [], __METHOD__ );
+			$http->execute();
+			return (string)$http->getResponseHeader( 'Content-Type' );
+		} catch ( \Throwable $e ) {
+			return '';
+		}
+	}
+
+	/**
+	 * Destination file name "<label>-portrait.<ext>": the extension comes
+	 * from the original name, restricted to the portrait whitelist, with a
+	 * fallback to the MIME type's canonical extension. Returns '' when the
+	 * format is unsupported or the label is unusable.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function portraitDestName( array $record, string $originalName, string $mime ): string {
+		$ext = strtolower( (string)pathinfo( $originalName, PATHINFO_EXTENSION ) );
+		if ( !in_array( $ext, self::PORTRAIT_EXTENSIONS, true ) ) {
+			$ext = strtolower( (string)\MediaWiki\MediaWikiServices::getInstance()
+				->getMimeAnalyzer()->getExtensionFromMimeTypeOrNull( $mime ) );
+		}
+		if ( !in_array( $ext, self::PORTRAIT_EXTENSIONS, true ) ) {
+			return '';
+		}
+		$label = (string)preg_replace( '/[#<>\[\]|{}:]/', '', trim( $this->primaryLabel( $record ) ) );
+		$label = trim( (string)preg_replace( '/\s+/', ' ', $label ) );
+		if ( $label === '' ) {
+			return '';
+		}
+		return "{$label}-portrait.{$ext}";
+	}
+
+	/**
+	 * Runs verifyUpload + performUpload on a prepared UploadBase. Returns
+	 * the file title, or null when no portrait was provided / already
+	 * present. A FAILED verification or upload throws — the caller
+	 * (beforeCreate) surfaces the reason as a form error.
+	 *
+	 * @param array<string,mixed> $record
+	 * @throws \RuntimeException when the upload is rejected
+	 */
+	private function performPortraitUpload( \MediaWiki\Upload\UploadBase $base, array $record ): ?\MediaWiki\Title\Title {
+		$title = $base->getTitle();
+		if ( $title === null ) {
+			return null;
+		}
+		if ( $title->exists() ) {
+			return $title; // idempotent: already uploaded on an earlier run
+		}
+		$verify = $base->verifyUpload();
+		if ( ( $verify['status'] ?? null ) !== \MediaWiki\Upload\UploadBase::OK ) {
+			$details = $verify['details'] ?? [];
+			$detail = is_array( $details ) && $details !== []
+				? (string)( $details[0] ?? '' )
+				: (string)( $verify['status'] ?? 'rejected' );
+			throw new \RuntimeException( 'verifyUpload rejected (' . $detail . ')' );
+		}
+		$label = $this->primaryLabel( $record );
+		$pageText = "Portrait of {$label}, uploaded via Special:AddPerson.";
+		$status = $base->performUpload(
+			$this->msg( 'embeddablecontent-person-portrait-edit-summary', $label )->inContentLanguage()->text(),
+			$pageText,
+			false,
+			$this->getUser()
+		);
+		if ( !$status->isOK() ) {
+			throw new \RuntimeException( 'performUpload: ' . $status->getMessage()->getParams()[0] ?? 'rejected' );
+		}
+		return $title;
+	}
+
+	// ------------------------------------------------------------- page content
+	// Person: page content = the Wikipedia lead intro (Biography section),
+	// reviewed on the content step before it is written to the page.
+
+	/** @var \EmbeddableContent\Fetch\WikipediaContentProvider|null lazily built */
+	private ?\EmbeddableContent\Fetch\WikipediaContentProvider $wikipedia = null;
+
+	protected function harvestContent( array $record ): array {
+		$title = trim( (string)( $record['enwikiTitle'] ?? '' ) );
+		if ( $title === '' ) {
+			return $record;
+		}
+		$this->wikipedia ??= new \EmbeddableContent\Fetch\WikipediaContentProvider(
+			new \EmbeddableContent\Fetch\CurlHttpClient( [ 'en.wikipedia.org' ] )
+		);
+		$intro = $this->wikipedia->intro( $title );
+		if ( $intro !== null ) {
+			$record['biography'] = $intro;
+			$record['contentSources']['biography'] = 'wikipedia';
+		}
+		return $record;
+	}
+
+	protected function contentFieldSpecs( array $record ): array {
+		$bio = (string)( $record['biography'] ?? '' );
+		if ( $bio === '' ) {
+			return [];
+		}
+		$field = [
+			'type' => 'textarea',
+			'rows' => 8,
+			'label-message' => 'embeddablecontent-content-field-biography',
+			'default' => $bio,
+		];
+		$source = $record['contentSources']['biography'] ?? null;
+		if ( $source !== null ) {
+			$field['help'] = $this->msg( 'embeddablecontent-content-from-' . $source )->parse();
+		}
+		return [ 'biography' => $field ];
 	}
 
 	// ------------------------------------------------------------- classic page
@@ -244,13 +518,19 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 
 	/**
 	 * Person: page skeleton — prose lives on the page, facts in the item.
+	 * Only sections with (reviewed) content are rendered: the Wikipedia
+	 * Biography when fetched, never an empty scaffold.
 	 *
 	 * @param array<string,mixed> $record
 	 */
 	protected function pageSkeleton( array $record, bool $withMarker = false ): string {
 		$marker = $withMarker ? "\n<!-- " . $this->pagePendingMarker() . " -->\n" : "";
-		return "{{Person}}\n\n== Biography ==\n\n<!-- Life, work, legacy. -->\n\n"
-			. "== Works ==\n\n== See also ==\n" . $marker;
+		$body = "{{Person}}\n\n";
+		$bio = trim( (string)( $record['biography'] ?? '' ) );
+		if ( $bio !== '' ) {
+			$body .= "== Biography ==\n\n" . $this->attributed( $record, 'biography', $bio ) . "\n\n";
+		}
+		return $body . $marker;
 	}
 
 	protected function classOptions(): array {

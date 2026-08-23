@@ -91,6 +91,16 @@ class WikidataWorkProvider implements WorkProvider {
 	}
 
 	/**
+	 * Wikidata has no abstract/keyword payload — the OpenAlex/Crossref
+	 * providers cover the scholarly-article page content.
+	 *
+	 * @return array{abstract: ?string, keywords: ?string, source: ?string}
+	 */
+	public function abstractAndKeywordsByDoi( string $doi ): array {
+		return [ 'abstract' => null, 'keywords' => null, 'source' => null ];
+	}
+
+	/**
 	 * Full harvest from a Wikidata QID (the hub's pick step).
 	 */
 	public function byWikidataId( string $qid ): ?WorkRecord {
@@ -117,7 +127,8 @@ class WikidataWorkProvider implements WorkProvider {
 			issuedYear: $this->core->yearValue( $harvest['claims'], 'P577' ),
 			classWikidataIds: $this->core->itemValueIds( $harvest['claims'], [ 'P31' ] ),
 			provider: 'wikidata',
-			providerId: $qid
+			providerId: $qid,
+			enwikiTitle: $this->core->enwikiTitle( $harvest['sitelinks'] )
 		);
 	}
 }

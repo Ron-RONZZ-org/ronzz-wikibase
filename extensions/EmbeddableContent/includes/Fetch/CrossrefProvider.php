@@ -65,6 +65,29 @@ class CrossrefProvider implements WorkProvider {
 	}
 
 	/**
+	 * Crossref abstracts are direct text (JATS XML, tag-stripped) — the
+	 * fallback when OpenAlex has no abstract for the DOI. No keywords.
+	 *
+	 * @return array{abstract: ?string, keywords: ?string, source: ?string}
+	 */
+	public function abstractAndKeywordsByDoi( string $doi ): array {
+		try {
+			$data = $this->http->getJson( self::API . '/' . rawurlencode( strtolower( $doi ) ), [], $this->timeout );
+		} catch ( \Throwable $e ) {
+			return [ 'abstract' => null, 'keywords' => null, 'source' => null ];
+		}
+		$abstract = $data['message']['abstract'] ?? null;
+		if ( !is_string( $abstract ) ) {
+			return [ 'abstract' => null, 'keywords' => null, 'source' => null ];
+		}
+		$abstract = trim( (string)preg_replace( '/\s+/u', ' ', strip_tags( $abstract ) ) );
+		if ( $abstract === '' ) {
+			return [ 'abstract' => null, 'keywords' => null, 'source' => null ];
+		}
+		return [ 'abstract' => $abstract, 'keywords' => null, 'source' => 'crossref' ];
+	}
+
+	/**
 	 * @param array<int,array<string,mixed>> $messages
 	 * @return WorkRecord[]
 	 */
