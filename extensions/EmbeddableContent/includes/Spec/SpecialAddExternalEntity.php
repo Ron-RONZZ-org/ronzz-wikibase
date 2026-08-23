@@ -214,7 +214,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 *
 	 * @param array<string,string> $query
 	 */
-	private function manualFallbackHtml( array $query = [] ): string {
+	protected function manualFallbackHtml( array $query = [] ): string {
 		return \MediaWiki\Html\Html::rawElement(
 			'p',
 			[ 'class' => 'wb-ext-manual' ],
