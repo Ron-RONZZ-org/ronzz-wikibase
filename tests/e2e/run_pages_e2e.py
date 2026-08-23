@@ -244,17 +244,18 @@ def flow_final_item(op, base: str, api: str, url: str, body: str, special: str) 
     if m:
         page_title = urllib.parse.unquote(m.group(1)).replace("_", " ")
         # The wikibase_item page property is written at parse time but its
-        # page_props table row lands via the deferred LinkUpdate — retry a
-        # few times (a cold cache / jobrunner-less stack can lag a beat).
+        # page_props table row lands via the deferred LinkUpdate — retry for
+        # up to ~30s (a cold cache / jobrunner-less stack can lag a beat;
+        # production is eventually consistent via the 5-min cron).
         qid = None
-        for _ in range(5):
+        for _ in range(15):
             r = api_call(op, api, {"action": "query", "titles": page_title,
                                    "prop": "pageprops", "format": "json"})
             for page in r.get("query", {}).get("pages", {}).values():
                 qid = page.get("pageprops", {}).get("wikibase_item")
                 if qid:
                     return qid
-            time.sleep(1)
+            time.sleep(2)
         raise FlowError(f"{special} page {page_title} has no wikibase_item "
                         f"(finalize step did not map the sitelink)")
     raise FlowError(f"{special} did not redirect to an item or classic page: {url} {find_error(body)}")
@@ -563,22 +564,35 @@ def flow_source_class_manual(op, base: str, api: str, class_key: str, fields: di
 
 
 def input_value(body: str, field: str) -> str:
-    """value attribute of an <input name="wp<field>"> (attribute order varies;
-    OOUI HTMLForm text fields render as plain inputs the JS later infuses)."""
-    m = re.search(r'name="' + field + r'"[^>]*\bvalue="([^"]*)"', body)
-    if not m:
-        m = re.search(r'\bvalue="([^"]*)"[^>]*name="' + field + r'"', body)
-    return m.group(1) if m else ""
+    """value attribute of an <input name="wp<FieldName>">. OOUI php-mode
+    inputs render with SINGLE-quoted attributes ('name=... value=...') while
+    plain hidden inputs use double quotes — match either quote style and
+    either attribute order."""
+    for quote in ('"', "'"):
+        for pattern in (
+            r"name=" + quote + field + quote + r"[^>]*\bvalue=" + quote + r"([^" + quote + r"]*)" + quote,
+            r"\bvalue=" + quote + r"([^" + quote + r"]*)" + quote + r"[^>]*name=" + quote + field + quote,
+        ):
+            m = re.search(pattern, body)
+            if m:
+                return m.group(1)
+    return ""
 
 
 def flow_manual_link_from(op, base: str, body: str, special: str) -> str:
-    """The tokenised 'create manually' href (/wiki/Special:<special>/manual
-    ?token=<hex>) in a search-result page (zero-hit AND selection pages both
-    carry it since issue #35)."""
-    m = re.search(r"/wiki/Special:" + special + r"/manual\?token=[0-9a-f]+", body)
+    """The tokenised 'create manually' href in a search-result page (zero-hit
+    AND selection pages both carry it since issue #35).
+
+    Title::getFullURL() canonicalises SPECIAL pages to
+    /w/index.php?title=Special:.../manual&token=<hex> (not the /wiki/ article
+    path) — parse the href generically and return the path+query for page_get.
+    """
+    m = re.search(r'href="([^"]*Special:' + re.escape(special) + r'/manual[^"]*token=[0-9a-f]+[^"]*)"', body)
     if not m:
         raise FlowError(f"{special} search page offers no tokenised manual link: {find_error(body)}")
-    return m.group(0)
+    href = m.group(1).replace("&amp;", "&")
+    u = urllib.parse.urlparse(href)
+    return (u.path or "/") + ("?" + u.query if u.query else "")
 
 
 def flow_person_manual_autofill(op, base: str, api: str, name: str) -> tuple[str, str]:
@@ -674,12 +688,14 @@ def flow_source_book_access_file(op, base: str, api: str, label: str,
 
 def create_api_item(op, api: str, label: str) -> str:
     """Creates a bare item via the API (labels only) — e.g. the publisher
-    entity for the AddSource publisher-field test."""
+    entity for the AddSource publisher-field test. This instance's Wikibase
+    requires the FULL term form ({"en": {"language": "en", "value": …}});
+    the short form {"en": "…"} is rejected (not-recognized-array)."""
     csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
     token = csrf["query"]["tokens"]["csrftoken"]
     r = api_call(op, api, {
         "action": "wbeditentity", "new": "item",
-        "data": json.dumps({"labels": {"en": label}}),
+        "data": json.dumps({"labels": {"en": {"language": "en", "value": label}}}),
         "token": token, "format": "json",
     }, post=True)
     if "entity" not in r:
