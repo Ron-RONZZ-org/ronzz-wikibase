@@ -42,6 +42,18 @@ the instance.
 - Never develop directly on the production server — extension work targets
   the dev/CI wikibase-docker stack (see Coding Guidelines #6 and
   `dev/AGENTS.md`).
+- **Deployments follow the runbook sequence exactly** (`RonzzIT:Runbook/Wikibase`
+  §Update): backups first (LocalSettings.php + extension/seed tarballs + the
+  config map), then rsync + chown, D1 importers, seed re-emission with the
+  FULL vocabulary set **including `dogfood`** (never `--only=config`), any
+  LocalSettings namespace blocks (`php -l` after), restart php-fpm, purge
+  objectcache + message blob store, and `rebuildtextindex.php` for custom
+  namespaces (not searched by default). Verify each layer live afterwards
+  (siteinfo namespaces, Special: pages 200, forms render the new fields).
+- **Page↔item properties are eventually consistent on production** —
+  `$wgJobRunRate = 0` + the 5-min cron means a freshly created classic page's
+  `wikibase_item` property (and its infobox) fills in up to a few minutes
+  after creation — expected, not a regression.
 
 ---
 
@@ -155,6 +167,33 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
    with regression E2E).
 5. **Console errors in browser tests indicate real bugs** — fix them even if
    tests pass.
+6. **The pure-PHP unit suite cannot see MediaWiki-bound paths** — Special-page
+   flows, entity saves and HTMLForm behavior are invisible to it (no MW
+   runtime). Changes to the Add* flows or the page machinery must be validated
+   by the dev-stack page-flow E2E or the CI integration job, not PHPUnit
+   alone: a data-model API mismatch and an int-namespace title both passed the
+   unit suite and only the dev-stack E2E caught them.
+7. **Validate E2E helpers before blaming the extension** — the E2E suite is
+   code under review: when an assertion fails, check the helper's response
+   shape and regex capture first (a term-value dict compared to a string, and
+   a title regex that dropped the namespace, both masqueraded as "feature
+   broken" failures).
+8. **Assert the expected outcome branch in E2E flows** — fallback branches in
+   helpers silently mask regressions. A flow helper that resolved the created
+   item "either from an Item: redirect or a classic page" let page-creation
+   failures pass unnoticed; assert which branch was taken (e.g. the flow
+   landed on a Person:/Source:/Collective: page).
+9. **E2E environment prerequisites and external flakiness** — page-flow runs
+   need the dev-stack's full setup (dev/README steps 0/1b: Cite, citation
+   maps, the jobrunner container); missing pieces masquerade as code bugs.
+   Flows hitting live external authorities are flaky — re-run before treating
+   a timeout as a regression.
+10. **Seed dogfood entities are E2E fixtures and production data** — keep them
+    complete (the dogfood person must be classified `instance of` person, or
+    author validation rejects it when parent-inference copies it). Seed phases
+    are not independent: `--only=dogfood` alone leaves `class_ids` empty and
+    silently no-ops guarded logic — run the dependency phases
+    (properties/classes) when validating a phase in isolation.
 
 ### CI (GitHub Actions — public repo, unlimited minutes)
 
