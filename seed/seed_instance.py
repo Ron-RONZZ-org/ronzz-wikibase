@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any, Optional
@@ -107,6 +108,19 @@ class SeedOrchestrator:
             if match_text == wanted or hit_label == wanted:
                 return hit.get("id")
         return None
+
+    def existing_youtube_key(self, config_path: Path) -> str:
+        """The youtubeApiKey of the previously emitted config ('' when the
+        file is absent or has no key). The key is deploy-injected and never
+        committed; carrying it forward makes re-emissions idempotent w.r.t.
+        the secret (hit 2026-08-23 — a deploy without YOUTUBE_API_KEY
+        exported silently emptied it)."""
+        try:
+            text = config_path.read_text(encoding="utf-8")
+        except OSError:
+            return ""
+        m = re.search(r"'youtubeApiKey'\s*=>\s*'([^']*)'", text)
+        return m.group(1) if m else ""
 
     def ensure_login(self) -> None:
         if self.args.dry_run:
@@ -436,12 +450,18 @@ class SeedOrchestrator:
             for row in self.classes
             if (url := row.get("align_wikidata")) and url.rstrip("/").rsplit("/", 1)[-1].startswith("Q")
         }
+        # The YouTube key must survive re-emissions (hit 2026-08-23: a deploy
+        # without YOUTUBE_API_KEY exported silently emptied it). Carry the
+        # previous config's key forward; build_config only overrides it when
+        # the env var is explicitly exported.
+        previous_key = self.existing_youtube_key(Path(self.args.config_out))
         snippet = config_builder.build_config(
             self.property_ids,
             self.class_ids,
             self.lexer_ids,
             self.languages_available,
             wikidata_class_qids,
+            previous_youtube_api_key=previous_key,
         )
         report = config_builder.build_report(
             self.property_ids, self.class_ids, self.lexer_ids, self.dogfood_ids, self.languages_available
@@ -451,6 +471,12 @@ class SeedOrchestrator:
         config_out.parent.mkdir(parents=True, exist_ok=True)
         config_out.write_text(snippet, encoding="utf-8")
         print(f"  wrote {config_out}")
+        if "youtubeApiKey" in snippet and "'youtubeApiKey' => ''" in snippet:
+            print(
+                "  ⚠️ WARNING: the emitted config has an EMPTY youtubeApiKey — the "
+                "YouTube provider is disabled. Export YOUTUBE_API_KEY to set/rotate "
+                "the key, or check the previous config if it was lost."
+            )
 
         report_out = Path(self.args.report_out)
         report_out.parent.mkdir(parents=True, exist_ok=True)

@@ -156,6 +156,7 @@ def build_config(
     lexer_ids: dict[str, str],
     fallback_languages: list[str],
     wikidata_class_qids: dict[str, str] | None = None,
+    previous_youtube_api_key: str = "",
 ) -> str:
     """Returns a PHP snippet assigning $wgEmbeddableContentConfig and the
     Wikibase settings the seed is responsible for.
@@ -163,6 +164,12 @@ def build_config(
     wikidata_class_qids maps an English class label to its Wikidata QID
     (from the classes manifest align.wikidata column); used to derive the
     Wikidata-QID -> local class key maps for harvest class inference.
+
+    previous_youtube_api_key carries the key of the PREVIOUSLY emitted config
+    (read by the seed from the existing --config-out file). The YouTube key
+    is deploy-injected via the environment and must never be silently lost on
+    re-emission: an explicitly exported YOUTUBE_API_KEY (even empty — an
+    explicit disable) wins; otherwise the previous key is preserved.
     """
     wikidata_class_qids = wikidata_class_qids or {}
 
@@ -268,12 +275,19 @@ def build_config(
         "agentClassByWikidata": agent_class_by_qid,
         "fallbackLanguages": fallback_languages,
         "lexers": dict(sorted(lexer_ids.items())),
-        # YouTube provider (deploy-injected; never committed). Empty key
-        # disables the provider; the TTL is 0 (cache off) by default — a
-        # config flip for when repeat-query quota ever matters.
-        "youtubeApiKey": os.environ.get("YOUTUBE_API_KEY", ""),
-        "youtubeSearchCacheTtl": int(os.environ.get("YOUTUBE_SEARCH_CACHE_TTL", "0") or 0),
     }
+
+    # YouTube provider (deploy-injected; never committed). Empty key
+    # disables the provider; the TTL is 0 (cache off) by default — a
+    # config flip for when repeat-query quota ever matters. The key is
+    # resolved as: explicit YOUTUBE_API_KEY env (incl. an explicit empty
+    # string = disable) > the previous config's key (preservation — a
+    # re-emission without the env var must not silently wipe it, hit
+    # 2026-08-23) > "".
+    env_key = os.environ.get("YOUTUBE_API_KEY")
+    youtube_api_key = env_key if env_key is not None else previous_youtube_api_key
+    config["youtubeApiKey"] = youtube_api_key
+    config["youtubeSearchCacheTtl"] = int(os.environ.get("YOUTUBE_SEARCH_CACHE_TTL", "0") or 0)
     config = {k: v for k, v in config.items() if v not in (None, {}, [])}
 
     lines = [
