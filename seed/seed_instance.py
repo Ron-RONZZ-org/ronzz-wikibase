@@ -314,6 +314,17 @@ class SeedOrchestrator:
             book_claims.setdefault(doi_id, []).append(dogfood.string_claim(doi_id, "10.1000/notes"))
         if isbn_id:
             book_claims.setdefault(isbn_id, []).append(dogfood.string_claim(isbn_id, "978-1-2345-6789-0"))
+        # Year + author (Ada Lovelace, 1843): the dogfood book doubles as the
+        # parent for bookExcerpt inference tests (Special:AddSource copies the
+        # parent's date/attributed-to onto the excerpt when left blank) — and
+        # matches what AddSource-created books now carry (year + required
+        # author entity, per the persistence fixes).
+        if attributed_to_id:
+            book_claims.setdefault(attributed_to_id, []).append(
+                dogfood.entity_claim(attributed_to_id, person_id)
+            )
+        if date_id:
+            book_claims.setdefault(date_id, []).append(dogfood.time_claim(date_id, "+1843-01-01T00:00:00Z", 9))
         if book_claims:
             self.api.add_claims(book_id, book_claims, SUMMARY_PREFIX + "populate book")
 

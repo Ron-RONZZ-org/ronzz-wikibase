@@ -96,6 +96,7 @@ SOURCE_PROPERTY_KINDS = {
     "URL": "url",
     "YouTube channel ID": "youtubeChannelId",
     "YouTube video ID": "youtubeVideoId",
+    "chapters": "chapters",
 }
 
 # Issue #26: FOSS software properties (Special:AddSoftware statements).

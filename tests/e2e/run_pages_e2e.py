@@ -853,28 +853,33 @@ def main() -> int:
         print(f"[ok] AddSource (website, manual-only) -> {website}: website class + URL")
 
         # 2d. Child class: bookExcerpt requires an existing book parent,
-        #     auto-links it with a `part of` statement. Regression: the
-        #     description TERM and the year STATEMENT (date property, year
-        #     precision) are persisted — both were previously discarded.
+        #     auto-links it with a `part of` statement. Blank description /
+        #     year / authors are auto-generated / inferred from the parent
+        #     book: description -> "Pages a-b (Volume c) of {book}", year
+        #     and authors copied from the parent's date / attributed-to
+        #     statements. Also a regression: the description TERM and the
+        #     year STATEMENT are persisted (both were previously discarded).
         book = resolve("Notes by the Translator", "item")  # seed dogfood book
+        book_author = resolve("Ada Lovelace", "item")  # dogfood book's author
         excerpt_label = f"Page-flow E2E book excerpt {int(time.time())}"
         excerpt = track(flow_source_class_manual(op, base, api, "bookExcerpt", {
-            "wptitle": excerpt_label, "wpauthors": person,
-            "wpparent": book, "wppages": "12-30",
-            "wpdescription": "Pages 12-30 of a test book.",
-            "wpissuedYear": "1967"}))
+            "wptitle": excerpt_label, "wpparent": book,
+            "wppages": "12-30", "wpvolume": "2"}))
         claims, _ = entity_claims(op, api, excerpt)
         assert first_value(claims, instance_of) == book_excerpt_class, \
             f"{excerpt} instance-of != book excerpt ({first_value(claims, instance_of)})"
         assert first_value(claims, part_of_prop) == book, \
             f"{excerpt} missing the part-of link to the parent book"
-        assert entity_descriptions(op, api, excerpt).get("en", "") == "Pages 12-30 of a test book.", \
-            f"{excerpt} description term not persisted"
+        assert entity_descriptions(op, api, excerpt).get("en", "") == \
+            "Pages 12-30 (Volume 2) of Notes by the Translator", \
+            f"{excerpt} description not auto-generated from pages/volume + parent"
         date_claim = first_value(claims, resolve("date", "property"))
-        assert date_claim is not None and str(date_claim.get("time", "")).startswith("+1967"), \
-            f"{excerpt} year statement (date property) not persisted"
+        assert date_claim is not None and str(date_claim.get("time", "")).startswith("+1843"), \
+            f"{excerpt} year not inferred from the parent book ({date_claim})"
+        assert first_value(claims, resolve("attributed to", "property")) == book_author, \
+            f"{excerpt} authors not inferred from the parent book"
         print(f"[ok] AddSource (bookExcerpt) -> {excerpt}: child class + part-of -> {book}; "
-              f"description term + year statement persisted")
+              f"description autogen + year/authors inferred from parent")
 
         # 2e. YouTube chain: a channel (URL -> ID derived server-side), then a
         #     youtubeVideo child of that channel with a duration in seconds.

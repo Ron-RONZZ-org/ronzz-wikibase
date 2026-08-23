@@ -131,7 +131,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			],
 		], $this->getContext() );
 		$form->setTitle( $this->getPageTitle() )
-			->setSubmitTextMsg( 'embeddablecontent-extselect-continue' )
+			->setSubmitTextMsg( 'embeddablecontent-source-pick-continue' )
 			->setSubmitCallback( [ $this, 'onClassPickerSubmit' ] )
 			->setSubmitID( 'wb-ext-add-pick-class' )
 			->setWrapperLegendMsg( 'embeddablecontent-source-pick-legend' );
@@ -376,7 +376,26 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				break;
 			case 'bookExcerpt':
 				$fields['pages'] = $this->plainTextField( 'embeddablecontent-field-pages', (string)( $record['pages'] ?? '' ) );
+				$fields['volume'] = $this->plainTextField( 'embeddablecontent-field-volume', (string)( $record['volume'] ?? '' ) );
+				$fields['chapters'] = $this->plainTextField( 'embeddablecontent-source-field-chapters', (string)( $record['chapters'] ?? '' ) );
 				$fields += $this->issuedYearFieldSpec( $record );
+				// The description auto-generates from pages/volume + the
+				// parent book when left blank; year/authors fall back to the
+				// parent book's own statements (see beforeCreate).
+				$fields['description']['help'] = $this->msg(
+					'embeddablecontent-source-bookexcerpt-desc-help'
+				)->parse();
+				$parentLabel = $this->parentClassLabel();
+				$sameAsParent = $this->msg(
+					'embeddablecontent-source-bookexcerpt-sameparent-help',
+					$parentLabel
+				)->parse();
+				$fields['issuedYear']['help'] = $sameAsParent;
+				$fields['authors']['help'] = ( $fields['authors']['help'] ?? '' ) . ' ' . $sameAsParent;
+				// Authors may be left blank: they (like the year) are
+				// inferred from the parent book in beforeCreate, so the
+				// HTMLForm required flag must not block the submit.
+				$fields['authors']['required'] = false;
 				break;
 		}
 
@@ -480,8 +499,11 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 * Cross-field validation before creation (review AND manual paths):
 	 * duration format, author entities (≥1, agent-class), parent item
 	 * (child classes: exists and is instance of the parent class), and the
-	 * YouTube id derived from the URL when not typed. Returning a non-null
-	 * string aborts the creation with the message as a form error.
+	 * YouTube id derived from the URL when not typed. Book excerpts also
+	 * auto-generate their description and infer year/authors from the parent
+	 * book when left blank (BEFORE the author validation, so an inferred
+	 * author set passes). Returning a non-null string aborts the creation
+	 * with the message as a form error.
 	 *
 	 * @param array<string,mixed> $record
 	 */
@@ -493,6 +515,16 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				return $this->msg( 'embeddablecontent-source-error-duration' )->text();
 			}
 			$record['durationSeconds'] = $seconds;
+		}
+
+		// bookExcerpt: description autogen + year/authors from the parent
+		// book when blank — before validateAuthors (blank authors must be
+		// inferred, not rejected).
+		if ( $this->currentClassKey === 'bookExcerpt' ) {
+			$error = $this->fillBookExcerptFromParent( $record );
+			if ( $error !== null ) {
+				return $error;
+			}
 		}
 
 		$error = $this->validateAuthors( $record );
@@ -509,6 +541,100 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		}
 
 		return $this->validateParent( $record );
+	}
+
+	/**
+	 * Book-excerpt conveniences (the parent book item is validated by
+	 * validateParent, which runs after this): when the description is blank,
+	 * auto-generate "Pages a-b (Volume c) of {book}" from the pages/volume
+	 * fields and the parent's label; when the year or the authors are blank,
+	 * copy them from the parent book's own `date` / `attributed to`
+	 * statements. Never errors (the parent was validated) — returns null.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function fillBookExcerptFromParent( array &$record ): ?string {
+		$parentId = trim( (string)( $record['parent'] ?? '' ) );
+		if ( preg_match( '/^Q[1-9]\d*$/', $parentId ) !== 1 ) {
+			return null; // missing/invalid parent is validateParent's error
+		}
+		$parent = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $parentId ) );
+		if ( !$parent instanceof Item ) {
+			return null;
+		}
+
+		if ( trim( (string)( $record['description'] ?? '' ) ) === '' ) {
+			$parts = [];
+			$pages = trim( (string)( $record['pages'] ?? '' ) );
+			if ( $pages !== '' ) {
+				$parts[] = $this->msg( 'embeddablecontent-source-bookexcerpt-desc-pages', $pages )->text();
+			}
+			$volume = trim( (string)( $record['volume'] ?? '' ) );
+			if ( $volume !== '' ) {
+				$parts[] = $this->msg( 'embeddablecontent-source-bookexcerpt-desc-volume', $volume )->text();
+			}
+			$parentLabel = $parent->getLabel( 'en' ) ?? '';
+			if ( $parts !== [] && $parentLabel !== '' ) {
+				$record['description'] = $this->msg(
+					'embeddablecontent-source-bookexcerpt-desc',
+					implode( ' ', $parts ),
+					$parentLabel
+				)->text();
+			}
+		}
+
+		if ( empty( $record['issuedYear'] ) ) {
+			$year = $this->itemYear( $parent );
+			if ( $year !== null ) {
+				$record['issuedYear'] = $year;
+			}
+		}
+		if ( empty( $record['authors'] ) ) {
+			$attributedTo = $this->config->provenancePropertyIds()['attributedTo'] ?? null;
+			if ( $attributedTo !== null ) {
+				$parentAuthors = $this->itemEntityValues( $parent, $attributedTo );
+				if ( $parentAuthors !== [] ) {
+					$record['authors'] = implode( ', ', $parentAuthors );
+				}
+			}
+		}
+		return null;
+	}
+
+	/** Year of an item's `date` (P577-aligned) statement, or null. */
+	private function itemYear( Item $item ): ?int {
+		$dateProp = $this->config->provenancePropertyIds()['date'] ?? null;
+		if ( $dateProp === null ) {
+			return null;
+		}
+		foreach ( $item->getStatements()->getByPropertyId( new NumericPropertyId( $dateProp ) ) as $statement ) {
+			$value = $statement->getMainSnak()->getDataValue();
+			if ( $value instanceof TimeValue ) {
+				// "+2020-00-00T00:00:00Z" → 2020
+				return (int)substr( $value->getTime(), 1, 4 );
+			}
+		}
+		return null;
+	}
+
+	/** Entity ids of an item's statements on the given property. */
+	private function itemEntityValues( Item $item, string $propertyId ): array {
+		$out = [];
+		foreach ( $item->getStatements()->getByPropertyId( new NumericPropertyId( $propertyId ) ) as $statement ) {
+			$value = $statement->getMainSnak()->getDataValue();
+			if ( $value instanceof EntityIdValue ) {
+				$out[] = $value->getEntityId()->getSerialization();
+			}
+		}
+		return $out;
+	}
+
+	/** Label of the current class's parent class (e.g. "book"), or ''. */
+	private function parentClassLabel(): string {
+		$parentKey = $this->config->sourceParents()[$this->currentClassKey] ?? null;
+		return $parentKey !== null
+			? $this->msg( 'embeddablecontent-source-class-' . $parentKey )->text()
+			: '';
 	}
 
 	/**
@@ -586,6 +712,11 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 
 		if ( !empty( $record['durationSeconds'] ) && isset( $props['duration'] ) ) {
 			$specs[$props['duration']] = QuantityValue::newFromNumber( (int)$record['durationSeconds'] );
+		}
+
+		// Chapters (book excerpts): optional count/range string.
+		if ( !empty( $record['chapters'] ) && isset( $props['chapters'] ) ) {
+			$specs[$props['chapters']] = new StringValue( (string)$record['chapters'] );
 		}
 
 		// Year: publication/creation date at YEAR precision on the shared
