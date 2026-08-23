@@ -706,8 +706,9 @@ def flow_source_url_entry(op, base: str, api: str, class_key: str, url: str,
               "wpEditToken": token2, "wpSubmit": "1"}
     url_page, body = page_post(op, manual_url, fields)
     # The fetched intro (site description) is reviewed on the content step
-    # (/manual/content?token=) before creation — submit it too.
-    if re.search(r"Special:AddSource/" + class_key + r"/manual/content\?[^'\"]*token=", url_page):
+    # (/manual/content?token= — the redirect renders as
+    # /w/index.php?title=Special:.../manual/content&token=) — submit it too.
+    if re.search(r"Special:AddSource/" + class_key + r"/manual/content[^'\"]*token=", url_page):
         token3 = edit_token(body)
         url_page, body = page_post(op, url_page, {"wpEditToken": token3, "wpSubmit": "1"})
         # Debug aid: surface the content-step response when the creation did
@@ -763,15 +764,23 @@ def flow_source_content_step(op, base: str, api: str, doi: str, author_qid: str)
     url, body = page_post(op, url, {"wpEditToken": token4, "wpSubmit": "1"})
     qid = flow_final_item(op, base, api, url, body, "AddSource/scholarlyArticle (content step)")
     # The Source: page must carry the Abstract section (dynamic sections).
+    # The revision read can lag the page-property mapping by a beat — retry
+    # like flow_final_item does.
     m = re.search(r"/wiki/Source:([^?#]+)", url)
     if m:
         page_title = urllib.parse.unquote(m.group(1)).replace("_", " ")
-        r = api_call(op, api, {"action": "query", "titles": page_title, "prop": "revisions",
-                               "rvprop": "content", "format": "json"})
-        for p in r.get("query", {}).get("pages", {}).values():
-            content = p.get("revisions", [{}])[0].get("*", "")
-            if "== Abstract ==" not in content:
-                raise FlowError(f"Source:{page_title} has no == Abstract == section:\n{content[:300]}")
+        content = ""
+        for _ in range(15):
+            r = api_call(op, api, {"action": "query", "titles": page_title, "prop": "revisions",
+                                   "rvprop": "content", "format": "json"})
+            for p in r.get("query", {}).get("pages", {}).values():
+                content = p.get("revisions", [{}])[0].get("*", "")
+            if "== Abstract ==" in content:
+                break
+            time.sleep(2)
+        if "== Abstract ==" not in content:
+            raise FlowError(f"Source:{page_title} has no == Abstract == section "
+                            f"(url={url!r}, content={content[:120]!r})")
     return qid
 
 
