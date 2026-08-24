@@ -1,0 +1,18 @@
+{
+	"@metadata": {
+		"authors": [
+			"Crt",
+			"Jack Phoenix",
+			"Nike",
+			"Tarmo"
+		]
+	},
+	"dplforum-desc": "DPL-pohjainen foorumilaajennus",
+	"nstab-forum": "Foorumi",
+	"tooltip-ca-nstab-forum": "Tarkastele foorumisivua",
+	"dplforum-by": "tehnyt $1",
+	"dplforum-edited": "– Viimeksi muokattu",
+	"dplforum-never": "Ei koskaan",
+	"dplforum-toofew": "DPL-forum: Liian vähän luokkia!",
+	"dplforum-toomany": "DPL-forum: Liian paljon luokkia!"
+}

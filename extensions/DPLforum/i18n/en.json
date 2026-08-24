@@ -1,0 +1,16 @@
+{
+	"@metadata": {
+		"authors": [
+			"Ross McClure",
+			"Winston Sung"
+		]
+	},
+	"dplforum-desc": "DPL-based forum extension",
+	"nstab-forum": "Forum",
+	"tooltip-ca-nstab-forum": "View the forum page",
+	"dplforum-by": "by $1",
+	"dplforum-edited": "- Last edited",
+	"dplforum-never": "Never",
+	"dplforum-toofew": "DPL Forum: Too few categories!",
+	"dplforum-toomany": "DPL Forum: Too many categories!"
+}

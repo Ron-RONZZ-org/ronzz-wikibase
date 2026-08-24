@@ -1,0 +1,15 @@
+{
+	"@metadata": {
+		"authors": [
+			"Joetaras"
+		]
+	},
+	"dplforum-desc": "Estenzione d'u forum basate sus a DPL",
+	"nstab-forum": "Forum",
+	"tooltip-ca-nstab-forum": "'Ndruche 'a pàgena d'u forum",
+	"dplforum-by": "da $1",
+	"dplforum-edited": "- Urtema cangiamende",
+	"dplforum-never": "Maje",
+	"dplforum-toofew": "Forum DPL: Troppe picche categorije!",
+	"dplforum-toomany": "Forum DPL: Le categorije sonde assaije proprie!"
+}

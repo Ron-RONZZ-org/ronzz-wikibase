@@ -20,6 +20,9 @@ live endpoints of a seeded instance (acceptance, XSS, issue-#7 page flows).
 - **`tests/e2e/run_pages_e2e.py`** — issue-#7 page flows:
   `Special:AddPerson` / `AddSource` / `AddCollective` + the AddQuotation
   form; **self-cleaning** (removes what it creates).
+- **`tests/e2e/run_forum_e2e.py`** — DPLforum forum: `Forum:` namespace
+  registration (NS 110/111) + a board's `<forum>` listing showing a created
+  thread; **self-cleaning** (deletes its scratch board/thread pages).
 - The `integration` CI job runs the full E2E stack on 16 GB runners — see
   root AGENTS.md for the recommended edit → unit → push → CI loop.
 

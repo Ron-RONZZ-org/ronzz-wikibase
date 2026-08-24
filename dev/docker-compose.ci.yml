@@ -43,6 +43,7 @@ services:
       - ./config:/config
       - ../extensions/EmbeddableContent:/var/www/html/extensions/EmbeddableContent:ro
       - ../extensions/WikibaseCitation:/var/www/html/extensions/WikibaseCitation:ro
+      - ../extensions/DPLforum:/var/www/html/extensions/DPLforum:ro
     depends_on:
       mysql:
         condition: service_healthy

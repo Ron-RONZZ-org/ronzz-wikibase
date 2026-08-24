@@ -7,6 +7,10 @@
 wfLoadExtension( 'EmbeddableContent' );
 wfLoadExtension( 'WikibaseCitation' );
 
+// Discussion forum (DPLforum, vendored at extensions/DPLforum). Registers
+// the Forum: (110) / Forum_talk: (111) namespaces via its extension.json.
+wfLoadExtension( 'DPLforum' );
+
 // Issue #24 (cite-by-QID): `{{#cite:Q42}}` inside `<ref>` needs the stock
 // Cite extension. The WBS image does not bundle Cite — the CI / local stack
 // installs it into /var/www/html/extensions/Cite (see .github/workflows/ci.yml
@@ -56,6 +60,23 @@ $wgExtraNamespaces[NS_COLLECTIVE_TALK] = 'Collective_talk';
 $wgNamespacesWithSubpages[NS_COLLECTIVE] = true; // Collective:Name/fr static translations
 $wgContentNamespaces[] = NS_COLLECTIVE;
 $wgNamespacesToBeSearchedDefault[NS_COLLECTIVE] = true;
+
+// ---- Forum namespace (DPLforum, discussion forum) ----
+// Mirrors the production block in LocalSettings.php (see
+// RonzzIT:Deployment/Wikibase on the instance). DPLforum's extension.json
+// declares Forum (110) / Forum_talk (111), but namespace constants from
+// extension.json are only defined during Setup.php — AFTER LocalSettings.php
+// runs — so they must be defined here explicitly (same values; the guard
+// matches DPLforum.namespaces.php's own pattern and keeps re-definition
+// silent). Custom namespaces are NOT searched by default, so make Forum
+// searchable here. No $wgExtraNamespaces entries — the extension registers
+// the namespaces itself.
+if ( !defined( 'NS_FORUM' ) ) {
+	define( 'NS_FORUM', 110 );
+	define( 'NS_FORUM_TALK', 111 );
+}
+$wgContentNamespaces[] = NS_FORUM;
+$wgNamespacesToBeSearchedDefault[NS_FORUM] = true;
 
 // ---- Wikibase client (same-wiki) — mirrors production LocalSettings ----
 // Without this the client hooks never run: {{#statements:}} renders nothing

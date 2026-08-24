@@ -1,0 +1,16 @@
+{
+	"@metadata": {
+		"authors": [
+			"Robby",
+			"Volvox"
+		]
+	},
+	"dplforum-desc": "DPL-baséiert Forumerweiderungen",
+	"nstab-forum": "Forum",
+	"tooltip-ca-nstab-forum": "D'Forum-Säit weisen",
+	"dplforum-by": "vum $1",
+	"dplforum-edited": "- Fir d'lescht geännert",
+	"dplforum-never": "Ni",
+	"dplforum-toofew": "DPL Forum: Ze wéineg Kategorien!",
+	"dplforum-toomany": "DPL Forum: Ze wéineg Kategorien!"
+}

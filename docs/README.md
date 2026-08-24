@@ -12,10 +12,12 @@ Self-hosted **Wikibase** (structured-data wiki, the software behind Wikidata) on
 
 ## What stays public (this repo)
 
-- Extension code: EmbeddableContent, WikibaseCitation (+ the shared entity model)
+- Extension code: EmbeddableContent, WikibaseCitation (+ the shared entity model);
+  **DPLforum** (third-party forum, vendored at `extensions/DPLforum/` — see
+  `VENDORED.md` + `docs/decisions/forum-dplforum.md`)
 - seed/ (bootstrap orchestrator), tools/, tests/, dev/ (CI stack)
 - `docs/decisions/` — ADR-style design rationale (opaque IDs, ontology alignment,
-  raw RDF in Blazegraph, cite-by-QID, static LLM translation)
+  raw RDF in Blazegraph, cite-by-QID, static LLM translation, forum via DPLforum)
 - `docs/contribution-guide.md` — pointer to the on-wiki `Help:Contributing` family
 - Editor-facing rules live on-wiki at `Help:Contributing` (public)
 
