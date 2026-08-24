@@ -67,7 +67,18 @@ class HostRewritingRedirect(urllib.request.HTTPRedirectHandler):
         if u.hostname and u.hostname != self.base.hostname:
             newurl = urllib.parse.urlunparse(
                 (self.base.scheme, self.base.netloc, u.path, u.params, u.query, u.fragment))
-        return urllib.request.Request(newurl, headers=req.headers, method=req.get_method())
+        # Standard redirect semantics (RFC 7231 §6.4): 301/302/303 convert a
+        # POST to a GET and drop the body — a real browser does this, and
+        # nginx answers 405 Method Not Allowed for a POST to a file URL
+        # (Special:SourceFile's checked-download redirect to /images/…; the
+        # CI stack's Apache tolerates the bodyless re-POST, masking the bug).
+        # 307/308 preserve method AND body.
+        if code in (301, 302, 303) and req.get_method() == "POST":
+            stripped = {k: v for k, v in req.headers.items()
+                        if k.lower() not in ("content-length", "content-type")}
+            return urllib.request.Request(newurl, headers=stripped, method="GET")
+        return urllib.request.Request(newurl, data=req.data, headers=req.headers,
+                                      method=req.get_method())
 
 
 def make_opener(base_url: str) -> urllib.request.OpenerDirector:
@@ -244,18 +255,21 @@ def flow_final_item(op, base: str, api: str, url: str, body: str, special: str) 
     if m:
         page_title = urllib.parse.unquote(m.group(1)).replace("_", " ")
         # The wikibase_item page property is written at parse time but its
-        # page_props table row lands via the deferred LinkUpdate — retry for
-        # up to ~30s (a cold cache / jobrunner-less stack can lag a beat;
-        # production is eventually consistent via the 5-min cron).
+        # page_props table row lands via the deferred LinkUpdate. On the dev
+        # stack the jobrunner processes it within seconds; PRODUCTION has
+        # $wgJobRunRate = 0 + a 5-min cron draining runJobs.php — the
+        # property fills up to one cron cycle after creation ("expected, not
+        # a regression", repo AGENTS.md). Retry for up to ~6 min (24 × 15s)
+        # so the suite is green on both.
         qid = None
-        for _ in range(15):
+        for _ in range(24):
             r = api_call(op, api, {"action": "query", "titles": page_title,
                                    "prop": "pageprops", "format": "json"})
             for page in r.get("query", {}).get("pages", {}).values():
                 qid = page.get("pageprops", {}).get("wikibase_item")
                 if qid:
                     return qid
-            time.sleep(2)
+            time.sleep(15)
         raise FlowError(f"{special} page {page_title} has no wikibase_item "
                         f"(finalize step did not map the sitelink)")
     raise FlowError(f"{special} did not redirect to an item or classic page: {url} {find_error(body)}")
@@ -705,9 +719,13 @@ def flow_source_url_entry(op, base: str, api: str, class_key: str, url: str,
     prefilled_title = m.group(1) if m else ""
     token2 = edit_token(body)
     # wptitle is prefilled (a browser submits it); the author is still
-    # required (agent-class).
-    fields = {"wptitle": prefilled_title, "wpauthors": author_qid,
-              "wpEditToken": token2, "wpSubmit": "1"}
+    # required (agent-class). Append a run-unique suffix to the fetched
+    # title: example.org's <title> is FIXED ("Example Domain"), so without
+    # it every run creates the same label and the next run's create-or-skip
+    # REUSES the self-cleaned (deleted) item — a stale term-store hit that
+    # fails the instance-of assertion on re-runs (seen on production).
+    fields = {"wptitle": prefilled_title + " (E2E " + str(int(time.time())) + ")",
+              "wpauthors": author_qid, "wpEditToken": token2, "wpSubmit": "1"}
     url_page, body = page_post(op, manual_url, fields)
     # The fetched intro (site description) is reviewed on the content step
     # (/manual/content?token= — the redirect renders as
