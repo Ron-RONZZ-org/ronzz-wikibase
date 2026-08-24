@@ -255,18 +255,21 @@ def flow_final_item(op, base: str, api: str, url: str, body: str, special: str) 
     if m:
         page_title = urllib.parse.unquote(m.group(1)).replace("_", " ")
         # The wikibase_item page property is written at parse time but its
-        # page_props table row lands via the deferred LinkUpdate — retry for
-        # up to ~30s (a cold cache / jobrunner-less stack can lag a beat;
-        # production is eventually consistent via the 5-min cron).
+        # page_props table row lands via the deferred LinkUpdate. On the dev
+        # stack the jobrunner processes it within seconds; PRODUCTION has
+        # $wgJobRunRate = 0 + a 5-min cron draining runJobs.php — the
+        # property fills up to one cron cycle after creation ("expected, not
+        # a regression", repo AGENTS.md). Retry for up to ~6 min (24 × 15s)
+        # so the suite is green on both.
         qid = None
-        for _ in range(15):
+        for _ in range(24):
             r = api_call(op, api, {"action": "query", "titles": page_title,
                                    "prop": "pageprops", "format": "json"})
             for page in r.get("query", {}).get("pages", {}).values():
                 qid = page.get("pageprops", {}).get("wikibase_item")
                 if qid:
                     return qid
-            time.sleep(2)
+            time.sleep(15)
         raise FlowError(f"{special} page {page_title} has no wikibase_item "
                         f"(finalize step did not map the sitelink)")
     raise FlowError(f"{special} did not redirect to an item or classic page: {url} {find_error(body)}")
