@@ -1544,9 +1544,13 @@ def main() -> int:
         assert first_value(claims, instance_of) == foss_class, \
             f"{software} instance-of != free and open-source software ({first_value(claims, instance_of)})"
         assert first_value(claims, wikidata_id_prop), f"{software} missing Wikidata ID"
-        # The page carries the {{FOSS}} skeleton (raw content check).
+        # The page carries the {{FOSS}} skeleton (raw content check). The
+        # template may be invoked WITH a logo parameter on hand-edited pages
+        # ({{FOSS|logo=…}} — create-or-skip reuses such pages) — the check is
+        # a transclusion check, not an exact-skeleton match.
         _, raw = page_get(op, base, "/wiki/" + urllib.parse.quote(foss_page.replace(" ", "_")) + "?action=raw")
-        assert "{{FOSS}}" in raw, f"{foss_page} does not transclude {{FOSS}}"
+        assert re.search(r"\{\{FOSS(?:\|[^}]*)?\}\}", raw), \
+            f"{foss_page} does not transclude {{FOSS}}"
         # The item is sitelinked to the FOSS page (site id 'wikibase';
         # sitelink page names are stored with spaces, per the repo store).
         r = api_call(op, api, {"action": "wbgetentities", "ids": software,
