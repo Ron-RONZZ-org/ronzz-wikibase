@@ -124,8 +124,8 @@ jobs:
       # ALTER in the runbook deploy sequence.
       - name: Widen the term-text column (descriptions up to 2000 chars)
         run: |
-          $COMPOSE exec -T mysql mysql -e \
-            "ALTER TABLE my_wiki.wbt_text MODIFY wbx_text VARBINARY(2000) NOT NULL;"
+          $COMPOSE exec -T mysql mysql -u wikiuser -psqlpass my_wiki -e \
+            "ALTER TABLE wbt_text MODIFY wbx_text VARBINARY(2000) NOT NULL;"
 
       # WikibaseCitation ships a composer dep (seboettg/citeproc-php) that is
       # installed in the extension dir (gitignored; not merged into the wiki
