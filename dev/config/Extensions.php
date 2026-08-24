@@ -11,6 +11,11 @@ wfLoadExtension( 'WikibaseCitation' );
 // the Forum: (110) / Forum_talk: (111) namespaces via its extension.json.
 wfLoadExtension( 'DPLforum' );
 
+// Forum thread creation (<inputbox type=create> on the boards, vendored at
+// extensions/InputBox) — the free-text page-title field; DPLforum's standard
+// companion. No DB changes.
+wfLoadExtension( 'InputBox' );
+
 // Issue #24 (cite-by-QID): `{{#cite:Q42}}` inside `<ref>` needs the stock
 // Cite extension. The WBS image does not bundle Cite — the CI / local stack
 // installs it into /var/www/html/extensions/Cite (see .github/workflows/ci.yml

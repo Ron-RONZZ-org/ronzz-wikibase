@@ -44,6 +44,7 @@ services:
       - ../extensions/EmbeddableContent:/var/www/html/extensions/EmbeddableContent:ro
       - ../extensions/WikibaseCitation:/var/www/html/extensions/WikibaseCitation:ro
       - ../extensions/DPLforum:/var/www/html/extensions/DPLforum:ro
+      - ../extensions/InputBox:/var/www/html/extensions/InputBox:ro
     depends_on:
       mysql:
         condition: service_healthy
