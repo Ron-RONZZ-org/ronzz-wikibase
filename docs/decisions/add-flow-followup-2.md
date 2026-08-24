@@ -98,6 +98,23 @@ Four editor-facing follow-ups to the issue-#35 add-flows:
   "Parent organization"; a filled id writes the statement, an empty field writes
   none, an unparseable value is skipped (the AddPerson place-field contract).
 
+### 5. Collective logo + AddSoftware logo license (round-2 follow-up)
+
+- **`Special:AddCollective`** gains an optional **logo** (local file or pasted
+  URL, the AddSoftware logo pattern) uploaded as `File:<label>-logo.<ext>`
+  with a mandatory **logo license** (the AddPerson portrait contract):
+  `image` (P18-aligned) + `license` (P275-aligned) statements written;
+  `collectiveProperties` config keys += `image`/`license`.
+- **`Special:AddSoftware`** — the logo upload previously carried no license.
+  It now REQUIRES a **logo license** when a logo is provided (same contract),
+  written as a `license` statement on the shared P275 property alongside the
+  software's own license facts (a logo's copyright license is a different fact
+  from the code's license; Wikidata models both on P275 — multi-valued).
+- Both are validated in `beforeCreate`: a provided logo without a license
+  aborts with a form error; the upload machinery mirrors the per-class
+  portrait/logo pattern (consolidation of the duplicated upload code is a
+  tracked follow-up).
+
 ## What this does NOT do (and why)
 
 - **No PdfHandler / ghostscript** — the iframe preview needs no server-side PDF
@@ -110,7 +127,10 @@ Four editor-facing follow-ups to the issue-#35 add-flows:
   control (the instance is anon read-only anyway).
 - **No label-field raise** — the 2000-char storage limit applies to labels too,
   but the forms keep labels at 250 (page-title sanity).
-- **No parent-org harvest** — the field is manual/editor entry only.
+- **No parent-org / logo harvest** — the fields are manual/editor entry only.
+- **No consolidation of the per-class upload machinery** (AddPerson portrait,
+  AddSoftware logo, AddCollective logo, AddSource access file all carry private
+  near-identical upload helpers) — a tracked follow-up, not part of this change.
 
 ## Consequences
 

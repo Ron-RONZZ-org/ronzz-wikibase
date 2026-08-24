@@ -128,10 +128,17 @@ extensions — never forks of Wikibase.
   selection step dropped its "Class" field (it only picks the record); the
   review step's class field (pre-selected by the harvest inference) is where
   the class is chosen.
-- **AddCollective parent organization (follow-up)**: new P749-aligned
+- **AddCollective parent organization + logo (follow-up)**: new P749-aligned
   `parent organization` property (manifest + `collectiveProperties` config
   section); the AddCollective review/manual form has an optional entity
-  combobox writing the statement (empty = none, unparseable = skipped).
+  combobox writing the statement (empty = none, unparseable = skipped), plus
+  an optional **logo** (local file or pasted URL → `File:<label>-logo.<ext>`,
+  `image` + mandatory `license` statements — the AddSoftware logo pattern).
+- **AddSoftware logo license (follow-up)**: the logo upload now requires a
+  license (the AddPerson portrait contract) — the new `Logo license` entity
+  combobox writes the shared P275 license statement alongside the software's
+  own license facts; validated in `beforeCreate` (required only when a logo
+  is provided).
 - **Manual-addition entry points + search autofill (issue #35)**: the
   "No matching record? Create the item manually instead" link appears on
   the zero-hit search page AND the candidate-selection step (both carry
