@@ -64,9 +64,17 @@ $wgNamespacesToBeSearchedDefault[NS_COLLECTIVE] = true;
 // ---- Forum namespace (DPLforum, discussion forum) ----
 // Mirrors the production block in LocalSettings.php (see
 // RonzzIT:Deployment/Wikibase on the instance). DPLforum's extension.json
-// defines NS_FORUM (110) / NS_FORUM_TALK (111); custom namespaces are NOT
-// searched by default, so make Forum searchable here. No $wgExtraNamespaces
-// entries — the extension registers the namespace itself.
+// declares Forum (110) / Forum_talk (111), but namespace constants from
+// extension.json are only defined during Setup.php — AFTER LocalSettings.php
+// runs — so they must be defined here explicitly (same values; the guard
+// matches DPLforum.namespaces.php's own pattern and keeps re-definition
+// silent). Custom namespaces are NOT searched by default, so make Forum
+// searchable here. No $wgExtraNamespaces entries — the extension registers
+// the namespaces itself.
+if ( !defined( 'NS_FORUM' ) ) {
+	define( 'NS_FORUM', 110 );
+	define( 'NS_FORUM_TALK', 111 );
+}
 $wgContentNamespaces[] = NS_FORUM;
 $wgNamespacesToBeSearchedDefault[NS_FORUM] = true;
 

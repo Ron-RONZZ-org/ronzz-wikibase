@@ -38,11 +38,16 @@ evaluated against the stated requirements:
    tooling). GPL-2.0-or-later — compatible with the repo's license posture.
 2. **Namespaces**: `Forum:` (110) / `Forum_talk:` (111) registered by the
    extension's `extension.json` (no `$wgExtraNamespaces` entries needed —
-   verified free on production). Add only the search/content lines, mirroring
-   the FOSS/Person house block: `$wgContentNamespaces[] = NS_FORUM;` and
-   `$wgNamespacesToBeSearchedDefault[NS_FORUM] = true;` (custom namespaces are
-   not searched by default) — in production `LocalSettings.php` **and** in
-   `dev/config/Extensions.php` (CI parity rule).
+   verified free on production). ⚠️ Namespace **constants** from
+   `extension.json` are only `define()`d during `Setup.php`, which runs
+   **after** `LocalSettings.php` finishes — so the constants must be defined
+   explicitly in the config (guarded, same values, mirroring
+   `DPLforum.namespaces.php`'s own guard) before the search/content lines.
+   Mirror the FOSS/Person house block: `$wgContentNamespaces[] = NS_FORUM;`
+   and `$wgNamespacesToBeSearchedDefault[NS_FORUM] = true;` (custom
+   namespaces are not searched by default) — in production
+   `LocalSettings.php` **and** in `dev/config/Extensions.php` (CI parity
+   rule).
 3. **Threads and boards are wiki pages** (house style): each board is a
    `Forum:` page holding a `<forum>` listing over its own category; each
    thread is a `Forum:<board>/<topic>` subpage carrying that category. Replies
