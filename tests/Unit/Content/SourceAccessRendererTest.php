@@ -27,8 +27,10 @@ final class SourceAccessRendererTest extends TestCase {
 			'Q42',
 			'N/A'
 		);
+		// Wikilinks cannot carry a query in MW 1.46 — the file links to the
+		// special page via {{fullurl:}} wrapped in an external link.
 		$this->assertSame(
-			'[[Special:SourceFile?item=Q42&file=File%3AWar%20and%20Peace.pdf|File:War and Peace.pdf]]',
+			'[{{fullurl:Special:SourceFile|item=Q42&file=File%3AWar%20and%20Peace.pdf}} File:War and Peace.pdf]',
 			$cell
 		);
 	}
@@ -42,7 +44,7 @@ final class SourceAccessRendererTest extends TestCase {
 		);
 		$this->assertStringContainsString( 'file=File%3AQ%26A.pdf', $cell );
 		// The label keeps the human-readable title.
-		$this->assertStringContainsString( '|File:Q&A.pdf]]', $cell );
+		$this->assertStringContainsString( ' File:Q&A.pdf]', $cell );
 	}
 
 	public function testAccessUrlRendersClickableLink(): void {
@@ -103,10 +105,11 @@ final class SourceAccessRendererTest extends TestCase {
 			'Q1',
 			'N/A'
 		);
-		// The LABEL (after the | separator) must be free of raw link syntax —
-		// the closing ]] of the wikilink itself is expected.
-		$label = substr( $cell, strpos( $cell, '|' ) + 1 );
-		$this->assertSame( 'File:ABC.pdf]]', $label );
+		// The LABEL (after the first space, inside the external link) must
+		// be free of raw link syntax — the closing ] of the link itself is
+		// expected.
+		$this->assertStringContainsString( ' File:ABC.pdf]', $cell );
+		$this->assertStringNotContainsString( ']]', $cell );
 	}
 
 	public function testEmptyValuesRenderNa(): void {

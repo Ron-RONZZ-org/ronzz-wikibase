@@ -11,7 +11,7 @@ use MediaWiki\Parser\Parser;
 use MediaWiki\Title\Title;
 use Wikibase\DataModel\Entity\EntityId;
 use Wikibase\DataModel\Entity\Item;
-use Wikibase\DataModel\Entity\PropertyId;
+use Wikibase\DataModel\Entity\NumericPropertyId;
 use Wikibase\DataModel\Snak\PropertyValueSnak;
 use Wikibase\Repo\WikibaseRepo;
 
@@ -101,7 +101,11 @@ final class SourceAccess {
 			}
 			$title = Title::newFromText( basename( $path ) );
 			if ( $title !== null && $title->inNamespace( NS_FILE ) && $title->exists() ) {
-				$titles[] = $title->getDBkey();
+				// getPrefixedText() — NOT getDBkey(): the DBkey strips the
+				// "File:" prefix and normalizes spaces to underscores; the
+				// rendered link needs the human title ("File:War and
+				// Peace.pdf").
+				$titles[] = $title->getPrefixedText();
 			}
 		}
 		return $titles;
@@ -119,7 +123,10 @@ final class SourceAccess {
 		}
 		$values = [];
 		try {
-			$propertyId = new PropertyId( $propId );
+			// PropertyId is an INTERFACE in the DataModel — the concrete
+			// class is NumericPropertyId (a bare `new PropertyId()` throws
+			// "Cannot instantiate interface" and was silently swallowed).
+			$propertyId = new NumericPropertyId( $propId );
 		} catch ( \Throwable $e ) {
 			return [];
 		}

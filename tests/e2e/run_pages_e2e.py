@@ -1574,7 +1574,9 @@ def main() -> int:
         special_url, body = page_get(op, base, special_path)
         assert "wb-sourcefile-licence" in body, "Special:SourceFile missing the licence block"
         assert license_qid in body, "Special:SourceFile missing the licence label"
-        assert 'name="wpaccept"' in body, "Special:SourceFile missing the licence-accept checkbox"
+        # OOUI php-mode checkboxes render with SINGLE-quoted attributes.
+        assert "name='wpaccept'" in body or 'name="wpaccept"' in body, \
+            "Special:SourceFile missing the licence-accept checkbox"
         assert "wb-sourcefile-download" in body, "Special:SourceFile missing the download submit"
         assert "<iframe" not in body, "non-PDF must not render an iframe preview"
         token = edit_token(body)

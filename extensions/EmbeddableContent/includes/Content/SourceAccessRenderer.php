@@ -40,9 +40,12 @@ final class SourceAccessRenderer {
 		$accessUrls = array_values( array_filter( $accessUrls, static fn ( $u ) => $u !== '' ) );
 		if ( $fileTitles !== [] ) {
 			$title = self::plainText( (string)reset( $fileTitles ) );
-			$target = 'Special:SourceFile?item=' . rawurlencode( $itemId )
-				. '&file=' . rawurlencode( (string)reset( $fileTitles ) );
-			return "[[" . $target . "|" . $title . "]]";
+			// Wikilinks cannot carry a query in MW 1.46 ([[Special:X?q=…]]
+			// links a literal page title) — {{fullurl:}} is the idiom for
+			// special pages with parameters, wrapped as an external link.
+			$target = '{{fullurl:Special:SourceFile|item=' . $itemId
+				. '&file=' . rawurlencode( (string)reset( $fileTitles ) ) . '}}';
+			return '[' . $target . ' ' . $title . ']';
 		}
 		if ( $accessUrls !== [] ) {
 			$url = self::linkSafe( (string)reset( $accessUrls ) );

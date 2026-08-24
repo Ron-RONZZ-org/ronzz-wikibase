@@ -14,7 +14,7 @@ use MediaWiki\Title\Title;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
-use Wikibase\DataModel\Entity\PropertyId;
+use Wikibase\DataModel\Entity\NumericPropertyId;
 use Wikibase\DataModel\Snak\PropertyValueSnak;
 use Wikibase\Repo\WikibaseRepo;
 
@@ -189,7 +189,8 @@ class SpecialSourceFile extends SpecialPage {
 			return null;
 		}
 		try {
-			$propertyId = new PropertyId( $licensePropId );
+			// PropertyId is an interface in the DataModel — NumericPropertyId is the concrete class.
+			$propertyId = new NumericPropertyId( $licensePropId );
 		} catch ( \Throwable $e ) {
 			return null;
 		}
@@ -226,7 +227,7 @@ class SpecialSourceFile extends SpecialPage {
 			return null;
 		}
 		try {
-			$propertyId = new PropertyId( $urlPropId );
+			$propertyId = new NumericPropertyId( $urlPropId );
 		} catch ( \Throwable $e ) {
 			return null;
 		}
