@@ -77,7 +77,7 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 	}
 
 	protected function reviewFieldSpecs( array $record ): array {
-		return $this->labelFieldSpec( 'label', 'embeddablecontent-add-label', (string)( $record['label'] ?? '' ) )
+		$fields = $this->labelFieldSpec( 'label', 'embeddablecontent-add-label', (string)( $record['label'] ?? '' ) )
 			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
 			+ [
 				// Optional parent organization (issue follow-up): an entity
@@ -92,29 +92,39 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 					'default' => (string)( $record['parentOrganization'] ?? '' ),
 					'help' => $this->msg( 'embeddablecontent-field-parentorganization-help' )->parse(),
 				],
-			]
-			// Logo (optional): collapsed behind the "I will upload a logo
-			// image for this collective" toggle; the shared ImageUploadHelper
-			// owns the field specs + upload path (same machinery as
-			// AddSoftware's logo, AddPerson's portrait and Special:Upload).
-			+ \EmbeddableContent\Upload\ImageUploadHelper::includeField( 'logo', 'embeddablecontent-collective-logo-include' )
-			+ \EmbeddableContent\Upload\ImageUploadHelper::modeField(
-				'logo',
-				'embeddablecontent-collective-logo-mode',
-				'embeddablecontent-software-logo-mode-file',
-				'embeddablecontent-software-logo-mode-url'
-			)
-			+ \EmbeddableContent\Upload\ImageUploadHelper::fileField( 'logo', 'embeddablecontent-collective-logo-file' )
-			+ \EmbeddableContent\Upload\ImageUploadHelper::urlField( 'logo', 'embeddablecontent-collective-logo-url' )
-			+ \EmbeddableContent\Upload\ImageUploadHelper::licenseField(
-				'logo',
-				'embeddablecontent-collective-logo-license',
-				'embeddablecontent-collective-logo-license-help',
-				$this->config
-			)
-			+ \EmbeddableContent\Upload\ImageUploadHelper::authorField( 'logo', 'embeddablecontent-collective-logo-author' )
-			+ \EmbeddableContent\Upload\ImageUploadHelper::licenseInfoField( 'logo', 'embeddablecontent-collective-logo-license-info' )
-			+ $this->externalIdFieldSpecs( $record );
+			];
+		// Logo (optional): collapsed behind the "I will upload a logo
+		// image for this collective" toggle; the shared ImageUploadHelper
+		// owns the field specs + upload path (same machinery as
+		// AddSoftware's logo, AddPerson's portrait and Special:Upload).
+		$fields['logoInclude'] = \EmbeddableContent\Upload\ImageUploadHelper::includeField(
+			'logo', 'embeddablecontent-collective-logo-include'
+		);
+		$fields['logoMode'] = \EmbeddableContent\Upload\ImageUploadHelper::modeField(
+			'logo',
+			'embeddablecontent-collective-logo-mode',
+			'embeddablecontent-software-logo-mode-file',
+			'embeddablecontent-software-logo-mode-url'
+		);
+		$fields['logoFile'] = \EmbeddableContent\Upload\ImageUploadHelper::fileField(
+			'logo', 'embeddablecontent-collective-logo-file'
+		);
+		$fields['logoUrl'] = \EmbeddableContent\Upload\ImageUploadHelper::urlField(
+			'logo', 'embeddablecontent-collective-logo-url'
+		);
+		$fields['logoLicense'] = \EmbeddableContent\Upload\ImageUploadHelper::licenseField(
+			'logo',
+			'embeddablecontent-collective-logo-license',
+			'embeddablecontent-collective-logo-license-help',
+			$this->config
+		);
+		$fields['logoAuthor'] = \EmbeddableContent\Upload\ImageUploadHelper::authorField(
+			'logo', 'embeddablecontent-collective-logo-author'
+		);
+		$fields['logoLicenseInfo'] = \EmbeddableContent\Upload\ImageUploadHelper::licenseInfoField(
+			'logo', 'embeddablecontent-collective-logo-license-info'
+		);
+		return $fields + $this->externalIdFieldSpecs( $record );
 	}
 
 	// ------------------------------------------------------------- logo
