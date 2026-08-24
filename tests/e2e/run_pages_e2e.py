@@ -265,9 +265,14 @@ def flow_final_item(op, base: str, api: str, url: str, body: str, special: str) 
 
 
 def flow_search_select_create(op, base: str, api: str, special: str, search_fields: dict,
-                              pick_index: int = 0) -> str:
+                              pick_index: int = 0, review_prefill: bool = False) -> str:
     """Runs the three-step Special page flow (search -> select -> review ->
-    create, issue #12); returns the created (or reused) item id."""
+    create, issue #12); returns the created (or reused) item id.
+
+    With review_prefill=True (AddPerson): the REVIEW form must show the
+    harvested record's Given name / Family name (authority autofill, the
+    issue follow-up) — the regression that the harvest-on-pick values reach
+    the form at all."""
     url, body = page_get(op, base, f"/wiki/Special:{special}")
     if "does not have permission" in body or "wpEditToken" not in body:
         raise FlowError(f"Special:{special} not usable (logged-in? got {len(body)} bytes)")
@@ -283,25 +288,17 @@ def flow_search_select_create(op, base: str, api: str, special: str, search_fiel
         raise FlowError(f"Special:{special} search did not redirect to a selection page: {url} {find_error(body)}")
     token = m.group(1)
 
-    # Selection step: detailed candidate table + radio + class picker.
+    # Selection step: detailed candidate table + radio (no class field —
+    # the class is chosen on the REVIEW step, where the harvested record
+    # pre-selects the inferred class).
     candidates = ooui_options(body, "mw-input-wpcandidates")
     if not candidates:
         raise FlowError(f"Special:{special} selection page rendered no candidates")
-    # Class: a select when several classes exist, a HIDDEN single-class
-    # field when the flow fixed the class (issue follow-up, class-first).
-    try:
-        cls = ooui_widget(body, "mw-input-wpclass").get("value")
-    except FlowError:
-        cls = None
-    if cls is None:
-        m = re.search(r'name="wpclass"[^>]*value="(Q\d+)"', body)
-        cls = m.group(1) if m else ""
     index = str(min(pick_index, len(candidates) - 1))
     token2 = edit_token(body)
 
     url, body = page_post(op, url, {
         "wpcandidates": index,
-        "wpclass": cls,
         "wpEditToken": token2,
         "wpSubmit": "1",
     })
@@ -311,6 +308,13 @@ def flow_search_select_create(op, base: str, api: str, special: str, search_fiel
             f"Special:{special} select did not redirect to the review step: {url} {find_error(body)}")
 
     # Review step: pre-filled editable form; submit without changes (issue #12).
+    if review_prefill:
+        given = input_value(body, "wpgivenName")
+        family = input_value(body, "wpfamilyName")
+        if not given and not family:
+            raise FlowError(
+                f"Special:{special} review form NOT prefilled from the harvested "
+                f"authority record (given={given!r}, family={family!r})")
     token3 = edit_token(body)
     url, body = page_post(op, url, {
         "wpEditToken": token3,
@@ -403,23 +407,15 @@ def flow_software(op, base: str, api: str, name: str) -> tuple[str, str]:
             f"AddSoftware search did not redirect to a selection page: {url} {find_error(body)}")
     token = m.group(1)
 
-    # Selection step: detailed candidate table + radio + class picker.
+    # Selection step: detailed candidate table + radio (no class field —
+    # the class is chosen on the REVIEW step, where the harvested record
+    # pre-selects the inferred class).
     candidates = ooui_options(body, "mw-input-wpcandidates")
     if not candidates:
         raise FlowError("AddSoftware selection page rendered no candidates")
-    # Class: a select when several classes exist, a HIDDEN single-class
-    # field when the flow fixed the class (issue follow-up, class-first).
-    try:
-        cls = ooui_widget(body, "mw-input-wpclass").get("value")
-    except FlowError:
-        cls = None
-    if cls is None:
-        m = re.search(r'name="wpclass"[^>]*value="(Q\d+)"', body)
-        cls = m.group(1) if m else ""
     token2 = edit_token(body)
     url, body = page_post(op, url, {
         "wpcandidates": "0",
-        "wpclass": cls,
         "wpEditToken": token2,
         "wpSubmit": "1",
     })
@@ -499,7 +495,12 @@ def flow_software_logo(op, base: str, api: str, label: str, class_item: str) -> 
 
 
 def flow_person(op, base: str, api: str, name: str) -> str:
-    return flow_search_select_create(op, base, api, "AddPerson", {"wpname": name})
+    # review_prefill=True (issue follow-up): the review form must show the
+    # harvested authority record's given/family names — the end-to-end proof
+    # of the "Given name / Family name auto-fill from external authority
+    # records" behaviour on Special:AddPerson.
+    return flow_search_select_create(op, base, api, "AddPerson", {"wpname": name},
+                                     review_prefill=True)
 
 
 def flow_source_class_first(op, base: str, api: str, class_key: str, search_fields: dict,
@@ -529,13 +530,10 @@ def flow_source_class_first(op, base: str, api: str, class_key: str, search_fiel
     candidates = ooui_options(body, "mw-input-wpcandidates")
     if not candidates:
         raise FlowError(f"AddSource/{class_key} selection page rendered no candidates")
-    cls = re.search(r'name="wpclass"[^>]*value="(Q\d+)"', body)
-    cls = cls.group(1) if cls else (ooui_widget(body, "mw-input-wpclass").get("value") or "")
     index = str(min(pick_index, len(candidates) - 1))
     token2 = edit_token(body)
     url, body = page_post(op, url, {
         "wpcandidates": index,
-        "wpclass": cls,
         "wpEditToken": token2,
         "wpSubmit": "1",
     })
@@ -740,12 +738,10 @@ def flow_source_content_step(op, base: str, api: str, doi: str, author_qid: str)
 
     url, body = page_get(op, base, f"/wiki/Special:AddSource/scholarlyArticle/{token}")
     candidates = ooui_options(body, "mw-input-wpcandidates")
-    cls = re.search(r'name="wpclass"[^>]*value="(Q\d+)"', body)
-    cls = cls.group(1) if cls else (ooui_widget(body, "mw-input-wpclass").get("value") or "")
     index = "0"
     token2 = edit_token(body)
     url, body = page_post(op, url, {
-        "wpcandidates": index, "wpclass": cls, "wpEditToken": token2, "wpSubmit": "1",
+        "wpcandidates": index, "wpEditToken": token2, "wpSubmit": "1",
     })
     m = re.search(rf"/wiki/Special:AddSource/scholarlyArticle/{token}/review/{index}$", url)
     if not m:
@@ -811,12 +807,10 @@ def flow_fictional_character(op, base: str, api: str) -> str:
 
     url, body = page_get(op, base, f"/wiki/Special:AddFictionalCharacter/{token}")
     candidates = ooui_options(body, "mw-input-wpcandidates")
-    cls = re.search(r'name="wpclass"[^>]*value="(Q\d+)"', body)
-    cls = cls.group(1) if cls else (ooui_widget(body, "mw-input-wpclass").get("value") or "")
     index = "0"
     token2 = edit_token(body)
     url, body = page_post(op, url, {
-        "wpcandidates": index, "wpclass": cls, "wpEditToken": token2, "wpSubmit": "1",
+        "wpcandidates": index, "wpEditToken": token2, "wpSubmit": "1",
     })
     m = re.search(rf"/wiki/Special:AddFictionalCharacter/{token}/review/{index}$", url)
     if not m:
@@ -831,14 +825,19 @@ def flow_fictional_character(op, base: str, api: str) -> str:
 
 
 def flow_source_book_access_file(op, base: str, api: str, label: str,
-                                 author_qid: str, license_qid: str) -> str:
+                                 author_qid: str, license_qid: str,
+                                 content: bytes | None = None,
+                                 filename: str = "original.png",
+                                 ctype: str = "image/png") -> str:
     """Access field, local-file mode (issue #35): AddSource/book/manual with
-    accessMode=file uploads a 1x1 PNG (multipart), license required; the
-    file lands as File:<label>.png (auto-named, original name ignored) and
-    the item carries the file + license statements."""
-    png = base64.b64decode(
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
-    )
+    accessMode=file uploads a file (multipart), license required; the file
+    lands as File:<label>.<ext> (auto-named, original name ignored) and the
+    item carries the file + license statements. The default content is a
+    1x1 PNG; pass content/filename/ctype for other types (e.g. a PDF)."""
+    if content is None:
+        content = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+        )
     url, body = page_get(op, base, "/wiki/Special:AddSource/book/manual")
     token = edit_token(body)
     url, body = page_post_multipart(op, url, {
@@ -850,10 +849,65 @@ def flow_source_book_access_file(op, base: str, api: str, label: str,
         "wpSubmit": "1",
     }, {
         # HTMLForm keeps the field key's casing: "accessFile" -> "wpAccessFile".
-        "wpAccessFile": ("original-name.png", png, "image/png"),
+        "wpAccessFile": (filename, content, ctype),
     })
     qid = flow_final_item(op, base, api, url, body, "AddSource/book/manual (access file)")
     return qid
+
+
+# Minimal but well-formed PDF (one page with a text run) — enough for the
+# upload allow-list, the MIME sniffing and the special page's iframe preview.
+E2E_PDF = (b"%PDF-1.4\n"
+           b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"
+           b"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"
+           b"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 300] "
+           b"/Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n"
+           b"4 0 obj\n<< /Length 44 >>\nstream\nBT /F1 12 Tf 72 260 Td (E2E) Tj ET\nendstream\nendobj\n"
+           b"5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n"
+           b"trailer\n<< /Root 1 0 R /Size 6 >>\n"
+           b"%%EOF\n")
+
+
+def flow_source_book_access_url(op, base: str, api: str, label: str,
+                                author_qid: str, url: str) -> str:
+    """Access field, URL mode (issue #35): a non-direct access URL statement
+    is written (no license, no upload)."""
+    page, body = page_get(op, base, "/wiki/Special:AddSource/book/manual")
+    token = edit_token(body)
+    page, body = page_post(op, page, {
+        "wptitle": label,
+        "wpauthors": author_qid,
+        "wpaccessMode": "url",
+        "wpaccessUrl": url,
+        "wpEditToken": token,
+        "wpSubmit": "1",
+    })
+    return flow_final_item(op, base, api, page, body, "AddSource/book/manual (access url)")
+
+
+def flow_source_book_access_na(op, base: str, api: str, label: str,
+                               author_qid: str) -> str:
+    """Access field, N/A mode (issue #35): no access statement is written —
+    the infobox access row must fall back to "N/A"."""
+    page, body = page_get(op, base, "/wiki/Special:AddSource/book/manual")
+    token = edit_token(body)
+    page, body = page_post(op, page, {
+        "wptitle": label,
+        "wpauthors": author_qid,
+        "wpaccessMode": "na",
+        "wpEditToken": token,
+        "wpSubmit": "1",
+    })
+    return flow_final_item(op, base, api, page, body, "AddSource/book/manual (access na)")
+
+
+def source_access_cell(op, api: str, page_title: str) -> str:
+    """Renders the {{#source-access:}} cell in the context of the given
+    Source: page (the parser function resolves the page's sitelinked item
+    and renders its access statements)."""
+    r = api_call(op, api, {"action": "parse", "title": page_title,
+                           "text": "{{#source-access:}}", "format": "json"})
+    return r.get("parse", {}).get("text", {}).get("*", "")
 
 
 def flow_source_book_access_download(op, base: str, api: str, label: str,
@@ -1464,6 +1518,88 @@ def main() -> int:
         print(f"[ok] AddSource/book access (download) -> {download_book}: "
               f"server-side fetch landed File:{download_label}.png + license + file statements")
 
+        # 2h3. Source: access row (issue follow-up): the {{#source-access:}}
+        #     parser function renders the infobox "Access" cell from the
+        #     item's statements — file (linked to Special:SourceFile with the
+        #     owning item id) > access URL (clickable) > N/A.
+        access_cell = source_access_cell(op, api, f"Source:{access_label}")
+        assert "Special:SourceFile" in access_cell and f"item={access_book}" in access_cell, \
+            f"file-mode access row not rendered as a Special:SourceFile link: {access_cell}"
+        url_label = f"Page-flow E2E access-url {int(time.time())}"
+        url_book = track(flow_source_book_access_url(
+            op, base, api, url_label, person, "https://example.org/e2e-access"))
+        url_cell = source_access_cell(op, api, f"Source:{url_label}")
+        assert "https://example.org/e2e-access" in url_cell and "external" in url_cell, \
+            f"url-mode access row not rendered as a clickable link: {url_cell}"
+        na_label = f"Page-flow E2E access-na {int(time.time())}"
+        na_book = track(flow_source_book_access_na(op, base, api, na_label, person))
+        na_cell = source_access_cell(op, api, f"Source:{na_label}")
+        assert "N/A" in na_cell, f"na-mode access row not 'N/A': {na_cell}"
+        print("[ok] Source: access row: file -> Special:SourceFile link, "
+              "URL -> clickable link, none -> N/A")
+
+        # 2h4. Special:SourceFile (issue follow-up): the PNG copy from 2h
+        #     renders the licence + the gated download (no iframe for a
+        #     non-PDF). Unchecked download is rejected server-side; the
+        #     checked download redirects to the file.
+        special_path = ("/wiki/Special:SourceFile?item=%s&file=File%%3A%s.png"
+                        % (access_book, urllib.parse.quote(access_label)))
+        special_url, body = page_get(op, base, special_path)
+        assert "wb-sourcefile-licence" in body, "Special:SourceFile missing the licence block"
+        assert license_qid in body, "Special:SourceFile missing the licence label"
+        assert 'name="wpaccept"' in body, "Special:SourceFile missing the licence-accept checkbox"
+        assert "wb-sourcefile-download" in body, "Special:SourceFile missing the download submit"
+        assert "<iframe" not in body, "non-PDF must not render an iframe preview"
+        token = edit_token(body)
+        url, body = page_post(op, special_url, {"wpEditToken": token, "wpSubmit": "1"})
+        assert "required" in body.lower(), \
+            f"unchecked download not rejected: {find_error(body) or url}"
+        token = edit_token(body)
+        url, body = page_post(op, special_url, {"wpaccept": "1", "wpEditToken": token,
+                                                "wpSubmit": "1"})
+        assert "/images/" in url, f"checked download did not redirect to the file: {url}"
+        print("[ok] Special:SourceFile: licence + gated download (unchecked rejected, "
+              "checked -> file)")
+
+        # 2h5. Special:SourceFile PDF preview (issue follow-up): a PDF copy
+        #     renders an embedded iframe preview on the special page.
+        pdf_license_qid = create_api_item(op, api, f"Page-flow E2E pdf license {int(time.time())}")
+        pdf_label = f"Page-flow E2E pdf {int(time.time())}"
+        pdf_book = track(flow_source_book_access_file(
+            op, base, api, pdf_label, person, pdf_license_qid,
+            content=E2E_PDF, filename="original.pdf", ctype="application/pdf"))
+        pdf_special = ("/wiki/Special:SourceFile?item=%s&file=File%%3A%s.pdf"
+                       % (pdf_book, urllib.parse.quote(pdf_label)))
+        _, body = page_get(op, base, pdf_special)
+        assert "<iframe" in body and "wb-sourcefile-preview" in body, \
+            "PDF special page missing the embedded iframe preview"
+        print("[ok] Special:SourceFile: PDF copy renders an embedded preview")
+
+        # 2h6. Entity descriptions up to 2000 chars (issue follow-up): the
+        #     term-store column was widened (VARBINARY(2000)) and the
+        #     validator raised ($wgWBRepoSettings['string-limits']['multilang']
+        #     ['length']) — a description longer than Wikibase's default 250
+        #     must save via the API and read back intact.
+        long_desc = "Page-flow E2E long description " + "x" * 300
+        csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+        desc_token = csrf["query"]["tokens"]["csrftoken"]
+        desc_item = api_call(op, api, {
+            "action": "wbeditentity", "new": "item",
+            "data": json.dumps({
+                "labels": {"en": {"language": "en", "value": f"Page-flow E2E desc {int(time.time())}"}},
+                "descriptions": {"en": {"language": "en", "value": long_desc}},
+            }),
+            "token": desc_token, "format": "json",
+        }, post=True)
+        assert "entity" in desc_item, f"long-description item creation failed: {desc_item}"
+        desc_qid = desc_item["entity"]["id"]
+        desc_read = api_call(op, api, {"action": "wbgetentities", "ids": desc_qid,
+                                       "props": "descriptions", "format": "json"})
+        assert desc_read["entities"][desc_qid]["descriptions"]["en"]["value"] == long_desc, \
+            "long description not persisted intact"
+        print(f"[ok] entity descriptions up to 2000 chars: {desc_qid} saved "
+              f"a {len(long_desc)}-char description")
+
         # 2i. AddSource/book manual autofill (issue #35): title + entity-mode
         #     author search -> the tokenised manual link prefills title and
         #     authors.
@@ -1521,6 +1657,22 @@ def main() -> int:
             f"{collective} instance-of not an agent class ({first_value(claims, instance_of)})"
         assert first_value(claims, wikidata_id_prop), f"{collective} missing Wikidata ID"
         print(f"[ok] AddCollective -> {collective} ({label}): agent class + Wikidata ID")
+
+        # 3a. AddCollective manual — the optional "Parent organization"
+        #     entity field (issue follow-up): a referenced item lands as a
+        #     `parent organization` statement; an empty field writes none.
+        parent_org_qid = create_api_item(op, api, f"Page-flow E2E parent org {int(time.time())}")
+        collective_manual_label = f"Page-flow E2E collective {int(time.time())}"
+        collective_manual = track(flow_manual(op, base, api, "AddCollective",
+                                              collective_manual_label,
+                                              resolve("organization", "item"),
+                                              {"wpparentOrganization": parent_org_qid}))
+        claims, _ = entity_claims(op, api, collective_manual)
+        assert first_value(claims, resolve("parent organization", "property")) == parent_org_qid, \
+            f"{collective_manual} parent-organization statement missing or wrong " \
+            f"({first_value(claims, resolve('parent organization', 'property'))})"
+        print(f"[ok] AddCollective/manual -> {collective_manual}: optional parent "
+              f"organization statement written ({parent_org_qid})")
 
         # 3b. Manual-entry fallback (issue #12): Special:AddPerson/manual
         #     creates from blank, no external record, no import reference.

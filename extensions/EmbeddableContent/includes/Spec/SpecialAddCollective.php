@@ -79,7 +79,41 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 	protected function reviewFieldSpecs( array $record ): array {
 		return $this->labelFieldSpec( 'label', 'embeddablecontent-add-label', (string)( $record['label'] ?? '' ) )
 			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
+			+ [
+				// Optional parent organization (issue follow-up): an entity
+				// combobox over existing items, writing the P749-aligned
+				// statement. Filled but invalid ids are skipped (the same
+				// lenient contract as the AddPerson place fields).
+				'parentOrganization' => [
+					'type' => 'combobox',
+					'options' => [],
+					'label-message' => 'embeddablecontent-field-parentorganization',
+					'cssclass' => 'wb-entity-combobox',
+					'default' => (string)( $record['parentOrganization'] ?? '' ),
+					'help' => $this->msg( 'embeddablecontent-field-parentorganization-help' )->parse(),
+				],
+			]
 			+ $this->externalIdFieldSpecs( $record );
+	}
+
+	/**
+	 * Collective statements: the base authority/citation facts plus the
+	 * optional parent organization entity link.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,\Wikibase\DataModel\DataValue|\Wikibase\DataModel\DataValue[]>
+	 */
+	protected function statementSpecs( array $record ): array {
+		$specs = parent::statementSpecs( $record );
+		$props = $this->config->collectivePropertyIds();
+		$parent = trim( (string)( $record['parentOrganization'] ?? '' ) );
+		if ( $parent !== '' && isset( $props['parentOrganization'] ) ) {
+			$itemId = $this->parseItemId( $parent );
+			if ( $itemId !== null ) {
+				$specs[$props['parentOrganization']] = new \Wikibase\DataModel\Entity\EntityIdValue( $itemId );
+			}
+		}
+		return $specs;
 	}
 
 	// ------------------------------------------------------------- classic page

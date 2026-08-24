@@ -85,6 +85,12 @@ FICTIONAL_CHARACTER_PROPERTY_KINDS = {
     "present in work": "appearsIn",
 }
 
+# Issue follow-up: collective properties (Special:AddCollective statements):
+# the optional `parent organization` link (P749-aligned).
+COLLECTIVE_PROPERTY_KINDS = {
+    "parent organization": "parentOrganization",
+}
+
 CLASS_KINDS = {
     "quotation content": "quotation",
     "code snippet": "code",
@@ -270,6 +276,11 @@ def build_config(
         if label in property_ids:
             person_props[key] = property_ids[label]
 
+    collective_props: dict[str, str] = {}
+    for label, key in COLLECTIVE_PROPERTY_KINDS.items():
+        if label in property_ids:
+            collective_props[key] = property_ids[label]
+
     source_props: dict[str, str] = {}
     for label, key in SOURCE_PROPERTY_KINDS.items():
         if label in property_ids:
@@ -308,6 +319,7 @@ def build_config(
         "externalIds": external_ids,
         "citationMetadata": citation_metadata,
         "personProperties": person_props,
+        "collectiveProperties": collective_props,
         "formatterUrl": property_ids.get("formatter URL"),
         "sourceClassByWikidata": source_class_by_qid,
         "agentClassByWikidata": agent_class_by_qid,

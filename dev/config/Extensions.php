@@ -68,6 +68,14 @@ $wgWBClientSettings['siteLinkGroups'] = [ 'ronzz' ];
 $wgWBClientSettings['repoDatabase'] = false;
 $wgWBClientSettings['changesDatabase'] = false;
 
+// ---- Entity descriptions up to 2000 chars (issue follow-up) ----
+// Mirrors the production LocalSettings.php addition. The shared `multilang`
+// string limit covers labels/descriptions/aliases at the STORAGE level; the
+// Add* forms keep the label field at 250 (page titles) and raise only the
+// description field. Requires the wbt_text.wbx_text column to be widened to
+// VARBINARY(2000) (see the CI ALTER step + the runbook deploy sequence).
+$wgWBRepoSettings['string-limits']['multilang']['length'] = 2000;
+
 // ---- Issue #35: source files (books etc.) on the upload allow-list ----
 // Mirrors the production LocalSettings.php addition (see
 // RonzzIT:Deployment/Wikibase on the instance). Needed in dev/CI so the

@@ -254,5 +254,21 @@
 	"embeddablecontent-source-error-access-upload": "Le fichier n'a pas pu être téléversé : $1",
 	"embeddablecontent-source-error-license": "Une licence est requise lors du téléversement d'un fichier.",
 	"embeddablecontent-source-access-file-edit-summary": "A téléversé le fichier de $1",
-	"embeddablecontent-source-access-file-page": "Fichier de $1, téléversé via Special:AddSource.\n\n$2"
+	"embeddablecontent-source-access-file-page": "Fichier de $1, téléversé via Special:AddSource.\n\n$2",
+	"embeddablecontent-source-access-na": "N/A",
+	"embeddablecontent-sourcefile-title": "Fichier source : $1",
+	"embeddablecontent-sourcefile-invalidfile": "Le fichier $1 n'existe pas sur ce wiki.",
+	"embeddablecontent-sourcefile-preview": "Aperçu",
+	"embeddablecontent-sourcefile-licence": "Licence",
+	"embeddablecontent-sourcefile-licence-unknown": "Inconnue",
+	"embeddablecontent-sourcefile-licence-text": "texte de la licence",
+	"embeddablecontent-sourcefile-download": "Télécharger",
+	"embeddablecontent-sourcefile-download-legend": "Télécharger le fichier",
+	"embeddablecontent-sourcefile-accept": "J'accepte les conditions de la licence $1.",
+	"embeddablecontent-sourcefile-accept-unknown": "J'accepte les conditions de la licence.",
+	"embeddablecontent-sourcefile-accept-required": "Acceptez les conditions de la licence pour télécharger le fichier.",
+	"embeddablecontent-sourcefile-loginrequired": "Connectez-vous pour télécharger ce fichier.",
+	"embeddablecontent-sourcefile-filepage": "Voir la page du fichier",
+	"embeddablecontent-field-parentorganization": "Organisation mère",
+	"embeddablecontent-field-parentorganization-help": "L'organisation dont ce collectif est une filiale ou une subdivision. Recherchez par étiquette ou saisissez un identifiant d'élément (p. ex. Q42)."
 }

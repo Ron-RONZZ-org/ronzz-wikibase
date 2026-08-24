@@ -255,5 +255,21 @@
 	"embeddablecontent-source-error-access-upload": "The file could not be uploaded: $1",
 	"embeddablecontent-source-error-license": "A license is required when uploading a file.",
 	"embeddablecontent-source-access-file-edit-summary": "Uploaded the file of $1",
-	"embeddablecontent-source-access-file-page": "File of $1, uploaded via Special:AddSource.\n\n$2"
+	"embeddablecontent-source-access-file-page": "File of $1, uploaded via Special:AddSource.\n\n$2",
+	"embeddablecontent-source-access-na": "N/A",
+	"embeddablecontent-sourcefile-title": "Source file: $1",
+	"embeddablecontent-sourcefile-invalidfile": "The file $1 does not exist on this wiki.",
+	"embeddablecontent-sourcefile-preview": "Preview",
+	"embeddablecontent-sourcefile-licence": "License",
+	"embeddablecontent-sourcefile-licence-unknown": "Unknown",
+	"embeddablecontent-sourcefile-licence-text": "license text",
+	"embeddablecontent-sourcefile-download": "Download",
+	"embeddablecontent-sourcefile-download-legend": "Download the file",
+	"embeddablecontent-sourcefile-accept": "I accept the license conditions of $1.",
+	"embeddablecontent-sourcefile-accept-unknown": "I accept the license conditions.",
+	"embeddablecontent-sourcefile-accept-required": "Accept the license conditions to download the file.",
+	"embeddablecontent-sourcefile-loginrequired": "Log in to download this file.",
+	"embeddablecontent-sourcefile-filepage": "View the file page",
+	"embeddablecontent-field-parentorganization": "Parent organization",
+	"embeddablecontent-field-parentorganization-help": "The organization this collective is a subsidiary or subdivision of. Search by label, or enter an item id (e.g. Q42)."
 }

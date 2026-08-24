@@ -100,6 +100,18 @@ jobs:
           $COMPOSE logs --tail 60 mysql
           exit 1
 
+      # Issue follow-up: entity descriptions up to 2000 chars. The term
+      # store's wbt_text.wbx_text column is VARBINARY(255) by default — the
+      # validator raise (dev/config/Extensions.php) is useless without the
+      # column. The ALTER must run AFTER MediaWiki's first-boot install
+      # created the schema (the docker-entrypoint initdb.d scripts run too
+      # early), so it is an explicit step here — production does the same
+      # ALTER in the runbook deploy sequence.
+      - name: Widen the term-text column (descriptions up to 2000 chars)
+        run: |
+          $COMPOSE exec -T mysql mysql -e \
+            "ALTER TABLE my_wiki.wbt_text MODIFY wbx_text VARBINARY(2000) NOT NULL;"
+
       # WikibaseCitation ships a composer dep (seboettg/citeproc-php) that is
       # installed in the extension dir (gitignored; not merged into the wiki
       # root composer). The extension is bind-mounted read-only, so install

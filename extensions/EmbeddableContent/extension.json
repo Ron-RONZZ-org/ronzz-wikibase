@@ -19,6 +19,9 @@
 			"i18n"
 		]
 	},
+	"ExtensionMessagesFiles": {
+		"EmbeddableContentMagic": "i18n/EmbeddableContent.i18n.magic.php"
+	},
 	"config": {
 		"EmbeddableContentConfig": {
 			"value": [],
@@ -78,6 +81,12 @@
 				"EmbeddableContent.Config",
 				"EmbeddableContent.ProviderClient"
 			]
+		},
+		"SourceFile": {
+			"class": "EmbeddableContent\\Spec\\SpecialSourceFile",
+			"services": [
+				"EmbeddableContent.Config"
+			]
 		}
 	},
 	"APIModules": {
@@ -95,7 +104,8 @@
 	},
 	"Hooks": {
 		"BeforePageDisplay": "main",
-		"SkinTemplateNavigation::Universal": "main"
+		"SkinTemplateNavigation::Universal": "main",
+		"ParserFirstCallInit": "main"
 	},
 	"ResourceModules": {
 		"ext.embeddableContent.embed": {
