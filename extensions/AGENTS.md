@@ -19,6 +19,21 @@ DPLforum registers the `Forum:` (110) / `Forum_talk:` (111) namespaces via
 its `extension.json` and provides the `<forum>` parser tag + `#forumlink`;
 boards and threads are ordinary wiki pages.
 
+Plus a second **vendored third-party** extension: **Diagrams** (integrated
+diagram rendering — see `Diagrams/VENDORED.md` for provenance and
+`../docs/decisions/diagrams.md` for the choice rationale). Same rules:
+upstream code, do not modify, upgrade = re-vendor. It provides the `<uml>`
+(PlantUML), `<graphviz>` and `<mscgen>` tags rendered **server-side** by
+local binaries — apt `graphviz`/`mscgen` plus the **pinned PlantUML jar**
+from `tools/install-plantuml.sh` (NOT the apt `plantuml` package: Ubuntu
+noble's 1.2020.2 predates PlantUML security profiles), running under the
+**SANDBOX** profile (no local-file access, no URL fetching) — and the
+`<mermaid>` tag rendered **client-side** by the bundled mermaid.js. Rendered
+SVG/PNG files are cached in the wiki file store under `images/diagrams/`
+(per-source-hash). The config lives in `dev/config/Extensions.php` /
+production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
+`$wgDiagramsLocalCommands['plantuml'] = 'env PLANTUML_SECURITY_PROFILE=SANDBOX /usr/local/bin/plantuml'`).
+
 ## Purpose and Expected Behavior
 
 ### EmbeddableContent

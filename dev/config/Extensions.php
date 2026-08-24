@@ -16,6 +16,23 @@ wfLoadExtension( 'DPLforum' );
 // companion. No DB changes.
 wfLoadExtension( 'InputBox' );
 
+// ---- Diagrams (vendored at extensions/Diagrams, see VENDORED.md) ----
+// Integrated diagram rendering from wikitext: <uml> (PlantUML), <graphviz>,
+// <mscgen> server-side (local binaries), <mermaid> client-side (bundled
+// mermaid.js). Mirrors the production LocalSettings.php block (see
+// RonzzIT:Deployment/Wikibase on the instance).
+//
+// Server-side rendering needs the binaries in the wiki container: the CI /
+// local stack installs graphviz + mscgen via apt and the pinned PlantUML jar
+// via tools/install-plantuml.sh (NOT the apt `plantuml` package — Ubuntu
+// noble's 1.2020.2 predates PlantUML's security profiles). The wrapper
+// exports PLANTUML_SECURITY_PROFILE=SANDBOX (no local-file access, no URL
+// fetching) — the diagram text is arbitrary editor input; the env prefix
+// here is belt-and-braces alongside the wrapper.
+wfLoadExtension( 'Diagrams' );
+$wgDiagramsDefaultFormat = 'svg';
+$wgDiagramsLocalCommands['plantuml'] = 'env PLANTUML_SECURITY_PROFILE=SANDBOX /usr/local/bin/plantuml';
+
 // Issue #24 (cite-by-QID): `{{#cite:Q42}}` inside `<ref>` needs the stock
 // Cite extension. The WBS image does not bundle Cite — the CI / local stack
 // installs it into /var/www/html/extensions/Cite (see .github/workflows/ci.yml

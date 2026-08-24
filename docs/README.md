@@ -15,10 +15,14 @@ Self-hosted **Wikibase** (structured-data wiki, the software behind Wikidata) on
 - Extension code: EmbeddableContent, WikibaseCitation (+ the shared entity model);
   **DPLforum** (third-party forum, vendored at `extensions/DPLforum/`) +
   **InputBox** (third-party thread-creation field, `extensions/InputBox/`) —
-  see their `VENDORED.md` + `docs/decisions/forum-dplforum.md`
+  see their `VENDORED.md` + `docs/decisions/forum-dplforum.md`); **Diagrams**
+  (third-party diagram extension — PlantUML/GraphViz/Mscgen server-side +
+  Mermaid client-side — vendored at `extensions/Diagrams/` — see
+  `VENDORED.md` + `docs/decisions/diagrams.md`)
 - seed/ (bootstrap orchestrator), tools/, tests/, dev/ (CI stack)
 - `docs/decisions/` — ADR-style design rationale (opaque IDs, ontology alignment,
-  raw RDF in Blazegraph, cite-by-QID, static LLM translation, forum via DPLforum)
+  raw RDF in Blazegraph, cite-by-QID, static LLM translation, forum via DPLforum,
+  diagrams via Extension:Diagrams)
 - `docs/contribution-guide.md` — pointer to the on-wiki `Help:Contributing` family
 - Editor-facing rules live on-wiki at `Help:Contributing` (public)
 
