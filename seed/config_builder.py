@@ -97,6 +97,10 @@ COLLECTIVE_PROPERTY_KINDS = {
     "parent organization": "parentOrganization",
     "image": "image",
     "license": "license",
+    # Image attribution (upload enhancements): shared with the person/software
+    # image facts (same property ids).
+    "image author": "imageAuthor",
+    "additional license information": "imageLicenseInfo",
 }
 
 CLASS_KINDS = {

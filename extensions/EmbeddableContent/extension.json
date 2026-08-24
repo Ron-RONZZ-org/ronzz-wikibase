@@ -103,12 +103,19 @@
 	"HookHandlers": {
 		"main": {
 			"class": "EmbeddableContent\\Hooks"
+		},
+		"upload": {
+			"class": "EmbeddableContent\\Upload\\UploadHooks"
 		}
 	},
 	"Hooks": {
 		"BeforePageDisplay": "main",
 		"SkinTemplateNavigation::Universal": "main",
-		"ParserFirstCallInit": "main"
+		"ParserFirstCallInit": "main",
+		"UploadFormInitDescriptor": "upload",
+		"UploadFormSourceDescriptors": "upload",
+		"UploadForm:getInitialPageText": "upload",
+		"UploadComplete": "upload"
 	},
 	"ResourceModules": {
 		"ext.embeddableContent.embed": {

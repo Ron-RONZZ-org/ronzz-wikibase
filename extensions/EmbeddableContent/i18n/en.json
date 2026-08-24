@@ -298,5 +298,8 @@
 	"embeddablecontent-person-portrait-license-info": "Additional license information",
 	"embeddablecontent-software-logo-include": "I will upload a logo image for this software",
 	"embeddablecontent-software-logo-author": "Logo author",
-	"embeddablecontent-software-logo-license-info": "Additional license information"
+	"embeddablecontent-software-logo-license-info": "Additional license information",
+	"embeddablecontent-collective-logo-include": "I will upload a logo image for this collective",
+	"embeddablecontent-collective-logo-author": "Logo author",
+	"embeddablecontent-collective-logo-license-info": "Additional license information"
 }

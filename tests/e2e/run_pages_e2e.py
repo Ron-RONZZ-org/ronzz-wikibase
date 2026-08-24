@@ -454,10 +454,10 @@ def flow_software(op, base: str, api: str, name: str) -> tuple[str, str]:
 def flow_software_logo(op, base: str, api: str, label: str, class_item: str,
                        license_qid: str) -> tuple[str, str]:
     """Special:AddSoftware/manual with a LOCAL LOGO upload (issue follow-up):
-    posts a 1x1 PNG via multipart (license required, issue follow-up), then
-    verifies the created item carries the image statement, the
-    File:<label>-logo.png page exists and the FOSS page skeleton passes the
-    logo to the infobox. Returns (qid, FOSS page title)."""
+    posts a 1x1 PNG via multipart (behind the logoInclude toggle, with the
+    now-mandatory license), then verifies the created item carries the
+    image statement, the File:<label>-logo.png page exists and the FOSS page
+    skeleton passes the logo to the infobox. Returns (qid, FOSS page title)."""
     # 1x1 transparent PNG.
     png = base64.b64decode(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
@@ -467,8 +467,13 @@ def flow_software_logo(op, base: str, api: str, label: str, class_item: str,
     url, body = page_post_multipart(op, url, {
         "wplabel": label,
         "wpclass": class_item,
+        # The logo section is opt-in behind the toggle (upload enhancements);
+        # the license is mandatory when a logo is provided.
+        "wplogoInclude": "1",
         "wplogoMode": "file",
         "wplogoLicense": license_qid,
+        "wplogoAuthor": "E2E Logo Author",
+        "wplogoLicenseInfo": "E2E license note",
         "wpEditToken": token,
         "wpSubmit": "1",
     }, {
@@ -495,8 +500,6 @@ def flow_software_logo(op, base: str, api: str, label: str, class_item: str,
     if not qid:
         raise FlowError(f"AddSoftware/manual (logo) page {page_title} has no wikibase_item")
     return qid, page_title
-
-
 def flow_person(op, base: str, api: str, name: str) -> str:
     # review_prefill=True (issue follow-up): the review form must show the
     # harvested authority record's given/family names — the end-to-end proof
@@ -972,6 +975,147 @@ def label_pos(body: str, text: str) -> int:
     return m.start() if m else -1
 
 
+def flow_person_portrait(op, base: str, api: str, label: str, license_qid: str) -> tuple[str, str]:
+    """Special:AddPerson/manual + a LOCAL PORTRAIT upload (upload
+    enhancements): the portrait section is collapsed behind the
+    portraitInclude toggle — this flow checks the box, uploads a 1x1 PNG
+    via multipart with the mandatory license + free-text author / license
+    info. Returns (qid, File: page title)."""
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    )
+    given, _, family = label.rpartition(" ")
+    url, body = page_get(op, base, "/wiki/Special:AddPerson/manual")
+    token = edit_token(body)
+    url, body = page_post_multipart(op, url, {
+        "wpgivenName": given,
+        "wpfamilyName": family,
+        "wpportraitInclude": "1",
+        "wpportraitMode": "file",
+        "wpportraitLicense": license_qid,
+        "wpportraitAuthor": "E2E Portrait Author",
+        "wpportraitLicenseInfo": "E2E portrait license note",
+        "wpEditToken": token,
+        "wpSubmit": "1",
+    }, {
+        "wpPortraitFile": ("portrait.png", png, "image/png"),
+    })
+    qid = flow_final_item(op, base, api, url, body, "AddPerson/manual (portrait)")
+    return qid, f"File:{label}-portrait.png"
+
+
+def flow_upload_special_form(op, base: str) -> None:
+    """Special:Upload form rendering (upload enhancements, logged-in):
+    the semantic license combobox replaces the core dropdown, the author +
+    license-info fields exist, the "Maximum file size" note appears ONCE,
+    and the validate-button wiring span is present on the URL field.
+    GET-only; nothing is uploaded."""
+    _, body = page_get(op, base, "/wiki/Special:Upload")
+    if "wpEditToken" not in body:
+        raise FlowError(f"Special:Upload not usable (logged-in? got {len(body)} bytes)")
+    # The semantic license combobox: an OOUI combobox input carrying the
+    # wb-entity-combobox class, with preseed license options.
+    if "wb-entity-combobox" not in body:
+        raise FlowError("Special:Upload license field is not the semantic combobox")
+    if "CC BY-SA 4.0" not in body:
+        raise FlowError("Special:Upload license combobox missing the preseed license options")
+    # Author + additional-license-info fields.
+    if 'id="wpUploadAuthor"' not in body:
+        raise FlowError("Special:Upload missing the image-author field")
+    if 'id="wpUploadLicenseInfo"' not in body:
+        raise FlowError("Special:Upload missing the additional-license-info field")
+    # The single "Maximum file size" note (the duplicated parentheticals
+    # are gone — the URL field's note slot carries the wiring span).
+    if body.count("Maximum file size") != 1:
+        raise FlowError(
+            f"Special:Upload 'Maximum file size' note appears {body.count('Maximum file size')} times, "
+            f"expected exactly once")
+    if body.count("wb-uploadmeta") < 1:
+        raise FlowError("Special:Upload URL field missing the validate-button wiring span")
+
+
+def flow_upload_special_item(op, base: str, api: str, license_qid: str) -> str:
+    """Special:Upload form submission (upload enhancements): uploads a 1x1
+    PNG with the license combobox value (item id), author + license info,
+    then verifies the item-per-upload — a sitelinked image item carrying the
+    semantic statements — and the attribution block on the File page.
+    Returns the image item qid."""
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    )
+    dest = f"E2E upload {int(time.time())}"
+    url, body = page_get(op, base, "/wiki/Special:Upload")
+    token = edit_token(body)
+    url, body = page_post_multipart(op, url, {
+        "wpDestFile": dest + ".png",
+        "wpUploadDescription": "Uploaded by the page-flow E2E.",
+        "wpLicense": license_qid,
+        "wpUploadAuthor": "E2E Upload Author",
+        "wpUploadLicenseInfo": "E2E upload license note",
+        "wpUploadmetaItemize": "1",
+        # The fixture is the same 1x1 PNG as the access-flow fixtures — the
+        # duplicate-file WARNING would re-render the form; the E2E is not
+        # testing duplicate handling.
+        "wpIgnoreWarning": "1",
+        "wpEditToken": token,
+        "wpUpload": "1",
+    }, {
+        "wpUploadFile": (dest + ".png", png, "image/png"),
+    })
+    if "/wiki/File:" not in url and "File:" not in body:
+        raise FlowError(f"Special:Upload did not land on the File page: {url} {find_error(body)}")
+
+    # The image item: label = the file name without extension.
+    item_label = dest
+    r = api_call(op, api, {"action": "wbsearchentities", "search": item_label,
+                           "language": "en", "type": "item", "limit": 1, "format": "json"})
+    qid = r.get("search", [{}])[0].get("id") if r.get("search") else None
+    if not qid:
+        raise FlowError(f"Special:Upload created no image item for {item_label!r}")
+    claims, _ = entity_claims(op, api, qid)
+    # instance of -> the image class, image -> the File: URL, license +
+    # author + license info statements, sitelinked to the File page.
+    # Self-contained label resolution (main()'s resolve is out of scope here).
+    def resolve(label: str, etype: str) -> str:
+        rid = resolve_label(op, api, label, etype)
+        if not rid:
+            raise FlowError(f"upload flow: vocabulary label not found: {label!r}")
+        return rid
+    image_class = resolve("image", "item")
+    instance_of_prop = resolve("instance of", "property")
+    image_prop = resolve("image", "property")
+    license_prop = resolve("license", "property")
+    author_prop = resolve("image author", "property")
+    info_prop = resolve("additional license information", "property")
+    assert first_value(claims, instance_of_prop) == image_class, \
+        f"{qid} instance-of != image class ({first_value(claims, instance_of_prop)})"
+    image_url = first_value(claims, image_prop)
+    # The File: URL is title-normalized — match the underscore form.
+    assert image_url and "File:" in str(image_url) and dest.replace(" ", "_") in str(image_url), \
+        f"{qid} missing image statement pointing at the uploaded file ({image_url!r})"
+    license_value = first_value(claims, license_prop)
+    assert license_value == license_qid, f"{qid} license statement mismatch ({license_value!r})"
+    author_value = first_value(claims, author_prop)
+    assert author_value == "E2E Upload Author", f"{qid} image-author statement missing ({author_value!r})"
+    info_value = first_value(claims, info_prop)
+    assert info_value == "E2E upload license note", \
+        f"{qid} additional-license-info statement missing ({info_value!r})"
+    # Sitelinked to the File: page.
+    r = api_call(op, api, {"action": "wbgetentities", "ids": qid, "props": "sitelinks", "format": "json"})
+    links = r.get("entities", {}).get(qid, {}).get("sitelinks", {})
+    assert links.get("wikibase", {}).get("title") == f"File:{dest}.png", \
+        f"{qid} not sitelinked to File:{dest}.png ({links})"
+
+    # The File page carries the attribution block (author + license info +
+    # the semantic license reference — never a {{Q42}} template call).
+    # File DB keys normalize spaces to underscores — match the stored form.
+    _, raw = page_get(op, base, "/wiki/" + urllib.parse.quote(("File:" + dest + ".png").replace(" ", "_")) + "?action=raw")
+    assert "Attribution" in raw and "E2E Upload Author" in raw, \
+        f"File:{dest}.png missing the attribution block; raw: {raw[:400]!r}"
+    assert "{{" + license_qid + "}}" not in raw, \
+        f"File:{dest}.png renders the license item id as a template call"
+    return qid
+
 def create_api_item(op, api: str, label: str) -> str:
     """Creates a bare item via the API (labels only) — e.g. the publisher
     entity for the AddSource publisher-field test. This instance's Wikibase
@@ -1023,8 +1167,10 @@ def flow_collective(op, base: str, api: str, name: str) -> str:
 def flow_collective_logo(op, base: str, api: str, label: str, class_item: str,
                          license_qid: str) -> str:
     """Special:AddCollective/manual with a LOCAL LOGO upload (issue
-    follow-up): posts a 1x1 PNG via multipart (license required), verifies
-    the image + license statements. Returns the item id."""
+    follow-up + upload enhancements): posts a 1x1 PNG via multipart behind
+    the logoInclude toggle (license required, author + license info free
+    text), verifies the image + license + attribution statements. Returns
+    the item id."""
     png = base64.b64decode(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
     )
@@ -1033,8 +1179,11 @@ def flow_collective_logo(op, base: str, api: str, label: str, class_item: str,
     url, body = page_post_multipart(op, url, {
         "wplabel": label,
         "wpclass": class_item,
+        "wplogoInclude": "1",
         "wplogoMode": "file",
         "wplogoLicense": license_qid,
+        "wplogoAuthor": "E2E Collective Logo Author",
+        "wplogoLicenseInfo": "E2E collective license note",
         "wpEditToken": token,
         "wpSubmit": "1",
     }, {
@@ -1719,8 +1868,10 @@ def main() -> int:
         assert first_value(claims, resolve("license", "property")) == collective_logo_license_qid, \
             f"{collective_logo} missing logo license statement " \
             f"({first_value(claims, resolve('license', 'property'))})"
+        assert first_value(claims, resolve("image author", "property")) == "E2E Collective Logo Author", \
+            f"{collective_logo} missing the collective logo image-author statement"
         print(f"[ok] AddCollective/manual (logo) -> {collective_logo}: "
-              f"File:{collective_logo_label}-logo.png + image/license statements")
+              f"File:{collective_logo_label}-logo.png + image/license/attribution statements")
 
         # 3b. Manual-entry fallback (issue #12): Special:AddPerson/manual
         #     creates from blank, no external record, no import reference.
@@ -1789,16 +1940,17 @@ def main() -> int:
         if software_manual in created:
             created_pages.append(foss_manual_page)
 
-        # 3e. AddSoftware/manual + logo upload (issue follow-up): a local PNG
-        #     is uploaded as File:<label>-logo.png, linked from the item via
-        #     the image statement, and passed to the FOSS page infobox. The
-        #     logo LICENSE (issue follow-up) is mandatory and lands as a
-        #     license statement alongside the software's own licenses.
+        # 3e. AddSoftware/manual + logo upload (issue follow-up + upload
+        #     enhancements): a local PNG is uploaded as File:<label>-logo.png
+        #     behind the logoInclude toggle, linked from the item via the
+        #     image statement, and passed to the FOSS page infobox. The
+        #     license is now mandatory and the free-text attribution lands as
+        #     item statements.
         image_prop = resolve("image", "property")
-        logo_license_qid = create_api_item(op, api, f"Page-flow E2E logo license {int(time.time())}")
+        license_prop = resolve("license", "property")
+        license_item = resolve("CC BY-SA 4.0", "item")  # preseed license
         logo_label = f"Page-flow E2E logo software {int(time.time())}"
-        logo_qid, logo_page = flow_software_logo(op, base, api, logo_label, foss_class,
-                                                 logo_license_qid)
+        logo_qid, logo_page = flow_software_logo(op, base, api, logo_label, foss_class, license_item)
         logo_qid = track(logo_qid)
         # Upload first (the File: page) — an upload failure aborts the flow
         # with the server-side reason; only then check the statement wiring.
@@ -1810,17 +1962,50 @@ def main() -> int:
         image_url = first_value(claims, image_prop)
         assert image_url and "logo.png" in str(image_url), \
             f"{logo_qid} missing image statement pointing at the logo ({image_url!r})"
-        license_prop = resolve("license", "property")
-        assert first_value(claims, license_prop) == logo_license_qid, \
-            f"{logo_qid} missing the logo license statement ({first_value(claims, license_prop)})"
+        assert first_value(claims, license_prop) == license_item, \
+            f"{logo_qid} missing the logo license statement"
+        assert first_value(claims, resolve("image author", "property")) == "E2E Logo Author", \
+            f"{logo_qid} missing the image-author statement"
+        assert first_value(claims, resolve("additional license information", "property")) == "E2E license note", \
+            f"{logo_qid} missing the additional-license-info statement"
         _, raw = page_get(op, base, "/wiki/" + urllib.parse.quote(logo_page.replace(" ", "_")) + "?action=raw")
         # File DB keys normalize spaces to underscores — match the stored form.
         assert f"logo=[[File:{logo_label.replace(' ', '_')}-logo.png" in raw, \
             f"{logo_page} skeleton does not pass the logo to the infobox; raw: {raw[:200]!r}"
         print(f"[ok] AddSoftware/manual (logo) -> {logo_qid}: File:{logo_label}-logo.png uploaded, "
-              f"image + license statements, infobox logo on {logo_page}")
+              f"image/license/attribution statements + infobox logo on {logo_page}")
         if logo_qid in created:
             created_pages.append(logo_page)
+
+        # 3e2. AddPerson/manual + portrait (upload enhancements): the
+        #     portrait section collapsed behind the toggle, local PNG upload
+        #     with the mandatory license + author / license info.
+        person_portrait_label = f"Page-flow E2E portrait {int(time.time())}"
+        portrait_qid, portrait_file = flow_person_portrait(op, base, api, person_portrait_label, license_item)
+        portrait_qid = track(portrait_qid)
+        r = api_call(op, api, {"action": "query", "titles": portrait_file, "format": "json"})
+        assert any("missing" not in p for p in r["query"]["pages"].values()), \
+            f"{portrait_file} was not uploaded"
+        claims, _ = entity_claims(op, api, portrait_qid)
+        assert first_value(claims, license_prop) == license_item, \
+            f"{portrait_qid} missing the portrait license statement"
+        assert first_value(claims, resolve("image author", "property")) == "E2E Portrait Author", \
+            f"{portrait_qid} missing the portrait image-author statement"
+        print(f"[ok] AddPerson/manual (portrait) -> {portrait_qid}: File uploaded with "
+              f"license + author statements")
+        if portrait_qid in created:
+            created_pages.append(portrait_file)
+
+        # 3e3. Special:Upload (upload enhancements): the semantic license
+        #     combobox + attribution fields + single size note render, and a
+        #     real submission creates the sitelinked image item.
+        flow_upload_special_form(op, base)
+        print("[ok] Special:Upload form: semantic license combobox, author/license-info "
+              "fields, single 'Maximum file size' note, validate wiring")
+        upload_qid = flow_upload_special_item(op, base, api, license_item)
+        upload_qid = track(upload_qid)
+        print(f"[ok] Special:Upload -> {upload_qid}: image item + statements + "
+              f"File-page attribution (item-per-upload)")
 
         # 3f. Sitelink tab (issue follow-up): red (needs-set) on a page
         #     without a sitelink, blue (is-set) on the sitelinked FOSS page.

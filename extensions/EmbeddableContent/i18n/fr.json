@@ -298,5 +298,8 @@
 	"embeddablecontent-person-portrait-license-info": "Informations supplémentaires sur la licence",
 	"embeddablecontent-software-logo-include": "Je vais importer un logo pour ce logiciel",
 	"embeddablecontent-software-logo-author": "Auteur du logo",
-	"embeddablecontent-software-logo-license-info": "Informations supplémentaires sur la licence"
+	"embeddablecontent-software-logo-license-info": "Informations supplémentaires sur la licence",
+	"embeddablecontent-collective-logo-include": "Je vais importer un logo pour ce collectif",
+	"embeddablecontent-collective-logo-author": "Auteur du logo",
+	"embeddablecontent-collective-logo-license-info": "Informations supplémentaires sur la licence"
 }

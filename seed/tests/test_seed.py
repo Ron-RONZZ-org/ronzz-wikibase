@@ -223,7 +223,8 @@ class ConfigBuilderTest(unittest.TestCase):
     def test_config_fragment_image_upload_sections(self):
         """Upload-enhancements vocabulary: the image class + the image-fact
         properties (image author P2093-aligned, additional license
-        information unaligned) shared by person/software image facts."""
+        information unaligned) shared by person/software/collective image
+        facts."""
         snippet = config_builder.build_config(
             property_ids={
                 "instance of": "P31",
@@ -231,6 +232,7 @@ class ConfigBuilderTest(unittest.TestCase):
                 "license": "P34",
                 "image author": "P70",
                 "additional license information": "P71",
+                "parent organization": "P72",
             },
             class_ids={"image": "Q120", "free and open-source software": "Q16"},
             lexer_ids={},
@@ -241,9 +243,11 @@ class ConfigBuilderTest(unittest.TestCase):
         self.assertIn("'imageProperties'", snippet)
         self.assertIn("'imageAuthor' => 'P70'", snippet)
         self.assertIn("'imageLicenseInfo' => 'P71'", snippet)
-        # The shared image-fact keys also land on person + FOSS properties.
+        # The shared image-fact keys also land on person, FOSS and collective
+        # properties.
         self.assertIn("'imageAuthor' => 'P70'", snippet)
         self.assertIn("'imageLicenseInfo' => 'P71'", snippet)
+        self.assertIn("'parentOrganization' => 'P72'", snippet)
 
     def test_config_fragment_followup_sections(self):
         """Issue follow-up vocabulary: fictional characters, the journal

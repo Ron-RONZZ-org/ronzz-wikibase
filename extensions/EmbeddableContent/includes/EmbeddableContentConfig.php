@@ -256,7 +256,10 @@ class EmbeddableContentConfig {
 	 * @return array<string,string> canonical key => property id
 	 */
 	public function collectivePropertyIds(): array {
-		return $this->requireStringMap( 'collectiveProperties', [ 'parentOrganization', 'image', 'license' ] );
+		return $this->requireStringMap( 'collectiveProperties', [
+			'parentOrganization', 'image', 'license',
+			'imageAuthor', 'imageLicenseInfo',
+		] );
 	}
 
 	/**
