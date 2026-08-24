@@ -222,6 +222,16 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 			'maxlength' => 500,
 			'hide-if' => [ '===', 'logoMode', 'file' ],
 		];
+		// Logo license (issue follow-up): required only when a logo is
+		// actually provided (enforced in beforeCreate, not by HTMLForm —
+		// the same contract as AddPerson's portrait license).
+		$fields['logoLicense'] = [
+			'type' => 'combobox',
+			'options' => $this->config->licenseItems(),
+			'label-message' => 'embeddablecontent-software-logo-license',
+			'cssclass' => 'wb-entity-combobox',
+			'help' => $this->msg( 'embeddablecontent-software-logo-license-help' )->parse(),
+		];
 		return $fields;
 	}
 
@@ -255,11 +265,18 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		}
 
 		// Logo: the uploaded File:<Name>-logo.<ext> page URL (uploaded in
-		// beforeCreate, which sets $record['logoFileTitle']).
+		// beforeCreate, which sets $record['logoFileTitle']) + its license
+		// (the shared P275 property, alongside the software's own licenses).
 		if ( !empty( $record['logoFileTitle'] ) ) {
 			$fileTitle = \MediaWiki\Title\Title::makeTitle( NS_FILE, (string)$record['logoFileTitle'] );
 			if ( $fileTitle !== null ) {
 				$specs[$this->config->fossPropertyIds()['image']] = new StringValue( $fileTitle->getFullURL() );
+			}
+		}
+		if ( !empty( $record['logoLicense'] ) ) {
+			$licenseItem = $this->parseItemId( (string)$record['logoLicense'] );
+			if ( $licenseItem !== null ) {
+				$specs[$this->config->fossPropertyIds()['license']][] = new EntityIdValue( $licenseItem );
 			}
 		}
 
@@ -378,6 +395,15 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		}
 		if ( !empty( $title ) ) {
 			$record['logoFileTitle'] = $title->getDBkey();
+			// Logo license is mandatory when a logo IS provided (issue
+			// follow-up, the AddPerson portrait contract).
+			$licenseItem = $this->parseItemId( (string)( $record['logoLicense'] ?? '' ) );
+			if ( $licenseItem === null ) {
+				return $this->msg( 'embeddablecontent-software-logo-license-required' )->text();
+			}
+			$record['logoLicense'] = $licenseItem->getSerialization();
+		} else {
+			$record['logoLicense'] = '';
 		}
 		return null;
 	}

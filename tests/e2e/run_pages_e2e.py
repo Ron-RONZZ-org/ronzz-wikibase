@@ -451,11 +451,13 @@ def flow_software(op, base: str, api: str, name: str) -> tuple[str, str]:
     return qid, page_title
 
 
-def flow_software_logo(op, base: str, api: str, label: str, class_item: str) -> tuple[str, str]:
+def flow_software_logo(op, base: str, api: str, label: str, class_item: str,
+                       license_qid: str) -> tuple[str, str]:
     """Special:AddSoftware/manual with a LOCAL LOGO upload (issue follow-up):
-    posts a 1x1 PNG via multipart, then verifies the created item carries the
-    image statement, the File:<label>-logo.png page exists and the FOSS page
-    skeleton passes the logo to the infobox. Returns (qid, FOSS page title)."""
+    posts a 1x1 PNG via multipart (license required, issue follow-up), then
+    verifies the created item carries the image statement, the
+    File:<label>-logo.png page exists and the FOSS page skeleton passes the
+    logo to the infobox. Returns (qid, FOSS page title)."""
     # 1x1 transparent PNG.
     png = base64.b64decode(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
@@ -466,6 +468,7 @@ def flow_software_logo(op, base: str, api: str, label: str, class_item: str) -> 
         "wplabel": label,
         "wpclass": class_item,
         "wplogoMode": "file",
+        "wplogoLicense": license_qid,
         "wpEditToken": token,
         "wpSubmit": "1",
     }, {
@@ -1015,6 +1018,30 @@ def flow_sitelink_tab(op, base: str, api: str, linked_page: str, linked_qid: str
 
 def flow_collective(op, base: str, api: str, name: str) -> str:
     return flow_search_select_create(op, base, api, "AddCollective", {"wpname": name})
+
+
+def flow_collective_logo(op, base: str, api: str, label: str, class_item: str,
+                         license_qid: str) -> str:
+    """Special:AddCollective/manual with a LOCAL LOGO upload (issue
+    follow-up): posts a 1x1 PNG via multipart (license required), verifies
+    the image + license statements. Returns the item id."""
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    )
+    url, body = page_get(op, base, "/wiki/Special:AddCollective/manual")
+    token = edit_token(body)
+    url, body = page_post_multipart(op, url, {
+        "wplabel": label,
+        "wpclass": class_item,
+        "wplogoMode": "file",
+        "wplogoLicense": license_qid,
+        "wpEditToken": token,
+        "wpSubmit": "1",
+    }, {
+        # HTMLForm keeps the field key's casing: "logoFile" -> "wpLogoFile".
+        "wpLogoFile": ("logo.png", png, "image/png"),
+    })
+    return flow_final_item(op, base, api, url, body, "AddCollective/manual (logo)")
 
 
 def flow_math(op, base: str, api: str, label: str, latex: str, describes_qid: str) -> str:
@@ -1674,6 +1701,25 @@ def main() -> int:
         print(f"[ok] AddCollective/manual -> {collective_manual}: optional parent "
               f"organization statement written ({parent_org_qid})")
 
+        # 3a2. AddCollective logo (issue follow-up): the optional logo
+        #     uploads as File:<label>-logo.png (AddSoftware pattern) with a
+        #     mandatory license; the image + license statements are written.
+        collective_logo_license_qid = create_api_item(
+            op, api, f"Page-flow E2E collective logo license {int(time.time())}")
+        collective_logo_label = f"Page-flow E2E collective logo {int(time.time())}"
+        collective_logo = track(flow_collective_logo(
+            op, base, api, collective_logo_label, resolve("organization", "item"),
+            collective_logo_license_qid))
+        claims, _ = entity_claims(op, api, collective_logo)
+        collective_image_url = first_value(claims, resolve("image", "property"))
+        assert collective_image_url and "logo.png" in str(collective_image_url), \
+            f"{collective_logo} missing image statement pointing at the logo ({collective_image_url!r})"
+        assert first_value(claims, resolve("license", "property")) == collective_logo_license_qid, \
+            f"{collective_logo} missing logo license statement " \
+            f"({first_value(claims, resolve('license', 'property'))})"
+        print(f"[ok] AddCollective/manual (logo) -> {collective_logo}: "
+              f"File:{collective_logo_label}-logo.png + image/license statements")
+
         # 3b. Manual-entry fallback (issue #12): Special:AddPerson/manual
         #     creates from blank, no external record, no import reference.
         manual_label = f"Manual E2E person {int(time.time())}"
@@ -1743,10 +1789,14 @@ def main() -> int:
 
         # 3e. AddSoftware/manual + logo upload (issue follow-up): a local PNG
         #     is uploaded as File:<label>-logo.png, linked from the item via
-        #     the image statement, and passed to the FOSS page infobox.
+        #     the image statement, and passed to the FOSS page infobox. The
+        #     logo LICENSE (issue follow-up) is mandatory and lands as a
+        #     license statement alongside the software's own licenses.
         image_prop = resolve("image", "property")
+        logo_license_qid = create_api_item(op, api, f"Page-flow E2E logo license {int(time.time())}")
         logo_label = f"Page-flow E2E logo software {int(time.time())}"
-        logo_qid, logo_page = flow_software_logo(op, base, api, logo_label, foss_class)
+        logo_qid, logo_page = flow_software_logo(op, base, api, logo_label, foss_class,
+                                                 logo_license_qid)
         logo_qid = track(logo_qid)
         # Upload first (the File: page) — an upload failure aborts the flow
         # with the server-side reason; only then check the statement wiring.
@@ -1758,12 +1808,15 @@ def main() -> int:
         image_url = first_value(claims, image_prop)
         assert image_url and "logo.png" in str(image_url), \
             f"{logo_qid} missing image statement pointing at the logo ({image_url!r})"
+        license_prop = resolve("license", "property")
+        assert first_value(claims, license_prop) == logo_license_qid, \
+            f"{logo_qid} missing the logo license statement ({first_value(claims, license_prop)})"
         _, raw = page_get(op, base, "/wiki/" + urllib.parse.quote(logo_page.replace(" ", "_")) + "?action=raw")
         # File DB keys normalize spaces to underscores — match the stored form.
         assert f"logo=[[File:{logo_label.replace(' ', '_')}-logo.png" in raw, \
             f"{logo_page} skeleton does not pass the logo to the infobox; raw: {raw[:200]!r}"
         print(f"[ok] AddSoftware/manual (logo) -> {logo_qid}: File:{logo_label}-logo.png uploaded, "
-              f"image statement + infobox logo on {logo_page}")
+              f"image + license statements, infobox logo on {logo_page}")
         if logo_qid in created:
             created_pages.append(logo_page)
 

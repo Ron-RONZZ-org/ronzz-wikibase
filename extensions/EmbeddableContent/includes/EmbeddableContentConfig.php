@@ -223,13 +223,14 @@ class EmbeddableContentConfig {
 
 	/**
 	 * Collective-specific property ids (Special:AddCollective statements):
-	 * parentOrganization (P749-aligned, optional). Absent keys are omitted
+	 * parentOrganization (P749-aligned), image (P18-aligned) + license
+	 * (P275-aligned) for the optional logo. Absent keys are omitted
 	 * (instance-specific availability).
 	 *
 	 * @return array<string,string> canonical key => property id
 	 */
 	public function collectivePropertyIds(): array {
-		return $this->requireStringMap( 'collectiveProperties', [ 'parentOrganization' ] );
+		return $this->requireStringMap( 'collectiveProperties', [ 'parentOrganization', 'image', 'license' ] );
 	}
 
 	/**

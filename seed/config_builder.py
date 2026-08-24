@@ -86,9 +86,12 @@ FICTIONAL_CHARACTER_PROPERTY_KINDS = {
 }
 
 # Issue follow-up: collective properties (Special:AddCollective statements):
-# the optional `parent organization` link (P749-aligned).
+# the optional `parent organization` link (P749-aligned) + the logo facts
+# (the shared P18-aligned image + the shared P275 license).
 COLLECTIVE_PROPERTY_KINDS = {
     "parent organization": "parentOrganization",
+    "image": "image",
+    "license": "license",
 }
 
 CLASS_KINDS = {
