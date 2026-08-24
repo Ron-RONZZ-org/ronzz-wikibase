@@ -55,6 +55,12 @@ evaluated against the stated requirements:
    signature button is available in the Forum namespace
    (`ExtraSignatureNamespaces`), the signature itself is NOT auto-inserted on
    save. **No auto topic creation** — nothing is generated per content page.
+   ⚠️ **Subpages MUST be enabled** (`$wgNamespacesWithSubpages[NS_FORUM] =
+   true`, production + dev config): the preload's
+   `[[Category:{{BASEPAGENAME}}]]` depends on it. Without it BASEPAGENAME
+   returns the full title (`Forum:Board/Thread` → `Board/Thread`) and threads
+   land in a bogus category named after themselves — invisible to the board
+   listing (hit 2026-08-24: a hand-created thread before the InputBox fix).
 3b. **Thread creation via Extension:InputBox** (vendored at
    `extensions/InputBox/`, MIT, MW ≥ 1.46): each board renders an
    `<inputbox type=create>` with `prefix=<board>/`, `preload=Template:Forumthread`
