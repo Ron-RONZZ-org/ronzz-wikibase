@@ -27,6 +27,7 @@ The v1 plan lives in
 | Issue #26 — FOSS software documentation | implemented + deployed (FOSS namespace NS 2008/2009, 9 software properties + `free and open-source software` class Q179, `Template:FOSS`/`FOSS:Main`, `Special:AddSoftware` with Wikidata→GitHub fetch, creates item + `FOSS:` page + sitelink in one flow) |
 | Add-flow follow-up — URL-first fetch, content review, per-class pages, fictional characters | implemented (awaiting deployment): website/webpage URL entry with SSRF-guarded metadata autofill, fetched page content (OpenAlex abstract/keywords, Wikipedia intros/Plot/Lyrics, site metadata) reviewed on a dedicated step and written to per-class `Source:`/`Person:` pages, `Special:AddFictionalCharacter`, entity-only Journal, access N/A mode, CC BY-SA data rights, combobox-autocomplete fix — see `docs/decisions/add-flow-followup.md` |
 | Upload enhancements — `Special:Upload` + Add\* portrait/logo, Wikimedia 429 fix | implemented (awaiting deployment): browser-side Wikimedia metadata fetch + rate-limited server fetch layer (the `fceb99d` 429 fix), `api.php?action=uploadmeta`, semantic license combobox on `Special:Upload` (replacing the core dropdown), image author + additional-license-info fields, single max-size note, item-per-upload (sitelinked `image`-class items), shared `ImageUploadHelper` for the Add\* portrait/logo sections with the "I will upload a {image}" toggle + validate button + attribution statements — see `docs/decisions/upload-enhancements.md` |
+| Diagrams (Extension:Diagrams, vendored) | implemented + CI green (awaiting deployment): `<uml>` (PlantUML) / `<graphviz>` / `<mscgen>` server-side (local binaries → SVG cached in the wiki file store) + `<mermaid>` client-side (bundled mermaid.js), PlantUML pinned jar (1.2026.6) running under the **SANDBOX** security profile, dedicated diagrams E2E — see `docs/decisions/diagrams.md` |
 
 ## Repository layout
 
@@ -80,6 +81,12 @@ The v1 plan lives in
   BibTeX/RIS serializers. Issue #7: CSL type follows the **source** class;
   harvested source fields (published in, publisher, pages, volume, issue, DOI,
   ISBN). No Node sidecar.
+- `extensions/Diagrams/` — vendored third-party diagram extension
+  (PlantUML `<uml>` / GraphViz `<graphviz>` / Mscgen `<mscgen>` server-side,
+  Mermaid `<mermaid>` client-side; SVG cached in the wiki file store) — see
+  `extensions/Diagrams/VENDORED.md` + `docs/decisions/diagrams.md`. The
+  server-side renderers are installed via apt (`graphviz`, `mscgen`) and the
+  pinned PlantUML jar via `tools/install-plantuml.sh` (SANDBOX profile).
 - `seed/` — instance bootstrap orchestrator (`seed_instance.py`), API client,
   dogfood entities, config/report emission, self-verification (idempotent,
   exact-label skip).
@@ -113,7 +120,8 @@ machine):
 - `unit` — PHPUnit + seed tooling (~2–3 min)
 - `integration` — real wikibase-docker stack (MW 1.46 + WDQS): D1 importers →
   D2 seed → config-map restart → E2E acceptance → XSS suite → **page-flow E2E**
-  (issue-#7 Special pages)
+  (issue-#7 Special pages) → forum E2E → **diagrams E2E**
+  (PlantUML/GraphViz/Mscgen/Mermaid tags + SANDBOX probe)
 
 **Recommended loop** (especially on a resource-tight machine): edit → local
 unit tests above → push → CI gate. For an on-demand full validation without
@@ -130,6 +138,8 @@ python3 tests/e2e/run_e2e.py check --base-url https://wikibase.ronzz.org \
 python3 tests/e2e/run_e2e.py xss --api-url ... --user 'User@bot' --password '***'
 python3 tests/e2e/run_pages_e2e.py --base-url https://wikibase.ronzz.org \
     --user SeedBot --password-file seed/.seedbot.pass   # page flows, self-cleaning
+python3 tests/e2e/run_diagrams_e2e.py --base-url https://wikibase.ronzz.org \
+    --user SeedBot --password-file seed/.seedbot.pass   # diagrams tags + SANDBOX probe + XSS
 ```
 
 `--instance-of` is **P1** on production (`instance of`; P31 is *subclass of* — the

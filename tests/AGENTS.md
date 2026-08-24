@@ -23,6 +23,16 @@ live endpoints of a seeded instance (acceptance, XSS, issue-#7 page flows).
 - **`tests/e2e/run_forum_e2e.py`** — DPLforum forum: `Forum:` namespace
   registration (NS 110/111) + a board's `<forum>` listing showing a created
   thread; **self-cleaning** (deletes its scratch board/thread pages).
+- **`tests/e2e/run_diagrams_e2e.py`** — vendored Diagrams: siteinfo loads the
+  extension; the `<uml>`/`<graphviz>`/`<mscgen>` server-side tags render
+  cached SVG files under `/images/diagrams/` (HTTP 200); `<mermaid>` emits
+  its container + hidden source + the bundled `ext.diagrams.mermaid` module;
+  a broken GraphViz source and a PlantUML `!include /etc/passwd` probe each
+  render a graceful error span (the latter proves the SANDBOX security
+  profile is active); XSS payloads do not survive rendering;
+  **self-cleaning**. Needs the diagram renderers in the wiki container (apt
+  `graphviz`/`mscgen` + the pinned PlantUML jar via
+  `tools/install-plantuml.sh` — see `dev/README.md` step 0b / ci.yml).
 - The `integration` CI job runs the full E2E stack on 16 GB runners — see
   root AGENTS.md for the recommended edit → unit → push → CI loop.
 
@@ -50,7 +60,8 @@ live endpoints of a seeded instance (acceptance, XSS, issue-#7 page flows).
 
 ## Documentation Reference
 
-- `tests/e2e/run_e2e.py` / `run_pages_e2e.py` — usage/help in the scripts
+- `tests/e2e/run_e2e.py` / `run_pages_e2e.py` / `run_forum_e2e.py` /
+  `run_diagrams_e2e.py` — usage/help in the scripts
 - `dev/README.md` — full E2E command lines against the local stack
 - `.github/workflows/ci.yml` — `unit` job (PHPUnit + seed unittest +
   `--dry-run`) and `integration` job (full E2E stack)
