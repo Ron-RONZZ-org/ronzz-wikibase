@@ -12,8 +12,8 @@ The WBS image requires a configuration volume at `/config` (host dir
 `dev/config/`). On first boot it generates `InstanceSettings.php` +
 `LocalSettings.php` there; the generated `LocalSettings.php` loads
 `dev/config/Extensions.php`, which enables our extensions (EmbeddableContent,
-WikibaseCitation, vendored DPLforum) and — once the
-seed has emitted it — the seed config map
+WikibaseCitation, vendored DPLforum, vendored Diagrams) and — once
+the seed has emitted it — the seed config map
 (`dev/config/ronzz-wikibase-config.php`). A `jobrunner` container shares the
 config volume (the WBS image requires it).
 
@@ -37,6 +37,21 @@ docker compose -f dev/docker-compose.ci.yml exec -T -u root wikibase bash -c '
   fi'
 docker compose -f dev/docker-compose.ci.yml restart wikibase
 for i in $(seq 1 300); do curl -sf -o /dev/null http://127.0.0.1:8082/api.php && break; sleep 2; done
+
+# 0b. Diagram rendering binaries (Extension:Diagrams): the <uml>/<graphviz>/
+#     <mscgen> tags render server-side. graphviz + mscgen from apt (dot is
+#     also what PlantUML uses internally for non-sequence diagrams); the
+#     pinned PlantUML jar + SANDBOX wrapper from tools/install-plantuml.sh —
+#     NOT the apt `plantuml` package (Ubuntu noble's 1.2020.2 predates
+#     PlantUML's security profiles). The wiki boots without these (the tags
+#     render a graceful error span); they are needed for the diagrams E2E.
+docker compose -f dev/docker-compose.ci.yml exec -T -u root wikibase bash -c '
+  set -e
+  if ! command -v dot >/dev/null 2>&1 || ! command -v mscgen >/dev/null 2>&1; then
+    apt-get update && apt-get install -y --no-install-recommends graphviz mscgen default-jre-headless
+  fi'
+docker compose -f dev/docker-compose.ci.yml cp tools/install-plantuml.sh wikibase:/tmp/install-plantuml.sh
+docker compose -f dev/docker-compose.ci.yml exec -T -u root wikibase bash /tmp/install-plantuml.sh
 
 # 1. D1 importers (vocabulary via maintenance scripts)
 docker compose -f dev/docker-compose.ci.yml exec -T wikibase \
@@ -83,6 +98,12 @@ python3 tests/e2e/run_e2e.py xss --api-url http://127.0.0.1:8082/api.php \
 
 # 5. Page-flow E2E (issue-#7 Special pages; self-cleaning)
 python3 tests/e2e/run_pages_e2e.py --base-url http://127.0.0.1:8082 \
+  --api-url http://127.0.0.1:8082/api.php \
+  --user CIAdmin --password-file <(echo -n ci-admin-pass-2026)
+
+# 5b. Diagrams E2E (vendored Diagrams — <uml>/<graphviz>/<mscgen>/<mermaid>
+#     tags, SANDBOX probe, XSS; needs step 0b's binaries)
+python3 tests/e2e/run_diagrams_e2e.py --base-url http://127.0.0.1:8082 \
   --api-url http://127.0.0.1:8082/api.php \
   --user CIAdmin --password-file <(echo -n ci-admin-pass-2026)
 

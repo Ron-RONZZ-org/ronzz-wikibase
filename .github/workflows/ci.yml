@@ -169,6 +169,25 @@ jobs:
           done
           curl -sf "$API_URL" > /dev/null
 
+      # Diagrams (Extension:Diagrams): the <uml>/<graphviz>/<mscgen> tags
+      # render server-side with local binaries. The WBS image does not bundle
+      # them. graphviz + mscgen come from apt (dot is also what PlantUML uses
+      # internally for non-sequence diagrams); plantuml is NOT the apt package
+      # (Ubuntu noble's 1.2020.2 predates PlantUML's security profiles) — the
+      # pinned jar + SANDBOX wrapper come from tools/install-plantuml.sh.
+      # <mermaid> is client-side (bundled mermaid.js) and needs no packages.
+      - name: Install diagram rendering binaries (graphviz mscgen + pinned plantuml jar)
+        run: |
+          $COMPOSE exec -T -u root wikibase bash -c '
+            set -e
+            if ! command -v dot >/dev/null 2>&1 || ! command -v mscgen >/dev/null 2>&1; then
+              apt-get update && apt-get install -y --no-install-recommends graphviz mscgen default-jre-headless
+            fi
+            dot -V 2>&1
+            mscgen -V 2>&1 || true'
+          $COMPOSE cp tools/install-plantuml.sh wikibase:/tmp/install-plantuml.sh
+          $COMPOSE exec -T -u root wikibase bash /tmp/install-plantuml.sh
+
       - name: D1 importers — vocabulary (property, class, language)
         run: |
           for type in property class language; do
@@ -254,6 +273,13 @@ jobs:
         run: |
           echo -n "$MW_ADMIN_PASS" > /tmp/e2e-pass
           python3 tests/e2e/run_forum_e2e.py \
+            --base-url "$BASE_URL" --api-url "$API_URL" \
+            --user "$MW_ADMIN_NAME" --password-file /tmp/e2e-pass
+
+      - name: Diagrams E2E (PlantUML/GraphViz/Mscgen/Mermaid tags + XSS)
+        run: |
+          echo -n "$MW_ADMIN_PASS" > /tmp/e2e-pass
+          python3 tests/e2e/run_diagrams_e2e.py \
             --base-url "$BASE_URL" --api-url "$API_URL" \
             --user "$MW_ADMIN_NAME" --password-file /tmp/e2e-pass
 
