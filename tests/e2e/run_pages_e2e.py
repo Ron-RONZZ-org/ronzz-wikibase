@@ -719,9 +719,13 @@ def flow_source_url_entry(op, base: str, api: str, class_key: str, url: str,
     prefilled_title = m.group(1) if m else ""
     token2 = edit_token(body)
     # wptitle is prefilled (a browser submits it); the author is still
-    # required (agent-class).
-    fields = {"wptitle": prefilled_title, "wpauthors": author_qid,
-              "wpEditToken": token2, "wpSubmit": "1"}
+    # required (agent-class). Append a run-unique suffix to the fetched
+    # title: example.org's <title> is FIXED ("Example Domain"), so without
+    # it every run creates the same label and the next run's create-or-skip
+    # REUSES the self-cleaned (deleted) item — a stale term-store hit that
+    # fails the instance-of assertion on re-runs (seen on production).
+    fields = {"wptitle": prefilled_title + " (E2E " + str(int(time.time())) + ")",
+              "wpauthors": author_qid, "wpEditToken": token2, "wpSubmit": "1"}
     url_page, body = page_post(op, manual_url, fields)
     # The fetched intro (site description) is reviewed on the content step
     # (/manual/content?token= — the redirect renders as
