@@ -68,6 +68,10 @@ Three editor-facing improvements to the issue-#7 creation flows:
   real MIME restricted to `$wgFileExtensions`, the **original filename is ignored**; the File:
   page text is auto-generated from the item label/description. Statements: the File: page URL on
   a **new `file` property** (url datatype, P1325-aligned) + the license entity.
+  **Implementation requirement (fix 2026-08-24)**: the URL-mode uploads must call
+  `UploadFromUrl::fetchFile()` after `initialize()` — `initialize()` only creates an EMPTY temp
+  file, so without the explicit download `verifyUpload()` rejects the upload as
+  `EMPTY_FILE` (status 3, "The file could not be uploaded: verifyUpload rejected (3)").
 - **Failure discipline**: a filled-in access field that cannot be honoured (unreachable URL,
   unsupported type, missing license, upload rejection) aborts the creation with a form error —
   never silent.
@@ -129,9 +133,11 @@ Three editor-facing improvements to the issue-#7 creation flows:
   render the new statements (`access URL`, `file`, `license`, entity publisher) — optional,
   follow-up.
 - **Testing**: the dev-stack page-flow E2E covers the autofill, publisher-entity, access
-  local-file, picker-manual and selection-link flows; the `UploadFromUrl` path is unit-level +
-  a manual live check at deploy (the SSRF guard refuses loopback, so no E2E fixture); the pure
-  `NameSplitter` is PHPUnit-covered.
+  local-file **and** access download-mode (a stable public PNG fixture — the `fetchFile()`
+  regression test, would have caught the EMPTY_FILE failure), picker-manual and
+  selection-link flows; the pure `NameSplitter` is PHPUnit-covered. The download-mode E2E
+  required granting `upload_by_url` + enabling copy uploads in the dev/CI config
+  (`dev/config/Extensions.php`, CI parity with production).
 - **Docs**: this ADR; `extensions/AGENTS.md`; on-wiki `RonzzIT:Deployment/Wikibase`,
   `RonzzIT:Runbook/Wikibase`, `Help:Contributing/import` (+`entities`); local `logs/wikibase.md`.
 
