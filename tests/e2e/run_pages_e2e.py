@@ -775,6 +775,8 @@ def flow_source_content_step(op, base: str, api: str, doi: str, author_qid: str)
                                    "rvprop": "content", "format": "json"})
             for p in r.get("query", {}).get("pages", {}).values():
                 content = p.get("revisions", [{}])[0].get("*", "")
+                if content == "" and p.get("missing"):
+                    print(f"  [dbg] content-step page {page_title!r} missing on retry")
             if "== Abstract ==" in content:
                 break
             time.sleep(2)
