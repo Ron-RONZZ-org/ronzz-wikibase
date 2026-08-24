@@ -95,6 +95,9 @@
 			"services": [
 				"EmbeddableContent.ContentRenderer"
 			]
+		},
+		"uploadmeta": {
+			"class": "EmbeddableContent\\Api\\ApiUploadMeta"
 		}
 	},
 	"HookHandlers": {
@@ -202,6 +205,31 @@
 				"embeddablecontent-sitelink-cancel",
 				"embeddablecontent-sitelink-badid",
 				"embeddablecontent-sitelink-error"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.uploadmeta": {
+			"scripts": [
+				"uploadmeta.js"
+			],
+			"styles": [
+				"uploadmeta.css"
+			],
+			"dependencies": [
+				"mediawiki.api",
+				"mediawiki.notification",
+				"oojs-ui"
+			],
+			"messages": [
+				"embeddablecontent-uploadmeta-validate",
+				"embeddablecontent-uploadmeta-validating",
+				"embeddablecontent-uploadmeta-failed",
+				"embeddablecontent-uploadmeta-warning",
+				"embeddablecontent-uploadmeta-browserfetch-failed",
+				"embeddablecontent-uploadmeta-bytesize"
 			],
 			"targets": [
 				"desktop",

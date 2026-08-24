@@ -1,0 +1,39 @@
+/* Upload metadata validate step (Special:Upload + Add* portrait/logo). */
+
+.wb-uploadmeta {
+	display: inline-block;
+	margin-inline-start: 0.5em;
+	vertical-align: middle;
+}
+
+.wb-uploadmeta .wb-uploadmeta-validate {
+	/* Match OOUI's small progressive button so it sits naturally next to
+	 * the field input. */
+	font-size: 0.875em;
+	padding: 0.25em 0.75em;
+	cursor: pointer;
+}
+
+.wb-uploadmeta-status {
+	margin-top: 0.25em;
+	font-size: 0.875em;
+	color: #72777d;
+}
+
+.wb-uploadmeta-preview {
+	margin-top: 0.5em;
+}
+
+.wb-uploadmeta-preview img {
+	max-width: 220px;
+	max-height: 220px;
+	border: 1px solid #c8ccd1;
+	border-radius: 2px;
+	padding: 2px;
+}
+
+.wb-uploadmeta-preview .wb-uploadmeta-size {
+	margin-top: 0.25em;
+	font-size: 0.875em;
+	color: #54595d;
+}
