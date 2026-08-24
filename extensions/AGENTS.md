@@ -8,14 +8,16 @@ entity creation, embed skin, toolbar gadget) and **WikibaseCitation** (D4:
 citation formatting from Wikibase statements). Both are standalone
 extensions — never forks of Wikibase.
 
-Plus one **vendored third-party** extension: **DPLforum** (the forum — see
+Plus **vendored third-party** extensions: **DPLforum** (the forum — see
 `DPLforum/VENDORED.md` for provenance and `../docs/decisions/forum-dplforum.md`
-for the choice rationale). It is upstream code copied into this repo (the
-instance deploy model), NOT a house-written extension: do not modify its
-`src/` without a documented reason; treat upgrades as re-vendoring the
-upstream commit. DPLforum registers the `Forum:` (110) / `Forum_talk:` (111)
-namespaces via its `extension.json` and provides the `<forum>` parser tag +
-`#forumlink`; boards and threads are ordinary wiki pages.
+for the choice rationale) and **InputBox** (the `<inputbox type=create>`
+thread-creation field on forum boards — `InputBox/VENDORED.md`). They are
+upstream code copied into this repo (the instance deploy model), NOT
+house-written extensions: do not modify their `src/`/`includes/` without a
+documented reason; treat upgrades as re-vendoring the upstream commit.
+DPLforum registers the `Forum:` (110) / `Forum_talk:` (111) namespaces via
+its `extension.json` and provides the `<forum>` parser tag + `#forumlink`;
+boards and threads are ordinary wiki pages.
 
 ## Purpose and Expected Behavior
 
