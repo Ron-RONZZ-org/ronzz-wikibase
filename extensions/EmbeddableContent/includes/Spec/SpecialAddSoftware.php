@@ -427,8 +427,14 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		}
 		$base = new \MediaWiki\Upload\UploadFromUrl();
 		$base->initialize( $destName, $url );
+		// initialize() only creates the EMPTY temp file — the download
+		// itself happens in fetchFile() (UploadFromUrl streams the body and
+		// follows redirects, SSRF-validating each hop). Without it
+		// verifyUpload() sees a zero-size file and rejects the upload as
+		// EMPTY_FILE (status 3).
+		$status = $base->fetchFile();
 		$tempPath = $base->getTempPath();
-		if ( $tempPath === '' || !is_file( $tempPath ) ) {
+		if ( !$status->isGood() || $tempPath === '' || !is_file( $tempPath ) ) {
 			return null;
 		}
 		return $this->performLogoUpload( $base, $record );

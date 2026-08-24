@@ -165,6 +165,7 @@
 	"embeddablecontent-field-isbn": "ISBN-13",
 	"embeddablecontent-field-openalex": "OpenAlex Work ID",
 	"embeddablecontent-field-openalexauthor": "OpenAlex ID",
+	"embeddablecontent-field-openalexAuthor": "OpenAlex ID",
 	"embeddablecontent-person-portrait-mode": "Portrait",
 	"embeddablecontent-person-portrait-mode-file": "Upload a file",
 	"embeddablecontent-person-portrait-mode-url": "Paste a URL",

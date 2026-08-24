@@ -163,6 +163,7 @@
 	"embeddablecontent-field-isbn": "ISBN-13",
 	"embeddablecontent-field-openalex": "OpenAlex-verko-ID",
 	"embeddablecontent-field-openalexauthor": "OpenAlex-identigilo",
+	"embeddablecontent-field-openalexAuthor": "OpenAlex-identigilo",
 	"embeddablecontent-person-portrait-mode": "Portreto",
 	"embeddablecontent-person-portrait-mode-file": "Alŝuti dosieron",
 	"embeddablecontent-person-portrait-mode-url": "Alglui URL-on",
