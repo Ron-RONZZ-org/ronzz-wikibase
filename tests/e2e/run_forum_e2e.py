@@ -113,9 +113,10 @@ def check_namespaces(op, api: str) -> None:
     ns = {int(k): v.get("*") for k, v in r["query"]["namespaces"].items()}
     if ns.get(110) != "Forum":
         raise FlowError(f"namespace 110 is {ns.get(110)!r}, expected 'Forum' (DPLforum not loaded?)")
-    if ns.get(111) != "Forum_talk":
-        raise FlowError(f"namespace 111 is {ns.get(111)!r}, expected 'Forum_talk'")
-    print("[ok] namespaces 110 (Forum) + 111 (Forum_talk) registered")
+    if ns.get(111) != "Forum talk":
+        # siteinfo returns display names (spaces, not underscores).
+        raise FlowError(f"namespace 111 is {ns.get(111)!r}, expected 'Forum talk'")
+    print("[ok] namespaces 110 (Forum) + 111 (Forum talk) registered")
 
 
 def forum_flow(op, api: str, base: str, keep: bool) -> None:
