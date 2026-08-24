@@ -83,7 +83,10 @@ jobs:
       - name: Start the stack
         run: |
           mkdir -p dev/config seed/generated
-          $COMPOSE up -d
+          # `up -d` can exit non-zero when the wikibase container dies early
+          # (the WBS fresh-install bootstrap's known CAS race — see the wait
+          # step below); tolerate it here, the wait step retries.
+          $COMPOSE up -d || true
           $COMPOSE ps
 
       - name: Wait for the wiki API (first boot installs MediaWiki+Wikibase)
