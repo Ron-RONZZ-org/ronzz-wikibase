@@ -58,7 +58,7 @@ python3 -m seed.seed_instance \
   --sparql-url http://127.0.0.1:9999/bigdata/namespace/wdq/sparql \
   --config-out dev/config/ronzz-wikibase-config.php \
   --ids-out seed/generated/ids.json \
-  --only=properties,classes,languages,dogfood,config
+  --only=properties,classes,languages,preseed,dogfood,config
 
 # 3. Restart the wiki so the emitted config map is loaded
 docker compose -f dev/docker-compose.ci.yml restart wikibase

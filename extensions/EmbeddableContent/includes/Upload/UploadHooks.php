@@ -104,11 +104,14 @@ final class UploadHooks {
 	 * label) and append the attribution block (author / license info /
 	 * source) when provided.
 	 *
+	 * Hook handler name: MediaWiki maps `UploadForm:getInitialPageText` to
+	 * onUploadForm_getInitialPageText (colons become underscores).
+	 *
 	 * @param string $pageText
 	 * @param array<string,string> $msg content-language header messages
 	 * @param \MediaWiki\Config\Config $config
 	 */
-	public static function onUploadFormGetInitialPageText( &$pageText, $msg, $config ): void {
+	public static function onUploadForm_getInitialPageText( &$pageText, $msg, $config ): void {
 		$request = RequestContext::getMain()->getRequest();
 		$license = trim( (string)$request->getVal( 'wpLicense', '' ) );
 		$author = trim( (string)$request->getVal( 'wpUploadAuthor', '' ) );
@@ -165,12 +168,17 @@ final class UploadHooks {
 		if ( RequestContext::getMain()->getRequest()->getVal( 'wpUploadmetaItemize' ) !== '1' ) {
 			return;
 		}
-		$user = $uploadBase->getUser();
+		// The uploader is the request user (UploadFromFile has no getUser()).
+		$user = RequestContext::getMain()->getUser();
 		if ( !$user instanceof \MediaWiki\User\User || !$user->isRegistered() ) {
 			return;
 		}
 		$title = $uploadBase->getTitle();
-		if ( $title === null || $title->getNamespace() !== NS_FILE || !$title->exists() ) {
+		// NOTE: no Title::exists() check here — at UploadComplete time the
+		// file row is being written in the same transaction and the title's
+		// existence cache still holds the pre-upload negative; the sitelink
+		// and the image statement work on the page NAME regardless.
+		if ( $title === null || $title->getNamespace() !== NS_FILE ) {
 			return;
 		}
 		$request = RequestContext::getMain()->getRequest();

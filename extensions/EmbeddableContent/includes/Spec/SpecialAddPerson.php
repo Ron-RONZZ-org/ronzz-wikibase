@@ -334,7 +334,8 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 	private ?\EmbeddableContent\Fetch\WikipediaContentProvider $wikipedia = null;
 
 	private function wikipediaContent(): \EmbeddableContent\Fetch\WikipediaContentProvider {
-		$this->wikipedia ??= $this->getServices()->get( 'EmbeddableContent.WikipediaContent' );
+		$this->wikipedia ??= \MediaWiki\MediaWikiServices::getInstance()
+			->get( 'EmbeddableContent.WikipediaContent' );
 		return $this->wikipedia;
 	}
 

@@ -100,7 +100,12 @@ final class ImageItemCreator {
 
 		$add( $config->instanceOfPropertyId(), new EntityIdValue( new ItemId( $classItemId ) ) );
 		if ( isset( $props['image'] ) ) {
-			$fileTitle = Title::makeTitle( NS_FILE, $filePageName );
+			// makeTitle takes the title TEXT (no namespace prefix) — the
+			// caller passes the prefixed page name.
+			$fileTitle = Title::makeTitle(
+				NS_FILE,
+				(string)preg_replace( '/^File:/i', '', $filePageName )
+			);
 			if ( $fileTitle !== null ) {
 				$add( $props['image'], new StringValue( $fileTitle->getFullURL() ) );
 			}
