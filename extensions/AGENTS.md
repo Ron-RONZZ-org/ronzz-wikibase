@@ -189,6 +189,31 @@ extensions — never forks of Wikibase.
   adds a red/blue **Sitelink** tab next to Page/Discussion on every content
   page — red = not linked (click → OOUI dialog, `wbsearchentities` search or
   direct Q-id → `wbsetsitelink`), blue = linked (→ Item page).
+- **Upload enhancements (todo.md batch)**: `Special:Upload` + the Add\*
+  portrait/logo sections share one upload model. Fetch layer: the whole
+  provider cascade + Wikipedia content run through `RateLimitedHttpClient`
+  (WMF min-interval throttle + 429 `Retry-After`/backoff — the `fceb99d`
+  fix); `ProviderException` carries status + `Retry-After`. Upload metadata
+  ("Validate" button, `resources/uploadmeta.js` + `api.php?action=uploadmeta`):
+  Wikimedia hosts are fetched from the **browser** (`commons.wikimedia.org/
+  w/api.php?origin=*` — CORS-open, residential IP) with server-side fallback;
+  other hosts use the SSRF-guarded server API. A Wikimedia URL-mode upload is
+  converted at submit time into a browser-supplied file upload (429 blob
+  fallback, 50 MB client-side cap). `includes/Upload/ImageUploadHelper` owns
+  the shared portrait/logo field specs + upload path (mode toggle, collapse
+  "I will upload a {image}" checkbox, license combobox, free-text author +
+  license-info, dest naming, verify+performUpload) — AddPerson portrait and
+  AddSoftware logo use it; AddSoftware's logo gained the mandatory license.
+  `UploadHooks` (Special:Upload): semantic license combobox replacing the
+  core dropdown, author/license-info fields, single max-size note, File-page
+  attribution block (`[[Q42|label]]`, never a `{{Q42}}` template call), and
+  marker-gated `UploadComplete` item-per-upload via `ImageItemCreator`
+  (sitelinked `image`-class item with image/license/imageAuthor/
+  imageLicenseInfo/source statements). Vocabulary: `image` class +
+  `image author` (P2093) + `additional license information` (unaligned)
+  properties, config `imageClasses`/`imageProperties` + person/FOSS keys.
+  MsUpload (production-only, not in dev/CI) coexistence is a deploy-time
+  verification item.
 - **Entity-page toolbar gadget** (copy embed with absolute URL + language
   selector / copy citation) and entity-combobox autocomplete.
 
