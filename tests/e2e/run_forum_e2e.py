@@ -191,9 +191,9 @@ cache=false
                             f"'{thread_page}' — tag not querying categorylinks?")
         if 'class="forum' not in body:
             raise FlowError(f"<forum> listing rendered without the expected forum markup")
-        if "wpNewTitle" not in body:
+        if "mw-inputbox-createbox" not in body:
             raise FlowError(f"board {board_page} has no InputBox create form "
-                            f"(name=\"wpNewTitle\" missing — InputBox not loaded?)")
+                            f"(class \"mw-inputbox-createbox\" missing — InputBox not loaded?)")
         if f'name="prefix" value="{board_page}/"' not in body:
             raise FlowError(f"InputBox create form on {board_page} lacks the "
                             f"prefix '{board_page}/'")
