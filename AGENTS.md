@@ -22,8 +22,8 @@ ronzz-wikibase is the customization and maintenance project for the
 self-hosted Wikibase (structured-data wiki) at **wikibase.ronzz.org**. This
 repo tracks the v1 plan and follow-up issues, holds the instance
 documentation (`docs/`), and hosts the custom extension code
-(EmbeddableContent, WikibaseCitation) plus the seed tooling that bootstrapped
-the instance.
+(EmbeddableContent, WikibaseCitation) plus the vendored third-party DPLforum
+forum extension, and the seed tooling that bootstrapped the instance.
 
 ---
 
@@ -79,7 +79,7 @@ the instance.
 | Wiki platform | MediaWiki 1.46 + Wikibase (repo), self-hosted at wikibase.ronzz.org |
 | Query service | WDQS (Blazegraph SPARQL 0.3.156) |
 | Database | MySQL / MariaDB |
-| Custom extensions | EmbeddableContent (D3 + issue #7), WikibaseCitation (D4) — standalone, never forks of Wikibase |
+| Custom extensions | EmbeddableContent (D3 + issue #7), WikibaseCitation (D4) — standalone, never forks of Wikibase; DPLforum (vendored third-party forum, `extensions/DPLforum/` — see `VENDORED.md`) |
 | Seed/tooling | Python 3 (stdlib only) |
 | Unit tests | PHPUnit 10 (pure-PHP) + Python `unittest` |
 | E2E | Python suites in `tests/e2e/` (curl the live endpoints) |
@@ -91,7 +91,9 @@ the instance.
 - **PHP**: dependencies in the root `composer.json` (dev-only: phpunit,
   wikibase/data-model, data-values, seboettg/citeproc-php). The
   WikibaseCitation extension installs its own `vendor/` (citeproc-php) inside
-  the extension dir (gitignored).
+  the extension dir (gitignored). DPLforum is vendored third-party code with
+  **no composer runtime dependencies** (its `composer.json` is dev-only:
+  codesniffer/lint tooling).
 - **Python**: seed, tools and E2E suites use the **standard library only**
   (urllib, json, csv, argparse) — no pip dependencies.
 - Vendored third-party frontend assets live in
@@ -209,8 +211,9 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
   WDQS) on a 16 GB runner: D1 importers → D2 seed → wiki restart with the
   emitted config map → E2E acceptance (3 embed surfaces, 5 citation styles,
   SPARQL) → XSS suite → page-flow E2E (`run_pages_e2e.py`, issue-#7 Special
-  pages). Triggered on push/PR and via **`workflow_dispatch`** (on-demand full
-  validation without pushing). Depends on `unit`.
+  pages) → forum E2E (`run_forum_e2e.py`, DPLforum: Forum: namespace +
+  `<forum>` listing). Triggered on push/PR and via **`workflow_dispatch`**
+  (on-demand full validation without pushing). Depends on `unit`.
 - **Recommended loop on resource-tight machines** (this box: ~3.6 GiB free —
   the full stack needs ~2.5 GiB): edit → local unit tests → push → CI gate.
   Use `workflow_dispatch` for ad-hoc full validation; only run the stack
@@ -267,7 +270,7 @@ Root AGENTS.md (global rules)
     ├── content-creation/AGENTS.md  (wiki content via MCP — live pages, never local files)
     ├── dev/AGENTS.md               (dev/CI wikibase-docker stack)
     ├── docs/AGENTS.md              (instance documentation)
-    ├── extensions/AGENTS.md        (EmbeddableContent + WikibaseCitation)
+    ├── extensions/AGENTS.md        (EmbeddableContent + WikibaseCitation + vendored DPLforum)
     ├── seed/AGENTS.md              (instance bootstrap orchestrator)
     ├── tests/AGENTS.md             (PHPUnit unit + E2E/XSS/page-flow suites)
     └── tools/AGENTS.md             (manifest generators + fetch smoke test)

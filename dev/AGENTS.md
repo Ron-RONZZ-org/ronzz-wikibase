@@ -16,7 +16,8 @@ seed, D1 importers, E2E + XSS suites) before touching production.
 - The WBS image requires a configuration volume at `/config` (host dir
   `dev/config/`). On first boot it generates `InstanceSettings.php` +
   `LocalSettings.php` there; the generated `LocalSettings.php` loads
-  `dev/config/Extensions.php`, which enables our two extensions and — once
+  `dev/config/Extensions.php`, which enables our extensions (EmbeddableContent,
+  WikibaseCitation, vendored DPLforum) and — once
   the seed has emitted it — the seed config map
   (`dev/config/ronzz-wikibase-config.php`). A `jobrunner` container shares
   the config volume (the WBS image requires it).
