@@ -162,16 +162,42 @@ class EmbeddableContentConfig {
 	 * Person lifecycle property ids (Special:AddPerson statements): date of
 	 * birth / death (time), place of birth / death (wikibase-item), and the
 	 * portrait facts — `image` (url, P18-aligned) + `license`
-	 * (wikibase-item, P275-aligned, shared with the FOSS/access vocab).
-	 * Absent keys are omitted (instance-specific availability).
+	 * (wikibase-item, P275-aligned, shared with the FOSS/access vocab), plus
+	 * the image attribution strings (`imageAuthor` P2093-aligned,
+	 * `imageLicenseInfo` unaligned). Absent keys are omitted
+	 * (instance-specific availability).
 	 *
 	 * @return array<string,string> canonical key => property id
 	 */
 	public function personPropertyIds(): array {
 		return $this->requireStringMap( 'personProperties', [
 			'dateOfBirth', 'placeOfBirth', 'dateOfDeath', 'placeOfDeath',
-			'image', 'license',
+			'image', 'license', 'imageAuthor', 'imageLicenseInfo',
 		] );
+	}
+
+	/**
+	 * Image-fact property ids for the item-per-upload created by
+	 * Special:Upload (`image`, `license`, `imageAuthor`,
+	 * `imageLicenseInfo` — the same shared properties the Add* portrait/logo
+	 * statements use).
+	 *
+	 * @return array<string,string> canonical key => property id
+	 */
+	public function imagePropertyIds(): array {
+		return $this->requireStringMap( 'imageProperties', [
+			'image', 'license', 'imageAuthor', 'imageLicenseInfo',
+		] );
+	}
+
+	/**
+	 * Image class ids (the class of the item-per-upload created by
+	 * Special:Upload).
+	 *
+	 * @return array<string,string> canonical key => item id
+	 */
+	public function imageClasses(): array {
+		return $this->requireStringMap( 'imageClasses', [ 'image' ] );
 	}
 
 	/**
@@ -326,6 +352,7 @@ class EmbeddableContentConfig {
 			'developer', 'license', 'operatingSystem', 'officialWebsite',
 			'sourceRepository', 'softwareVersion', 'hasUse', 'replaces',
 			'userInterface', 'documentationUrl', 'image',
+			'imageAuthor', 'imageLicenseInfo',
 		] );
 	}
 

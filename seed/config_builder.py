@@ -72,6 +72,11 @@ PERSON_PROPERTY_KINDS = {
     # Portrait facts: the P18-aligned image (url) + the shared P275 license.
     "image": "image",
     "license": "license",
+    # Image attribution (upload enhancements): free-text author + license
+    # notes on the portrait/logo, stored as item statements (P2093-aligned
+    # author name string + unaligned license info).
+    "image author": "imageAuthor",
+    "additional license information": "imageLicenseInfo",
 }
 
 # Issue follow-up: fictional-character class (Special:AddFictionalCharacter).
@@ -171,11 +176,30 @@ FOSS_PROPERTY_KINDS = {
     "user interface": "userInterface",
     "documentation URL": "documentationUrl",
     "image": "image",
+    # Image attribution (upload enhancements): shared with the person
+    # portrait vocabulary (same property ids).
+    "image author": "imageAuthor",
+    "additional license information": "imageLicenseInfo",
 }
 
 # Issue #26: FOSS software class (Special:AddSoftware class picker).
 FOSS_CLASS_KINDS = {
     "free and open-source software": "foss",
+}
+
+# Upload enhancements: the image class + image-fact properties for the
+# item-per-upload created by Special:Upload (every uploaded file gets a
+# sitelinked image item carrying these statements — same semantic model as
+# the Add* portrait/logo facts).
+IMAGE_CLASS_KINDS = {
+    "image": "image",
+}
+
+IMAGE_PROPERTY_KINDS = {
+    "image": "image",
+    "license": "license",
+    "image author": "imageAuthor",
+    "additional license information": "imageLicenseInfo",
 }
 
 
@@ -228,6 +252,16 @@ def build_config(
     for label, kind in FOSS_CLASS_KINDS.items():
         if label in class_ids:
             foss_classes[kind] = class_ids[label]
+
+    image_classes: dict[str, str] = {}
+    for label, kind in IMAGE_CLASS_KINDS.items():
+        if label in class_ids:
+            image_classes[kind] = class_ids[label]
+
+    image_props: dict[str, str] = {}
+    for label, kind in IMAGE_PROPERTY_KINDS.items():
+        if label in property_ids:
+            image_props[kind] = property_ids[label]
 
     fictional_character_classes: dict[str, str] = {}
     for label, kind in FICTIONAL_CHARACTER_CLASS_KINDS.items():
@@ -312,6 +346,8 @@ def build_config(
         "sourceProperties": source_props,
         "fossClasses": foss_classes,
         "fossProperties": foss_props,
+        "imageClasses": image_classes,
+        "imageProperties": image_props,
         "fictionalCharacterClasses": fictional_character_classes,
         "fictionalCharacterProperties": fictional_character_props,
         "payloadProperties": payload_props,

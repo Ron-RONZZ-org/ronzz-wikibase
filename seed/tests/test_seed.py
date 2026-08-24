@@ -220,6 +220,31 @@ class ConfigBuilderTest(unittest.TestCase):
         self.assertIn("'documentationUrl' => 'P42'", snippet)
         self.assertIn("'image' => 'P32'", snippet)
 
+    def test_config_fragment_image_upload_sections(self):
+        """Upload-enhancements vocabulary: the image class + the image-fact
+        properties (image author P2093-aligned, additional license
+        information unaligned) shared by person/software image facts."""
+        snippet = config_builder.build_config(
+            property_ids={
+                "instance of": "P31",
+                "image": "P32",
+                "license": "P34",
+                "image author": "P70",
+                "additional license information": "P71",
+            },
+            class_ids={"image": "Q120", "free and open-source software": "Q16"},
+            lexer_ids={},
+            fallback_languages=["fr", "en", "eo"],
+        )
+        self.assertIn("'imageClasses'", snippet)
+        self.assertIn("'image' => 'Q120'", snippet)
+        self.assertIn("'imageProperties'", snippet)
+        self.assertIn("'imageAuthor' => 'P70'", snippet)
+        self.assertIn("'imageLicenseInfo' => 'P71'", snippet)
+        # The shared image-fact keys also land on person + FOSS properties.
+        self.assertIn("'imageAuthor' => 'P70'", snippet)
+        self.assertIn("'imageLicenseInfo' => 'P71'", snippet)
+
     def test_config_fragment_followup_sections(self):
         """Issue follow-up vocabulary: fictional characters, the journal
         entity, the person OpenAlex author id, the preseed license options —
