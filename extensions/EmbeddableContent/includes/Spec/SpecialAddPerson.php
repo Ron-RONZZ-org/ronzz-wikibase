@@ -151,69 +151,73 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 		$deceased = !empty( $record['dateOfDeath'] ) || !empty( $record['placeOfDeath'] );
 		// NO editable label field (issue #35): the label is the full name,
 		// auto-generated from given/family (primaryLabel).
-		return $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
-			+ [
-				'givenName' => $this->plainTextField( 'embeddablecontent-field-givenname', (string)( $record['givenName'] ?? '' ) ),
-				'familyName' => $this->plainTextField( 'embeddablecontent-field-familyname', (string)( $record['familyName'] ?? '' ) ),
-				'dateOfBirth' => [
-					'type' => 'date',
-					'label-message' => 'embeddablecontent-field-dateofbirth',
-					'default' => (string)( $record['dateOfBirth'] ?? '' ),
+		// Field order: the description sits BELOW given/family name (the
+		// name identifies the person, the description qualifies them).
+		return [
+			'givenName' => $this->plainTextField( 'embeddablecontent-field-givenname', (string)( $record['givenName'] ?? '' ) ),
+			'familyName' => $this->plainTextField( 'embeddablecontent-field-familyname', (string)( $record['familyName'] ?? '' ) ),
+		]
+		+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
+		+ [
+			'dateOfBirth' => [
+				'type' => 'date',
+				'label-message' => 'embeddablecontent-field-dateofbirth',
+				'default' => (string)( $record['dateOfBirth'] ?? '' ),
+			],
+			'placeOfBirth' => $this->entityComboboxSpec(
+				'embeddablecontent-field-placeofbirth',
+				(string)( $record['placeOfBirth'] ?? '' )
+			),
+			'deceased' => [
+				'type' => 'check',
+				'label-message' => 'embeddablecontent-field-deceased',
+				'default' => $deceased,
+			],
+			'dateOfDeath' => [
+				'type' => 'date',
+				'label-message' => 'embeddablecontent-field-dateofdeath',
+				'default' => (string)( $record['dateOfDeath'] ?? '' ),
+				'hide-if' => [ '!==', 'deceased', '1' ],
+			],
+			'placeOfDeath' => $this->entityComboboxSpec(
+				'embeddablecontent-field-placeofdeath',
+				(string)( $record['placeOfDeath'] ?? '' ),
+				[ 'hide-if' => [ '!==', 'deceased', '1' ] ]
+			),
+			// Portrait (optional): local-file upload OR pasted URL,
+			// toggled by portraitMode; the file is uploaded on create as
+			// File:<label>-portrait.<ext> (AddSoftware logo pattern).
+			// The license is mandatory only when a portrait is actually
+			// provided (enforced in beforeCreate, not by HTMLForm).
+			'portraitMode' => [
+				'type' => 'radio',
+				'label-message' => 'embeddablecontent-person-portrait-mode',
+				'options-messages' => [
+					'embeddablecontent-person-portrait-mode-file' => 'file',
+					'embeddablecontent-person-portrait-mode-url' => 'url',
 				],
-				'placeOfBirth' => $this->entityComboboxSpec(
-					'embeddablecontent-field-placeofbirth',
-					(string)( $record['placeOfBirth'] ?? '' )
-				),
-				'deceased' => [
-					'type' => 'check',
-					'label-message' => 'embeddablecontent-field-deceased',
-					'default' => $deceased,
-				],
-				'dateOfDeath' => [
-					'type' => 'date',
-					'label-message' => 'embeddablecontent-field-dateofdeath',
-					'default' => (string)( $record['dateOfDeath'] ?? '' ),
-					'hide-if' => [ '!==', 'deceased', '1' ],
-				],
-				'placeOfDeath' => $this->entityComboboxSpec(
-					'embeddablecontent-field-placeofdeath',
-					(string)( $record['placeOfDeath'] ?? '' ),
-					[ 'hide-if' => [ '!==', 'deceased', '1' ] ]
-				),
-				// Portrait (optional): local-file upload OR pasted URL,
-				// toggled by portraitMode; the file is uploaded on create as
-				// File:<label>-portrait.<ext> (AddSoftware logo pattern).
-				// The license is mandatory only when a portrait is actually
-				// provided (enforced in beforeCreate, not by HTMLForm).
-				'portraitMode' => [
-					'type' => 'radio',
-					'label-message' => 'embeddablecontent-person-portrait-mode',
-					'options-messages' => [
-						'embeddablecontent-person-portrait-mode-file' => 'file',
-						'embeddablecontent-person-portrait-mode-url' => 'url',
-					],
-					'default' => 'file',
-				],
-				'portraitFile' => [
-					'type' => 'file',
-					'label-message' => 'embeddablecontent-person-portrait-file',
-					'hide-if' => [ '===', 'portraitMode', 'url' ],
-				],
-				'portraitUrl' => [
-					'type' => 'url',
-					'label-message' => 'embeddablecontent-person-portrait-url',
-					'maxlength' => 500,
-					'hide-if' => [ '===', 'portraitMode', 'file' ],
-				],
-				'portraitLicense' => [
-					'type' => 'combobox',
-					'options' => $this->config->licenseItems(),
-					'label-message' => 'embeddablecontent-person-portrait-license',
-					'cssclass' => 'wb-entity-combobox',
-					'help' => $this->msg( 'embeddablecontent-person-portrait-license-help' )->parse(),
-				],
-			]
-			+ $this->externalIdFieldSpecs( $record );
+				'default' => 'file',
+			],
+			'portraitFile' => [
+				'type' => 'file',
+				'label-message' => 'embeddablecontent-person-portrait-file',
+				'hide-if' => [ '===', 'portraitMode', 'url' ],
+			],
+			'portraitUrl' => [
+				'type' => 'url',
+				'label-message' => 'embeddablecontent-person-portrait-url',
+				'maxlength' => 500,
+				'hide-if' => [ '===', 'portraitMode', 'file' ],
+			],
+			'portraitLicense' => [
+				'type' => 'combobox',
+				'options' => $this->config->licenseItems(),
+				'label-message' => 'embeddablecontent-person-portrait-license',
+				'cssclass' => 'wb-entity-combobox',
+				'help' => $this->msg( 'embeddablecontent-person-portrait-license-help' )->parse(),
+			],
+		]
+		+ $this->externalIdFieldSpecs( $record );
 	}
 
 	/**
@@ -377,8 +381,14 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 		}
 		$base = new \MediaWiki\Upload\UploadFromUrl();
 		$base->initialize( $destName, $url );
+		// initialize() only creates the EMPTY temp file — the download
+		// itself happens in fetchFile() (UploadFromUrl streams the body and
+		// follows redirects, SSRF-validating each hop). Without it
+		// verifyUpload() sees a zero-size file and rejects the upload as
+		// EMPTY_FILE (status 3).
+		$status = $base->fetchFile();
 		$tempPath = $base->getTempPath();
-		if ( $tempPath === '' || !is_file( $tempPath ) ) {
+		if ( !$status->isGood() || $tempPath === '' || !is_file( $tempPath ) ) {
 			return null;
 		}
 		return $this->performPortraitUpload( $base, $record );

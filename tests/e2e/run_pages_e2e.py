@@ -856,6 +856,65 @@ def flow_source_book_access_file(op, base: str, api: str, label: str,
     return qid
 
 
+def flow_source_book_access_download(op, base: str, api: str, label: str,
+                                     author_qid: str, license_qid: str, url: str) -> str:
+    """Access field, direct-download mode (regression): AddSource/book/manual
+    with accessMode=download fetches the file SERVER-SIDE (UploadFromUrl).
+    Before the fetchFile() fix the URL-mode uploads never downloaded the
+    body — verifyUpload saw a zero-size temp file and rejected the upload
+    as EMPTY_FILE ("verifyUpload rejected (3)"). The file lands as
+    File:<label>.png (auto-named, original name ignored) and the item
+    carries the file + license statements."""
+    url_page, body = page_get(op, base, "/wiki/Special:AddSource/book/manual")
+    token = edit_token(body)
+    url_page, body = page_post(op, url_page, {
+        "wptitle": label,
+        "wpauthors": author_qid,
+        "wpaccessMode": "download",
+        "wpdownloadUrl": url,
+        "wplicense": license_qid,
+        "wpEditToken": token,
+        "wpSubmit": "1",
+    })
+    qid = flow_final_item(op, base, api, url_page, body,
+                          "AddSource/book/manual (access download)")
+    return qid
+
+
+def flow_person_manual_form(op, base: str) -> None:
+    """AddPerson manual form rendering (regressions):
+    - the OpenAlex author-ID field resolves its label (the
+      embeddablecontent-field-openalexAuthor message was missing, so the
+      field rendered the raw ⧼message-key⧽);
+    - the Description field sits BELOW Given name / Family name.
+    GET-only (page loads are not login-gated); no entity is created."""
+    _, body = page_get(op, base, "/wiki/Special:AddPerson/manual")
+    if "⧼" in body:
+        i = body.find("⧼")
+        raise FlowError(f"AddPerson/manual renders an unresolved message key: "
+                        f"{body[max(0, i - 60):i + 80]!r}")
+    if "OpenAlex ID</label>" not in body:
+        raise FlowError("AddPerson/manual missing the resolved 'OpenAlex ID' field label")
+    given = label_pos(body, "Given name")
+    family = label_pos(body, "Family name")
+    desc = label_pos(body, "Description")
+    if -1 in (given, family, desc):
+        raise FlowError(f"AddPerson/manual missing a name/description field label "
+                        f"(given={given}, family={family}, description={desc})")
+    if not (given < family < desc):
+        raise FlowError(f"AddPerson/manual field order wrong: "
+                        f"Given name={given}, Family name={family}, Description={desc} — "
+                        f"the description must come below given/family")
+
+
+def label_pos(body: str, text: str) -> int:
+    """Position of an OOUI field label (<label …>Text</label>) in the form
+    HTML, or -1. OOUI php-mode renders the label text directly inside the
+    <label class="oo-ui-labelElement-label"> element."""
+    m = re.search(r"<label[^>]*>\s*" + re.escape(text) + r"\s*</label>", body)
+    return m.start() if m else -1
+
+
 def create_api_item(op, api: str, label: str) -> str:
     """Creates a bare item via the API (labels only) — e.g. the publisher
     entity for the AddSource publisher-field test. This instance's Wikibase
@@ -1180,6 +1239,13 @@ def main() -> int:
         print(f"[ok] AddPerson/manual -> {person_manual}: birth/death dates + places, "
               f"deceased toggle")
 
+        # 1b2. AddPerson manual form rendering (regressions): the OpenAlex
+        #     author-ID field must resolve its label (no ⧼message-key⧽) and
+        #     the Description field must sit below Given name / Family name.
+        flow_person_manual_form(op, base)
+        print("[ok] AddPerson/manual form: 'OpenAlex ID' label resolved, "
+              "description below given/family")
+
         # 1c. AddPerson search autofill (issue #35): a name search offers the
         #     tokenised manual link (selection AND zero-hit pages); the manual
         #     form is prefilled — given = every word except the last, family =
@@ -1371,6 +1437,32 @@ def main() -> int:
             f"File:{access_label}.png not created"
         print(f"[ok] AddSource/book access (local file) -> {access_book}: "
               f"File:{access_label}.png + license + file statements")
+
+        # 2h2. Access field, DIRECT-DOWNLOAD mode (regression): the file is
+        #     fetched server-side (UploadFromUrl + fetchFile). Before the fix
+        #     every URL-mode upload died on verifyUpload rejected (3)
+        #     (EMPTY_FILE — the body was never downloaded). A stable public
+        #     PNG (w3.org, 200) is fetched by the wiki server; the license
+        #     item is created by the test itself like the local-file mode.
+        download_license_qid = create_api_item(op, api, f"Page-flow E2E download license {int(time.time())}")
+        download_label = f"Page-flow E2E download {int(time.time())}"
+        download_book = track(flow_source_book_access_download(
+            op, base, api, download_label, person, download_license_qid,
+            "https://www.w3.org/assets/logos/w3c-2025-transitional/w3c-72x48.png"))
+        claims, _ = entity_claims(op, api, download_book)
+        download_file_val = first_value(claims, file_prop)
+        assert download_file_val and download_label.replace(" ", "_") in download_file_val, \
+            f"{download_book} file statement missing or not auto-named from the label " \
+            f"({download_file_val}) — URL-mode upload did not land"
+        assert first_value(claims, license_prop) == download_license_qid, \
+            f"{download_book} license statement missing ({first_value(claims, license_prop)})"
+        download_page = api_call(op, api, {"action": "query", "titles": f"File:{download_label}.png",
+                                           "format": "json"})
+        pages = list(download_page.get("query", {}).get("pages", {}).values())
+        assert pages and "missing" not in pages[0], \
+            f"File:{download_label}.png not created"
+        print(f"[ok] AddSource/book access (download) -> {download_book}: "
+              f"server-side fetch landed File:{download_label}.png + license + file statements")
 
         # 2i. AddSource/book manual autofill (issue #35): title + entity-mode
         #     author search -> the tokenised manual link prefills title and

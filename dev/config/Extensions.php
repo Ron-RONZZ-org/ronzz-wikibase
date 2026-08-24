@@ -76,6 +76,17 @@ $wgFileExtensions[] = 'pdf';
 $wgFileExtensions[] = 'epub';
 $wgFileExtensions[] = 'djvu';
 
+// ---- Issue #35 download-mode access uploads (CI parity with production) ----
+// The access field's `download` mode uploads via UploadFromUrl, which needs
+// copy-uploads enabled + the upload_by_url right for logged-in users (the
+// page-flow E2E's download-mode regression test exercises it). The
+// production IsUploadAllowedFromUrl SSRF closure stays production-only — the
+// dev sandbox has no external abuse surface.
+$wgAllowCopyUploads = true;
+$wgCopyUploadsFromSpecialUpload = true;
+$wgGroupPermissions['user']['upload_by_url'] = true;
+$wgCopyUploadTimeout = 60;
+
 if ( file_exists( __DIR__ . '/ronzz-wikibase-config.php' ) ) {
 	require_once __DIR__ . '/ronzz-wikibase-config.php';
 }

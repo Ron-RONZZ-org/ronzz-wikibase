@@ -163,6 +163,7 @@
 	"embeddablecontent-field-isbn": "ISBN-13",
 	"embeddablecontent-field-openalex": "Identifiant OpenAlex",
 	"embeddablecontent-field-openalexauthor": "Identifiant OpenAlex",
+	"embeddablecontent-field-openalexAuthor": "Identifiant OpenAlex",
 	"embeddablecontent-person-portrait-mode": "Portrait",
 	"embeddablecontent-person-portrait-mode-file": "Téléverser un fichier",
 	"embeddablecontent-person-portrait-mode-url": "Coller une URL",
