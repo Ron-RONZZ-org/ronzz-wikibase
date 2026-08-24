@@ -765,8 +765,9 @@ def flow_source_content_step(op, base: str, api: str, doi: str, author_qid: str)
     qid = flow_final_item(op, base, api, url, body, "AddSource/scholarlyArticle (content step)")
     # The Source: page must carry the Abstract section (dynamic sections).
     # The revision read can lag the page-property mapping by a beat — retry
-    # like flow_final_item does.
-    m = re.search(r"/wiki/Source:([^?#]+)", url)
+    # like flow_final_item does. Capture the FULL prefixed title (the
+    # namespace is part of the page name — a bare title resolves to NS 0).
+    m = re.search(r"/wiki/(Source:[^?#]+)", url)
     if m:
         page_title = urllib.parse.unquote(m.group(1)).replace("_", " ")
         content = ""
@@ -774,16 +775,10 @@ def flow_source_content_step(op, base: str, api: str, doi: str, author_qid: str)
         for attempt in range(15):
             r = api_call(op, api, {"action": "query", "titles": page_title, "prop": "revisions",
                                    "rvprop": "content", "format": "json"})
-            if not r.get("query", {}).get("pages"):
-                print(f"  [dbg] content-step revisions query: {str(r)[:200]}")
             for p in r.get("query", {}).get("pages", {}).values():
                 content = p.get("revisions", [{}])[0].get("*", "")
-                if content == "" and p.get("missing"):
-                    print(f"  [dbg] content-step page {page_title!r} missing on retry")
             if "== Abstract ==" in content:
                 break
-            if content == "":
-                print(f"  [dbg] attempt {attempt} raw={str(r)[:240]!r}")
             # Fallback read path: action=parse returns the wikitext of the
             # current revision regardless of the revisions-module state.
             if content == "":
@@ -794,7 +789,7 @@ def flow_source_content_step(op, base: str, api: str, doi: str, author_qid: str)
                     break
             time.sleep(2)
         if "== Abstract ==" not in content:
-            raise FlowError(f"Source:{page_title} has no == Abstract == section "
+            raise FlowError(f"{page_title} has no == Abstract == section "
                             f"(url={url!r}, content={content[:120]!r})")
     return qid
 
