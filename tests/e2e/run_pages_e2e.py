@@ -67,7 +67,18 @@ class HostRewritingRedirect(urllib.request.HTTPRedirectHandler):
         if u.hostname and u.hostname != self.base.hostname:
             newurl = urllib.parse.urlunparse(
                 (self.base.scheme, self.base.netloc, u.path, u.params, u.query, u.fragment))
-        return urllib.request.Request(newurl, headers=req.headers, method=req.get_method())
+        # Standard redirect semantics (RFC 7231 §6.4): 301/302/303 convert a
+        # POST to a GET and drop the body — a real browser does this, and
+        # nginx answers 405 Method Not Allowed for a POST to a file URL
+        # (Special:SourceFile's checked-download redirect to /images/…; the
+        # CI stack's Apache tolerates the bodyless re-POST, masking the bug).
+        # 307/308 preserve method AND body.
+        if code in (301, 302, 303) and req.get_method() == "POST":
+            stripped = {k: v for k, v in req.headers.items()
+                        if k.lower() not in ("content-length", "content-type")}
+            return urllib.request.Request(newurl, headers=stripped, method="GET")
+        return urllib.request.Request(newurl, data=req.data, headers=req.headers,
+                                      method=req.get_method())
 
 
 def make_opener(base_url: str) -> urllib.request.OpenerDirector:
