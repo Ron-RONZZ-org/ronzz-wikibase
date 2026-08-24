@@ -102,6 +102,36 @@ extensions — never forks of Wikibase.
   `$wgFileExtensions` must include pdf/epub/djvu (production + dev config).
   A filled-in access field that cannot be honoured aborts creation with a
   form error.
+- **Source: access row + Special:SourceFile (follow-up, ADR
+  `docs/decisions/add-flow-followup-2.md`)**: the `{{#source-access:}}` parser
+  function (magic word `sourceaccess`, spelling `source-access`, en/fr/eo)
+  renders the "Access" infobox cell of a Source: page from the sitelinked
+  item's statements — `file` (linked to `Special:SourceFile?item=<Q>&file=<File:`
+  `title>`), else `access URL` (clickable link), else localized "N/A" — with
+  the item registered as a parser-cache dependency (the WikibaseCitation
+  `addTemplate` pattern). `Special:SourceFile` renders a self-hosted PDF
+  iframe preview (no PdfHandler needed), the licence from the item's
+  `license` statement (label + licence-text URL), and a download button gated
+  on a required licence-acceptance checkbox (server-side; login-gated submit,
+  public load). The 4 access-field templates that create pages
+  (Book/ScholarlyArticle/Song/Film) gain `| Access || {{#source-access:}}` on
+  the wiki.
+- **Entity descriptions up to 2000 chars (follow-up)**: the term store's
+  `wbt_text.wbx_text` column is widened to `VARBINARY(2000)` (production ALTER
+  + a CI step after first-boot install) and
+  `$wgWBRepoSettings['string-limits']['multilang']['length']` is raised to
+  2000 (production + dev config). The shared `multilang` limit applies to
+  labels/aliases too at the storage level, but the Add* forms keep the label
+  field at 250 (page titles) and raise only the description field
+  (`descriptionFieldSpec` maxlength 2000).
+- **Class selection moved to the review step (follow-up)**: the search
+  selection step dropped its "Class" field (it only picks the record); the
+  review step's class field (pre-selected by the harvest inference) is where
+  the class is chosen.
+- **AddCollective parent organization (follow-up)**: new P749-aligned
+  `parent organization` property (manifest + `collectiveProperties` config
+  section); the AddCollective review/manual form has an optional entity
+  combobox writing the statement (empty = none, unparseable = skipped).
 - **Manual-addition entry points + search autofill (issue #35)**: the
   "No matching record? Create the item manually instead" link appears on
   the zero-hit search page AND the candidate-selection step (both carry
