@@ -770,9 +770,11 @@ def flow_source_content_step(op, base: str, api: str, doi: str, author_qid: str)
     if m:
         page_title = urllib.parse.unquote(m.group(1)).replace("_", " ")
         content = ""
-        for _ in range(15):
+        for attempt in range(15):
             r = api_call(op, api, {"action": "query", "titles": page_title, "prop": "revisions",
                                    "rvprop": "content", "format": "json"})
+            if not r.get("query", {}).get("pages"):
+                print(f"  [dbg] content-step revisions query: {str(r)[:200]}")
             for p in r.get("query", {}).get("pages", {}).values():
                 content = p.get("revisions", [{}])[0].get("*", "")
                 if content == "" and p.get("missing"):
