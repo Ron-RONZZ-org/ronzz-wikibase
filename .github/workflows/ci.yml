@@ -250,7 +250,7 @@ jobs:
             --base-url "$BASE_URL" --api-url "$API_URL" \
             --user "$MW_ADMIN_NAME" --password-file /tmp/e2e-pass
 
-      - name: Forum E2E (DPLforum — Forum: namespace + <forum> listing)
+      - name: Forum E2E (DPLforum — Forum namespace + forum listing tag)
         run: |
           echo -n "$MW_ADMIN_PASS" > /tmp/e2e-pass
           python3 tests/e2e/run_forum_e2e.py \
