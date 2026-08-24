@@ -1,0 +1,73 @@
+{
+	"name": "Diagrams",
+	"namemsg": "diagrams-extensionname",
+	"type": "other",
+	"author": [
+		"[https://samwilson.id.au/ Sam Wilson]"
+	],
+	"version": "1.0.0",
+	"url": "https://www.mediawiki.org/wiki/Special:MyLanguage/Extension:Diagrams",
+	"descriptionmsg": "diagrams-desc",
+	"license-name": "GPL-3.0-or-later",
+	"requires": {
+		"MediaWiki": ">= 1.40.0, <= 1.47"
+	},
+	"AutoloadNamespaces": {
+		"MediaWiki\\Extension\\Diagrams\\": "includes/"
+	},
+	"config": {
+		"DiagramsServiceUrl": {
+			"description": "URL of the diagram-rendering service. If not provided, graphs will be locally rendered.",
+			"value": ""
+		},
+		"DiagramsLocalCommands": {
+			"description": "Command to run for each local rendering tool.",
+			"value": {
+				"mscgen": "mscgen",
+				"plantuml": "plantuml",
+				"dot": "dot",
+				"neato": "neato",
+				"fdp": "fdp",
+				"sfdp": "sfdp",
+				"circo": "circo",
+				"twopi": "twopi",
+				"osage": "osage"
+			}
+		},
+		"DiagramsDefaultFormat": {
+			"description": "Default output file format, used when the 'format' attribute is not given.",
+			"value": "png"
+		}
+	},
+	"Hooks": {
+		"ParserFirstCallInit": "main"
+	},
+	"HookHandlers": {
+		"main": {
+			"class": "MediaWiki\\Extension\\Diagrams\\Hooks",
+			"services": [
+				"MainConfig",
+				"ShellCommandFactory"
+			]
+		}
+	},
+	"MessagesDirs": {
+		"Diagrams": [
+			"i18n"
+		]
+	},
+	"ResourceModules": {
+		"ext.diagrams.mermaid": {
+			"packageFiles": [
+				"resources/mermaid.js",
+				"resources/foreign/mermaid/mermaid.min.js"
+			]
+		}
+	},
+	"ResourceFileModulePaths": {
+		"localBasePath": "",
+		"remoteExtPath": "Diagrams"
+	},
+	"ForeignResourcesDir": "resources/foreign",
+	"manifest_version": 2
+}
