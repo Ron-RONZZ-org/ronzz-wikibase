@@ -122,13 +122,19 @@ class Hooks {
 	/**
 	 * Register the `{{#source-access:}}` parser function (the Source: page
 	 * "Access" infobox cell, ADR docs/decisions/source-access-rendering.md).
-	 * The config service is captured by the closure so the function class
-	 * stays service-injected (WikibaseCitation's {{#cite:}} pattern).
+	 * The config service is fetched LAZILY inside the closure — constructing
+	 * it at hook time would throw on every parse before the seed has emitted
+	 * the config map (EmbeddableContentConfig::assertShape requires
+	 * `instanceOf`), breaking the WBS bootstrap's main-page insert.
 	 */
 	public static function onParserFirstCallInit( Parser $parser ): void {
-		$config = MediaWikiServices::getInstance()->get( 'EmbeddableContent.Config' );
-		$parser->setFunctionHook( 'sourceaccess', static function ( Parser $parser, ...$args ) use ( $config ): array {
-			return SourceAccess::onSourceAccess( $config, $parser, $args );
+		$services = MediaWikiServices::getInstance();
+		$parser->setFunctionHook( 'sourceaccess', static function ( Parser $parser, ...$args ) use ( $services ): array {
+			return SourceAccess::onSourceAccess(
+				$services->get( 'EmbeddableContent.Config' ),
+				$parser,
+				$args
+			);
 		} );
 	}
 }
