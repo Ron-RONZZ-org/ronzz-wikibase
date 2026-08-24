@@ -161,9 +161,14 @@ cache=false
     if r.get("edit", {}).get("result") != "Success":
         raise FlowError(f"board page creation failed: {r!r}")
 
+    # Thread page: the EXACT preload pattern from Template:Forumthread —
+    # [[Category:{{BASEPAGENAME}}]] resolves to the board's category ONLY if
+    # subpages are enabled in the Forum namespace (else BASEPAGENAME returns
+    # the full title and the thread lands in a bogus category, invisible to
+    # the board listing). This assertion is the subpages regression guard.
     thread_wikitext = f"""First post of the E2E thread. ~~~~
 
-[[Category:{board}]]
+[[Category:{{{{BASEPAGENAME}}}}]]
 """
     r = api_call(op, api, {
         "action": "edit", "title": thread_page, "text": thread_wikitext,

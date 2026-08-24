@@ -91,12 +91,16 @@ $wgNamespacesToBeSearchedDefault[NS_COLLECTIVE] = true;
 // runs — so they must be defined here explicitly (same values; the guard
 // matches DPLforum.namespaces.php's own pattern and keeps re-definition
 // silent). Custom namespaces are NOT searched by default, so make Forum
-// searchable here. No $wgExtraNamespaces entries — the extension registers
-// the namespaces itself.
+// searchable here; subpages MUST be enabled (threads are Forum:<board>/<topic>
+// subpages and the preload's [[Category:{{BASEPAGENAME}}]] depends on it —
+// without it BASEPAGENAME returns the full title and threads land in a bogus
+// category, invisible to the board listing). No $wgExtraNamespaces entries —
+// the extension registers the namespaces itself.
 if ( !defined( 'NS_FORUM' ) ) {
 	define( 'NS_FORUM', 110 );
 	define( 'NS_FORUM_TALK', 111 );
 }
+$wgNamespacesWithSubpages[NS_FORUM] = true;
 $wgContentNamespaces[] = NS_FORUM;
 $wgNamespacesToBeSearchedDefault[NS_FORUM] = true;
 
