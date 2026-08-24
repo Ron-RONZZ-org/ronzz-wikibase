@@ -277,27 +277,16 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		}
 
 		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-' . $this->kindKey() . '-select-title' )->text() );
-		$firstRecord = $records[0] ?? [];
 
 		// Detailed candidate display (issue #12): provider, description,
 		// year and the full identifier set — plain radio labels are not
 		// enough for same-name disambiguation.
 		$this->getOutput()->addHTML( $this->candidateDetailsHtml( $records ) );
 
-		// Class: fixed by the class-first picker, a single option collapses
-		// to a hidden field (mirroring classFieldSpec); the free select
-		// remains for legacy multi-class flows.
-		$classOptions = $this->classOptions();
-		$classField = count( $classOptions ) === 1
-			? [ 'type' => 'hidden', 'default' => (string)reset( $classOptions ) ]
-			: [
-				'type' => 'select',
-				'label-message' => 'embeddablecontent-extselect-class',
-				'options' => $classOptions,
-				'default' => $this->defaultClassItemId( $firstRecord ) ?? '',
-				'required' => true,
-			];
-
+		// NO class field here (issue follow-up): the selection step is about
+		// the RECORD, the class is about how to classify it — that choice
+		// belongs on the review step, where the harvested record's class
+		// inference (defaultClassItemId) pre-selects a sensible default.
 		$form = HTMLForm::factory( 'ooui', [
 			'candidates' => [
 				'type' => 'radio',
@@ -306,7 +295,6 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 				'default' => '0',
 				'required' => true,
 			],
-			'class' => $classField,
 		], $this->getContext() );
 
 		$form->setTitle( $this->stepTitle( $token ) )
@@ -332,10 +320,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		if ( $record === null || !is_array( $record ) ) {
 			return $this->msg( 'embeddablecontent-extselect-invalid' )->text();
 		}
-		$classItemId = (string)( $data['class'] ?? '' );
-		if ( $classItemId === '' ) {
-			return $this->msg( 'embeddablecontent-extselect-classrequired' )->text();
-		}
+
+		// No class here (issue follow-up): the class is chosen on the REVIEW
+		// step, where the harvested record pre-selects the inferred class —
+		// the selection step only decides WHICH record to import.
 
 		// Enrich now (harvest-on-pick) so the review step shows the full
 		// record; the user can correct errors before anything is created.
@@ -1126,10 +1114,12 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			'type' => 'text',
 			'label-message' => 'embeddablecontent-field-description',
 			'default' => $default,
-			// Wikibase's term-description limit is 250 chars — the value is
-			// persisted as the item's en term (createOrSkipItem), so the
-			// field must not promise more than the storage accepts.
-			'maxlength' => 250,
+			// Wikibase's term-description limit was raised to 2000 chars on
+			// this instance ($wgWBRepoSettings['string-limits']['multilang']
+			// ['length'], with the wbt_text.wbx_text column widened to
+			// VARBINARY(2000)) — the value is persisted as the item's en
+			// term (createOrSkipItem), so the field matches the storage.
+			'maxlength' => 2000,
 		] ];
 	}
 
@@ -1323,7 +1313,8 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// Persist the (harvested or hand-edited) description as the English
 		// term — previously it was silently discarded. New-item path only:
 		// the create-or-skip reuse above returns early, so an existing item's
-		// term is never clobbered. The term limit (250) matches the form's
+		// term is never clobbered. The term limit (2000 on this instance,
+		// raised from Wikibase's default 250) matches the form's
 		// descriptionFieldSpec maxlength.
 		$description = trim( (string)( $record['description'] ?? '' ) );
 		if ( $description !== '' ) {

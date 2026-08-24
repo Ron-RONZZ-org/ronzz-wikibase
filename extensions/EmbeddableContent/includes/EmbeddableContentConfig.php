@@ -222,6 +222,18 @@ class EmbeddableContentConfig {
 	}
 
 	/**
+	 * Collective-specific property ids (Special:AddCollective statements):
+	 * parentOrganization (P749-aligned), image (P18-aligned) + license
+	 * (P275-aligned) for the optional logo. Absent keys are omitted
+	 * (instance-specific availability).
+	 *
+	 * @return array<string,string> canonical key => property id
+	 */
+	public function collectivePropertyIds(): array {
+		return $this->requireStringMap( 'collectiveProperties', [ 'parentOrganization', 'image', 'license' ] );
+	}
+
+	/**
 	 * YouTube Data API v3 key for the YouTube provider (deploy-injected via
 	 * the instance environment — never committed to the repo). Empty string
 	 * disables the provider.

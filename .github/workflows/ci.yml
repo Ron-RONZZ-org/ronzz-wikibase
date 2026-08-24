@@ -83,14 +83,29 @@ jobs:
       - name: Start the stack
         run: |
           mkdir -p dev/config seed/generated
-          $COMPOSE up -d
+          # `up -d` can exit non-zero when the wikibase container dies early
+          # (the WBS fresh-install bootstrap's known CAS race — see the wait
+          # step below); tolerate it here, the wait step retries.
+          $COMPOSE up -d || true
           $COMPOSE ps
 
       - name: Wait for the wiki API (first boot installs MediaWiki+Wikibase)
         run: |
-          for i in $(seq 1 300); do
-            curl -sf -o /dev/null "$API_URL" && exit 0
-            sleep 2
+          for attempt in 1 2 3; do
+            for i in $(seq 1 100); do
+              curl -sf -o /dev/null "$API_URL" && exit 0
+              # Known WBS fresh-install race: createAndPromote's email step
+              # ("CAS update failed on user_touched") can exit the wikibase
+              # container. The bootstrap resumes from its installation-state
+              # file, so a restart retries the remaining phases.
+              if ! $COMPOSE ps --format '{{.Status}}' wikibase | grep -q 'Up'; then
+                echo "wikibase container exited (bootstrap CAS race?) — restarting (attempt $attempt)"
+                $COMPOSE restart wikibase || true
+                sleep 10
+                break
+              fi
+              sleep 2
+            done
           done
           echo "wiki did not come up — container status:"
           $COMPOSE ps
@@ -99,6 +114,18 @@ jobs:
           echo "--- mysql logs ---"
           $COMPOSE logs --tail 60 mysql
           exit 1
+
+      # Issue follow-up: entity descriptions up to 2000 chars. The term
+      # store's wbt_text.wbx_text column is VARBINARY(255) by default — the
+      # validator raise (dev/config/Extensions.php) is useless without the
+      # column. The ALTER must run AFTER MediaWiki's first-boot install
+      # created the schema (the docker-entrypoint initdb.d scripts run too
+      # early), so it is an explicit step here — production does the same
+      # ALTER in the runbook deploy sequence.
+      - name: Widen the term-text column (descriptions up to 2000 chars)
+        run: |
+          $COMPOSE exec -T mysql mysql -u wikiuser -psqlpass my_wiki -e \
+            "ALTER TABLE wbt_text MODIFY wbx_text VARBINARY(2000) NOT NULL;"
 
       # WikibaseCitation ships a composer dep (seboettg/citeproc-php) that is
       # installed in the extension dir (gitignored; not merged into the wiki

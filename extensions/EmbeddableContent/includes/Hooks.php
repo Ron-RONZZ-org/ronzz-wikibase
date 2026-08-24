@@ -4,7 +4,10 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent;
 
+use EmbeddableContent\ParserFunctions\SourceAccess;
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Output\OutputPage;
+use MediaWiki\Parser\Parser;
 use MediaWiki\Skin\SkinTemplate;
 use MediaWiki\SpecialPage\SpecialPage;
 use Wikibase\DataModel\Entity\Item;
@@ -114,5 +117,24 @@ class Hooks {
 		} catch ( \Throwable $e ) {
 			return null;
 		}
+	}
+
+	/**
+	 * Register the `{{#source-access:}}` parser function (the Source: page
+	 * "Access" infobox cell, ADR docs/decisions/source-access-rendering.md).
+	 * The config service is fetched LAZILY inside the closure — constructing
+	 * it at hook time would throw on every parse before the seed has emitted
+	 * the config map (EmbeddableContentConfig::assertShape requires
+	 * `instanceOf`), breaking the WBS bootstrap's main-page insert.
+	 */
+	public static function onParserFirstCallInit( Parser $parser ): void {
+		$services = MediaWikiServices::getInstance();
+		$parser->setFunctionHook( 'sourceaccess', static function ( Parser $parser, ...$args ) use ( $services ): array {
+			return SourceAccess::onSourceAccess(
+				$services->get( 'EmbeddableContent.Config' ),
+				$parser,
+				$args
+			);
+		} );
 	}
 }
