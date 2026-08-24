@@ -79,7 +79,7 @@ forum extension, and the seed tooling that bootstrapped the instance.
 | Wiki platform | MediaWiki 1.46 + Wikibase (repo), self-hosted at wikibase.ronzz.org |
 | Query service | WDQS (Blazegraph SPARQL 0.3.156) |
 | Database | MySQL / MariaDB |
-| Custom extensions | EmbeddableContent (D3 + issue #7), WikibaseCitation (D4) — standalone, never forks of Wikibase; DPLforum (vendored third-party forum, `extensions/DPLforum/` — see `VENDORED.md`); Diagrams (vendored third-party diagram extension — PlantUML/GraphViz/Mscgen server-side + Mermaid client-side, `extensions/Diagrams/` — see `VENDORED.md`) |
+| Custom extensions | EmbeddableContent (D3 + issue #7), WikibaseCitation (D4) — standalone, never forks of Wikibase; DPLforum (vendored third-party forum, `extensions/DPLforum/`) + InputBox (vendored, thread-creation field, `extensions/InputBox/`); Diagrams (vendored third-party diagram extension — PlantUML/GraphViz/Mscgen server-side + Mermaid client-side, `extensions/Diagrams/`) — see their `VENDORED.md` |
 | Seed/tooling | Python 3 (stdlib only) |
 | Unit tests | PHPUnit 10 (pure-PHP) + Python `unittest` |
 | E2E | Python suites in `tests/e2e/` (curl the live endpoints) |
@@ -91,10 +91,10 @@ forum extension, and the seed tooling that bootstrapped the instance.
 - **PHP**: dependencies in the root `composer.json` (dev-only: phpunit,
   wikibase/data-model, data-values, seboettg/citeproc-php). The
   WikibaseCitation extension installs its own `vendor/` (citeproc-php) inside
-  the extension dir (gitignored). DPLforum and Diagrams are vendored
-  third-party code with **no composer runtime dependencies** (DPLforum's
-  `composer.json` is dev-only: codesniffer/lint tooling; Diagrams needs only
-  `ext-libxml`, a PHP core extension).
+  the extension dir (gitignored). DPLforum, InputBox and Diagrams are
+  vendored third-party code with **no composer runtime dependencies**
+  (DPLforum's `composer.json` is dev-only: codesniffer/lint tooling; Diagrams
+  needs only `ext-libxml`, a PHP core extension).
 - **Diagram renderers**: the Diagrams extension's server-side tags need local
   binaries — `graphviz` + `mscgen` via apt, and the **pinned PlantUML jar**
   (not the apt `plantuml` package — Ubuntu noble's 1.2020.2 predates PlantUML

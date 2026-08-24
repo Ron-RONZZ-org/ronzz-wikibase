@@ -5,7 +5,8 @@ Verifies the vendored DPLforum extension on a live instance:
 
 1. the `Forum:` (110) / `Forum_talk:` (111) namespaces are registered,
 2. a board page (a `Forum:` page holding a `<forum>` listing over a
-   category) renders without parser errors,
+   category, plus the InputBox `<inputbox type=create>` thread form)
+   renders without parser errors,
 3. a thread page (a `Forum:` subpage carrying the board's category)
    appears in the board's `<forum>` listing after a purge,
 4. cleanup: both scratch pages are deleted (self-cleaning).
@@ -125,9 +126,18 @@ def forum_flow(op, api: str, base: str, keep: bool) -> None:
     board_page = f"Forum:{board}"
     thread_page = f"Forum:{board}/Thread {stamp}"
 
-    # Board page: a <forum> listing over the board's own category. The
-    # `cache=false` parameter keeps the tag result recomputed per render.
+    # Board page: a <forum> listing over the board's own category plus the
+    # InputBox create form (the real board template's thread-creation UX).
+    # The `cache=false` parameter keeps the tag result recomputed per render.
     board_wikitext = f"""Board page of the DPLforum E2E.
+
+<inputbox>
+type=create
+prefix={board_page}/
+preload=Template:Forumthread
+buttonlabel=Start a new thread
+width=50
+</inputbox>
 
 <forum>
 namespace=Forum
@@ -181,7 +191,17 @@ cache=false
                             f"'{thread_page}' — tag not querying categorylinks?")
         if 'class="forum' not in body:
             raise FlowError(f"<forum> listing rendered without the expected forum markup")
-        print(f"[ok] board {board_page} renders; <forum> listing shows thread {thread_page}")
+        if "mw-inputbox-createbox" not in body:
+            raise FlowError(f"board {board_page} has no InputBox create form "
+                            f"(class \"mw-inputbox-createbox\" missing — InputBox not loaded?)")
+        # MW 1.46 Html::hidden renders value BEFORE name
+        # (<input type="hidden" value="…" name="prefix">) — check order-independently.
+        prefix_value = f'value="{board_page}/"'
+        if 'name="prefix"' not in body or prefix_value not in body:
+            raise FlowError(f"InputBox create form on {board_page} lacks the "
+                            f"prefix '{board_page}/' (name=\"prefix\" or {prefix_value} missing)")
+        print(f"[ok] board {board_page} renders; <forum> listing shows thread {thread_page}; "
+              f"InputBox create form present")
     finally:
         if keep:
             print(f"[keep] leaving {board_page} and {thread_page} on the instance")

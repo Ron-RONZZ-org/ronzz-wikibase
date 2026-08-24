@@ -13,8 +13,9 @@ Self-hosted **Wikibase** (structured-data wiki, the software behind Wikidata) on
 ## What stays public (this repo)
 
 - Extension code: EmbeddableContent, WikibaseCitation (+ the shared entity model);
-  **DPLforum** (third-party forum, vendored at `extensions/DPLforum/` — see
-  `VENDORED.md` + `docs/decisions/forum-dplforum.md`); **Diagrams**
+  **DPLforum** (third-party forum, vendored at `extensions/DPLforum/`) +
+  **InputBox** (third-party thread-creation field, `extensions/InputBox/`) —
+  see their `VENDORED.md` + `docs/decisions/forum-dplforum.md`); **Diagrams**
   (third-party diagram extension — PlantUML/GraphViz/Mscgen server-side +
   Mermaid client-side — vendored at `extensions/Diagrams/` — see
   `VENDORED.md` + `docs/decisions/diagrams.md`)

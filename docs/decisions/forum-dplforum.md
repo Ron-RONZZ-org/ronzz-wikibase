@@ -51,9 +51,17 @@ evaluated against the stated requirements:
 3. **Threads and boards are wiki pages** (house style): each board is a
    `Forum:` page holding a `<forum>` listing over its own category; each
    thread is a `Forum:<board>/<topic>` subpage carrying that category. Replies
-   are indented sections on the thread page; `~~~~` signatures are
-   auto-inserted in the Forum namespace (`ExtraSignatureNamespaces`).
-   **No auto topic creation** — nothing is generated per content page.
+   are indented sections on the thread page; users sign with `~~~~` — the
+   signature button is available in the Forum namespace
+   (`ExtraSignatureNamespaces`), the signature itself is NOT auto-inserted on
+   save. **No auto topic creation** — nothing is generated per content page.
+3b. **Thread creation via Extension:InputBox** (vendored at
+   `extensions/InputBox/`, MIT, MW ≥ 1.46): each board renders an
+   `<inputbox type=create>` with `prefix=<board>/`, `preload=Template:Forumthread`
+   and `buttonlabel=Start a new thread` — the user types the topic title
+   (free text) and lands on `action=edit&preload=…` for that title. A plain
+   preload link was rejected because the title is fixed in the URL and cannot
+   be changed on the creation form.
 4. **No DB changes, no new services, no `update.php`** — the deploy is the
    standard runbook sequence (backup → rsync + chown → LocalSettings → php-fpm
    restart → cache purge → `rebuildtextindex.php` for the new namespace).

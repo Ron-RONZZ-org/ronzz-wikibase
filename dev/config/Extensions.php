@@ -11,6 +11,11 @@ wfLoadExtension( 'WikibaseCitation' );
 // the Forum: (110) / Forum_talk: (111) namespaces via its extension.json.
 wfLoadExtension( 'DPLforum' );
 
+// Forum thread creation (<inputbox type=create> on the boards, vendored at
+// extensions/InputBox) — the free-text page-title field; DPLforum's standard
+// companion. No DB changes.
+wfLoadExtension( 'InputBox' );
+
 // ---- Diagrams (vendored at extensions/Diagrams, see VENDORED.md) ----
 // Integrated diagram rendering from wikitext: <uml> (PlantUML), <graphviz>,
 // <mscgen> server-side (local binaries), <mermaid> client-side (bundled
