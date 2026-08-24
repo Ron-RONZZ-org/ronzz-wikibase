@@ -194,9 +194,12 @@ cache=false
         if "mw-inputbox-createbox" not in body:
             raise FlowError(f"board {board_page} has no InputBox create form "
                             f"(class \"mw-inputbox-createbox\" missing — InputBox not loaded?)")
-        if f'name="prefix" value="{board_page}/"' not in body:
+        # MW 1.46 Html::hidden renders value BEFORE name
+        # (<input type="hidden" value="…" name="prefix">) — check order-independently.
+        prefix_value = f'value="{board_page}/"'
+        if 'name="prefix"' not in body or prefix_value not in body:
             raise FlowError(f"InputBox create form on {board_page} lacks the "
-                            f"prefix '{board_page}/'")
+                            f"prefix '{board_page}/' (name=\"prefix\" or {prefix_value} missing)")
         print(f"[ok] board {board_page} renders; <forum> listing shows thread {thread_page}; "
               f"InputBox create form present")
     finally:
