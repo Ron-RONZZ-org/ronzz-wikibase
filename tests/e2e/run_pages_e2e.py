@@ -770,6 +770,7 @@ def flow_source_content_step(op, base: str, api: str, doi: str, author_qid: str)
     if m:
         page_title = urllib.parse.unquote(m.group(1)).replace("_", " ")
         content = ""
+        r2 = {}
         for attempt in range(15):
             r = api_call(op, api, {"action": "query", "titles": page_title, "prop": "revisions",
                                    "rvprop": "content", "format": "json"})
@@ -781,6 +782,16 @@ def flow_source_content_step(op, base: str, api: str, doi: str, author_qid: str)
                     print(f"  [dbg] content-step page {page_title!r} missing on retry")
             if "== Abstract ==" in content:
                 break
+            if content == "":
+                print(f"  [dbg] attempt {attempt} raw={str(r)[:240]!r}")
+            # Fallback read path: action=parse returns the wikitext of the
+            # current revision regardless of the revisions-module state.
+            if content == "":
+                r2 = api_call(op, api, {"action": "parse", "page": page_title,
+                                        "prop": "wikitext", "format": "json"})
+                content = r2.get("parse", {}).get("wikitext", {}).get("*", "")
+                if "== Abstract ==" in content:
+                    break
             time.sleep(2)
         if "== Abstract ==" not in content:
             raise FlowError(f"Source:{page_title} has no == Abstract == section "
