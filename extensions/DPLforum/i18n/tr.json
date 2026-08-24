@@ -1,0 +1,20 @@
+{
+	"@metadata": {
+		"authors": [
+			"BaRaN6161 TURK",
+			"Joseph",
+			"Karduelis",
+			"MuratTheTurkish",
+			"Rapsar",
+			"SaldırganSincap"
+		]
+	},
+	"dplforum-desc": "DPL tabanlı forum uzantısı",
+	"nstab-forum": "Forum",
+	"tooltip-ca-nstab-forum": "Forum sayfasını gör",
+	"dplforum-by": "$1",
+	"dplforum-edited": "- Son değişiklik",
+	"dplforum-never": "Asla",
+	"dplforum-toofew": "DPL Forum: Çok az kategori!",
+	"dplforum-toomany": "DPL Forum: Çok fazla kategori!"
+}

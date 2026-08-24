@@ -1,0 +1,16 @@
+{
+	"@metadata": {
+		"authors": [
+			"BlueDevil",
+			"Huji",
+			"Jeeputer"
+		]
+	},
+	"dplforum-desc": "افزونهٔ تالار گفتگو مبتنی بر DPL",
+	"nstab-forum": "انجمن",
+	"dplforum-by": "توسط $1",
+	"dplforum-edited": "- آخرین ویرایش",
+	"dplforum-never": "هرگز",
+	"dplforum-toofew": "تالار گفتگوی DPL: تعداد ناکافی رده‌ها!",
+	"dplforum-toomany": "تالار گفتگوی DPL: تعداد بیش از حد رده‌ها!"
+}

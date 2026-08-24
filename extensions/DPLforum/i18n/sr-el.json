@@ -1,0 +1,15 @@
+{
+	"@metadata": {
+		"authors": [
+			"Michaello"
+		]
+	},
+	"dplforum-desc": "Proširenje za forum zasnovano na DPL-u",
+	"nstab-forum": "Forum",
+	"tooltip-ca-nstab-forum": "Vidi stranicu foruma",
+	"dplforum-by": "od $1",
+	"dplforum-edited": "– poslednja izmena",
+	"dplforum-never": "Nikad",
+	"dplforum-toofew": "DPL forum: premalo kategorija!",
+	"dplforum-toomany": "DPL forum: previše kategorija!"
+}
