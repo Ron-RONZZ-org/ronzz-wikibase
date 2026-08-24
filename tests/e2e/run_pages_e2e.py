@@ -1391,9 +1391,11 @@ def main() -> int:
 
         # 2l. Scholarly-article content step (issue follow-up): review routes
         #     to /review/<i>/content with the fetched abstract/keywords
-        #     textareas; the Source: page carries == Abstract ==.
+        #     textareas; the Source: page carries == Abstract ==. A DIFFERENT
+        #     DOI than flow 2a so create-or-skip creates a fresh item+page
+        #     (reusing 2a's page would read a possibly fetch-less skeleton).
         article_item = track(flow_source_content_step(
-            op, base, api, "10.1371/journal.pbio.2001414", person))
+            op, base, api, "10.1038/35057062", person))
         print(f"[ok] AddSource/scholarlyArticle content step -> {article_item}: "
               f"abstract/keywords reviewed + written to the page")
 
