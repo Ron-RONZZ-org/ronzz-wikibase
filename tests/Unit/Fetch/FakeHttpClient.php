@@ -37,6 +37,40 @@ final class FakeHttpClient implements HttpClientInterface {
 		return $this;
 	}
 
+	/**
+	 * Route throwing an HTTP-status ProviderException (429 + Retry-After,
+	 * 500, …) — the RateLimitedHttpClient backoff tests.
+	 */
+	public function onHttpError( string $urlNeedle, int $status, ?int $retryAfter = null ): self {
+		$this->routes[] = [
+			'needle' => $urlNeedle,
+			'respond' => static function () use ( $status, $retryAfter ): array {
+				throw new ProviderException( "HTTP {$status}", $status, $retryAfter );
+			},
+		];
+		return $this;
+	}
+
+	/**
+	 * Route failing with an HTTP status on the FIRST matching call, then
+	 * returning the canned JSON — the "429 once, success after backoff"
+	 * retry test.
+	 */
+	public function onHttpErrorOnce( string $urlNeedle, int $status, array $then, ?int $retryAfter = null ): self {
+		$this->routes[] = [
+			'needle' => $urlNeedle,
+			'respond' => static function () use ( $status, $then, $retryAfter ): array {
+				static $fired = false;
+				if ( !$fired ) {
+					$fired = true;
+					throw new ProviderException( "HTTP {$status}", $status, $retryAfter );
+				}
+				return $then;
+			},
+		];
+		return $this;
+	}
+
 	public function getJson( string $url, array $query = [], float $timeout = 10.0, int $maxBytes = 1048576, array $headers = [] ): array {
 		// Mirror CurlHttpClient::withQuery so route needles can match the
 		// query string (e.g. "action=wbsearchentities").

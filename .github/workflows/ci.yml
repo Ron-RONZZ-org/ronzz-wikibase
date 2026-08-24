@@ -193,7 +193,7 @@ jobs:
             --api-url "$API_URL" --base-url "$BASE_URL" --sparql-url "$SPARQL_URL" \
             --config-out dev/config/ronzz-wikibase-config.php \
             --ids-out seed/generated/ids.json \
-            --only=properties,classes,languages,dogfood,config
+            --only=properties,classes,languages,preseed,dogfood,config
 
       - name: Restart the wiki to load the emitted config map
         run: |

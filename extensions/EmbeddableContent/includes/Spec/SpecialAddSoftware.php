@@ -200,38 +200,40 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 			);
 		}
 
-		// Logo (optional): local file upload OR pasted URL, toggled by
-		// logoMode; the file is uploaded on create as File:<Name>-logo.<ext>.
-		$fields['logoMode'] = [
-			'type' => 'radio',
-			'label-message' => 'embeddablecontent-software-logo-mode',
-			'options-messages' => [
-				'embeddablecontent-software-logo-mode-file' => 'file',
-				'embeddablecontent-software-logo-mode-url' => 'url',
-			],
-			'default' => 'file',
-		];
-		$fields['logoFile'] = [
-			'type' => 'file',
-			'label-message' => 'embeddablecontent-software-logo-file',
-			'hide-if' => [ '===', 'logoMode', 'url' ],
-		];
-		$fields['logoUrl'] = [
-			'type' => 'url',
-			'label-message' => 'embeddablecontent-software-logo-url',
-			'maxlength' => 500,
-			'hide-if' => [ '===', 'logoMode', 'file' ],
-		];
-		// Logo license (issue follow-up): required only when a logo is
-		// actually provided (enforced in beforeCreate, not by HTMLForm —
-		// the same contract as AddPerson's portrait license).
-		$fields['logoLicense'] = [
-			'type' => 'combobox',
-			'options' => $this->config->licenseItems(),
-			'label-message' => 'embeddablecontent-software-logo-license',
-			'cssclass' => 'wb-entity-combobox',
-			'help' => $this->msg( 'embeddablecontent-software-logo-license-help' )->parse(),
-		];
+		// Logo (optional): collapsed behind the "I will upload a logo image
+		// for this software" toggle; local file upload OR pasted URL
+		// (validated via the shared uploadmeta button), uploaded on create
+		// as File:<Name>-logo.<ext>. The license is mandatory when a logo is
+		// provided (enforced in beforeCreate); author + license info are
+		// free text. All field specs come from the shared ImageUploadHelper
+		// (deduplicated with AddPerson's portrait + Special:Upload).
+		$fields['logoInclude'] = \EmbeddableContent\Upload\ImageUploadHelper::includeField(
+			'logo', 'embeddablecontent-software-logo-include'
+		);
+		$fields['logoMode'] = \EmbeddableContent\Upload\ImageUploadHelper::modeField(
+			'logo',
+			'embeddablecontent-software-logo-mode',
+			'embeddablecontent-software-logo-mode-file',
+			'embeddablecontent-software-logo-mode-url'
+		);
+		$fields['logoFile'] = \EmbeddableContent\Upload\ImageUploadHelper::fileField(
+			'logo', 'embeddablecontent-software-logo-file'
+		);
+		$fields['logoUrl'] = \EmbeddableContent\Upload\ImageUploadHelper::urlField(
+			'logo', 'embeddablecontent-software-logo-url'
+		);
+		$fields['logoLicense'] = \EmbeddableContent\Upload\ImageUploadHelper::licenseField(
+			'logo',
+			'embeddablecontent-software-logo-license',
+			'embeddablecontent-software-logo-license-help',
+			$this->config
+		);
+		$fields['logoAuthor'] = \EmbeddableContent\Upload\ImageUploadHelper::authorField(
+			'logo', 'embeddablecontent-software-logo-author'
+		);
+		$fields['logoLicenseInfo'] = \EmbeddableContent\Upload\ImageUploadHelper::licenseInfoField(
+			'logo', 'embeddablecontent-software-logo-license-info'
+		);
 		return $fields;
 	}
 
@@ -265,18 +267,25 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		}
 
 		// Logo: the uploaded File:<Name>-logo.<ext> page URL (uploaded in
-		// beforeCreate, which sets $record['logoFileTitle']) + its license
-		// (the shared P275 property, alongside the software's own licenses).
+		// beforeCreate, which sets $record['logoFileTitle']) + the license
+		// entity + the free-text attribution strings (P2093-aligned image
+		// author + unaligned additional license information).
 		if ( !empty( $record['logoFileTitle'] ) ) {
 			$fileTitle = \MediaWiki\Title\Title::makeTitle( NS_FILE, (string)$record['logoFileTitle'] );
 			if ( $fileTitle !== null ) {
 				$specs[$this->config->fossPropertyIds()['image']] = new StringValue( $fileTitle->getFullURL() );
 			}
 		}
-		if ( !empty( $record['logoLicense'] ) ) {
+		if ( !empty( $record['logoLicense'] ) && isset( $this->config->fossPropertyIds()['license'] ) ) {
 			$licenseItem = $this->parseItemId( (string)$record['logoLicense'] );
 			if ( $licenseItem !== null ) {
-				$specs[$this->config->fossPropertyIds()['license']][] = new EntityIdValue( $licenseItem );
+				$specs[$this->config->fossPropertyIds()['license']] = new EntityIdValue( $licenseItem );
+			}
+		}
+		$fossProps = $this->config->fossPropertyIds();
+		foreach ( [ 'imageAuthor' => 'logoAuthor', 'imageLicenseInfo' => 'logoLicenseInfo' ] as $propKey => $field ) {
+			if ( !empty( $record[$field] ) && isset( $fossProps[$propKey] ) ) {
+				$specs[$fossProps[$propKey]] = new StringValue( (string)$record[$field] );
 			}
 		}
 
@@ -354,200 +363,42 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		return $this->msg( 'embeddablecontent-software-sitelink-edit-summary', $label )->inContentLanguage()->text();
 	}
 
-	/** Logo formats accepted for upload (raster + svg). */
-	private const LOGO_EXTENSIONS = [ 'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg' ];
-
 	/**
 	 * Uploads the optional logo (local file or pasted URL, per the logoMode
-	 * toggle) as File:<Label>-logo.<ext> and records the file title in
-	 * $record['logoFileTitle'] for the image statement and the FOSS: page
-	 * skeleton. Idempotent: an already-uploaded file is left alone. When the
-	 * user PROVIDED a logo that cannot be uploaded, returns an error message
+	 * toggle, behind the logoInclude toggle) as File:<Label>-logo.<ext> and
+	 * records the file title in $record['logoFileTitle'] for the image
+	 * statement and the FOSS: page skeleton. The license is mandatory when a
+	 * logo is provided. Idempotent: an already-uploaded file is left alone.
+	 * A provided logo that cannot be uploaded returns an error message
 	 * (aborting the creation — a failed field must never be silent).
+	 * Delegates to the shared ImageUploadHelper (same machinery as
+	 * AddPerson's portrait + Special:Upload).
 	 *
 	 * @param array<string,mixed> $record
 	 * @return string|null error message, or null to proceed
 	 */
 	protected function beforeCreate( array &$record ): ?string {
-		$mode = (string)( $record['logoMode'] ?? 'file' );
-		try {
-			if ( $mode === 'url' ) {
-				$url = ( new FragmentSanitizer() )->validateUrl( (string)( $record['logoUrl'] ?? '' ) );
-				if ( $url !== null ) {
-					$title = $this->uploadLogoFromUrl( $url, $record );
-					if ( $title === null ) {
-						return $this->msg( 'embeddablecontent-software-logo-error', 'unreachable or unsupported URL' )->text();
-					}
-				}
-			} else {
-				$title = $this->uploadLogoFromRequest( $record );
-				$upload = $this->getRequest()->getUpload( 'wpLogoFile' );
-				if ( $title === null
-					&& $upload instanceof \MediaWiki\Request\WebRequestUpload && $upload->getSize() > 0
-				) {
-					return $this->msg( 'embeddablecontent-software-logo-error', 'unsupported file type' )->text();
-				}
-			}
-		} catch ( \Throwable $e ) {
-			// The upload layer rejected the logo — surface the reason on the
-			// form instead of creating the item without it.
-			return $this->msg( 'embeddablecontent-software-logo-error', $e->getMessage() )->text();
-		}
-		if ( !empty( $title ) ) {
-			$record['logoFileTitle'] = $title->getDBkey();
-			// Logo license is mandatory when a logo IS provided (issue
-			// follow-up, the AddPerson portrait contract).
-			$licenseItem = $this->parseItemId( (string)( $record['logoLicense'] ?? '' ) );
-			if ( $licenseItem === null ) {
-				return $this->msg( 'embeddablecontent-software-logo-license-required' )->text();
-			}
-			$record['logoLicense'] = $licenseItem->getSerialization();
-		} else {
-			$record['logoLicense'] = '';
-		}
-		return null;
-	}
-
-	/**
-	 * Local-file logo upload (logoMode=file). Returns the file title, or
-	 * null when no file was provided.
-	 *
-	 * @param array<string,mixed> $record
-	 */
-	private function uploadLogoFromRequest( array $record ): ?\MediaWiki\Title\Title {
-		$request = $this->getRequest();
-		$upload = $request->getUpload( 'wpLogoFile' );
-		if ( !$upload instanceof \MediaWiki\Request\WebRequestUpload
-			|| $upload->getSize() <= 0 || $upload->getTempName() === ''
-		) {
-			return null;
-		}
-		$tempPath = $upload->getTempName();
-		$mime = \MediaWiki\MediaWikiServices::getInstance()
-			->getMimeAnalyzer()->guessMimeType( $tempPath, false );
-		$destName = $this->logoDestName( $record, $upload->getName(), $mime );
-		if ( $destName === '' ) {
-			return null;
-		}
-		$base = new \MediaWiki\Upload\UploadFromFile();
-		$base->initializePathInfo( $destName, $tempPath, $upload->getSize() );
-		return $this->performLogoUpload( $base, $record );
-	}
-
-	/**
-	 * Paste-URL logo upload (logoMode=url) — goes through UploadFromUrl so
-	 * the instance's SSRF guards (IsUploadAllowedFromUrl) apply.
-	 *
-	 * @param array<string,mixed> $record
-	 */
-	private function uploadLogoFromUrl( string $url, array $record ): ?\MediaWiki\Title\Title {
-		if ( !\MediaWiki\Upload\UploadFromUrl::isAllowed( $this->getUser() ) ) {
-			return null;
-		}
-		$path = parse_url( $url, PHP_URL_PATH );
-		$name = $path !== false && $path !== null && $path !== '' ? basename( $path ) : 'logo';
-		$mime = $this->mimeFromUrl( $url );
-		$destName = $this->logoDestName( $record, $name, $mime );
-		if ( $destName === '' ) {
-			return null;
-		}
-		$base = new \MediaWiki\Upload\UploadFromUrl();
-		$base->initialize( $destName, $url );
-		// initialize() only creates the EMPTY temp file — the download
-		// itself happens in fetchFile() (UploadFromUrl streams the body and
-		// follows redirects, SSRF-validating each hop). Without it
-		// verifyUpload() sees a zero-size file and rejects the upload as
-		// EMPTY_FILE (status 3).
-		$status = $base->fetchFile();
-		$tempPath = $base->getTempPath();
-		if ( !$status->isGood() || $tempPath === '' || !is_file( $tempPath ) ) {
-			return null;
-		}
-		return $this->performLogoUpload( $base, $record );
-	}
-
-	/**
-	 * Best-effort remote MIME probe (HEAD) for URL-mode logos; '' when the
-	 * probe fails (the destination-name fallback extension applies).
-	 */
-	private function mimeFromUrl( string $url ): string {
-		try {
-			$http = \MediaWiki\MediaWikiServices::getInstance()->getHttpRequestFactory()
-				->create( $url, [], __METHOD__ );
-			$http->execute();
-			return (string)$http->getResponseHeader( 'Content-Type' );
-		} catch ( \Throwable $e ) {
-			return '';
-		}
-	}
-
-	/**
-	 * Computes the destination file name "<label>-logo.<ext>": the extension
-	 * comes from the original name, restricted to the logo whitelist, with a
-	 * fallback to the MIME type's canonical extension. Returns '' when the
-	 * format is unsupported or the label is unusable.
-	 *
-	 * @param array<string,mixed> $record
-	 */
-	private function logoDestName( array $record, string $originalName, string $mime ): string {
-		$ext = strtolower( (string)pathinfo( $originalName, PATHINFO_EXTENSION ) );
-		if ( !in_array( $ext, self::LOGO_EXTENSIONS, true ) ) {
-			$ext = strtolower( (string)\MediaWiki\MediaWikiServices::getInstance()
-				->getMimeAnalyzer()->getExtensionFromMimeTypeOrNull( $mime ) );
-		}
-		if ( !in_array( $ext, self::LOGO_EXTENSIONS, true ) ) {
-			return '';
-		}
-		$label = (string)preg_replace( '/[#<>\[\]|{}:]/', '', trim( $this->primaryLabel( $record ) ) );
-		$label = trim( (string)preg_replace( '/\s+/', ' ', $label ) );
-		if ( $label === '' ) {
-			return '';
-		}
-		return "{$label}-logo.{$ext}";
-	}
-
-	/**
-	 * Runs verifyUpload + performUpload on a prepared UploadBase. Returns
-	 * the file title, or null when no logo was provided / already present.
-	 * A FAILED verification or upload throws — the caller (beforeCreate)
-	 * surfaces the reason in a warning box instead of silently dropping the
-	 * logo.
-	 *
-	 * @param array<string,mixed> $record
-	 * @throws \RuntimeException when the upload is rejected
-	 */
-	private function performLogoUpload( \MediaWiki\Upload\UploadBase $base, array $record ): ?\MediaWiki\Title\Title {
-		$title = $base->getTitle();
-		if ( $title === null ) {
-			return null;
-		}
-		if ( $title->exists() ) {
-			return $title; // idempotent: already uploaded on an earlier run
-		}
-		$verify = $base->verifyUpload();
-		if ( ( $verify['status'] ?? null ) !== \MediaWiki\Upload\UploadBase::OK ) {
-			// verifyUpload() returns an ARRAY with 'status' => OK (0) on
-			// success; any other status carries the failure (VERIFICATION_
-			// ERROR etc.) with 'details'.
-			$details = $verify['details'] ?? [];
-			$detail = is_array( $details ) && $details !== []
-				? (string)( $details[0] ?? '' )
-				: (string)( $verify['status'] ?? 'rejected' );
-			throw new \RuntimeException( 'verifyUpload rejected (' . $detail . ')' );
-		}
-		$label = $this->primaryLabel( $record );
-		$pageText = "Logo of {$label}, uploaded via Special:AddSoftware.";
-		$status = $base->performUpload(
-			$this->msg( 'embeddablecontent-software-logo-edit-summary', $label )->inContentLanguage()->text(),
-			$pageText,
-			false,
-			$this->getUser()
+		return \EmbeddableContent\Upload\ImageUploadHelper::handleUpload(
+			'logo',
+			$record,
+			$this->getContext(),
+			$this->getUser(),
+			[
+				'error' => 'embeddablecontent-software-logo-error',
+				'licenseRequired' => 'embeddablecontent-software-logo-license-required',
+				'editSummary' => 'embeddablecontent-software-logo-edit-summary',
+				'viaPage' => 'Special:AddSoftware',
+			],
+			fn ( array $record ) => $this->primaryLabel( $record )
 		);
-		if ( !$status->isOK() ) {
-			throw new \RuntimeException( 'performUpload: ' . $status->getMessage()->getParams()[0] ?? 'rejected' );
-		}
-		return $title;
 	}
+
+	// ------------------------------------------------------------- classic pages
+	// The FOSS:<Name> wiki page + sitelink machinery (issue #26) lives in the
+	// base class afterCreate(); this class only declares the page facts. The
+	// logo upload machinery itself (field specs, file/URL upload, dest
+	// naming, verify+performUpload, page text) lives once in
+	// ImageUploadHelper — AddPerson's portrait and Special:Upload use it too.
 
 	protected function classOptions(): array {
 		return $this->config->fossClasses();

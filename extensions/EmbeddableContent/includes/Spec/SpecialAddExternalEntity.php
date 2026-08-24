@@ -124,6 +124,9 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// module (AddSoftware entity facts, AddSource authors/parent,
 		// AddPerson place fields); loading it is a no-op without comboboxes.
 		$this->getOutput()->addModules( 'ext.embeddableContent.entitysuggest' );
+		// The portrait/logo URL validate button + 429 blob fallback; a
+		// no-op on pages without the wb-uploadmeta wiring span.
+		$this->getOutput()->addModules( 'ext.embeddableContent.uploadmeta' );
 		$parts = explode( '/', trim( (string)$subPage ) );
 		$first = $parts[0] ?? '';
 		if ( $first === '' ) {

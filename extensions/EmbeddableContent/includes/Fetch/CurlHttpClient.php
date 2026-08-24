@@ -67,6 +67,7 @@ class CurlHttpClient implements HttpClientInterface {
 			$body = '';
 			$status = 0;
 			$location = null;
+			$retryAfter = null;
 
 			$ch = curl_init();
 			curl_setopt_array( $ch, [
@@ -79,12 +80,21 @@ class CurlHttpClient implements HttpClientInterface {
 				CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
 				CURLOPT_USERAGENT => $this->userAgent,
 				CURLOPT_HTTPHEADER => $this->buildHeaders( $headers, $isPost ),
-				CURLOPT_HEADERFUNCTION => static function ( $ch, string $line ) use ( &$status, &$location ): int {
+				CURLOPT_HEADERFUNCTION => static function ( $ch, string $line ) use ( &$status, &$location, &$retryAfter ): int {
 					if ( preg_match( '/^HTTP\/\S+\s+(\d{3})/', $line, $m ) === 1 ) {
 						$status = (int)$m[1];
 					}
 					if ( stripos( $line, 'Location:' ) === 0 ) {
 						$location = trim( substr( $line, 9 ) );
+					}
+					// Retry-After: an integer delay in seconds, or an HTTP
+					// date (RFC 7231 §7.1.3). Only the integer form maps
+					// directly to a backoff delay.
+					if ( stripos( $line, 'Retry-After:' ) === 0 ) {
+						$value = trim( substr( $line, 12 ) );
+						if ( preg_match( '/^\d+$/', $value ) === 1 ) {
+							$retryAfter = (int)$value;
+						}
 					}
 					return strlen( $line );
 				},
@@ -123,7 +133,7 @@ class CurlHttpClient implements HttpClientInterface {
 			}
 
 			if ( $status < 200 || $status >= 300 ) {
-				throw new ProviderException( "HTTP {$status} from {$url}" );
+				throw new ProviderException( "HTTP {$status} from {$url}", $status, $retryAfter );
 			}
 
 			try {

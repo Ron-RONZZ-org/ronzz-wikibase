@@ -1,10 +1,5 @@
 {
-	"@metadata": {
-		"authors": [
-			"ronzz.org"
-		],
-		"description": "Enigeblaj enhavaj elementoj (citaĵo, kodero, matematika esprimo) en Wikibase-instancujo — vortaraj manifestoj, prizorgaj skriptoj, bildigo de enigoj kaj paĝoj por krei enhavon."
-	},
+	"@metadata": {"authors": ["ronzz.org"], "description": "Enigeblaj enhavaj elementoj (citaĵo, kodero, matematika esprimo) en Wikibase-instancujo — vortaraj manifestoj, prizorgaj skriptoj, bildigo de enigoj kaj paĝoj por krei enhavon."},
 	"embeddablecontent-desc": "Enigeblaj enhavaj elementoj (citaĵo, kodero, matematika esprimo) en Wikibase-instancujo",
 	"special-embed": "Enigi",
 	"special-addquotation": "Aldoni citaĵon",
@@ -131,8 +126,8 @@
 	"embeddablecontent-software-logo-error": "Emblema alŝuto malsukcesis: $1. La programaro estis kreita sen emblemo.",
 	"embeddablecontent-software-logo-edit-summary": "Alŝutis la emblemon de $1",
 	"embeddablecontent-software-logo-license": "Permesilo de la emblemo",
-	"embeddablecontent-software-logo-license-help": "La permesilo de la emblema bildo. Nepra kiam emblemo estas provizita.",
-	"embeddablecontent-software-logo-license-required": "Permesilo estas postulata kiam oni alŝutas emblemon.",
+	"embeddablecontent-software-logo-license-help": "La permesilo de la emblemo — necesa kiam emblemo estas provizita.",
+	"embeddablecontent-software-logo-license-required": "Permesilo de emblemo estas necesa kiam emblemo estas provizita.",
 	"embeddablecontent-collective-logo-mode": "Emblemo",
 	"embeddablecontent-collective-logo-file": "Emblema dosiero",
 	"embeddablecontent-collective-logo-url": "Emblema retadreso",
@@ -281,5 +276,30 @@
 	"embeddablecontent-sourcefile-filepage": "Vidi la dosierpaĝon",
 	"embeddablecontent-field-parentorganization": "Patrina organizaĵo",
 	"embeddablecontent-field-parentorganization-help": "La organizaĵo, al kiu ĉi tiu kolektivo estas filio aŭ subdivido. Serĉu per etikedo, aŭ enigu identigilon de ero (ekz. Q42).",
-	"embeddablecontent-source-pick-continue": "Daŭrigi"
+	"embeddablecontent-source-pick-continue": "Daŭrigi",
+	"embeddablecontent-uploadmeta-validate": "Kontroli",
+	"embeddablecontent-uploadmeta-validating": "Kontrolado de la bildo…",
+	"embeddablecontent-uploadmeta-failed": "Ne eblis legi la bildan metadatumon de ĉi tiu URL.",
+	"embeddablecontent-uploadmeta-warning": "Averto pri bilda metadatumo",
+	"embeddablecontent-uploadmeta-browserfetch-failed": "Via retumilo ne povis elŝuti la bildon.",
+	"embeddablecontent-uploadmeta-bytesize": "Ĉi tiu bildo estas tro granda por la aŭtomata elŝuto per retumilo (limo 50 MB). Konservu ĝin sur via aparato kaj alŝutu ĝin anstataŭe.",
+	"uploadmeta-login-required": "Vi devas ensaluti por kontroli bildan URL-on.",
+	"embeddablecontent-upload-license": "Permesilo",
+	"embeddablecontent-upload-license-help": "Elektu la permesilon de la dosiero, aŭ tajpu por serĉi la permesilojn de la instanco.",
+	"embeddablecontent-upload-author": "Bildaŭtoro",
+	"embeddablecontent-upload-licenseinfo": "Kromaj permesilaj informoj",
+	"embeddablecontent-upload-attribution-header": "Atribuo",
+	"embeddablecontent-upload-attribution-author": "Aŭtoro",
+	"embeddablecontent-upload-attribution-licenseinfo": "Kromaj permesilaj informoj",
+	"embeddablecontent-upload-attribution-source": "Fonto",
+	"embeddablecontent-upload-item-edit-summary": "Kreita la bilda ero por $1",
+	"embeddablecontent-person-portrait-include": "Mi alŝutos portreton por ĉi tiu persono",
+	"embeddablecontent-person-portrait-author": "Portretaŭtoro",
+	"embeddablecontent-person-portrait-license-info": "Kromaj permesilaj informoj",
+	"embeddablecontent-software-logo-include": "Mi alŝutos emblemon por ĉi tiu programaro",
+	"embeddablecontent-software-logo-author": "Emblemaŭtoro",
+	"embeddablecontent-software-logo-license-info": "Kromaj permesilaj informoj",
+	"embeddablecontent-collective-logo-include": "Mi alŝutos emblemon por ĉi tiu kolektivo",
+	"embeddablecontent-collective-logo-author": "Emblemaŭtoro",
+	"embeddablecontent-collective-logo-license-info": "Kromaj permesilaj informoj"
 }

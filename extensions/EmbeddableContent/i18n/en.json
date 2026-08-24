@@ -1,11 +1,5 @@
 {
-	"@metadata": {
-		"authors": [
-			"ronzz.org"
-		],
-		"description": "Embeddable content items (quotation, code snippet, mathematical expression) on a Wikibase instance — vocabulary manifests, maintenance scripts, embed rendering and content creation pages.",
-		"license-name": "GPL-2.0-or-later"
-	},
+	"@metadata": {"authors": ["ronzz.org"], "description": "Embeddable content items (quotation, code snippet, mathematical expression) on a Wikibase instance — vocabulary manifests, maintenance scripts, embed rendering and content creation pages.", "license-name": "GPL-2.0-or-later"},
 	"embeddablecontent-desc": "Embeddable content items (quotation, code snippet, mathematical expression) on a Wikibase instance",
 	"special-embed": "Embed",
 	"special-addquotation": "Add quotation",
@@ -132,8 +126,8 @@
 	"embeddablecontent-software-logo-error": "Logo upload failed: $1. The software was created without a logo.",
 	"embeddablecontent-software-logo-edit-summary": "Uploaded the logo of $1",
 	"embeddablecontent-software-logo-license": "Logo license",
-	"embeddablecontent-software-logo-license-help": "The license of the logo image. Required when a logo is provided.",
-	"embeddablecontent-software-logo-license-required": "A license is required when uploading a logo.",
+	"embeddablecontent-software-logo-license-help": "The license of the logo image — required when a logo is provided.",
+	"embeddablecontent-software-logo-license-required": "A logo license is required when a logo is provided.",
 	"embeddablecontent-collective-logo-mode": "Logo",
 	"embeddablecontent-collective-logo-file": "Logo file",
 	"embeddablecontent-collective-logo-url": "Logo URL",
@@ -282,5 +276,30 @@
 	"embeddablecontent-sourcefile-loginrequired": "Log in to download this file.",
 	"embeddablecontent-sourcefile-filepage": "View the file page",
 	"embeddablecontent-field-parentorganization": "Parent organization",
-	"embeddablecontent-field-parentorganization-help": "The organization this collective is a subsidiary or subdivision of. Search by label, or enter an item id (e.g. Q42)."
+	"embeddablecontent-field-parentorganization-help": "The organization this collective is a subsidiary or subdivision of. Search by label, or enter an item id (e.g. Q42).",
+	"embeddablecontent-uploadmeta-validate": "Validate",
+	"embeddablecontent-uploadmeta-validating": "Checking the image…",
+	"embeddablecontent-uploadmeta-failed": "Could not read the image metadata from this URL.",
+	"embeddablecontent-uploadmeta-warning": "Image metadata warning",
+	"embeddablecontent-uploadmeta-browserfetch-failed": "The image could not be downloaded by your browser.",
+	"embeddablecontent-uploadmeta-bytesize": "This image is too large for the automatic browser download (50 MB limit). Save it to your device and upload it instead.",
+	"uploadmeta-login-required": "You must log in to validate an image URL.",
+	"embeddablecontent-upload-license": "License",
+	"embeddablecontent-upload-license-help": "Pick the license of the file, or type to search the instance's license items.",
+	"embeddablecontent-upload-author": "Image author",
+	"embeddablecontent-upload-licenseinfo": "Additional license information",
+	"embeddablecontent-upload-attribution-header": "Attribution",
+	"embeddablecontent-upload-attribution-author": "Author",
+	"embeddablecontent-upload-attribution-licenseinfo": "Additional license information",
+	"embeddablecontent-upload-attribution-source": "Source",
+	"embeddablecontent-upload-item-edit-summary": "Created the image item for $1",
+	"embeddablecontent-person-portrait-include": "I will upload a portrait image for this person",
+	"embeddablecontent-person-portrait-author": "Portrait author",
+	"embeddablecontent-person-portrait-license-info": "Additional license information",
+	"embeddablecontent-software-logo-include": "I will upload a logo image for this software",
+	"embeddablecontent-software-logo-author": "Logo author",
+	"embeddablecontent-software-logo-license-info": "Additional license information",
+	"embeddablecontent-collective-logo-include": "I will upload a logo image for this collective",
+	"embeddablecontent-collective-logo-author": "Logo author",
+	"embeddablecontent-collective-logo-license-info": "Additional license information"
 }

@@ -26,6 +26,7 @@ The v1 plan lives in
 | Embeds + autocomplete polish (PRs #15–#19) | implemented + deployed (visible toolbar w/ absolute snippet + language selector, bare-fragment embeds, KaTeX math + highlight.js code in a minimal embed skin, entity-combobox autocomplete, `describes`/`implementation of` fields, all-language quotation input, subdued provenance/printfooter) |
 | Issue #26 — FOSS software documentation | implemented + deployed (FOSS namespace NS 2008/2009, 9 software properties + `free and open-source software` class Q179, `Template:FOSS`/`FOSS:Main`, `Special:AddSoftware` with Wikidata→GitHub fetch, creates item + `FOSS:` page + sitelink in one flow) |
 | Add-flow follow-up — URL-first fetch, content review, per-class pages, fictional characters | implemented (awaiting deployment): website/webpage URL entry with SSRF-guarded metadata autofill, fetched page content (OpenAlex abstract/keywords, Wikipedia intros/Plot/Lyrics, site metadata) reviewed on a dedicated step and written to per-class `Source:`/`Person:` pages, `Special:AddFictionalCharacter`, entity-only Journal, access N/A mode, CC BY-SA data rights, combobox-autocomplete fix — see `docs/decisions/add-flow-followup.md` |
+| Upload enhancements — `Special:Upload` + Add\* portrait/logo, Wikimedia 429 fix | implemented (awaiting deployment): browser-side Wikimedia metadata fetch + rate-limited server fetch layer (the `fceb99d` 429 fix), `api.php?action=uploadmeta`, semantic license combobox on `Special:Upload` (replacing the core dropdown), image author + additional-license-info fields, single max-size note, item-per-upload (sitelinked `image`-class items), shared `ImageUploadHelper` for the Add\* portrait/logo sections with the "I will upload a {image}" toggle + validate button + attribution statements — see `docs/decisions/upload-enhancements.md` |
 
 ## Repository layout
 
@@ -61,7 +62,17 @@ The v1 plan lives in
   `Source:`/`Person:` page skeletons, `Special:AddFictionalCharacter`,
   entity-only Journal, access N/A mode, license-combobox options, and the
   combobox-autocomplete fix — see
-  `docs/decisions/add-flow-followup.md`.
+  `docs/decisions/add-flow-followup.md`. Upload enhancements: the
+  rate-limited fetch layer (`RateLimitedHttpClient` — WMF throttle + 429
+  `Retry-After` backoff), the upload metadata fetch (browser-side Wikimedia
+  via `origin=*` + the SSRF-guarded `api.php?action=uploadmeta` for other
+  hosts, `resources/uploadmeta.js` validate button with preview + 429
+  blob fallback), the shared `includes/Upload/` module (`ImageUploadHelper`
+  — the Add\* portrait/logo fields + upload path, `ImageItemCreator` +
+  `UploadHooks` — Special:Upload's semantic license combobox, attribution
+  fields and item-per-upload), and the image vocabulary (`image` class,
+  `image author`/`additional license information` properties) — see
+  `docs/decisions/upload-enhancements.md`.
 - `extensions/WikibaseCitation/` — citation map manifests +
   `maintenance/importCitationMap.php` (publishes the 4 admin-editable
   `MediaWiki:Citation-*` pages); D4 `api.php?action=citation` with

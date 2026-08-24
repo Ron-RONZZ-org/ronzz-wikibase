@@ -443,9 +443,8 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	private ?\EmbeddableContent\Fetch\WikipediaContentProvider $wikipedia = null;
 
 	private function wikipediaContent(): \EmbeddableContent\Fetch\WikipediaContentProvider {
-		$this->wikipedia ??= new \EmbeddableContent\Fetch\WikipediaContentProvider(
-			new \EmbeddableContent\Fetch\CurlHttpClient( [ 'en.wikipedia.org' ] )
-		);
+		$this->wikipedia ??= \MediaWiki\MediaWikiServices::getInstance()
+			->get( 'EmbeddableContent.WikipediaContent' );
 		return $this->wikipedia;
 	}
 

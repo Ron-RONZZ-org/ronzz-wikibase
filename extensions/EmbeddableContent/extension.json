@@ -95,17 +95,27 @@
 			"services": [
 				"EmbeddableContent.ContentRenderer"
 			]
+		},
+		"uploadmeta": {
+			"class": "EmbeddableContent\\Api\\ApiUploadMeta"
 		}
 	},
 	"HookHandlers": {
 		"main": {
 			"class": "EmbeddableContent\\Hooks"
+		},
+		"upload": {
+			"class": "EmbeddableContent\\Upload\\UploadHooks"
 		}
 	},
 	"Hooks": {
 		"BeforePageDisplay": "main",
 		"SkinTemplateNavigation::Universal": "main",
-		"ParserFirstCallInit": "main"
+		"ParserFirstCallInit": "main",
+		"UploadFormInitDescriptor": "upload",
+		"UploadFormSourceDescriptors": "upload",
+		"UploadForm:getInitialPageText": "upload",
+		"UploadComplete": "upload"
 	},
 	"ResourceModules": {
 		"ext.embeddableContent.embed": {
@@ -202,6 +212,31 @@
 				"embeddablecontent-sitelink-cancel",
 				"embeddablecontent-sitelink-badid",
 				"embeddablecontent-sitelink-error"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.uploadmeta": {
+			"scripts": [
+				"uploadmeta.js"
+			],
+			"styles": [
+				"uploadmeta.css"
+			],
+			"dependencies": [
+				"mediawiki.api",
+				"mediawiki.notification",
+				"oojs-ui"
+			],
+			"messages": [
+				"embeddablecontent-uploadmeta-validate",
+				"embeddablecontent-uploadmeta-validating",
+				"embeddablecontent-uploadmeta-failed",
+				"embeddablecontent-uploadmeta-warning",
+				"embeddablecontent-uploadmeta-browserfetch-failed",
+				"embeddablecontent-uploadmeta-bytesize"
 			],
 			"targets": [
 				"desktop",
