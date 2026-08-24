@@ -140,13 +140,18 @@ class SpecialSourceFile extends SpecialPage {
 		$mime = (string)$file->getMimeType();
 		$ext = strtolower( (string)$file->getExtension() );
 		if ( $mime === 'application/pdf' || $ext === 'pdf' ) {
+			// NO sandbox attribute: Chrome's PDF viewer does not initialize
+			// in a sandboxed frame (the iframe shows chrome-error://…, a
+			// blank preview). The frame is same-origin and the content is
+			// MIME-locked to application/pdf at upload (no HTML/script can
+			// be served through it); PDF-embedded JavaScript, when present,
+			// runs inside PDFium's own isolated sandbox regardless.
 			return Html::rawElement( 'div', [ 'class' => 'wb-sourcefile-preview' ],
 				Html::rawElement( 'iframe', [
 					'src' => $file->getUrl(),
 					'width' => '100%',
 					'height' => '640',
 					'style' => 'border:1px solid #c8ccd1;border-radius:2px;',
-					'sandbox' => 'allow-same-origin',
 					'title' => $this->msg( 'embeddablecontent-sourcefile-preview' )->text(),
 				] )
 			);
