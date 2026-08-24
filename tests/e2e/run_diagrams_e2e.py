@@ -17,9 +17,9 @@ Verifies integrated diagram rendering from wikitext on a live instance:
    the PlantUML SANDBOX security profile is active (an old jar without
    profile support would render the include instead),
 4. an XSS probe page (script/event-handler payloads inside a `<uml>` block)
-   renders with no raw `<script`, `onerror=` or injected markup surviving —
-   the diagram text is consumed server-side by the rendering binary and the
-   output is served as an inert image,
+   renders with none of the injected payloads surviving — the diagram text is
+   consumed server-side by the rendering binary and the output is served as
+   an inert image,
 5. cleanup: both scratch pages are deleted (self-cleaning).
 
 Server-side rendering needs the local binaries in the wiki container:
@@ -239,7 +239,11 @@ def assert_error_spans(body: str, title: str, expected: int) -> None:
 
 
 def assert_no_xss(body: str, title: str) -> None:
-    for probe in ("<script", "onerror=", "onload=", "<img src=x", "<svg onload"):
+    # A rendered MediaWiki page legitimately contains <script> tags (the
+    # ResourceLoader head), so probe for the injected PAYLOADS themselves —
+    # the unique strings from the XSS_TEMPLATE — not the generic tag.
+    for probe in ("alert(1)", "alert(2)", "alert(3)",
+                  "onerror=alert", "onload=alert", "<img src=x", "<svg onload"):
         if probe in body:
             raise FlowError(f"{title}: XSS probe {probe!r} survived rendering")
     print(f"[ok] {title}: no XSS payload survives (script/event-handler/markup probes)")
