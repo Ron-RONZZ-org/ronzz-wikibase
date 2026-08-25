@@ -44,8 +44,12 @@ final class UploadHooks {
 	 * @param array<string,mixed> $descriptor
 	 */
 	public static function onUploadFormInitDescriptor( array &$descriptor ): void {
+		// The UploadForm is a php-mode HTMLForm — a plain `combobox` type
+		// would render as an <input>+<datalist> with no entity autocomplete.
+		// OOUIComboboxField forces the OOUI ComboBoxInputWidget (infusable)
+		// so the entity-suggest module wires it exactly like the Add* pages'.
 		$descriptor['License'] = [
-			'type' => 'combobox',
+			'class' => \EmbeddableContent\Upload\OOUIComboboxField::class,
 			'options' => self::config()->licenseItems(),
 			'section' => 'description',
 			'id' => 'wpLicense',
@@ -90,10 +94,16 @@ final class UploadHooks {
 				->parse();
 		}
 		if ( isset( $descriptor['UploadFileURL'] ) ) {
-			// The size limit is identical for both source types (1 GB) and
-			// is shown once on the file field — the URL field gets the
-			// validate button + preview area instead.
-			$descriptor['UploadFileURL']['help-raw'] = self::uploadmetaSpan();
+			// The size limit is identical for both source types and is shown
+			// once on the file field — the URL field gets the validate button
+			// + preview area, plus its own URL cap note (the browser-blob
+			// path and UploadFromUrl both honour $wgMaxUploadSize['url']).
+			$descriptor['UploadFileURL']['help-raw'] = self::uploadmetaSpan()
+				. '<div class="wb-uploadmeta-size-note">'
+				. wfMessage( 'embeddablecontent-upload-url-maxsize' )
+					->sizeParams( UploadBase::getMaxUploadSize( 'url' ) )
+					->parse()
+				. '</div>';
 		}
 	}
 
