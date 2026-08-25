@@ -387,7 +387,6 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 				'error' => 'embeddablecontent-software-logo-error',
 				'licenseRequired' => 'embeddablecontent-software-logo-license-required',
 				'editSummary' => 'embeddablecontent-software-logo-edit-summary',
-				'viaPage' => 'Special:AddSoftware',
 			],
 			fn ( array $record ) => $this->primaryLabel( $record )
 		);

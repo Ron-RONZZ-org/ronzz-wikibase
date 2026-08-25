@@ -74,14 +74,16 @@ final class ImageUploadHelperTest extends TestCase {
 	}
 
 	public function testPageTextWithSource(): void {
-		$text = ImageUploadHelper::pageText( 'Ada Lovelace', 'portrait', 'Special:AddPerson', 'https://upload.wikimedia.org/x.jpg' );
-		$this->assertStringContainsString( 'Portrait of Ada Lovelace, uploaded via Special:AddPerson.', $text );
+		$text = ImageUploadHelper::pageText( 'Ada Lovelace', 'portrait', 'https://upload.wikimedia.org/x.jpg' );
+		$this->assertStringContainsString( 'Portrait of Ada Lovelace.', $text );
+		$this->assertStringNotContainsString( 'uploaded via', $text );
 		$this->assertStringContainsString( 'Source: https://upload.wikimedia.org/x.jpg', $text );
 	}
 
 	public function testPageTextWithoutSource(): void {
-		$text = ImageUploadHelper::pageText( 'Flameshot', 'logo', 'Special:AddSoftware' );
-		$this->assertStringContainsString( 'Logo of Flameshot, uploaded via Special:AddSoftware.', $text );
+		$text = ImageUploadHelper::pageText( 'Flameshot', 'logo' );
+		$this->assertStringContainsString( 'Logo of Flameshot.', $text );
+		$this->assertStringNotContainsString( 'uploaded via', $text );
 		$this->assertStringNotContainsString( 'Source:', $text );
 	}
 

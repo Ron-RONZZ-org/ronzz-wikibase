@@ -79,7 +79,9 @@ final class ImageItemCreator {
 		$item->setLabel( 'en', $label );
 		$description = trim( $description );
 		if ( $description !== '' ) {
-			$item->setDescription( 'en', mb_substr( $description, 0, 250 ) );
+			// The term store's description limit was raised to 2000
+			// (string-limits multilang length 2000, wbt_text VARBINARY(2000)).
+			$item->setDescription( 'en', mb_substr( $description, 0, 2000 ) );
 		}
 		WikibaseRepo::getEntityStore()->saveEntity( $item, $editSummary, $user, EDIT_NEW );
 

@@ -184,7 +184,7 @@ final class ImageUploadHelper {
 	 * page for provenance.
 	 *
 	 * @param array<string,mixed> $record
-	 * @param array{error:string,licenseRequired:string,editSummary:string,viaPage:string} $msgKeys
+	 * @param array{error:string,licenseRequired:string,editSummary:string} $msgKeys
 	 * @param callable(array):string $primaryLabel record → item label
 	 */
 	public static function handleUpload(
@@ -347,7 +347,7 @@ final class ImageUploadHelper {
 		}
 		$label = $primaryLabel( $record );
 		$sourceUrl = trim( (string)$context->getRequest()->getVal( 'wbUploadmetaSourceUrl', '' ) );
-		$pageText = self::pageText( $label, $prefix, $msgKeys['viaPage'] ?? 'Special:AddPerson', $sourceUrl );
+		$pageText = self::pageText( $label, $prefix, $sourceUrl );
 		$status = $base->performUpload(
 			$context->msg( $msgKeys['editSummary'], $label )->inContentLanguage()->text(),
 			$pageText,
@@ -412,8 +412,8 @@ final class ImageUploadHelper {
 	 * original source URL when the browser-blob path carried one
 	 * (provenance).
 	 */
-	public static function pageText( string $label, string $suffix, string $viaPage, string $sourceUrl = '' ): string {
-		$text = ucfirst( $suffix ) . " of {$label}, uploaded via {$viaPage}.";
+	public static function pageText( string $label, string $suffix, string $sourceUrl = '' ): string {
+		$text = ucfirst( $suffix ) . " of {$label}.";
 		if ( $sourceUrl !== '' ) {
 			$text .= "\n\nSource: {$sourceUrl}";
 		}

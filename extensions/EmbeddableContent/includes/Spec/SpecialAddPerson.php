@@ -320,7 +320,6 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 				'error' => 'embeddablecontent-person-portrait-error',
 				'licenseRequired' => 'embeddablecontent-person-portrait-license-required',
 				'editSummary' => 'embeddablecontent-person-portrait-edit-summary',
-				'viaPage' => 'Special:AddPerson',
 			],
 			fn ( array $record ) => $this->primaryLabel( $record )
 		);

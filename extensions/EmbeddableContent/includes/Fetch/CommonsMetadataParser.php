@@ -17,8 +17,14 @@ namespace EmbeddableContent\Fetch;
  */
 final class CommonsMetadataParser {
 
-	/** Cap on any extracted text field (form maxlengths / term limits). */
+	/** Cap on short extracted text fields (name/author/license/credit). */
 	private const TEXT_CAP = 250;
+
+	/**
+	 * Cap on the fetched description — matches the instance's raised term
+	 * limit (string-limits multilang length 2000, wbt_text VARBINARY(2000)).
+	 */
+	private const DESCRIPTION_CAP = 2000;
 
 	/**
 	 * @param array<string,mixed> $imageInfo one `imageinfo` row
@@ -26,8 +32,10 @@ final class CommonsMetadataParser {
 	public static function fromImageInfo( array $imageInfo ): ImageMetadata {
 		$ext = $imageInfo['extmetadata'] ?? [];
 		return new ImageMetadata(
-			name: self::textField( $ext, 'ObjectName' ) ?? self::textField( $ext, 'ImageDescription' ),
-			description: self::textField( $ext, 'ImageDescription' ),
+			name: self::normalizeDestName(
+				self::textField( $ext, 'ObjectName' ) ?? self::textField( $ext, 'ImageDescription' )
+			),
+			description: self::textField( $ext, 'ImageDescription', self::DESCRIPTION_CAP ),
 			author: self::textField( $ext, 'Artist' ),
 			licenseLabel: self::textField( $ext, 'LicenseShortName' ),
 			credit: self::textField( $ext, 'Credit' ),
@@ -43,11 +51,12 @@ final class CommonsMetadataParser {
 
 	/**
 	 * Extracts one `extmetadata` value: HTML-stripped, entity-decoded,
-	 * whitespace-collapsed and length-capped. Null when absent/empty.
+	 * whitespace-collapsed and length-capped (at a sentence boundary when the
+	 * cap is exceeded — never mid-sentence). Null when absent/empty.
 	 *
 	 * @param array<string,mixed> $ext metadata the `extmetadata` map
 	 */
-	private static function textField( array $ext, string $key ): ?string {
+	private static function textField( array $ext, string $key, int $cap = self::TEXT_CAP ): ?string {
 		$value = $ext[$key]['value'] ?? null;
 		if ( !is_string( $value ) || $value === '' ) {
 			return null;
@@ -61,6 +70,58 @@ final class CommonsMetadataParser {
 		if ( $text === '' ) {
 			return null;
 		}
-		return mb_substr( $text, 0, self::TEXT_CAP );
+		return self::truncateAtSentenceBoundary( $text, $cap );
+	}
+
+	/**
+	 * Length-caps a text field at $cap, cutting at the last sentence-ending
+	 * punctuation (". ", "! ", "? ") inside the cap when one exists past the
+	 * first 100 chars — a fetched summary never ends mid-sentence. Hard cut
+	 * when the text has no earlier sentence boundary.
+	 */
+	private static function truncateAtSentenceBoundary( string $text, int $cap ): string {
+		if ( mb_strlen( $text ) <= $cap ) {
+			return $text;
+		}
+		$slice = mb_substr( $text, 0, $cap );
+		$last = -1;
+		foreach ( [ '. ', '! ', '? ' ] as $sep ) {
+			$pos = mb_strrpos( $slice, $sep );
+			if ( $pos !== false && $pos > $last ) {
+				$last = $pos;
+			}
+		}
+		if ( $last >= 100 ) {
+			return mb_substr( $slice, 0, $last + 1 );
+		}
+		return $slice;
+	}
+
+	/**
+	 * Destination-file-name normalization for the fetched ObjectName:
+	 * lowercase, whitespace runs → single dashes, MediaWiki-illegal filename
+	 * characters (`#<>[]|{}:`) stripped, a trailing extension preserved.
+	 * Mirrors the JS normalizeDestName in resources/uploadmeta.js and the
+	 * cleaning in ImageUploadHelper::destName. Null when nothing usable
+	 * remains.
+	 */
+	public static function normalizeDestName( ?string $name ): ?string {
+		if ( $name === null ) {
+			return null;
+		}
+		$name = trim( $name );
+		if ( $name === '' ) {
+			return null;
+		}
+		$ext = (string)pathinfo( $name, PATHINFO_EXTENSION );
+		$base = $ext === '' ? $name : substr( $name, 0, -( strlen( $ext ) + 1 ) );
+		$base = mb_strtolower( $base, 'UTF-8' );
+		$base = (string)preg_replace( '/[#<>\[\]|{}:]/u', '', $base );
+		$base = trim( (string)preg_replace( '/\s+/u', ' ', $base ) );
+		$base = (string)preg_replace( '/\s/u', '-', $base );
+		if ( $base === '' ) {
+			return null;
+		}
+		return $ext === '' ? $base : $base . '.' . strtolower( $ext );
 	}
 }
