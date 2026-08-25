@@ -192,6 +192,10 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   step of multi-line textareas with `from {source}:` attributions, then
   written to content-driven per-class `Source:`/`Person:` page skeletons
   (sections only when content exists; no blank scaffolds, no See also).
+  When NO content was fetched, the item description is the page's
+  placeholder lead — `== Overview ==` for Person/Collective/FOSS and the
+  section-based Source classes, a heading-less intro for
+  website/youtubeChannel (`pageSkeleton` contract, E2E-asserted).
 - **AddSource scholarlyArticle (follow-up)**: entity-only **Journal**
   (new `journal (entity)` property, P1433-aligned; the citation source map
   `container-title` points at it), access toggle gains an **N/A** mode,
@@ -225,13 +229,21 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   w/api.php?origin=*` — CORS-open, residential IP) with server-side fallback;
   other hosts use the SSRF-guarded server API. A Wikimedia URL-mode upload is
   converted at submit time into a browser-supplied file upload (429 blob
-  fallback, 50 MB client-side cap). `includes/Upload/ImageUploadHelper` owns
+  fallback, 100 MB client-side cap — `MAX_BLOB_BYTES`, matched to
+  `$wgMaxUploadSize['url']`). The modules driving this (entitysuggest +
+  uploadmeta) are loaded on the Add\* pages AND on Special:Upload
+  (`Hooks::onBeforePageDisplay`, `$title->isSpecial('Upload')`) — without
+  that the validate button never rendered and the blob fallback never fired
+  on Special:Upload (follow-up fix; the submit-time URL-mode check is
+  case-normalised because Special:Upload's core radios are `Url`/`File`, not
+  lowercase `url`). `includes/Upload/ImageUploadHelper` owns
   the shared portrait/logo field specs + upload path (mode toggle, collapse
   "I will upload a {image}" checkbox, license combobox, free-text author +
   license-info, dest naming, verify+performUpload) — AddPerson portrait and
   AddSoftware logo use it; AddSoftware's logo gained the mandatory license.
   `UploadHooks` (Special:Upload): semantic license combobox replacing the
-  core dropdown, author/license-info fields, single max-size note, File-page
+  core dropdown, author/license-info fields, single max-size note + a URL-cap
+  note (per-key `$wgMaxUploadSize`: file 1 GiB, url 100 MB), File-page
   attribution block (`[[Q42|label]]`, never a `{{Q42}}` template call), and
   marker-gated `UploadComplete` item-per-upload via `ImageItemCreator`
   (sitelinked `image`-class item with image/license/imageAuthor/
