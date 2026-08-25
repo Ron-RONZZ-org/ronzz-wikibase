@@ -201,3 +201,22 @@ Regression coverage: PHPUnit 346 (new `CommonsMetadataParser` cases for the
 E2E gains a served-module-source guard (`flow_uploadmeta_module_source`) that
 asserts the uploaded `uploadmeta.js` contains the hostname parse, the 2000
 cap and `normalizeDestName` — the JS-side fixes a curl E2E cannot execute.
+
+## Follow-up fixes round 3 (Aug 25 2026, PR #54)
+
+Three further bugs from live testing:
+
+- **Blob-fallback resubmit dropped the submit button**: native `$form[0].submit()`
+  does not include the submit button's name/value; Special:Upload's core gates
+  processing on `getCheck('wpUpload')` (`UploadForm::setSubmitName('wpUpload')`),
+  so the converted Wikimedia→file resubmit re-rendered the form ("page
+  refreshes, nothing uploaded"). The fallback now replicates the form's
+  submit button(s) as hidden fields before the native resubmit.
+- **Raw `help` message key**: MW 1.46 treats `'help'` as raw HTML (deprecated
+  since 1.43) — the license combobox passed a message KEY, rendering the bare
+  key string. Switched to `'help-message'` in `UploadHooks` and
+  `ImageUploadHelper::licenseField`.
+- **All file types**: `UploadMetadataFetcher::probeGeneric` accepts non-image
+  MIME (MIME + byte size for PDF/video/audio; pixel dims only for images); the
+  validate preview is image-gated; the Special:Upload `Image author` label →
+  `Author` (en/fr/eo).
