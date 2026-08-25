@@ -153,7 +153,6 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 				'error' => 'embeddablecontent-collective-logo-error',
 				'licenseRequired' => 'embeddablecontent-collective-logo-license-required',
 				'editSummary' => 'embeddablecontent-collective-logo-edit-summary',
-				'viaPage' => 'Special:AddCollective',
 			],
 			fn ( array $record ) => $this->primaryLabel( $record )
 		);

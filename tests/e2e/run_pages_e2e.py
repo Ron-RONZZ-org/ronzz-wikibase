@@ -1086,6 +1086,28 @@ def flow_upload_special_form(op, base: str) -> None:
         raise FlowError("Special:Upload URL field missing the validate-button wiring span")
 
 
+def flow_uploadmeta_module_source(op, base: str) -> None:
+    """Regression guards on the SERVED uploadmeta module source. The three
+    upload follow-up fixes are JS-side (browser blob fallback, dest-name
+    normalization, description cap) — a curl E2E cannot execute them, so
+    assert the shipped source (load.php?debug=true = unminified): the
+    submit-time HOSTNAME parse (the Wikimedia 429 fceb99d fix — passing the
+    full URL to isWikimediaHost made the blob fallback never fire), the
+    2000-char description cap, and the normalizeDestName helper."""
+    _, body = page_get(op, base,
+        "/load.php?modules=ext.embeddableContent.uploadmeta&lang=en&skin=vector&debug=true")
+    if "new URL( url ).hostname" not in body:
+        raise FlowError("uploadmeta module: submit handler missing the hostname parse "
+                        "(Wikimedia 429 blob-fallback fix)")
+    if "isWikimediaHost( url )" in body:
+        raise FlowError("uploadmeta module: submit handler still passes the FULL URL to "
+                        "isWikimediaHost (Wikimedia 429 blob-fallback regression)")
+    if "DESCRIPTION_CAP = 2000" not in body:
+        raise FlowError("uploadmeta module: description cap not raised to 2000")
+    if "normalizeDestName" not in body:
+        raise FlowError("uploadmeta module: dest-name normalization helper missing")
+
+
 def flow_upload_special_item(op, base: str, api: str, license_qid: str) -> str:
     """Special:Upload form submission (upload enhancements): uploads a 1x1
     PNG with the license combobox value (item id), author + license info,
@@ -2080,6 +2102,9 @@ def main() -> int:
         flow_upload_special_form(op, base)
         print("[ok] Special:Upload form: semantic license combobox, author/license-info "
               "fields, single 'Maximum file size' note, validate wiring")
+        flow_uploadmeta_module_source(op, base)
+        print("[ok] uploadmeta module source: hostname parse (429 fix), 2000-char cap, "
+              "dest-name normalization")
         upload_qid = flow_upload_special_item(op, base, api, license_item)
         upload_qid = track(upload_qid)
         print(f"[ok] Special:Upload -> {upload_qid}: image item + statements + "

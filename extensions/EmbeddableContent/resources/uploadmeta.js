@@ -36,6 +36,13 @@
 	/** Must match $wgMaxUploadSize['url'] (deploy config) — see README/runbook. */
 	var MAX_BLOB_BYTES = 100 * 1024 * 1024;
 
+	/**
+	 * Cap on the fetched description — matches the instance's raised term
+	 * limit (string-limits multilang length 2000). Mirrors the PHP
+	 * CommonsMetadataParser::DESCRIPTION_CAP.
+	 */
+	var DESCRIPTION_CAP = 2000;
+
 	/** Wikimedia API hosts whose JSON + image bytes are browser-readable. */
 	function isWikimediaHost( host ) {
 		host = String( host || '' ).toLowerCase();
@@ -75,18 +82,69 @@
 		return ( 'File:' + name ).replace( /_/g, ' ' ).replace( /\s+/g, ' ' ).trim();
 	}
 
-	/** Commons extmetadata values are HTML fragments — strip + collapse. */
-	function cleanText( value ) {
+	/** Commons extmetadata values are HTML fragments — strip + collapse.
+	 * Optionally length-caps at $cap (default 250), cutting at the last
+	 * sentence-ending punctuation inside the cap when one exists past the
+	 * first 100 chars — a fetched summary never ends mid-sentence. Mirrors
+	 * the PHP CommonsMetadataParser. */
+	function cleanText( value, cap ) {
 		if ( !value ) {
 			return '';
 		}
+		cap = cap || 250;
 		var text = String( value );
 		if ( typeof document !== 'undefined' ) {
 			var div = document.createElement( 'div' );
 			div.innerHTML = text;
 			text = div.textContent || div.innerText || '';
 		}
-		return text.replace( /\s+/g, ' ' ).trim().slice( 0, 250 );
+		text = text.replace( /\s+/g, ' ' ).trim();
+		if ( text.length <= cap ) {
+			return text;
+		}
+		var slice = text.slice( 0, cap );
+		var last = -1;
+		[ '. ', '! ', '? ' ].forEach( function ( sep ) {
+			var pos = slice.lastIndexOf( sep );
+			if ( pos > last ) {
+				last = pos;
+			}
+		} );
+		if ( last >= 100 ) {
+			return slice.slice( 0, last + 1 );
+		}
+		return slice;
+	}
+
+	/** Destination-file-name normalization for the fetched ObjectName:
+	 * lowercase, whitespace runs → single dashes, MediaWiki-illegal filename
+	 * characters (#<>[]|{}:) stripped, a trailing extension preserved.
+	 * Mirrors the PHP CommonsMetadataParser::normalizeDestName. Empty when
+	 * nothing usable remains (the field is left untouched). */
+	function normalizeDestName( name ) {
+		if ( !name ) {
+			return '';
+		}
+		name = String( name ).trim();
+		if ( !name ) {
+			return '';
+		}
+		var ext = '';
+		var base = name;
+		var dot = name.lastIndexOf( '.' );
+		if ( dot > 0 && dot < name.length - 1 ) {
+			ext = name.slice( dot + 1 );
+			base = name.slice( 0, dot );
+		}
+		base = base.toLowerCase()
+			.replace( /[#<>[\]|{}:]/g, '' )
+			.replace( /\s+/g, ' ' )
+			.trim()
+			.replace( / /g, '-' );
+		if ( !base ) {
+			return '';
+		}
+		return ext ? base + '.' + ext.toLowerCase() : base;
 	}
 
 	function fieldVal( cfg, key ) {
@@ -157,7 +215,13 @@
 	function applyMeta( cfg, meta, $preview ) {
 		var name = fieldVal( cfg, 'name' );
 		if ( name && meta.name ) {
-			name.set( meta.name );
+			// Destination-file name: normalized (lowercase, space→dash) —
+			// the fetched ObjectName is Title Case with spaces; MediaWiki
+			// appends the extension from MIME when missing.
+			var normalized = normalizeDestName( meta.name );
+			if ( normalized ) {
+				name.set( normalized );
+			}
 		}
 		var description = fieldVal( cfg, 'description' );
 		if ( description && meta.description ) {
@@ -247,7 +311,7 @@
 				return {
 					name: cleanText( ext.ObjectName && ext.ObjectName.value ) ||
 						cleanText( ext.ImageDescription && ext.ImageDescription.value ),
-					description: cleanText( ext.ImageDescription && ext.ImageDescription.value ),
+					description: cleanText( ext.ImageDescription && ext.ImageDescription.value, DESCRIPTION_CAP ),
 					author: cleanText( ext.Artist && ext.Artist.value ),
 					license: cleanText( ext.LicenseShortName && ext.LicenseShortName.value ),
 					credit: cleanText( ext.Credit && ext.Credit.value ),
@@ -303,7 +367,19 @@
 			var $form = $url.closest( 'form' );
 			$form.on( 'submit', function ( e ) {
 				var url = String( $url.val() || '' ).trim();
-				if ( !url || !isWikimediaHost( url ) || !cfg.fileField || !cfg.modeField ) {
+				// isWikimediaHost() takes a HOSTNAME — the full URL never
+				// matches (a file URL ends with its name, not
+				// .wikimedia.org). Passing the full URL here made the blob
+				// fallback never fire and the server-side UploadFromUrl drew
+				// the Wikimedia 429 (fceb99d). Parse first, mirroring
+				// extractFileTitle().
+				var host;
+				try {
+					host = new URL( url ).hostname;
+				} catch ( err ) {
+					return true;
+				}
+				if ( !host || !isWikimediaHost( host ) || !cfg.fileField || !cfg.modeField ) {
 					return true;
 				}
 				// The URL-mode radio value differs across surfaces: the Add*
