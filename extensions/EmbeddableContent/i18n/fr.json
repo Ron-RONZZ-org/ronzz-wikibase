@@ -287,7 +287,7 @@
 	"embeddablecontent-upload-url-maxsize": "Taille maximale pour un téléversement par URL : $1",
 	"embeddablecontent-upload-license": "Licence",
 	"embeddablecontent-upload-license-help": "Choisissez la licence du fichier, ou tapez pour rechercher parmi les licences de l'instance.",
-	"embeddablecontent-upload-author": "Auteur de l'image",
+	"embeddablecontent-upload-author": "Auteur",
 	"embeddablecontent-upload-licenseinfo": "Informations supplémentaires sur la licence",
 	"embeddablecontent-upload-attribution-header": "Attribution",
 	"embeddablecontent-upload-attribution-author": "Auteur",

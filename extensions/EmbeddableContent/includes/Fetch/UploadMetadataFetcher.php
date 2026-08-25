@@ -110,7 +110,9 @@ final class UploadMetadataFetcher {
 
 	/**
 	 * Generic probe: one capped GET → response headers (MIME, Content-Length)
-	 * + image-header bytes → getimagesize() for the pixel dimensions.
+	 * + body header bytes → getimagesize() for the pixel dimensions (only
+	 * meaningful for raster/vector images — non-image files report MIME +
+	 * byte size without dimensions).
 	 */
 	private function probeGeneric( string $url, float $timeout ): ImageMetadata {
 		$warnings = [];
@@ -132,14 +134,6 @@ final class UploadMetadataFetcher {
 			$sniffed = @getimagesizefromstring( $body );
 			$mime = is_array( $sniffed ) ? (string)( $sniffed['mime'] ?? '' ) : null;
 		}
-		if ( $mime === null || strpos( $mime, 'image/' ) !== 0 ) {
-			$warnings[] = 'the URL does not appear to serve an image';
-			return new ImageMetadata(
-				name: null, description: null, author: null, licenseLabel: null,
-				credit: null, width: null, height: null, fileSize: null,
-				mime: $mime, thumbUrl: null, sourceUrl: $url, warnings: $warnings
-			);
-		}
 
 		$size = $this->header( $headers, 'content-length' );
 		$fileSize = $size !== null && ctype_digit( $size ) ? (int)$size : null;
@@ -147,14 +141,18 @@ final class UploadMetadataFetcher {
 			$warnings[] = 'server did not report a file size';
 		}
 
-		$dimensions = @getimagesizefromstring( $body );
-		if ( is_array( $dimensions ) && isset( $dimensions[0], $dimensions[1] ) && $dimensions[0] > 0 && $dimensions[1] > 0 ) {
-			$width = $dimensions[0];
-			$height = $dimensions[1];
-		} else {
-			$width = null;
-			$height = null;
-			$warnings[] = 'could not read the image dimensions (the probe is capped at ' . self::PROBE_BYTES . ' bytes)';
+		// Pixel dimensions only for image payloads (PDF/video/audio have
+		// none); the MIME + byte size are reported for every file type.
+		$width = null;
+		$height = null;
+		if ( $mime !== null && strpos( $mime, 'image/' ) === 0 ) {
+			$dimensions = @getimagesizefromstring( $body );
+			if ( is_array( $dimensions ) && isset( $dimensions[0], $dimensions[1] ) && $dimensions[0] > 0 && $dimensions[1] > 0 ) {
+				$width = $dimensions[0];
+				$height = $dimensions[1];
+			} else {
+				$warnings[] = 'could not read the image dimensions (the probe is capped at ' . self::PROBE_BYTES . ' bytes)';
+			}
 		}
 
 		return new ImageMetadata(

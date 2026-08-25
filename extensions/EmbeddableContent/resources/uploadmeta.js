@@ -248,17 +248,23 @@
 			} );
 		}
 
-		// Preview thumbnail + pixel size + byte size.
+		// Preview thumbnail + pixel size + byte size. Non-image files
+		// (PDF/video/audio) get no <img> and no pixel line — only the byte
+		// size (and the MIME when known).
 		var html = '';
-		if ( meta.thumbUrl || meta.sourceUrl ) {
+		var isImage = meta.mime ? String( meta.mime ).indexOf( 'image/' ) === 0 : false;
+		if ( ( meta.thumbUrl || meta.sourceUrl ) && isImage ) {
 			html += '<img src="' + mw.html.escape( meta.thumbUrl || meta.sourceUrl ) + '" alt="" loading="lazy">';
 		}
 		var bits = [];
-		if ( meta.width && meta.height ) {
+		if ( isImage && meta.width && meta.height ) {
 			bits.push( meta.width + ' × ' + meta.height + ' px' );
 		}
 		if ( meta.fileSize ) {
 			bits.push( formatBytes( meta.fileSize ) );
+		}
+		if ( meta.mime && !isImage ) {
+			bits.push( meta.mime );
 		}
 		if ( bits.length ) {
 			html += '<div class="wb-uploadmeta-size">' + mw.html.escape( bits.join( ' · ' ) ) + '</div>';
@@ -430,6 +436,24 @@
 					if ( !$form.find( 'input[name="wbUploadmetaSourceUrl"]' ).length ) {
 						$form.append( $( '<input type="hidden" name="wbUploadmetaSourceUrl">' ).val( url ) );
 					}
+					// The native submit() drops the submit BUTTON's name/value
+					// (only a real click sends it), and Special:Upload's core
+					// gates processing on the button: UploadForm sets
+					// setSubmitName('wpUpload') and loadRequest() only
+					// proceeds when getCheck('wpUpload') — without it the
+					// resubmit re-renders the form ("page refreshes, nothing
+					// uploaded"). Replicate the submit button as a hidden
+					// field so the converted file upload actually processes.
+					$form.find( 'input[type="submit"], button[type="submit"]' ).each( function () {
+						var $btn = $( this );
+						var btnName = $btn.attr( 'name' );
+						if ( !btnName ) {
+							return;
+						}
+						if ( !$form.find( 'input[type="hidden"][name="' + btnName + '"]' ).length ) {
+							$form.append( $( '<input type="hidden">' ).attr( 'name', btnName ).val( $btn.val() || '1' ) );
+						}
+					} );
 					$status.hide();
 					// Native submit() bypasses this handler — no loop.
 					$form[ 0 ].submit();

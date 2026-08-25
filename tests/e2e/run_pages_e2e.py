@@ -1073,6 +1073,14 @@ def flow_upload_special_form(op, base: str) -> None:
         raise FlowError("Special:Upload missing the image-author field")
     if 'id="wpUploadLicenseInfo"' not in body:
         raise FlowError("Special:Upload missing the additional-license-info field")
+    # The license help must render as the translated TEXT, never the raw
+    # message key — MW 1.46 treats 'help' as raw HTML; the field uses
+    # 'help-message' (a bare key string rendered verbatim before the fix).
+    if "embeddablecontent-upload-license-help" in body:
+        raise FlowError("Special:Upload renders the raw license-help message key")
+    if "Pick the license of the file" not in body:
+        raise FlowError("Special:Upload license help text not rendered "
+                        "(raw key instead of translated help)")
     # The single "Maximum file size" note (the duplicated parentheticals
     # are gone — the URL field's note slot carries the wiring span + the
     # URL-cap note).
@@ -1106,6 +1114,14 @@ def flow_uploadmeta_module_source(op, base: str) -> None:
         raise FlowError("uploadmeta module: description cap not raised to 2000")
     if "normalizeDestName" not in body:
         raise FlowError("uploadmeta module: dest-name normalization helper missing")
+    # The blob-fallback resubmit must replicate the submit BUTTON's
+    # name/value: native submit() drops it, and Special:Upload's core gates
+    # processing on getCheck('wpUpload') — without the hidden replication the
+    # converted file upload re-renders the form ("page refreshes, nothing
+    # uploaded").
+    if 'input[type="submit"]' not in body or "wbUploadmetaSourceUrl" not in body:
+        raise FlowError("uploadmeta module: blob-fallback submit-button replication missing "
+                        "(Special:Upload wpUpload gate regression)")
 
 
 def flow_upload_special_item(op, base: str, api: str, license_qid: str) -> str:

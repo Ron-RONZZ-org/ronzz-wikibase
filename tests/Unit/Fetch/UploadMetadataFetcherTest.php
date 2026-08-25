@@ -43,13 +43,28 @@ final class UploadMetadataFetcherTest extends TestCase {
 		$this->assertSame( 'https://cdn.example.com/logo.png', $meta->sourceUrl );
 	}
 
-	public function testNonImageContentTypeWarns(): void {
-		$fetcher = new UploadMetadataFetcher( $this->transport( 'text/html', '<html></html>', '4' ) );
-		$meta = $fetcher->fetch( 'https://cdn.example.com/page.html' );
+	public function testNonImageContentTypeKeepsMimeAndSize(): void {
+		// Any file type (PDF/video/audio/HTML) must be reported with its MIME
+		// + byte size — the "all file types" support; only pixel dimensions
+		// are image-specific.
+		$fetcher = new UploadMetadataFetcher( $this->transport( 'application/pdf', '%PDF-1.4 test', '2048' ) );
+		$meta = $fetcher->fetch( 'https://cdn.example.com/doc.pdf' );
 
 		$this->assertNull( $meta->width );
+		$this->assertNull( $meta->height );
+		$this->assertSame( 'application/pdf', $meta->mime );
+		$this->assertSame( 2048, $meta->fileSize );
+		$this->assertSame( [], $meta->warnings );
+	}
+
+	public function testNonImageWithoutContentLengthWarnsOnlyOnSize(): void {
+		$fetcher = new UploadMetadataFetcher( $this->transport( 'video/mp4', 'fake-mp4-bytes' ) );
+		$meta = $fetcher->fetch( 'https://cdn.example.com/clip.mp4' );
+
+		$this->assertNull( $meta->width );
+		$this->assertNull( $meta->fileSize );
+		$this->assertSame( 'video/mp4', $meta->mime );
 		$this->assertNotSame( [], $meta->warnings );
-		$this->assertSame( 'text/html', $meta->mime );
 	}
 
 	public function testMissingContentLengthWarnsButKeepsDimensions(): void {

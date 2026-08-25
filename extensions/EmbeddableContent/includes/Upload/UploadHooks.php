@@ -55,7 +55,9 @@ final class UploadHooks {
 			'id' => 'wpLicense',
 			'label-message' => 'embeddablecontent-upload-license',
 			'cssclass' => 'wb-entity-combobox',
-			'help' => 'embeddablecontent-upload-license-help',
+			// MW 1.46: 'help' is raw HTML (deprecated); 'help-message' is the
+			// key form — the bare key string rendered verbatim before.
+			'help-message' => 'embeddablecontent-upload-license-help',
 		];
 		$descriptor['UploadAuthor'] = [
 			'type' => 'text',

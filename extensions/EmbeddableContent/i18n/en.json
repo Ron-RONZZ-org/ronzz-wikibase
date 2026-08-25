@@ -287,7 +287,7 @@
 	"embeddablecontent-upload-url-maxsize": "Maximum URL upload: $1",
 	"embeddablecontent-upload-license": "License",
 	"embeddablecontent-upload-license-help": "Pick the license of the file, or type to search the instance's license items.",
-	"embeddablecontent-upload-author": "Image author",
+	"embeddablecontent-upload-author": "Author",
 	"embeddablecontent-upload-licenseinfo": "Additional license information",
 	"embeddablecontent-upload-attribution-header": "Attribution",
 	"embeddablecontent-upload-attribution-author": "Author",
