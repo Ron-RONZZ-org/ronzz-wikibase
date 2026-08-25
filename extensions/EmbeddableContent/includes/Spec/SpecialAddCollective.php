@@ -211,15 +211,21 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 	}
 
 	/**
-	 * Collective: page skeleton — only sections with content are rendered
-	 * (collectives currently fetch none, so the page is the template alone;
-	 * the contributor adds sections by editing).
+	 * Collective: page skeleton — the template + the item description as an
+	 * == Overview == placeholder when one is available (collectives currently
+	 * fetch no page content, so the description is the lead; the contributor
+	 * adds sections by editing).
 	 *
 	 * @param array<string,mixed> $record
 	 */
 	protected function pageSkeleton( array $record, bool $withMarker = false ): string {
 		$marker = $withMarker ? "\n<!-- " . $this->pagePendingMarker() . " -->\n" : "";
-		return "{{Collective}}\n\n" . $marker;
+		$body = "{{Collective}}\n\n";
+		$overview = trim( (string)( $record['description'] ?? '' ) );
+		if ( $overview !== '' ) {
+			$body .= "== Overview ==\n\n{$overview}\n\n";
+		}
+		return $body . $marker;
 	}
 
 	protected function classOptions(): array {
