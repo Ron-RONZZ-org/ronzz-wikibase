@@ -43,7 +43,9 @@ attribution that the form could not capture.
 - **Blob-size guard**: the browser-blob path is limited client-side to 100 MB
   (`MAX_BLOB_BYTES`, matched to `$wgMaxUploadSize['url']`); larger Wikimedia
   images show a guided "save it to your device and upload it" message.
-  `$wgMaxUploadSize` is per-key: file uploads stay at 1 GiB, URL uploads are
+  `$wgMaxUploadSize` is per-key (MW 1.46 array form: `'*'` wildcard for the
+  general default — without it `getMaxUploadSize()` returns null and siteinfo
+  `maxuploadsize` is null): file uploads stay at 1 GiB, URL uploads are
   capped at 100 MB (the browser-blob fallback re-posts as a file upload, and
   `UploadFromUrl` honours the same URL cap).
 
@@ -133,10 +135,11 @@ module-loading gap and a case-comparison bug:
   and the server still downloaded the Wikimedia bytes (the `fceb99d` 429).
   The comparison is now case-normalised.
 - **URL upload cap**: URL uploads are capped at 100 MB (per-key
-  `$wgMaxUploadSize['url']`; the browser-blob guard `MAX_BLOB_BYTES` matches;
-  the URL field shows its own size note). The original batch shipped a 50 MB
-  client-side guard with a 1 GB server cap — inconsistent with the 100 MB
-  PHP/URL intent.
+  `$wgMaxUploadSize['url']` with the `'*'` wildcard kept at 1 GiB — MW 1.46's
+  array form needs `'*'` for the general default; the browser-blob guard
+  `MAX_BLOB_BYTES` matches; the URL field shows its own size note). The
+  original batch shipped a 50 MB client-side guard with a 1 GB server cap —
+  inconsistent with the 100 MB PHP/URL intent.
 - **License combobox "native" formatting**: with `entitysuggest` loaded on
   Special:Upload the license combobox gains the same entity autocomplete
   (wbsearchentities, `Q42 — Label (description)` options) as the Add\*

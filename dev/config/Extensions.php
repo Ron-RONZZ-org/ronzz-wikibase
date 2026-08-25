@@ -144,11 +144,15 @@ $wgCopyUploadTimeout = 60;
 
 // ---- URL upload size cap (mirrors production; dev PHP caps at 100M anyway) ----
 // URL uploads (UploadFromUrl + the browser-blob fallback) are capped at
-// 100 MB; file uploads keep the general cap. Production sets file=1 GiB,
-// url=100 MB (see RonzzIT:Deployment/Wikibase §Uploads/media). The dev
-// php-fpm pool already caps everything at 100M (wikibase-php.ini), so this
-// makes the URL cap explicit and exercises the same code path as production.
+// 100 MB; file uploads keep the general cap. MW 1.46's array form needs a
+// '*' wildcard for the general/default limit (getMaxUploadSize() without a
+// type reads $wgMaxUploadSize['*'] — without it siteinfo maxuploadsize is
+// null). Production sets '*'-file=1 GiB, url=100 MB (see
+// RonzzIT:Deployment/Wikibase §Uploads/media). The dev php-fpm pool already
+// caps everything at 100M (wikibase-php.ini), so this makes the URL cap
+// explicit and exercises the same code path as production.
 $wgMaxUploadSize = [
+	'*' => 100 * 1024 * 1024,
 	'file' => 100 * 1024 * 1024,
 	'url' => 100 * 1024 * 1024,
 ];
