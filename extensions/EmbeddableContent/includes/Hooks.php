@@ -88,6 +88,18 @@ class Hooks {
 			return;
 		}
 
+		// Special:Upload — the semantic license combobox needs the entity
+		// autocomplete (native formatting, same as the Add* pages) and the
+		// URL validate button + 429 blob fallback. The wiring span is
+		// rendered by UploadHooks::onUploadFormSourceDescriptors; these
+		// modules make it functional. Without them the combobox is a plain
+		// OOUI widget and the validate button never renders.
+		if ( $title->isSpecial( 'Upload' ) ) {
+			$out->addModules( 'ext.embeddableContent.entitysuggest' );
+			$out->addModules( 'ext.embeddableContent.uploadmeta' );
+			return;
+		}
+
 		$namespaceLookup = WikibaseRepo::getEntityNamespaceLookup();
 		$itemNamespace = $namespaceLookup->getEntityNamespace( Item::ENTITY_TYPE );
 		if ( $itemNamespace === false || $title->getNamespace() !== $itemNamespace ) {

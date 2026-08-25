@@ -385,7 +385,8 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 	/**
 	 * Person: page skeleton — prose lives on the page, facts in the item.
 	 * Only sections with (reviewed) content are rendered: the Wikipedia
-	 * Biography when fetched, never an empty scaffold.
+	 * Biography when fetched; when none is available, the item's description
+	 * is the == Overview == placeholder. Never an empty scaffold.
 	 *
 	 * @param array<string,mixed> $record
 	 */
@@ -395,6 +396,11 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 		$bio = trim( (string)( $record['biography'] ?? '' ) );
 		if ( $bio !== '' ) {
 			$body .= "== Biography ==\n\n" . $this->attributed( $record, 'biography', $bio ) . "\n\n";
+		} else {
+			$overview = trim( (string)( $record['description'] ?? '' ) );
+			if ( $overview !== '' ) {
+				$body .= "== Overview ==\n\n{$overview}\n\n";
+			}
 		}
 		return $body . $marker;
 	}

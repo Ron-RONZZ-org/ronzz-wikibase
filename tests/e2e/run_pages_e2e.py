@@ -223,6 +223,20 @@ def entity_descriptions(op, api: str, qid: str) -> str:
         .get("en", {}).get("value", "")
 
 
+def page_wikitext(op, api: str, page_title: str) -> str:
+    """Current wikitext of a page ('' when missing). Reads via
+    action=parse prop=wikitext — on a freshly created page the parse can
+    lag the afterCreate redirect by a beat, so retry like flow_final_item."""
+    for _ in range(15):
+        r = api_call(op, api, {"action": "parse", "page": page_title,
+                               "prop": "wikitext", "format": "json"})
+        text = r.get("parse", {}).get("wikitext", {}).get("*", "")
+        if text:
+            return text
+        time.sleep(2)
+    return ""
+
+
 def first_value(claims: dict, prop_id: str):
     for stmt in claims.get(prop_id, []):
         dv = stmt.get("mainsnak", {}).get("datavalue", {}).get("value")
@@ -640,6 +654,10 @@ def flow_person_manual_autofill(op, base: str, api: str, name: str) -> tuple[str
     token2 = edit_token(body2)
     url3, body3 = page_post(op, url2, {
         "wpgivenName": given, "wpfamilyName": family,
+        # A description with no fetched biography: the Person: page must
+        # render it as the == Overview == placeholder (the description-
+        # as-placeholder contract, see SpecialAddPerson::pageSkeleton).
+        "wpdescription": "Person-flow E2E placeholder description",
         "wpEditToken": token2, "wpSubmit": "1",
     })
     qid = flow_final_item(op, base, api, url3, body3, "AddPerson/manual (autofill)")
@@ -910,18 +928,23 @@ def flow_source_book_access_url(op, base: str, api: str, label: str,
 
 
 def flow_source_book_access_na(op, base: str, api: str, label: str,
-                               author_qid: str) -> str:
+                               author_qid: str, description: str = "") -> str:
     """Access field, N/A mode (issue #35): no access statement is written —
-    the infobox access row must fall back to "N/A"."""
+    the infobox access row must fall back to "N/A". When a description is
+    given, the Source: page must carry it as the == Overview == placeholder
+    (no fetched content -> the item description is the page lead)."""
     page, body = page_get(op, base, "/wiki/Special:AddSource/book/manual")
     token = edit_token(body)
-    page, body = page_post(op, page, {
+    fields = {
         "wptitle": label,
         "wpauthors": author_qid,
         "wpaccessMode": "na",
         "wpEditToken": token,
         "wpSubmit": "1",
-    })
+    }
+    if description:
+        fields["wpdescription"] = description
+    page, body = page_post(op, page, fields)
     return flow_final_item(op, base, api, page, body, "AddSource/book/manual (access na)")
 
 
@@ -1031,10 +1054,18 @@ def flow_upload_special_form(op, base: str) -> None:
     _, body = page_get(op, base, "/wiki/Special:Upload")
     if "wpEditToken" not in body:
         raise FlowError(f"Special:Upload not usable (logged-in? got {len(body)} bytes)")
-    # The semantic license combobox: an OOUI combobox input carrying the
-    # wb-entity-combobox class, with preseed license options.
+    # The semantic license combobox: the OOUIComboboxField forces the OOUI
+    # widget inside the php-mode UploadForm — an infusable
+    # ComboBoxInputWidget carrying the wb-entity-combobox class + data-ooui
+    # (entity-suggest infuses it client-side) with the preseed license
+    # options. A plain `combobox` type would render an <input>+<datalist>
+    # with no entity autocomplete ("native formatting" regression).
+    if "oo-ui-comboBoxInputWidget" not in body:
+        raise FlowError("Special:Upload license field is not an OOUI combobox widget")
     if "wb-entity-combobox" not in body:
         raise FlowError("Special:Upload license field is not the semantic combobox")
+    if "data-ooui" not in body:
+        raise FlowError("Special:Upload license combobox missing data-ooui (not infusable)")
     if "CC BY-SA 4.0" not in body:
         raise FlowError("Special:Upload license combobox missing the preseed license options")
     # Author + additional-license-info fields.
@@ -1043,11 +1074,14 @@ def flow_upload_special_form(op, base: str) -> None:
     if 'id="wpUploadLicenseInfo"' not in body:
         raise FlowError("Special:Upload missing the additional-license-info field")
     # The single "Maximum file size" note (the duplicated parentheticals
-    # are gone — the URL field's note slot carries the wiring span).
+    # are gone — the URL field's note slot carries the wiring span + the
+    # URL-cap note).
     if body.count("Maximum file size") != 1:
         raise FlowError(
             f"Special:Upload 'Maximum file size' note appears {body.count('Maximum file size')} times, "
             f"expected exactly once")
+    if "Maximum URL upload" not in body:
+        raise FlowError("Special:Upload URL field missing the 100 MB URL-cap note")
     if body.count("wb-uploadmeta") < 1:
         raise FlowError("Special:Upload URL field missing the validate-button wiring span")
 
@@ -1509,8 +1543,15 @@ def main() -> int:
         assert first_value(claims, resolve("given name", "property")) == expected_given and \
             first_value(claims, resolve("family name", "property")) == expected_family, \
             f"{autofill_person} given/family statements not written from the autofill"
+        # Description-as-placeholder: no fetched biography -> the Person:
+        # page carries the item description as == Overview == (was a
+        # biography-only/empty scaffold before).
+        person_page = page_wikitext(op, api, f"Person:{derived}")
+        assert "== Overview ==" in person_page and \
+            "Person-flow E2E placeholder description" in person_page, \
+            f"Person:{derived} missing the description placeholder: {person_page[:200]!r}"
         print(f"[ok] AddPerson manual autofill -> {autofill_person}: name search prefilled "
-              f"given/family, label derived")
+              f"given/family, label derived, description placeholder on the page")
 
         # 2. AddSource (class-first) — DOI -> Crossref, scholarly article
         #    class fixed by the picker, harvested citation metadata, and the
@@ -1726,9 +1767,16 @@ def main() -> int:
         assert "https://example.org/e2e-access" in url_cell and "external" in url_cell, \
             f"url-mode access row not rendered as a clickable link: {url_cell}"
         na_label = f"Page-flow E2E access-na {int(time.time())}"
-        na_book = track(flow_source_book_access_na(op, base, api, na_label, person))
+        na_desc = "A regression-test book with no fetched content."
+        na_book = track(flow_source_book_access_na(op, base, api, na_label, person, na_desc))
         na_cell = source_access_cell(op, api, f"Source:{na_label}")
         assert "N/A" in na_cell, f"na-mode access row not 'N/A': {na_cell}"
+        # Description-as-placeholder: no fetched content -> the item
+        # description is the Source: page's == Overview == lead (was a
+        # template-only page before).
+        na_page = page_wikitext(op, api, f"Source:{na_label}")
+        assert "== Overview ==" in na_page and na_desc in na_page, \
+            f"Source:{na_label} missing the description placeholder: {na_page[:200]!r}"
         print("[ok] Source: access row: file -> Special:SourceFile link, "
               "URL -> clickable link, none -> N/A")
 
@@ -1852,7 +1900,19 @@ def main() -> int:
         assert first_value(claims, instance_of) in agent_classes, \
             f"{collective} instance-of not an agent class ({first_value(claims, instance_of)})"
         assert first_value(claims, wikidata_id_prop), f"{collective} missing Wikidata ID"
-        print(f"[ok] AddCollective -> {collective} ({label}): agent class + Wikidata ID")
+        # Description-as-placeholder: a collective carries no fetched page
+        # content, so its page shows the item description as == Overview ==
+        # (when the item has one) instead of a template-only page.
+        collective_desc = entity_descriptions(op, api, collective)
+        collective_page = page_wikitext(op, api, f"Collective:{label}")
+        if collective_desc:
+            assert "== Overview ==" in collective_page and collective_desc in collective_page, \
+                f"Collective:{label} missing the description placeholder: {collective_page[:200]!r}"
+        else:
+            assert "== Overview ==" not in collective_page, \
+                f"Collective:{label} has an Overview without a description: {collective_page[:200]!r}"
+        print(f"[ok] AddCollective -> {collective} ({label}): agent class + Wikidata ID, "
+              f"description placeholder on the page")
 
         # 3a. AddCollective manual — the optional "Parent organization"
         #     entity field (issue follow-up): a referenced item lands as a

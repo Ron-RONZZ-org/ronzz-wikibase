@@ -40,11 +40,12 @@ attribution that the form could not capture.
 - **No API key**: Wikimedia's APIs are keyless; a descriptive User-Agent
   (already sent) + the throttling/browser-side measures are the compliant
   fix. The "apply for an API key if needed" premise does not apply.
-- **Blob-size guard**: the browser-blob path is limited client-side to 50 MB
-  (`MAX_BLOB_BYTES`, matched to the JS); larger Wikimedia images show a
-  guided "save it to your device and upload it" message. `$wgMaxUploadSize`
-  is left at 1 GB — the server URL path still accepts up to 1 GB for
-  non-Wikimedia hosts.
+- **Blob-size guard**: the browser-blob path is limited client-side to 100 MB
+  (`MAX_BLOB_BYTES`, matched to `$wgMaxUploadSize['url']`); larger Wikimedia
+  images show a guided "save it to your device and upload it" message.
+  `$wgMaxUploadSize` is per-key: file uploads stay at 1 GiB, URL uploads are
+  capped at 100 MB (the browser-blob fallback re-posts as a file upload, and
+  `UploadFromUrl` honours the same URL cap).
 
 ### 2. Attribution storage: new string properties (the Add\* semantic model)
 
@@ -110,7 +111,36 @@ attribution that the form could not capture.
   note and drag-drop bypass are untouched by this change).
 - **Deployment**: D1 importers (2 properties + 1 class) + seed config
   re-emission (full vocabulary incl. `dogfood`; YouTube key preservation);
-  no LocalSettings change; on-wiki contributor guidance updated.
+  LocalSettings `$wgMaxUploadSize` per-key (file 1 GiB, url 100 MB);
+  on-wiki contributor guidance updated.
+
+## Follow-up fixes (same batch, Aug 25 2026)
+
+Two of the batch's fixes landed in follow-up because the first deploy left a
+module-loading gap and a case-comparison bug:
+
+- **Special:Upload module loading**: the `ext.embeddableContent.entitysuggest`
+  and `ext.embeddableContent.uploadmeta` modules were only loaded on the Add\*
+  pages (`SpecialAddExternalEntity::execute`); Special:Upload rendered the
+  wiring span but never the JS that makes it functional — the validate button
+  never appeared and the Wikimedia metadata/autofill never ran. Both modules
+  are now loaded on Special:Upload via `BeforePageDisplay`
+  (`Hooks::onBeforePageDisplay`, `$title->isSpecial('Upload')`).
+- **Blob-fallback case comparison**: the submit-time URL-mode check compared
+  the checked radio value against the literal `'url'`, but Special:Upload's
+  core radios are `Url`/`File` (the Add\* pages use lowercase `file`/`url`) —
+  so the Wikimedia URL→browser-file conversion never fired on Special:Upload
+  and the server still downloaded the Wikimedia bytes (the `fceb99d` 429).
+  The comparison is now case-normalised.
+- **URL upload cap**: URL uploads are capped at 100 MB (per-key
+  `$wgMaxUploadSize['url']`; the browser-blob guard `MAX_BLOB_BYTES` matches;
+  the URL field shows its own size note). The original batch shipped a 50 MB
+  client-side guard with a 1 GB server cap — inconsistent with the 100 MB
+  PHP/URL intent.
+- **License combobox "native" formatting**: with `entitysuggest` loaded on
+  Special:Upload the license combobox gains the same entity autocomplete
+  (wbsearchentities, `Q42 — Label (description)` options) as the Add\*
+  pages — the previously plain OOUI combobox.
 
 ## Field-type audit (requested in the same batch)
 

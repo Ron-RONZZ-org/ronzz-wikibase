@@ -34,7 +34,7 @@
 	'use strict';
 
 	/** Must match $wgMaxUploadSize['url'] (deploy config) — see README/runbook. */
-	var MAX_BLOB_BYTES = 50 * 1024 * 1024;
+	var MAX_BLOB_BYTES = 100 * 1024 * 1024;
 
 	/** Wikimedia API hosts whose JSON + image bytes are browser-readable. */
 	function isWikimediaHost( host ) {
@@ -306,7 +306,13 @@
 				if ( !url || !isWikimediaHost( url ) || !cfg.fileField || !cfg.modeField ) {
 					return true;
 				}
-				if ( $form.find( 'input[name="' + cfg.modeField + '"]:checked' ).val() !== 'url' ) {
+				// The URL-mode radio value differs across surfaces: the Add*
+				// pages use lowercase 'url', Special:Upload uses core's
+				// 'Url'. Normalise so the blob fallback fires on both.
+				var modeVal = String(
+					$form.find( 'input[name="' + cfg.modeField + '"]:checked' ).val() || ''
+				).toLowerCase();
+				if ( modeVal !== 'url' ) {
 					return true;
 				}
 				var known = lastMeta[ cfg.urlField ] || {};

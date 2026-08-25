@@ -973,7 +973,9 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 * Sections are rendered ONLY when the (reviewed) record carries their
 	 * content: no blank sections, no generic Overview/Content/See also
 	 * scaffolding. website/youtubeChannel take a short intro WITHOUT
-	 * headings; the other classes get their meaningful section(s).
+	 * headings; the other classes get their meaningful section(s). When NO
+	 * content was fetched, the item's description is the placeholder lead
+	 * (== Overview ==, or the short intro for website/youtubeChannel).
 	 *
 	 * @param array<string,mixed> $record
 	 */
@@ -985,19 +987,34 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		}
 		$body = "{{" . $template . "}}\n\n";
 		if ( in_array( $this->currentClassKey, [ 'website', 'youtubeChannel' ], true ) ) {
-			// Short intro prose, no headings.
+			// Short intro prose, no headings; the item description is the
+			// placeholder lead when no intro was fetched.
 			$intro = trim( (string)( $record['intro'] ?? '' ) );
 			if ( $intro !== '' ) {
 				$body .= $this->attributed( $record, 'intro', $intro ) . "\n\n";
+			} else {
+				$overview = trim( (string)( $record['description'] ?? '' ) );
+				if ( $overview !== '' ) {
+					$body .= $overview . "\n\n";
+				}
 			}
 			return $body . $marker;
 		}
+		$rendered = false;
 		foreach ( $this->pageSectionHeadings() as $key => $heading ) {
 			$content = trim( (string)( $record[$key] ?? '' ) );
 			if ( $content === '' ) {
 				continue;
 			}
 			$body .= "== {$heading} ==\n\n" . $this->attributed( $record, $key, $content ) . "\n\n";
+			$rendered = true;
+		}
+		if ( !$rendered ) {
+			// No fetched content — the item description is the placeholder lead.
+			$overview = trim( (string)( $record['description'] ?? '' ) );
+			if ( $overview !== '' ) {
+				$body .= "== Overview ==\n\n{$overview}\n\n";
+			}
 		}
 		return $body . $marker;
 	}

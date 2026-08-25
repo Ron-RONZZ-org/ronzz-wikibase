@@ -893,16 +893,24 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	}
 
 	/**
-	 * Default page skeleton: the kind's template + generic prose sections.
-	 * Subclasses with richer defaults (AddSoftware's FOSS infobox + logo
-	 * parameter) override.
+	 * Default page skeleton: the kind's template + the item description as an
+	 * == Overview == placeholder when one is available. Only sections with
+	 * content are rendered — no blank scaffolds, no See also (the page-flow
+	 * convention). Subclasses with richer defaults (AddSoftware's FOSS
+	 * infobox + logo parameter, the content-driven Source/Person skeletons)
+	 * override.
 	 *
 	 * @param array<string,mixed> $record
 	 */
 	protected function pageSkeleton( array $record, bool $withMarker = false ): string {
 		$marker = $withMarker ? "\n<!-- " . $this->pagePendingMarker() . " -->\n" : "";
-		return "{{" . $this->pageTemplate() . "}}\n\n== Overview ==\n\n<!-- What this is and why it matters. -->\n\n"
-			. "== See also ==\n" . $marker;
+		$template = $this->pageTemplate();
+		$body = $template !== '' ? "{{" . $template . "}}\n\n" : '';
+		$overview = trim( (string)( $record['description'] ?? '' ) );
+		if ( $overview !== '' ) {
+			$body .= "== Overview ==\n\n{$overview}\n\n";
+		}
+		return $body . $marker;
 	}
 
 	/** Edit-summary message for the page creation. */
