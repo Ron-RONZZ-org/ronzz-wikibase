@@ -99,11 +99,13 @@ final class CommonsMetadataParser {
 
 	/**
 	 * Destination-file-name normalization for the fetched ObjectName:
-	 * lowercase, whitespace runs → single dashes, MediaWiki-illegal filename
-	 * characters (`#<>[]|{}:`) stripped, a trailing extension preserved.
-	 * Mirrors the JS normalizeDestName in resources/uploadmeta.js and the
-	 * cleaning in ImageUploadHelper::destName. Null when nothing usable
-	 * remains.
+	 * lowercase, any word separator (spaces, underscores, camelCase/
+	 * PascalCase boundaries, existing dashes) → single dashes, and
+	 * MediaWiki-illegal filename characters (`#<>[]|{}:`) dropped; a
+	 * trailing extension is preserved (lowercased). Unicode-aware
+	 * (`\p{L}\p{N}`) so accented names like "École" survive. Mirrors the JS
+	 * normalizeDestName in resources/uploadmeta.js and the cleaning in
+	 * ImageUploadHelper::destName. Null when nothing usable remains.
 	 */
 	public static function normalizeDestName( ?string $name ): ?string {
 		if ( $name === null ) {
@@ -115,10 +117,14 @@ final class CommonsMetadataParser {
 		}
 		$ext = (string)pathinfo( $name, PATHINFO_EXTENSION );
 		$base = $ext === '' ? $name : substr( $name, 0, -( strlen( $ext ) + 1 ) );
+		// camelCase / PascalCase boundaries first ("nationalGeographic" →
+		// "national Geographic") — must run before lowercasing.
+		$base = (string)preg_replace( '/([\p{L}\p{N}])([\p{Lu}])/u', '$1 $2', $base );
 		$base = mb_strtolower( $base, 'UTF-8' );
-		$base = (string)preg_replace( '/[#<>\[\]|{}:]/u', '', $base );
-		$base = trim( (string)preg_replace( '/\s+/u', ' ', $base ) );
-		$base = (string)preg_replace( '/\s/u', '-', $base );
+		// Any run of non-letter/digit (space, underscore, dot, dash, illegal
+		// chars, …) is one word separator → a single dash.
+		$base = (string)preg_replace( '/[^\p{L}\p{N}]+/u', '-', $base );
+		$base = trim( $base, '-' );
 		if ( $base === '' ) {
 			return null;
 		}

@@ -117,10 +117,13 @@
 	}
 
 	/** Destination-file-name normalization for the fetched ObjectName:
-	 * lowercase, whitespace runs → single dashes, MediaWiki-illegal filename
-	 * characters (#<>[]|{}:) stripped, a trailing extension preserved.
-	 * Mirrors the PHP CommonsMetadataParser::normalizeDestName. Empty when
-	 * nothing usable remains (the field is left untouched). */
+	 * lowercase, any word separator (spaces, underscores, camelCase/
+	 * PascalCase boundaries, existing dashes) → single dashes, and
+	 * MediaWiki-illegal filename characters (#<>[]|{}:) dropped; a trailing
+	 * extension is preserved (lowercased). Unicode-aware so accented names
+	 * like "École" survive. Mirrors the PHP
+	 * CommonsMetadataParser::normalizeDestName. Empty when nothing usable
+	 * remains (the field is left untouched). */
 	function normalizeDestName( name ) {
 		if ( !name ) {
 			return '';
@@ -136,11 +139,14 @@
 			ext = name.slice( dot + 1 );
 			base = name.slice( 0, dot );
 		}
-		base = base.toLowerCase()
-			.replace( /[#<>[\]|{}:]/g, '' )
-			.replace( /\s+/g, ' ' )
-			.trim()
-			.replace( / /g, '-' );
+		// camelCase / PascalCase boundaries first — must run before
+		// lowercasing.
+		base = base.replace( /([\p{L}\p{N}])([\p{Lu}])/gu, '$1 $2' )
+			.toLowerCase()
+			// Any run of non-letter/digit (space, underscore, dot, dash,
+			// illegal chars, …) is one word separator → a single dash.
+			.replace( /[^\p{L}\p{N}]+/gu, '-' )
+			.replace( /^-+|-+$/g, '' );
 		if ( !base ) {
 			return '';
 		}

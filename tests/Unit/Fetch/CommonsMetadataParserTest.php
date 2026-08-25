@@ -132,6 +132,42 @@ final class CommonsMetadataParserTest extends TestCase {
 		$this->assertSame( 'a-b-c-d-e', $meta->name );
 	}
 
+	public function testDestNameNormalizesUnderscores(): void {
+		$meta = CommonsMetadataParser::fromImageInfo( [
+			'extmetadata' => [
+				'ObjectName' => [ 'value' => 'National_Geographic_Society_Administration_Building' ],
+			],
+		] );
+		$this->assertSame( 'national-geographic-society-administration-building', $meta->name );
+	}
+
+	public function testDestNameNormalizesPascalCase(): void {
+		$meta = CommonsMetadataParser::fromImageInfo( [
+			'extmetadata' => [
+				'ObjectName' => [ 'value' => 'NationalGeographicSocietyAdministrationBuilding' ],
+			],
+		] );
+		$this->assertSame( 'national-geographic-society-administration-building', $meta->name );
+	}
+
+	public function testDestNameNormalizesMixedSeparators(): void {
+		$meta = CommonsMetadataParser::fromImageInfo( [
+			'extmetadata' => [
+				'ObjectName' => [ 'value' => '  National--Geographic_Society Administration-Building.JPG' ],
+			],
+		] );
+		$this->assertSame( 'national-geographic-society-administration-building.jpg', $meta->name );
+	}
+
+	public function testDestNameKeepsAccentedLetters(): void {
+		$meta = CommonsMetadataParser::fromImageInfo( [
+			'extmetadata' => [
+				'ObjectName' => [ 'value' => 'École Nationale Supérieure' ],
+			],
+		] );
+		$this->assertSame( 'école-nationale-supérieure', $meta->name );
+	}
+
 	public function testDestNameEmptyWhenNothingUsable(): void {
 		$meta = CommonsMetadataParser::fromImageInfo( [
 			'extmetadata' => [
