@@ -154,3 +154,46 @@ appears-in (entity comboboxes), dates (time), external ids (strings), year
 (text → year-precision date statement), duration (text → quantity) — all
 correct. The places item in the todo was already implemented (2026-08-24,
 PR #34); this ADR records the audit outcome.
+
+## Follow-up fixes round 2 (Aug 25 2026, PR #51)
+
+Three reported bugs on `Special:Upload` + the Add\* file-page wording:
+
+- **Fetched summary truncated at 250 chars**: `CommonsMetadataParser::TEXT_CAP`
+  and the JS `cleanText` mirror both capped the fetched description at 250
+  while the term limit was raised to 2000 (`string-limits` length,
+  `wbt_text` VARBINARY(2000)) — the NGS example (986-char `ImageDescription`)
+  was cut mid-sentence at exactly 250. The description now uses a separate
+  `DESCRIPTION_CAP = 2000` (PHP + JS mirror) with **sentence-boundary-aware
+  truncation** (a >2000-char summary never ends mid-sentence — cut at the
+  last `. ` / `! ` / `? ` inside the cap). `ImageItemCreator`'s
+  item-description cap raised 250 → 2000 so the item and the File page agree.
+  Short text fields (author/credit/license) stay at 250 (form maxlengths).
+- **Destination file name not normalized**: the fetched Commons `ObjectName`
+  (`National Geographic Society Administration Building`) was written
+  verbatim into `wpDestFile`. New `normalizeDestName()` (PHP + JS mirror)
+  applies to the Special:Upload name autofill: lowercase, whitespace→dash,
+  strips MediaWiki-illegal filename chars (`#<>[]|{}:`), preserves a
+  trailing (lowercased) extension. MediaWiki core appends the extension from
+  MIME at `verifyFilename` when the name has none, so the result lands as
+  `national-geographic-society-administration-building.jpg`.
+- **Wikimedia 429 (fceb99d) still fired on submit — root cause found**: the
+  submit handler passed the **full URL** to `isWikimediaHost()`, which
+  expects a **hostname** (`host.endsWith('.wikimedia.org')`). A file URL
+  never ends with `.wikimedia.org`, so the check was always false, the
+  browser-blob fallback (Wikimedia URL → browser-supplied file) never fired,
+  and the server-side `UploadFromUrl` downloaded the bytes from the
+  rate-limited shared IP → the 429. The handler now parses
+  `new URL(url).hostname` first. This fixes Special:Upload **and** the Add\*
+  portrait/logo URL fields, which share the same handler.
+- **Add\* file-page wording simplified**: `ImageUploadHelper::pageText()`
+  drops the "uploaded via Special:AddPerson/AddSoftware" suffix —
+  `Portrait of X.` / `Logo of X.` (the `viaPage` msg-key plumbing removed).
+  The AddSource access-file message (`embeddablecontent-source-access-file-page`)
+  updated the same way in en/fr/eo.
+
+Regression coverage: PHPUnit 346 (new `CommonsMetadataParser` cases for the
+2000 cap, the sentence-boundary cut, and `normalizeDestName`); the page-flow
+E2E gains a served-module-source guard (`flow_uploadmeta_module_source`) that
+asserts the uploaded `uploadmeta.js` contains the hostname parse, the 2000
+cap and `normalizeDestName` — the JS-side fixes a curl E2E cannot execute.
