@@ -46,7 +46,7 @@ class ApiUploadMeta extends ApiBase {
 			'url' => [
 				self::PARAM_TYPE => 'string',
 				self::PARAM_REQUIRED => true,
-				self::PARAM_MAX_LENGTH => 500,
+				self::PARAM_MAX_BYTES => 500,
 			],
 		];
 	}
