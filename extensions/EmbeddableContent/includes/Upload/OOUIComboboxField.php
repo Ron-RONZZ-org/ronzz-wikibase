@@ -36,6 +36,12 @@ final class OOUIComboboxField extends HTMLComboboxField {
 	public function getInputHTML( $value ) {
 		$widget = $this->getInputOOUI( $value );
 		if ( $widget instanceof \OOUI\Widget ) {
+			// The OOUI theme singleton is only set when the output is OOUI-
+			// enabled (OutputPage::setupOOUI) — a php-mode HTMLForm never
+			// initialises it, and Element::toString() on a widget fatals
+			// without a theme. setupOOUI() is idempotent (once-per-process
+			// guard) and no-ops when the theme is already set.
+			\MediaWiki\Output\OutputPage::setupOOUI();
 			$widget->setInfusable( true );
 			return $widget->toString();
 		}
