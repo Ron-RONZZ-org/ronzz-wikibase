@@ -120,7 +120,9 @@ final class ImageUploadHelper {
 			'options' => $config->licenseItems(),
 			'label-message' => $msgKey,
 			'cssclass' => 'wb-entity-combobox',
-			'help' => $helpMsg,
+			// MW 1.46: 'help' is raw HTML (deprecated); 'help-message' is the
+			// key form — the bare key string rendered verbatim before.
+			'help-message' => $helpMsg,
 			'hide-if' => [ '===', $prefix . 'Include', '' ],
 		];
 	}
