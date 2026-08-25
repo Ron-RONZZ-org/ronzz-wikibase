@@ -172,11 +172,15 @@ Three reported bugs on `Special:Upload` + the Add\* file-page wording:
 - **Destination file name not normalized**: the fetched Commons `ObjectName`
   (`National Geographic Society Administration Building`) was written
   verbatim into `wpDestFile`. New `normalizeDestName()` (PHP + JS mirror)
-  applies to the Special:Upload name autofill: lowercase, whitespace→dash,
-  strips MediaWiki-illegal filename chars (`#<>[]|{}:`), preserves a
-  trailing (lowercased) extension. MediaWiki core appends the extension from
-  MIME at `verifyFilename` when the name has none, so the result lands as
-  `national-geographic-society-administration-building.jpg`.
+  applies to the Special:Upload name autofill: lowercase, **any word
+  separator** — spaces, underscores, camelCase/PascalCase boundaries,
+  existing dashes, MediaWiki-illegal filename chars (`#<>[]|{}:`) — collapses
+  to a single dash (unicode-aware, `\p{L}\p{N}`, so `École Nationale
+  Supérieure` → `école-nationale-supérieure`), and preserves a trailing
+  (lowercased) extension. MediaWiki core appends the extension from MIME at
+  `verifyFilename` when the name has none, so the result lands as
+  `national-geographic-society-administration-building.jpg`. (PR #52 extended
+  the PR #51 normalization from spaces-only to every separator shape.)
 - **Wikimedia 429 (fceb99d) still fired on submit — root cause found**: the
   submit handler passed the **full URL** to `isWikimediaHost()`, which
   expects a **hostname** (`host.endsWith('.wikimedia.org')`). A file URL

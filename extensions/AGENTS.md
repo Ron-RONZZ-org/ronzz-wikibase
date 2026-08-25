@@ -241,9 +241,9 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   the host check always false and the blob fallback never fired — the 429's
   real root cause); the fetched description is capped at 2000
   (`DESCRIPTION_CAP`, sentence-boundary cut — never mid-sentence) and the
-  dest-name autofill is normalized via `normalizeDestName` (lowercase,
-  space→dash, illegal chars stripped; extension appended by MW core from
-  MIME). `includes/Upload/ImageUploadHelper` owns
+  dest-name autofill is normalized via `normalizeDestName` (lowercase, any
+  word separator — space/underscore/camelCase/dash — → dash, unicode-aware;
+  extension appended by MW core from MIME). `includes/Upload/ImageUploadHelper` owns
   the shared portrait/logo field specs + upload path (mode toggle, collapse
   "I will upload a {image}" checkbox, license combobox, free-text author +
   license-info, dest naming, verify+performUpload) — AddPerson portrait and
