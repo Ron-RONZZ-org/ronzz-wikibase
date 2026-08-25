@@ -243,7 +243,8 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   AddSoftware logo use it; AddSoftware's logo gained the mandatory license.
   `UploadHooks` (Special:Upload): semantic license combobox replacing the
   core dropdown, author/license-info fields, single max-size note + a URL-cap
-  note (per-key `$wgMaxUploadSize`: file 1 GiB, url 100 MB), File-page
+  note (per-key `$wgMaxUploadSize`: `'*'`/file 1 GiB, url 100 MB — MW 1.46's
+  array form needs the `'*'` wildcard for the general default), File-page
   attribution block (`[[Q42|label]]`, never a `{{Q42}}` template call), and
   marker-gated `UploadComplete` item-per-upload via `ImageItemCreator`
   (sitelinked `image`-class item with image/license/imageAuthor/
