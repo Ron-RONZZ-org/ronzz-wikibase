@@ -67,6 +67,11 @@ class SeedOrchestrator:
         self.lexer_ids: dict[str, str] = {}
         self.dogfood_ids: dict[str, str] = {}
         self.preseed_ids: dict[str, str] = {}
+        # License-class preseed items only (class_label == "software
+        # license") — the `licenses` config map feeding the license combobox
+        # must NOT include the OS/UI preseed items (a pre-existing bug: the
+        # combobox offered Linux/Windows as license choices).
+        self.license_ids: dict[str, str] = {}
 
     # ------------------------------------------------------------ manifests
 
@@ -267,6 +272,8 @@ class SeedOrchestrator:
             existing = self.find(label, "item", ANCHOR_LANGUAGE)
             if existing:
                 self.preseed_ids[label] = existing
+                if row["class_label"] == "software license":
+                    self.license_ids[label] = existing
                 print(f"  skip {label} ({existing})")
                 continue
             if self.args.dry_run:
@@ -276,6 +283,8 @@ class SeedOrchestrator:
                 row["labels"], row["descriptions"], SUMMARY_PREFIX + "create preseed item"
             )
             self.preseed_ids[label] = entity_id
+            if row["class_label"] == "software license":
+                self.license_ids[label] = entity_id
             print(f"  created {label} ({entity_id})")
 
             class_id = self.class_ids.get(row["class_label"])
@@ -463,6 +472,7 @@ class SeedOrchestrator:
             wikidata_class_qids,
             previous_youtube_api_key=previous_key,
             preseed_ids=self.preseed_ids,
+            license_ids=self.license_ids,
         )
         report = config_builder.build_report(
             self.property_ids, self.class_ids, self.lexer_ids, self.dogfood_ids, self.languages_available

@@ -215,6 +215,7 @@ def build_config(
     wikidata_class_qids: dict[str, str] | None = None,
     previous_youtube_api_key: str = "",
     preseed_ids: dict[str, str] | None = None,
+    license_ids: dict[str, str] | None = None,
 ) -> str:
     """Returns a PHP snippet assigning $wgEmbeddableContentConfig and the
     Wikibase settings the seed is responsible for.
@@ -230,11 +231,17 @@ def build_config(
     explicit disable) wins; otherwise the previous key is preserved.
 
     preseed_ids maps preseed-item English labels to their item ids (the
-    common licenses/OSes/UI preseed phase) — emitted as the `licenses` map
-    feeding the review-form license combobox options.
+    common licenses/OSes/UI preseed phase).
+
+    license_ids maps only the LICENSE-class preseed labels to their item ids
+    — emitted as the `licenses` map feeding the license combobox options
+    (Special:Upload, Add* license fields). Falls back to preseed_ids when not
+    provided (backward compat); the seed always passes the filtered map so
+    the OS/UI preseed items never appear as license choices.
     """
     wikidata_class_qids = wikidata_class_qids or {}
     preseed_ids = preseed_ids or {}
+    license_ids = license_ids or {}
 
     classes: dict[str, str] = {}
     payload: dict[str, str] = {}
@@ -366,9 +373,11 @@ def build_config(
         "formatterUrl": property_ids.get("formatter URL"),
         "sourceClassByWikidata": source_class_by_qid,
         "agentClassByWikidata": agent_class_by_qid,
-        # Known license items (preseed vocabulary) — the review-form license
-        # combobox options (Special:Upload-style list + entity search).
-        "licenses": dict(preseed_ids),
+        # Known license items (license-class preseed vocabulary) — the
+        # review-form license combobox options (Special:Upload-style list +
+        # entity search). Only the license-class items, never the OS/UI
+        # preseed items; preseed_ids is the fallback for legacy callers.
+        "licenses": dict(license_ids if license_ids else preseed_ids),
         "fallbackLanguages": fallback_languages,
         "lexers": dict(sorted(lexer_ids.items())),
     }

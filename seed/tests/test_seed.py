@@ -283,6 +283,37 @@ class ConfigBuilderTest(unittest.TestCase):
         self.assertIn("['dataRightsUrl'] = 'https://creativecommons.org/licenses/by-sa/4.0/'", snippet)
         self.assertNotIn("publicdomain/zero/1.0", snippet)
 
+    def test_licenses_map_excludes_non_license_preseed(self):
+        """The `licenses` config map (the license combobox options) must
+        contain ONLY the license-class preseed items — never the OS/UI
+        preseed items (pre-existing bug: the combobox offered Linux/Windows
+        as license choices). build_config takes the seed's filtered
+        license_ids map."""
+        snippet = config_builder.build_config(
+            {}, {}, {}, [], {},
+            preseed_ids={
+                "Linux": "Q300",
+                "GNU GPL-3.0": "Q301",
+                "GUI (graphical user interface)": "Q302",
+            },
+            license_ids={"GNU GPL-3.0": "Q301", "MIT License": "Q303"},
+        )
+        self.assertIn("'licenses'", snippet)
+        self.assertIn("'GNU GPL-3.0' => 'Q301'", snippet)
+        self.assertIn("'MIT License' => 'Q303'", snippet)
+        self.assertNotIn("'Linux' => 'Q300'", snippet)
+        self.assertNotIn("'GUI (graphical user interface)' => 'Q302'", snippet)
+
+    def test_licenses_map_falls_back_to_preseed_ids(self):
+        """Legacy callers without license_ids keep the preseed_ids fallback
+        (the map is only filtered when the seed passes the filtered set)."""
+        snippet = config_builder.build_config(
+            {}, {}, {}, [], {},
+            preseed_ids={"GNU GPL-3.0": "Q301", "Linux": "Q300"},
+        )
+        self.assertIn("'GNU GPL-3.0' => 'Q301'", snippet)
+        self.assertIn("'Linux' => 'Q300'", snippet)
+
     @mock.patch.dict(os.environ, {}, clear=True)
     def test_youtube_key_carry_forward(self):
         """The deploy-injected YouTube key must survive re-emissions: without
