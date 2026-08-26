@@ -1177,7 +1177,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			if ( $mode === 'file' ) {
 				$title = $this->uploadAccessFileFromRequest( $record );
 				if ( $title === null ) {
-					$upload = $this->getRequest()->getUpload( 'wpAccessFile' );
+					$upload = $this->getRequest()->getUpload( 'wpaccessFile' );
 					if ( $upload instanceof \MediaWiki\Request\WebRequestUpload && $upload->getSize() > 0 ) {
 						return $this->msg( 'embeddablecontent-source-error-access-upload', 'unsupported file type' )->text();
 					}
@@ -1211,7 +1211,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 */
 	protected function uploadAccessFileFromRequest( array $record ): ?\MediaWiki\Title\Title {
 		$request = $this->getRequest();
-		$upload = $request->getUpload( 'wpAccessFile' );
+		$upload = $request->getUpload( 'wpaccessFile' );
 		if ( !$upload instanceof \MediaWiki\Request\WebRequestUpload
 			|| $upload->getSize() <= 0 || $upload->getTempName() === ''
 		) {
