@@ -337,6 +337,7 @@
 	function showLicenseConfirm( cfg, licenseField, fetched, best ) {
 		var $input = $( licenseField.el );
 		var $banner = $( '<div class="wb-entity-confirm"></div>' )
+			.attr( 'data-field', String( cfg.targets.license || '' ) )
 			.append( $( '<span class="wb-entity-confirm-line"></span>' ).text(
 				mw.msg( 'embeddablecontent-entityconfirm-line',
 					cfg.licenseLabel || mw.msg( 'embeddablecontent-upload-license' ),
@@ -358,6 +359,10 @@
 		// Place below the field: inside a php-mode table cell, or after an
 		// OOUI field layout.
 		var $host = $input.closest( 'td.mw-input, .oo-ui-fieldLayout' ).first();
+		// Validate clicked repeatedly must show only the LATEST confirmation
+		// — drop any earlier banner for this license field (keyed by the
+		// field name, so sibling banners on other fields survive).
+		$( '.wb-entity-confirm[data-field="' + String( cfg.targets.license || '' ) + '"]' ).remove();
 		if ( $host.is( 'td' ) || !$host.length ) {
 			$input.after( $banner );
 		} else {
@@ -412,7 +417,7 @@
 		}
 	}
 
-	function applyMeta( cfg, meta, $preview ) {
+	function applyMeta( cfg, meta, $preview, seq ) {
 		var name = fieldVal( cfg, 'name' );
 		if ( name && meta.name ) {
 			// Destination-file name: normalized (lowercase, space→dash) —
@@ -440,7 +445,11 @@
 			author.set( meta.author );
 		}
 		var licenseInfo = fieldVal( cfg, 'licenseInfo' );
-		if ( licenseInfo && meta.credit && !licenseInfo.get() ) {
+		if ( licenseInfo && meta.credit ) {
+			// The latest fetch always overwrites the autofilled fields
+			// (validate clicked again → the newest result wins) — the old
+			// "only when empty" guard kept a stale credit from the first
+			// validate.
 			licenseInfo.set( meta.credit );
 		}
 		var license = fieldVal( cfg, 'license' );
@@ -449,8 +458,12 @@
 			// the instance's license items (fuzzy — "CC BY-SA 4.0
 			// International" still hits "CC BY-SA 4.0"); a good match fills
 			// the field AND asks the user to confirm or correct. No match →
-			// the field stays empty (the current flow).
+			// the field stays empty (the current flow). The seq guard
+			// discards a stale async match when a newer validate ran.
 			matchLicense( meta.license, function ( best ) {
+				if ( validateSeq[ cfg.urlField ] !== seq ) {
+					return;
+				}
 				if ( !best ) {
 					return;
 				}
@@ -508,6 +521,13 @@
 		if ( !url ) {
 			return;
 		}
+		// Latest-wins guard: validate can be clicked repeatedly while the
+		// first fetch is still in flight. Each click bumps this field's
+		// generation; any response (metadata OR the async license match)
+		// whose generation is no longer the latest is discarded — a stale
+		// result must never overwrite the newest fetch.
+		var seq = ( validateSeq[ cfg.urlField ] || 0 ) + 1;
+		validateSeq[ cfg.urlField ] = seq;
 		$btn.prop( 'disabled', true );
 		$status.text( mw.msg( 'embeddablecontent-uploadmeta-validating' ) ).show();
 
@@ -561,8 +581,13 @@
 		}
 
 		promise.then( function ( meta ) {
+			if ( validateSeq[ cfg.urlField ] !== seq ) {
+				// A newer validate superseded this one — discard.
+				finish();
+				return;
+			}
 			lastMeta[ cfg.urlField ] = meta;
-			applyMeta( cfg, meta, $preview );
+			applyMeta( cfg, meta, $preview, seq );
 			finish();
 		} ).catch( function ( err ) {
 			showError( $status, err );
@@ -573,6 +598,9 @@
 	/** Last metadata per URL field — the submit-time blob guard uses the
 	 * byte size to refuse oversized files BEFORE downloading them. */
 	var lastMeta = {};
+
+	/** Per-URL-field validate generation — see validate()'s latest-wins guard. */
+	var validateSeq = {};
 
 	/**
 	 * Wires ONE .wb-uploadmeta span: injects the Validate button + status +
