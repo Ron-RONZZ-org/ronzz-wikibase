@@ -225,7 +225,7 @@ final class ImageUploadHelper {
 				}
 			} else {
 				$title = self::uploadFromRequest( $prefix, $record, $context, $user, $msgKeys, $primaryLabel );
-				$upload = $context->getRequest()->getUpload( 'wp' . ucfirst( $prefix ) . 'File' );
+				$upload = $context->getRequest()->getUpload( 'wp' . $prefix . 'File' );
 				if ( $title === null
 					&& $upload instanceof \MediaWiki\Request\WebRequestUpload && $upload->getSize() > 0
 				) {
@@ -259,7 +259,7 @@ final class ImageUploadHelper {
 		array $msgKeys,
 		callable $primaryLabel
 	): ?Title {
-		$upload = $context->getRequest()->getUpload( 'wp' . ucfirst( $prefix ) . 'File' );
+		$upload = $context->getRequest()->getUpload( 'wp' . $prefix . 'File' );
 		if ( !$upload instanceof \MediaWiki\Request\WebRequestUpload
 			|| $upload->getSize() <= 0 || $upload->getTempName() === ''
 		) {

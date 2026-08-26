@@ -505,8 +505,8 @@ def flow_software_logo(op, base: str, api: str, label: str, class_item: str,
         "wpEditToken": token,
         "wpSubmit": "1",
     }, {
-        # HTMLForm keeps the field key's casing: "logoFile" -> "wpLogoFile".
-        "wpLogoFile": ("logo.png", png, "image/png"),
+        # The OOUI form renders wp + field key as-is: "logoFile" -> "wplogoFile".
+        "wplogoFile": ("logo.png", png, "image/png"),
     })
     m = re.search(r"/wiki/(FOSS:[^?#]+)$", url)
     if not m:
@@ -997,8 +997,8 @@ def flow_source_book_access_file(op, base: str, api: str, label: str,
         "wpEditToken": token,
         "wpSubmit": "1",
     }, {
-        # HTMLForm keeps the field key's casing: "accessFile" -> "wpAccessFile".
-        "wpAccessFile": (filename, content, ctype),
+        # The OOUI form renders wp + field key as-is: "accessFile" -> "wpaccessFile".
+        "wpaccessFile": (filename, content, ctype),
     })
     qid = flow_final_item(op, base, api, url, body, "AddSource/book/manual (access file)")
     return qid
@@ -1146,7 +1146,7 @@ def flow_person_portrait(op, base: str, api: str, label: str, license_qid: str) 
         "wpEditToken": token,
         "wpSubmit": "1",
     }, {
-        "wpPortraitFile": ("portrait.png", png, "image/png"),
+        "wpportraitFile": ("portrait.png", png, "image/png"),
     })
     qid = flow_final_item(op, base, api, url, body, "AddPerson/manual (portrait)")
     return qid, f"File:{label}-portrait.png"
@@ -1393,8 +1393,8 @@ def flow_collective_logo(op, base: str, api: str, label: str, class_item: str,
         "wpEditToken": token,
         "wpSubmit": "1",
     }, {
-        # HTMLForm keeps the field key's casing: "logoFile" -> "wpLogoFile".
-        "wpLogoFile": ("logo.png", png, "image/png"),
+        # The OOUI form renders wp + field key as-is: "logoFile" -> "wplogoFile".
+        "wplogoFile": ("logo.png", png, "image/png"),
     })
     return flow_final_item(op, base, api, url, body, "AddCollective/manual (logo)")
 

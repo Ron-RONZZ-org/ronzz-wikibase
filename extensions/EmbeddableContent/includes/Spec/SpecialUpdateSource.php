@@ -177,7 +177,7 @@ class SpecialUpdateSource extends SpecialAddSource {
 
 		try {
 			if ( $mode === 'file' ) {
-				$upload = $this->getRequest()->getUpload( 'wpAccessFile' );
+				$upload = $this->getRequest()->getUpload( 'wpaccessFile' );
 				if ( $upload instanceof WebRequestUpload && $upload->getSize() > 0 ) {
 					$title = $this->uploadAccessFileFromRequest( $record );
 					if ( $title === null ) {
