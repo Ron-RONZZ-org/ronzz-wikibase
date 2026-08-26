@@ -295,7 +295,29 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   The Item page ("Update basic information" button under the title,
   `updatebutton.js` + the config-derived class→Update map in
   `Hooks::onBeforePageDisplay`) links to the Update page for any item whose
-  class has one.
+  class has one.  class has one.
+
+- **Wikimedia blob fallback fixes on the Add\* pages (follow-up, same ADR)**: the
+  shared `uploadmeta.js` submit-time blob fallback had a chain of latent bugs
+  that only manifest on the OOUI Add\* forms (Special:Upload's php-mode form
+  was unaffected) — "Logo upload failed: unreachable or unsupported URL" on
+  AddCollective with a Wikimedia URL. Fixed: (1) the submit handler resolved
+  the URL field at WIRING time, but the OOUI hide-if removes/re-inserts the
+  collapsed fields, so the closure read a detached input — resolve from the
+  CURRENT DOM at submit; (2) the OOUI radio groups strip the name from the
+  visible radios and carry the value in the widget's hidden value input
+  (`:checked` never matched, `modeVal` was always empty) — fall back to the
+  non-radio value input, and set it to `file` in the converted resubmit (the
+  form submits the hidden input, not the visible radios); (3) the file input
+  is removed from the DOM while url mode is active — switch the mode first
+  and wait for the input to reappear; (4) SERVER case mismatch: the server
+  read the upload as `'wp' . ucfirst($prefix) . 'File'` (`wpLogoFile`) but
+  the forms submit `wp+key` as-is (`wplogoFile`) — every real-browser Add\*
+  file upload was silently dropped (the E2E masked it by posting the
+  uppercase names); aligned server + E2E to the rendered names; (5) the
+  browser's Accept header makes Wikimedia serve WEBP at `.png` thumbnail
+  URLs — name the blob file after its actual MIME extension (and reject an
+  HTML error page served with HTTP 200 before filling the upload).
 
 ### WikibaseCitation
 
