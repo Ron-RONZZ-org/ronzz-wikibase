@@ -79,7 +79,10 @@ final class UploadMetadataFetcher {
 			$data = $this->getJson( $api, [
 				'action' => 'query',
 				'prop' => 'imageinfo',
-				'iiprop' => 'extmetadata|size|url',
+				// `mime` must be requested explicitly — without it the
+				// imageinfo payload carries no MIME type and the validate
+				// preview cannot distinguish images from other file types.
+				'iiprop' => 'extmetadata|size|url|mime',
 				'format' => 'json',
 				'formatversion' => 2,
 				'titles' => $title,

@@ -159,6 +159,39 @@ final class CommonsMetadataParserTest extends TestCase {
 		$this->assertSame( 'national-geographic-society-administration-building.jpg', $meta->name );
 	}
 
+	public function testDestNameAppendsExtensionFromMime(): void {
+		// ObjectName usually has no extension; the canonical extension from
+		// the file's MIME type is appended so the dest-name field is complete.
+		$meta = CommonsMetadataParser::fromImageInfo( [
+			'mime' => 'image/jpeg',
+			'extmetadata' => [
+				'ObjectName' => [ 'value' => 'National Geographic Society Administration Building' ],
+			],
+		] );
+		$this->assertSame( 'national-geographic-society-administration-building.jpg', $meta->name );
+	}
+
+	public function testDestNameAppendsPdfExtensionFromMime(): void {
+		$meta = CommonsMetadataParser::fromImageInfo( [
+			'mime' => 'application/pdf',
+			'extmetadata' => [
+				'ObjectName' => [ 'value' => 'Quarterly Report' ],
+			],
+		] );
+		$this->assertSame( 'quarterly-report.pdf', $meta->name );
+	}
+
+	public function testDestNameKeepsExistingExtensionOverMime(): void {
+		// An explicit extension in the ObjectName wins over the MIME map.
+		$meta = CommonsMetadataParser::fromImageInfo( [
+			'mime' => 'image/png',
+			'extmetadata' => [
+				'ObjectName' => [ 'value' => 'Cover Photo.JPG' ],
+			],
+		] );
+		$this->assertSame( 'cover-photo.jpg', $meta->name );
+	}
+
 	public function testDestNameKeepsAccentedLetters(): void {
 		$meta = CommonsMetadataParser::fromImageInfo( [
 			'extmetadata' => [
