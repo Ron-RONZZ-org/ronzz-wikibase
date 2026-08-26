@@ -29,9 +29,10 @@ class SpecialAddFictionalCharacter extends SpecialAddExternalEntity {
 
 	public function __construct(
 		\EmbeddableContent\EmbeddableContentConfig $config,
-		\EmbeddableContent\Fetch\ProviderClient $client
+		\EmbeddableContent\Fetch\ProviderClient $client,
+		string $pageName = 'AddFictionalCharacter'
 	) {
-		parent::__construct( 'AddFictionalCharacter', $config, $client );
+		parent::__construct( $pageName, $config, $client );
 	}
 
 	protected function kindKey(): string {

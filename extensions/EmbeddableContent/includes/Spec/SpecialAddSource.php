@@ -49,16 +49,17 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	private const URL_ENTRY_CLASSES = [ 'website', 'webpage' ];
 
 	/** @var string|null class key selected for the current request */
-	private ?string $currentClassKey = null;
+	protected ?string $currentClassKey = null;
 
 	/** @var \EmbeddableContent\Fetch\PageMetadataFetcher|null lazily built */
 	private ?\EmbeddableContent\Fetch\PageMetadataFetcher $metadataFetcher = null;
 
 	public function __construct(
 		\EmbeddableContent\EmbeddableContentConfig $config,
-		\EmbeddableContent\Fetch\ProviderClient $client
+		\EmbeddableContent\Fetch\ProviderClient $client,
+		string $pageName = 'AddSource'
 	) {
-		parent::__construct( 'AddSource', $config, $client );
+		parent::__construct( $pageName, $config, $client );
 	}
 
 	protected function kindKey(): string {
@@ -80,11 +81,12 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	/**
 	 * Manual-form autofill from the search inputs (issue #35): title/isbn/doi
 	 * pass through via the base (same field names); the search's `author`
-	 * field maps to the manual `authors` field — but ONLY in entity mode
-	 * (Q-ids), because the manual authors field requires item ids: a
-	 * free-text author NAME is a search filter, not a record fact, and
-	 * would fail the server-side author validation. The URL-first flow's
-	 * fetched intro/keywords ride along for the content review step.
+	 * field maps to the manual `authors` field — in entity mode (Q-ids) as-is;
+	 * as a free-text NAME it is fuzzy-matched to an existing agent item and
+	 * prefilled with a confirmation banner (the manual authors field requires
+	 * item ids, so a plain name would fail validation — the autofill-confirm
+	 * flow turns the typed name into a confirmed entity). The URL-first
+	 * flow's fetched intro/keywords ride along for the content review step.
 	 *
 	 * @param array<string,mixed> $search
 	 * @return array<string,mixed>
@@ -92,8 +94,20 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	protected function autofillRecord( array $search ): array {
 		$out = parent::autofillRecord( $search );
 		$author = trim( (string)( $search['author'] ?? '' ) );
-		if ( $author !== '' && ( $search['authorMode'] ?? '' ) === 'entity' ) {
-			$out['authors'] = $author;
+		if ( $author !== '' ) {
+			if ( ( $search['authorMode'] ?? '' ) === 'entity' ) {
+				$out['authors'] = $author;
+			} else {
+				$resolved = $this->resolveEntityField( $author, array_values( $this->config->agentClasses() ) );
+				if ( $resolved !== null ) {
+					$out['authors'] = $resolved['id'];
+					$out['authorsConfirm'] = [
+						'fetched' => $author,
+						'label' => $resolved['label'],
+						'id' => $resolved['id'],
+					];
+				}
+			}
 		}
 		foreach ( [ 'intro', 'keywords' ] as $key ) {
 			if ( !empty( $search[$key] ) ) {
@@ -691,13 +705,26 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 
 	/** @return array<string,mixed> */
 	private function authorsFieldSpec( array $record ): array {
+		$help = $this->msg( 'embeddablecontent-source-field-authors-help' )->parse();
+		// Free-text author name → fuzzy-matched agent item (autofill-confirm):
+		// the banner rides in the help slot next to the prefilled Q-id.
+		if ( isset( $record['authorsConfirm'] ) && is_array( $record['authorsConfirm'] ) ) {
+			$confirm = $record['authorsConfirm'];
+			$help .= ' ' . $this->entityConfirmHtml(
+				'wpauthors',
+				$this->msg( 'embeddablecontent-source-field-authors' )->text(),
+				(string)( $confirm['fetched'] ?? '' ),
+				(string)( $confirm['label'] ?? '' ),
+				(string)( $confirm['id'] ?? '' )
+			);
+		}
 		return [ 'authors' => [
 			'type' => 'combobox',
 			'options' => [],
 			'label-message' => 'embeddablecontent-source-field-authors',
 			'cssclass' => 'wb-entity-combobox wb-entity-combobox-multi',
 			'default' => (string)( $record['authors'] ?? '' ),
-			'help' => $this->msg( 'embeddablecontent-source-field-authors-help' )->parse(),
+			'help' => $help,
 			'required' => true,
 		] ];
 	}
@@ -739,9 +766,11 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 * Journal field (entity-only, scholarlyArticle): an entity combobox
 	 * referencing an existing journal item — the container-title analogue of
 	 * the publisher field. A harvested STRING container title (e.g. "Nature"
-	 * from Wikidata's P1433) is resolved to a local item by exact label when
-	 * one exists; otherwise the string is shown as context with a
-	 * "create the item first" hint. The submitted value must be an item id.
+	 * from Wikidata's P1433) is resolved to a local item — exact label match
+	 * or a fuzzy match (autofill-confirm: the field is prefilled with a
+	 * "we think this corresponds to …" banner); otherwise the string is
+	 * shown as context with a "create the item first" hint. The submitted
+	 * value must be an item id.
 	 *
 	 * @return array<string,mixed>
 	 */
@@ -750,9 +779,16 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		$default = '';
 		$help = '';
 		if ( $harvested !== '' && preg_match( '/^Q[1-9]\d*$/i', $harvested ) !== 1 ) {
-			$resolved = $this->findItemIdByLabel( $harvested );
+			$resolved = $this->resolveEntityField( $harvested );
 			if ( $resolved !== null ) {
-				$default = $resolved;
+				$default = $resolved['id'];
+				$help = $this->entityConfirmHtml(
+					'wpjournal',
+					$this->msg( 'embeddablecontent-source-field-journal' )->text(),
+					$harvested,
+					$resolved['label'],
+					$resolved['id']
+				);
 			} else {
 				// Plain text, HTML-escaped: the value comes from an external
 				// API and must never inject markup.
@@ -780,10 +816,11 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	/**
 	 * Publisher field (entity-only, issue #35): an entity combobox
 	 * referencing an existing publisher item. A harvested STRING publisher
-	 * (Open Library etc.) is resolved to a local item by exact label when
-	 * one exists; otherwise the string is shown as context with a
-	 * "create the item first" hint (AddSoftware harvested-fact pattern) —
-	 * the submitted value must be an item id.
+	 * (Open Library etc.) is resolved to a local item — exact label match
+	 * or a fuzzy match (autofill-confirm: the field is prefilled with a
+	 * "we think this corresponds to …" banner); otherwise the string is
+	 * shown as context with a "create the item first" hint (AddSoftware
+	 * harvested-fact pattern) — the submitted value must be an item id.
 	 *
 	 * @return array<string,mixed>
 	 */
@@ -792,9 +829,16 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		$default = '';
 		$help = '';
 		if ( $harvested !== '' && preg_match( '/^Q[1-9]\d*$/i', $harvested ) !== 1 ) {
-			$resolved = $this->findItemIdByLabel( $harvested );
+			$resolved = $this->resolveEntityField( $harvested );
 			if ( $resolved !== null ) {
-				$default = $resolved;
+				$default = $resolved['id'];
+				$help = $this->entityConfirmHtml(
+					'wppublisher',
+					$this->msg( 'embeddablecontent-field-publisher' )->text(),
+					$harvested,
+					$resolved['label'],
+					$resolved['id']
+				);
 			} else {
 				// Plain text, HTML-escaped: the value comes from an external
 				// API and must never inject markup.
@@ -1110,7 +1154,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 * @param array<string,mixed> $record
 	 * @return string|null error message, or null to proceed
 	 */
-	private function validateAccessField( array &$record ): ?string {
+	protected function validateAccessField( array &$record ): ?string {
 		$mode = (string)( $record['accessMode'] ?? 'url' );
 		if ( !in_array( $mode, [ 'url', 'download', 'file', 'na' ], true ) ) {
 			$mode = 'url';
@@ -1165,7 +1209,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 *
 	 * @param array<string,mixed> $record
 	 */
-	private function uploadAccessFileFromRequest( array $record ): ?\MediaWiki\Title\Title {
+	protected function uploadAccessFileFromRequest( array $record ): ?\MediaWiki\Title\Title {
 		$request = $this->getRequest();
 		$upload = $request->getUpload( 'wpAccessFile' );
 		if ( !$upload instanceof \MediaWiki\Request\WebRequestUpload
@@ -1192,7 +1236,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 *
 	 * @param array<string,mixed> $record
 	 */
-	private function uploadAccessFileFromUrl( string $url, array $record ): ?\MediaWiki\Title\Title {
+	protected function uploadAccessFileFromUrl( string $url, array $record ): ?\MediaWiki\Title\Title {
 		if ( !\MediaWiki\Upload\UploadFromUrl::isAllowed( $this->getUser() ) ) {
 			return null;
 		}
@@ -1318,7 +1362,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 *
 	 * @param array<string,mixed> $record
 	 */
-	private function fillBookExcerptFromParent( array &$record ): ?string {
+	protected function fillBookExcerptFromParent( array &$record ): ?string {
 		$parentId = trim( (string)( $record['parent'] ?? '' ) );
 		if ( preg_match( '/^Q[1-9]\d*$/', $parentId ) !== 1 ) {
 			return null; // missing/invalid parent is validateParent's error
@@ -1409,7 +1453,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	/**
 	 * @param array<string,mixed> $record
 	 */
-	private function validateAuthors( array $record ): ?string {
+	protected function validateAuthors( array $record ): ?string {
 		$ids = ItemIdList::split( (string)( $record['authors'] ?? '' ) );
 		if ( $ids === [] ) {
 			return $this->msg( 'embeddablecontent-source-error-noauthor' )->text();
@@ -1433,7 +1477,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	/**
 	 * @param array<string,mixed> $record
 	 */
-	private function validateParent( array $record ): ?string {
+	protected function validateParent( array $record ): ?string {
 		$parentKey = $this->config->sourceParents()[$this->currentClassKey] ?? null;
 		if ( $parentKey === null ) {
 			return null; // not a child class

@@ -6,6 +6,7 @@ namespace EmbeddableContent\Spec;
 
 use DataValues\StringValue;
 use EmbeddableContent\Content\FragmentSanitizer;
+use EmbeddableContent\EntityLabelMatcher;
 use EmbeddableContent\Fetch\ProviderResult;
 use EmbeddableContent\Spec\ItemIdList;
 use Wikibase\DataModel\Entity\EntityIdValue;
@@ -70,9 +71,10 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 
 	public function __construct(
 		\EmbeddableContent\EmbeddableContentConfig $config,
-		\EmbeddableContent\Fetch\ProviderClient $client
+		\EmbeddableContent\Fetch\ProviderClient $client,
+		string $pageName = 'AddSoftware'
 	) {
-		parent::__construct( 'AddSoftware', $config, $client );
+		parent::__construct( $pageName, $config, $client );
 	}
 
 	protected function kindKey(): string {
@@ -166,12 +168,27 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 				'label-message' => 'embeddablecontent-field-' . $field,
 				'cssclass' => 'wb-entity-combobox wb-entity-combobox-multi',
 			];
-			if ( $harvested !== '' ) {
-				// Plain text, HTML-escaped: the label comes from an external
-				// API and must never inject markup.
-				$fields[$field]['help'] = htmlspecialchars(
-					$this->msg( 'embeddablecontent-software-field-harvested', $harvested )->text()
-				);
+			if ( $harvested !== '' && preg_match( '/^Q[1-9]\d*$/i', $harvested ) !== 1 ) {
+				// Autofill-confirm: a harvested label resolves to an existing
+				// item (exact or fuzzy) → prefill the combobox + confirmation
+				// banner; no good match → the plain harvested-fact hint.
+				$resolved = $this->resolveEntityField( $harvested );
+				if ( $resolved !== null ) {
+					$fields[$field]['default'] = $resolved['id'];
+					$fields[$field]['help'] = $this->entityConfirmHtml(
+						'wp' . $field,
+						$this->msg( 'embeddablecontent-field-' . $field )->text(),
+						$harvested,
+						$resolved['label'],
+						$resolved['id']
+					);
+				} else {
+					// Plain text, HTML-escaped: the label comes from an
+					// external API and must never inject markup.
+					$fields[$field]['help'] = htmlspecialchars(
+						$this->msg( 'embeddablecontent-software-field-harvested', $harvested )->text()
+					);
+				}
 			}
 			$fields[$field]['help'] = ( $fields[$field]['help'] ?? '' )
 				. $this->msg( $field === 'userInterface'
@@ -195,9 +212,23 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 			'label-message' => 'embeddablecontent-field-programmingLanguage',
 		];
 		if ( $harvested !== '' ) {
-			$fields['programmingLanguage']['help'] = htmlspecialchars(
-				$this->msg( 'embeddablecontent-software-field-harvested', $harvested )->text()
-			);
+			// Autofill-confirm against the known lexer labels (the harvested
+			// language name → the configured lexer key).
+			$best = EntityLabelMatcher::bestMatchFromLabels( $harvested, $lexers );
+			if ( $best !== null ) {
+				$fields['programmingLanguage']['default'] = $best['label'];
+				$fields['programmingLanguage']['help'] = $this->entityConfirmHtml(
+					'wpprogrammingLanguage',
+					$this->msg( 'embeddablecontent-field-programmingLanguage' )->text(),
+					$harvested,
+					$best['label'],
+					$this->config->lexerItemIds()[$best['label']] ?? ''
+				);
+			} else {
+				$fields['programmingLanguage']['help'] = htmlspecialchars(
+					$this->msg( 'embeddablecontent-software-field-harvested', $harvested )->text()
+				);
+			}
 		}
 
 		// Logo (optional): collapsed behind the "I will upload a logo image
@@ -220,7 +251,8 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 			'logo', 'embeddablecontent-software-logo-file'
 		);
 		$fields['logoUrl'] = \EmbeddableContent\Upload\ImageUploadHelper::urlField(
-			'logo', 'embeddablecontent-software-logo-url'
+			'logo', 'embeddablecontent-software-logo-url',
+			$this->msg( 'embeddablecontent-software-logo-license' )->text()
 		);
 		$fields['logoLicense'] = \EmbeddableContent\Upload\ImageUploadHelper::licenseField(
 			'logo',

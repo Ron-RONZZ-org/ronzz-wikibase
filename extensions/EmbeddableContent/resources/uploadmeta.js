@@ -153,26 +153,144 @@
 		return ext ? base + '.' + ext.toLowerCase() : base;
 	}
 
-	function fieldVal( cfg, key ) {
-		var id = cfg.targets && cfg.targets[ key ];
+	/**
+	 * Resolve a form field target to its REAL <input>. The config ids are
+	 * the HTMLForm field NAMES ("wpUploadFileURL", "wpportraitLicense"):
+	 *  - a php-mode form (Special:Upload's core fields) renders the <input>
+	 *    with that exact id;
+	 *  - an OOUI form (the Add* pages) renders the widget wrapper with a
+	 *    "mw-input-…" id and the <input> with an auto-generated id, but the
+	 *    field NAME is stable — so fall back to input[name=…];
+	 *  - OOUIComboboxField (Special:Upload's license) wraps the input in an
+	 *    OOUI widget, so also descend into the wrapper's inner input.
+	 * Without the fallback the Add* validate button never rendered and the
+	 * Special:Upload license autofill silently no-oped (the id mismatch).
+	 */
+	function findInput( id ) {
 		if ( !id ) {
 			return null;
 		}
 		var el = document.getElementById( id );
+		if ( el && el.tagName === 'INPUT' ) {
+			return el;
+		}
+		if ( el ) {
+			var inner = el.querySelector( 'input' );
+			if ( inner ) {
+				return inner;
+			}
+		}
+		return document.querySelector( 'input[name="' + id + '"]' ) || el || null;
+	}
+
+	function fieldVal( cfg, key ) {
+		var id = cfg.targets && cfg.targets[ key ];
+		var el = findInput( id );
 		if ( !el ) {
 			return null;
 		}
 		var set = function ( value ) {
 			el.value = String( value || '' );
+			// OOUI's TextInputWidget binds 'keydown mouseup cut paste change
+			// input select' on its input — a native 'change' re-syncs the
+			// widget's internal value (and 'input' covers older bindings).
 			el.dispatchEvent( new Event( 'change', { bubbles: true } ) );
+			el.dispatchEvent( new Event( 'input', { bubbles: true } ) );
 		};
 		var get = function () { return el.value; };
 		return { el: el, set: set, get: get };
 	}
 
-	/** Resolve a license LABEL ("CC BY-SA 4.0") to an item id via the
-	 * instance's wbsearchentities (the combobox submits item ids). */
-	function resolveLicense( label, onReady ) {
+	/** Pure normalized similarity between a fetched label and a candidate
+	 * label (mirrors the PHP EntityLabelMatcher::scorePair): exact → 1.0,
+	 * prefix (≥6 chars) → 0.9, token containment → 0.85, Levenshtein
+	 * near-miss (≥0.8) → the similarity, else 0.
+	 */
+	function labelScore( fetched, candidate ) {
+		var f = compact( fetched );
+		var c = compact( candidate );
+		if ( !f || !c ) {
+			return 0;
+		}
+		if ( f === c ) {
+			return 1;
+		}
+		if ( f.length >= 6 && c.length >= 6 && ( c.startsWith( f ) || f.startsWith( c ) ) ) {
+			return 0.9;
+		}
+		var fw = words( fetched );
+		var cw = words( candidate );
+		if ( fw.length && cw.length ) {
+			var shorter = fw.length <= cw.length ? fw : cw;
+			var longer = fw.length <= cw.length ? cw : fw;
+			if ( shorter.every( function ( w ) { return longer.indexOf( w ) !== -1; } ) ) {
+				return 0.85;
+			}
+		}
+		var maxLen = Math.max( f.length, c.length );
+		if ( maxLen > 0 ) {
+			var sim = 1 - ( levenshtein( f, c ) / maxLen );
+			if ( sim >= 0.8 ) {
+				return sim;
+			}
+		}
+		return 0;
+	}
+
+	/** Lowercased, punctuation/parenthetical-stripped compact form. */
+	function compact( label ) {
+		return String( label || '' ).toLowerCase()
+			.replace( /\s*\([^)]*\)\s*$/u, '' )
+			.replace( /[\p{P}\p{S}\s]+/gu, '' );
+	}
+
+	/** Significant words (≥2 chars) of a label. */
+	function words( label ) {
+		var m = String( label || '' ).toLowerCase().match( /[\p{L}\p{N}]+/gu ) || [];
+		return m.filter( function ( w ) { return w.length >= 2; } );
+	}
+
+	function levenshtein( a, b ) {
+		if ( a === b ) {
+			return 0;
+		}
+		if ( !a.length ) {
+			return b.length;
+		}
+		if ( !b.length ) {
+			return a.length;
+		}
+		var prev = [];
+		var cur = [];
+		for ( var j = 0; j <= b.length; j++ ) {
+			prev[ j ] = j;
+		}
+		for ( var i = 1; i <= a.length; i++ ) {
+			cur[ 0 ] = i;
+			for ( var j = 1; j <= b.length; j++ ) {
+				cur[ j ] = Math.min(
+					prev[ j ] + 1,
+					cur[ j - 1 ] + 1,
+					prev[ j - 1 ] + ( a[ i - 1 ] === b[ j - 1 ] ? 0 : 1 )
+				);
+			}
+			prev = cur.slice();
+		}
+		return prev[ b.length ];
+	}
+
+	/** Minimum score for a license match worth confirming (PHP
+	 * EntityLabelMatcher::GOOD_MATCH_THRESHOLD). */
+	var MATCH_THRESHOLD = 0.75;
+
+	/**
+	 * Resolve a license LABEL to a candidate item via the instance's
+	 * wbsearchentities (the combobox submits item ids). Returns the best
+	 * candidate scoring >= MATCH_THRESHOLD, or null when nothing matches.
+	 * The instance's search is case-sensitive (T242644), so the raw and
+	 * title-cased queries run in parallel, like entitysuggest.js.
+	 */
+	function matchLicense( label, onReady ) {
 		var api = new mw.Api();
 		var queries = [ label ];
 		var tc = label.replace( /(^|\s)(\S)/g, function ( m, pre, ch ) { return pre + ch.toUpperCase(); } );
@@ -190,19 +308,61 @@
 			} );
 		} );
 		Promise.all( pending ).then( function ( results ) {
+			var best = null;
 			var seen = {};
 			( results || [] ).forEach( function ( data ) {
 				( data.search || [] ).forEach( function ( row ) {
-					if ( seen[ row.id ] || seen[ row.label ] ) {
+					if ( seen[ row.id ] ) {
 						return;
 					}
-					seen[ row.id ] = seen[ row.label ] = true;
-					if ( String( row.label || '' ).toLowerCase() === label.toLowerCase() ) {
-						onReady( row.id );
+					seen[ row.id ] = true;
+					var score = labelScore( label, row.label || '' );
+					if ( score >= MATCH_THRESHOLD && ( !best || score > best.score ) ) {
+						best = { id: row.id, label: row.label || row.id, score: score };
 					}
 				} );
 			} );
-		} ).catch( function () {} );
+			onReady( best );
+		} ).catch( function () {
+			onReady( null );
+		} );
+	}
+
+	/**
+	 * The autofill-confirm banner for a license field: "{field} fetched
+	 * from source: {value}, we think this corresponds to {label} ({id})."
+	 * with [Yes, that's right] / [No, let me correct]. The field is already
+	 * filled; "No" clears it and focuses the combobox.
+	 */
+	function showLicenseConfirm( cfg, licenseField, fetched, best ) {
+		var $input = $( licenseField.el );
+		var $banner = $( '<div class="wb-entity-confirm"></div>' )
+			.append( $( '<span class="wb-entity-confirm-line"></span>' ).text(
+				mw.msg( 'embeddablecontent-entityconfirm-line',
+					cfg.licenseLabel || mw.msg( 'embeddablecontent-upload-license' ),
+					fetched, best.label, best.id )
+			) )
+			.append( $( '<span class="wb-entity-confirm-actions"></span>' )
+				.append( $( '<button type="button" class="wb-entity-confirm-yes"></button>' )
+					.text( mw.msg( 'embeddablecontent-entityconfirm-yes' ) ) )
+				.append( $( '<button type="button" class="wb-entity-confirm-no"></button>' )
+					.text( mw.msg( 'embeddablecontent-entityconfirm-no' ) ) ) );
+		$banner.find( '.wb-entity-confirm-yes' ).on( 'click', function () {
+			$banner.remove();
+		} );
+		$banner.find( '.wb-entity-confirm-no' ).on( 'click', function () {
+			licenseField.set( '' );
+			$( licenseField.el ).trigger( 'focus' );
+			$banner.remove();
+		} );
+		// Place below the field: inside a php-mode table cell, or after an
+		// OOUI field layout.
+		var $host = $input.closest( 'td.mw-input, .oo-ui-fieldLayout' ).first();
+		if ( $host.is( 'td' ) || !$host.length ) {
+			$input.after( $banner );
+		} else {
+			$host.after( $banner );
+		}
 	}
 
 	function formatBytes( bytes ) {
@@ -285,8 +445,17 @@
 		}
 		var license = fieldVal( cfg, 'license' );
 		if ( license && meta.license ) {
-			resolveLicense( meta.license, function ( qid ) {
-				license.set( qid );
+			// Autofill-confirm: the fetched license label is matched against
+			// the instance's license items (fuzzy — "CC BY-SA 4.0
+			// International" still hits "CC BY-SA 4.0"); a good match fills
+			// the field AND asks the user to confirm or correct. No match →
+			// the field stays empty (the current flow).
+			matchLicense( meta.license, function ( best ) {
+				if ( !best ) {
+					return;
+				}
+				license.set( best.id );
+				showLicenseConfirm( cfg, license, meta.license, best );
 			} );
 		}
 
@@ -412,7 +581,9 @@
 			if ( !cfg.urlField ) {
 				return;
 			}
-			var $url = $( '#' + cfg.urlField );
+			// findInput resolves the URL field's real <input> (OOUI widget
+			// wrapper or php-mode input; id → inner input → name fallback).
+			var $url = $( findInput( cfg.urlField ) );
 			if ( !$url.length ) {
 				return;
 			}
@@ -478,7 +649,7 @@
 					var file = new File( [ blob ], name, { type: blob.type || 'application/octet-stream' } );
 					var dt = new DataTransfer();
 					dt.items.add( file );
-					var $file = $( '#' + cfg.fileField );
+					var $file = $( findInput( cfg.fileField ) );
 					$file.prop( 'disabled', false );
 					$file[ 0 ].files = dt.files;
 					$form.find( 'input[name="' + cfg.modeField + '"][value="' + ( cfg.fileMode || 'file' ) + '"]' )

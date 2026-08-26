@@ -11,6 +11,7 @@ use MediaWiki\Parser\Parser;
 use MediaWiki\Skin\SkinTemplate;
 use MediaWiki\SpecialPage\SpecialPage;
 use Wikibase\DataModel\Entity\Item;
+use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\DataModel\Entity\Property;
 use Wikibase\Repo\WikibaseRepo;
 
@@ -97,6 +98,7 @@ class Hooks {
 		if ( $title->isSpecial( 'Upload' ) ) {
 			$out->addModules( 'ext.embeddableContent.entitysuggest' );
 			$out->addModules( 'ext.embeddableContent.uploadmeta' );
+			$out->addModules( 'ext.embeddableContent.entityconfirm' );
 			return;
 		}
 
@@ -113,6 +115,15 @@ class Hooks {
 
 		$out->addModules( 'ext.embeddableContent.gadget' );
 
+		// "Update basic information" button (the autofill-confirm-update
+		// batch): items whose class has a Special:Update* counterpart link
+		// to it — server-side class detection, no client API roundtrip.
+		$updateUrl = self::updateUrlForItem( $entityId->getSerialization() );
+		if ( $updateUrl !== null ) {
+			$out->addJsConfigVars( 'wbUpdateBasicInfoUrl', $updateUrl );
+			$out->addModules( 'ext.embeddableContent.updatebutton' );
+		}
+
 		$oembedUrl = SpecialPage::getTitleFor( 'Embed', 'oembed' )
 			->getFullURL( [ 'url' => $title->getFullURL() ] );
 		$out->addLink( [
@@ -120,6 +131,65 @@ class Hooks {
 			'type' => 'application/json+oembed',
 			'href' => $oembedUrl,
 		] );
+	}
+
+	/**
+	 * The Special:Update* URL for an item, or null when the item's class has
+	 * no Update page (not part of the Add* vocabulary). Class → Update page
+	 * mapping (all config-derived, instance-agnostic):
+	 *  - any source class      → Special:UpdateSource (per-class detection)
+	 *  - the person class      → Special:UpdatePerson
+	 *  - the other agent classes → Special:UpdateCollective
+	 *  - the FOSS class        → Special:UpdateSoftware
+	 *  - the fictional class   → Special:UpdateFictionalCharacter
+	 */
+	private static function updateUrlForItem( string $itemId ): ?string {
+		try {
+			$config = MediaWikiServices::getInstance()->get( 'EmbeddableContent.Config' );
+			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+		if ( !$item instanceof Item ) {
+			return null;
+		}
+		$classIds = [];
+		$propertyId = new \Wikibase\DataModel\Entity\NumericPropertyId( $config->instanceOfPropertyId() );
+		foreach ( $item->getStatements()->getByPropertyId( $propertyId ) as $statement ) {
+			$value = $statement->getMainSnak()->getDataValue();
+			if ( $value instanceof \Wikibase\DataModel\Entity\EntityIdValue ) {
+				$classIds[] = $value->getEntityId()->getSerialization();
+			}
+		}
+		if ( $classIds === [] ) {
+			return null;
+		}
+
+		foreach ( $config->sourceClasses() as $id ) {
+			if ( in_array( $id, $classIds, true ) ) {
+				return SpecialPage::getTitleFor( 'UpdateSource', $itemId )->getFullURL();
+			}
+		}
+		$agentClasses = $config->agentClasses();
+		if ( isset( $agentClasses['person'] ) && in_array( $agentClasses['person'], $classIds, true ) ) {
+			return SpecialPage::getTitleFor( 'UpdatePerson', $itemId )->getFullURL();
+		}
+		foreach ( $agentClasses as $key => $id ) {
+			if ( $key !== 'person' && in_array( $id, $classIds, true ) ) {
+				return SpecialPage::getTitleFor( 'UpdateCollective', $itemId )->getFullURL();
+			}
+		}
+		foreach ( $config->fossClasses() as $id ) {
+			if ( in_array( $id, $classIds, true ) ) {
+				return SpecialPage::getTitleFor( 'UpdateSoftware', $itemId )->getFullURL();
+			}
+		}
+		foreach ( $config->fictionalCharacterClasses() as $id ) {
+			if ( in_array( $id, $classIds, true ) ) {
+				return SpecialPage::getTitleFor( 'UpdateFictionalCharacter', $itemId )->getFullURL();
+			}
+		}
+		return null;
 	}
 
 	private static function parseItemId( string $text ): ?\Wikibase\DataModel\Entity\ItemId {

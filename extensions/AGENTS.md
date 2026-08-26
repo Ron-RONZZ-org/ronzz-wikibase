@@ -262,6 +262,40 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   verification item.
 - **Entity-page toolbar gadget** (copy embed with absolute URL + language
   selector / copy citation) and entity-combobox autocomplete.
+- **Autofill confirm + Special:Update\* pages (autofill-confirm-update
+  batch, ADR `docs/decisions/autofill-confirm-update.md`)**: entity-typed
+  fields auto-filled from fetched source data (license on Special:Upload /
+  Add\* portrait/logo validate; harvested publisher/journal on AddSource;
+  harvested developer/license/programming-language on AddSoftware; a
+  free-text author NAME in the AddSource search) are matched — exact label
+  first, then fuzzy (`EntityLabelMatcher`, pure-PHP scorer: exact → prefix →
+  token-containment → Levenshtein, threshold 0.75, over the same
+  `EntitySearchHelper` the combobox uses, case-variant queries for the
+  instance's case-sensitive term store) — and a good match PREFILLS the
+  combobox AND renders a confirmation banner in the field row
+  (`entityConfirmHtml` server-side / `uploadmeta.js` client-side;
+  `entityconfirm.js` wires the buttons): "{field} fetched from source:
+  {value}, we think this corresponds to {label} (Q#)." [Yes, that's right]
+  / [No, let me correct] (No clears + focuses the combobox). No good match
+  → the plain hint flow. ⚠️ `uploadmeta.js` field targets are HTMLForm
+  field NAMES — the lookup is id → inner input → `input[name=…]` (the OOUI
+  forms give the `<input>` an auto-generated id and the explicit id lands on
+  the widget wrapper; without the name fallback the Add\* validate button
+  never rendered and the Special:Upload license autofill silently no-opped).
+  New **Special:Update\* pages** (UpdatePerson/UpdateSource/UpdateCollective/
+  UpdateSoftware/UpdateFictionalCharacter, URL `Special:UpdatePerson/Q42`):
+  each extends its Add\* counterpart and mixes in `UpdateExternalEntityFlow`
+  — the exact same review fields prefilled from the item's statements
+  (`recordFromItem`, the reverse of `statementSpecs`), submit re-runs the
+  Add\* validation then REPLACES the managed statements
+  (`baseManagedPropertyIds` ∪ the new specs) + updates the en label/
+  description; uploads are opt-in (an existing portrait/logo survives; the
+  AddSource access file is kept via a relaxed access validation); a label
+  change best-effort-renames the classic page (MovePage + sitelink update).
+  The Item page ("Update basic information" button under the title,
+  `updatebutton.js` + the config-derived class→Update map in
+  `Hooks::onBeforePageDisplay`) links to the Update page for any item whose
+  class has one.
 
 ### WikibaseCitation
 

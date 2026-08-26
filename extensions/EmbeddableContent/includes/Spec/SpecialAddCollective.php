@@ -19,9 +19,10 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 
 	public function __construct(
 		\EmbeddableContent\EmbeddableContentConfig $config,
-		\EmbeddableContent\Fetch\ProviderClient $client
+		\EmbeddableContent\Fetch\ProviderClient $client,
+		string $pageName = 'AddCollective'
 	) {
-		parent::__construct( 'AddCollective', $config, $client );
+		parent::__construct( $pageName, $config, $client );
 	}
 
 	protected function kindKey(): string {
@@ -110,7 +111,8 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 			'logo', 'embeddablecontent-collective-logo-file'
 		);
 		$fields['logoUrl'] = \EmbeddableContent\Upload\ImageUploadHelper::urlField(
-			'logo', 'embeddablecontent-collective-logo-url'
+			'logo', 'embeddablecontent-collective-logo-url',
+			$this->msg( 'embeddablecontent-collective-logo-license' )->text()
 		);
 		$fields['logoLicense'] = \EmbeddableContent\Upload\ImageUploadHelper::licenseField(
 			'logo',

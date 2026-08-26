@@ -82,6 +82,41 @@
 				"EmbeddableContent.ProviderClient"
 			]
 		},
+		"UpdatePerson": {
+			"class": "EmbeddableContent\\Spec\\SpecialUpdatePerson",
+			"services": [
+				"EmbeddableContent.Config",
+				"EmbeddableContent.ProviderClient"
+			]
+		},
+		"UpdateSource": {
+			"class": "EmbeddableContent\\Spec\\SpecialUpdateSource",
+			"services": [
+				"EmbeddableContent.Config",
+				"EmbeddableContent.ProviderClient"
+			]
+		},
+		"UpdateCollective": {
+			"class": "EmbeddableContent\\Spec\\SpecialUpdateCollective",
+			"services": [
+				"EmbeddableContent.Config",
+				"EmbeddableContent.ProviderClient"
+			]
+		},
+		"UpdateSoftware": {
+			"class": "EmbeddableContent\\Spec\\SpecialUpdateSoftware",
+			"services": [
+				"EmbeddableContent.Config",
+				"EmbeddableContent.ProviderClient"
+			]
+		},
+		"UpdateFictionalCharacter": {
+			"class": "EmbeddableContent\\Spec\\SpecialUpdateFictionalCharacter",
+			"services": [
+				"EmbeddableContent.Config",
+				"EmbeddableContent.ProviderClient"
+			]
+		},
 		"SourceFile": {
 			"class": "EmbeddableContent\\Spec\\SpecialSourceFile",
 			"services": [
@@ -236,7 +271,45 @@
 				"embeddablecontent-uploadmeta-failed",
 				"embeddablecontent-uploadmeta-warning",
 				"embeddablecontent-uploadmeta-browserfetch-failed",
-				"embeddablecontent-uploadmeta-bytesize"
+				"embeddablecontent-uploadmeta-bytesize",
+				"embeddablecontent-entityconfirm-line",
+				"embeddablecontent-entityconfirm-yes",
+				"embeddablecontent-entityconfirm-no"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.entityconfirm": {
+			"scripts": [
+				"entityconfirm.js"
+			],
+			"styles": [
+				"uploadmeta.css"
+			],
+			"dependencies": [
+				"oojs-ui"
+			],
+			"messages": [
+				"embeddablecontent-entityconfirm-line",
+				"embeddablecontent-entityconfirm-yes",
+				"embeddablecontent-entityconfirm-no"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.updatebutton": {
+			"scripts": [
+				"updatebutton.js"
+			],
+			"styles": [
+				"gadget.css"
+			],
+			"messages": [
+				"embeddablecontent-update-button"
 			],
 			"targets": [
 				"desktop",
