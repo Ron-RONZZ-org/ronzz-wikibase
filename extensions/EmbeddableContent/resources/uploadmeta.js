@@ -641,11 +641,20 @@
 			if ( !host || !isWikimediaHost( host ) || !cfg.fileField || !cfg.modeField ) {
 				return true;
 			}
-			// The URL-mode radio value differs across surfaces: the Add*
-			// pages use lowercase 'url', Special:Upload uses core's
-			// 'Url'. Normalise so the blob fallback fires on both.
+			// The URL-mode radio value differs across surfaces:
+			//  - Special:Upload (php-mode) renders CHECKED radios named
+			//    'wpSourceType' with values 'Url'/'File';
+			//  - the Add* pages (OOUI) strip the name from the visible
+			//    radios and carry the current value in the widget's HIDDEN
+			//    input (name='wplogoMode', type=hidden) — `:checked` never
+			//    matches it, so without the fallback the Wikimedia blob
+			//    conversion silently skipped and the server-side
+			//    UploadFromUrl drew Wikimedia's 403/429 ("unreachable or
+			//    unsupported URL" on the AddCollective logo).
 			var modeVal = String(
-				$form.find( 'input[name="' + cfg.modeField + '"]:checked' ).val() || ''
+				$form.find( 'input[name="' + cfg.modeField + '"]:checked' ).val()
+				|| $form.find( 'input[name="' + cfg.modeField + '"][type="hidden"]' ).val()
+				|| ''
 			).toLowerCase();
 			if ( modeVal !== 'url' ) {
 				return true;
