@@ -7,6 +7,7 @@ namespace EmbeddableContent\Spec;
 use DataValues\StringValue;
 use DataValues\TimeValue;
 use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\EntityLabelMatcher;
 use EmbeddableContent\Fetch\ProviderClient;
 use EmbeddableContent\Fetch\ProviderResult;
 use MediaWiki\HTMLForm\HTMLForm;
@@ -127,6 +128,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// The portrait/logo URL validate button + 429 blob fallback; a
 		// no-op on pages without the wb-uploadmeta wiring span.
 		$this->getOutput()->addModules( 'ext.embeddableContent.uploadmeta' );
+		// The entity-field autofill confirmation banners (publisher/journal/
+		// authors/licenses auto-filled from fetched source data) — a no-op
+		// when the rendered form carries no .wb-entity-confirm block.
+		$this->getOutput()->addModules( 'ext.embeddableContent.entityconfirm' );
 		$parts = explode( '/', trim( (string)$subPage ) );
 		$first = $parts[0] ?? '';
 		if ( $first === '' ) {
@@ -1520,6 +1525,90 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			}
 		}
 		return null;
+	}
+
+	// ------------------------------------------------------------- entity autofill
+	// The autofill-confirm flow: a fetched STRING for an entity-typed field
+	// (publisher, journal, license, author, …) is matched against the
+	// instance's items — exact label first, then fuzzy (EntityLabelMatcher).
+	// A match PRE-FILLS the field and renders a confirmation banner
+	// (entityconfirm.js: "we think this corresponds to {label} (Q#)" with
+	// Yes / No, let me correct). No good match → the field stays empty and
+	// the caller falls back to its plain hint flow.
+
+	/**
+	 * Resolves a fetched string to an existing item, or null when there is
+	 * no good match (the caller keeps its current flow).
+	 *
+	 * @param string[] $classItemIds optional instance-of filter
+	 * @return array{id:string,label:string,exact:bool}|null
+	 */
+	protected function resolveEntityField( string $fetched, array $classItemIds = [] ): ?array {
+		$fetched = trim( $fetched );
+		if ( $fetched === '' || preg_match( '/^Q[1-9]\d*$/i', $fetched ) === 1 ) {
+			// Empty, or already an item id — nothing to resolve.
+			return null;
+		}
+		$exact = $this->findItemIdByLabel( $fetched );
+		if ( $exact !== null ) {
+			return [
+				'id' => $exact,
+				'label' => $this->entityLabel( $exact ),
+				'exact' => true,
+			];
+		}
+		$match = ( new EntityLabelMatcher( null, $this->config->instanceOfPropertyId() ) )
+			->findBestMatch( $fetched, $classItemIds );
+		if ( $match !== null ) {
+			return [
+				'id' => $match['itemId'],
+				'label' => $match['label'],
+				'exact' => false,
+			];
+		}
+		return null;
+	}
+
+	/**
+	 * Confirmation banner for an entity field auto-filled from fetched
+	 * source data: "{field} fetched from source: {value}, we think this
+	 * corresponds to {label} ({id})." + [Yes, that's right] / [No, let me
+	 * correct]. The field's input name goes in data-field (the rendered
+	 * HTMLForm names are "wp" + field key); resources/entityconfirm.js wires
+	 * the buttons — "No" clears the field and focuses the combobox.
+	 */
+	protected function entityConfirmHtml( string $inputName, string $fieldLabel, string $fetched, string $matchedLabel, string $matchedId ): string {
+		$line = $this->msg( 'embeddablecontent-entityconfirm-line' )
+			->params( $fieldLabel, $fetched, $matchedLabel, $matchedId )
+			->escaped();
+		$yes = $this->msg( 'embeddablecontent-entityconfirm-yes' )->escaped();
+		$no = $this->msg( 'embeddablecontent-entityconfirm-no' )->escaped();
+		return '<div class="wb-entity-confirm" data-field="'
+			. htmlspecialchars( $inputName, ENT_QUOTES, 'UTF-8' ) . '">'
+			. '<span class="wb-entity-confirm-line">' . $line . '</span>'
+			. '<span class="wb-entity-confirm-actions">'
+			. '<button type="button" class="wb-entity-confirm-yes">' . $yes . '</button>'
+			. '<button type="button" class="wb-entity-confirm-no">' . $no . '</button>'
+			. '</span></div>';
+	}
+
+	/**
+	 * English label of an item (best-effort; the id itself when missing) —
+	 * for the confirmation banner copy.
+	 */
+	protected function entityLabel( string $itemId ): string {
+		try {
+			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
+			if ( $item instanceof Item ) {
+				$term = $item->getLabels()->getByLanguage( 'en' );
+				if ( $term !== null ) {
+					return $term->getText();
+				}
+			}
+		} catch ( \Throwable $e ) {
+			// fall through
+		}
+		return $itemId;
 	}
 
 	/** @return string[] */

@@ -216,6 +216,7 @@ final class UploadHooks {
 			'fileField' => 'wpUploadFile',
 			'modeField' => 'wpSourceType',
 			'fileMode' => 'File',
+			'licenseLabel' => wfMessage( 'embeddablecontent-upload-license' )->text(),
 			'targets' => [
 				'name' => 'wpDestFile',
 				'description' => 'wpUploadDescription',

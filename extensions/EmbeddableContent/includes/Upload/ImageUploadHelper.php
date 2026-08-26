@@ -101,15 +101,16 @@ final class ImageUploadHelper {
 
 	/**
 	 * The pasted-URL field + the validate-button wiring span (rendered
-	 * right after the field; uploadmeta.js reads its data-config).
+	 * right after the field; uploadmeta.js reads its data-config). The
+	 * license label rides along for the autofill confirmation copy.
 	 */
-	public static function urlField( string $prefix, string $msgKey ): array {
+	public static function urlField( string $prefix, string $msgKey, string $licenseLabel = '' ): array {
 		return [
 			'type' => 'url',
 			'label-message' => $msgKey,
 			'maxlength' => 500,
 			'hide-if' => [ 'OR', [ '===', $prefix . 'Include', '' ], [ '===', $prefix . 'Mode', 'file' ] ],
-			'help-raw' => self::wiringSpan( $prefix ),
+			'help-raw' => self::wiringSpan( $prefix, $licenseLabel ),
 		];
 	}
 
@@ -149,14 +150,16 @@ final class ImageUploadHelper {
 	 * The validate-button wiring span. uploadmeta.js reads data-config and
 	 * injects the button next to the URL field; on submit it converts a
 	 * Wikimedia URL-mode upload into a browser-supplied file (the 429 blob
-	 * fallback) and records the original URL in wbUploadmetaSourceUrl.
+	 * fallback) and records the original URL in wbUploadmetaSourceUrl. The
+	 * license label ('' = none) is the confirmation-banner field name.
 	 */
-	public static function wiringSpan( string $prefix ): string {
+	public static function wiringSpan( string $prefix, string $licenseLabel = '' ): string {
 		$config = [
 			'urlField' => 'wp' . $prefix . 'Url',
 			'fileField' => 'wp' . $prefix . 'File',
 			'modeField' => 'wp' . $prefix . 'Mode',
 			'fileMode' => 'file',
+			'licenseLabel' => $licenseLabel,
 			'targets' => [
 				'author' => 'wp' . $prefix . 'Author',
 				'license' => 'wp' . $prefix . 'License',

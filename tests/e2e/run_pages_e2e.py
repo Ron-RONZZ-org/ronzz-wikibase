@@ -689,6 +689,113 @@ def flow_source_book_manual_autofill(op, base: str, api: str, title: str,
     return flow_final_item(op, base, api, url3, body3, "AddSource/book/manual (autofill)")
 
 
+def flow_source_manual_author_confirm(op, base: str, api: str, title: str,
+                                      author_name: str) -> tuple[str, str]:
+    """Autofill-confirm flow: AddSource/book FREE-TEXT author search — the
+    typed name (wpauthorMode=text) fuzzy-matches an existing person item; the
+    manual form prefills wpauthors with the matched Q-id AND renders the
+    .wb-entity-confirm banner ("we think this corresponds to …"). Returns
+    (created qid, matched author id)."""
+    matched = resolve_label(op, api, author_name, "item")
+    if not matched:
+        raise FlowError(f"author {author_name!r} is not an existing item — the banner flow needs one")
+    url, body = page_get(op, base, "/wiki/Special:AddSource/book")
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "wptitle": title, "wpauthor": author_name, "wpauthorMode": "text",
+        "wpEditToken": token, "wpSubmit": "1",
+    })
+    manual_path = flow_manual_link_from(op, base, body, "AddSource/book")
+    url2, body2 = page_get(op, base, manual_path)
+    if input_value(body2, "wpauthors") != matched:
+        raise FlowError(
+            f"free-text author {author_name!r} not fuzzy-matched to {matched}: "
+            f"got {input_value(body2, 'wpauthors')!r} {find_error(body2)}")
+    if "wb-entity-confirm" not in body2:
+        raise FlowError(f"manual form missing the entity-confirm banner for the author: {find_error(body2)}")
+    token2 = edit_token(body2)
+    url3, body3 = page_post(op, url2, {
+        "wptitle": title, "wpauthors": matched,
+        "wpEditToken": token2, "wpSubmit": "1",
+    })
+    qid = flow_final_item(op, base, api, url3, body3, "AddSource/book/manual (author confirm)")
+    return qid, matched
+
+
+def flow_update_button(op, base: str, qid: str, update_special: str) -> None:
+    """Update-flow button (autofill-confirm-update): the Item page carries
+    the wbUpdateBasicInfoUrl config pointing at the Special:Update* page
+    (server-side class detection; updatebutton.js renders the button under
+    the title)."""
+    url, body = page_get(op, base, f"/wiki/Item:{qid}")
+    m = re.search(r'"wbUpdateBasicInfoUrl"\s*:\s*"([^"]*Special:' + re.escape(update_special)
+                  + r"/" + re.escape(qid) + r')"', body)
+    if not m:
+        raise FlowError(
+            f"Item:{qid} page carries no update-button URL for {update_special}: "
+            f"{find_error(body)}")
+    print(f"[ok] Item:{qid} -> update button -> {m.group(1)}")
+
+
+def flow_update_person(op, base: str, api: str, qid: str, new_description: str) -> str:
+    """Update flow: Special:UpdatePerson/<qid> renders the AddPerson review
+    fields prefilled from the item's statements; a changed description
+    UPDATES the item (the other statements are preserved). Returns the final
+    URL. The POST mirrors a browser: every visible form field is submitted
+    (hide-if-hidden fields are not), so untouched statements survive."""
+    url, body = page_get(op, base, f"/wiki/Special:UpdatePerson/{qid}")
+    if "Update a person" not in body:
+        raise FlowError(f"Special:UpdatePerson/{qid} did not render: {find_error(body)}")
+    given = input_value(body, "wpgivenName")
+    family = input_value(body, "wpfamilyName")
+    if not given or not family:
+        raise FlowError(f"UpdatePerson/{qid} did not prefill given/family: {find_error(body)}")
+    class_item = input_value(body, "wpclass")
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "wpgivenName": given, "wpfamilyName": family,
+        "wpdescription": new_description,
+        "wpdateOfBirth": input_value(body, "wpdateOfBirth"),
+        "wpplaceOfBirth": input_value(body, "wpplaceOfBirth"),
+        "wpdeceased": "1",  # the item under test has death facts — toggle open
+        "wpdateOfDeath": input_value(body, "wpdateOfDeath"),
+        "wpplaceOfDeath": input_value(body, "wpplaceOfDeath"),
+        "wpclass": class_item,
+        "wpEditToken": token, "wpSubmit": "1",
+    })
+    if qid not in url:
+        raise FlowError(f"UpdatePerson/{qid} did not redirect to the item: {url} {find_error(body)}")
+    return url
+
+
+def flow_update_source(op, base: str, api: str, qid: str, new_description: str) -> str:
+    """Update flow: Special:UpdateSource/<qid> renders the AddSource review
+    fields prefilled from the item's statements; a changed description
+    UPDATES the item. Returns the final URL."""
+    url, body = page_get(op, base, f"/wiki/Special:UpdateSource/{qid}")
+    if "Update a source" not in body:
+        raise FlowError(f"Special:UpdateSource/{qid} did not render: {find_error(body)}")
+    title = input_value(body, "wptitle")
+    authors = input_value(body, "wpauthors")
+    class_item = input_value(body, "wpclass")
+    if not title or not authors:
+        raise FlowError(f"UpdateSource/{qid} did not prefill title/authors: {find_error(body)}")
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "wptitle": title, "wpauthors": authors,
+        "wpdescription": new_description,
+        "wppublisher": input_value(body, "wppublisher"),
+        "wppages": input_value(body, "wppages"),
+        "wpissuedYear": input_value(body, "wpissuedYear"),
+        "wpaccessMode": input_value(body, "wpaccessMode") or "na",
+        "wpclass": class_item,
+        "wpEditToken": token, "wpSubmit": "1",
+    })
+    if qid not in url:
+        raise FlowError(f"UpdateSource/{qid} did not redirect to the item: {url} {find_error(body)}")
+    return url
+
+
 def flow_source_picker_route(op, base: str) -> str:
     """Class picker (issue follow-up): the manual-entry checkbox is GONE (the
     user decides on the next page); picking a class routes to its class-scoped
@@ -1568,6 +1675,24 @@ def main() -> int:
         print(f"[ok] AddPerson/manual -> {person_manual}: birth/death dates + places, "
               f"deceased toggle")
 
+        # 1b1. Update flows (autofill-confirm-update): the Item page offers
+        #     "Update basic information"; Special:UpdatePerson/<qid> renders
+        #     the AddPerson fields prefilled from the item and UPDATES it —
+        #     the new description lands, the birth/death statements survive.
+        flow_update_button(op, base, person_manual, "UpdatePerson")
+        new_description = f"Updated by the update-flow E2E {int(time.time())}"
+        flow_update_person(op, base, api, person_manual, new_description)
+        claims, _ = entity_claims(op, api, person_manual)
+        assert entity_descriptions(op, api, person_manual) == new_description, \
+            f"{person_manual} description not updated"
+        assert first_value(claims, date_of_birth_prop) is not None and \
+            first_value(claims, date_of_birth_prop).get("time", "").startswith("+1960-01-02"), \
+            f"{person_manual} date of birth lost by the update"
+        assert first_value(claims, place_of_birth_prop) == person, \
+            f"{person_manual} place of birth lost by the update"
+        print(f"[ok] Special:UpdatePerson/{person_manual}: description updated, "
+              f"birth/death statements preserved")
+
         # 1b2. AddPerson manual form rendering (regressions): the OpenAlex
         #     author-ID field must resolve its label (no ⧼message-key⧽) and
         #     the Description field must sit below Given name / Family name.
@@ -1902,6 +2027,31 @@ def main() -> int:
             f"{book_autofill} label mismatch ({label!r})"
         print(f"[ok] AddSource/book manual autofill -> {book_autofill}: "
               f"title + author carried from the search")
+
+        # 2i1. Free-text author autofill-confirm (autofill-confirm-update):
+        #     a NAME author search fuzzy-matches an existing person item —
+        #     the manual form prefills wpauthors with the Q-id AND renders
+        #     the .wb-entity-confirm banner.
+        author_confirm_title = f"Page-flow E2E book author-confirm {int(time.time())}"
+        author_confirm_qid, matched_author = flow_source_manual_author_confirm(
+            op, base, api, author_confirm_title, "Ada Lovelace")
+        print(f"[ok] AddSource/book free-text author -> {author_confirm_qid}: "
+              f"fuzzy-matched {matched_author} + confirmation banner")
+
+        # 2i2. Source update flow (autofill-confirm-update):
+        #     Special:UpdateSource/<qid> prefills the book's review fields
+        #     and updates the description; the title/authors survive.
+        flow_update_button(op, base, book_autofill, "UpdateSource")
+        new_book_description = f"Updated source by the update-flow E2E {int(time.time())}"
+        flow_update_source(op, base, api, book_autofill, new_book_description)
+        claims, label = entity_claims(op, api, book_autofill)
+        assert label == book_autofill_title, f"{book_autofill} label changed by the update"
+        assert entity_descriptions(op, api, book_autofill) == new_book_description, \
+            f"{book_autofill} description not updated"
+        assert first_value(claims, resolve("attributed to", "property")) is not None, \
+            f"{book_autofill} authors lost by the update"
+        print(f"[ok] Special:UpdateSource/{book_autofill}: description updated, "
+              f"title + authors preserved")
 
         # 2j. Class picker (issue follow-up): the manual checkbox is gone;
         #     picking a class routes to its class-scoped first step.

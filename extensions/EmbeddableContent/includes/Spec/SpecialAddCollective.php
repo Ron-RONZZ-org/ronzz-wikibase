@@ -110,7 +110,8 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 			'logo', 'embeddablecontent-collective-logo-file'
 		);
 		$fields['logoUrl'] = \EmbeddableContent\Upload\ImageUploadHelper::urlField(
-			'logo', 'embeddablecontent-collective-logo-url'
+			'logo', 'embeddablecontent-collective-logo-url',
+			$this->msg( 'embeddablecontent-collective-logo-license' )->text()
 		);
 		$fields['logoLicense'] = \EmbeddableContent\Upload\ImageUploadHelper::licenseField(
 			'logo',

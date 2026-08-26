@@ -56,3 +56,56 @@
 	font-size: 0.875em;
 	color: #72777d;
 }
+
+/* Entity-field autofill confirmation banner (autofill-confirm flow): the
+ * server-rendered "…we think this corresponds to {label} (Q#)" banner with
+ * [Yes, that's right] / [No, let me correct], and the client-side copy
+ * injected by uploadmeta.js next to a license field. */
+
+.wb-entity-confirm {
+	margin-top: 0.5em;
+	padding: 0.5em 0.75em;
+	border: 1px solid #a2a9b1;
+	border-inline-start: 3px solid #36c;
+	border-radius: 2px;
+	background: #f8f9fa;
+	font-size: 0.875em;
+	line-height: 1.4;
+}
+
+.wb-entity-confirm-line {
+	display: block;
+	color: #202122;
+}
+
+.wb-entity-confirm-actions {
+	display: inline-flex;
+	gap: 0.5em;
+	margin-top: 0.35em;
+}
+
+.wb-entity-confirm button {
+	/* Match OOUI's small progressive button. */
+	border: 1px solid #36c;
+	background: #36c;
+	color: #fff;
+	border-radius: 2px;
+	padding: 0.25em 0.9em;
+	font-size: 0.875em;
+	cursor: pointer;
+}
+
+.wb-entity-confirm button.wb-entity-confirm-no {
+	border-color: #a2a9b1;
+	background: #f8f9fa;
+	color: #202122;
+}
+
+.wb-entity-confirm button:hover {
+	background: #447ff5;
+}
+
+.wb-entity-confirm button.wb-entity-confirm-no:hover {
+	background: #ffffff;
+	border-color: #72777d;
+}
