@@ -126,3 +126,43 @@ no-opped.
 - **No vocabulary/config-map changes** — the class→Update map is derived
   from existing config keys; deploy is a plain extension rsync (no importers,
   no seed re-emission).
+
+## Follow-up (Aug 26 2026): Wikimedia blob fallback fixes on the Add* pages
+
+Live testing after the deploy (Special:AddCollective logo from a Wikimedia
+URL — "Logo upload failed: unreachable or unsupported URL") exposed a chain
+of latent bugs in the shared `uploadmeta.js` blob fallback, all of which
+only manifest on the Add* OOUI forms (Special:Upload's php-mode form was
+unaffected):
+
+1. **Stale closure**: the submit handler captured the URL input at wiring
+   time; the OOUI hide-if mechanism removes the collapsed fields from the
+   DOM and re-inserts fresh ones when the section opens, so by submit time
+   the closure read a detached input (empty URL) and silently skipped the
+   Wikimedia blob conversion. The handler now resolves the URL/status
+   elements from the CURRENT DOM at submit time.
+2. **OOUI radio groups**: the Add* mode radios have their name stripped
+   after infusion and carry the value in the widget's hidden value input
+   (`:checked` never matched), so `modeVal` was always empty. The check now
+   falls back to the non-radio value input; the converted resubmit must set
+   that value input to `file` too (the visible radios are unnamed and the
+   form submits the hidden input).
+3. **File input absent while url mode is active**: the hide-if keeps the
+   file input out of the DOM; the conversion switches the mode first and
+   waits for the input to reappear before setting the files.
+4. **Case mismatch (server)**: the server read the upload as
+   `'wp' . ucfirst($prefix) . 'File'` (`wpLogoFile`) but the rendered forms
+   submit `wp + key` as-is (`wplogoFile`) — every real-browser Add* file
+   upload was silently dropped (the page-flow E2E masked it by posting the
+   uppercase names). Aligned server + E2E to the rendered names.
+5. **WEBP/AVIF rendition mismatch**: the browser's `Accept` header makes
+   Wikimedia serve a WEBP at a `.png` thumbnail URL; the blob file was
+   named after the URL's extension → the server rejected
+   `filetype-mime-mismatch` ("png" vs "image/webp"). The File is now named
+   with the blob's actual MIME extension; an HTML error page (Wikimedia
+   429 served with 200) is rejected before filling the upload.
+
+Verified headless against production (logged-in): the exact user flow
+(AddCollective logo from the Natgeologo Wikimedia URL) creates the
+collective WITH the file + image/license/author/license-info statements
+consistently; the full page-flow E2E is green (46/46).
