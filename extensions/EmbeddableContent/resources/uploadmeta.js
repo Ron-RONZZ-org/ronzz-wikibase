@@ -645,15 +645,16 @@
 			//  - Special:Upload (php-mode) renders CHECKED radios named
 			//    'wpSourceType' with values 'Url'/'File';
 			//  - the Add* pages (OOUI) strip the name from the visible
-			//    radios and carry the current value in the widget's HIDDEN
-			//    input (name='wplogoMode', type=hidden) — `:checked` never
-			//    matches it, so without the fallback the Wikimedia blob
-			//    conversion silently skipped and the server-side
-			//    UploadFromUrl drew Wikimedia's 403/429 ("unreachable or
-			//    unsupported URL" on the AddCollective logo).
+			//    radios and carry the current value in the widget's hidden
+			//    value input (name='wplogoMode', no type attribute — it is
+			//    class-hidden, not type=hidden) — `:checked` never matches
+			//    it, so without the fallback the Wikimedia blob conversion
+			//    silently skipped and the server-side UploadFromUrl drew
+			//    Wikimedia's 403/429 ("unreachable or unsupported URL" on
+			//    the AddCollective logo).
 			var modeVal = String(
 				$form.find( 'input[name="' + cfg.modeField + '"]:checked' ).val()
-				|| $form.find( 'input[name="' + cfg.modeField + '"][type="hidden"]' ).val()
+				|| $form.find( 'input[name="' + cfg.modeField + '"]:not([type="radio"]):not([type="checkbox"])' ).val()
 				|| ''
 			).toLowerCase();
 			if ( modeVal !== 'url' ) {
