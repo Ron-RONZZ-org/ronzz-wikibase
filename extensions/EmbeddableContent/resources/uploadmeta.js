@@ -574,116 +574,150 @@
 	 * byte size to refuse oversized files BEFORE downloading them. */
 	var lastMeta = {};
 
-	mw.loader.using( 'oojs-ui' ).then( function () {
-		$( '.wb-uploadmeta' ).each( function () {
-			var $wrapper = $( this );
-			var cfg = $wrapper.data( 'config' ) || {};
-			if ( !cfg.urlField ) {
-				return;
-			}
-			// findInput resolves the URL field's real <input> (OOUI widget
-			// wrapper or php-mode input; id → inner input → name fallback).
-			var $url = $( findInput( cfg.urlField ) );
-			if ( !$url.length ) {
-				return;
-			}
+	/**
+	 * Wires ONE .wb-uploadmeta span: injects the Validate button + status +
+	 * preview next to its URL field and attaches the submit-time Wikimedia
+	 * blob fallback to the form. Idempotent — spans already holding a
+	 * button (or whose URL field is currently absent) are skipped.
+	 */
+	function wire( $wrapper ) {
+		var cfg = $wrapper.data( 'config' ) || {};
+		if ( !cfg.urlField || $wrapper.find( '.wb-uploadmeta-validate' ).length ) {
+			return;
+		}
+		// findInput resolves the URL field's real <input> (OOUI widget
+		// wrapper or php-mode input; id → inner input → name fallback).
+		var $url = $( findInput( cfg.urlField ) );
+		if ( !$url.length ) {
+			return;
+		}
 
-			var $status = $( '<div class="wb-uploadmeta-status"></div>' ).hide();
-			var $preview = $( '<div class="wb-uploadmeta-preview"></div>' ).hide();
-			var $btn = $( '<button type="button" class="wb-uploadmeta-validate">' )
-				.text( mw.msg( 'embeddablecontent-uploadmeta-validate' ) )
-				.on( 'click', function () {
-					validate( cfg, $url, $preview, $status, $btn );
-				} );
-
-			$wrapper.append( $btn ).append( $status ).append( $preview );
-
-			var $form = $url.closest( 'form' );
-			$form.on( 'submit', function ( e ) {
-				var url = String( $url.val() || '' ).trim();
-				// isWikimediaHost() takes a HOSTNAME — the full URL never
-				// matches (a file URL ends with its name, not
-				// .wikimedia.org). Passing the full URL here made the blob
-				// fallback never fire and the server-side UploadFromUrl drew
-				// the Wikimedia 429 (fceb99d). Parse first, mirroring
-				// extractFileTitle().
-				var host;
-				try {
-					host = new URL( url ).hostname;
-				} catch ( err ) {
-					return true;
-				}
-				if ( !host || !isWikimediaHost( host ) || !cfg.fileField || !cfg.modeField ) {
-					return true;
-				}
-				// The URL-mode radio value differs across surfaces: the Add*
-				// pages use lowercase 'url', Special:Upload uses core's
-				// 'Url'. Normalise so the blob fallback fires on both.
-				var modeVal = String(
-					$form.find( 'input[name="' + cfg.modeField + '"]:checked' ).val() || ''
-				).toLowerCase();
-				if ( modeVal !== 'url' ) {
-					return true;
-				}
-				var known = lastMeta[ cfg.urlField ] || {};
-				if ( known.fileSize && known.fileSize > MAX_BLOB_BYTES ) {
-					$status.text( mw.msg( 'embeddablecontent-uploadmeta-bytesize' ) ).show();
-					e.preventDefault();
-					return false;
-				}
-				// Convert this Wikimedia URL upload to a browser-supplied
-				// file: fetch the bytes (residential IP), fill the file
-				// input, switch the mode radio, resubmit.
-				e.preventDefault();
-				$status.text( mw.msg( 'embeddablecontent-uploadmeta-validating' ) ).show();
-				fetch( url ).then( function ( r ) {
-					if ( !r.ok ) {
-						throw new Error( 'HTTP ' + r.status );
-					}
-					return r.blob();
-				} ).then( function ( blob ) {
-					if ( blob.size > MAX_BLOB_BYTES ) {
-						throw new Error( mw.msg( 'embeddablecontent-uploadmeta-bytesize' ) );
-					}
-					var name = url.split( '/' ).pop().split( '?' )[ 0 ] || 'image';
-					var file = new File( [ blob ], name, { type: blob.type || 'application/octet-stream' } );
-					var dt = new DataTransfer();
-					dt.items.add( file );
-					var $file = $( findInput( cfg.fileField ) );
-					$file.prop( 'disabled', false );
-					$file[ 0 ].files = dt.files;
-					$form.find( 'input[name="' + cfg.modeField + '"][value="' + ( cfg.fileMode || 'file' ) + '"]' )
-						.prop( 'checked', true );
-					// Provenance: the original URL rides along as a form value.
-					if ( !$form.find( 'input[name="wbUploadmetaSourceUrl"]' ).length ) {
-						$form.append( $( '<input type="hidden" name="wbUploadmetaSourceUrl">' ).val( url ) );
-					}
-					// The native submit() drops the submit BUTTON's name/value
-					// (only a real click sends it), and Special:Upload's core
-					// gates processing on the button: UploadForm sets
-					// setSubmitName('wpUpload') and loadRequest() only
-					// proceeds when getCheck('wpUpload') — without it the
-					// resubmit re-renders the form ("page refreshes, nothing
-					// uploaded"). Replicate the submit button as a hidden
-					// field so the converted file upload actually processes.
-					$form.find( 'input[type="submit"], button[type="submit"]' ).each( function () {
-						var $btn = $( this );
-						var btnName = $btn.attr( 'name' );
-						if ( !btnName ) {
-							return;
-						}
-						if ( !$form.find( 'input[type="hidden"][name="' + btnName + '"]' ).length ) {
-							$form.append( $( '<input type="hidden">' ).attr( 'name', btnName ).val( $btn.val() || '1' ) );
-						}
-					} );
-					$status.hide();
-					// Native submit() bypasses this handler — no loop.
-					$form[ 0 ].submit();
-				} ).catch( function ( err ) {
-					$status.text( String( err && err.message ? err.message : mw.msg( 'embeddablecontent-uploadmeta-browserfetch-failed' ) ) ).show();
-				} );
-				return false;
+		var $status = $( '<div class="wb-uploadmeta-status"></div>' ).hide();
+		var $preview = $( '<div class="wb-uploadmeta-preview"></div>' ).hide();
+		var $btn = $( '<button type="button" class="wb-uploadmeta-validate">' )
+			.text( mw.msg( 'embeddablecontent-uploadmeta-validate' ) )
+			.on( 'click', function () {
+				validate( cfg, $url, $preview, $status, $btn );
 			} );
+
+		$wrapper.append( $btn ).append( $status ).append( $preview );
+
+		var $form = $url.closest( 'form' );
+		// The submit handler is per-FORM, not per-span: a hide-if
+		// re-insertion re-wires the span, and re-attaching the handler would
+		// fire the blob fallback several times on one submit.
+		if ( $form.length && $form.data( 'wbUploadmetaWired' ) ) {
+			return;
+		}
+		if ( $form.length ) {
+			$form.data( 'wbUploadmetaWired', true );
+		}
+		$form.on( 'submit', function ( e ) {
+			var url = String( $url.val() || '' ).trim();
+			// isWikimediaHost() takes a HOSTNAME — the full URL never
+			// matches (a file URL ends with its name, not
+			// .wikimedia.org). Passing the full URL here made the blob
+			// fallback never fire and the server-side UploadFromUrl drew
+			// the Wikimedia 429 (fceb99d). Parse first, mirroring
+			// extractFileTitle().
+			var host;
+			try {
+				host = new URL( url ).hostname;
+			} catch ( err ) {
+				return true;
+			}
+			if ( !host || !isWikimediaHost( host ) || !cfg.fileField || !cfg.modeField ) {
+				return true;
+			}
+			// The URL-mode radio value differs across surfaces: the Add*
+			// pages use lowercase 'url', Special:Upload uses core's
+			// 'Url'. Normalise so the blob fallback fires on both.
+			var modeVal = String(
+				$form.find( 'input[name="' + cfg.modeField + '"]:checked' ).val() || ''
+			).toLowerCase();
+			if ( modeVal !== 'url' ) {
+				return true;
+			}
+			var known = lastMeta[ cfg.urlField ] || {};
+			if ( known.fileSize && known.fileSize > MAX_BLOB_BYTES ) {
+				$status.text( mw.msg( 'embeddablecontent-uploadmeta-bytesize' ) ).show();
+				e.preventDefault();
+				return false;
+			}
+			// Convert this Wikimedia URL upload to a browser-supplied
+			// file: fetch the bytes (residential IP), fill the file
+			// input, switch the mode radio, resubmit.
+			e.preventDefault();
+			$status.text( mw.msg( 'embeddablecontent-uploadmeta-validating' ) ).show();
+			fetch( url ).then( function ( r ) {
+				if ( !r.ok ) {
+					throw new Error( 'HTTP ' + r.status );
+				}
+				return r.blob();
+			} ).then( function ( blob ) {
+				if ( blob.size > MAX_BLOB_BYTES ) {
+					throw new Error( mw.msg( 'embeddablecontent-uploadmeta-bytesize' ) );
+				}
+				var name = url.split( '/' ).pop().split( '?' )[ 0 ] || 'image';
+				var file = new File( [ blob ], name, { type: blob.type || 'application/octet-stream' } );
+				var dt = new DataTransfer();
+				dt.items.add( file );
+				var $file = $( findInput( cfg.fileField ) );
+				$file.prop( 'disabled', false );
+				$file[ 0 ].files = dt.files;
+				$form.find( 'input[name="' + cfg.modeField + '"][value="' + ( cfg.fileMode || 'file' ) + '"]' )
+					.prop( 'checked', true );
+				// Provenance: the original URL rides along as a form value.
+				if ( !$form.find( 'input[name="wbUploadmetaSourceUrl"]' ).length ) {
+					$form.append( $( '<input type="hidden" name="wbUploadmetaSourceUrl">' ).val( url ) );
+				}
+				// The native submit() drops the submit BUTTON's name/value
+				// (only a real click sends it), and Special:Upload's core
+				// gates processing on the button: UploadForm sets
+				// setSubmitName('wpUpload') and loadRequest() only
+				// proceeds when getCheck('wpUpload') — without it the
+				// resubmit re-renders the form ("page refreshes, nothing
+				// uploaded"). Replicate the submit button as a hidden
+				// field so the converted file upload actually processes.
+				$form.find( 'input[type="submit"], button[type="submit"]' ).each( function () {
+					var $btn = $( this );
+					var btnName = $btn.attr( 'name' );
+					if ( !btnName ) {
+						return;
+					}
+					if ( !$form.find( 'input[type="hidden"][name="' + btnName + '"]' ).length ) {
+						$form.append( $( '<input type="hidden">' ).attr( 'name', btnName ).val( $btn.val() || '1' ) );
+					}
+				} );
+				$status.hide();
+				// Native submit() bypasses this handler — no loop.
+				$form[ 0 ].submit();
+			} ).catch( function ( err ) {
+				$status.text( String( err && err.message ? err.message : mw.msg( 'embeddablecontent-uploadmeta-browserfetch-failed' ) ) ).show();
+			} );
+			return false;
 		} );
+	}
+
+	/** Wires every .wb-uploadmeta span currently in the DOM. */
+	function wireAll() {
+		$( '.wb-uploadmeta' ).each( function () {
+			wire( $( this ) );
+		} );
+	}
+
+	mw.loader.using( 'oojs-ui' ).then( function () {
+		wireAll();
+		// The Add* portrait/logo sections are hide-if COLLAPSED: OOUI
+		// REMOVES the hidden field — and with it the wiring span — from the
+		// DOM on load, and re-inserts it when the "I will upload a …" toggle
+		// opens. The initial wireAll() therefore finds nothing to wire on
+		// those fields; a MutationObserver re-wires any span that appears
+		// later (idempotent — a span already holding a button is skipped).
+		if ( typeof MutationObserver !== 'undefined' ) {
+			new MutationObserver( function () {
+				wireAll();
+			} ).observe( document.body, { childList: true, subtree: true } );
+		}
 	} );
 }() );
