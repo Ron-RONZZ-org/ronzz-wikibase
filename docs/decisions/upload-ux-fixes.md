@@ -55,7 +55,12 @@ must be re-applied if the instance is ever rebuilt.
 The Add\* portrait/logo **mode radio becomes file | url | existing** with
 **no default** — the user picks the source themselves; the file input, URL
 field and the new File: search box stay hidden until a mode is selected
-(hide-if switched from `=== Mode, X` to `!== Mode, X`).
+(hide-if switched from `=== Mode, X` to `!== Mode, X`). Implementation
+detail (found in live verification): OOUI PHP's
+`RadioSelectInputWidget::setOptions()` resets a value that matches no option
+to the FIRST option, so an empty default silently pre-checked `file` — a
+leading "Choose a source…" placeholder option carries the `''` value
+instead, keeping the group visibly unselected.
 
 The `existing` mode reveals a **File: search combobox** (`wb-file-combobox`,
 new `resources/fileselect.js` module): autocomplete over the instance's own
