@@ -246,16 +246,28 @@ final class EntityLabelMatcher {
 	/** @return callable(string,int):array<int,EntityId> */
 	private static function defaultSearcher(): callable {
 		return static function ( string $text, int $limit ): array {
-			// 'en' labels (the instance's primary terms) — the Add* review
-			// forms store/display English labels; the strict-language flag is
-			// off so fallback labels still surface.
-			return WikibaseRepo::getEntitySearchHelper()->getRankedSearchResults(
+			// The instance's EntitySearchHelper (Wikibase\Repo\Api\...,
+			// REL1_46): getRankedSearchResults returns TermSearchResult[]
+			// keyed by serialized entity id and requires the profile-context
+			// arg (null = default ranking).
+			$results = WikibaseRepo::getEntitySearchHelper()->getRankedSearchResults(
 				$text,
 				'en',
 				Item::ENTITY_TYPE,
 				$limit,
-				false
+				false,
+				null
 			);
+			$ids = [];
+			foreach ( $results as $result ) {
+				if ( $result instanceof \Wikibase\Lib\Interactors\TermSearchResult ) {
+					$id = $result->getEntityId();
+					if ( $id instanceof EntityId ) {
+						$ids[] = $id;
+					}
+				}
+			}
+			return $ids;
 		};
 	}
 
