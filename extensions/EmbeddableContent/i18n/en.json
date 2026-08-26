@@ -327,6 +327,7 @@
 	"embeddablecontent-entityconfirm-yes": "Yes, that's right",
 	"embeddablecontent-entityconfirm-no": "No, let me correct",
 	"embeddablecontent-upload-mode-existing": "Reuse an existing file on this wiki",
+	"embeddablecontent-upload-mode-choose": "Choose a source…",
 	"embeddablecontent-upload-existing": "Existing file on this wiki",
 	"embeddablecontent-manual-legend-fetched": "Item details",
 	"embeddablecontent-update-person-portrait-include": "I will upload a new portrait image for this person (replacing existing)",

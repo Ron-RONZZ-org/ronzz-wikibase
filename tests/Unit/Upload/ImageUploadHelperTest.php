@@ -112,11 +112,14 @@ final class ImageUploadHelperTest extends TestCase {
 			'embeddablecontent-upload-mode-existing'
 		);
 		$this->assertSame( 'radio', $spec['type'] );
-		// The user picks the source themselves — no radio is pre-checked
-		// (the previous default 'file' would pre-reveal the file input).
+		// No REAL source is pre-checked: the '' default matches only the
+		// leading "Choose a source…" placeholder option (OOUI resets an
+		// unmatched empty value to the FIRST option — the placeholder keeps
+		// the group visibly unselected so the user picks the source).
 		$this->assertSame( '', $spec['default'] );
 		$this->assertSame(
 			[
+				'embeddablecontent-upload-mode-choose' => '',
 				'embeddablecontent-software-logo-mode-file' => 'file',
 				'embeddablecontent-software-logo-mode-url' => 'url',
 				'embeddablecontent-upload-mode-existing' => 'existing',
