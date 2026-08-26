@@ -678,6 +678,16 @@
 				if ( !r.ok ) {
 					throw new Error( 'HTTP ' + r.status );
 				}
+				// A Wikimedia 429/error page is served with 200 + text/html
+				// from some proxies — never hand an HTML error page to the
+				// uploader (the server would reject it with
+				// filetype-mime-mismatch and the item is created without
+				// the image). Anything that is not HTML is treated as the
+				// file's bytes (PDFs/videos are valid on Special:Upload).
+				var contentType = String( r.headers.get( 'content-type' ) || '' ).toLowerCase();
+				if ( contentType.indexOf( 'text/html' ) !== -1 ) {
+					throw new Error( mw.msg( 'embeddablecontent-uploadmeta-browserfetch-failed' ) );
+				}
 				return r.blob();
 			} ).then( function ( blob ) {
 				if ( blob.size > MAX_BLOB_BYTES ) {
