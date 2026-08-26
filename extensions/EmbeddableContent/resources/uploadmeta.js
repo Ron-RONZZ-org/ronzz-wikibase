@@ -613,6 +613,18 @@
 			$form.data( 'wbUploadmetaWired', true );
 		}
 		$form.on( 'submit', function ( e ) {
+			// Resolve the CURRENT field elements at submit time — the OOUI
+			// hide-if mechanism removes the collapsed fields from the DOM
+			// and re-inserts fresh ones when the section opens, so an
+			// element captured at wiring time may be DETACHED by the time
+			// the user submits. The stale closure made the Wikimedia blob
+			// fallback read an empty URL and silently skip, letting the
+			// server-side UploadFromUrl draw "unreachable or unsupported
+			// URL" (Special:AddCollective logo report).
+			var $url = $( findInput( cfg.urlField ) );
+			if ( !$url.length ) {
+				return true;
+			}
 			var url = String( $url.val() || '' ).trim();
 			// isWikimediaHost() takes a HOSTNAME — the full URL never
 			// matches (a file URL ends with its name, not
@@ -638,6 +650,9 @@
 			if ( modeVal !== 'url' ) {
 				return true;
 			}
+			// The status/preview live on the CURRENT span (the latest
+			// wiring's) — resolve them from the form at submit time too.
+			var $status = $form.find( '.wb-uploadmeta-status' ).first();
 			var known = lastMeta[ cfg.urlField ] || {};
 			if ( known.fileSize && known.fileSize > MAX_BLOB_BYTES ) {
 				$status.text( mw.msg( 'embeddablecontent-uploadmeta-bytesize' ) ).show();
@@ -658,40 +673,55 @@
 				if ( blob.size > MAX_BLOB_BYTES ) {
 					throw new Error( mw.msg( 'embeddablecontent-uploadmeta-bytesize' ) );
 				}
-				var name = url.split( '/' ).pop().split( '?' )[ 0 ] || 'image';
-				var file = new File( [ blob ], name, { type: blob.type || 'application/octet-stream' } );
-				var dt = new DataTransfer();
-				dt.items.add( file );
-				var $file = $( findInput( cfg.fileField ) );
-				$file.prop( 'disabled', false );
-				$file[ 0 ].files = dt.files;
+				// Switch the mode radio to 'file' FIRST: while url mode is
+				// active the OOUI hide-if keeps the FILE input OUT of the
+				// DOM — it re-appears only after the radio change. Wait for
+				// it (poll, up to ~2 s) before setting the files.
 				$form.find( 'input[name="' + cfg.modeField + '"][value="' + ( cfg.fileMode || 'file' ) + '"]' )
 					.prop( 'checked', true );
-				// Provenance: the original URL rides along as a form value.
-				if ( !$form.find( 'input[name="wbUploadmetaSourceUrl"]' ).length ) {
-					$form.append( $( '<input type="hidden" name="wbUploadmetaSourceUrl">' ).val( url ) );
-				}
-				// The native submit() drops the submit BUTTON's name/value
-				// (only a real click sends it), and Special:Upload's core
-				// gates processing on the button: UploadForm sets
-				// setSubmitName('wpUpload') and loadRequest() only
-				// proceeds when getCheck('wpUpload') — without it the
-				// resubmit re-renders the form ("page refreshes, nothing
-				// uploaded"). Replicate the submit button as a hidden
-				// field so the converted file upload actually processes.
-				$form.find( 'input[type="submit"], button[type="submit"]' ).each( function () {
-					var $btn = $( this );
-					var btnName = $btn.attr( 'name' );
-					if ( !btnName ) {
+				var fillAndSubmit = function ( tries ) {
+					var $file = $( findInput( cfg.fileField ) );
+					if ( !$file.length ) {
+						if ( tries <= 0 ) {
+							$status.text( mw.msg( 'embeddablecontent-uploadmeta-browserfetch-failed' ) ).show();
+							return;
+						}
+						setTimeout( function () { fillAndSubmit( tries - 1 ); }, 50 );
 						return;
 					}
-					if ( !$form.find( 'input[type="hidden"][name="' + btnName + '"]' ).length ) {
-						$form.append( $( '<input type="hidden">' ).attr( 'name', btnName ).val( $btn.val() || '1' ) );
+					var name = url.split( '/' ).pop().split( '?' )[ 0 ] || 'image';
+					var file = new File( [ blob ], name, { type: blob.type || 'application/octet-stream' } );
+					var dt = new DataTransfer();
+					dt.items.add( file );
+					$file.prop( 'disabled', false );
+					$file[ 0 ].files = dt.files;
+					// Provenance: the original URL rides along as a form value.
+					if ( !$form.find( 'input[name="wbUploadmetaSourceUrl"]' ).length ) {
+						$form.append( $( '<input type="hidden" name="wbUploadmetaSourceUrl">' ).val( url ) );
 					}
-				} );
-				$status.hide();
-				// Native submit() bypasses this handler — no loop.
-				$form[ 0 ].submit();
+					// The native submit() drops the submit BUTTON's name/value
+					// (only a real click sends it), and Special:Upload's core
+					// gates processing on the button: UploadForm sets
+					// setSubmitName('wpUpload') and loadRequest() only
+					// proceeds when getCheck('wpUpload') — without it the
+					// resubmit re-renders the form ("page refreshes, nothing
+					// uploaded"). Replicate the submit button as a hidden
+					// field so the converted file upload actually processes.
+					$form.find( 'input[type="submit"], button[type="submit"]' ).each( function () {
+						var $btn = $( this );
+						var btnName = $btn.attr( 'name' );
+						if ( !btnName ) {
+							return;
+						}
+						if ( !$form.find( 'input[type="hidden"][name="' + btnName + '"]' ).length ) {
+							$form.append( $( '<input type="hidden">' ).attr( 'name', btnName ).val( $btn.val() || '1' ) );
+						}
+					} );
+					$status.hide();
+					// Native submit() bypasses this handler — no loop.
+					$form[ 0 ].submit();
+				};
+				fillAndSubmit( 40 );
 			} ).catch( function ( err ) {
 				$status.text( String( err && err.message ? err.message : mw.msg( 'embeddablecontent-uploadmeta-browserfetch-failed' ) ) ).show();
 			} );
