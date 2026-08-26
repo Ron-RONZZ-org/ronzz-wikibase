@@ -312,9 +312,12 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   latest fetch overwrites the auto-filled fields. (b) `SpecialAddCollective`/
   `SpecialAddPerson` page skeletons pass `|logo=`/`|portrait=` to their
   templates, so the uploaded image renders in the classic-page infobox
-  (requires the on-wiki Template:Collective/Person image cell — deploy
+  (  requires the on-wiki Template:Collective/Person image cell — deploy
   checklist item). (c) The portrait/logo **mode radio is file | url |
-  existing with NO default** — the user picks the source themselves (the
+  existing with NO default** — a leading "Choose a source…" placeholder
+  option carries the `''` value (OOUI resets an unmatched empty value to
+  the FIRST option, so the placeholder is what keeps the group visibly
+  unselected) — the user picks the source themselves (the
   file/url/existing inputs stay hidden until then); `existing` is a **File:
   search combobox** (`existingField`, `resources/fileselect.js`:
   `action=query&generator=search&gsrnamespace=6` + `iiurlwidth=64`
