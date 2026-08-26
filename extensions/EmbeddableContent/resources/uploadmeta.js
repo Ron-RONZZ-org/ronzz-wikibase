@@ -716,7 +716,20 @@
 						setTimeout( function () { fillAndSubmit( tries - 1 ); }, 50 );
 						return;
 					}
-					var name = url.split( '/' ).pop().split( '?' )[ 0 ] || 'image';
+					// Name the file after the blob's ACTUAL MIME extension:
+					// the browser's Accept header makes Wikimedia serve a
+					// WEBP (or AVIF) rendition at a ".png" thumbnail URL, so
+					// the URL's extension can mismatch the bytes — the server
+					// would reject the upload with filetype-mime-mismatch
+					// ("png" vs "image/webp").
+					var fext = extensionForMime( blob.type ) || extensionFromUrl( url );
+					var name = ( url.split( '/' ).pop().split( '?' )[ 0 ] || 'image' )
+						.replace( /\.[a-z0-9]+$/i, '' );
+					if ( fext ) {
+						name = name + '.' + fext;
+					} else if ( !name ) {
+						name = 'image';
+					}
 					var file = new File( [ blob ], name, { type: blob.type || 'application/octet-stream' } );
 					var dt = new DataTransfer();
 					dt.items.add( file );
