@@ -687,6 +687,13 @@
 				// active the OOUI hide-if keeps the FILE input OUT of the
 				// DOM — it re-appears only after the radio change. Wait for
 				// it (poll, up to ~2 s) before setting the files.
+				// The OOUI RadioSelectInputWidget's VALUE lives in its
+				// hidden value input (the visible radios are unnamed) —
+				// that is what the form SUBMITS, so it must say 'file' too
+				// or the converted resubmit posts mode=url again and the
+				// server-side UploadFromUrl draws Wikimedia's 403/429.
+				$form.find( 'input[name="' + cfg.modeField + '"]:not([type="radio"]):not([type="checkbox"])' )
+					.val( cfg.fileMode || 'file' );
 				$form.find( 'input[name="' + cfg.modeField + '"][value="' + ( cfg.fileMode || 'file' ) + '"]' )
 					.prop( 'checked', true );
 				var fillAndSubmit = function ( tries ) {
