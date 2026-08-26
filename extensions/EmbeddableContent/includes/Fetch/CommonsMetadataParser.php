@@ -31,10 +31,20 @@ final class CommonsMetadataParser {
 	 */
 	public static function fromImageInfo( array $imageInfo ): ImageMetadata {
 		$ext = $imageInfo['extmetadata'] ?? [];
+		$name = self::normalizeDestName(
+			self::textField( $ext, 'ObjectName' ) ?? self::textField( $ext, 'ImageDescription' )
+		);
+		// The ObjectName usually carries no extension — append the canonical
+		// one from the file's MIME type so the dest-name field is complete
+		// (mirrors the JS extensionForMime in resources/uploadmeta.js).
+		if ( $name !== null && strpos( $name, '.' ) === false ) {
+			$mimeExt = self::extensionForMime( (string)( $imageInfo['mime'] ?? '' ) );
+			if ( $mimeExt !== '' ) {
+				$name .= '.' . $mimeExt;
+			}
+		}
 		return new ImageMetadata(
-			name: self::normalizeDestName(
-				self::textField( $ext, 'ObjectName' ) ?? self::textField( $ext, 'ImageDescription' )
-			),
+			name: $name,
 			description: self::textField( $ext, 'ImageDescription', self::DESCRIPTION_CAP ),
 			author: self::textField( $ext, 'Artist' ),
 			licenseLabel: self::textField( $ext, 'LicenseShortName' ),
@@ -129,5 +139,26 @@ final class CommonsMetadataParser {
 			return null;
 		}
 		return $ext === '' ? $base : $base . '.' . strtolower( $ext );
+	}
+
+	/**
+	 * Canonical lowercase extension for a MIME type ('' when unknown).
+	 * Mirrors the JS extensionForMime in resources/uploadmeta.js.
+	 */
+	public static function extensionForMime( string $mime ): string {
+		$mime = strtolower( trim( explode( ';', $mime )[0] ) );
+		$map = [
+			'image/jpeg' => 'jpg', 'image/pjpeg' => 'jpg', 'image/png' => 'png',
+			'image/gif' => 'gif', 'image/webp' => 'webp', 'image/svg+xml' => 'svg',
+			'image/tiff' => 'tiff', 'image/x-tiff' => 'tiff',
+			'application/pdf' => 'pdf', 'application/epub+zip' => 'epub',
+			'application/djvu' => 'djvu',
+			'video/mp4' => 'mp4', 'video/webm' => 'webm', 'video/ogg' => 'ogv',
+			'video/quicktime' => 'mov',
+			'audio/mpeg' => 'mp3', 'audio/ogg' => 'oga', 'audio/wav' => 'wav',
+			'audio/x-wav' => 'wav', 'audio/x-m4a' => 'm4a', 'audio/mp4' => 'm4a',
+			'audio/flac' => 'flac', 'audio/opus' => 'opus',
+		];
+		return $map[$mime] ?? '';
 	}
 }

@@ -218,13 +218,55 @@
 		return ( bytes / ( 1024 * 1024 ) ).toFixed( 1 ) + ' MB';
 	}
 
+	/** Canonical lowercase extension for a MIME type ('' when unknown). */
+	function extensionForMime( mime ) {
+		if ( !mime ) {
+			return '';
+		}
+		mime = String( mime ).split( ';' )[ 0 ].trim().toLowerCase();
+		var map = {
+			'image/jpeg': 'jpg', 'image/pjpeg': 'jpg', 'image/png': 'png',
+			'image/gif': 'gif', 'image/webp': 'webp', 'image/svg+xml': 'svg',
+			'image/tiff': 'tiff', 'image/x-tiff': 'tiff',
+			'application/pdf': 'pdf', 'application/epub+zip': 'epub',
+			'application/djvu': 'djvu',
+			'video/mp4': 'mp4', 'video/webm': 'webm', 'video/ogg': 'ogv',
+			'video/quicktime': 'mov',
+			'audio/mpeg': 'mp3', 'audio/ogg': 'oga', 'audio/wav': 'wav',
+			'audio/x-wav': 'wav', 'audio/x-m4a': 'm4a', 'audio/mp4': 'm4a',
+			'audio/flac': 'flac', 'audio/opus': 'opus'
+		};
+		return map[ mime ] || '';
+	}
+
+	/** Extension from a URL's pathname ('' when none). */
+	function extensionFromUrl( url ) {
+		if ( !url ) {
+			return '';
+		}
+		try {
+			var m = String( new URL( url ).pathname ).match( /\.([A-Za-z0-9]{1,8})$/ );
+			return m ? m[ 1 ].toLowerCase() : '';
+		} catch ( e ) {
+			return '';
+		}
+	}
+
 	function applyMeta( cfg, meta, $preview ) {
 		var name = fieldVal( cfg, 'name' );
 		if ( name && meta.name ) {
 			// Destination-file name: normalized (lowercase, space→dash) —
-			// the fetched ObjectName is Title Case with spaces; MediaWiki
-			// appends the extension from MIME when missing.
+			// the fetched ObjectName is Title Case with spaces and usually
+			// has NO extension ("National Geographic Society …"). Append the
+			// canonical extension from the MIME type (fallback: the source
+			// URL's own extension) so the dest-name field is complete.
 			var normalized = normalizeDestName( meta.name );
+			if ( normalized && normalized.indexOf( '.' ) === -1 ) {
+				var ext = extensionForMime( meta.mime ) || extensionFromUrl( meta.sourceUrl );
+				if ( ext ) {
+					normalized = normalized + '.' + ext;
+				}
+			}
 			if ( normalized ) {
 				name.set( normalized );
 			}
@@ -248,13 +290,22 @@
 			} );
 		}
 
-		// Preview thumbnail + pixel size + byte size. Non-image files
-		// (PDF/video/audio) get no <img> and no pixel line — only the byte
-		// size (and the MIME when known).
+		// Preview: <img> for image types, a file-type icon badge for
+		// PDF/video/audio/other, plus pixel size (images) + byte size.
 		var html = '';
-		var isImage = meta.mime ? String( meta.mime ).indexOf( 'image/' ) === 0 : false;
-		if ( ( meta.thumbUrl || meta.sourceUrl ) && isImage ) {
-			html += '<img src="' + mw.html.escape( meta.thumbUrl || meta.sourceUrl ) + '" alt="" loading="lazy">';
+		var mime = meta.mime ? String( meta.mime ).split( ';' )[ 0 ].trim().toLowerCase() : '';
+		var isImage = mime.indexOf( 'image/' ) === 0;
+		if ( isImage ) {
+			if ( meta.thumbUrl || meta.sourceUrl ) {
+				html += '<img src="' + mw.html.escape( meta.thumbUrl || meta.sourceUrl ) + '" alt="" loading="lazy">';
+			}
+		} else if ( meta.mime ) {
+			// File-type icon: a small badge with the canonical extension
+			// (falls back to the MIME's subtype when unmapped).
+			var fext = extensionForMime( meta.mime ) ||
+				( mime.split( '/' )[ 1 ] || 'file' ).replace( /[^a-z0-9]/g, '' );
+			html += '<span class="wb-uploadmeta-fileicon" title="' + mw.html.escape( meta.mime ) + '">'
+				+ mw.html.escape( fext || 'file' ) + '</span>';
 		}
 		var bits = [];
 		if ( isImage && meta.width && meta.height ) {
@@ -306,7 +357,7 @@
 			// (origin=* — CORS-open, residential IP). Server fallback if
 			// the browser path fails.
 			var apiUrl = 'https://commons.wikimedia.org/w/api.php?origin=*&action=query' +
-				'&prop=imageinfo&iiprop=extmetadata%7Csize%7Curl&format=json&formatversion=2&titles=' +
+				'&prop=imageinfo&iiprop=extmetadata%7Csize%7Curl%7Cmime&format=json&formatversion=2&titles=' +
 				encodeURIComponent( title );
 			promise = fetch( apiUrl ).then( function ( r ) {
 				if ( !r.ok ) {

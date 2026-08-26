@@ -1122,6 +1122,15 @@ def flow_uploadmeta_module_source(op, base: str) -> None:
     if 'input[type="submit"]' not in body or "wbUploadmetaSourceUrl" not in body:
         raise FlowError("uploadmeta module: blob-fallback submit-button replication missing "
                         "(Special:Upload wpUpload gate regression)")
+    # The Commons imageinfo request must carry iiprop=mime — without it the
+    # payload has no MIME type and the validate preview cannot distinguish
+    # images (shown as <img>) from other file types (shown as a file-icon
+    # badge).
+    if "iiprop=extmetadata%7Csize%7Curl%7Cmime" not in body:
+        raise FlowError("uploadmeta module: Commons imageinfo request missing iiprop=mime "
+                        "(preview/file-icon regression)")
+    if "extensionForMime" not in body or "wb-uploadmeta-fileicon" not in body:
+        raise FlowError("uploadmeta module: dest-name extension / file-icon helpers missing")
 
 
 def flow_upload_special_item(op, base: str, api: str, license_qid: str) -> str:
