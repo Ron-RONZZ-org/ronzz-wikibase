@@ -220,3 +220,15 @@ Three further bugs from live testing:
   MIME (MIME + byte size for PDF/video/audio; pixel dims only for images); the
   validate preview is image-gated; the Special:Upload `Image author` label →
   `Author` (en/fr/eo).
+
+## Follow-up fixes round 4 (Aug 26 2026, PR #55)
+
+- **Image preview restored**: the image-gated `<img>` preview never rendered
+  because the Commons `imageinfo` request omitted `iiprop=mime` (meta.mime was
+  always null). `iiprop` now includes `mime`; `image/*` shows the thumbnail,
+  other MIME types show a file-type icon badge (`.wb-uploadmeta-fileicon`).
+- **Dest-name auto-extension**: the fetched ObjectName usually has no
+  extension; `applyMeta` appends the canonical extension from the MIME type
+  (`extensionForMime`, fallback to the source-URL pathname extension),
+  mirrored in `CommonsMetadataParser::extensionForMime`. An explicit
+  ObjectName extension still wins.
