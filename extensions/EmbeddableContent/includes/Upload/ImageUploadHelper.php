@@ -83,15 +83,24 @@ final class ImageUploadHelper {
 
 	/**
 	 * Radio choosing the image source: file from the device | pasted URL |
-	 * reuse an existing file on this wiki. NO default is selected — the
-	 * user picks the mode themselves (the file/url/existing inputs stay
-	 * hidden until then; each input's hide-if is `!== Mode, <value>`).
+	 * reuse an existing file on this wiki. NO real source is pre-selected:
+	 * a "Choose a source…" placeholder option (value '') is checked by
+	 * default, and the file/url/existing inputs stay hidden until a real
+	 * source is picked (each input's hide-if is `!== Mode, <value>`).
+	 * NOTE: OOUI's RadioSelectInputWidget resets an unmatched value to the
+	 * FIRST option — an empty default alone would silently pre-check 'file'
+	 * — hence the explicit placeholder option carrying the '' value.
 	 */
 	public static function modeField( string $prefix, string $modeMsg, string $fileMsg, string $urlMsg, string $existingMsg ): array {
 		return [
 			'type' => 'radio',
 			'label-message' => $modeMsg,
-			'options-messages' => [ $fileMsg => 'file', $urlMsg => 'url', $existingMsg => 'existing' ],
+			'options-messages' => [
+				'embeddablecontent-upload-mode-choose' => '',
+				$fileMsg => 'file',
+				$urlMsg => 'url',
+				$existingMsg => 'existing',
+			],
 			'default' => '',
 			'hide-if' => [ '===', $prefix . 'Include', '' ],
 		];
