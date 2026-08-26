@@ -220,8 +220,12 @@ trait UpdateExternalEntityFlow {
 		$specs = $this->statementSpecs( $record );
 		$removeProps = array_unique( array_merge( $this->baseManagedPropertyIds(), array_keys( $specs ) ) );
 		foreach ( $removeProps as $propertyId ) {
+			// StatementList has no removeStatement() — remove by guid.
 			foreach ( $item->getStatements()->getByPropertyId( new NumericPropertyId( $propertyId ) ) as $statement ) {
-				$item->getStatements()->removeStatement( $statement );
+				$guid = $statement->getGuid();
+				if ( $guid !== null ) {
+					$item->getStatements()->removeStatementsWithGuid( $guid );
+				}
 			}
 		}
 
@@ -340,14 +344,21 @@ trait UpdateExternalEntityFlow {
 
 	/** English label of an item ('' when none). */
 	protected function itemLabel( Item $item ): string {
-		$term = $item->getLabels()->getByLanguage( 'en' );
-		return $term !== null ? $term->getText() : '';
+		// TermList::getByLanguage THROWS OutOfBoundsException when the term
+		// is missing — check first (the Add* flows always have en labels, so
+		// the unguarded call never surfaced there).
+		if ( !$item->getLabels()->hasTermForLanguage( 'en' ) ) {
+			return '';
+		}
+		return $item->getLabels()->getByLanguage( 'en' )->getText();
 	}
 
 	/** English description of an item ('' when none). */
 	protected function itemDescription( Item $item ): string {
-		$term = $item->getDescriptions()->getByLanguage( 'en' );
-		return $term !== null ? $term->getText() : '';
+		if ( !$item->getDescriptions()->hasTermForLanguage( 'en' ) ) {
+			return '';
+		}
+		return $item->getDescriptions()->getByLanguage( 'en' )->getText();
 	}
 
 	/**

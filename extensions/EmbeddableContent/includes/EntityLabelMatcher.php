@@ -273,16 +273,15 @@ final class EntityLabelMatcher {
 
 	/** English label of an item, or '' when the item has none. */
 	private static function itemLabel( Item $item ): string {
-		$term = $item->getLabels()->getByLanguage( 'en' );
-		if ( $term === null ) {
-			foreach ( $item->getLabels()->toTextArray() as $text ) {
-				if ( $text !== '' ) {
-					return $text;
-				}
-			}
-			return '';
+		if ( $item->getLabels()->hasTermForLanguage( 'en' ) ) {
+			return $item->getLabels()->getByLanguage( 'en' )->getText();
 		}
-		return $term->getText();
+		foreach ( $item->getLabels()->toTextArray() as $text ) {
+			if ( $text !== '' ) {
+				return $text;
+			}
+		}
+		return '';
 	}
 
 	/** @param string[] $classItemIds */

@@ -1599,11 +1599,8 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	protected function entityLabel( string $itemId ): string {
 		try {
 			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
-			if ( $item instanceof Item ) {
-				$term = $item->getLabels()->getByLanguage( 'en' );
-				if ( $term !== null ) {
-					return $term->getText();
-				}
+			if ( $item instanceof Item && $item->getLabels()->hasTermForLanguage( 'en' ) ) {
+				return $item->getLabels()->getByLanguage( 'en' )->getText();
 			}
 		} catch ( \Throwable $e ) {
 			// fall through
