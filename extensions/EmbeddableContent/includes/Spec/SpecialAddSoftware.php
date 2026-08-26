@@ -133,6 +133,14 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		return $this->client->harvestSoftware( $qid );
 	}
 
+	/**
+	 * Message key of the "I will upload a logo image …" toggle. Overridden
+	 * by Special:UpdateSoftware with the "(replacing existing)" wording.
+	 */
+	protected function logoIncludeMsgKey(): string {
+		return 'embeddablecontent-software-logo-include';
+	}
+
 	protected function reviewFieldSpecs( array $record ): array {
 		$fields = $this->labelFieldSpec( 'label', 'embeddablecontent-extsearch-name', (string)( $record['label'] ?? '' ) )
 			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
@@ -239,13 +247,14 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		// free text. All field specs come from the shared ImageUploadHelper
 		// (deduplicated with AddPerson's portrait + Special:Upload).
 		$fields['logoInclude'] = \EmbeddableContent\Upload\ImageUploadHelper::includeField(
-			'logo', 'embeddablecontent-software-logo-include'
+			'logo', $this->logoIncludeMsgKey()
 		);
 		$fields['logoMode'] = \EmbeddableContent\Upload\ImageUploadHelper::modeField(
 			'logo',
 			'embeddablecontent-software-logo-mode',
 			'embeddablecontent-software-logo-mode-file',
-			'embeddablecontent-software-logo-mode-url'
+			'embeddablecontent-software-logo-mode-url',
+			'embeddablecontent-upload-mode-existing'
 		);
 		$fields['logoFile'] = \EmbeddableContent\Upload\ImageUploadHelper::fileField(
 			'logo', 'embeddablecontent-software-logo-file'
@@ -253,6 +262,9 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		$fields['logoUrl'] = \EmbeddableContent\Upload\ImageUploadHelper::urlField(
 			'logo', 'embeddablecontent-software-logo-url',
 			$this->msg( 'embeddablecontent-software-logo-license' )->text()
+		);
+		$fields['logoExisting'] = \EmbeddableContent\Upload\ImageUploadHelper::existingField(
+			'logo', 'embeddablecontent-upload-existing'
 		);
 		$fields['logoLicense'] = \EmbeddableContent\Upload\ImageUploadHelper::licenseField(
 			'logo',

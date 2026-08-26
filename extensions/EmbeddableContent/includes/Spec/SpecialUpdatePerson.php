@@ -33,6 +33,14 @@ class SpecialUpdatePerson extends SpecialAddPerson {
 		return 'person';
 	}
 
+	/**
+	 * The include toggle says the portrait is being REPLACED on update (the
+	 * Add* wording "I will upload a portrait image" implied a new entity).
+	 */
+	protected function portraitIncludeMsgKey(): string {
+		return 'embeddablecontent-update-person-portrait-include';
+	}
+
 	protected function updateClassItemId( Item $item ): ?string {
 		return $this->config->agentClasses()['person'] ?? null;
 	}
@@ -56,7 +64,7 @@ class SpecialUpdatePerson extends SpecialAddPerson {
 
 		// Portrait facts are NOT prefilled into the upload section (the
 		// toggle defaults unchecked — the existing portrait is preserved).
-		foreach ( [ 'portraitInclude', 'portraitMode', 'portraitFile', 'portraitUrl',
+		foreach ( [ 'portraitInclude', 'portraitMode', 'portraitFile', 'portraitUrl', 'portraitExisting',
 			'portraitLicense', 'portraitAuthor', 'portraitLicenseInfo' ] as $key ) {
 			$record[$key] = '';
 		}
@@ -68,21 +76,5 @@ class SpecialUpdatePerson extends SpecialAddPerson {
 			);
 		}
 		return $record;
-	}
-
-	protected function baseManagedPropertyIds(): array {
-		$ids = array_values( array_filter( $this->config->externalIdPropertyIds() ) );
-		$ids = array_merge( $ids, array_values( array_filter( $this->config->citationMetadataPropertyIds() ) ) );
-		$person = $this->config->personPropertyIds();
-		foreach ( [ 'dateOfBirth', 'placeOfBirth', 'dateOfDeath', 'placeOfDeath' ] as $key ) {
-			if ( isset( $person[$key] ) ) {
-				$ids[] = $person[$key];
-			}
-		}
-		// The portrait image facts (image/license/imageAuthor/
-		// imageLicenseInfo) are NOT in the base set: they are replaced only
-		// when a NEW portrait is uploaded (their property ids then arrive
-		// via the new statementSpecs keys).
-		return array_values( array_unique( $ids ) );
 	}
 }

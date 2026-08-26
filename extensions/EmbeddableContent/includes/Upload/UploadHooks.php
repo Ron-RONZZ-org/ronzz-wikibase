@@ -86,10 +86,23 @@ final class UploadHooks {
 	 * UploadFormSourceDescriptors: single "Maximum file size: 1 GB" note on
 	 * the file field (the duplicated parentheticals are gone); the URL
 	 * field's note slot carries the validate-button wiring span instead.
+	 * Also defaults the source radio to Url on a FRESH form load — URL
+	 * uploads are the common case in user testing (a posted/resubmitted
+	 * form keeps its own wpSourceType).
 	 *
 	 * @param array<string,mixed> $descriptor
 	 */
 	public static function onUploadFormSourceDescriptors( array &$descriptor, &$radio, $selectedSourceType ): void {
+		// The core builds the radios with 'checked' from the posted (or
+		// default 'File') source type BEFORE this hook runs. A fresh GET
+		// carries no wpSourceType — flip the default to Url then; a POST
+		// (including a warning-recovery re-render) is honored as-is.
+		if ( !RequestContext::getMain()->getRequest()->getCheck( 'wpSourceType' ) ) {
+			$descriptor['UploadFile']['checked'] = false;
+			if ( isset( $descriptor['UploadFileURL'] ) ) {
+				$descriptor['UploadFileURL']['checked'] = true;
+			}
+		}
 		if ( isset( $descriptor['UploadFile'] ) ) {
 			$descriptor['UploadFile']['help-raw'] = wfMessage( 'upload-maxfilesize' )
 				->sizeParams( UploadBase::getMaxUploadSize( 'file' ) )

@@ -41,13 +41,14 @@ use Throwable;
 /**
  * Field keys generated for a prefix ("portrait" | "logo"):
  *   {$prefix}Include      — "I will upload a …" toggle (hides the section)
- *   {$prefix}Mode         — radio file|url
- *   {$prefix}File         — browser file input (hide-if url)
- *   {$prefix}Url          — pasted URL (hide-if file)
+ *   {$prefix}Mode         — radio file|url|existing (no default)
+ *   {$prefix}File         — browser file input (hide-if !file)
+ *   {$prefix}Url          — pasted URL (hide-if !url)
+ *   {$prefix}Existing     — File: search combobox (hide-if !existing)
  *   {$prefix}License      — entity combobox (config licenseItems)
  *   {$prefix}Author       — free-text author
  *   {$prefix}LicenseInfo  — free-text additional license information
- *   {$prefix}FileTitle    — (set by handleUpload) the uploaded File: DB key
+ *   {$prefix}FileTitle    — (set by handleUpload) the uploaded/ reused File: DB key
  */
 final class ImageUploadHelper {
 
@@ -80,22 +81,28 @@ final class ImageUploadHelper {
 		];
 	}
 
-	/** Radio choosing the source: file from the device | pasted URL. */
-	public static function modeField( string $prefix, string $modeMsg, string $fileMsg, string $urlMsg ): array {
+	/**
+	 * Radio choosing the image source: file from the device | pasted URL |
+	 * reuse an existing file on this wiki. NO default is selected — the
+	 * user picks the mode themselves (the file/url/existing inputs stay
+	 * hidden until then; each input's hide-if is `!== Mode, <value>`).
+	 */
+	public static function modeField( string $prefix, string $modeMsg, string $fileMsg, string $urlMsg, string $existingMsg ): array {
 		return [
 			'type' => 'radio',
 			'label-message' => $modeMsg,
-			'options-messages' => [ $fileMsg => 'file', $urlMsg => 'url' ],
-			'default' => 'file',
+			'options-messages' => [ $fileMsg => 'file', $urlMsg => 'url', $existingMsg => 'existing' ],
+			'default' => '',
 			'hide-if' => [ '===', $prefix . 'Include', '' ],
 		];
 	}
 
+	/** Local-file input (mode=file; also the browser-blob fallback target). */
 	public static function fileField( string $prefix, string $msgKey ): array {
 		return [
 			'type' => 'file',
 			'label-message' => $msgKey,
-			'hide-if' => [ 'OR', [ '===', $prefix . 'Include', '' ], [ '===', $prefix . 'Mode', 'url' ] ],
+			'hide-if' => [ 'OR', [ '===', $prefix . 'Include', '' ], [ '!==', $prefix . 'Mode', 'file' ] ],
 		];
 	}
 
@@ -109,8 +116,28 @@ final class ImageUploadHelper {
 			'type' => 'url',
 			'label-message' => $msgKey,
 			'maxlength' => 500,
-			'hide-if' => [ 'OR', [ '===', $prefix . 'Include', '' ], [ '===', $prefix . 'Mode', 'file' ] ],
+			'hide-if' => [ 'OR', [ '===', $prefix . 'Include', '' ], [ '!==', $prefix . 'Mode', 'url' ] ],
 			'help-raw' => self::wiringSpan( $prefix, $licenseLabel ),
+		];
+	}
+
+	/**
+	 * The "reuse an existing file on this wiki" combobox (mode=existing):
+	 * an OOUI ComboBoxInputWidget over the instance's File: namespace
+	 * (resources/fileselect.js wires the autocomplete + thumbnail
+	 * suggestions + the preview). The submitted value is a "File:<name>"
+	 * title; the server validates the file exists in beforeCreate. The
+	 * preview span in the help slot is filled by fileselect.js.
+	 */
+	public static function existingField( string $prefix, string $msgKey ): array {
+		return [
+			'type' => 'combobox',
+			'options' => [],
+			'label-message' => $msgKey,
+			'cssclass' => 'wb-file-combobox',
+			'maxlength' => 255,
+			'hide-if' => [ 'OR', [ '===', $prefix . 'Include', '' ], [ '!==', $prefix . 'Mode', 'existing' ] ],
+			'help' => '<span class="wb-file-preview"></span>',
 		];
 	}
 
@@ -175,12 +202,14 @@ final class ImageUploadHelper {
 
 	/**
 	 * Runs the section's upload (the beforeCreate body): honours the
-	 * include-toggle, dispatches file|url, uploads as
-	 * File:<label>-<suffix>.<ext>, enforces the license, and records the
-	 * outcome on $record ("{$prefix}FileTitle", "{$prefix}License",
-	 * "{$prefix}Author", "{$prefix}LicenseInfo"). Returns an error message
-	 * (or null to proceed) — a provided image that cannot be uploaded is
-	 * NEVER silently skipped.
+	 * include-toggle, dispatches file|url|existing (file = browser upload,
+	 * url = SSRF-guarded UploadFromUrl, existing = reuse a File: page on
+	 * this wiki — no upload), uploads as File:<label>-<suffix>.<ext>,
+	 * enforces the license, and records the outcome on $record
+	 * ("{$prefix}FileTitle", "{$prefix}License", "{$prefix}Author",
+	 * "{$prefix}LicenseInfo"). Returns an error message (or null to
+	 * proceed) — a provided image that cannot be honoured is NEVER silently
+	 * skipped.
 	 *
 	 * The URL-mode path goes through UploadFromUrl (SSRF-guarded) with the
 	 * fetchFile() fix; the browser-blob fallback (uploadmeta.js) converts a
@@ -212,7 +241,7 @@ final class ImageUploadHelper {
 			return null;
 		}
 
-		$mode = (string)( $record[$prefix . 'Mode'] ?? 'file' );
+		$mode = (string)( $record[$prefix . 'Mode'] ?? '' );
 		$title = null;
 		try {
 			if ( $mode === 'url' ) {
@@ -222,6 +251,12 @@ final class ImageUploadHelper {
 					if ( $title === null ) {
 						return $error( 'unreachable or unsupported URL' );
 					}
+				}
+			} elseif ( $mode === 'existing' ) {
+				// Reuse an existing File: page on this wiki — no upload.
+				$title = self::reuseExistingFile( $prefix, $record );
+				if ( $title === null ) {
+					return $error( 'no such file on this wiki' );
 				}
 			} else {
 				$title = self::uploadFromRequest( $prefix, $record, $context, $user, $msgKeys, $primaryLabel );
@@ -375,6 +410,28 @@ final class ImageUploadHelper {
 		} catch ( Throwable $e ) {
 			return '';
 		}
+	}
+
+	/**
+	 * Resolves the mode=existing combobox value ("File:<name>" or a bare
+	 * name) to an EXISTING File: page title, or null when the file does not
+	 * exist on this wiki (the caller surfaces it as a form error — a
+	 * provided-but-invalid reuse is never silently skipped). No upload
+	 * happens; the image/license statements reference the existing page.
+	 */
+	private static function reuseExistingFile( string $prefix, array $record ): ?Title {
+		$name = trim( (string)( $record[$prefix . 'Existing'] ?? '' ) );
+		$name = (string)preg_replace( '/^File\s*:/i', '', $name );
+		$name = trim( (string)str_replace( '_', ' ', $name ) );
+		if ( $name === '' ) {
+			return null;
+		}
+		try {
+			$title = Title::makeTitle( NS_FILE, $name );
+		} catch ( Throwable $e ) {
+			return null;
+		}
+		return ( $title !== null && $title->exists() ) ? $title : null;
 	}
 
 	// ------------------------------------------------------------- pure helpers

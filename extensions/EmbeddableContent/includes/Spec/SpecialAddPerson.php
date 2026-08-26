@@ -148,6 +148,15 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 		return true;
 	}
 
+	/**
+	 * Message key of the "I will upload a portrait image …" toggle.
+	 * Overridden by Special:UpdatePerson with the "(replacing existing)"
+	 * wording.
+	 */
+	protected function portraitIncludeMsgKey(): string {
+		return 'embeddablecontent-person-portrait-include';
+	}
+
 	protected function reviewFieldSpecs( array $record ): array {
 		$deceased = !empty( $record['dateOfDeath'] ) || !empty( $record['placeOfDeath'] );
 		// NO editable label field (issue #35): the label is the full name,
@@ -194,13 +203,14 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 			// info are free text. All field specs come from the shared
 			// ImageUploadHelper (deduplicated with AddSoftware + Special:Upload).
 			'portraitInclude' => \EmbeddableContent\Upload\ImageUploadHelper::includeField(
-				'portrait', 'embeddablecontent-person-portrait-include'
+				'portrait', $this->portraitIncludeMsgKey()
 			),
 			'portraitMode' => \EmbeddableContent\Upload\ImageUploadHelper::modeField(
 				'portrait',
 				'embeddablecontent-person-portrait-mode',
 				'embeddablecontent-person-portrait-mode-file',
-				'embeddablecontent-person-portrait-mode-url'
+				'embeddablecontent-person-portrait-mode-url',
+				'embeddablecontent-upload-mode-existing'
 			),
 			'portraitFile' => \EmbeddableContent\Upload\ImageUploadHelper::fileField(
 				'portrait', 'embeddablecontent-person-portrait-file'
@@ -208,6 +218,9 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 			'portraitUrl' => \EmbeddableContent\Upload\ImageUploadHelper::urlField(
 				'portrait', 'embeddablecontent-person-portrait-url',
 				$this->msg( 'embeddablecontent-person-portrait-license' )->text()
+			),
+			'portraitExisting' => \EmbeddableContent\Upload\ImageUploadHelper::existingField(
+				'portrait', 'embeddablecontent-upload-existing'
 			),
 			'portraitLicense' => \EmbeddableContent\Upload\ImageUploadHelper::licenseField(
 				'portrait',
@@ -385,7 +398,9 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 
 	/**
 	 * Person: page skeleton — prose lives on the page, facts in the item.
-	 * Only sections with (reviewed) content are rendered: the Wikipedia
+	 * The portrait (when uploaded) is passed to Template:Person, which
+	 * renders it inside the infobox (the AddSoftware/FOSS pattern). Only
+	 * sections with (reviewed) content are rendered: the Wikipedia
 	 * Biography when fetched; when none is available, the item's description
 	 * is the == Overview == placeholder. Never an empty scaffold.
 	 *
@@ -393,7 +408,11 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 	 */
 	protected function pageSkeleton( array $record, bool $withMarker = false ): string {
 		$marker = $withMarker ? "\n<!-- " . $this->pagePendingMarker() . " -->\n" : "";
-		$body = "{{Person}}\n\n";
+		$portraitFile = (string)( $record['portraitFileTitle'] ?? '' );
+		$portraitParam = $portraitFile !== ''
+			? '|portrait=[[File:' . $portraitFile . '|frameless|220px|Portrait]]'
+			: '';
+		$body = "{{Person{$portraitParam}}}\n\n";
 		$bio = trim( (string)( $record['biography'] ?? '' ) );
 		if ( $bio !== '' ) {
 			$body .= "== Biography ==\n\n" . $this->attributed( $record, 'biography', $bio ) . "\n\n";

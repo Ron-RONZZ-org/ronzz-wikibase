@@ -60,11 +60,4 @@ class SpecialUpdateFictionalCharacter extends SpecialAddFictionalCharacter {
 		}
 		return $record;
 	}
-
-	protected function baseManagedPropertyIds(): array {
-		$ids = array_values( array_filter( $this->config->externalIdPropertyIds() ) );
-		$ids = array_merge( $ids, array_values( array_filter( $this->config->citationMetadataPropertyIds() ) ) );
-		$ids = array_merge( $ids, array_values( array_filter( $this->config->fictionalCharacterPropertyIds() ) ) );
-		return array_values( array_unique( $ids ) );
-	}
 }

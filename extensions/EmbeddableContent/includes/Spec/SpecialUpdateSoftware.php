@@ -34,6 +34,14 @@ class SpecialUpdateSoftware extends SpecialAddSoftware {
 		return 'software';
 	}
 
+	/**
+	 * The include toggle says the logo is being REPLACED on update (the
+	 * Add* wording "I will upload a logo image" implied a new entity).
+	 */
+	protected function logoIncludeMsgKey(): string {
+		return 'embeddablecontent-update-software-logo-include';
+	}
+
 	protected function updateClassItemId( Item $item ): ?string {
 		return $this->config->fossClasses()['foss'] ?? null;
 	}
@@ -61,7 +69,7 @@ class SpecialUpdateSoftware extends SpecialAddSoftware {
 
 		// Logo facts are NOT prefilled (the toggle defaults unchecked — the
 		// existing logo is preserved).
-		foreach ( [ 'logoInclude', 'logoMode', 'logoFile', 'logoUrl',
+		foreach ( [ 'logoInclude', 'logoMode', 'logoFile', 'logoUrl', 'logoExisting',
 			'logoLicense', 'logoAuthor', 'logoLicenseInfo' ] as $key ) {
 			$record[$key] = '';
 		}
@@ -73,29 +81,5 @@ class SpecialUpdateSoftware extends SpecialAddSoftware {
 			);
 		}
 		return $record;
-	}
-
-	protected function baseManagedPropertyIds(): array {
-		$ids = array_values( array_filter( $this->config->externalIdPropertyIds() ) );
-		$ids = array_merge( $ids, array_values( array_filter( $this->config->citationMetadataPropertyIds() ) ) );
-		$foss = $this->config->fossPropertyIds();
-		// The form-managed software facts. The logo image facts
-		// (image/imageAuthor/imageLicenseInfo) are deliberately EXCLUDED:
-		// they are replaced only when a NEW logo is uploaded (their property
-		// ids then arrive via the new statementSpecs keys), so an untouched
-		// existing logo survives the update. NOTE: the logo license shares
-		// the P275 `license` property with the software's own licenses — an
-		// update replaces the license set with the form's values (a logo
-		// license is kept only via a new logo upload).
-		foreach ( [ 'developer', 'license', 'operatingSystem', 'officialWebsite',
-			'sourceRepository', 'hasUse', 'replaces', 'userInterface',
-			'documentationUrl' ] as $key ) {
-			if ( isset( $foss[$key] ) ) {
-				$ids[] = $foss[$key];
-			}
-		}
-		$programmingLanguage = $this->config->programmingLanguagePropertyId();
-		$ids[] = $programmingLanguage;
-		return array_values( array_unique( $ids ) );
 	}
 }

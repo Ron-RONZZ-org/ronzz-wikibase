@@ -29,9 +29,11 @@ use Wikibase\Repo\WikibaseRepo;
  *  - the item-id subpage parsing (Special:UpdatePerson/Q42) + the
  *    prefilled review form rendering;
  *  - the submit: re-runs the Add* validation (beforeCreate) then replaces
- *    the managed statements (baseManagedPropertyIds ∪ the new specs) and
- *    updates the en label/description — everything else (sitelinks,
- *    non-managed statements) is untouched;
+ *    the managed statements for which the form provides a NEW non-empty
+ *    value (a blank managed field keeps the existing statement — no
+ *    clobbering; removal is an explicit item-page edit) and updates the en
+ *    label/description — everything else (sitelinks, non-managed
+ *    statements) is untouched;
  *  - the classic-page rename when the label changed (best-effort move +
  *    sitelink update — a failure keeps the old page; the item is updated
  *    regardless).
@@ -60,17 +62,6 @@ trait UpdateExternalEntityFlow {
 	abstract protected function recordFromItem( Item $item ): array;
 
 	/**
-	 * Property ids whose statements the update REPLACES — the fields the
-	 * form manages. Image facts (portrait/logo) are deliberately NOT in the
-	 * base set: they are managed only when a NEW file is uploaded (their
-	 * property ids then arrive via the new statementSpecs keys), so an
-	 * untouched existing portrait/logo survives the update.
-	 *
-	 * @return string[]
-	 */
-	abstract protected function baseManagedPropertyIds(): array;
-
-	/**
 	 * The item's class among the Add* vocabulary (the hidden class field
 	 * value on update — re-classification is out of scope).
 	 */
@@ -87,6 +78,7 @@ trait UpdateExternalEntityFlow {
 		$this->getOutput()->addModules( 'ext.embeddableContent.entitysuggest' );
 		$this->getOutput()->addModules( 'ext.embeddableContent.uploadmeta' );
 		$this->getOutput()->addModules( 'ext.embeddableContent.entityconfirm' );
+		$this->getOutput()->addModules( 'ext.embeddableContent.fileselect' );
 
 		$itemId = $this->itemIdFromSubPage( $subPage );
 		if ( $itemId === null ) {
@@ -192,8 +184,8 @@ trait UpdateExternalEntityFlow {
 
 	/**
 	 * Applies the update: en label/description terms, then the managed
-	 * statement replacement (baseManagedPropertyIds ∪ the new specs), then
-	 * the classic-page rename on a label change.
+	 * statement replacement (only properties with a NEW non-empty spec —
+	 * see applyUpdate), then the classic-page rename on a label change.
 	 *
 	 * @param array<string,mixed> $record
 	 */
@@ -204,22 +196,23 @@ trait UpdateExternalEntityFlow {
 		}
 		$oldLabel = $this->itemLabel( $item );
 
-		// Terms: the en label + description (blank description removes it).
+		// Terms: the en label + description. No-clobber: a BLANK description
+		// keeps the existing one (only a new valid value replaces it).
 		$item->setLabel( 'en', $newLabel );
 		$description = trim( (string)( $record['description'] ?? '' ) );
 		if ( $description !== '' ) {
 			$item->setDescription( 'en', $description );
-		} else {
-			$item->removeDescription( 'en' );
 		}
 
-		// Statement replacement: remove the managed statements (the fields
-		// the form shows + any property the new specs write — e.g. a newly
-		// uploaded portrait's image facts), then re-add from the record with
-		// the same import-provenance references the Add* path uses.
+		// Statement replacement — NO-CLOBBER contract: only properties with
+		// a NEW non-empty spec (from statementSpecs) are replaced. A managed
+		// field the user left blank keeps the existing statement — "basic
+		// information" must never overwrite what the user did not touch
+		// (a cleared field is not an implicit removal; that is an explicit
+		// item-page edit). The specs keys also cover newly-uploaded image
+		// facts (portrait/logo), so an untouched existing image survives.
 		$specs = $this->statementSpecs( $record );
-		$removeProps = array_unique( array_merge( $this->baseManagedPropertyIds(), array_keys( $specs ) ) );
-		foreach ( $removeProps as $propertyId ) {
+		foreach ( array_keys( $specs ) as $propertyId ) {
 			// StatementList has no removeStatement() — remove by guid.
 			foreach ( $item->getStatements()->getByPropertyId( new NumericPropertyId( $propertyId ) ) as $statement ) {
 				$guid = $statement->getGuid();

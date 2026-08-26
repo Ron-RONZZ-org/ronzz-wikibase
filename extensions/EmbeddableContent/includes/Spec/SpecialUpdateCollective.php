@@ -33,6 +33,14 @@ class SpecialUpdateCollective extends SpecialAddCollective {
 		return 'collective';
 	}
 
+	/**
+	 * The include toggle says the logo is being REPLACED on update (the
+	 * Add* wording "I will upload a logo image" implied a new entity).
+	 */
+	protected function logoIncludeMsgKey(): string {
+		return 'embeddablecontent-update-collective-logo-include';
+	}
+
 	protected function updateClassItemId( Item $item ): ?string {
 		$classIds = $this->itemClassIds( $item );
 		foreach ( $this->config->agentClasses() as $key => $id ) {
@@ -57,7 +65,7 @@ class SpecialUpdateCollective extends SpecialAddCollective {
 		];
 		// Logo facts are NOT prefilled (the toggle defaults unchecked — the
 		// existing logo is preserved).
-		foreach ( [ 'logoInclude', 'logoMode', 'logoFile', 'logoUrl',
+		foreach ( [ 'logoInclude', 'logoMode', 'logoFile', 'logoUrl', 'logoExisting',
 			'logoLicense', 'logoAuthor', 'logoLicenseInfo' ] as $key ) {
 			$record[$key] = '';
 		}
@@ -68,17 +76,5 @@ class SpecialUpdateCollective extends SpecialAddCollective {
 			);
 		}
 		return $record;
-	}
-
-	protected function baseManagedPropertyIds(): array {
-		$ids = array_values( array_filter( $this->config->externalIdPropertyIds() ) );
-		$ids = array_merge( $ids, array_values( array_filter( $this->config->citationMetadataPropertyIds() ) ) );
-		$collective = $this->config->collectivePropertyIds();
-		if ( isset( $collective['parentOrganization'] ) ) {
-			$ids[] = $collective['parentOrganization'];
-		}
-		// The logo image facts (image/license/imageAuthor/imageLicenseInfo)
-		// are NOT in the base set: replaced only when a NEW logo is uploaded.
-		return array_values( array_unique( $ids ) );
 	}
 }

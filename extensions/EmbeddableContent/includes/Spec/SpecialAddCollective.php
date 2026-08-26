@@ -77,6 +77,14 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 		return $this->client->harvestEntity( $qid );
 	}
 
+	/**
+	 * Message key of the "I will upload a logo image …" toggle. Overridden
+	 * by Special:UpdateCollective with the "(replacing existing)" wording.
+	 */
+	protected function logoIncludeMsgKey(): string {
+		return 'embeddablecontent-collective-logo-include';
+	}
+
 	protected function reviewFieldSpecs( array $record ): array {
 		$fields = $this->labelFieldSpec( 'label', 'embeddablecontent-add-label', (string)( $record['label'] ?? '' ) )
 			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
@@ -99,13 +107,14 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 		// owns the field specs + upload path (same machinery as
 		// AddSoftware's logo, AddPerson's portrait and Special:Upload).
 		$fields['logoInclude'] = \EmbeddableContent\Upload\ImageUploadHelper::includeField(
-			'logo', 'embeddablecontent-collective-logo-include'
+			'logo', $this->logoIncludeMsgKey()
 		);
 		$fields['logoMode'] = \EmbeddableContent\Upload\ImageUploadHelper::modeField(
 			'logo',
 			'embeddablecontent-collective-logo-mode',
 			'embeddablecontent-software-logo-mode-file',
-			'embeddablecontent-software-logo-mode-url'
+			'embeddablecontent-software-logo-mode-url',
+			'embeddablecontent-upload-mode-existing'
 		);
 		$fields['logoFile'] = \EmbeddableContent\Upload\ImageUploadHelper::fileField(
 			'logo', 'embeddablecontent-collective-logo-file'
@@ -113,6 +122,9 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 		$fields['logoUrl'] = \EmbeddableContent\Upload\ImageUploadHelper::urlField(
 			'logo', 'embeddablecontent-collective-logo-url',
 			$this->msg( 'embeddablecontent-collective-logo-license' )->text()
+		);
+		$fields['logoExisting'] = \EmbeddableContent\Upload\ImageUploadHelper::existingField(
+			'logo', 'embeddablecontent-upload-existing'
 		);
 		$fields['logoLicense'] = \EmbeddableContent\Upload\ImageUploadHelper::licenseField(
 			'logo',
@@ -215,13 +227,19 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 	 * Collective: page skeleton — the template + the item description as an
 	 * == Overview == placeholder when one is available (collectives currently
 	 * fetch no page content, so the description is the lead; the contributor
-	 * adds sections by editing).
+	 * adds sections by editing). The logo (when uploaded) is passed to
+	 * Template:Collective, which renders it inside the infobox (the
+	 * AddSoftware/FOSS pattern).
 	 *
 	 * @param array<string,mixed> $record
 	 */
 	protected function pageSkeleton( array $record, bool $withMarker = false ): string {
 		$marker = $withMarker ? "\n<!-- " . $this->pagePendingMarker() . " -->\n" : "";
-		$body = "{{Collective}}\n\n";
+		$logoFile = (string)( $record['logoFileTitle'] ?? '' );
+		$logoParam = $logoFile !== ''
+			? '|logo=[[File:' . $logoFile . '|frameless|220px|Logo]]'
+			: '';
+		$body = "{{Collective{$logoParam}}}\n\n";
 		$overview = trim( (string)( $record['description'] ?? '' ) );
 		if ( $overview !== '' ) {
 			$body .= "== Overview ==\n\n{$overview}\n\n";

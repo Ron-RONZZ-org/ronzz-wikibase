@@ -768,6 +768,41 @@ def flow_update_person(op, base: str, api: str, qid: str, new_description: str) 
     return url
 
 
+def flow_update_person_no_clobber(op, base: str, api: str, qid: str) -> str:
+    """Update no-clobber (upload-ux batch): Special:UpdatePerson/<qid> with
+    a BLANKED description and a blanked place-of-death field must KEEP the
+    existing values — 'basic information' never overwrites a field the user
+    left empty (removal is an explicit item-page edit). Also asserts the
+    update page renders the '(replacing existing)' portrait toggle wording.
+    Returns the final URL."""
+    url, body = page_get(op, base, f"/wiki/Special:UpdatePerson/{qid}")
+    if "Update a person" not in body:
+        raise FlowError(f"Special:UpdatePerson/{qid} did not render: {find_error(body)}")
+    if "replacing existing" not in body:
+        raise FlowError(f"UpdatePerson/{qid} include toggle lacks the "
+                        f"'(replacing existing)' wording")
+    given = input_value(body, "wpgivenName")
+    family = input_value(body, "wpfamilyName")
+    class_item = input_value(body, "wpclass")
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "wpgivenName": given, "wpfamilyName": family,
+        # Blanked managed fields: the description and the place of death —
+        # both must survive the update (no-clobber).
+        "wpdescription": "",
+        "wpdateOfBirth": input_value(body, "wpdateOfBirth"),
+        "wpplaceOfBirth": input_value(body, "wpplaceOfBirth"),
+        "wpdeceased": "1",
+        "wpdateOfDeath": input_value(body, "wpdateOfDeath"),
+        "wpplaceOfDeath": "",
+        "wpclass": class_item,
+        "wpEditToken": token, "wpSubmit": "1",
+    })
+    if qid not in url:
+        raise FlowError(f"UpdatePerson/{qid} no-clobber did not redirect: {url} {find_error(body)}")
+    return url
+
+
 def flow_update_source(op, base: str, api: str, qid: str, new_description: str) -> str:
     """Update flow: Special:UpdateSource/<qid> renders the AddSource review
     fields prefilled from the item's statements; a changed description
@@ -1199,6 +1234,17 @@ def flow_upload_special_form(op, base: str) -> None:
         raise FlowError("Special:Upload URL field missing the 100 MB URL-cap note")
     if body.count("wb-uploadmeta") < 1:
         raise FlowError("Special:Upload URL field missing the validate-button wiring span")
+    # The source radio defaults to Url on a FRESH load (upload-ux batch):
+    # URL uploads are the common case — the File radio is only checked once
+    # the user picks it (or posts wpSourceType). The core UploadSourceField
+    # radios are named wpSourceType with values 'File'/'Url'.
+    def _radio_checked(radio_id: str) -> bool:
+        m = re.search(r"<input[^>]*id=\"" + radio_id + r"\"[^>]*>", body)
+        return bool(m) and "checked" in m.group(0)
+    if not _radio_checked("wpSourceTypeurl"):
+        raise FlowError("Special:Upload does not default to the Url source radio")
+    if _radio_checked("wpSourceTypeFile"):
+        raise FlowError("Special:Upload defaults to the File radio instead of Url")
 
 
 def flow_uploadmeta_module_source(op, base: str) -> None:
@@ -1238,6 +1284,16 @@ def flow_uploadmeta_module_source(op, base: str) -> None:
                         "(preview/file-icon regression)")
     if "extensionForMime" not in body or "wb-uploadmeta-fileicon" not in body:
         raise FlowError("uploadmeta module: dest-name extension / file-icon helpers missing")
+    # The validate-clicked-multiple-times fixes (upload-ux batch): the
+    # latest-wins generation guard (a stale async license match must never
+    # overwrite a newer fetch) and the confirmation-banner dedupe (only the
+    # LATEST "logo license" dialog may stay).
+    if "validateSeq" not in body:
+        raise FlowError("uploadmeta module: latest-wins validate sequencing missing "
+                        "(double-validate stale-overwrite regression)")
+    if ".wb-entity-confirm[data-field=" not in body:
+        raise FlowError("uploadmeta module: license-confirm banner dedupe missing "
+                        "(multiple logo-license dialogs regression)")
 
 
 def flow_upload_special_item(op, base: str, api: str, license_qid: str) -> str:
@@ -1397,6 +1453,31 @@ def flow_collective_logo(op, base: str, api: str, label: str, class_item: str,
         "wplogoFile": ("logo.png", png, "image/png"),
     })
     return flow_final_item(op, base, api, url, body, "AddCollective/manual (logo)")
+
+
+def flow_collective_logo_reuse(op, base: str, api: str, label: str, class_item: str,
+                               license_qid: str, existing_file: str) -> str:
+    """Special:AddCollective/manual with mode=existing — the new "reuse an
+    existing file on this wiki" image option (upload-ux batch): the logo
+    field points at a File: title uploaded EARLIER in the run instead of
+    uploading new bytes; no new File page is created. Verifies the image
+    statement references the SAME File: page (and the infobox logo param
+    carries it — asserted by the caller)."""
+    url, body = page_get(op, base, "/wiki/Special:AddCollective/manual")
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "wplabel": label,
+        "wpclass": class_item,
+        "wplogoInclude": "1",
+        "wplogoMode": "existing",
+        "wplogoExisting": existing_file,  # "File:<name>-logo.png"
+        "wplogoLicense": license_qid,
+        "wplogoAuthor": "E2E Collective Reuse Author",
+        "wplogoLicenseInfo": "E2E reuse license note",
+        "wpEditToken": token,
+        "wpSubmit": "1",
+    })
+    return flow_final_item(op, base, api, url, body, "AddCollective/manual (logo reuse)")
 
 
 def flow_math(op, base: str, api: str, label: str, latex: str, describes_qid: str) -> str:
@@ -1692,6 +1773,18 @@ def main() -> int:
             f"{person_manual} place of birth lost by the update"
         print(f"[ok] Special:UpdatePerson/{person_manual}: description updated, "
               f"birth/death statements preserved")
+
+        # 1b1b. Update no-clobber (upload-ux batch): blanked managed fields
+        #     (description + place of death) keep the existing values.
+        old_description = entity_descriptions(op, api, person_manual)
+        flow_update_person_no_clobber(op, base, api, person_manual)
+        assert entity_descriptions(op, api, person_manual) == old_description, \
+            f"{person_manual} blanked description overwrote the existing one (no-clobber)"
+        claims, _ = entity_claims(op, api, person_manual)
+        assert first_value(claims, place_of_death_prop) == person, \
+            f"{person_manual} blanked place-of-death field lost the existing statement (no-clobber)"
+        print(f"[ok] Special:UpdatePerson/{person_manual}: blanked fields keep existing "
+              f"description + place-of-death (no-clobber)")
 
         # 1b2. AddPerson manual form rendering (regressions): the OpenAlex
         #     author-ID field must resolve its label (no ⧼message-key⧽) and
@@ -2145,8 +2238,48 @@ def main() -> int:
             f"({first_value(claims, resolve('license', 'property'))})"
         assert first_value(claims, resolve("image author", "property")) == "E2E Collective Logo Author", \
             f"{collective_logo} missing the collective logo image-author statement"
+        # The Collective: page skeleton passes the logo to the infobox (the
+        # AddSoftware/FOSS pattern — upload-ux batch).
+        _, raw = page_get(op, base, "/wiki/" + urllib.parse.quote(
+            f"Collective:{collective_logo_label}") + "?action=raw")
+        assert f"logo=[[File:{collective_logo_label.replace(' ', '_')}-logo.png" in raw, \
+            f"Collective:{collective_logo_label} skeleton does not pass the logo to the infobox; raw: {raw[:200]!r}"
         print(f"[ok] AddCollective/manual (logo) -> {collective_logo}: "
-              f"File:{collective_logo_label}-logo.png + image/license/attribution statements")
+              f"File:{collective_logo_label}-logo.png + image/license/attribution statements, "
+              f"infobox logo on Collective:{collective_logo_label}")
+
+        # 3a3. AddCollective/manual + mode=existing (upload-ux batch): the
+        #     logo is REUSED from the file uploaded in 3a2 — no new upload,
+        #     the image statement points at the same File: page and the
+        #     infobox param carries it. Also asserts Special:UpdateCollective
+        #     renders the "(replacing existing)" include wording.
+        collective_reuse_label = f"Page-flow E2E collective reuse {int(time.time())}"
+        collective_reuse = track(flow_collective_logo_reuse(
+            op, base, api, collective_reuse_label, resolve("organization", "item"),
+            collective_logo_license_qid, f"File:{collective_logo_label}-logo.png"))
+        claims, _ = entity_claims(op, api, collective_reuse)
+        reuse_image_url = str(first_value(claims, resolve("image", "property")))
+        assert collective_logo_label.replace(" ", "_") + "-logo.png" in reuse_image_url, \
+            f"{collective_reuse} image statement does not reference the REUSED file " \
+            f"({reuse_image_url!r})"
+        # No second File page was created for the reuse label.
+        r = api_call(op, api, {"action": "query",
+                               "titles": f"File:{collective_reuse_label}-logo.png", "format": "json"})
+        assert all("missing" in p for p in r["query"]["pages"].values()), \
+            f"mode=existing created a NEW File page for the reuse label"
+        _, raw = page_get(op, base, "/wiki/" + urllib.parse.quote(
+            f"Collective:{collective_reuse_label}") + "?action=raw")
+        assert f"logo=[[File:{collective_logo_label.replace(' ', '_')}-logo.png" in raw, \
+            f"Collective:{collective_reuse_label} infobox does not carry the reused logo"
+        print(f"[ok] AddCollective/manual (mode=existing) -> {collective_reuse}: "
+              f"reused File:{collective_logo_label}-logo.png, no new upload")
+
+        # 3a4. Special:UpdateCollective (upload-ux batch): the update page
+        #     renders the "(replacing existing)" logo toggle wording.
+        url, body = page_get(op, base, f"/wiki/Special:UpdateCollective/{collective_reuse}")
+        if "replacing existing" not in body:
+            raise FlowError(f"UpdateCollective/{collective_reuse} include toggle lacks the "
+                            f"'(replacing existing)' wording")
 
         # 3b. Manual-entry fallback (issue #12): Special:AddPerson/manual
         #     creates from blank, no external record, no import reference.
@@ -2266,8 +2399,14 @@ def main() -> int:
             f"{portrait_qid} missing the portrait license statement"
         assert first_value(claims, resolve("image author", "property")) == "E2E Portrait Author", \
             f"{portrait_qid} missing the portrait image-author statement"
+        # The Person: page skeleton passes the portrait to the infobox (the
+        # AddSoftware/FOSS pattern — upload-ux batch).
+        _, raw = page_get(op, base, "/wiki/" + urllib.parse.quote(
+            f"Person:{person_portrait_label}") + "?action=raw")
+        assert f"portrait=[[File:{person_portrait_label.replace(' ', '_')}-portrait.png" in raw, \
+            f"Person:{person_portrait_label} skeleton does not pass the portrait to the infobox; raw: {raw[:200]!r}"
         print(f"[ok] AddPerson/manual (portrait) -> {portrait_qid}: File uploaded with "
-              f"license + author statements")
+              f"license + author statements, infobox portrait on Person:{person_portrait_label}")
         if portrait_qid in created:
             created_pages.append(portrait_file)
 
@@ -2279,7 +2418,7 @@ def main() -> int:
               "fields, single 'Maximum file size' note, validate wiring")
         flow_uploadmeta_module_source(op, base)
         print("[ok] uploadmeta module source: hostname parse (429 fix), 2000-char cap, "
-              "dest-name normalization")
+              "dest-name normalization, validate latest-wins + banner dedupe")
         upload_qid = flow_upload_special_item(op, base, api, license_item)
         upload_qid = track(upload_qid)
         print(f"[ok] Special:Upload -> {upload_qid}: image item + statements + "

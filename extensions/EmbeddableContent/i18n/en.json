@@ -325,5 +325,11 @@
 	"embeddablecontent-update-sitelink-summary": "Updated the page link after renaming $1",
 	"embeddablecontent-entityconfirm-line": "$1 fetched from source: $2, we think this corresponds to $3 ($4).",
 	"embeddablecontent-entityconfirm-yes": "Yes, that's right",
-	"embeddablecontent-entityconfirm-no": "No, let me correct"
+	"embeddablecontent-entityconfirm-no": "No, let me correct",
+	"embeddablecontent-upload-mode-existing": "Reuse an existing file on this wiki",
+	"embeddablecontent-upload-existing": "Existing file on this wiki",
+	"embeddablecontent-manual-legend-fetched": "Item details",
+	"embeddablecontent-update-person-portrait-include": "I will upload a new portrait image for this person (replacing existing)",
+	"embeddablecontent-update-software-logo-include": "I will upload a new logo image for this software (replacing existing)",
+	"embeddablecontent-update-collective-logo-include": "I will upload a new logo image for this collective (replacing existing)"
 }

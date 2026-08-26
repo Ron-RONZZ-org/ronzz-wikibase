@@ -109,3 +109,18 @@
 	background: #ffffff;
 	border-color: #72777d;
 }
+
+/* File: reuse (mode=existing) — thumbnail preview under the search
+ * combobox (resources/fileselect.js fills the slot). */
+.wb-file-preview {
+	display: block;
+	margin-top: 0.5em;
+}
+
+.wb-file-preview img {
+	max-width: 220px;
+	height: auto;
+	border: 1px solid #c8ccd1;
+	padding: 2px;
+	background: #fff;
+}

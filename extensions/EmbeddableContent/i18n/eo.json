@@ -325,5 +325,11 @@
 	"embeddablecontent-update-sitelink-summary": "Paĝa ligo ĝisdatigita post alinomado de $1",
 	"embeddablecontent-entityconfirm-line": "$1 aĵhavigita el fonto: $2, ni opinias ke tio kongruas al $3 ($4).",
 	"embeddablecontent-entityconfirm-yes": "Jes, ĝuste",
-	"embeddablecontent-entityconfirm-no": "Ne, lasu min korekti"
+	"embeddablecontent-entityconfirm-no": "Ne, lasu min korekti",
+	"embeddablecontent-upload-mode-existing": "Reuzi ekzistantan dosieron en ĉi tiu vikio",
+	"embeddablecontent-upload-existing": "Ekzistanta dosiero en ĉi tiu vikio",
+	"embeddablecontent-manual-legend-fetched": "Detaloj de la ero",
+	"embeddablecontent-update-person-portrait-include": "Mi alŝutos novan portreton por ĉi tiu persono (anstataŭigante la ekzistantan)",
+	"embeddablecontent-update-software-logo-include": "Mi alŝutos novan emblemon por ĉi tiu programaro (anstataŭigante la ekzistantan)",
+	"embeddablecontent-update-collective-logo-include": "Mi alŝutos novan emblemon por ĉi tiu kolektivo (anstataŭigante la ekzistantan)"
 }

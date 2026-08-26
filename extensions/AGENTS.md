@@ -287,15 +287,45 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   each extends its Add\* counterpart and mixes in `UpdateExternalEntityFlow`
   — the exact same review fields prefilled from the item's statements
   (`recordFromItem`, the reverse of `statementSpecs`), submit re-runs the
-  Add\* validation then REPLACES the managed statements
-  (`baseManagedPropertyIds` ∪ the new specs) + updates the en label/
-  description; uploads are opt-in (an existing portrait/logo survives; the
-  AddSource access file is kept via a relaxed access validation); a label
-  change best-effort-renames the classic page (MovePage + sitelink update).
+  Add\* validation then replaces the managed statements **for which the form
+  provides a NEW non-empty value** (no-clobber: a blank managed field keeps
+  the existing statement — removal is an explicit item-page edit; the old
+  unconditional `baseManagedPropertyIds` removal set is gone) + updates the
+  en label/description (a blank description keeps the existing one); uploads
+  are opt-in (an existing portrait/logo survives; the AddSource access file
+  is kept via a relaxed access validation); a label change
+  best-effort-renames the classic page (MovePage + sitelink update). The
+  Update\* include toggles say the image is REPLACED ("I will upload a NEW
+  portrait/logo image … (replacing existing)" — per-kind message keys via
+  `portraitIncludeMsgKey()`/`logoIncludeMsgKey()` hooks on the Add\* classes).
   The Item page ("Update basic information" button under the title,
   `updatebutton.js` + the config-derived class→Update map in
   `Hooks::onBeforePageDisplay`) links to the Update page for any item whose
-  class has one.  class has one.
+  class has one.
+
+- **Upload UX fixes (upload-ux-fixes ADR, todo.md batch)**: (a)
+  `uploadmeta.js` validate is latest-wins — a per-URL-field generation
+  counter (`validateSeq`) discards stale responses (double-clicking
+  Validate no longer lets the first fetch overwrite the second) and the
+  license-confirmation banner is deduped by `data-field` (only the LATEST
+  dialog shows); the `licenseInfo` "only when empty" guard is gone — the
+  latest fetch overwrites the auto-filled fields. (b) `SpecialAddCollective`/
+  `SpecialAddPerson` page skeletons pass `|logo=`/`|portrait=` to their
+  templates, so the uploaded image renders in the classic-page infobox
+  (requires the on-wiki Template:Collective/Person image cell — deploy
+  checklist item). (c) The portrait/logo **mode radio is file | url |
+  existing with NO default** — the user picks the source themselves (the
+  file/url/existing inputs stay hidden until then); `existing` is a **File:
+  search combobox** (`existingField`, `resources/fileselect.js`:
+  `action=query&generator=search&gsrnamespace=6` + `iiurlwidth=64`
+  thumbnails, 220 px preview on selection) whose `File:<name>` value is
+  validated server-side (`reuseExistingFile`) — no upload, the
+  image/license statements + infobox param work exactly as for an upload.
+  (d) The manual-form legend is context-aware: "Item details" when prefilled
+  from fetched URL metadata (the website/webpage URL-first flow), "Create
+  the item manually" otherwise. (e) `Special:Upload`'s source radio defaults
+  to **Url** on a fresh load (`onUploadFormSourceDescriptors` flips the
+  checked flag when no `wpSourceType` is posted).
 
 - **Wikimedia blob fallback fixes on the Add\* pages (follow-up, same ADR)**: the
   shared `uploadmeta.js` submit-time blob fallback had a chain of latent bugs
