@@ -19,9 +19,10 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 
 	public function __construct(
 		\EmbeddableContent\EmbeddableContentConfig $config,
-		\EmbeddableContent\Fetch\ProviderClient $client
+		\EmbeddableContent\Fetch\ProviderClient $client,
+		string $pageName = 'AddCollective'
 	) {
-		parent::__construct( 'AddCollective', $config, $client );
+		parent::__construct( $pageName, $config, $client );
 	}
 
 	protected function kindKey(): string {

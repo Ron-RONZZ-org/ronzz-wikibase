@@ -26,7 +26,7 @@ class SpecialUpdateCollective extends SpecialAddCollective {
 		\EmbeddableContent\EmbeddableContentConfig $config,
 		\EmbeddableContent\Fetch\ProviderClient $client
 	) {
-		parent::__construct( 'UpdateCollective', $config, $client );
+		parent::__construct( $config, $client, 'UpdateCollective' );
 	}
 
 	protected function updateKindKey(): string {

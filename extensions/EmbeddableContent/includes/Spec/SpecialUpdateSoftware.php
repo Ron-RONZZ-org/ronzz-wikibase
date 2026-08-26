@@ -27,7 +27,7 @@ class SpecialUpdateSoftware extends SpecialAddSoftware {
 		\EmbeddableContent\EmbeddableContentConfig $config,
 		\EmbeddableContent\Fetch\ProviderClient $client
 	) {
-		parent::__construct( 'UpdateSoftware', $config, $client );
+		parent::__construct( $config, $client, 'UpdateSoftware' );
 	}
 
 	protected function updateKindKey(): string {

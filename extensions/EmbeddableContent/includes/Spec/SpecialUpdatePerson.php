@@ -26,7 +26,7 @@ class SpecialUpdatePerson extends SpecialAddPerson {
 		\EmbeddableContent\EmbeddableContentConfig $config,
 		\EmbeddableContent\Fetch\ProviderClient $client
 	) {
-		parent::__construct( 'UpdatePerson', $config, $client );
+		parent::__construct( $config, $client, 'UpdatePerson' );
 	}
 
 	protected function updateKindKey(): string {

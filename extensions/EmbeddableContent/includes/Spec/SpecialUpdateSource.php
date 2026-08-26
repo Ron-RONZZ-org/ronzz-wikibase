@@ -35,7 +35,7 @@ class SpecialUpdateSource extends SpecialAddSource {
 		\EmbeddableContent\EmbeddableContentConfig $config,
 		\EmbeddableContent\Fetch\ProviderClient $client
 	) {
-		parent::__construct( 'UpdateSource', $config, $client );
+		parent::__construct( $config, $client, 'UpdateSource' );
 	}
 
 	protected function updateKindKey(): string {

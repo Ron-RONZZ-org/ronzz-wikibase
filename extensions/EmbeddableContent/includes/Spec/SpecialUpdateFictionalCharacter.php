@@ -26,7 +26,7 @@ class SpecialUpdateFictionalCharacter extends SpecialAddFictionalCharacter {
 		\EmbeddableContent\EmbeddableContentConfig $config,
 		\EmbeddableContent\Fetch\ProviderClient $client
 	) {
-		parent::__construct( 'UpdateFictionalCharacter', $config, $client );
+		parent::__construct( $config, $client, 'UpdateFictionalCharacter' );
 	}
 
 	protected function updateKindKey(): string {

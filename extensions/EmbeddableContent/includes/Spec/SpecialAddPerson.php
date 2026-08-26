@@ -22,9 +22,10 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 
 	public function __construct(
 		\EmbeddableContent\EmbeddableContentConfig $config,
-		\EmbeddableContent\Fetch\ProviderClient $client
+		\EmbeddableContent\Fetch\ProviderClient $client,
+		string $pageName = 'AddPerson'
 	) {
-		parent::__construct( 'AddPerson', $config, $client );
+		parent::__construct( $pageName, $config, $client );
 	}
 
 	protected function kindKey(): string {
