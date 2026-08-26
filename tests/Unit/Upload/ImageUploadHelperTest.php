@@ -102,4 +102,57 @@ final class ImageUploadHelperTest extends TestCase {
 		$this->assertSame( 'wpportraitLicense', $config['targets']['license'] );
 		$this->assertSame( 'wpportraitLicenseInfo', $config['targets']['licenseInfo'] );
 	}
+
+	public function testModeFieldOffersThreeSourcesWithNoDefault(): void {
+		$spec = ImageUploadHelper::modeField(
+			'logo',
+			'embeddablecontent-software-logo-mode',
+			'embeddablecontent-software-logo-mode-file',
+			'embeddablecontent-software-logo-mode-url',
+			'embeddablecontent-upload-mode-existing'
+		);
+		$this->assertSame( 'radio', $spec['type'] );
+		// The user picks the source themselves — no radio is pre-checked
+		// (the previous default 'file' would pre-reveal the file input).
+		$this->assertSame( '', $spec['default'] );
+		$this->assertSame(
+			[
+				'embeddablecontent-software-logo-mode-file' => 'file',
+				'embeddablecontent-software-logo-mode-url' => 'url',
+				'embeddablecontent-upload-mode-existing' => 'existing',
+			],
+			$spec['options-messages']
+		);
+	}
+
+	public function testFileFieldVisibleOnlyWhenModeFile(): void {
+		$spec = ImageUploadHelper::fileField( 'portrait', 'embeddablecontent-person-portrait-file' );
+		$this->assertSame( 'file', $spec['type'] );
+		$this->assertSame(
+			[ 'OR', [ '===', 'portraitInclude', '' ], [ '!==', 'portraitMode', 'file' ] ],
+			$spec['hide-if']
+		);
+	}
+
+	public function testUrlFieldVisibleOnlyWhenModeUrl(): void {
+		$spec = ImageUploadHelper::urlField( 'logo', 'embeddablecontent-collective-logo-url' );
+		$this->assertSame( 'url', $spec['type'] );
+		$this->assertSame(
+			[ 'OR', [ '===', 'logoInclude', '' ], [ '!==', 'logoMode', 'url' ] ],
+			$spec['hide-if']
+		);
+		$this->assertStringContainsString( 'class="wb-uploadmeta"', $spec['help-raw'] );
+	}
+
+	public function testExistingFieldVisibleOnlyWhenModeExisting(): void {
+		$spec = ImageUploadHelper::existingField( 'logo', 'embeddablecontent-upload-existing' );
+		$this->assertSame( 'combobox', $spec['type'] );
+		$this->assertSame( 'wb-file-combobox', $spec['cssclass'] );
+		$this->assertSame(
+			[ 'OR', [ '===', 'logoInclude', '' ], [ '!==', 'logoMode', 'existing' ] ],
+			$spec['hide-if']
+		);
+		// fileselect.js renders the picked file's thumbnail into this slot.
+		$this->assertStringContainsString( 'wb-file-preview', $spec['help'] );
+	}
 }

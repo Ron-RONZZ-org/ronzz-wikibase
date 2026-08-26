@@ -116,21 +116,6 @@ class SpecialUpdateSource extends SpecialAddSource {
 		return $record;
 	}
 
-	protected function baseManagedPropertyIds(): array {
-		$ids = array_values( array_filter( $this->config->externalIdPropertyIds() ) );
-		$ids = array_merge( $ids, array_values( array_filter( $this->config->citationMetadataPropertyIds() ) ) );
-		$ids = array_merge( $ids, array_values( array_filter( $this->config->sourcePropertyIds() ) ) );
-		$date = $this->config->provenancePropertyIds()['date'] ?? null;
-		$attributedTo = $this->config->provenancePropertyIds()['attributedTo'] ?? null;
-		if ( $date !== null ) {
-			$ids[] = $date;
-		}
-		if ( $attributedTo !== null ) {
-			$ids[] = $attributedTo;
-		}
-		return array_values( array_unique( $ids ) );
-	}
-
 	/**
 	 * The file statement value is the File: page URL (sourceProperties.file)
 	 * — the record's fileTitle is the DB key, so strip the URL prefix.

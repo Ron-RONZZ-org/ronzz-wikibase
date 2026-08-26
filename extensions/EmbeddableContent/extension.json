@@ -301,6 +301,23 @@
 				"mobile"
 			]
 		},
+		"ext.embeddableContent.fileselect": {
+			"scripts": [
+				"fileselect.js"
+			],
+			"styles": [
+				"uploadmeta.css"
+			],
+			"dependencies": [
+				"mediawiki.api",
+				"mediawiki.util",
+				"oojs-ui"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
 		"ext.embeddableContent.updatebutton": {
 			"scripts": [
 				"updatebutton.js"

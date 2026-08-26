@@ -132,6 +132,9 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// authors/licenses auto-filled from fetched source data) — a no-op
 		// when the rendered form carries no .wb-entity-confirm block.
 		$this->getOutput()->addModules( 'ext.embeddableContent.entityconfirm' );
+		// The "reuse an existing file" File: search combobox (portrait/logo
+		// mode=existing) — a no-op on pages without the wb-file-combobox.
+		$this->getOutput()->addModules( 'ext.embeddableContent.fileselect' );
 		$parts = explode( '/', trim( (string)$subPage ) );
 		$first = $parts[0] ?? '';
 		if ( $first === '' ) {
@@ -551,8 +554,21 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			->setSubmitTextMsg( 'embeddablecontent-extselect-create' )
 			->setSubmitCallback( [ $this, 'onManualSubmit' ] )
 			->setSubmitID( 'wb-ext-add-manual' )
-			->setWrapperLegendMsg( 'embeddablecontent-manual-legend' );
+			->setWrapperLegendMsg( $this->manualLegendMessage() );
 		$form->show();
+	}
+
+	/**
+	 * Manual-form legend. The default is "Create the item manually"; when
+	 * the form is prefilled from FETCHED source data (the website/webpage
+	 * URL-first flow — the session carries :urlmeta), the action is
+	 * VERIFYING fetched content, not entering an item from blank, so the
+	 * idempotent "Item details" is shown instead.
+	 */
+	protected function manualLegendMessage(): string {
+		return $this->manualUrlMeta() !== []
+			? 'embeddablecontent-manual-legend-fetched'
+			: 'embeddablecontent-manual-legend';
 	}
 
 	/**
