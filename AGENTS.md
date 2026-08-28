@@ -56,6 +56,15 @@ forum extension, and the seed tooling that bootstrapped the instance.
   the deploy** — fewer server ops, less downtime. Verify equality with a
   read-only checksum compare (`md5sum` both sides) instead of re-syncing;
   only rsync what actually differs.
+- **Rsync deploys the file that is ACTUALLY in the source — a stale source
+  silently deploys nothing.** Rsync's quick-check (size + mtime) sees
+  identical bytes and transfers zero bytes while reporting success, so a
+  deploy from a checkout/worktree that lacks the intended commit leaves
+  production on the OLD code with no error (hit twice Aug 28 2026: the
+  merged `main` lacked the follow-up commit, so the "deploy" was a no-op).
+  After a merge, `git pull --ff-only` the main checkout (or rsync from the
+  worktree that holds the commit), then **md5-verify every deployed file
+  against the intended commit** — never trust the rsync summary alone.
 - **Page↔item properties are eventually consistent on production** —
   `$wgJobRunRate = 0` + the 5-min cron means a freshly created classic page's
   `wikibase_item` property (and its infobox) fills in up to a few minutes
@@ -164,6 +173,17 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 | E2E acceptance + XSS | `python3 tests/e2e/run_e2e.py check ...` / `python3 tests/e2e/run_e2e.py xss ...` (see `dev/README.md` for full flags) |
 | Page-flow E2E (issue #7) | `python3 tests/e2e/run_pages_e2e.py --base-url ... --user SeedBot --password-file seed/.seedbot.pass` (self-cleaning) |
 | CI | `gh workflow list` → `unit` job (fast) and `integration` job (full stack, 16 GB runners) |
+
+**Production page-flow E2E runs use the main `SeedBot` account, never the
+`SeedBot@MCP` bot password.** A bot-password session is API-only by MW
+design — the API login succeeds (`userinfo` shows SeedBot) but the WEB
+session stays anonymous, and the Add* search/submit handlers are login-gated
+on the web session: every flow then fails with "Special:AddPerson search did
+not redirect to a selection page" — a false alarm (the "all searches broken
+on production" report of Aug 28 2026). The main password lives in
+`seed/.seedbot.pass` (0600, on the server); the MCP config's bot password
+(`~/.config/mediawiki-mcp/ronzz-wikibase.json`) is fine for API/docs edits
+but cannot drive web-page flows.
 
 ### Testing Principles
 
