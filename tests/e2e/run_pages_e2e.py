@@ -1519,21 +1519,24 @@ def flow_item_image_renders(op, base: str, api: str, qid: str, expect: str) -> N
         _, rendered = page_get(op, base, "/wiki/" + urllib.parse.quote(scratch.replace(" ", "_")))
         if "<span class=\"error\"" in rendered or "errorbox" in rendered:
             raise FlowError(f"{{{{#item-image:{qid}}}}} scratch page rendered parser errors")
-        if expect not in rendered:
+        if expect not in rendered or "mw-broken-media" in rendered:
             # Diagnose: show the parser-output region + any markers that hint
             # at what happened (a Template:Item-image redlink = the magic word
             # did not resolve; the file title = the cell rendered but the
-            # assertion string mismatched; an error box = a thrown exception).
+            # assertion string mismatched; an error box = a thrown exception;
+            # mw-broken-media = the cell rendered a broken file link, e.g.
+            # the doubled 'File:File:' prefix).
             region = rendered
             m = rendered.find("mw-parser-output")
             if m != -1:
                 region = rendered[m:m + 1200]
             markers = []
-            for marker in re.finditer(r"(Item-image|item-image|error|logo|portrait|File:|Q\d+)", region):
+            for marker in re.finditer(r"(Item-image|item-image|error|logo|portrait|File:|Q\d+|mw-broken-media)", region):
                 s = max(0, marker.start() - 60)
                 markers.append(region[s:marker.end() + 100].replace("\n", " "))
             raise FlowError(
-                f"{{{{#item-image:{qid}}}}} did not render the uploaded file ({expect!r}); "
+                f"{{{{#item-image:{qid}}}}} did not render a working file link "
+                f"(expect {expect!r}, broken-media {'YES' if 'mw-broken-media' in rendered else 'no'}); "
                 f"parser-output region: {region[:1200]!r}"
                 f"{' | markers: ' + ' || '.join(markers[:5]) if markers else ''}")
     finally:

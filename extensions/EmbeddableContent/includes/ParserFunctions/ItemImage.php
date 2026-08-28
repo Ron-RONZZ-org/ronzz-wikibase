@@ -173,10 +173,12 @@ final class ItemImage {
 		}
 		$title = Title::newFromText( rawurldecode( $candidate ) );
 		if ( $title !== null && $title->inNamespace( NS_FILE ) && $title->exists() ) {
-			// getPrefixedText() — NOT getDBkey(): the DBkey strips the
-			// "File:" prefix and normalizes spaces to underscores; the
-			// rendered link needs the human title.
-			return $title->getPrefixedText();
+			// getDBkey() — the FILE NAME WITHOUT the "File:" namespace
+			// prefix: the rendered cell is '[[File:' . $name . ']]', and a
+			// prefixed title would double the prefix into a broken-media
+			// redlink (File:File:…). MW normalizes the DBkey's underscores
+			// back to spaces when it renders the link.
+			return $title->getDBkey();
 		}
 		return null;
 	}
