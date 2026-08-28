@@ -89,7 +89,14 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   given/family (`primaryLabel`); a harvested label-only candidate keeps its
   label. The search `name` box autofills the manual form as given/family
   (every word except the last = given, last word = family — pure
-  `NameSplitter`).
+  `NameSplitter`). **Place of birth/death are harvested as LABELS, not
+  Wikidata QIDs** (the raw P19/P20 id was dropped into the local-item
+  combobox and written as a wrong local statement): the review field runs
+  the label through the shared `resolveEntityField` autofill-confirm flow —
+  a good local match prefills the combobox with the local id + the [Yes]/[No]
+  confirmation banner (`entityconfirm.js`), no match leaves the field empty
+  with an "External record: …" hint (`-unresolved` messages), an already-local
+  id (the Update flow) passes through unchanged.
 - **AddSource bookExcerpt**: optional chapters (new string property,
   P2635-aligned) + volume fields; blank description auto-generates as
   "Pages a-b (Volume c) of {book}"; blank year/authors infer from the
@@ -330,9 +337,26 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   to **Url** on a fresh load (`onUploadFormSourceDescriptors` flips the
   checked flag when no `wpSourceType` is posted).
 
+- **Statement-driven infobox image cell (`{{#item-image:}}`, ADR
+  `docs/decisions/infobox-image-from-statement.md`)**: the classic-page
+  logo/portrait is now rendered from the item's `image` statement, not only
+  from the creation-time page param — `Template:Collective`/`Person`/
+  `FOSS-Infobox` cells are `{{{logo|{{#item-image:}}}}}` /
+  `{{{portrait|{{#item-image:}}}}}` (param wins when hand-set, statement
+  fallback otherwise), fixing pages created before the param existed (e.g.
+  `Collective:National Geographic Partners`, item Q880) without a backfill.
+  The parser function resolves the page's sitelinked item (or an explicit
+  `{{#item-image:Q42}}`), reads the `image` statement URL (union of the
+  configured image property ids across the person/collective/foss/image
+  config sections), renders `[[File:<title>|frameless|220px]]` and registers
+  the item as a parser-cache dependency — the `{{#source-access:}}` pattern.
+  The URL→title extraction percent-decodes the path segment. E2E: a scratch
+  page transcluding `{{#item-image:<qid>}}` must render the uploaded file
+  (the CI stack has no page templates, hence the explicit-id argument).
+
 - **Wikimedia blob fallback fixes on the Add\* pages (follow-up, same ADR)**: the
   shared `uploadmeta.js` submit-time blob fallback had a chain of latent bugs
-  that only manifest on the OOUI Add\* forms (Special:Upload's php-mode form
+  that   only manifest on the OOUI Add\* forms (Special:Upload's php-mode form
   was unaffected) — "Logo upload failed: unreachable or unsupported URL" on
   AddCollective with a Wikimedia URL. Fixed: (1) the submit handler resolved
   the URL field at WIRING time, but the OOUI hide-if removes/re-inserts the
@@ -351,6 +375,17 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   browser's Accept header makes Wikimedia serve WEBP at `.png` thumbnail
   URLs — name the blob file after its actual MIME extension (and reject an
   HTML error page served with HTTP 200 before filling the upload).
+- **Wikimedia file-title percent-decoding (fix)**: the extracted Commons
+  file title was never percent-decoded — a thumb URL like
+  `…/Magnus-manske-2024_%28cropped%29.jpg/250px-….jpg` yielded the literal
+  `%28` title, which the Commons `imageinfo` query cannot match; the browser
+  metadata path then fell back to the server-side probe and drew Wikimedia's
+  server-IP 429/403 ("image metadata warning: fetch failed: HTTP
+  http-bad-status"). `WikimediaFileUrl::fileTitle()` and the JS
+  `extractFileTitle()` mirror now decode each extracted path segment
+  (`rawurldecode` / `decodeURIComponent`, `+` stays literal — path segments
+  encode spaces as `%20`) in every branch (`/wiki/File:`, `Special:FilePath`,
+  upload.wikimedia.org original + thumb).
 
 ### WikibaseCitation
 
