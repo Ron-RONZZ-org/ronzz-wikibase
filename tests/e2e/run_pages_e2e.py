@@ -343,6 +343,22 @@ def flow_search_select_create(op, base: str, api: str, special: str, search_fiel
             raise FlowError(
                 f"Special:{special} review form NOT prefilled from the harvested "
                 f"authority record (given={given!r}, family={family!r})")
+        # Place of birth (label-match flow, follow-up): the harvested
+        # WIKIDATA QID must never reach the local combobox. A non-empty
+        # default must be (a) an EXISTING local item — not a bare Wikidata
+        # id written blindly — and (b) the result of the label-match flow,
+        # which renders the [Yes]/[No] confirmation banner.
+        pob = input_value(body, "wpplaceOfBirth")
+        if pob:
+            r = api_call(op, api, {"action": "wbgetentities", "ids": pob, "format": "json"})
+            ent = r.get("entities", {}).get(pob, {})
+            if not ent or "missing" in ent:
+                raise FlowError(
+                    f"Special:{special} place-of-birth default is not a LOCAL item: {pob!r} — "
+                    f"the harvested Wikidata QID must be resolved to a label and matched "
+                    f"against local items, never written blindly")
+            assert "wb-entity-confirm" in body, \
+                f"Special:{special} place-of-birth local match rendered without the confirmation banner"
     token3 = edit_token(body)
     url, body = page_post(op, url, {
         "wpEditToken": token3,
@@ -1480,6 +1496,53 @@ def flow_collective_logo_reuse(op, base: str, api: str, label: str, class_item: 
     return flow_final_item(op, base, api, url, body, "AddCollective/manual (logo reuse)")
 
 
+def flow_item_image_renders(op, base: str, api: str, qid: str, expect: str) -> None:
+    """The {{#item-image:}} parser function renders the item's image
+    statement (the statement-driven infobox cell, upload-ux follow-up): a
+    scratch page transcluding {{#item-image:<qid>}} must show the uploaded
+    file. This is the regression the production report hit — an image
+    statement present on the item but the logo not displayed on classic
+    pages whose skeleton predates the logo param (the cell now reads the
+    item, not a creation-time page param). Self-cleaning: the scratch page
+    is deleted afterwards."""
+    scratch = f"ItemImage scratch {int(time.time())}"
+    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = csrf["query"]["tokens"]["csrftoken"]
+    r = api_call(op, api, {
+        "action": "edit", "title": scratch, "text": f"{{{{#item-image:{qid}}}}}",
+        "token": token, "summary": "page-flow E2E scratch ({{#item-image:}})",
+        "format": "json",
+    }, post=True)
+    if r.get("edit", {}).get("result") != "Success":
+        raise FlowError(f"{{{{#item-image:}}}} scratch page creation failed: {r!r}")
+    try:
+        _, rendered = page_get(op, base, "/wiki/" + urllib.parse.quote(scratch.replace(" ", "_")))
+        if "<span class=\"error\"" in rendered or "errorbox" in rendered:
+            raise FlowError(f"{{{{#item-image:{qid}}}}} scratch page rendered parser errors")
+        if expect not in rendered:
+            # Diagnose: show the parser-output region + any markers that hint
+            # at what happened (a Template:Item-image redlink = the magic word
+            # did not resolve; the file title = the cell rendered but the
+            # assertion string mismatched; an error box = a thrown exception).
+            region = rendered
+            m = rendered.find("mw-parser-output")
+            if m != -1:
+                region = rendered[m:m + 1200]
+            markers = []
+            for marker in re.finditer(r"(Item-image|item-image|error|logo|portrait|File:|Q\d+)", region):
+                s = max(0, marker.start() - 60)
+                markers.append(region[s:marker.end() + 100].replace("\n", " "))
+            raise FlowError(
+                f"{{{{#item-image:{qid}}}}} did not render the uploaded file ({expect!r}); "
+                f"parser-output region: {region[:1200]!r}"
+                f"{' | markers: ' + ' || '.join(markers[:5]) if markers else ''}")
+    finally:
+        csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+        token = csrf["query"]["tokens"]["csrftoken"]
+        api_call(op, api, {"action": "delete", "title": scratch, "token": token,
+                           "reason": "page-flow E2E cleanup (run_pages_e2e.py)", "format": "json"}, post=True)
+
+
 def flow_math(op, base: str, api: str, label: str, latex: str, describes_qid: str) -> str:
     """Special:AddMath with the 'describes' subject field (issue follow-up)."""
     url, body = page_get(op, base, "/wiki/Special:AddMath")
@@ -2244,6 +2307,11 @@ def main() -> int:
             f"Collective:{collective_logo_label}") + "?action=raw")
         assert f"logo=[[File:{collective_logo_label.replace(' ', '_')}-logo.png" in raw, \
             f"Collective:{collective_logo_label} skeleton does not pass the logo to the infobox; raw: {raw[:200]!r}"
+        # The infobox image cell renders from the ITEM's image statement
+        # ({{#item-image:}} — upload-ux follow-up): the statement-driven
+        # cell, so pages whose skeleton predates the logo param still show
+        # the image. This is the production report's exact regression.
+        flow_item_image_renders(op, base, api, collective_logo, "-logo.png")
         print(f"[ok] AddCollective/manual (logo) -> {collective_logo}: "
               f"File:{collective_logo_label}-logo.png + image/license/attribution statements, "
               f"infobox logo on Collective:{collective_logo_label}")
@@ -2380,6 +2448,9 @@ def main() -> int:
         # File DB keys normalize spaces to underscores — match the stored form.
         assert f"logo=[[File:{logo_label.replace(' ', '_')}-logo.png" in raw, \
             f"{logo_page} skeleton does not pass the logo to the infobox; raw: {raw[:200]!r}"
+        # Statement-driven infobox cell ({{#item-image:}}) renders the file
+        # even without the skeleton param (upload-ux follow-up).
+        flow_item_image_renders(op, base, api, logo_qid, "-logo.png")
         print(f"[ok] AddSoftware/manual (logo) -> {logo_qid}: File:{logo_label}-logo.png uploaded, "
               f"image/license/attribution statements + infobox logo on {logo_page}")
         if logo_qid in created:
@@ -2405,6 +2476,9 @@ def main() -> int:
             f"Person:{person_portrait_label}") + "?action=raw")
         assert f"portrait=[[File:{person_portrait_label.replace(' ', '_')}-portrait.png" in raw, \
             f"Person:{person_portrait_label} skeleton does not pass the portrait to the infobox; raw: {raw[:200]!r}"
+        # Statement-driven infobox cell ({{#item-image:}}) renders the file
+        # even without the skeleton param (upload-ux follow-up).
+        flow_item_image_renders(op, base, api, portrait_qid, "-portrait.png")
         print(f"[ok] AddPerson/manual (portrait) -> {portrait_qid}: File uploaded with "
               f"license + author statements, infobox portrait on Person:{person_portrait_label}")
         if portrait_qid in created:

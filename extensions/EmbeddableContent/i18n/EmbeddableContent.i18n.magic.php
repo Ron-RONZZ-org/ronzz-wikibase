@@ -19,14 +19,17 @@ $magicWords = [];
 /** English (English) */
 $magicWords['en'] = [
 	'sourceaccess' => [ 0, 'source-access' ],
+	'itemimage' => [ 0, 'item-image' ],
 ];
 
 /** French (français) */
 $magicWords['fr'] = [
 	'sourceaccess' => [ 0, 'source-access' ],
+	'itemimage' => [ 0, 'item-image' ],
 ];
 
 /** Esperanto (Esperanto) */
 $magicWords['eo'] = [
 	'sourceaccess' => [ 0, 'source-access' ],
+	'itemimage' => [ 0, 'item-image' ],
 ];

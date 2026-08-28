@@ -75,9 +75,16 @@ class WikidataPersonProvider implements PersonProvider {
 			isni: $this->core->stringValue( $harvest['claims'], 'P213' ),
 			openalexId: $this->core->stringValue( $harvest['claims'], 'P5092' ),
 			dateOfBirth: $this->core->timeValue( $harvest['claims'], 'P569' ),
-			placeOfBirth: $this->core->itemId( $harvest['claims'], 'P19' ),
+			// The place LABEL, not the Wikidata QID: the review form matches
+			// the label against the instance's OWN items (exact → fuzzy, with
+			// user confirmation) before writing a local item reference. The
+			// raw QID was previously dropped into the local-item combobox
+			// and written as a LOCAL statement — a wrong/misleading link.
+			// The label is already fetched by the resolveItemLabels batch
+			// above (P19/P20 were already in the set), so no new request.
+			placeOfBirth: $this->core->itemLabel( $harvest['claims'], 'P19', $itemLabels ),
 			dateOfDeath: $this->core->timeValue( $harvest['claims'], 'P570' ),
-			placeOfDeath: $this->core->itemId( $harvest['claims'], 'P20' ),
+			placeOfDeath: $this->core->itemLabel( $harvest['claims'], 'P20', $itemLabels ),
 			wikidataId: $qid,
 			appearsInIds: $this->core->itemValueIds( $harvest['claims'], [ 'P1441' ] ),
 			provider: 'wikidata',

@@ -65,10 +65,10 @@ final class WikimediaFileUrl {
 		// /wiki/File:X and /wiki/Special:FilePath/X.jpg (the FilePath variant
 		// carries no "File:" prefix — its title is the bare file name).
 		if ( preg_match( '#^/wiki/File:[^/]+$#i', $path ) === 1 ) {
-			return self::normalizeTitle( substr( $path, 6 ) );
+			return self::normalizeTitle( self::decodeSegment( substr( $path, 6 ) ) );
 		}
 		if ( preg_match( '#^/wiki/Special:FilePath/([^/]+)$#i', $path, $m ) === 1 ) {
-			return self::normalizeTitle( 'File:' . $m[1] );
+			return self::normalizeTitle( 'File:' . self::decodeSegment( $m[1] ) );
 		}
 
 		$host = strtolower( (string)( $parts['host'] ?? '' ) );
@@ -86,10 +86,26 @@ final class WikimediaFileUrl {
 			if ( $name === null || $name === '' ) {
 				return null;
 			}
-			return self::normalizeTitle( 'File:' . $name );
+			return self::normalizeTitle( 'File:' . self::decodeSegment( $name ) );
 		}
 
 		return null;
+	}
+
+	/**
+	 * Percent-decodes one URL path segment. `rawurldecode` is deliberate:
+	 * path segments encode spaces as %20, NOT `+` (a literal plus in a file
+	 * name must survive), and malformed sequences are left untouched rather
+	 * than throwing — a broken URL still yields a best-effort title.
+	 *
+	 * Without this, an encoded file name ("Magnus-manske-2024_%28cropped
+	 * %29.jpg") was sent to the Commons API with the literal "%28"/"%29",
+	 * which the API then re-decoded into a title that does not exist — the
+	 * metadata fetch fell back to the generic probe and drew Wikimedia's
+	 * server-side 429/403 ("fetch failed: HTTP http-bad-status").
+	 */
+	private static function decodeSegment( string $segment ): string {
+		return rawurldecode( $segment );
 	}
 
 	/**

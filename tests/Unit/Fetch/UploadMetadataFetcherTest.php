@@ -140,4 +140,49 @@ final class UploadMetadataFetcherTest extends TestCase {
 		$meta = $fetcher->fetch( 'https://en.wikipedia.org/wiki/Albert_Einstein' );
 		$this->assertSame( 1, $meta->width );
 	}
+
+	public function testWikimediaUrlWithEncodedNameAndQueryParamsResolvesThroughCommonsApi(): void {
+		// The reporter's exact URL shape: an upload.wikimedia.org /thumb/
+		// URL with a percent-encoded file name ("%28"/"%29") plus the WMF
+		// parser tracking query params. The extracted title must be DECODED
+		// before the Commons query — the literal "%28" was double-encoded
+		// into "%2528" in the API request and matched no file, so the fetch
+		// fell back to the server-side probe and drew Wikimedia's 429/403
+		// ("fetch failed: HTTP http-bad-status").
+		$png = base64_decode( self::PNG_BODY );
+		$captured = null;
+		$transport = static function ( string $url, float $timeout ) use ( $png, &$captured ): array {
+			$captured = $url;
+			return [
+				'status' => 200,
+				'headers' => [ 'content-type' => [ 'application/json' ] ],
+				'body' => json_encode( [
+					'query' => [ 'pages' => [ [ 'imageinfo' => [ [
+						'width' => 1360,
+						'height' => 1813,
+						'size' => 123456,
+						'mime' => 'image/jpeg',
+						'thumburl' => 'https://upload.wikimedia.org/thumb.jpg',
+						'descriptionurl' => 'https://commons.wikimedia.org/wiki/File:Magnus-manske-2024 (cropped).jpg',
+						'extmetadata' => [
+							'Artist' => [ 'value' => 'Magnus Manske' ],
+							'LicenseShortName' => [ 'value' => 'CC BY-SA 4.0' ],
+						],
+					] ] ] ] ],
+				] ),
+			];
+		};
+
+		$fetcher = new UploadMetadataFetcher( $transport );
+		$meta = $fetcher->fetch(
+			'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Magnus-manske-2024_%28cropped%29.jpg/250px-Magnus-manske-2024_%28cropped%29.jpg?utm_source=fr.wikipedia.org&utm_campaign=parser&utm_content=thumbnail'
+		);
+
+		$this->assertSame( 'Magnus Manske', $meta->author );
+		$this->assertSame( 'CC BY-SA 4.0', $meta->licenseLabel );
+		// The Commons titles query carries the DECODED title (parentheses
+		// single-encoded by http_build_query) — never the literal "%28".
+		$this->assertStringContainsString( 'titles=File%3AMagnus-manske-2024+%28cropped%29.jpg', $captured );
+		$this->assertStringNotContainsString( '%2528', $captured );
+	}
 }

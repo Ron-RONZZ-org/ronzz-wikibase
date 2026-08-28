@@ -174,8 +174,10 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 				'label-message' => 'embeddablecontent-field-dateofbirth',
 				'default' => (string)( $record['dateOfBirth'] ?? '' ),
 			],
-			'placeOfBirth' => $this->entityComboboxSpec(
+			'placeOfBirth' => $this->placeFieldSpec(
+				'placeOfBirth',
 				'embeddablecontent-field-placeofbirth',
+				'embeddablecontent-field-placeofbirth-unresolved',
 				(string)( $record['placeOfBirth'] ?? '' )
 			),
 			'deceased' => [
@@ -189,8 +191,10 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 				'default' => (string)( $record['dateOfDeath'] ?? '' ),
 				'hide-if' => [ '!==', 'deceased', '1' ],
 			],
-			'placeOfDeath' => $this->entityComboboxSpec(
+			'placeOfDeath' => $this->placeFieldSpec(
+				'placeOfDeath',
 				'embeddablecontent-field-placeofdeath',
+				'embeddablecontent-field-placeofdeath-unresolved',
 				(string)( $record['placeOfDeath'] ?? '' ),
 				[ 'hide-if' => [ '!==', 'deceased', '1' ] ]
 			),
@@ -239,17 +243,64 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 	}
 
 	/**
-	 * Entity combobox referencing an existing local item (place of birth /
-	 * place of death). The default is a harvested QID, corrected by hand.
+	 * Entity combobox for place of birth / place of death.
+	 *
+	 * The harvested value arrives as a LABEL ("Cambridge") since the
+	 * autofill-confirm update batch — the raw Wikidata QID was previously
+	 * written blindly as a LOCAL item reference (a wrong/misleading
+	 * statement). The label goes through the same entity-autofill flow as
+	 * the harvested publisher/journal/license strings (resolveEntityField):
+	 * a good local match PREFILLS the combobox with the local id AND
+	 * renders a confirmation banner ("we think this corresponds to {label}
+	 * (Q#)" — entityconfirm.js Yes/No); no match leaves the field empty
+	 * with a "pick an existing item, or create it first" hint. An
+	 * already-local id (Special:UpdatePerson's recordFromItem) passes
+	 * through unchanged.
+	 *
+	 * @param string $fieldKey the form field key (wp + key = input name)
+	 * @param string $labelMessage message key of the field label
+	 * @param string $unresolvedMessage message key with $1 = the place label
+	 * @param string $harvested the record's place value (label or local QID)
+	 * @param array<string,mixed> $extra extra field spec keys (e.g. hide-if)
+	 * @return array<string,mixed>
 	 */
-	private function entityComboboxSpec( string $messageKey, string $default, array $extra = [] ): array {
-		return array_merge( [
+	private function placeFieldSpec( string $fieldKey, string $labelMessage, string $unresolvedMessage, string $harvested, array $extra = [] ): array {
+		$default = '';
+		$help = '';
+		if ( $harvested !== '' && preg_match( '/^Q[1-9]\d*$/i', $harvested ) !== 1 ) {
+			// A harvested label: resolve to an existing local item.
+			$resolved = $this->resolveEntityField( $harvested );
+			if ( $resolved !== null ) {
+				$default = $resolved['id'];
+				$help = $this->entityConfirmHtml(
+					'wp' . $fieldKey,
+					$this->msg( $labelMessage )->text(),
+					$harvested,
+					$resolved['label'],
+					$resolved['id']
+				);
+			} else {
+				// Plain text, HTML-escaped: the value comes from an external
+				// API and must never inject markup.
+				$help = htmlspecialchars(
+					$this->msg( $unresolvedMessage, $harvested )->text()
+				);
+			}
+		} elseif ( $harvested !== '' ) {
+			// Already a local item id (the Update flow).
+			$default = $harvested;
+		}
+		$spec = [
 			'type' => 'combobox',
 			'options' => [],
-			'label-message' => $messageKey,
+			'label-message' => $labelMessage,
 			'cssclass' => 'wb-entity-combobox',
 			'default' => $default,
-		], $extra );
+		];
+		if ( $help !== '' ) {
+			$spec['help'] = $help;
+		}
+		return array_merge( $spec, $extra );
 	}
 
 	/**
