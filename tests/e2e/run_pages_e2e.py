@@ -1519,8 +1519,23 @@ def flow_item_image_renders(op, base: str, api: str, qid: str, expect: str) -> N
         _, rendered = page_get(op, base, "/wiki/" + urllib.parse.quote(scratch.replace(" ", "_")))
         if "<span class=\"error\"" in rendered or "errorbox" in rendered:
             raise FlowError(f"{{{{#item-image:{qid}}}}} scratch page rendered parser errors")
-        assert expect in rendered, \
-            f"{{{{#item-image:{qid}}}}} did not render the uploaded file ({expect!r}); html: {rendered[:300]!r}"
+        if expect not in rendered:
+            # Diagnose: show the parser-output region + any markers that hint
+            # at what happened (a Template:Item-image redlink = the magic word
+            # did not resolve; the file title = the cell rendered but the
+            # assertion string mismatched; an error box = a thrown exception).
+            region = rendered
+            m = rendered.find("mw-parser-output")
+            if m != -1:
+                region = rendered[m:m + 1200]
+            markers = []
+            for marker in re.finditer(r"(Item-image|item-image|error|logo|portrait|File:|Q\d+)", region):
+                s = max(0, marker.start() - 60)
+                markers.append(region[s:marker.end() + 100].replace("\n", " "))
+            raise FlowError(
+                f"{{{{#item-image:{qid}}}}} did not render the uploaded file ({expect!r}); "
+                f"parser-output region: {region[:1200]!r}"
+                f"{' | markers: ' + ' || '.join(markers[:5]) if markers else ''}")
     finally:
         csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
         token = csrf["query"]["tokens"]["csrftoken"]
