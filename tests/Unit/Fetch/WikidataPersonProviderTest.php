@@ -76,9 +76,9 @@ final class WikidataPersonProviderTest extends TestCase {
 		$this->assertSame( '113230702', $record->viafId );
 		$this->assertSame( '0000 0001 2345 6789', $record->isni );
 		$this->assertSame( '1952-03-11', $record->dateOfBirth );
-		$this->assertSame( 'Q20', $record->placeOfBirth );
+		$this->assertSame( 'Cambridge', $record->placeOfBirth );
 		$this->assertSame( '2001-05-11', $record->dateOfDeath );
-		$this->assertSame( 'Q60', $record->placeOfDeath );
+		$this->assertSame( 'London', $record->placeOfDeath );
 		$this->assertSame( 'Q42', $record->wikidataId );
 		// Exactly one nested fetch.
 		$nested = array_filter(
