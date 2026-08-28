@@ -1509,7 +1509,7 @@ def flow_item_image_renders(op, base: str, api: str, qid: str, expect: str) -> N
     csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
     token = csrf["query"]["tokens"]["csrftoken"]
     r = api_call(op, api, {
-        "action": "edit", "title": scratch, "text": "{{{{#item-image:{qid}}}}}",
+        "action": "edit", "title": scratch, "text": f"{{{{#item-image:{qid}}}}}",
         "token": token, "summary": "page-flow E2E scratch ({{#item-image:}})",
         "format": "json",
     }, post=True)
