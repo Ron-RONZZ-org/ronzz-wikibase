@@ -64,7 +64,7 @@
 		var path = u.pathname || '';
 		var wiki = path.match( /^\/wiki\/(?:Special:FilePath\/)?(File:[^/]+)$/i );
 		if ( wiki ) {
-			return wiki[ 1 ].replace( /_/g, ' ' ).replace( /\s+/g, ' ' ).trim();
+			return decodeSegment( wiki[ 1 ] );
 		}
 		var segs = path.split( '/' ).filter( function ( s ) { return s !== ''; } );
 		if ( !segs.length ) {
@@ -79,7 +79,30 @@
 		if ( !name ) {
 			return null;
 		}
-		return ( 'File:' + name ).replace( /_/g, ' ' ).replace( /\s+/g, ' ' ).trim();
+		return decodeSegment( 'File:' + name );
+	}
+
+	/**
+	 * Percent-decodes one URL path segment and normalizes the title
+	 * (underscores -> spaces, collapsed). `decodeURIComponent` is wrapped:
+	 * a malformed sequence throws URIError and must fall back to the raw
+	 * segment (best-effort contract). Mirrors the PHP
+	 * WikimediaFileUrl::decodeSegment (rawurldecode — `+` stays a literal
+	 * plus in a path segment). Without the decode, an encoded file name
+	 * ("…_%28cropped%29.jpg") reached the Commons API as the literal
+	 * "%28"/"%29" title — which does not exist — and the metadata fetch
+	 * fell back to the server-side probe (Wikimedia 429/403, "fetch failed:
+	 * HTTP http-bad-status").
+	 */
+	function decodeSegment( segment ) {
+		var raw = String( segment || '' );
+		var decoded;
+		try {
+			decoded = decodeURIComponent( raw );
+		} catch ( e ) {
+			decoded = raw;
+		}
+		return decoded.replace( /_/g, ' ' ).replace( /\s+/g, ' ' ).trim();
 	}
 
 	/** Commons extmetadata values are HTML fragments — strip + collapse.

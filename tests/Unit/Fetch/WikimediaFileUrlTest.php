@@ -54,6 +54,29 @@ final class WikimediaFileUrlTest extends TestCase {
 				'https://upload.wikimedia.org/wikipedia/commons/8/85/Example.jpg?download=1',
 				'File:Example.jpg',
 			],
+			// Percent-encoded file names must be decoded before the title
+			// reaches the Commons API — the literal "%28"/"%29" was sent
+			// as-is and matched no file (the http-bad-status fallback bug).
+			'upload-thumb-encoded-name' => [
+				'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Magnus-manske-2024_%28cropped%29.jpg/250px-Magnus-manske-2024_%28cropped%29.jpg?utm_source=fr.wikipedia.org&utm_campaign=parser&utm_content=thumbnail',
+				'File:Magnus-manske-2024 (cropped).jpg',
+			],
+			'wiki-file-encoded' => [
+				'https://commons.wikimedia.org/wiki/File:Foo%20Bar%28baz%29.svg',
+				'File:Foo Bar(baz).svg',
+			],
+			'special-filepath-encoded' => [
+				'https://commons.wikimedia.org/wiki/Special:FilePath/Foo%20Bar.jpg',
+				'File:Foo Bar.jpg',
+			],
+			'upload-original-encoded' => [
+				'https://upload.wikimedia.org/wikipedia/commons/8/85/Foo%20Bar.jpg',
+				'File:Foo Bar.jpg',
+			],
+			'upload-encoded-percent-literal' => [
+				'https://upload.wikimedia.org/wikipedia/commons/8/85/100%25.jpg',
+				'File:100%.jpg',
+			],
 			'not-a-file-page' => [ 'https://en.wikipedia.org/wiki/Albert_Einstein', null ],
 			'not-wikimedia' => [ 'https://example.com/pic.jpg', null ],
 			'no-path' => [ 'https://commons.wikimedia.org', null ],
