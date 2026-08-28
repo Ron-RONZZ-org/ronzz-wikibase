@@ -111,9 +111,8 @@ final class ItemImage {
 	/**
 	 * File: titles from the `image` statements of every configured image
 	 * property id. The stored value is the File: PAGE full URL (getFullURL,
-	 * set at creation) — the title is extracted from the URL path, percent-
-	 * decoded (an encoded file name must still match), and validated
-	 * (NS_FILE, exists).
+	 * set at creation) — the title is extracted from the URL (path OR query
+	 * form, see fileTitleFromUrl) and validated (NS_FILE, exists).
 	 *
 	 * @return string[] DBkey file titles (e.g. "File:National Geographic
 	 *                  Partners-logo.png")
@@ -128,16 +127,9 @@ final class ItemImage {
 		$titles = [];
 		foreach ( $propIds as $propId ) {
 			foreach ( self::stringStatementValues( $item, $propId ) as $url ) {
-				$path = parse_url( $url, PHP_URL_PATH );
-				if ( $path === false || $path === null || $path === '' ) {
-					continue;
-				}
-				$title = Title::newFromText( rawurldecode( basename( $path ) ) );
-				if ( $title !== null && $title->inNamespace( NS_FILE ) && $title->exists() ) {
-					// getPrefixedText() — NOT getDBkey(): the DBkey strips the
-					// "File:" prefix and normalizes spaces to underscores; the
-					// rendered link needs the human title.
-					$titles[] = $title->getPrefixedText();
+				$title = self::fileTitleFromUrl( $url );
+				if ( $title !== null ) {
+					$titles[] = $title;
 				}
 			}
 			if ( $titles !== [] ) {
@@ -145,6 +137,48 @@ final class ItemImage {
 			}
 		}
 		return $titles;
+	}
+
+	/**
+	 * File: title from a stored `image` statement URL, or null when the URL
+	 * does not reference an existing File: page.
+	 *
+	 * The Add* flows store `Title::getFullURL()`, whose shape follows the
+	 * instance's article path — a PATH form ("…/wiki/File:X.png", production)
+	 * or a QUERY form ("…/w/index.php?title=File:X.png", the dev/CI stack) —
+	 * both are recognized. The file-name segment is percent-decoded (an
+	 * encoded name must still match; getFullURL encodes special characters).
+	 */
+	private static function fileTitleFromUrl( string $url ): ?string {
+		$parts = parse_url( $url );
+		if ( !is_array( $parts ) ) {
+			return null;
+		}
+		$candidate = null;
+		if ( isset( $parts['query'] ) ) {
+			parse_str( (string)$parts['query'], $query );
+			$t = $query['title'] ?? '';
+			if ( is_string( $t ) && str_starts_with( $t, 'File:' ) ) {
+				$candidate = $t;
+			}
+		}
+		if ( $candidate === null || $candidate === '' ) {
+			$path = $parts['path'] ?? '';
+			if ( $path !== '' ) {
+				$candidate = basename( $path );
+			}
+		}
+		if ( $candidate === null || $candidate === '' ) {
+			return null;
+		}
+		$title = Title::newFromText( rawurldecode( $candidate ) );
+		if ( $title !== null && $title->inNamespace( NS_FILE ) && $title->exists() ) {
+			// getPrefixedText() — NOT getDBkey(): the DBkey strips the
+			// "File:" prefix and normalizes spaces to underscores; the
+			// rendered link needs the human title.
+			return $title->getPrefixedText();
+		}
+		return null;
 	}
 
 	/**
