@@ -256,6 +256,17 @@ def first_reference_url(claims: dict, prop_id: str) -> str | None:
     return None
 
 
+# Classic pages (Source:/Person:/Collective:) created by the Add* flows.
+# The cleanup deletes the ITEM pages (entities) but never the classic pages
+# (pre-existing leak: a re-run's create-or-skip + afterCreate re-points the
+# sitelink, but the stale wikibase_item page property still maps the page to
+# the DELETED item, so flow_final_item resolves the wrong id and the
+# instance-of assertion fails). flow_final_item records the page title here
+# so the cleanup removes it too — the next run re-creates a fresh page with
+# a fresh mapping.
+CREATED_CLASSIC_PAGES: list[str] = []
+
+
 def flow_final_item(op, base: str, api: str, url: str, body: str, special: str) -> str:
     """Resolves the created item id after a flow's final submit. Item-only
     kinds redirect to Item:<id>; page-creating kinds (Person:/Source:/
@@ -268,6 +279,10 @@ def flow_final_item(op, base: str, api: str, url: str, body: str, special: str) 
     m = re.search(r"/wiki/((?:Person|Source|Collective):[^?#]+)$", url)
     if m:
         page_title = urllib.parse.unquote(m.group(1)).replace("_", " ")
+        # Record the classic page for the cleanup (the item deletion alone
+        # leaves the page mapped to a deleted item — the re-run hazard).
+        if page_title not in CREATED_CLASSIC_PAGES:
+            CREATED_CLASSIC_PAGES.append(page_title)
         # The wikibase_item page property is written at parse time but its
         # page_props table row lands via the deferred LinkUpdate. On the dev
         # stack the jobrunner processes it within seconds; PRODUCTION has
@@ -951,8 +966,10 @@ def website_item_matching(op, api: str, site_name: str) -> str | None:
     an instance-of website filter) — used to decide which outcome the
     webpage parent inference must have produced (production may already
     have a real record for a well-known site, e.g. 'Example Domain')."""
-    website_class = resolve("website", "item")
-    instance_of = resolve("instance of", "property")
+    website_class = resolve_label(op, api, "website", "item")
+    instance_of = resolve_label(op, api, "instance of", "property")
+    if website_class is None or instance_of is None:
+        raise FlowError("website class / instance-of property not resolvable")
     r = api_call(op, api, {"action": "wbsearchentities", "search": site_name,
                            "language": "en", "type": "item", "limit": 20, "format": "json"})
     for hit in r.get("search", []):
@@ -1043,9 +1060,12 @@ def flow_source_webpage_parent_match(op, base: str, api: str,
             f"(parent={parent!r}): {find_error(body)}")
     # The prefilled parent must be a WEBSITE-class item (the server's
     # class-filtered matching contract), not any fuzzy false positive.
-    website_class = resolve("website", "item")
+    website_class = resolve_label(op, api, "website", "item")
+    instance_of = resolve_label(op, api, "instance of", "property")
+    if website_class is None or instance_of is None:
+        raise FlowError("website class / instance-of property not resolvable")
     claims, _ = entity_claims(op, api, parent)
-    if first_value(claims, resolve("instance of", "property")) != website_class:
+    if first_value(claims, instance_of) != website_class:
         raise FlowError(f"AddSource/webpage inferred parent {parent} is not a website-class item")
     token2 = edit_token(body)
     # A browser submits every visible field. example.org 404s every non-root
@@ -2740,7 +2760,7 @@ def main() -> int:
         flow_cite_by_qid(op, base, api, book, quote_dogfood, source)
     finally:
         if not args.keep:
-            for page in created_pages:
+            for page in created_pages + CREATED_CLASSIC_PAGES:
                 try:
                     csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
                     token = csrf["query"]["tokens"]["csrftoken"]
