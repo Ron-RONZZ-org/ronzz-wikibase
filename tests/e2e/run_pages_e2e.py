@@ -964,7 +964,10 @@ def flow_source_webpage_parent_hint(op, base: str) -> None:
     u = urllib.parse.urlparse(url)
     manual_path = (u.path or "/") + ("?" + u.query if u.query else "")
     _, body = page_get(op, base, manual_path)
-    if "No record found for https://example.org" not in body:
+    # The parsed message autolinks the root URL (bare-URL autolink in the
+    # message text) — assert the distinctive fragment, not a URL-contiguous
+    # string.
+    if "No record found for" not in body or "Add the website first" not in body:
         raise FlowError(
             f"AddSource/webpage manual form missing the no-record parent hint: "
             f"{find_error(body)}")
