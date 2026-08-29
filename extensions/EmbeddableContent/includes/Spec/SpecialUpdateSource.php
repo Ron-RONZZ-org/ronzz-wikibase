@@ -42,6 +42,17 @@ class SpecialUpdateSource extends SpecialAddSource {
 		return 'source';
 	}
 
+	/**
+	 * The AddSource class-disambiguation label suffix (" (Book)", …) is a
+	 * CREATION-time convention: an update shows the item's existing label
+	 * as-is (re-adding the suffix would rename every pre-convention item on
+	 * its first update; the suffix stays when it is already part of the
+	 * stored label).
+	 */
+	protected function applyLabelSuffix(): bool {
+		return false;
+	}
+
 	protected function updateClassItemId( Item $item ): ?string {
 		$classIds = $this->itemClassIds( $item );
 		foreach ( $this->config->sourceClasses() as $key => $id ) {

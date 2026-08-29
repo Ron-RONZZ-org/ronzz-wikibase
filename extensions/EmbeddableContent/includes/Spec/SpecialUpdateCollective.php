@@ -63,6 +63,8 @@ class SpecialUpdateCollective extends SpecialAddCollective {
 				$this->config->collectivePropertyIds()['parentOrganization'] ?? null
 			),
 		];
+		$props = $this->config->collectivePropertyIds();
+		$record['website'] = $this->firstStringForProperty( $item, $props['officialWebsite'] ?? null );
 		// Logo facts are NOT prefilled (the toggle defaults unchecked — the
 		// existing logo is preserved).
 		foreach ( [ 'logoInclude', 'logoMode', 'logoFile', 'logoUrl', 'logoExisting',

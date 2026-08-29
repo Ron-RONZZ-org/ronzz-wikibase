@@ -377,17 +377,45 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   HTML error page served with HTTP 200 before filling the upload).
 - **Wikimedia file-title percent-decoding (fix)**: the extracted Commons
   file title was never percent-decoded — a thumb URL like
-  `…/Magnus-manske-2024_%28cropped%29.jpg/250px-….jpg` yielded the literal
-  `%28` title, which the Commons `imageinfo` query cannot match; the browser
-  metadata path then fell back to the server-side probe and drew Wikimedia's
-  server-IP 429/403 ("image metadata warning: fetch failed: HTTP
-  http-bad-status"). `WikimediaFileUrl::fileTitle()` and the JS
-  `extractFileTitle()` mirror now decode each extracted path segment
-  (`rawurldecode` / `decodeURIComponent`, `+` stays literal — path segments
-  encode spaces as `%20`) in every branch (`/wiki/File:`, `Special:FilePath`,
-  upload.wikimedia.org original + thumb).
+   `…/Magnus-manske-2024_%28cropped%29.jpg/250px-….jpg` yielded the literal
+   `%28` title, which the Commons `imageinfo` query cannot match; the browser
+   metadata path then fell back to the server-side probe and drew Wikimedia's
+   server-IP 429/403 ("image metadata warning: fetch failed: HTTP
+   http-bad-status"). `WikimediaFileUrl::fileTitle()` and the JS
+   `extractFileTitle()` mirror now decode each extracted path segment
+   (`rawurldecode` / `decodeURIComponent`, `+` stays literal — path segments
+   encode spaces as `%20`) in every branch (`/wiki/File:`, `Special:FilePath`,
+   upload.wikimedia.org original + thumb).
+- **Add-flow round 3 (ADR `docs/decisions/addflow-round3.md`)**: (a)
+  **Official website on AddPerson/AddCollective** — the shared P856-aligned
+  `official website` URL property joins the `personProperties`/
+  `collectiveProperties` config maps (one property, three entity kinds —
+  AddSoftware already had it); the shared `websiteFieldSpec()`/
+  `websiteStatementValue()` helpers (base class) feed a plain URL field on
+  all three review forms, written as a validated string statement;
+  `UpdatePerson`/`UpdateCollective` prefill it from the item. (b)
+  **Webpage→website parent inference** — the `webpage` URL-entry submit
+  fetches the site root's metadata, resolves the site name against
+  website-class items (exact→fuzzy autofill-confirm; the exact branch is
+  class-rechecked and falls through to the class-filtered fuzzy matcher —
+  stale term-store hits for deleted items are skipped), prefills the parent
+  combobox with the confirmation banner, or stores the "No record found for
+  {root} — add the website first" hint (the site is real, our record isn't);
+  `parentFieldSpec` renders banner/hint, `part of` + `validateParent`
+  unchanged. (c) **Source-label class disambiguation** — the review/manual
+  title default AND `primaryLabel()` carry ` ({English class label})`
+  ("The Hobbit (Book)", "Example Domain (Website)") — idempotent
+  (case-insensitive ends-with), English because labels are `en` terms;
+  `Special:UpdateSource` overrides `applyLabelSuffix()=false` so updates
+  keep the stored label as-is. (d) **Item toolbar one row + citation format
+  chooser** — `updatebutton.js` and `gadget.js` share one
+  `.wb-embed-toolbar` flex row (create-or-reuse `getToolbar()`, update
+  button prepends); copy citation gains an APA (default)/Vancouver/BibTeX/
+  RIS selector (`wb-embed-toolbar-style`), fetched lazily and cached per
+  format (the APA probe doubles as the first text).
 
 ### WikibaseCitation
+
 
 - **Citation map manifests** (`manifests/`) + `maintenance/importCitationMap.php`
   (publishes the 4 admin-editable `MediaWiki:Citation-*` pages).

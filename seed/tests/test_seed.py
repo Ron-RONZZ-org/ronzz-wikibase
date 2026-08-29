@@ -249,6 +249,27 @@ class ConfigBuilderTest(unittest.TestCase):
         self.assertIn("'imageLicenseInfo' => 'P71'", snippet)
         self.assertIn("'parentOrganization' => 'P72'", snippet)
 
+    def test_config_fragment_official_website_shared(self):
+        """The shared official-website URL property (P856-aligned) lands in
+        the person AND collective property maps with the same property id
+        (one property, three entity kinds — the FOSS map already carries
+        it)."""
+        snippet = config_builder.build_config(
+            property_ids={
+                "instance of": "P31",
+                "official website": "P36",
+                "date of birth": "P60",
+                "parent organization": "P72",
+            },
+            class_ids={},
+            lexer_ids={},
+            fallback_languages=["fr", "en", "eo"],
+        )
+        self.assertIn("'personProperties'", snippet)
+        self.assertIn("'officialWebsite' => 'P36'", snippet)
+        self.assertIn("'collectiveProperties'", snippet)
+        self.assertIn("'officialWebsite' => 'P36'", snippet)
+
     def test_config_fragment_followup_sections(self):
         """Issue follow-up vocabulary: fictional characters, the journal
         entity, the person OpenAlex author id, the preseed license options —

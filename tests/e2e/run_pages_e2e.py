@@ -693,8 +693,12 @@ def flow_source_book_manual_autofill(op, base: str, api: str, title: str,
     })
     manual_path = flow_manual_link_from(op, base, body, "AddSource/book")
     url2, body2 = page_get(op, base, manual_path)
-    if input_value(body2, "wptitle") != title:
-        raise FlowError(f"AddSource/book manual title not autofilled from the search: {find_error(body2)}")
+    # The manual title default carries the AddSource class-disambiguation
+    # suffix (" (Book)" — the label convention): the autofilled search title
+    # plus the class label.
+    if input_value(body2, "wptitle") != title + " (Book)":
+        raise FlowError(f"AddSource/book manual title not autofilled (with the (Book) "
+                        f"suffix) from the search: {find_error(body2)}")
     if input_value(body2, "wpauthors") != author_qid:
         raise FlowError(f"AddSource/book manual authors not autofilled (entity mode): {find_error(body2)}")
     token2 = edit_token(body2)
@@ -862,12 +866,16 @@ def flow_source_picker_route(op, base: str) -> str:
 
 
 def flow_source_url_entry(op, base: str, api: str, class_key: str, url: str,
-                          author_qid: str) -> str:
+                          author_qid: str, post_extra: dict | None = None) -> str:
     """URL-first flow for the manual-only website/webpage classes (issue
     follow-up): the first page is a URL entry (Special:AddSource/<classKey>);
     the metadata of the entered URL is fetched (SSRF-guarded) and prefills the
     manual form (/manual?token=). example.org serves a <title>Example
-    Domain</title>, so the autofill must be visible before creation."""
+    Domain</title>, so the autofill must be visible before creation.
+
+    post_extra carries additional manual-form fields (e.g. the inferred
+    parent on the webpage flow), keyed as wp<FieldName>.
+    """
     url_page, body = page_get(op, base, f"/wiki/Special:AddSource/{class_key}")
     if "mw-input-wpurl" not in body:
         raise FlowError(f"AddSource/{class_key} first page is not the URL entry: {find_error(body)}")
@@ -895,13 +903,18 @@ def flow_source_url_entry(op, base: str, api: str, class_key: str, url: str,
     prefilled_title = m.group(1) if m else ""
     token2 = edit_token(body)
     # wptitle is prefilled (a browser submits it); the author is still
-    # required (agent-class). Append a run-unique suffix to the fetched
+    # required (agent-class). Append a run-unique marker to the fetched
     # title: example.org's <title> is FIXED ("Example Domain"), so without
     # it every run creates the same label and the next run's create-or-skip
     # REUSES the self-cleaned (deleted) item — a stale term-store hit that
-    # fails the instance-of assertion on re-runs (seen on production).
-    fields = {"wptitle": prefilled_title + " (E2E " + str(int(time.time())) + ")",
+    # fails the instance-of assertion on re-runs (seen on production). The
+    # marker goes BEFORE the class disambiguation suffix (" (Website)" /
+    # " (Webpage)" — the AddSource label convention), so the creation-time
+    # suffix append stays idempotent: "<title> (E2E <ts>) (Website)".
+    fields = {"wptitle": _unique_title(prefilled_title, int(time.time())),
               "wpauthors": author_qid, "wpEditToken": token2, "wpSubmit": "1"}
+    if post_extra:
+        fields.update(post_extra)
     url_page, body = page_post(op, manual_url, fields)
     # The fetched intro (site description) is reviewed on the content step
     # (/manual/content?token= — the redirect renders as
@@ -919,6 +932,115 @@ def flow_source_url_entry(op, base: str, api: str, class_key: str, url: str,
             snippet = text[max(0, i - 200):i + 200] if i >= 0 else text[-600:]
             raise FlowError(f"content-step submit did not complete: {url_page}\n{snippet}")
     return flow_final_item(op, base, api, url_page, body, f"AddSource/{class_key} (URL entry)")
+
+
+def _unique_title(prefilled_title: str, ts: int) -> str:
+    """Run-unique manual title for the URL-first flows: inserts " (E2E <ts>)"
+    BEFORE a trailing parenthetical — the AddSource class disambiguation
+    suffix (" (Website)", " (Webpage)") must stay at the very end so the
+    creation-time suffix append is idempotent."""
+    m = re.search(r" \(([^)]*)\)$", prefilled_title)
+    if m:
+        return prefilled_title[:m.start()] + f" (E2E {ts})" + m.group(0)
+    return prefilled_title + f" (E2E {ts})"
+
+
+def flow_source_webpage_parent_hint(op, base: str) -> None:
+    """Webpage parent inference — the NO-MATCH branch: a webpage URL whose
+    site root has no record in the knowledge base must render the
+    "No record found for <root>" hint on the manual form (the website is
+    real, our record isn't — the field stays required). Runs BEFORE any
+    website item named after the fetched site exists in this run."""
+    url, body = page_get(op, base, "/wiki/Special:AddSource/webpage")
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "wpurl": "https://example.org/no-parent",
+        "wpEditToken": token, "wpSubmit": "1",
+    })
+    m = re.search(r"(Special:AddSource/webpage/manual)[^'\"]*token=([0-9a-f]+)", url)
+    if not m:
+        raise FlowError(
+            f"AddSource/webpage URL entry did not redirect to /manual?token=: {url} {find_error(body)}")
+    u = urllib.parse.urlparse(url)
+    manual_path = (u.path or "/") + ("?" + u.query if u.query else "")
+    _, body = page_get(op, base, manual_path)
+    # The metadata fetch must have prefilled the title — distinguishes an
+    # environment fetch failure (no prefill) from a payload-flow bug (title
+    # prefilled, hint missing).
+    title_val = input_value(body, "wptitle")
+    parent_val = input_value(body, "wpparent")
+    # The parsed message autolinks the root URL (bare-URL autolink in the
+    # message text) — assert the distinctive fragment, not a URL-contiguous
+    # string.
+    if "No record found for" not in body or "Add the website first" not in body:
+        # Debug aid: strip the markup and surface the region around the
+        # parent field (the form may have rendered without the hint).
+        text = re.sub(r"<script.*?</script>", "", body, flags=re.S)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = re.sub(r"\s+", " ", text)
+        i = text.lower().find("parent")
+        snippet = text[max(0, i - 200):i + 300] if i >= 0 else text[-500:]
+        raise FlowError(
+            f"AddSource/webpage manual form missing the no-record parent hint "
+            f"(title={title_val!r}, parent={parent_val!r}): {find_error(body)}\n"
+            f"parent region: {snippet!r}")
+
+
+def flow_source_webpage_parent_match(op, base: str, api: str,
+                                     author_qid: str) -> tuple[str, str]:
+    """Webpage parent inference — the MATCH branch: after a website item
+    exists (created here via the website URL-first flow, whose fetched site
+    name is "Example Domain"), a webpage whose root URL is the same site
+    must auto-infer that website as the parent — the manual form prefills
+    wpparent with its Q-id and renders the confirmation banner, and the
+    created webpage carries the `part of` statement.
+
+    Returns (webpage qid, website qid)."""
+    website_qid = flow_source_url_entry(
+        op, base, api, "website", "https://example.org/e2e-site", author_qid)
+
+    url, body = page_get(op, base, "/wiki/Special:AddSource/webpage")
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "wpurl": "https://example.org/e2e-page",
+        "wpEditToken": token, "wpSubmit": "1",
+    })
+    m = re.search(r"(Special:AddSource/webpage/manual)[^'\"]*token=([0-9a-f]+)", url)
+    if not m:
+        raise FlowError(
+            f"AddSource/webpage URL entry did not redirect to /manual?token=: {url} {find_error(body)}")
+    u = urllib.parse.urlparse(url)
+    manual_path = (u.path or "/") + ("?" + u.query if u.query else "")
+    manual_url, body = page_get(op, base, manual_path)
+    parent = input_value(body, "wpparent")
+    if parent != website_qid:
+        raise FlowError(
+            f"AddSource/webpage parent NOT inferred from the root URL: expected "
+            f"{website_qid}, got {parent!r}: {find_error(body)}")
+    if "wb-entity-confirm" not in body:
+        raise FlowError(
+            "AddSource/webpage parent inference rendered without the confirmation banner")
+    token2 = edit_token(body)
+    # A browser submits every visible field. example.org 404s every non-root
+    # path (only the site root answers 200), so the page fetch fails and the
+    # title is NOT prefilled — the parent inference runs off the SITE ROOT
+    # fetch, which succeeds. Post the title ourselves (with the run-unique
+    # marker; the class suffix is appended at creation).
+    fields = {
+        "wptitle": f"Page-flow E2E webpage {int(time.time())}",
+        "wpauthors": author_qid,
+        "wpparent": parent,
+        "wpEditToken": token2,
+        "wpSubmit": "1",
+    }
+    url, body = page_post(op, manual_url, fields)
+    # The fetched intro (site description) is reviewed on the content step.
+    if re.search(r"Special:AddSource/webpage/manual/content[^'\"]*token=", url):
+        token3 = edit_token(body)
+        url, body = page_post(op, url, {"wpEditToken": token3, "wpSubmit": "1"})
+    webpage_qid = flow_final_item(op, base, api, url, body,
+                                  "AddSource/webpage (parent inference)")
+    return webpage_qid, website_qid
 
 
 def flow_source_content_step(op, base: str, api: str, doi: str, author_qid: str) -> str:
@@ -1800,6 +1922,7 @@ def main() -> int:
         place_of_birth_prop = resolve("place of birth", "property")
         date_of_death_prop = resolve("date of death", "property")
         place_of_death_prop = resolve("place of death", "property")
+        official_website_prop = resolve("official website", "property")
         person_manual_label = f"Page-flow E2E person {int(time.time())}"
         person_manual = track(flow_manual(op, base, api, "AddPerson", person_manual_label,
                                           person_class, {
@@ -1808,6 +1931,7 @@ def main() -> int:
                                               "wpdeceased": "1",
                                               "wpdateOfDeath": "2015-03-04",
                                               "wpplaceOfDeath": person,
+                                              "wpwebsite": "https://example.org/person",
                                           }))
         claims, _ = entity_claims(op, api, person_manual)
         assert first_value(claims, date_of_birth_prop) is not None and \
@@ -1819,8 +1943,11 @@ def main() -> int:
             f"{person_manual} date of death statement not written (deceased toggle)"
         assert first_value(claims, place_of_death_prop) == person, \
             f"{person_manual} place of death statement not written"
+        assert first_value(claims, official_website_prop) == "https://example.org/person", \
+            f"{person_manual} official-website statement not written " \
+            f"({first_value(claims, official_website_prop)})"
         print(f"[ok] AddPerson/manual -> {person_manual}: birth/death dates + places, "
-              f"deceased toggle")
+              f"deceased toggle, official website")
 
         # 1b1. Update flows (autofill-confirm-update): the Item page offers
         #     "Update basic information"; Special:UpdatePerson/<qid> renders
@@ -2050,13 +2177,13 @@ def main() -> int:
             f"{access_book} file statement missing or not auto-named from the label ({file_val})"
         assert first_value(claims, license_prop) == license_qid, \
             f"{access_book} license statement missing ({first_value(claims, license_prop)})"
-        file_page = api_call(op, api, {"action": "query", "titles": f"File:{access_label}.png",
+        file_page = api_call(op, api, {"action": "query", "titles": f"File:{access_label} (Book).png",
                                        "format": "json"})
         pages = list(file_page.get("query", {}).get("pages", {}).values())
         assert pages and "missing" not in pages[0], \
-            f"File:{access_label}.png not created"
+            f"File:{access_label} (Book).png not created"
         print(f"[ok] AddSource/book access (local file) -> {access_book}: "
-              f"File:{access_label}.png + license + file statements")
+              f"File:{access_label} (Book).png + license + file statements")
 
         # 2h2. Access field, DIRECT-DOWNLOAD mode (regression): the file is
         #     fetched server-side (UploadFromUrl + fetchFile). Before the fix
@@ -2076,38 +2203,39 @@ def main() -> int:
             f"({download_file_val}) — URL-mode upload did not land"
         assert first_value(claims, license_prop) == download_license_qid, \
             f"{download_book} license statement missing ({first_value(claims, license_prop)})"
-        download_page = api_call(op, api, {"action": "query", "titles": f"File:{download_label}.png",
+        download_page = api_call(op, api, {"action": "query", "titles": f"File:{download_label} (Book).png",
                                            "format": "json"})
         pages = list(download_page.get("query", {}).get("pages", {}).values())
         assert pages and "missing" not in pages[0], \
-            f"File:{download_label}.png not created"
+            f"File:{download_label} (Book).png not created"
         print(f"[ok] AddSource/book access (download) -> {download_book}: "
-              f"server-side fetch landed File:{download_label}.png + license + file statements")
+              f"server-side fetch landed File:{download_label} (Book).png + license + file statements")
 
         # 2h3. Source: access row (issue follow-up): the {{#source-access:}}
         #     parser function renders the infobox "Access" cell from the
         #     item's statements — file (linked to Special:SourceFile with the
-        #     owning item id) > access URL (clickable) > N/A.
-        access_cell = source_access_cell(op, api, f"Source:{access_label}")
+        #     owning item id) > access URL (clickable) > N/A. The Source:
+        #     page titles carry the class disambiguation suffix (" (Book)").
+        access_cell = source_access_cell(op, api, f"Source:{access_label} (Book)")
         assert "Special:SourceFile" in access_cell and f"item={access_book}" in access_cell, \
             f"file-mode access row not rendered as a Special:SourceFile link: {access_cell}"
         url_label = f"Page-flow E2E access-url {int(time.time())}"
         url_book = track(flow_source_book_access_url(
             op, base, api, url_label, person, "https://example.org/e2e-access"))
-        url_cell = source_access_cell(op, api, f"Source:{url_label}")
+        url_cell = source_access_cell(op, api, f"Source:{url_label} (Book)")
         assert "https://example.org/e2e-access" in url_cell and "external" in url_cell, \
             f"url-mode access row not rendered as a clickable link: {url_cell}"
         na_label = f"Page-flow E2E access-na {int(time.time())}"
         na_desc = "A regression-test book with no fetched content."
         na_book = track(flow_source_book_access_na(op, base, api, na_label, person, na_desc))
-        na_cell = source_access_cell(op, api, f"Source:{na_label}")
+        na_cell = source_access_cell(op, api, f"Source:{na_label} (Book)")
         assert "N/A" in na_cell, f"na-mode access row not 'N/A': {na_cell}"
         # Description-as-placeholder: no fetched content -> the item
         # description is the Source: page's == Overview == lead (was a
         # template-only page before).
-        na_page = page_wikitext(op, api, f"Source:{na_label}")
+        na_page = page_wikitext(op, api, f"Source:{na_label} (Book)")
         assert "== Overview ==" in na_page and na_desc in na_page, \
-            f"Source:{na_label} missing the description placeholder: {na_page[:200]!r}"
+            f"Source:{na_label} (Book) missing the description placeholder: {na_page[:200]!r}"
         print("[ok] Source: access row: file -> Special:SourceFile link, "
               "URL -> clickable link, none -> N/A")
 
@@ -2116,7 +2244,7 @@ def main() -> int:
         #     non-PDF). Unchecked download is rejected server-side; the
         #     checked download redirects to the file.
         special_path = ("/wiki/Special:SourceFile?item=%s&file=File%%3A%s.png"
-                        % (access_book, urllib.parse.quote(access_label)))
+                        % (access_book, urllib.parse.quote(access_label + " (Book)")))
         special_url, body = page_get(op, base, special_path)
         assert "wb-sourcefile-licence" in body, "Special:SourceFile missing the licence block"
         assert license_qid in body, "Special:SourceFile missing the licence label"
@@ -2144,7 +2272,7 @@ def main() -> int:
             op, base, api, pdf_label, person, pdf_license_qid,
             content=E2E_PDF, filename="original.pdf", ctype="application/pdf"))
         pdf_special = ("/wiki/Special:SourceFile?item=%s&file=File%%3A%s.pdf"
-                       % (pdf_book, urllib.parse.quote(pdf_label)))
+                       % (pdf_book, urllib.parse.quote(pdf_label + " (Book)")))
         _, body = page_get(op, base, pdf_special)
         assert "<iframe" in body and "wb-sourcefile-preview" in body, \
             "PDF special page missing the embedded iframe preview"
@@ -2182,10 +2310,12 @@ def main() -> int:
         book_autofill = track(flow_source_book_manual_autofill(
             op, base, api, book_autofill_title, person))
         claims, label = entity_claims(op, api, book_autofill)
-        assert label == book_autofill_title, \
+        # The AddSource label convention: the class disambiguation suffix
+        # (" (Book)") is appended at creation.
+        assert label == book_autofill_title + " (Book)", \
             f"{book_autofill} label mismatch ({label!r})"
         print(f"[ok] AddSource/book manual autofill -> {book_autofill}: "
-              f"title + author carried from the search")
+              f"title + author carried from the search, label suffixed (Book)")
 
         # 2i1. Free-text author autofill-confirm (autofill-confirm-update):
         #     a NAME author search fuzzy-matches an existing person item —
@@ -2204,7 +2334,11 @@ def main() -> int:
         new_book_description = f"Updated source by the update-flow E2E {int(time.time())}"
         flow_update_source(op, base, api, book_autofill, new_book_description)
         claims, label = entity_claims(op, api, book_autofill)
-        assert label == book_autofill_title, f"{book_autofill} label changed by the update"
+        # The update keeps the stored label as-is (the suffix is a
+        # creation-time convention — it stays because it is already part of
+        # the label).
+        assert label == book_autofill_title + " (Book)", \
+            f"{book_autofill} label changed by the update"
         assert entity_descriptions(op, api, book_autofill) == new_book_description, \
             f"{book_autofill} description not updated"
         assert first_value(claims, resolve("attributed to", "property")) is not None, \
@@ -2216,6 +2350,34 @@ def main() -> int:
         #     picking a class routes to its class-scoped first step.
         manual_pick_url = flow_source_picker_route(op, base)
         print(f"[ok] AddSource picker -> {manual_pick_url.rsplit('/wiki/', 1)[-1]}")
+
+        # 2j1. Webpage → website parent inference (add-flow round): the site
+        #     root of the entered webpage URL is auto-matched against
+        #     website-class items. NO match first (no website named after
+        #     the site exists in this run yet): the manual form renders the
+        #     "No record found for <root>" hint — the website is real, our
+        #     record isn't. THEN, after a website item exists, the same
+        #     entry prefills the parent combobox (Q-id + confirmation
+        #     banner) and the created webpage carries the `part of`
+        #     statement.
+        flow_source_webpage_parent_hint(op, base)
+        print("[ok] AddSource/webpage parent inference: no-record hint "
+              "rendered on the manual form")
+        webpage_child, webpage_parent = flow_source_webpage_parent_match(
+            op, base, api, person)
+        track(webpage_child)
+        track(webpage_parent)
+        claims, label = entity_claims(op, api, webpage_child)
+        assert first_value(claims, part_of_prop) == webpage_parent, \
+            f"{webpage_child} part-of != inferred website {webpage_parent} " \
+            f"({first_value(claims, part_of_prop)})"
+        # The webpage label carries its own class suffix (the label
+        # convention) — " (Webpage)", distinct from the parent's " (Website)".
+        assert label.endswith(" (Webpage)"), \
+            f"{webpage_child} label without the (Webpage) suffix ({label!r})"
+        print(f"[ok] AddSource/webpage parent inference -> {webpage_child}: "
+              f"parent prefilled + confirmed, part-of -> {webpage_parent}, "
+              f"label suffixed (Webpage)")
 
         # 2k. Website URL-first flow (issue follow-up): the first page is a
         #     URL entry; the fetched metadata prefills the manual form.
@@ -2278,13 +2440,18 @@ def main() -> int:
         collective_manual = track(flow_manual(op, base, api, "AddCollective",
                                               collective_manual_label,
                                               resolve("organization", "item"),
-                                              {"wpparentOrganization": parent_org_qid}))
+                                              {"wpparentOrganization": parent_org_qid,
+                                               "wpwebsite": "https://example.org/collective"}))
         claims, _ = entity_claims(op, api, collective_manual)
         assert first_value(claims, resolve("parent organization", "property")) == parent_org_qid, \
             f"{collective_manual} parent-organization statement missing or wrong " \
             f"({first_value(claims, resolve('parent organization', 'property'))})"
+        assert first_value(claims, official_website_prop) == "https://example.org/collective", \
+            f"{collective_manual} official-website statement not written " \
+            f"({first_value(claims, official_website_prop)})"
         print(f"[ok] AddCollective/manual -> {collective_manual}: optional parent "
-              f"organization statement written ({parent_org_qid})")
+              f"organization + official website statements written "
+              f"({parent_org_qid})")
 
         # 3a2. AddCollective logo (issue follow-up): the optional logo
         #     uploads as File:<label>-logo.png (AddSoftware pattern) with a

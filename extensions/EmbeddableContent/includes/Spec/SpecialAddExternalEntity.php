@@ -6,6 +6,7 @@ namespace EmbeddableContent\Spec;
 
 use DataValues\StringValue;
 use DataValues\TimeValue;
+use EmbeddableContent\Content\FragmentSanitizer;
 use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\EntityLabelMatcher;
 use EmbeddableContent\Fetch\ProviderClient;
@@ -1184,6 +1185,37 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			'default' => $default,
 			'maxlength' => $maxlength,
 		];
+	}
+
+	/**
+	 * Official-website URL field (shared by AddSoftware / AddPerson /
+	 * AddCollective): a plain URL input writing the shared P856-aligned
+	 * property as a string (url-datatype) statement.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,mixed> fieldname => descriptor
+	 */
+	protected function websiteFieldSpec( array $record ): array {
+		return [ 'website' => [
+			'type' => 'url',
+			'label-message' => 'embeddablecontent-field-officialwebsite',
+			'default' => (string)( $record['website'] ?? '' ),
+			'maxlength' => 250,
+		] ];
+	}
+
+	/**
+	 * Validated StringValue for the official-website statement, or null when
+	 * the record's website field is empty or not a valid URL (the author saw
+	 * the value on the review form — an invalid harvested URL is dropped
+	 * rather than blocking creation, same contract as AddSoftware's URL
+	 * facts).
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function websiteStatementValue( array $record ): ?StringValue {
+		$url = ( new FragmentSanitizer() )->validateUrl( (string)( $record['website'] ?? '' ) );
+		return $url !== null ? new StringValue( $url ) : null;
 	}
 
 	/**

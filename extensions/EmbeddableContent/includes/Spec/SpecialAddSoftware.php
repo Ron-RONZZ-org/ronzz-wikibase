@@ -145,12 +145,6 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		$fields = $this->labelFieldSpec( 'label', 'embeddablecontent-extsearch-name', (string)( $record['label'] ?? '' ) )
 			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
 			+ [
-				'website' => [
-					'type' => 'url',
-					'label-message' => 'embeddablecontent-field-officialwebsite',
-					'default' => (string)( $record['website'] ?? '' ),
-					'maxlength' => 250,
-				],
 				'sourceRepository' => [
 					'type' => 'url',
 					'label-message' => 'embeddablecontent-field-sourcerepository',
@@ -163,7 +157,8 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 					'default' => (string)( $record['documentationUrl'] ?? '' ),
 					'maxlength' => 250,
 				],
-			];
+			]
+			+ $this->websiteFieldSpec( $record );
 
 		foreach ( self::FOSS_ENTITY_FIELDS as $field ) {
 			$harvested = (string)( $record[$field] ?? '' );
@@ -297,9 +292,9 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 
 		// URL facts — validated; invalid harvested URLs are dropped rather
 		// than blocking creation (the author saw them on the review form).
-		$website = $sanitizer->validateUrl( (string)( $record['website'] ?? '' ) );
-		if ( $website !== null ) {
-			$specs[$this->config->fossPropertyIds()['officialWebsite']] = new StringValue( $website );
+		$website = $this->websiteStatementValue( $record );
+		if ( $website !== null && isset( $this->config->fossPropertyIds()['officialWebsite'] ) ) {
+			$specs[$this->config->fossPropertyIds()['officialWebsite']] = $website;
 		}
 		$repository = $sanitizer->validateUrl( (string)( $record['sourceRepository'] ?? '' ) );
 		if ( $repository !== null ) {
