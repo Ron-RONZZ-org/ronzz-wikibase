@@ -195,14 +195,17 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				'intro' => $fetched->intro,
 				'keywords' => $fetched->keywords,
 			];
-			// webpage → website parent inference: the site root of the
-			// entered page URL is matched against existing website-class
-			// items (see inferWebpageParent). A match stores the parent id +
-			// a confirmation-banner payload for the manual form; no match
-			// stores the "create the website first" hint.
-			if ( $this->currentClassKey === 'webpage' ) {
-				$this->inferWebpageParent( $url, $urlMeta );
-			}
+		}
+		// webpage → website parent inference: the site root of the entered
+		// page URL is matched against existing website-class items (see
+		// inferWebpageParent). A match stores the parent id + a
+		// confirmation-banner payload for the manual form; no match stores
+		// the "create the website first" hint. Runs even when the PAGE
+		// fetch failed (404/slow page — example.org 404s every non-root
+		// path): the inference only needs the SITE ROOT fetch, which is
+		// independent of the page itself.
+		if ( $this->currentClassKey === 'webpage' ) {
+			$this->inferWebpageParent( $url, $urlMeta );
 		}
 		$this->getRequest()->getSession()->set( self::SESSION_PREFIX . $token . ':urlmeta', $urlMeta );
 		$this->getOutput()->redirect( $this->stepTitle( 'manual' )->getFullURL( [ 'token' => $token ] ) );

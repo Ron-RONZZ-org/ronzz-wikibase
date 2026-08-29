@@ -964,6 +964,11 @@ def flow_source_webpage_parent_hint(op, base: str) -> None:
     u = urllib.parse.urlparse(url)
     manual_path = (u.path or "/") + ("?" + u.query if u.query else "")
     _, body = page_get(op, base, manual_path)
+    # The metadata fetch must have prefilled the title — distinguishes an
+    # environment fetch failure (no prefill) from a payload-flow bug (title
+    # prefilled, hint missing).
+    title_val = input_value(body, "wptitle")
+    parent_val = input_value(body, "wpparent")
     # The parsed message autolinks the root URL (bare-URL autolink in the
     # message text) — assert the distinctive fragment, not a URL-contiguous
     # string.
@@ -976,8 +981,9 @@ def flow_source_webpage_parent_hint(op, base: str) -> None:
         i = text.lower().find("parent")
         snippet = text[max(0, i - 200):i + 300] if i >= 0 else text[-500:]
         raise FlowError(
-            f"AddSource/webpage manual form missing the no-record parent hint: "
-            f"{find_error(body)}\nparent region: {snippet!r}")
+            f"AddSource/webpage manual form missing the no-record parent hint "
+            f"(title={title_val!r}, parent={parent_val!r}): {find_error(body)}\n"
+            f"parent region: {snippet!r}")
 
 
 def flow_source_webpage_parent_match(op, base: str, api: str,
@@ -1015,11 +1021,13 @@ def flow_source_webpage_parent_match(op, base: str, api: str,
         raise FlowError(
             "AddSource/webpage parent inference rendered without the confirmation banner")
     token2 = edit_token(body)
-    # A browser submits every visible field: the prefilled (suffixed) title
-    # (with a run-unique marker inserted before the class suffix — the
-    # create-or-skip re-run hazard), the authors and the inferred parent.
+    # A browser submits every visible field. example.org 404s every non-root
+    # path (only the site root answers 200), so the page fetch fails and the
+    # title is NOT prefilled — the parent inference runs off the SITE ROOT
+    # fetch, which succeeds. Post the title ourselves (with the run-unique
+    # marker; the class suffix is appended at creation).
     fields = {
-        "wptitle": _unique_title(input_value(body, "wptitle"), int(time.time())),
+        "wptitle": f"Page-flow E2E webpage {int(time.time())}",
         "wpauthors": author_qid,
         "wpparent": parent,
         "wpEditToken": token2,
@@ -2357,6 +2365,8 @@ def main() -> int:
               "rendered on the manual form")
         webpage_child, webpage_parent = flow_source_webpage_parent_match(
             op, base, api, person)
+        track(webpage_child)
+        track(webpage_parent)
         claims, label = entity_claims(op, api, webpage_child)
         assert first_value(claims, part_of_prop) == webpage_parent, \
             f"{webpage_child} part-of != inferred website {webpage_parent} " \
