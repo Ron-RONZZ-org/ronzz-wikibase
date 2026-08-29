@@ -1022,7 +1022,7 @@ def flow_source_webpage_parent_hint(op, base: str, api: str) -> None:
 
 
 def flow_source_webpage_parent_match(op, base: str, api: str,
-                                     author_qid: str) -> tuple[str, str]:
+                                     author_qid: str) -> tuple[str, str, str | None]:
     """Webpage parent inference — the MATCH branch: when a website item
     exists (created here when none matches the site name — the CI stack; on
     production a real record may already exist), a webpage whose root URL is
@@ -1030,15 +1030,15 @@ def flow_source_webpage_parent_match(op, base: str, api: str,
     prefills wpparent with a website-class Q-id and renders the confirmation
     banner, and the created webpage carries the `part of` statement.
 
-    Returns (webpage qid, matched website qid). Only a website item CREATED
-    here is tracked for cleanup — a pre-existing (possibly real) record is
-    never touched."""
+    Returns (webpage qid, matched website qid, website qid created here or
+    None). Only a website item CREATED here must be tracked for cleanup — a
+    pre-existing (possibly real) record is never touched."""
+    created_website = None
     if website_item_matching(op, api, "Example Domain") is None:
         # No website record yet (fresh CI stack): create one via the
         # website URL-first flow (its fetched site name is 'Example Domain').
         created_website = flow_source_url_entry(
             op, base, api, "website", "https://example.org/e2e-site", author_qid)
-        track(created_website)
 
     url, body = page_get(op, base, "/wiki/Special:AddSource/webpage")
     token = edit_token(body)
@@ -1087,7 +1087,7 @@ def flow_source_webpage_parent_match(op, base: str, api: str,
         url, body = page_post(op, url, {"wpEditToken": token3, "wpSubmit": "1"})
     webpage_qid = flow_final_item(op, base, api, url, body,
                                   "AddSource/webpage (parent inference)")
-    return webpage_qid, parent
+    return webpage_qid, parent, created_website
 
 
 def flow_source_content_step(op, base: str, api: str, doi: str, author_qid: str) -> str:
@@ -2409,9 +2409,11 @@ def main() -> int:
         flow_source_webpage_parent_hint(op, base, api)
         print("[ok] AddSource/webpage parent inference: no-record hint (or "
               "prefilled record) rendered on the manual form")
-        webpage_child, webpage_parent = flow_source_webpage_parent_match(
-            op, base, api, person)
+        webpage_child, webpage_parent, webpage_created_site = \
+            flow_source_webpage_parent_match(op, base, api, person)
         track(webpage_child)
+        if webpage_created_site is not None:
+            track(webpage_created_site)
         claims, label = entity_claims(op, api, webpage_child)
         assert first_value(claims, part_of_prop) == webpage_parent, \
             f"{webpage_child} part-of != inferred website {webpage_parent} " \
