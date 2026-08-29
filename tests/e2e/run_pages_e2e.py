@@ -968,9 +968,16 @@ def flow_source_webpage_parent_hint(op, base: str) -> None:
     # message text) — assert the distinctive fragment, not a URL-contiguous
     # string.
     if "No record found for" not in body or "Add the website first" not in body:
+        # Debug aid: strip the markup and surface the region around the
+        # parent field (the form may have rendered without the hint).
+        text = re.sub(r"<script.*?</script>", "", body, flags=re.S)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = re.sub(r"\s+", " ", text)
+        i = text.lower().find("parent")
+        snippet = text[max(0, i - 200):i + 300] if i >= 0 else text[-500:]
         raise FlowError(
             f"AddSource/webpage manual form missing the no-record parent hint: "
-            f"{find_error(body)}")
+            f"{find_error(body)}\nparent region: {snippet!r}")
 
 
 def flow_source_webpage_parent_match(op, base: str, api: str,
