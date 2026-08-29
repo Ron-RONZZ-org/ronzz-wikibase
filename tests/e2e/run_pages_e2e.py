@@ -256,6 +256,17 @@ def first_reference_url(claims: dict, prop_id: str) -> str | None:
     return None
 
 
+# Classic pages (Source:/Person:/Collective:) created by the Add* flows.
+# The cleanup deletes the ITEM pages (entities) but never the classic pages
+# (pre-existing leak: a re-run's create-or-skip + afterCreate re-points the
+# sitelink, but the stale wikibase_item page property still maps the page to
+# the DELETED item, so flow_final_item resolves the wrong id and the
+# instance-of assertion fails). flow_final_item records the page title here
+# so the cleanup removes it too — the next run re-creates a fresh page with
+# a fresh mapping.
+CREATED_CLASSIC_PAGES: list[str] = []
+
+
 def flow_final_item(op, base: str, api: str, url: str, body: str, special: str) -> str:
     """Resolves the created item id after a flow's final submit. Item-only
     kinds redirect to Item:<id>; page-creating kinds (Person:/Source:/
@@ -268,6 +279,10 @@ def flow_final_item(op, base: str, api: str, url: str, body: str, special: str) 
     m = re.search(r"/wiki/((?:Person|Source|Collective):[^?#]+)$", url)
     if m:
         page_title = urllib.parse.unquote(m.group(1)).replace("_", " ")
+        # Record the classic page for the cleanup (the item deletion alone
+        # leaves the page mapped to a deleted item — the re-run hazard).
+        if page_title not in CREATED_CLASSIC_PAGES:
+            CREATED_CLASSIC_PAGES.append(page_title)
         # The wikibase_item page property is written at parse time but its
         # page_props table row lands via the deferred LinkUpdate. On the dev
         # stack the jobrunner processes it within seconds; PRODUCTION has
@@ -945,12 +960,34 @@ def _unique_title(prefilled_title: str, ts: int) -> str:
     return prefilled_title + f" (E2E {ts})"
 
 
-def flow_source_webpage_parent_hint(op, base: str) -> None:
-    """Webpage parent inference — the NO-MATCH branch: a webpage URL whose
-    site root has no record in the knowledge base must render the
-    "No record found for <root>" hint on the manual form (the website is
-    real, our record isn't — the field stays required). Runs BEFORE any
-    website item named after the fetched site exists in this run."""
+def website_item_matching(op, api: str, site_name: str) -> str | None:
+    """A website-class item whose label matches the site name, or None.
+    Mirrors the server-side parent inference's search (wbsearchentities +
+    an instance-of website filter) — used to decide which outcome the
+    webpage parent inference must have produced (production may already
+    have a real record for a well-known site, e.g. 'Example Domain')."""
+    website_class = resolve_label(op, api, "website", "item")
+    instance_of = resolve_label(op, api, "instance of", "property")
+    if website_class is None or instance_of is None:
+        raise FlowError("website class / instance-of property not resolvable")
+    r = api_call(op, api, {"action": "wbsearchentities", "search": site_name,
+                           "language": "en", "type": "item", "limit": 20, "format": "json"})
+    for hit in r.get("search", []):
+        qid = hit["id"]
+        claims, _ = entity_claims(op, api, qid)
+        if first_value(claims, instance_of) == website_class:
+            return qid
+    return None
+
+
+def flow_source_webpage_parent_hint(op, base: str, api: str) -> None:
+    """Webpage parent inference — the NO-MATCH branch, asserted against the
+    LIVE state: a webpage URL whose site root has NO website-class record
+    must render the "No record found for <root>" hint (the website is real,
+    our record isn't). When a record DOES exist (production may already
+    hold one — e.g. an imported 'Example Domain' item), the same entry must
+    prefill the parent combobox with that website (and the confirmation
+    banner) instead — never silently nothing."""
     url, body = page_get(op, base, "/wiki/Special:AddSource/webpage")
     token = edit_token(body)
     url, body = page_post(op, url, {
@@ -964,40 +1001,44 @@ def flow_source_webpage_parent_hint(op, base: str) -> None:
     u = urllib.parse.urlparse(url)
     manual_path = (u.path or "/") + ("?" + u.query if u.query else "")
     _, body = page_get(op, base, manual_path)
-    # The metadata fetch must have prefilled the title — distinguishes an
-    # environment fetch failure (no prefill) from a payload-flow bug (title
-    # prefilled, hint missing).
-    title_val = input_value(body, "wptitle")
-    parent_val = input_value(body, "wpparent")
-    # The parsed message autolinks the root URL (bare-URL autolink in the
+    parent = input_value(body, "wpparent")
+    if website_item_matching(op, api, "Example Domain") is not None:
+        # A local website record exists — the inference must have prefilled
+        # it with the confirmation banner (never the hint).
+        if not parent or "wb-entity-confirm" not in body:
+            raise FlowError(
+                f"AddSource/webpage parent NOT inferred although a website record "
+                f"exists (parent={parent!r}): {find_error(body)}")
+        return
+    # No website record — the "No record found for" hint must render. The
+    # parsed message autolinks the root URL (bare-URL autolink in the
     # message text) — assert the distinctive fragment, not a URL-contiguous
     # string.
     if "No record found for" not in body or "Add the website first" not in body:
-        # Debug aid: strip the markup and surface the region around the
-        # parent field (the form may have rendered without the hint).
-        text = re.sub(r"<script.*?</script>", "", body, flags=re.S)
-        text = re.sub(r"<[^>]+>", " ", text)
-        text = re.sub(r"\s+", " ", text)
-        i = text.lower().find("parent")
-        snippet = text[max(0, i - 200):i + 300] if i >= 0 else text[-500:]
         raise FlowError(
             f"AddSource/webpage manual form missing the no-record parent hint "
-            f"(title={title_val!r}, parent={parent_val!r}): {find_error(body)}\n"
-            f"parent region: {snippet!r}")
+            f"(title={input_value(body, 'wptitle')!r}, parent={parent!r}): "
+            f"{find_error(body)}")
 
 
 def flow_source_webpage_parent_match(op, base: str, api: str,
-                                     author_qid: str) -> tuple[str, str]:
-    """Webpage parent inference — the MATCH branch: after a website item
-    exists (created here via the website URL-first flow, whose fetched site
-    name is "Example Domain"), a webpage whose root URL is the same site
-    must auto-infer that website as the parent — the manual form prefills
-    wpparent with its Q-id and renders the confirmation banner, and the
-    created webpage carries the `part of` statement.
+                                     author_qid: str) -> tuple[str, str, str | None]:
+    """Webpage parent inference — the MATCH branch: when a website item
+    exists (created here when none matches the site name — the CI stack; on
+    production a real record may already exist), a webpage whose root URL is
+    that site must auto-infer a website as the parent — the manual form
+    prefills wpparent with a website-class Q-id and renders the confirmation
+    banner, and the created webpage carries the `part of` statement.
 
-    Returns (webpage qid, website qid)."""
-    website_qid = flow_source_url_entry(
-        op, base, api, "website", "https://example.org/e2e-site", author_qid)
+    Returns (webpage qid, matched website qid, website qid created here or
+    None). Only a website item CREATED here must be tracked for cleanup — a
+    pre-existing (possibly real) record is never touched."""
+    created_website = None
+    if website_item_matching(op, api, "Example Domain") is None:
+        # No website record yet (fresh CI stack): create one via the
+        # website URL-first flow (its fetched site name is 'Example Domain').
+        created_website = flow_source_url_entry(
+            op, base, api, "website", "https://example.org/e2e-site", author_qid)
 
     url, body = page_get(op, base, "/wiki/Special:AddSource/webpage")
     token = edit_token(body)
@@ -1013,13 +1054,19 @@ def flow_source_webpage_parent_match(op, base: str, api: str,
     manual_path = (u.path or "/") + ("?" + u.query if u.query else "")
     manual_url, body = page_get(op, base, manual_path)
     parent = input_value(body, "wpparent")
-    if parent != website_qid:
+    if not parent or "wb-entity-confirm" not in body:
         raise FlowError(
-            f"AddSource/webpage parent NOT inferred from the root URL: expected "
-            f"{website_qid}, got {parent!r}: {find_error(body)}")
-    if "wb-entity-confirm" not in body:
-        raise FlowError(
-            "AddSource/webpage parent inference rendered without the confirmation banner")
+            f"AddSource/webpage parent NOT inferred from the root URL "
+            f"(parent={parent!r}): {find_error(body)}")
+    # The prefilled parent must be a WEBSITE-class item (the server's
+    # class-filtered matching contract), not any fuzzy false positive.
+    website_class = resolve_label(op, api, "website", "item")
+    instance_of = resolve_label(op, api, "instance of", "property")
+    if website_class is None or instance_of is None:
+        raise FlowError("website class / instance-of property not resolvable")
+    claims, _ = entity_claims(op, api, parent)
+    if first_value(claims, instance_of) != website_class:
+        raise FlowError(f"AddSource/webpage inferred parent {parent} is not a website-class item")
     token2 = edit_token(body)
     # A browser submits every visible field. example.org 404s every non-root
     # path (only the site root answers 200), so the page fetch fails and the
@@ -1040,7 +1087,7 @@ def flow_source_webpage_parent_match(op, base: str, api: str,
         url, body = page_post(op, url, {"wpEditToken": token3, "wpSubmit": "1"})
     webpage_qid = flow_final_item(op, base, api, url, body,
                                   "AddSource/webpage (parent inference)")
-    return webpage_qid, website_qid
+    return webpage_qid, parent, created_website
 
 
 def flow_source_content_step(op, base: str, api: str, doi: str, author_qid: str) -> str:
@@ -2324,6 +2371,7 @@ def main() -> int:
         author_confirm_title = f"Page-flow E2E book author-confirm {int(time.time())}"
         author_confirm_qid, matched_author = flow_source_manual_author_confirm(
             op, base, api, author_confirm_title, "Ada Lovelace")
+        track(author_confirm_qid)
         print(f"[ok] AddSource/book free-text author -> {author_confirm_qid}: "
               f"fuzzy-matched {matched_author} + confirmation banner")
 
@@ -2353,20 +2401,19 @@ def main() -> int:
 
         # 2j1. Webpage → website parent inference (add-flow round): the site
         #     root of the entered webpage URL is auto-matched against
-        #     website-class items. NO match first (no website named after
-        #     the site exists in this run yet): the manual form renders the
-        #     "No record found for <root>" hint — the website is real, our
-        #     record isn't. THEN, after a website item exists, the same
-        #     entry prefills the parent combobox (Q-id + confirmation
-        #     banner) and the created webpage carries the `part of`
-        #     statement.
-        flow_source_webpage_parent_hint(op, base)
-        print("[ok] AddSource/webpage parent inference: no-record hint "
-              "rendered on the manual form")
-        webpage_child, webpage_parent = flow_source_webpage_parent_match(
-            op, base, api, person)
+        #     website-class items — asserted against the LIVE state: no
+        #     record → the "No record found for <root>" hint; a record
+        #     exists (production may already hold a real 'Example Domain'
+        #     website) → the parent combobox prefilled + confirmation
+        #     banner. The created webpage carries the `part of` statement.
+        flow_source_webpage_parent_hint(op, base, api)
+        print("[ok] AddSource/webpage parent inference: no-record hint (or "
+              "prefilled record) rendered on the manual form")
+        webpage_child, webpage_parent, webpage_created_site = \
+            flow_source_webpage_parent_match(op, base, api, person)
         track(webpage_child)
-        track(webpage_parent)
+        if webpage_created_site is not None:
+            track(webpage_created_site)
         claims, label = entity_claims(op, api, webpage_child)
         assert first_value(claims, part_of_prop) == webpage_parent, \
             f"{webpage_child} part-of != inferred website {webpage_parent} " \
@@ -2716,7 +2763,7 @@ def main() -> int:
         flow_cite_by_qid(op, base, api, book, quote_dogfood, source)
     finally:
         if not args.keep:
-            for page in created_pages:
+            for page in created_pages + CREATED_CLASSIC_PAGES:
                 try:
                     csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
                     token = csrf["query"]["tokens"]["csrftoken"]
