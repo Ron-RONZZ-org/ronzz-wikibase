@@ -160,8 +160,9 @@ class EmbeddableContentConfig {
 
 	/**
 	 * Person lifecycle property ids (Special:AddPerson statements): date of
-	 * birth / death (time), place of birth / death (wikibase-item), and the
-	 * portrait facts — `image` (url, P18-aligned) + `license`
+	 * birth / death (time), place of birth / death (wikibase-item), the
+	 * official website (url, P856-aligned — shared with the FOSS vocabulary),
+	 * and the portrait facts — `image` (url, P18-aligned) + `license`
 	 * (wikibase-item, P275-aligned, shared with the FOSS/access vocab), plus
 	 * the image attribution strings (`imageAuthor` P2093-aligned,
 	 * `imageLicenseInfo` unaligned). Absent keys are omitted
@@ -172,6 +173,7 @@ class EmbeddableContentConfig {
 	public function personPropertyIds(): array {
 		return $this->requireStringMap( 'personProperties', [
 			'dateOfBirth', 'placeOfBirth', 'dateOfDeath', 'placeOfDeath',
+			'officialWebsite',
 			'image', 'license', 'imageAuthor', 'imageLicenseInfo',
 		] );
 	}
@@ -249,15 +251,17 @@ class EmbeddableContentConfig {
 
 	/**
 	 * Collective-specific property ids (Special:AddCollective statements):
-	 * parentOrganization (P749-aligned), image (P18-aligned) + license
-	 * (P275-aligned) for the optional logo. Absent keys are omitted
+	 * parentOrganization (P749-aligned), officialWebsite (url, P856-aligned —
+	 * shared with the person/FOSS vocabularies), image (P18-aligned) +
+	 * license (P275-aligned) for the optional logo. Absent keys are omitted
 	 * (instance-specific availability).
 	 *
 	 * @return array<string,string> canonical key => property id
 	 */
 	public function collectivePropertyIds(): array {
 		return $this->requireStringMap( 'collectiveProperties', [
-			'parentOrganization', 'image', 'license',
+			'parentOrganization', 'officialWebsite',
+			'image', 'license',
 			'imageAuthor', 'imageLicenseInfo',
 		] );
 	}

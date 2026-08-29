@@ -101,7 +101,10 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 					'default' => (string)( $record['parentOrganization'] ?? '' ),
 					'help' => $this->msg( 'embeddablecontent-field-parentorganization-help' )->parse(),
 				],
-			];
+			]
+			// Official website (optional URL field, shared with AddSoftware/
+			// AddPerson — the P856-aligned property).
+			+ $this->websiteFieldSpec( $record );
 		// Logo (optional): collapsed behind the "I will upload a logo
 		// image for this collective" toggle; the shared ImageUploadHelper
 		// owns the field specs + upload path (same machinery as
@@ -190,6 +193,12 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 			if ( $itemId !== null ) {
 				$specs[$props['parentOrganization']] = new \Wikibase\DataModel\Entity\EntityIdValue( $itemId );
 			}
+		}
+		// Official website: optional validated URL statement (the shared
+		// P856-aligned property).
+		$website = $this->websiteStatementValue( $record );
+		if ( $website !== null && isset( $props['officialWebsite'] ) ) {
+			$specs[$props['officialWebsite']] = $website;
 		}
 		if ( !empty( $record['logoFileTitle'] ) && isset( $props['image'] ) ) {
 			$fileTitle = \MediaWiki\Title\Title::makeTitle( NS_FILE, (string)$record['logoFileTitle'] );

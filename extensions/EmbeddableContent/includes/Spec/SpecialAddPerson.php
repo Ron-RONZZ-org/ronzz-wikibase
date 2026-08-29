@@ -198,6 +198,11 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 				(string)( $record['placeOfDeath'] ?? '' ),
 				[ 'hide-if' => [ '!==', 'deceased', '1' ] ]
 			),
+		]
+		// Official website (optional URL field, shared with AddSoftware/
+		// AddCollective — the P856-aligned property).
+		+ $this->websiteFieldSpec( $record )
+		+ [
 			// Portrait (optional): collapsed behind the "I will upload a
 			// portrait image for this person" toggle; local-file upload OR
 			// pasted URL (validated via the shared uploadmeta button), the
@@ -333,6 +338,12 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 			if ( $itemId !== null ) {
 				$specs[$props[$field]] = new EntityIdValue( $itemId );
 			}
+		}
+		// Official website: optional validated URL statement (the shared
+		// P856-aligned property).
+		$website = $this->websiteStatementValue( $record );
+		if ( $website !== null && isset( $props['officialWebsite'] ) ) {
+			$specs[$props['officialWebsite']] = $website;
 		}
 		// Portrait: the uploaded File:<label>-portrait.<ext> URL (image
 		// statement, P18-aligned) + the image license entity (P275-aligned)

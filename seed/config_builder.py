@@ -64,11 +64,15 @@ CITATION_METADATA_KINDS = {
 
 # Issue #7 (follow-up): person lifecycle properties (Special:AddPerson
 # statements — birth/death dates and places, portrait image + license).
+# The official-website key reuses the shared P856-aligned URL property
+# (same property id as the FOSS/software vocabulary — one property, three
+# entity kinds).
 PERSON_PROPERTY_KINDS = {
     "date of birth": "dateOfBirth",
     "place of birth": "placeOfBirth",
     "date of death": "dateOfDeath",
     "place of death": "placeOfDeath",
+    "official website": "officialWebsite",
     # Portrait facts: the P18-aligned image (url) + the shared P275 license.
     "image": "image",
     "license": "license",
@@ -91,10 +95,13 @@ FICTIONAL_CHARACTER_PROPERTY_KINDS = {
 }
 
 # Issue follow-up: collective properties (Special:AddCollective statements):
-# the optional `parent organization` link (P749-aligned) + the logo facts
-# (the shared P18-aligned image + the shared P275 license).
+# the optional `parent organization` link (P749-aligned), the shared
+# official-website URL property (P856-aligned — same property as the
+# person/FOSS vocabularies) + the logo facts (the shared P18-aligned image +
+# the shared P275 license).
 COLLECTIVE_PROPERTY_KINDS = {
     "parent organization": "parentOrganization",
+    "official website": "officialWebsite",
     "image": "image",
     "license": "license",
     # Image attribution (upload enhancements): shared with the person/software

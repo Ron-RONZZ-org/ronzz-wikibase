@@ -114,6 +114,14 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				$out[$key] = (string)$search[$key];
 			}
 		}
+		// Webpage parent inference (URL-first flow): the structured
+		// banner/hint payloads ride along with the fetched urlmeta — they are
+		// arrays, so the base autofillRecord (string values only) skips them.
+		foreach ( [ 'parentConfirm', 'parentUnresolved' ] as $key ) {
+			if ( isset( $search[$key] ) && is_array( $search[$key] ) ) {
+				$out[$key] = $search[$key];
+			}
+		}
 		return $out;
 	}
 
@@ -187,10 +195,74 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				'intro' => $fetched->intro,
 				'keywords' => $fetched->keywords,
 			];
+			// webpage → website parent inference: the site root of the
+			// entered page URL is matched against existing website-class
+			// items (see inferWebpageParent). A match stores the parent id +
+			// a confirmation-banner payload for the manual form; no match
+			// stores the "create the website first" hint.
+			if ( $this->currentClassKey === 'webpage' ) {
+				$this->inferWebpageParent( $url, $urlMeta );
+			}
 		}
 		$this->getRequest()->getSession()->set( self::SESSION_PREFIX . $token . ':urlmeta', $urlMeta );
 		$this->getOutput()->redirect( $this->stepTitle( 'manual' )->getFullURL( [ 'token' => $token ] ) );
 		return true;
+	}
+
+	/**
+	 * Webpage → website parent inference (the child-class requirement):
+	 * the site root of the entered webpage URL is fetched for its site
+	 * name, which is matched against existing website-class items — exact
+	 * label first, then the fuzzy EntityLabelMatcher (the same
+	 * autofill-confirm flow as the harvested publisher/journal). A match
+	 * stores the parent item id in $urlMeta['parent'] plus a confirmation
+	 * banner payload ($urlMeta['parentConfirm'] — the user confirms on the
+	 * manual form); no match stores $urlMeta['parentUnresolved'] (the site
+	 * exists, our record doesn't — the field stays required with a "add
+	 * the website first" hint). Best-effort: an unfetchable site root
+	 * simply skips the inference.
+	 *
+	 * @param array<string,mixed> $urlMeta
+	 */
+	private function inferWebpageParent( string $url, array &$urlMeta ): void {
+		$websiteClassId = $this->config->sourceClasses()['website'] ?? null;
+		if ( $websiteClassId === null ) {
+			return;
+		}
+		$root = \EmbeddableContent\Fetch\SsrfGuard::siteRoot( $url );
+		$siteMeta = $this->metadataFetcher->fetch( $root );
+		$siteName = $siteMeta !== null ? trim( (string)$siteMeta->title ) : '';
+		if ( $siteName === '' ) {
+			return;
+		}
+		$resolved = $this->resolveEntityField( $siteName, [ $websiteClassId ] );
+		// The exact-label branch of resolveEntityField does NOT filter by
+		// class (and can return a stale term-store hit for a deleted item) —
+		// re-check the class here; on failure, fall through to the fuzzy
+		// matcher, which skips deleted items and filters by class itself.
+		if ( $resolved !== null ) {
+			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $resolved['id'] ) );
+			if ( !$item instanceof Item || !$this->itemHasClass( $item, [ $websiteClassId ] ) ) {
+				$match = ( new \EmbeddableContent\EntityLabelMatcher( null, $this->config->instanceOfPropertyId() ) )
+					->findBestMatch( $siteName, [ $websiteClassId ] );
+				$resolved = $match !== null
+					? [ 'id' => $match['itemId'], 'label' => $match['label'], 'exact' => false ]
+					: null;
+			}
+		}
+		if ( $resolved !== null ) {
+			$urlMeta['parent'] = $resolved['id'];
+			$urlMeta['parentConfirm'] = [
+				'fetched' => $siteName,
+				'label' => $resolved['label'],
+				'id' => $resolved['id'],
+			];
+		} else {
+			$urlMeta['parentUnresolved'] = [
+				'root' => $root,
+				'siteName' => $siteName,
+			];
+		}
 	}
 
 	protected function classUrlPrefix(): string {
@@ -443,7 +515,57 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	}
 
 	protected function primaryLabel( array $record ): string {
-		return (string)( $record['title'] ?? '' );
+		$title = (string)( $record['title'] ?? '' );
+		// Disambiguation suffix: the review default carries it, and the
+		// creation-time append covers a title typed from blank (idempotent —
+		// never double-suffixed). Special:UpdateSource overrides
+		// applyLabelSuffix() to keep an existing label as-is on update.
+		return $this->applyLabelSuffix() ? $this->disambiguatedTitle( $title ) : $title;
+	}
+
+	/**
+	 * Whether the class disambiguation suffix (" (Book)", " (Website)", …)
+	 * applies to the label. True on the AddSource flows; Special:UpdateSource
+	 * overrides to false (an update shows the item's existing label as-is —
+	 * re-adding the suffix would rename every pre-convention item on its
+	 * first update).
+	 */
+	protected function applyLabelSuffix(): bool {
+		return true;
+	}
+
+	/**
+	 * Appends the source class label in parentheses for disambiguation, e.g.
+	 * "The Hobbit" → "The Hobbit (Book)", "Example Domain" → "Example Domain
+	 * (Website)". The suffix is the ENGLISH class label (labels are stored as
+	 * the item's `en` term). Idempotent: a label already ending with the
+	 * suffix (case-insensitive) is returned unchanged. An empty title stays
+	 * empty (the manual-from-blank form lets the user type it).
+	 */
+	protected function disambiguatedTitle( string $title ): string {
+		$suffix = $this->sourceLabelSuffix();
+		if ( $suffix === '' || trim( $title ) === '' ) {
+			return $title;
+		}
+		$trimmed = rtrim( $title );
+		$needle = strtolower( $suffix );
+		if ( substr( strtolower( $trimmed ), -strlen( $needle ) ) === $needle ) {
+			return $title;
+		}
+		return $trimmed . $suffix;
+	}
+
+	/**
+	 * The " (Class label)" disambiguation suffix for the current class, or ''
+	 * when no class is selected (the class-picker root page).
+	 */
+	private function sourceLabelSuffix(): string {
+		if ( $this->currentClassKey === null || !isset( $this->config->sourceClasses()[$this->currentClassKey] ) ) {
+			return '';
+		}
+		$label = $this->msg( 'embeddablecontent-source-class-' . $this->currentClassKey )
+			->inLanguage( 'en' )->text();
+		return $label === '' ? '' : ' (' . $label . ')';
 	}
 
 	// ------------------------------------------------------------- page content
@@ -613,7 +735,12 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	}
 
 	protected function reviewFieldSpecs( array $record ): array {
-		$fields = $this->labelFieldSpec( 'title', 'embeddablecontent-extsearch-title', (string)( $record['title'] ?? '' ) )
+		$title = (string)( $record['title'] ?? '' );
+		$fields = $this->labelFieldSpec(
+			'title',
+			'embeddablecontent-extsearch-title',
+			$this->applyLabelSuffix() ? $this->disambiguatedTitle( $title ) : $title
+		)
 			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
 			+ $this->authorsFieldSpec( $record );
 
@@ -937,6 +1064,11 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 * youtubeVideo→youtubeChannel, webpage→website), with the
 	 * "not yet imported? import it yourself" line.
 	 *
+	 * On the webpage URL-first flow the record may carry the site-root
+	 * inference: parentConfirm (a match — the combobox is prefilled with a
+	 * "we think this corresponds to …" banner) or parentUnresolved (no
+	 * record — a "create the website first" hint; the field stays required).
+	 *
 	 * @return array<string,mixed>
 	 */
 	private function parentFieldSpec( array $record ): array {
@@ -945,13 +1077,33 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			return [];
 		}
 		$parentLabel = $this->msg( 'embeddablecontent-source-class-' . $parentKey )->text();
+		$help = $this->msg( 'embeddablecontent-source-parent-help', $parentLabel, $parentKey )->parse();
+
+		if ( isset( $record['parentConfirm'] ) && is_array( $record['parentConfirm'] ) ) {
+			$confirm = $record['parentConfirm'];
+			$help .= ' ' . $this->entityConfirmHtml(
+				'wpparent',
+				$this->msg( 'embeddablecontent-source-field-parent' )->text(),
+				(string)( $confirm['fetched'] ?? '' ),
+				(string)( $confirm['label'] ?? '' ),
+				(string)( $confirm['id'] ?? '' )
+			);
+		} elseif ( isset( $record['parentUnresolved'] ) && is_array( $record['parentUnresolved'] ) ) {
+			$unresolved = $record['parentUnresolved'];
+			$help .= ' ' . $this->msg(
+				'embeddablecontent-source-parent-unresolved',
+				(string)( $unresolved['root'] ?? '' ),
+				$parentKey
+			)->parse();
+		}
+
 		return [ 'parent' => [
 			'type' => 'combobox',
 			'options' => [],
 			'label-message' => 'embeddablecontent-source-field-parent',
 			'cssclass' => 'wb-entity-combobox',
 			'default' => (string)( $record['parent'] ?? '' ),
-			'help' => $this->msg( 'embeddablecontent-source-parent-help', $parentLabel, $parentKey )->parse(),
+			'help' => $help,
 			'required' => true,
 		] ];
 	}

@@ -23,3 +23,12 @@
 	background: #ffffff;
 	border-color: #72777d;
 }
+
+.wb-embed-toolbar select {
+	border: 1px solid #a2a9b1;
+	background: #f8f9fa;
+	color: #202122;
+	border-radius: 2px;
+	padding: 4px 6px;
+	font-size: 0.9em;
+}
