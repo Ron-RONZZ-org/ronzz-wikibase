@@ -2159,13 +2159,13 @@ def main() -> int:
             f"{access_book} file statement missing or not auto-named from the label ({file_val})"
         assert first_value(claims, license_prop) == license_qid, \
             f"{access_book} license statement missing ({first_value(claims, license_prop)})"
-        file_page = api_call(op, api, {"action": "query", "titles": f"File:{access_label}.png",
+        file_page = api_call(op, api, {"action": "query", "titles": f"File:{access_label} (Book).png",
                                        "format": "json"})
         pages = list(file_page.get("query", {}).get("pages", {}).values())
         assert pages and "missing" not in pages[0], \
-            f"File:{access_label}.png not created"
+            f"File:{access_label} (Book).png not created"
         print(f"[ok] AddSource/book access (local file) -> {access_book}: "
-              f"File:{access_label}.png + license + file statements")
+              f"File:{access_label} (Book).png + license + file statements")
 
         # 2h2. Access field, DIRECT-DOWNLOAD mode (regression): the file is
         #     fetched server-side (UploadFromUrl + fetchFile). Before the fix
@@ -2185,38 +2185,39 @@ def main() -> int:
             f"({download_file_val}) — URL-mode upload did not land"
         assert first_value(claims, license_prop) == download_license_qid, \
             f"{download_book} license statement missing ({first_value(claims, license_prop)})"
-        download_page = api_call(op, api, {"action": "query", "titles": f"File:{download_label}.png",
+        download_page = api_call(op, api, {"action": "query", "titles": f"File:{download_label} (Book).png",
                                            "format": "json"})
         pages = list(download_page.get("query", {}).get("pages", {}).values())
         assert pages and "missing" not in pages[0], \
-            f"File:{download_label}.png not created"
+            f"File:{download_label} (Book).png not created"
         print(f"[ok] AddSource/book access (download) -> {download_book}: "
-              f"server-side fetch landed File:{download_label}.png + license + file statements")
+              f"server-side fetch landed File:{download_label} (Book).png + license + file statements")
 
         # 2h3. Source: access row (issue follow-up): the {{#source-access:}}
         #     parser function renders the infobox "Access" cell from the
         #     item's statements — file (linked to Special:SourceFile with the
-        #     owning item id) > access URL (clickable) > N/A.
-        access_cell = source_access_cell(op, api, f"Source:{access_label}")
+        #     owning item id) > access URL (clickable) > N/A. The Source:
+        #     page titles carry the class disambiguation suffix (" (Book)").
+        access_cell = source_access_cell(op, api, f"Source:{access_label} (Book)")
         assert "Special:SourceFile" in access_cell and f"item={access_book}" in access_cell, \
             f"file-mode access row not rendered as a Special:SourceFile link: {access_cell}"
         url_label = f"Page-flow E2E access-url {int(time.time())}"
         url_book = track(flow_source_book_access_url(
             op, base, api, url_label, person, "https://example.org/e2e-access"))
-        url_cell = source_access_cell(op, api, f"Source:{url_label}")
+        url_cell = source_access_cell(op, api, f"Source:{url_label} (Book)")
         assert "https://example.org/e2e-access" in url_cell and "external" in url_cell, \
             f"url-mode access row not rendered as a clickable link: {url_cell}"
         na_label = f"Page-flow E2E access-na {int(time.time())}"
         na_desc = "A regression-test book with no fetched content."
         na_book = track(flow_source_book_access_na(op, base, api, na_label, person, na_desc))
-        na_cell = source_access_cell(op, api, f"Source:{na_label}")
+        na_cell = source_access_cell(op, api, f"Source:{na_label} (Book)")
         assert "N/A" in na_cell, f"na-mode access row not 'N/A': {na_cell}"
         # Description-as-placeholder: no fetched content -> the item
         # description is the Source: page's == Overview == lead (was a
         # template-only page before).
-        na_page = page_wikitext(op, api, f"Source:{na_label}")
+        na_page = page_wikitext(op, api, f"Source:{na_label} (Book)")
         assert "== Overview ==" in na_page and na_desc in na_page, \
-            f"Source:{na_label} missing the description placeholder: {na_page[:200]!r}"
+            f"Source:{na_label} (Book) missing the description placeholder: {na_page[:200]!r}"
         print("[ok] Source: access row: file -> Special:SourceFile link, "
               "URL -> clickable link, none -> N/A")
 
@@ -2225,7 +2226,7 @@ def main() -> int:
         #     non-PDF). Unchecked download is rejected server-side; the
         #     checked download redirects to the file.
         special_path = ("/wiki/Special:SourceFile?item=%s&file=File%%3A%s.png"
-                        % (access_book, urllib.parse.quote(access_label)))
+                        % (access_book, urllib.parse.quote(access_label + " (Book)")))
         special_url, body = page_get(op, base, special_path)
         assert "wb-sourcefile-licence" in body, "Special:SourceFile missing the licence block"
         assert license_qid in body, "Special:SourceFile missing the licence label"
@@ -2253,7 +2254,7 @@ def main() -> int:
             op, base, api, pdf_label, person, pdf_license_qid,
             content=E2E_PDF, filename="original.pdf", ctype="application/pdf"))
         pdf_special = ("/wiki/Special:SourceFile?item=%s&file=File%%3A%s.pdf"
-                       % (pdf_book, urllib.parse.quote(pdf_label)))
+                       % (pdf_book, urllib.parse.quote(pdf_label + " (Book)")))
         _, body = page_get(op, base, pdf_special)
         assert "<iframe" in body and "wb-sourcefile-preview" in body, \
             "PDF special page missing the embedded iframe preview"
