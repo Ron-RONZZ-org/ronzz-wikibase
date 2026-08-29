@@ -2371,6 +2371,7 @@ def main() -> int:
         author_confirm_title = f"Page-flow E2E book author-confirm {int(time.time())}"
         author_confirm_qid, matched_author = flow_source_manual_author_confirm(
             op, base, api, author_confirm_title, "Ada Lovelace")
+        track(author_confirm_qid)
         print(f"[ok] AddSource/book free-text author -> {author_confirm_qid}: "
               f"fuzzy-matched {matched_author} + confirmation banner")
 
