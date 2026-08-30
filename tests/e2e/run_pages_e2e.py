@@ -2936,6 +2936,37 @@ def main() -> int:
             f"{math_ml} embed did not decode the stored payload ({rendered!r})"
         print(f"[ok] Special:AddMath multiline -> {math_ml}: stored escaped, rendered decoded")
 
+        # 5c. {{#content:}} renders the decoded payload as HTML (issue #6 §8):
+        #     the on-wiki decoder is HTML-returning (noparse/isHTML), so a
+        #     page shows the decoded fragment — no wikitext re-parse
+        #     mangling, no escape sequences.
+        content_page = f"Content decoder E2E {int(time.time())}"
+        csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+        token = csrf["query"]["tokens"]["csrftoken"]
+        r = api_call(op, api, {
+            "action": "edit", "title": content_page,
+            "text": f"{{{{#content:{math_ml}}}}}",
+            "token": token, "summary": "page-flow E2E scratch (content decoder)",
+            "format": "json",
+        }, post=True)
+        if r.get("edit", {}).get("result") != "Success":
+            raise FlowError(f"content-decoder scratch page creation failed: {r!r}")
+        try:
+            _, body = page_get(op, base, "/wiki/" + urllib.parse.quote(content_page.replace(" ", "_")))
+            if 'wb-embed-math' not in body:
+                raise FlowError("{{#content:}} did not render the math fragment (wb-embed-math)")
+            if "a^2 + b^2 = c^2\n(by Pythagoras)" not in body:
+                raise FlowError("{{#content:}} did not render the decoded multi-line payload")
+            if "a^2 + b^2 = c^2\\n(by Pythagoras)" in body:
+                raise FlowError("{{#content:}} rendered the ESCAPED payload")
+            print(f"[ok] {{#content:}} on-wiki decoder -> decoded HTML fragment on {content_page}")
+        finally:
+            csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+            token = csrf["query"]["tokens"]["csrftoken"]
+            api_call(op, api, {"action": "delete", "title": content_page, "token": token,
+                               "reason": "page-flow E2E cleanup (content decoder)", "format": "json"},
+                     post=True)
+
         # 6. Cite-by-QID (issue #24 v1 + #25 v2): {{#cite}} inside <ref>,
         #    {{#citations:}} accumulated + explicit, embed auto-collect.
         #    The dogfood book must be a source-class item with harvested
