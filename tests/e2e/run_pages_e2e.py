@@ -1164,11 +1164,18 @@ def flow_source_webpage_parent_match(op, base: str, api: str,
     return webpage_qid, parent
 
 
-def flow_source_content_step(op, base: str, api: str, doi: str, author_qid: str) -> str:
+def flow_source_content_step(op, base: str, api: str, doi: str, author_qid: str,
+                             license_qid: str = "") -> str:
     """Scholarly-article fetched-content review step (issue follow-up):
     review → /review/<i>/content with the abstract/keywords textareas →
     create. Requires the OpenAlex harvest to have found content (live
-    external authority — re-run on timeout per the E2E conventions)."""
+    external authority — re-run on timeout per the E2E conventions).
+
+    When license_qid is given, the review step also sets the access field to
+    mode=file with a local upload (issue report): the browser file cannot be
+    re-posted on the content step — the submit must keep the file uploaded on
+    the record-review step instead of failing with "Select a file to
+    upload." (the bug 6 regression)."""
     url, body = page_get(op, base, "/wiki/Special:AddSource")
     token = edit_token(body)
     url, body = page_post(op, url, {"wpclass": "scholarlyArticle", "wpEditToken": token, "wpSubmit": "1"})
@@ -1190,17 +1197,36 @@ def flow_source_content_step(op, base: str, api: str, doi: str, author_qid: str)
     if not m:
         raise FlowError(f"scholarlyArticle select did not redirect to review: {url} {find_error(body)}")
 
-    # Review (with the required author), then the content step must follow.
+    # Review (with the required author) + — when a license is given — the
+    # access field in file mode with a local PDF upload (bug 6 regression).
     token3 = edit_token(body)
-    url, body = page_post(op, url, {"wpauthors": author_qid, "wpEditToken": token3, "wpSubmit": "1"})
+    review = {"wpauthors": author_qid, "wpEditToken": token3, "wpSubmit": "1"}
+    files = {}
+    if license_qid:
+        png = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+        )
+        review["wpaccessMode"] = "file"
+        review["wplicense"] = license_qid
+        files["wpaccessFile"] = ("access.png", png, "image/png")
+    if files:
+        url, body = page_post_multipart(op, url, review, files)
+    else:
+        url, body = page_post(op, url, review)
     m = re.search(rf"/wiki/Special:AddSource/scholarlyArticle/{token}/review/{index}/content$", url)
     if not m:
         raise FlowError(f"scholarlyArticle review did not route to the content step: {url} {find_error(body)}")
     if "mw-input-wpabstract" not in body or "mw-input-wpkeywords" not in body:
         raise FlowError("content step missing the abstract/keywords textareas")
 
+    # The content step re-runs beforeCreate WITHOUT the browser file — the
+    # access file must survive from the record-review step (bug 6: it used
+    # to abort with "Select a file to upload."). The submit must succeed.
     token4 = edit_token(body)
     url, body = page_post(op, url, {"wpEditToken": token4, "wpSubmit": "1"})
+    if license_qid and "Select a file to upload" in body:
+        raise FlowError("content-step submit failed: the access file was not carried over "
+                        "from the record-review step ('Select a file to upload.')")
     qid = flow_final_item(op, base, api, url, body, "AddSource/scholarlyArticle (content step)")
     # The Source: page must carry the Abstract section (dynamic sections).
     # The revision read can lag the page-property mapping by a beat — retry
@@ -1444,6 +1470,89 @@ def flow_person_portrait(op, base: str, api: str, label: str, license_qid: str) 
     })
     qid = flow_final_item(op, base, api, url, body, "AddPerson/manual (portrait)")
     return qid, f"File:{label}-portrait.png"
+
+
+def dest_file_name(label: str) -> str:
+    """The server-side destination-file-name normalization for the Add*
+    logo/portrait uploads (ImageUploadHelper::destName — issue report):
+    whitespace runs in the label become dashes, so "European Space Agency"
+    uploads as "File:European-Space-Agency-logo.png" (not the old space
+    form). Mirrors the PHP `preg_replace('/\\s+/', '-', ...)`."""
+    return re.sub(r"\s+", "-", label)
+
+
+def assert_semantic_image_item(op, base: str, api: str, consumer_qid: str, label: str,
+                               suffix: str, license_qid: str, author: str, license_info: str) -> str:
+    """The semantic-first image model (issue report): a NEW Add* logo/portrait
+    upload creates the sitelinked image-class item carrying the image facts
+    (license / image author / additional license information) + the File page
+    carries the attribution — the CONSUMER entity (collective/person/software)
+    only references the file via its `image` statement. Verifies:
+      - the consumer has `image` but NO license / image author / license info;
+      - the image item exists (label = the dashed file name sans extension),
+        is instance-of the image class, holds the facts, and is sitelinked to
+        the File page;
+      - the File page text carries the Attribution block + the semantic
+        license reference ([[Q42|label]], never a {{Q42}} call).
+    Returns the image-item qid."""
+    def resolve(label: str, etype: str) -> str:
+        rid = resolve_label(op, api, label, etype)
+        if not rid:
+            raise FlowError(f"image-item flow: vocabulary label not found: {label!r}")
+        return rid
+
+    dashed = dest_file_name(label)
+    file_title = f"File:{dashed}-{suffix}.png"
+    image_item_label = f"{dashed}-{suffix}"
+
+    # The consumer entity: `image` only — the image facts are NOT written
+    # on the entity using the image (they belong to the file).
+    claims, _ = entity_claims(op, api, consumer_qid)
+    image_prop = resolve("image", "property")
+    license_prop = resolve("license", "property")
+    author_prop = resolve("image author", "property")
+    info_prop = resolve("additional license information", "property")
+    image_url = str(first_value(claims, image_prop) or "")
+    assert file_title.replace(" ", "_") in image_url.replace(" ", "_"), \
+        f"{consumer_qid} image statement does not reference {file_title} ({image_url!r})"
+    assert first_value(claims, license_prop) is None, \
+        f"{consumer_qid} must NOT carry a license statement (the file owns it)"
+    assert first_value(claims, author_prop) is None, \
+        f"{consumer_qid} must NOT carry an image-author statement (the file owns it)"
+    assert first_value(claims, info_prop) is None, \
+        f"{consumer_qid} must NOT carry an additional-license-info statement (the file owns it)"
+
+    # The image item: label = the dashed file name sans extension.
+    r = api_call(op, api, {"action": "wbsearchentities", "search": image_item_label,
+                           "language": "en", "type": "item", "limit": 1, "format": "json"})
+    image_qid = r.get("search", [{}])[0].get("id") if r.get("search") else None
+    if not image_qid:
+        raise FlowError(f"no image item created for {image_item_label!r}")
+    claims, _ = entity_claims(op, api, image_qid)
+    assert first_value(claims, resolve("instance of", "property")) == resolve("image", "item"), \
+        f"{image_qid} instance-of != image class"
+    assert first_value(claims, license_prop) == license_qid, \
+        f"{image_qid} license statement mismatch ({first_value(claims, license_prop)!r})"
+    assert first_value(claims, author_prop) == author, \
+        f"{image_qid} image-author statement mismatch ({first_value(claims, author_prop)!r})"
+    assert first_value(claims, info_prop) == license_info, \
+        f"{image_qid} additional-license-info statement mismatch ({first_value(claims, info_prop)!r})"
+    r = api_call(op, api, {"action": "wbgetentities", "ids": image_qid,
+                           "props": "sitelinks", "format": "json"})
+    links = r.get("entities", {}).get(image_qid, {}).get("sitelinks", {})
+    assert links.get("wikibase", {}).get("title") == file_title, \
+        f"{image_qid} not sitelinked to {file_title} ({links})"
+
+    # The File page carries the attribution + the semantic license reference
+    # ([[Q42|label]] — never a {{Q42}} template call).
+    _, raw = page_get(op, base, "/wiki/" + urllib.parse.quote(file_title.replace(" ", "_")) + "?action=raw")
+    assert "Attribution" in raw and author in raw, \
+        f"{file_title} missing the attribution block; raw: {raw[:400]!r}"
+    assert f"[[{license_qid}|" in raw, \
+        f"{file_title} missing the semantic license reference; raw: {raw[:400]!r}"
+    assert "{{" + license_qid + "}}" not in raw, \
+        f"{file_title} renders the license item id as a template call"
+    return image_qid
 
 
 def flow_upload_special_form(op, base: str) -> None:
@@ -2387,17 +2496,21 @@ def main() -> int:
         file_prop = resolve("file", "property")
         license_prop = resolve("license", "property")
         file_val = first_value(claims, file_prop)
-        assert file_val and access_label.replace(" ", "_") in file_val, \
+        # The access file is auto-named from the label, DASH-normalized
+        # (issue report): "Page-flow E2E access 123 (Book)" →
+        # "File:Page-flow-E2E-access-123-(Book).png".
+        access_file_title = f"File:{dest_file_name(access_label + ' (Book)')}.png"
+        assert file_val and dest_file_name(access_label + " (Book)") in file_val, \
             f"{access_book} file statement missing or not auto-named from the label ({file_val})"
         assert first_value(claims, license_prop) == license_qid, \
             f"{access_book} license statement missing ({first_value(claims, license_prop)})"
-        file_page = api_call(op, api, {"action": "query", "titles": f"File:{access_label} (Book).png",
+        file_page = api_call(op, api, {"action": "query", "titles": access_file_title,
                                        "format": "json"})
         pages = list(file_page.get("query", {}).get("pages", {}).values())
         assert pages and "missing" not in pages[0], \
-            f"File:{access_label} (Book).png not created"
+            f"{access_file_title} not created"
         print(f"[ok] AddSource/book access (local file) -> {access_book}: "
-              f"File:{access_label} (Book).png + license + file statements")
+              f"{access_file_title} + license + file statements")
 
         # 2h2. Access field, DIRECT-DOWNLOAD mode (regression): the file is
         #     fetched server-side (UploadFromUrl + fetchFile). Before the fix
@@ -2412,18 +2525,19 @@ def main() -> int:
             "https://www.w3.org/assets/logos/w3c-2025-transitional/w3c-72x48.png"))
         claims, _ = entity_claims(op, api, download_book)
         download_file_val = first_value(claims, file_prop)
-        assert download_file_val and download_label.replace(" ", "_") in download_file_val, \
+        download_file_title = f"File:{dest_file_name(download_label + ' (Book)')}.png"
+        assert download_file_val and dest_file_name(download_label + " (Book)") in download_file_val, \
             f"{download_book} file statement missing or not auto-named from the label " \
             f"({download_file_val}) — URL-mode upload did not land"
         assert first_value(claims, license_prop) == download_license_qid, \
             f"{download_book} license statement missing ({first_value(claims, license_prop)})"
-        download_page = api_call(op, api, {"action": "query", "titles": f"File:{download_label} (Book).png",
+        download_page = api_call(op, api, {"action": "query", "titles": download_file_title,
                                            "format": "json"})
         pages = list(download_page.get("query", {}).get("pages", {}).values())
         assert pages and "missing" not in pages[0], \
-            f"File:{download_label} (Book).png not created"
+            f"{download_file_title} not created"
         print(f"[ok] AddSource/book access (download) -> {download_book}: "
-              f"server-side fetch landed File:{download_label} (Book).png + license + file statements")
+              f"server-side fetch landed {download_file_title} + license + file statements")
 
         # 2h3. Source: access row (issue follow-up): the {{#source-access:}}
         #     parser function renders the infobox "Access" cell from the
@@ -2458,7 +2572,7 @@ def main() -> int:
         #     non-PDF). Unchecked download is rejected server-side; the
         #     checked download redirects to the file.
         special_path = ("/wiki/Special:SourceFile?item=%s&file=File%%3A%s.png"
-                        % (access_book, urllib.parse.quote(access_label + " (Book)")))
+                        % (access_book, urllib.parse.quote(dest_file_name(access_label + " (Book)"))))
         special_url, body = page_get(op, base, special_path)
         assert "wb-sourcefile-licence" in body, "Special:SourceFile missing the licence block"
         assert license_qid in body, "Special:SourceFile missing the licence label"
@@ -2486,7 +2600,7 @@ def main() -> int:
             op, base, api, pdf_label, person, pdf_license_qid,
             content=E2E_PDF, filename="original.pdf", ctype="application/pdf"))
         pdf_special = ("/wiki/Special:SourceFile?item=%s&file=File%%3A%s.pdf"
-                       % (pdf_book, urllib.parse.quote(pdf_label + " (Book)")))
+                       % (pdf_book, urllib.parse.quote(dest_file_name(pdf_label + " (Book)"))))
         _, body = page_get(op, base, pdf_special)
         assert "<iframe" in body and "wb-sourcefile-preview" in body, \
             "PDF special page missing the embedded iframe preview"
@@ -2607,10 +2721,21 @@ def main() -> int:
         #     textareas; the Source: page carries == Abstract ==. A DIFFERENT
         #     DOI than flow 2a so create-or-skip creates a fresh item+page
         #     (reusing 2a's page would read a possibly fetch-less skeleton).
+        #     The access field is set to mode=file at the review step — the
+        #     content step must keep the uploaded file instead of failing
+        #     with "Select a file to upload." (bug 6 regression).
+        content_access_license = create_api_item(
+            op, api, f"Page-flow E2E content license {int(time.time())}")
         article_item = track(flow_source_content_step(
-            op, base, api, "10.1038/35057062", person))
+            op, base, api, "10.1038/35057062", person, content_access_license))
+        claims, _ = entity_claims(op, api, article_item)
+        assert first_value(claims, resolve("license", "property")) == content_access_license, \
+            f"{article_item} access license statement missing after the content step"
+        file_val = first_value(claims, resolve("file", "property"))
+        assert file_val and "File:" in str(file_val), \
+            f"{article_item} access file statement missing after the content step ({file_val!r})"
         print(f"[ok] AddSource/scholarlyArticle content step -> {article_item}: "
-              f"abstract/keywords reviewed + written to the page")
+              f"abstract/keywords reviewed + access file carried over the content step")
 
         # 2m. Special:AddFictionalCharacter (issue follow-up): Wikidata
         #     search; label auto-generates with the "(fictional character)"
@@ -2645,6 +2770,21 @@ def main() -> int:
         print(f"[ok] AddCollective -> {collective} ({label}): agent class + Wikidata ID, "
               f"description placeholder on the page")
 
+        # 3a0. The AddCollective class picker offers the intergovernmental
+        #     organization class (issue report): UN/WHO-type collectives can
+        #     be classified directly. The class select on the manual form
+        #     carries the seeded class item (raw-key label, the picker's
+        #     existing pattern).
+        intergov_class = resolve("intergovernmental organization", "item")
+        _, body = page_get(op, base, "/wiki/Special:AddCollective/manual")
+        if intergov_class not in body:
+            raise FlowError(f"AddCollective class picker lacks the intergovernmental "
+                            f"organization class ({intergov_class!r})")
+        if "intergovernmentalOrganization" not in body:
+            raise FlowError("AddCollective class picker lacks the intergovernmentalOrganization option key")
+        print(f"[ok] AddCollective class picker: intergovernmental organization "
+              f"({intergov_class}) available")
+
         # 3a. AddCollective manual — the optional "Parent organization"
         #     entity field (issue follow-up): a referenced item lands as a
         #     `parent organization` statement; an empty field writes none.
@@ -2675,28 +2815,32 @@ def main() -> int:
         collective_logo = track(flow_collective_logo(
             op, base, api, collective_logo_label, resolve("organization", "item"),
             collective_logo_license_qid))
-        claims, _ = entity_claims(op, api, collective_logo)
-        collective_image_url = first_value(claims, resolve("image", "property"))
-        assert collective_image_url and "logo.png" in str(collective_image_url), \
-            f"{collective_logo} missing image statement pointing at the logo ({collective_image_url!r})"
-        assert first_value(claims, resolve("license", "property")) == collective_logo_license_qid, \
-            f"{collective_logo} missing logo license statement " \
-            f"({first_value(claims, resolve('license', 'property'))})"
-        assert first_value(claims, resolve("image author", "property")) == "E2E Collective Logo Author", \
-            f"{collective_logo} missing the collective logo image-author statement"
+        # Semantic-first image model (issue report): the image facts live on
+        # the FILE (its image item + File page); the collective carries only
+        # the `image` statement, the file name is dash-normalized.
+        collective_logo_file = f"File:{dest_file_name(collective_logo_label)}-logo.png"
+        r = api_call(op, api, {"action": "query", "titles": collective_logo_file, "format": "json"})
+        assert any("missing" not in p for p in r["query"]["pages"].values()), \
+            f"{collective_logo_file} was not uploaded (dash-normalized name)"
+        image_item_qid = assert_semantic_image_item(
+            op, base, api, collective_logo, collective_logo_label, "logo",
+            collective_logo_license_qid, "E2E Collective Logo Author", "E2E collective license note")
+        image_item_qid = track(image_item_qid)
         # The Collective: page skeleton passes the logo to the infobox (the
         # AddSoftware/FOSS pattern — upload-ux batch).
         _, raw = page_get(op, base, "/wiki/" + urllib.parse.quote(
             f"Collective:{collective_logo_label}") + "?action=raw")
-        assert f"logo=[[File:{collective_logo_label.replace(' ', '_')}-logo.png" in raw, \
+        assert f"logo=[[File:{dest_file_name(collective_logo_label)}-logo.png" in raw, \
             f"Collective:{collective_logo_label} skeleton does not pass the logo to the infobox; raw: {raw[:200]!r}"
         # The infobox image cell renders from the ITEM's image statement
         # ({{#item-image:}} — upload-ux follow-up): the statement-driven
         # cell, so pages whose skeleton predates the logo param still show
         # the image. This is the production report's exact regression.
         flow_item_image_renders(op, base, api, collective_logo, "-logo.png")
+        created_pages.append(collective_logo_file)
         print(f"[ok] AddCollective/manual (logo) -> {collective_logo}: "
-              f"File:{collective_logo_label}-logo.png + image/license/attribution statements, "
+              f"{collective_logo_file} (dash-normalized) + image item {image_item_qid} "
+              f"(license/attribution on the file, not the collective), "
               f"infobox logo on Collective:{collective_logo_label}")
 
         # 3a3. AddCollective/manual + mode=existing (upload-ux batch): the
@@ -2707,23 +2851,33 @@ def main() -> int:
         collective_reuse_label = f"Page-flow E2E collective reuse {int(time.time())}"
         collective_reuse = track(flow_collective_logo_reuse(
             op, base, api, collective_reuse_label, resolve("organization", "item"),
-            collective_logo_license_qid, f"File:{collective_logo_label}-logo.png"))
+            collective_logo_license_qid, f"File:{dest_file_name(collective_logo_label)}-logo.png"))
         claims, _ = entity_claims(op, api, collective_reuse)
         reuse_image_url = str(first_value(claims, resolve("image", "property")))
-        assert collective_logo_label.replace(" ", "_") + "-logo.png" in reuse_image_url, \
+        assert dest_file_name(collective_logo_label) + "-logo.png" in reuse_image_url, \
             f"{collective_reuse} image statement does not reference the REUSED file " \
             f"({reuse_image_url!r})"
+        # Reuse-existing (issue report): the reused file already carries its
+        # license/author/license-info — the entity must NOT gain them (the
+        # posted license/author values are ignored in existing mode).
+        assert first_value(claims, resolve("license", "property")) is None, \
+            f"{collective_reuse} must NOT gain a license statement in reuse mode"
+        assert first_value(claims, resolve("image author", "property")) is None, \
+            f"{collective_reuse} must NOT gain an image-author statement in reuse mode"
+        assert first_value(claims, resolve("additional license information", "property")) is None, \
+            f"{collective_reuse} must NOT gain an additional-license-info statement in reuse mode"
         # No second File page was created for the reuse label.
         r = api_call(op, api, {"action": "query",
-                               "titles": f"File:{collective_reuse_label}-logo.png", "format": "json"})
+                               "titles": f"File:{dest_file_name(collective_reuse_label)}-logo.png", "format": "json"})
         assert all("missing" in p for p in r["query"]["pages"].values()), \
             f"mode=existing created a NEW File page for the reuse label"
         _, raw = page_get(op, base, "/wiki/" + urllib.parse.quote(
             f"Collective:{collective_reuse_label}") + "?action=raw")
-        assert f"logo=[[File:{collective_logo_label.replace(' ', '_')}-logo.png" in raw, \
+        assert f"logo=[[File:{dest_file_name(collective_logo_label)}-logo.png" in raw, \
             f"Collective:{collective_reuse_label} infobox does not carry the reused logo"
         print(f"[ok] AddCollective/manual (mode=existing) -> {collective_reuse}: "
-              f"reused File:{collective_logo_label}-logo.png, no new upload")
+              f"reused File:{dest_file_name(collective_logo_label)}-logo.png, no new upload, "
+              f"no license required")
 
         # 3a4. Special:UpdateCollective (upload-ux batch): the update page
         #     renders the "(replacing existing)" logo toggle wording.
@@ -2803,67 +2957,67 @@ def main() -> int:
         #     enhancements): a local PNG is uploaded as File:<label>-logo.png
         #     behind the logoInclude toggle, linked from the item via the
         #     image statement, and passed to the FOSS page infobox. The
-        #     license is now mandatory and the free-text attribution lands as
-        #     item statements.
-        image_prop = resolve("image", "property")
-        license_prop = resolve("license", "property")
+        #     license is mandatory; the image facts land on the FILE's own
+        #     image item + page, never on the FOSS item (semantic-first).
         license_item = resolve("CC BY-SA 4.0", "item")  # preseed license
         logo_label = f"Page-flow E2E logo software {int(time.time())}"
         logo_qid, logo_page = flow_software_logo(op, base, api, logo_label, foss_class, license_item)
         logo_qid = track(logo_qid)
         # Upload first (the File: page) — an upload failure aborts the flow
         # with the server-side reason; only then check the statement wiring.
-        file_title = f"File:{logo_label}-logo.png"
-        r = api_call(op, api, {"action": "query", "titles": file_title, "format": "json"})
+        # The destination name is dash-normalized (issue report).
+        logo_file = f"File:{dest_file_name(logo_label)}-logo.png"
+        r = api_call(op, api, {"action": "query", "titles": logo_file, "format": "json"})
         assert any("missing" not in p for p in r["query"]["pages"].values()), \
-            f"{file_title} was not uploaded"
-        claims, _ = entity_claims(op, api, logo_qid)
-        image_url = first_value(claims, image_prop)
-        assert image_url and "logo.png" in str(image_url), \
-            f"{logo_qid} missing image statement pointing at the logo ({image_url!r})"
-        assert first_value(claims, license_prop) == license_item, \
-            f"{logo_qid} missing the logo license statement"
-        assert first_value(claims, resolve("image author", "property")) == "E2E Logo Author", \
-            f"{logo_qid} missing the image-author statement"
-        assert first_value(claims, resolve("additional license information", "property")) == "E2E license note", \
-            f"{logo_qid} missing the additional-license-info statement"
+            f"{logo_file} was not uploaded (dash-normalized name)"
+        # Semantic-first image model (issue report): the FOSS item carries
+        # only the `image` statement; the image facts live on the file's own
+        # image item + File page.
+        logo_image_item = assert_semantic_image_item(
+            op, base, api, logo_qid, logo_label, "logo", license_item,
+            "E2E Logo Author", "E2E license note")
+        logo_image_item = track(logo_image_item)
         _, raw = page_get(op, base, "/wiki/" + urllib.parse.quote(logo_page.replace(" ", "_")) + "?action=raw")
         # File DB keys normalize spaces to underscores — match the stored form.
-        assert f"logo=[[File:{logo_label.replace(' ', '_')}-logo.png" in raw, \
+        assert f"logo=[[File:{dest_file_name(logo_label)}-logo.png" in raw, \
             f"{logo_page} skeleton does not pass the logo to the infobox; raw: {raw[:200]!r}"
         # Statement-driven infobox cell ({{#item-image:}}) renders the file
         # even without the skeleton param (upload-ux follow-up).
         flow_item_image_renders(op, base, api, logo_qid, "-logo.png")
-        print(f"[ok] AddSoftware/manual (logo) -> {logo_qid}: File:{logo_label}-logo.png uploaded, "
-              f"image/license/attribution statements + infobox logo on {logo_page}")
+        created_pages.append(logo_file)
+        print(f"[ok] AddSoftware/manual (logo) -> {logo_qid}: {logo_file} (dash-normalized) + "
+              f"image item {logo_image_item} (license/attribution on the file), "
+              f"infobox logo on {logo_page}")
         if logo_qid in created:
             created_pages.append(logo_page)
 
         # 3e2. AddPerson/manual + portrait (upload enhancements): the
         #     portrait section collapsed behind the toggle, local PNG upload
-        #     with the mandatory license + author / license info.
+        #     with the mandatory license + author / license info. Semantic
+        #     first: the person carries only the `image` statement.
         person_portrait_label = f"Page-flow E2E portrait {int(time.time())}"
         portrait_qid, portrait_file = flow_person_portrait(op, base, api, person_portrait_label, license_item)
         portrait_qid = track(portrait_qid)
+        portrait_file = f"File:{dest_file_name(person_portrait_label)}-portrait.png"
         r = api_call(op, api, {"action": "query", "titles": portrait_file, "format": "json"})
         assert any("missing" not in p for p in r["query"]["pages"].values()), \
-            f"{portrait_file} was not uploaded"
-        claims, _ = entity_claims(op, api, portrait_qid)
-        assert first_value(claims, license_prop) == license_item, \
-            f"{portrait_qid} missing the portrait license statement"
-        assert first_value(claims, resolve("image author", "property")) == "E2E Portrait Author", \
-            f"{portrait_qid} missing the portrait image-author statement"
+            f"{portrait_file} was not uploaded (dash-normalized name)"
+        portrait_image_item = assert_semantic_image_item(
+            op, base, api, portrait_qid, person_portrait_label, "portrait", license_item,
+            "E2E Portrait Author", "E2E portrait license note")
+        portrait_image_item = track(portrait_image_item)
         # The Person: page skeleton passes the portrait to the infobox (the
         # AddSoftware/FOSS pattern — upload-ux batch).
         _, raw = page_get(op, base, "/wiki/" + urllib.parse.quote(
             f"Person:{person_portrait_label}") + "?action=raw")
-        assert f"portrait=[[File:{person_portrait_label.replace(' ', '_')}-portrait.png" in raw, \
+        assert f"portrait=[[File:{dest_file_name(person_portrait_label)}-portrait.png" in raw, \
             f"Person:{person_portrait_label} skeleton does not pass the portrait to the infobox; raw: {raw[:200]!r}"
         # Statement-driven infobox cell ({{#item-image:}}) renders the file
         # even without the skeleton param (upload-ux follow-up).
         flow_item_image_renders(op, base, api, portrait_qid, "-portrait.png")
-        print(f"[ok] AddPerson/manual (portrait) -> {portrait_qid}: File uploaded with "
-              f"license + author statements, infobox portrait on Person:{person_portrait_label}")
+        print(f"[ok] AddPerson/manual (portrait) -> {portrait_qid}: {portrait_file} "
+              f"(dash-normalized) + image item {portrait_image_item} "
+              f"(license/attribution on the file), infobox portrait on Person:{person_portrait_label}")
         if portrait_qid in created:
             created_pages.append(portrait_file)
 

@@ -43,6 +43,80 @@ final class UploadMetadataFetcherTest extends TestCase {
 		$this->assertSame( 'https://cdn.example.com/logo.png', $meta->sourceUrl );
 	}
 
+	public function testSvgBodyDimensionsParsedWithoutWarning(): void {
+		// SVG is the reported "logo URL" failure: PHP's getimagesize has no
+		// SVG support, so the generic probe warned "could not read the image
+		// dimensions (the probe is capped at 131072 bytes)" even for a
+		// complete small SVG. The format-aware parser reads width/height.
+		$svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630">'
+			. '<rect width="1200" height="630" fill="#fff"/></svg>';
+		$fetcher = new UploadMetadataFetcher( $this->transport( 'image/svg+xml', $svg, '128' ) );
+		$meta = $fetcher->fetch( 'https://cdn.example.com/logo.svg' );
+
+		$this->assertSame( 1200, $meta->width );
+		$this->assertSame( 630, $meta->height );
+		$this->assertSame( 'image/svg+xml', $meta->mime );
+		$this->assertSame( [], $meta->warnings );
+	}
+
+	public function testSvgViewBoxDimensionsUsedWhenNoWidthHeight(): void {
+		$svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480"></svg>';
+		$fetcher = new UploadMetadataFetcher( $this->transport( 'image/svg+xml', $svg, '64' ) );
+		$meta = $fetcher->fetch( 'https://cdn.example.com/logo.svg' );
+
+		$this->assertSame( 640, $meta->width );
+		$this->assertSame( 480, $meta->height );
+		$this->assertSame( [], $meta->warnings );
+	}
+
+	public function testTruncatedPngHeaderStillYieldsDimensions(): void {
+		// The probe body is CAPPED at PROBE_BYTES — a PNG whose IHDR is within
+		// the first bytes must report dimensions even when the body is only a
+		// header slice (getimagesize on the truncated body fails).
+		$png = base64_decode( self::PNG_BODY );
+		$header = substr( $png, 0, 33 );
+		$fetcher = new UploadMetadataFetcher( $this->transport( 'image/png', $header, '50000' ) );
+		$meta = $fetcher->fetch( 'https://cdn.example.com/big.png' );
+
+		$this->assertSame( 1, $meta->width );
+		$this->assertSame( 1, $meta->height );
+		$this->assertSame( [], $meta->warnings );
+	}
+
+	public function testWebpDimensionsParsed(): void {
+		// A minimal WebP (VP8X extended) header with a 300x200 canvas.
+		// Layout: "RIFF" <size=file-8> "WEBP" "VP8X" <chunk-size> then the
+		// payload: flags(1) reserved(3) canvas-width-1(3) canvas-height-1(3)
+		// reserved(1) — 24-bit little-endian canvas fields.
+		$webp = "RIFF"
+			. pack( 'V', 31 - 8 )   // RIFF chunk size = file length - 8
+			. 'WEBPVP8X'
+			. pack( 'V', 10 )       // VP8X chunk size
+			. "\x00"                // flags
+			. "\x00\x00\x00"        // reserved
+			. "\x2b\x01\x00"        // width-1 = 299
+			. "\xc7\x00\x00"        // height-1 = 199
+			. "\x00";               // reserved
+		$fetcher = new UploadMetadataFetcher( $this->transport( 'image/webp', $webp, '31' ) );
+		$meta = $fetcher->fetch( 'https://cdn.example.com/logo.webp' );
+
+		$this->assertSame( 300, $meta->width );
+		$this->assertSame( 200, $meta->height );
+		$this->assertSame( [], $meta->warnings );
+	}
+
+	public function testTruncatedBodyBeyondCapWarnsWithCapReason(): void {
+		// A >PROBE_BYTES body whose dimensions cannot be read (garbage bytes
+		// after a plausible MIME) — the warning must name the cap.
+		$body = str_repeat( "\x00\x01\x02", 50000 );
+		$fetcher = new UploadMetadataFetcher( $this->transport( 'image/png', $body, '999999' ) );
+		$meta = $fetcher->fetch( 'https://cdn.example.com/odd.png' );
+
+		$this->assertNull( $meta->width );
+		$this->assertNotSame( [], $meta->warnings );
+		$this->assertStringContainsString( 'capped', $meta->warnings[0] );
+	}
+
 	public function testNonImageContentTypeKeepsMimeAndSize(): void {
 		// Any file type (PDF/video/audio/HTML) must be reported with its MIME
 		// + byte size — the "all file types" support; only pixel dimensions

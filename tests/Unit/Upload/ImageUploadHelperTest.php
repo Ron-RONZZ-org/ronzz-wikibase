@@ -25,7 +25,9 @@ final class ImageUploadHelperTest extends TestCase {
 			null,
 			ImageUploadHelper::IMAGE_EXTENSIONS
 		);
-		$this->assertSame( 'Ada Lovelace-portrait.png', $name );
+		// Whitespace in the label is normalized to a dash (issue report:
+		// "File:European Space Agency-logo.png" → "European-Space-Agency-…").
+		$this->assertSame( 'Ada-Lovelace-portrait.png', $name );
 	}
 
 	public function testDestNameSanitizesLabel(): void {
@@ -36,7 +38,18 @@ final class ImageUploadHelperTest extends TestCase {
 			null,
 			ImageUploadHelper::IMAGE_EXTENSIONS
 		);
-		$this->assertSame( 'ACME TheBrand v1-logo.svg', $name );
+		$this->assertSame( 'ACME-TheBrand-v1-logo.svg', $name );
+	}
+
+	public function testDestNameNormalizesRepeatedWhitespace(): void {
+		$name = ImageUploadHelper::destName(
+			"European   Space\tAgency",
+			'logo',
+			'logo.png',
+			null,
+			ImageUploadHelper::IMAGE_EXTENSIONS
+		);
+		$this->assertSame( 'European-Space-Agency-logo.png', $name );
 	}
 
 	public function testDestNameMimeExtensionFallback(): void {
@@ -85,6 +98,32 @@ final class ImageUploadHelperTest extends TestCase {
 		$this->assertStringContainsString( 'Logo of Flameshot.', $text );
 		$this->assertStringNotContainsString( 'uploaded via', $text );
 		$this->assertStringNotContainsString( 'Source:', $text );
+		$this->assertStringNotContainsString( 'License', $text );
+		$this->assertStringNotContainsString( 'Attribution', $text );
+	}
+
+	public function testPageTextWithAttributionCarriesSemanticLicenseReference(): void {
+		// A NEW upload's file page carries the license reference ([[Q42|label]],
+		// NEVER a {{Q42}} template call) + the attribution block — the same
+		// contract as Special:Upload (UploadHooks).
+		$text = ImageUploadHelper::pageText(
+			'Flameshot', 'logo', 'https://flameshot.org/logo.png',
+			'Q42', 'CC BY-SA 4.0', 'E2E Logo Author', 'E2E license note'
+		);
+		$this->assertStringContainsString( 'Logo of Flameshot.', $text );
+		$this->assertStringContainsString( '== License ==', $text );
+		$this->assertStringContainsString( '[[Q42|CC BY-SA 4.0]]', $text );
+		$this->assertStringNotContainsString( '{{Q42}}', $text );
+		$this->assertStringContainsString( '== Attribution ==', $text );
+		$this->assertStringContainsString( 'Author: E2E Logo Author', $text );
+		$this->assertStringContainsString( 'Additional license information: E2E license note', $text );
+		$this->assertStringContainsString( 'Source: https://flameshot.org/logo.png', $text );
+	}
+
+	public function testPageTextWithoutLicenseSkipsBothBlocks(): void {
+		// Reuse-existing mode / no license: no License or Attribution blocks.
+		$text = ImageUploadHelper::pageText( 'Flameshot', 'logo' );
+		$this->assertStringNotContainsString( '==', $text );
 	}
 
 	public function testWiringSpanCarriesValidConfig(): void {
@@ -157,5 +196,56 @@ final class ImageUploadHelperTest extends TestCase {
 		);
 		// fileselect.js renders the picked file's thumbnail into this slot.
 		$this->assertStringContainsString( 'wb-file-preview', $spec['help'] );
+	}
+
+	/**
+	 * The image facts (license / author / additional license information)
+	 * hide in EXISTING mode: the reused file already carries them on its own
+	 * page/item — the consumer entity only references the file via `image`.
+	 */
+	public function testLicenseFieldHiddenWhenModeExisting(): void {
+		$spec = ImageUploadHelper::licenseField(
+			'logo', 'embeddablecontent-collective-logo-license',
+			'embeddablecontent-collective-logo-license-help',
+			$this->configStub()
+		);
+		$this->assertSame(
+			[ 'OR', [ '===', 'logoInclude', '' ], [ '!==', 'logoMode', 'existing' ] ],
+			$spec['hide-if']
+		);
+	}
+
+	public function testAuthorFieldHiddenWhenModeExisting(): void {
+		$spec = ImageUploadHelper::authorField( 'portrait', 'embeddablecontent-person-portrait-author' );
+		$this->assertSame(
+			[ 'OR', [ '===', 'portraitInclude', '' ], [ '!==', 'portraitMode', 'existing' ] ],
+			$spec['hide-if']
+		);
+	}
+
+	public function testLicenseInfoFieldHiddenWhenModeExisting(): void {
+		$spec = ImageUploadHelper::licenseInfoField( 'logo', 'embeddablecontent-collective-logo-license-info' );
+		$this->assertSame(
+			[ 'OR', [ '===', 'logoInclude', '' ], [ '!==', 'logoMode', 'existing' ] ],
+			$spec['hide-if']
+		);
+	}
+
+	/**
+	 * Minimal valid config: licenseField() only reads licenseItems() (absent
+	 * → the empty fallback), but the parent constructor asserts the base
+	 * shape first.
+	 *
+	 * @return \EmbeddableContent\EmbeddableContentConfig
+	 */
+	private function configStub(): \EmbeddableContent\EmbeddableContentConfig {
+		return new \EmbeddableContent\EmbeddableContentConfig( [
+			'instanceOf' => 'P31',
+			'classes' => [ 'quotation' => 'Q1', 'code' => 'Q2', 'math' => 'Q3' ],
+			'payloadProperties' => [ 'quotation' => 'P1', 'code' => 'P2', 'math' => 'P3' ],
+			'programmingLanguage' => 'P4',
+			'provenance' => [ 'attributedTo' => 'P5', 'sourceUrl' => 'P6', 'source' => 'P7', 'date' => 'P8' ],
+			'fallbackLanguages' => [ 'en' ],
+		] );
 	}
 }
