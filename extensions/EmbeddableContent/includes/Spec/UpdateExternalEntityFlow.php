@@ -80,6 +80,14 @@ trait UpdateExternalEntityFlow {
 		$this->getOutput()->addModules( 'ext.embeddableContent.entityconfirm' );
 		$this->getOutput()->addModules( 'ext.embeddableContent.fileselect' );
 
+		// The missing-page heal (applyUpdate → healClassicPage) redirects
+		// here to finalize the just-created page in a fresh request — the
+		// Add* afterCreate pattern (see executeComplete).
+		if ( is_string( $subPage ) && str_starts_with( $subPage, 'complete/' ) ) {
+			$this->executeComplete( substr( $subPage, strlen( 'complete/' ) ) );
+			return;
+		}
+
 		$itemId = $this->itemIdFromSubPage( $subPage );
 		if ( $itemId === null ) {
 			$this->getOutput()->addHTML(
@@ -172,12 +180,12 @@ trait UpdateExternalEntityFlow {
 			return $this->msg( 'embeddablecontent-add-error-required' )->text();
 		}
 		try {
-			$this->applyUpdate( $itemId, $record, $classItemId, $label );
+			$redirect = $this->applyUpdate( $itemId, $record, $classItemId, $label );
 		} catch ( \Throwable $e ) {
 			return $this->msg( 'embeddablecontent-update-error', get_class( $e ), $e->getMessage() )->text();
 		}
 		$this->getOutput()->redirect(
-			WikibaseRepo::getEntityTitleStoreLookup()->getTitleForId( new ItemId( $itemId ) )->getFullURL()
+			$redirect ?? WikibaseRepo::getEntityTitleStoreLookup()->getTitleForId( new ItemId( $itemId ) )->getFullURL()
 		);
 		return true;
 	}
@@ -185,11 +193,14 @@ trait UpdateExternalEntityFlow {
 	/**
 	 * Applies the update: en label/description terms, then the managed
 	 * statement replacement (only properties with a NEW non-empty spec —
-	 * see applyUpdate), then the classic-page rename on a label change.
+	 * see applyUpdate), then the classic-page rename on a label change and
+	 * the missing-page heal. Returns an explicit redirect target (the
+	 * complete/<id> finalize step when a classic page was just created), or
+	 * null for the default item redirect.
 	 *
 	 * @param array<string,mixed> $record
 	 */
-	private function applyUpdate( string $itemId, array $record, string $classItemId, string $newLabel ): void {
+	private function applyUpdate( string $itemId, array $record, string $classItemId, string $newLabel ): ?string {
 		$item = $this->loadItem( $itemId );
 		if ( !$item instanceof Item ) {
 			throw new \RuntimeException( 'item not found at update time' );
@@ -253,6 +264,45 @@ trait UpdateExternalEntityFlow {
 		if ( $oldLabel !== '' && $oldLabel !== $newLabel ) {
 			$this->renameClassicPage( $item, $oldLabel, $newLabel );
 		}
+		// Heal a missing classic page: the class declares a page namespace
+		// but the item has no sitelink/page (created before the page
+		// machinery, or with a then-invalid label — the Q1232 case). The
+		// update is the natural repair surface; creating the page here sends
+		// the user through the complete/<id> finalize round-trip.
+		return $this->healClassicPage( $item, $record, $newLabel );
+	}
+
+	/**
+	 * Creates the missing classic page for an updated item: the kind
+	 * declares a page namespace (pageNamespace()), the item has no wikibase
+	 * sitelink yet, and the (updated) label is usable as a page title.
+	 * Mirrors afterCreate: sitelink first, then the marked page + the
+	 * complete/<id> redirect target (null = no heal happened — the default
+	 * item redirect stands).
+	 *
+	 * @param array<string,mixed> $record
+	 * @return string|null redirect target, or null
+	 */
+	private function healClassicPage( Item $item, array $record, string $label ): ?string {
+		if ( $this->pageNamespace() === null
+			|| $item->getSiteLinkList()->hasLinkWithSiteId( 'wikibase' )
+		) {
+			return null;
+		}
+		$title = $this->pageTitleForRecord( $record );
+		if ( $title === null ) {
+			return null;
+		}
+		$this->linkPageToItem( $item, $title, $label );
+		if ( $title->exists() ) {
+			// The page already existed (e.g. created by hand) — only the
+			// sitelink was missing; nothing to finalize.
+			return null;
+		}
+		if ( !$this->createClassicPage( $title, $record, $label ) ) {
+			return null;
+		}
+		return $this->stepTitle( 'complete/' . $item->getId()->getSerialization() )->getFullURL();
 	}
 
 	/**

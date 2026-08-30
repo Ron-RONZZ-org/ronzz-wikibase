@@ -646,6 +646,12 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 * empty (the manual-from-blank form lets the user type it).
 	 */
 	protected function disambiguatedTitle( string $title ): string {
+		// Harvested titles (notably OpenAlex) carry HTML markup (<i>…</i> for
+		// taxonomic terms); it must never reach the stored label or the
+		// classic-page title (MediaWiki rejects < > in titles — the Q1232
+		// "Planck 2018 results" page silently missing). Strip before the
+		// suffix append so the disambiguated label is clean too.
+		$title = LabelSanitizer::stripMarkup( $title );
 		$suffix = $this->sourceLabelSuffix();
 		if ( $suffix === '' || trim( $title ) === '' ) {
 			return $title;
@@ -1107,7 +1113,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 * @param array<string,mixed> $record
 	 * @return array<string,mixed>
 	 */
-	private function accessFieldSpec( array $record ): array {
+	protected function accessFieldSpec( array $record ): array {
 		$mode = (string)( $record['accessMode'] ?? 'url' );
 		return [
 			'accessMode' => [

@@ -16,6 +16,10 @@
 	"embeddablecontent-gadget-copied": "Kopiita al tondejo.",
 	"embeddablecontent-gadget-citation-style": "Citaĵformato",
 	"embeddablecontent-add-label": "Etikedo",
+	"embeddablecontent-add-label-default-quotation": "(quotation)",
+	"embeddablecontent-add-label-default-code": "(code snippet)",
+	"embeddablecontent-add-label-default-math": "(math snippet)",
+	"embeddablecontent-add-more": "Aldoni alian",
 	"embeddablecontent-add-payload": "Enhavo",
 	"embeddablecontent-add-quotation-payload": "Teksto de la citaĵo",
 	"embeddablecontent-add-language": "Lingvo",
@@ -339,5 +343,8 @@
 	"embeddablecontent-manual-legend-fetched": "Detaloj de la ero",
 	"embeddablecontent-update-person-portrait-include": "Mi alŝutos novan portreton por ĉi tiu persono (anstataŭigante la ekzistantan)",
 	"embeddablecontent-update-software-logo-include": "Mi alŝutos novan emblemon por ĉi tiu programaro (anstataŭigante la ekzistantan)",
-	"embeddablecontent-update-collective-logo-include": "Mi alŝutos novan emblemon por ĉi tiu kolektivo (anstataŭigante la ekzistantan)"
+	"embeddablecontent-update-collective-logo-include": "Mi alŝutos novan emblemon por ĉi tiu kolektivo (anstataŭigante la ekzistantan)",
+	"embeddablecontent-update-source-access-include": "Mi ĝisdatigos la alirinstrukciojn de la rimedo",
+	"embeddablecontent-page-title-warning": "La elemento estis kreita, sed klasika paĝo ne povis esti kreita: la etikedo ne taŭgas kiel paĝtitolo (ĝi estas malplena aŭ enhavas signojn, kiujn MediaWiki malpermesas en titoloj, ekz. # &lt; &gt; [ ] { } |).",
+	"embeddablecontent-page-title-warning-goto": "Iri al la kreita elemento"
 }

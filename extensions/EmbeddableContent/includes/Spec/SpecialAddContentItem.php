@@ -71,12 +71,23 @@ abstract class SpecialAddContentItem extends SpecialPage {
 	}
 
 	protected function buildFields(): array {
+		// Carry-over prefill (the "Add more" return trip): the previous
+		// item's provenance fields arrive as query params (?addmore=1&…)
+		// and become the defaults of the reopened form — label and payload
+		// are deliberately excluded (label resets to the default prefill,
+		// payload to empty), so the user only types the new content.
+		$carry = $this->carryOverParams();
 		$fields = [
 			'label' => [
 				'type' => 'text',
 				'label-message' => 'embeddablecontent-add-label',
 				'required' => true,
 				'maxlength' => 250,
+				// Class-disambiguation prefill, the AddSource convention:
+				// "(quotation)" / "(code snippet)" / "(math snippet)" — the
+				// user types the content text in front of it. The reset
+				// target of the "Add more" flow.
+				'default' => $this->msg( $this->labelDefaultMessageKey() )->text(),
 			],
 			'payload' => [
 				'type' => 'textarea',
@@ -159,14 +170,79 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		} elseif ( $this->getKind() === 'code' && $this->config->implementationOfPropertyId() !== null ) {
 			$fields['implementationOf'] = $entityCombobox( 'embeddablecontent-add-implementationof', false, true );
 		}
+
+		// Carry-over defaults (Add-more flow): applied AFTER the field
+		// builders so the request values win over the builder defaults
+		// (e.g. the language/lexer combobox defaults).
+		foreach ( $carry as $name => $value ) {
+			if ( isset( $fields[$name] ) && $value !== '' ) {
+				$fields[$name]['default'] = $value;
+			}
+		}
+
+		// Second submit button "Add more": creates the item, then reopens
+		// this page with every input carried over except label (reset to
+		// the default prefill) and payload — rapid entry of several items
+		// from the same source/author. Distinguishable from the main
+		// "Save item" button by the wpaddmore request value. (HTMLForm's
+		// additional-submit type is 'submit' — HTMLSubmitField; the
+		// 'buttonlabel' fallback covers a renderer that ignores
+		// 'buttonlabel-message'.)
+		$fields['addMore'] = [
+			'type' => 'submit',
+			'buttonlabel-message' => 'embeddablecontent-add-more',
+			'buttonlabel' => $this->msg( 'embeddablecontent-add-more' )->text(),
+		];
 		return $fields;
 	}
+
+	/**
+	 * The label default prefill, per kind — the parenthetical class
+	 * disambiguation, matching the AddSource " ({Class})" label convention.
+	 */
+	private function labelDefaultMessageKey(): string {
+		return 'embeddablecontent-add-label-default-' . $this->getKind();
+	}
+
+	/**
+	 * Whether this request is the "Add more" return trip
+	 * (?addmore=1 + carried field params) — only then do the request
+	 * values prefill the form (a plain page load keeps the builder
+	 * defaults).
+	 *
+	 * @return array<string,string>
+	 */
+	private function carryOverParams(): array {
+		if ( $this->getRequest()->getVal( 'addmore' ) !== '1' ) {
+			return [];
+		}
+		$out = [];
+		foreach ( self::CARRY_OVER_FIELDS as $name ) {
+			$value = trim( (string)$this->getRequest()->getVal( $name, '' ) );
+			if ( $value !== '' ) {
+				$out[$name] = $value;
+			}
+		}
+		return $out;
+	}
+
+	/** Field names carried over between "Add more" submissions. */
+	private const CARRY_OVER_FIELDS = [
+		'attributedTo', 'source', 'sourceUrl', 'date',
+		'language', 'lexer', 'describes', 'implementationOf',
+	];
 
 	/**
 	 * @param array $data
 	 * @return bool|string true on success, error string otherwise
 	 */
 	public function onSubmit( array $data ) {
+		// The submit creates items (and the "Add more" path re-submits):
+		// login-gated like the other Add* write surfaces (the page LOADS
+		// stay open — an anonymous visitor can read the form).
+		if ( $this->getUser()->isAnon() ) {
+			return $this->msg( 'embeddablecontent-add-error-anon' )->text();
+		}
 		$label = trim( (string)$data['label'] );
 		$payload = trim( (string)$data['payload'] );
 		if ( $label === '' || $payload === '' ) {
@@ -332,8 +408,32 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		$this->createdItemId = $item->getId();
 		// Modern HTMLForm has no onSuccess step — redirect to the created
 		// item here, otherwise the page just renders empty after submit.
+		// The "Add more" button instead reopens this page with the
+		// provenance inputs carried over (label + payload excluded).
+		if ( $this->getRequest()->getVal( 'wpaddmore' ) !== null ) {
+			$this->getOutput()->redirect( $this->addMoreUrl( $data ) );
+			return true;
+		}
 		$this->onSubmitSuccess();
 		return true;
+	}
+
+	/**
+	 * The "Add more" return-trip URL: this page with ?addmore=1 and the
+	 * previous submission's provenance fields as query params (the label
+	 * resets to the default prefill, the payload to empty).
+	 *
+	 * @param array<string,mixed> $data
+	 */
+	private function addMoreUrl( array $data ): string {
+		$params = [ 'addmore' => '1' ];
+		foreach ( self::CARRY_OVER_FIELDS as $name ) {
+			$value = trim( (string)( $data[$name] ?? '' ) );
+			if ( $value !== '' ) {
+				$params[$name] = $value;
+			}
+		}
+		return $this->getPageTitle()->getFullURL( $params );
 	}
 
 	public function onSubmitSuccess() {

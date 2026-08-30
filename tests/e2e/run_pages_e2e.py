@@ -866,6 +866,9 @@ def flow_update_source(op, base: str, api: str, qid: str, new_description: str) 
         "wppublisher": input_value(body, "wppublisher"),
         "wppages": input_value(body, "wppages"),
         "wpissuedYear": input_value(body, "wpissuedYear"),
+        # The access section is collapsed by default on update — checking
+        # the include toggle exercises the visible (access-update) path.
+        "wpaccessInclude": "1",
         "wpaccessMode": input_value(body, "wpaccessMode") or "na",
         "wpclass": class_item,
         "wpEditToken": token, "wpSubmit": "1",
@@ -1989,6 +1992,173 @@ def delete_item(op, api: str, qid: str) -> None:
                        "reason": "page-flow E2E cleanup (run_pages_e2e.py)", "format": "json"}, post=True)
 
 
+def flow_content_label_defaults(op, base: str) -> None:
+    """The v1 content pages prefill the label field with the parenthetical
+    class disambiguation (the AddSource label convention): "(quotation)",
+    "(code snippet)", "(math snippet)" — the user types the content text in
+    front of it."""
+    for page, expected in (
+        ("AddQuotation", "(quotation)"),
+        ("AddCodeSnippet", "(code snippet)"),
+        ("AddMath", "(math snippet)"),
+    ):
+        url, body = page_get(op, base, f"/wiki/Special:{page}")
+        label = input_value(body, "wplabel")
+        if label != expected:
+            raise FlowError(f"Special:{page} label default != {expected!r} (got {label!r})")
+        print(f"[ok] Special:{page} label default {expected!r}")
+
+
+def flow_add_more(op, base: str, api: str, person_qid: str, source_url: str) -> tuple[str, str]:
+    """"Add more" on the content pages (the second submit button): the
+    submit CREATES the item and reopens the page with every provenance input
+    carried over EXCEPT the label (reset to the default prefill) and the
+    payload (empty). Submits twice — the first with wpaddmore, the second
+    normally — and returns (first_qid, second_qid); both must carry the same
+    provenance."""
+    ts = int(time.time())
+    label_a = f"Page-flow E2E addmore A {ts}"
+    label_b = f"Page-flow E2E addmore B {ts}"
+    payload_a = "First add-more quotation."
+    url, body = page_get(op, base, "/wiki/Special:AddQuotation")
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "wplabel": label_a,
+        "wppayload": payload_a,
+        "wplanguage": "en",
+        "wpattributedTo": person_qid,
+        "wpsourceUrl": source_url,
+        "wpEditToken": token,
+        "wpaddmore": "Add more",
+    })
+    # Must REOPEN the form (carry-over), NOT redirect to the created item.
+    if "/wiki/Item:" in url:
+        raise FlowError(f"Add-more unexpectedly redirected to an item: {url}")
+    u = urllib.parse.urlparse(url)
+    q = urllib.parse.parse_qs(u.query)
+    if q.get("addmore") != ["1"]:
+        raise FlowError(f"Add-more did not reopen with addmore=1: {url} {find_error(body)}")
+    if q.get("attributedTo") != [person_qid]:
+        raise FlowError(f"Add-more did not carry attributedTo: {url}")
+    if q.get("sourceUrl") != [source_url]:
+        raise FlowError(f"Add-more did not carry sourceUrl: {url}")
+    if "label" in q or "payload" in q:
+        raise FlowError(f"Add-more carried label/payload over (they must reset): {url}")
+    # The reopened form: label back to the default prefill, provenance
+    # prefilled, the previous payload GONE.
+    if input_value(body, "wplabel") != "(quotation)":
+        raise FlowError(f"Add-more label not reset to the default prefill: {find_error(body)}")
+    if input_value(body, "wpattributedTo") != person_qid:
+        raise FlowError(f"Add-more form did not prefill attributedTo: {find_error(body)}")
+    if input_value(body, "wpsourceUrl") != source_url:
+        raise FlowError(f"Add-more form did not prefill sourceUrl: {find_error(body)}")
+    if payload_a in body:
+        raise FlowError(f"Add-more form still carries the previous payload: {find_error(body)}")
+
+    # Second item: the carried values are submitted again (as a browser
+    # would) with a fresh label + payload.
+    token2 = edit_token(body)
+    url2, body2 = page_post(op, url, {
+        "wplabel": label_b,
+        "wppayload": "Second add-more quotation.",
+        "wplanguage": "en",
+        "wpattributedTo": person_qid,
+        "wpsourceUrl": source_url,
+        "wpEditToken": token2,
+        "wpSubmit": "1",
+    })
+    m = re.search(r"/wiki/Item:(Q\d+)$", url2)
+    if not m:
+        raise FlowError(f"Add-more second submit did not create an item: {url2} {find_error(body2)}")
+    second_qid = m.group(1)
+    # The first item was created by the wpaddmore submit — resolve by label
+    # (the term store can lag the creation by a beat; retry like
+    # flow_quotation).
+    first_qid = None
+    for _ in range(10):
+        first_qid = resolve_label(op, api, label_a, "item")
+        if first_qid:
+            break
+        time.sleep(2)
+    if not first_qid:
+        raise FlowError(f"Add-more first submit did not create an item for {label_a!r}")
+    return first_qid, second_qid
+
+
+def flow_source_marked_title_page(op, base: str, api: str, author_qid: str) -> tuple[str, str]:
+    """Q1232 regression: a harvested title with HTML markup (<i>…</i> —
+    OpenAlex wraps taxonomic terms in italics) must be STRIPPED before it
+    becomes the item label AND the classic-page title. The pre-fix code
+    stored the raw markup in the label and SILENTLY skipped the Source:
+    page (Title::isValid() rejects < > — afterCreate fell back to the item
+    redirect). Returns (qid, sanitized label)."""
+    ts = int(time.time())
+    title = f"<i>E2E</i> marked title {ts}"
+    qid = flow_source_class_manual(op, base, api, "scholarlyArticle", {
+        "wptitle": title,
+        "wpauthors": author_qid,
+        "wpdescription": "A regression-test scholarly article for the Q1232 markup-label fix.",
+        "wpaccessMode": "na",
+    })
+    expected = f"E2E marked title {ts} (Scholarly article)"
+    claims, label = entity_claims(op, api, qid)
+    if label != expected:
+        raise FlowError(f"{qid} label not sanitized (got {label!r}, want {expected!r})")
+    if "<" in label or ">" in label:
+        raise FlowError(f"{qid} label still carries markup: {label!r}")
+    # The classic page MUST exist with the sanitized title and be sitelinked
+    # (the Q1232 regression: the item redirect was silent).
+    page_title = f"Source:{expected}"
+    r = api_call(op, api, {"action": "query", "titles": page_title,
+                           "prop": "pageprops", "format": "json"})
+    pages = r.get("query", {}).get("pages", {})
+    if not pages or any(int(pid) < 0 for pid in pages):
+        raise FlowError(f"{page_title} not created (the Q1232 regression: markup "
+                        f"label skipped the classic page)")
+    props = next(iter(pages.values())).get("pageprops", {})
+    if props.get("wikibase_item") != qid:
+        raise FlowError(f"{page_title} not sitelinked to {qid}: {props}")
+    if page_title not in CREATED_CLASSIC_PAGES:
+        CREATED_CLASSIC_PAGES.append(page_title)
+    return qid, label
+
+
+def flow_update_source_access_collapsed(op, base: str, api: str, qid: str,
+                                        new_description: str, file_prop: str) -> None:
+    """UpdateSource access collapse: the access section (mode + URL +
+    download/file + license) is hidden behind the "I will update the
+    resource access instructions" checkbox; an unchecked submit (the
+    default) leaves the item's access statements UNTOUCHED — no clobber,
+    no re-upload, the file statement survives. A changed description still
+    lands."""
+    url, body = page_get(op, base, f"/wiki/Special:UpdateSource/{qid}")
+    if "wpaccessInclude" not in body:
+        raise FlowError(f"UpdateSource/{qid} missing the accessInclude checkbox: {find_error(body)}")
+    title = input_value(body, "wptitle")
+    authors = input_value(body, "wpauthors")
+    class_item = input_value(body, "wpclass")
+    if not title or not authors:
+        raise FlowError(f"UpdateSource/{qid} did not prefill title/authors: {find_error(body)}")
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "wptitle": title, "wpauthors": authors,
+        "wpdescription": new_description,
+        "wppublisher": input_value(body, "wppublisher"),
+        "wppages": input_value(body, "wppages"),
+        "wpissuedYear": input_value(body, "wpissuedYear"),
+        "wpclass": class_item,
+        # NO wpaccessInclude — the collapsed default: access untouched.
+        "wpEditToken": token, "wpSubmit": "1",
+    })
+    if qid not in url:
+        raise FlowError(f"UpdateSource/{qid} collapsed submit did not redirect: {url} {find_error(body)}")
+    if entity_descriptions(op, api, qid) != new_description:
+        raise FlowError(f"{qid} description not updated by the collapsed submit")
+    claims, _ = entity_claims(op, api, qid)
+    if not first_value(claims, file_prop):
+        raise FlowError(f"{qid} access FILE statement lost by the collapsed update")
+
+
 def flow_cite_by_qid(op, base: str, api: str, book_qid: str, quote_qid: str, extra_source_qid: str) -> None:
     """Issue #24/#25: on-wiki cite-by-QID on a self-cleaning scratch page.
 
@@ -2511,6 +2681,29 @@ def main() -> int:
             f"{access_file_title} not created"
         print(f"[ok] AddSource/book access (local file) -> {access_book}: "
               f"{access_file_title} + license + file statements")
+
+        # 2h1b. UpdateSource access collapse: the access section is hidden
+        #     behind the "I will update the resource access instructions"
+        #     checkbox; an unchecked submit (the default) leaves the item's
+        #     access statements UNTOUCHED — the file statement survives, a
+        #     changed description still lands.
+        collapsed_desc = f"Updated by the collapsed access update {int(time.time())}"
+        flow_update_source_access_collapsed(op, base, api, access_book, collapsed_desc, file_prop)
+        claims, _ = entity_claims(op, api, access_book)
+        assert first_value(claims, file_prop) and first_value(claims, license_prop) == license_qid, \
+            f"{access_book} access statements clobbered by the collapsed update"
+        print(f"[ok] Special:UpdateSource/{access_book}: collapsed access section — "
+              f"file + license statements survived, description updated")
+
+        # 2h1c. Q1232 regression: a harvested title with HTML markup
+        #     (<i>…</i> — OpenAlex italics) must be stripped before it
+        #     becomes the item label AND the Source: page title (the pre-fix
+        #     code stored the raw markup in the label and silently skipped
+        #     the classic page).
+        marked_qid, marked_label = flow_source_marked_title_page(op, base, api, person)
+        marked_qid = track(marked_qid)
+        print(f"[ok] AddSource/scholarlyArticle markup title -> {marked_qid}: "
+              f"label sanitized ({marked_label!r}) + Source: page created (Q1232 regression)")
 
         # 2h2. Access field, DIRECT-DOWNLOAD mode (regression): the file is
         #     fetched server-side (UploadFromUrl + fetchFile). Before the fix
@@ -3044,6 +3237,7 @@ def main() -> int:
         # 4. v1 content form — Special:AddQuotation with provenance.
         # Unique label per run: create-or-skip would otherwise reuse a stale
         # quotation from an earlier (failed) run and fail the assertions.
+        flow_content_label_defaults(op, base)
         quote_label = f"Page-flow E2E quotation {args.person} {int(time.time())}"
         quotation = track(flow_quotation(op, base, api, quote_label, "An E2E test quotation.", person))
         claims, label = entity_claims(op, api, quotation)
@@ -3054,6 +3248,23 @@ def main() -> int:
         assert first_value(claims, resolve("content text", "property")) is not None, \
             f"{quotation} missing content payload"
         print(f"[ok] Special:AddQuotation -> {quotation}: quotation class + payload + attribution")
+
+        # 4b. "Add more" (second submit button): the first submit reopens
+        #     the page with the provenance carried over (label reset to the
+        #     default prefill, payload empty); the second submit creates the
+        #     next item. Both items must carry the same source/author.
+        addmore_url = "https://example.org/addmore"
+        addmore_a, addmore_b = flow_add_more(op, base, api, person, addmore_url)
+        addmore_a = track(addmore_a)
+        addmore_b = track(addmore_b)
+        for qid in (addmore_a, addmore_b):
+            claims, label = entity_claims(op, api, qid)
+            assert first_value(claims, resolve("attributed to", "property")) == person, \
+                f"{qid} add-more item missing the carried author"
+            assert first_value(claims, resolve("source URL", "property")) == addmore_url, \
+                f"{qid} add-more item missing the carried source URL"
+        print(f"[ok] Special:AddQuotation Add more -> {addmore_a} + {addmore_b}: "
+              f"provenance carried over, label/payload reset")
 
         # 5. Special:AddMath with the 'describes' subject field (issue
         #    follow-up) + delimiter stripping: a $$…$$-wrapped payload must be

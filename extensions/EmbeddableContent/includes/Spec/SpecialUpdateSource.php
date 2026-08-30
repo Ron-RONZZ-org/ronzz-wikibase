@@ -206,12 +206,49 @@ class SpecialUpdateSource extends SpecialAddSource {
 	}
 
 	/**
+	 * The access section is OPT-IN on update (users seldom change access
+	 * facts): an "I will update the resource access instructions" checkbox
+	 * reveals the whole section, and an unchecked submit leaves the item's
+	 * access statements untouched (beforeCreate neutralizes the record
+	 * keys). The Add* flow keeps the section always visible — a new source
+	 * must declare its access fact at creation.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,mixed>
+	 */
+	protected function accessFieldSpec( array $record ): array {
+		$fields = parent::accessFieldSpec( $record );
+		$include = [
+			'accessInclude' => [
+				'type' => 'check',
+				'label-message' => 'embeddablecontent-update-source-access-include',
+				'default' => false,
+			],
+		];
+		$gate = [ '===', 'accessInclude', '' ];
+		foreach ( $fields as $name => $spec ) {
+			$fields[$name]['hide-if'] = isset( $spec['hide-if'] )
+				? [ 'OR', $gate, $spec['hide-if'] ]
+				: $gate;
+		}
+		return $include + $fields;
+	}
+
+	/**
 	 * Update-path validation: the Add* cross-field checks minus the
-	 * create-time access-upload requirement (see relaxedAccessField).
+	 * create-time access-upload requirement (see relaxedAccessField), plus
+	 * the collapsed-access neutralization (an unchecked accessInclude keeps
+	 * the item's access statements exactly as they are — nothing is
+	 * replaced, nothing is required).
 	 *
 	 * @param array<string,mixed> $record
 	 */
 	protected function beforeCreate( array &$record ): ?string {
+		if ( empty( $record['accessInclude'] ) ) {
+			foreach ( [ 'accessMode', 'accessUrl', 'downloadUrl', 'fileTitle', 'license' ] as $key ) {
+				$record[$key] = '';
+			}
+		}
 		$rawDuration = trim( (string)( $record['duration'] ?? '' ) );
 		if ( $rawDuration !== '' ) {
 			$seconds = Duration::parseSeconds( $rawDuration );

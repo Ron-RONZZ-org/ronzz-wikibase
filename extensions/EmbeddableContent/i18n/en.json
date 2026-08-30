@@ -16,6 +16,10 @@
 	"embeddablecontent-gadget-copied": "Copied to clipboard.",
 	"embeddablecontent-gadget-citation-style": "Citation format",
 	"embeddablecontent-add-label": "Label",
+	"embeddablecontent-add-label-default-quotation": "(quotation)",
+	"embeddablecontent-add-label-default-code": "(code snippet)",
+	"embeddablecontent-add-label-default-math": "(math snippet)",
+	"embeddablecontent-add-more": "Add more",
 	"embeddablecontent-add-payload": "Content",
 	"embeddablecontent-add-quotation-payload": "Quotation text",
 	"embeddablecontent-add-language": "Language",
@@ -339,5 +343,8 @@
 	"embeddablecontent-manual-legend-fetched": "Item details",
 	"embeddablecontent-update-person-portrait-include": "I will upload a new portrait image for this person (replacing existing)",
 	"embeddablecontent-update-software-logo-include": "I will upload a new logo image for this software (replacing existing)",
-	"embeddablecontent-update-collective-logo-include": "I will upload a new logo image for this collective (replacing existing)"
+	"embeddablecontent-update-collective-logo-include": "I will upload a new logo image for this collective (replacing existing)",
+	"embeddablecontent-update-source-access-include": "I will update the resource access instructions",
+	"embeddablecontent-page-title-warning": "The item was created, but a classic page could not be created: the label cannot be used as a page title (it is empty or contains characters MediaWiki forbids in titles, e.g. # &lt; &gt; [ ] { } |).",
+	"embeddablecontent-page-title-warning-goto": "Go to the created item"
 }

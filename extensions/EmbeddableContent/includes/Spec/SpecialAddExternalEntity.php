@@ -59,6 +59,15 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	/** @var ProviderClient */
 	protected $client;
 
+	/**
+	 * Set by afterCreate() when the kind declares a classic page but the
+	 * label is unusable as a page title; createItemAndRedirect renders it
+	 * (with a link to the created item) instead of a silent redirect.
+	 *
+	 * @var string|null rendered warning HTML, or null
+	 */
+	private ?string $pageTitleWarning = null;
+
 	public function __construct(
 		string $pageName,
 		EmbeddableContentConfig $config,
@@ -533,9 +542,23 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		$target = $this->afterCreate( $itemId, $record );
 		if ( $target !== null ) {
 			$this->getOutput()->redirect( $target );
-		} else {
-			$this->redirectToItem( $itemId );
+			return true;
 		}
+		if ( $this->pageTitleWarning !== null ) {
+			// The class declares a classic page but it could not be created
+			// (unusable page title). The item EXISTS — never lose it behind
+			// a silent redirect: show the notice + a link to the item.
+			$this->getOutput()->addHTML(
+				\MediaWiki\Html\Html::warningBox( $this->pageTitleWarning )
+				. '<p><a class="mw-embeddable-content-item-link" href="'
+				. htmlspecialchars(
+					WikibaseRepo::getEntityTitleStoreLookup()->getTitleForId( new ItemId( $itemId ) )->getFullURL()
+				)
+				. '">' . $this->msg( 'embeddablecontent-page-title-warning-goto' )->escaped() . '</a></p>'
+			);
+			return true;
+		}
+		$this->redirectToItem( $itemId );
 		return true;
 	}
 
@@ -899,7 +922,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		if ( $ns === null ) {
 			return null;
 		}
-		$label = trim( $this->primaryLabel( $record ) );
+		$label = trim( LabelSanitizer::stripMarkup( $this->primaryLabel( $record ) ) );
 		if ( $label === '' ) {
 			return null;
 		}
@@ -960,6 +983,16 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	protected function afterCreate( string $itemId, array $record ): ?string {
 		$title = $this->pageTitleForRecord( $record );
 		if ( $title === null ) {
+			// The kind creates a classic page (pageNamespace() + a non-empty
+			// pageTemplate() — the no-page kinds like bookExcerpt leave the
+			// template empty) but the label is unusable as a page title
+			// (empty, or containing title-forbidden characters after
+			// LabelSanitizer stripping). NEVER skip silently:
+			// createItemAndRedirect renders the warning + a link to the
+			// created item instead of redirecting.
+			if ( $this->pageNamespace() !== null && $this->pageTemplate() !== '' ) {
+				$this->pageTitleWarning = $this->msg( 'embeddablecontent-page-title-warning' )->parse();
+			}
 			return null;
 		}
 		$label = $this->primaryLabel( $record );
@@ -976,42 +1009,12 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// Guard: on create-or-skip reuse the item may already carry the link
 		// — never rewrite existing sitelink state.
 		$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
-		if ( $item instanceof Item && !$item->getSiteLinkList()->hasLinkWithSiteId( 'wikibase' ) ) {
-			$item->getSiteLinkList()->setNewSiteLink( 'wikibase', $title->getPrefixedText() );
-			WikibaseRepo::getEntityStore()->saveEntity(
-				$item,
-				$this->pageSitelinkSummary( $label ),
-				$this->getUser(),
-				EDIT_UPDATE
-			);
-			// ALSO write the sitelink table synchronously: the entity save's
-			// secondary data update (ItemHandler::saveLinksOfItem) may run
-			// deferred, and the finalize step's parse — which happens in the
-			// immediately-following request — reads the TABLE. Diff-based, so
-			// re-running it here is a harmless no-op when it already landed.
-			WikibaseRepo::getStore()->newSiteLinkStore()->saveLinksOfItem( $item );
+		if ( $item instanceof Item ) {
+			$this->linkPageToItem( $item, $title, $label );
 		}
 
 		if ( !$title->exists() ) {
-			$page = \MediaWiki\MediaWikiServices::getInstance()
-				->getWikiPageFactory()->newFromTitle( $title );
-			// Revision 1 carries a marker: this request's parse runs before
-			// the sitelink is durably visible AND the client's in-process
-			// sitelink cache would return the cached negative for it — so it
-			// cannot set the wikibase_item property. The redirect target
-			// below routes through the complete/<id> step, which re-saves the
-			// page in a FRESH request (committed sitelink, empty cache) and
-			// removes the marker.
-			$content = new \MediaWiki\Content\WikitextContent(
-				$this->pageSkeleton( $record, true )
-			);
-			$status = $page->doUserEditContent(
-				$content,
-				$this->getUser(),
-				$this->pageEditSummary( $label ),
-				EDIT_NEW
-			);
-			if ( !$status->isOK() ) {
+			if ( !$this->createClassicPage( $title, $record, $label ) ) {
 				// Page creation failed (e.g. protected namespace): the item
 				// still exists — surface the item instead of erroring.
 				return null;
@@ -1020,6 +1023,56 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		}
 
 		return $title->getFullURL();
+	}
+
+	/**
+	 * Sitelinks an item to its classic page (entity revision + the sitelink
+	 * table), unless the item already carries a wikibase site link (never
+	 * rewrite existing sitelink state — create-or-skip reuse path).
+	 */
+	protected function linkPageToItem( Item $item, Title $title, string $label ): void {
+		if ( $item->getSiteLinkList()->hasLinkWithSiteId( 'wikibase' ) ) {
+			return;
+		}
+		$item->getSiteLinkList()->setNewSiteLink( 'wikibase', $title->getPrefixedText() );
+		WikibaseRepo::getEntityStore()->saveEntity(
+			$item,
+			$this->pageSitelinkSummary( $label ),
+			$this->getUser(),
+			EDIT_UPDATE
+		);
+		// ALSO write the sitelink table synchronously: the entity save's
+		// secondary data update (ItemHandler::saveLinksOfItem) may run
+		// deferred, and the finalize step's parse — which happens in the
+		// immediately-following request — reads the TABLE. Diff-based, so
+		// re-running it here is a harmless no-op when it already landed.
+		WikibaseRepo::getStore()->newSiteLinkStore()->saveLinksOfItem( $item );
+	}
+
+	/**
+	 * Creates the classic page for a created/updated item. Revision 1
+	 * carries the pending marker: this request's parse runs before the
+	 * sitelink is durably visible AND the client's in-process sitelink
+	 * cache would return the cached negative for it — so it cannot set the
+	 * wikibase_item property. The caller routes through the complete/<id>
+	 * step, which re-saves the page in a FRESH request (committed sitelink,
+	 * empty cache) and removes the marker.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function createClassicPage( Title $title, array $record, string $label ): bool {
+		$page = \MediaWiki\MediaWikiServices::getInstance()
+			->getWikiPageFactory()->newFromTitle( $title );
+		$content = new \MediaWiki\Content\WikitextContent(
+			$this->pageSkeleton( $record, true )
+		);
+		$status = $page->doUserEditContent(
+			$content,
+			$this->getUser(),
+			$this->pageEditSummary( $label ),
+			EDIT_NEW
+		);
+		return $status->isOK();
 	}
 
 	/**
