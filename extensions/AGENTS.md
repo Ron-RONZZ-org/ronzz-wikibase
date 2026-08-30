@@ -402,7 +402,19 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   combobox with the confirmation banner, or stores the "No record found for
   {root} — add the website first" hint (the site is real, our record isn't);
   `parentFieldSpec` renders banner/hint, `part of` + `validateParent`
-  unchanged. (c) **Source-label class disambiguation** — the review/manual
+  unchanged. **(follow-up: normalized-host auto-assign)** — the root URL's
+  normalized host is matched FIRST against website items' URL statements via
+  one WDQS query (`sparqlUrl` config key, seed-emitted with
+  `--config-sparql-url` for the dev/CI container; entity prefix derived from
+  `$wgServer . '/entity/'` like Wikibase's default `entitySources`); an exact
+  host match **auto-assigns the parent silently** (no [Yes/No] banner — the
+  combobox stays editable, `part of` + `validateParent` unchanged). The
+  site-name inference above remains the fallback when WDQS is unavailable or
+  stale (a website created minutes ago). `SiteRootMatcher` (pure, unit-tested)
+  normalizes hosts (lowercase, trailing dot, `www.` collapse) and matches
+  SPARQL rows; the whole host-match path is exception-safe — any failure
+  degrades, never 500s the URL-entry flow. (c) **Source-label class
+  disambiguation** — the review/manual
   title default AND `primaryLabel()` carry ` ({English class label})`
   ("The Hobbit (Book)", "Example Domain (Website)") — idempotent
   (case-insensitive ends-with), English because labels are `en` terms;
