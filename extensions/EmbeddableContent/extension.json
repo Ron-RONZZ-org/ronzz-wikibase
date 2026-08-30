@@ -146,6 +146,18 @@
 			"services": [
 				"EmbeddableContent.Config"
 			]
+		},
+		"addspecialcontent": {
+			"class": "EmbeddableContent\\Api\\ApiAddSpecialContent",
+			"services": [
+				"EmbeddableContent.SpecialContentFlowService"
+			]
+		},
+		"addspecialcontent-fields": {
+			"class": "EmbeddableContent\\Api\\ApiSpecialContentFields",
+			"services": [
+				"EmbeddableContent.Config"
+			]
 		}
 	},
 	"HookHandlers": {

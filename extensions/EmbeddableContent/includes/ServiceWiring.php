@@ -87,4 +87,11 @@ return [
 	'EmbeddableContent.ClassicPageCreator' => static function ( MediaWikiServices $services ): \EmbeddableContent\Flow\ClassicPageCreator {
 		return new \EmbeddableContent\Flow\ClassicPageCreator();
 	},
+
+	'EmbeddableContent.SpecialContentFlowService' => static function ( MediaWikiServices $services ): \EmbeddableContent\Flow\SpecialContentFlowService {
+		return new \EmbeddableContent\Flow\SpecialContentFlowService(
+			$services->get( 'EmbeddableContent.Config' ),
+			static fn ( string $key, array $params ) => wfMessage( $key, ...$params )->inLanguage( 'en' )->text()
+		);
+	},
 ];

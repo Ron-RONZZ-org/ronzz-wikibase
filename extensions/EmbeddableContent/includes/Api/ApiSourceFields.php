@@ -33,6 +33,7 @@ class ApiSourceFields extends ApiBase {
 			$classes[] = [
 				'classKey' => $classKey,
 				'label' => $this->classLabel( $classKey ),
+				'classItemId' => $this->config->sourceClasses()[SourceFieldMap::formKey( $classKey )] ?? null,
 				'parentClass' => SourceFieldMap::PARENT_CLASS[$classKey] ?? null,
 				'fields' => SourceFieldMap::fieldsForClass( $classKey ),
 				'requiredOnCreate' => SourceFieldMap::requiredOnCreate( $classKey ),

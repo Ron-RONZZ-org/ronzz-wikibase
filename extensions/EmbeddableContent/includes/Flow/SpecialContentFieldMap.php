@@ -17,6 +17,14 @@ final class SpecialContentFieldMap {
 
 	public const KINDS = [ 'quotation', 'math', 'code-snippet' ];
 
+	/** The API kind as the config / Special:Add* flow spells it. */
+	private const FORM_KEYS = [ 'code-snippet' => 'code' ];
+
+	/** The config kind key for an API kind (identity for the plain ones). */
+	public static function formKey( string $kind ): string {
+		return self::FORM_KEYS[$kind] ?? $kind;
+	}
+
 	public const ALL_FIELDS = [
 		'label',
 		'content',
