@@ -167,12 +167,34 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
 | Aspect | Convention |
 |--------|-----------|
 | Framework | PHPUnit 10 (pure-PHP, no MediaWiki runtime) + Python `unittest` for seed tooling |
-| Run all unit tests | `docker run --rm -v "$PWD":/app -w /app ronzz-wikibase-test vendor/bin/phpunit` (after `docker build -f Dockerfile.test -t ronzz-wikibase-test .`) |
+| Run all unit tests | `docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD":/app -w /app ronzz-wikibase-test vendor/bin/phpunit` (after `docker build -f Dockerfile.test -t ronzz-wikibase-test .`) |
 | Seed unit tests | `python3 -m unittest discover -s seed/tests` |
 | Seed dry-run (offline plan) | `python3 -m seed.seed_instance --dry-run` |
 | E2E acceptance + XSS | `python3 tests/e2e/run_e2e.py check ...` / `python3 tests/e2e/run_e2e.py xss ...` (see `dev/README.md` for full flags) |
 | Page-flow E2E (issue #7) | `python3 tests/e2e/run_pages_e2e.py --base-url ... --user SeedBot --password-file seed/.seedbot.pass` (self-cleaning) |
 | CI | `gh workflow list` → `unit` job (fast) and `integration` job (full stack, 16 GB runners) |
+
+**The local docker runs MUST use `--user "$(id -u):$(id -g)"` (and
+`-e HOME=/tmp`).** The `composer:2`-based test image runs as root by default,
+so a bare `docker run -v "$PWD":/app` creates root-owned `vendor/` and
+`.phpunit.cache/` in the bind-mounted checkout. In a git worktree that makes
+the eventual `worktree remove` fail on permissions (deregister-then-delete
+half-state — see the 2026-08-30 worktree-orphan incident) and in the main
+checkout it piles up root files that need `sudo` to clean. `--user` maps the
+container to your uid, so every written file is yours. The image already sets
+`COMPOSER_HOME=/tmp` (composer works as non-root without a writable `$HOME`);
+`-e HOME=/tmp` is cheap insurance for any tool that pokes `~` (git global
+config). With `--user`, git's `safe.directory` ownership check also passes
+naturally — the CI `GIT_CONFIG_COUNT` workaround is for its root invocation
+only. CI stays root: an ephemeral runner pollutes nothing on your host.
+
+**`composer.lock` is gitignored** (library convention — `.gitignore:4`), so
+the on-disk lock can go stale relative to `composer.json` and `composer install`
+fails with `exit 4: package X is not present in the lock file` (hit
+2026-08-30: `data-values/number` added to `require-dev` without regenerating
+the root-owned lock). Fix: `composer update` as your user (removes the stale
+lock first if it is root-owned). CI is unaffected — the checkout has no lock,
+composer resolves fresh from `composer.json`.
 
 **Production page-flow E2E runs use the main `SeedBot` account, never the
 `SeedBot@MCP` bot password.** A bot-password session is API-only by MW

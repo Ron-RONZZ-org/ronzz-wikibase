@@ -26,7 +26,7 @@ wire the wiki into the LLM writing studio, or keep the wiki content conformant.
   the public endpoints (Wikidata hub + dblp, OpenAlex, Crossref, Open
   Library, ORCID). The unit suite stays mocked; this is the end-to-end proof.
   Run from the repo root in the test image:
-  `docker run --rm -v "$PWD":/app -w /app ronzz-wikibase-test php tools/fetch-smoke.php`.
+  `docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD":/app -w /app ronzz-wikibase-test php tools/fetch-smoke.php`.
   Makes a handful of polite requests (one run, then stop).
 - **`tools/owui-writer/`** — deploy kit for the Open WebUI wiki writer: runs the
   ProfessionalWiki mediawiki-mcp-server as a compose sibling (`mediawiki-mcp-writer`,

@@ -114,9 +114,17 @@ The v1 plan lives in
 
 ```bash
 docker build -f Dockerfile.test -t ronzz-wikibase-test .
-docker run --rm -v "$PWD":/app -w /app ronzz-wikibase-test vendor/bin/phpunit
+docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD":/app -w /app ronzz-wikibase-test vendor/bin/phpunit
 python3 -m unittest discover -s seed/tests
 ```
+
+> The test image runs as root by default; `--user "$(id -u):$(id -g)"` keeps
+> the bind-mounted `vendor/` and `.phpunit.cache/` owned by you (root-owned
+> files there break `git worktree remove` later — see the root `AGENTS.md`
+> Testing section). `-e HOME=/tmp` is insurance; the image already sets
+> `COMPOSER_HOME=/tmp` for composer. If a fresh `composer install` exits 4
+> ("package not present in the lock file"), the gitignored `composer.lock`
+> went stale — run `composer update` instead.
 
 ### CI (recommended for the integration layer)
 
