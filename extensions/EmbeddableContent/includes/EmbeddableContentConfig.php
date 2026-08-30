@@ -308,7 +308,8 @@ class EmbeddableContentConfig {
 		return $this->requireStringMap( 'agentClasses', [
 			'person', 'organization', 'groupOfHumans',
 			'privateCompany', 'publicCompany', 'nonProfitOrganization',
-			'governmentalAgency', 'musicBand', 'educationalInstitution',
+			'governmentalAgency', 'intergovernmentalOrganization',
+			'musicBand', 'educationalInstitution',
 			'researchInstitute', 'politicalParty', 'tradeUnion',
 			'religiousOrganization', 'sportsTeam',
 		] );

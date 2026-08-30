@@ -353,6 +353,41 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   to **Url** on a fresh load (`onUploadFormSourceDescriptors` flips the
   checked flag when no `wpSourceType` is posted).
 
+- **Semantic-first image facts + Add\* upload fixes (image-facts-semantics
+  batch, issue report)**: the logo/portrait **license, author and
+  additional-license-info now attach to the FILE, never to the entity using
+  the image**. A NEW Add\* upload (file/url mode) creates the sitelinked
+  `image`-class item via `ImageItemCreator` (the Special:Upload
+  item-per-upload service — `handleUpload` gained a `$config` parameter)
+  holding those facts + the file description page text carries the
+  `== License ==` (`[[Q42|label]]`, never a `{{Q42}}` call) and
+  `== Attribution ==` blocks (`pageText()`, mirroring `UploadHooks`); the
+  consumer `statementSpecs` (AddCollective/AddPerson/AddSoftware) write ONLY
+  the `image` statement. **Reuse-existing mode** (mode=existing) hides the
+  license/author/license-info fields (their hide-if gained
+  `Mode !== existing`) and needs no license — the reused file already
+  carries its facts; the consumer still gets just the `image` statement.
+  Destination file names are **whitespace→dash normalized**
+  (`destName()`/`accessDestName()`: `\s+` → `-`, so "European Space Agency"
+  uploads as `File:European-Space-Agency-logo.png`), matching the
+  Special:Upload `normalizeDestName` convention. The Add\* uploads' file
+  page now records the pasted URL as the Source when the browser-blob path
+  carried none. `Special:AddSource`'s **access file survives the content
+  review step**: `validateAccessField` re-runs `beforeCreate` on
+  `/review/<i>/content` without the browser file — a stored `fileTitle`
+  (uploaded at the record-review step) is kept instead of erroring
+  ("Select a file to upload." regression), on the review AND manual paths.
+  The upload validate **probe reads dimensions per format**
+  (`UploadMetadataFetcher::readImageDimensions`): `getimagesize()` first,
+  then SVG width/height/viewBox (PHP has no SVG support — the reported
+  "could not read the image dimensions (the probe is capped at 131072
+  bytes)" logo-URL warning), JPEG SOF-marker scan (a huge EXIF APP1 pushes
+  SOF past the cap), PNG IHDR / GIF / BMP / WebP header parses on the capped
+  body; the warning names the cap only when the transfer was truncated.
+  New **`intergovernmental organization`** agent class
+  (`classes.csv` Q245398 + `AGENT_CLASS_KINDS` + `agentClasses()` keys) on
+  `Special:AddCollective` (UN/WHO-type collectives).
+
 - **Statement-driven infobox image cell (`{{#item-image:}}`, ADR
   `docs/decisions/infobox-image-from-statement.md`)**: the classic-page
   logo/portrait is now rendered from the item's `image` statement, not only

@@ -133,6 +133,7 @@ AGENT_CLASS_KINDS = {
     "public company": "publicCompany",
     "non-profit organization": "nonProfitOrganization",
     "governmental agency": "governmentalAgency",
+    "intergovernmental organization": "intergovernmentalOrganization",
     "music band": "musicBand",
     "educational institution": "educationalInstitution",
     "research institute": "researchInstitute",

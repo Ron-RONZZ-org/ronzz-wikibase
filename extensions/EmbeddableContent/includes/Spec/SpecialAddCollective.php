@@ -152,10 +152,11 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 	 * Uploads the optional logo (local file or pasted URL, per the logoMode
 	 * toggle, behind the logoInclude toggle) as File:<label>-logo.<ext> and
 	 * records the file title in $record['logoFileTitle'] for the image
-	 * statement. The logo license is mandatory when a logo IS provided (the
-	 * AddPerson portrait contract); a provided logo that cannot be honoured
-	 * aborts the creation (never silent). Delegates to the shared
-	 * ImageUploadHelper.
+	 * statement. The logo license is mandatory when a NEW logo is uploaded
+	 * (it is recorded on the file's own image item + file page — see
+	 * ImageUploadHelper); reusing an existing file needs no license. A
+	 * provided logo that cannot be honoured aborts the creation (never
+	 * silent). Delegates to the shared ImageUploadHelper.
 	 *
 	 * @param array<string,mixed> $record
 	 * @return string|null error message, or null to proceed
@@ -171,15 +172,18 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 				'licenseRequired' => 'embeddablecontent-collective-logo-license-required',
 				'editSummary' => 'embeddablecontent-collective-logo-edit-summary',
 			],
-			fn ( array $record ) => $this->primaryLabel( $record )
+			fn ( array $record ) => $this->primaryLabel( $record ),
+			$this->config
 		);
 	}
 
 
 	/**
 	 * Collective statements: the base authority/citation facts plus the
-	 * optional parent organization entity link and the logo (uploaded
-	 * File: URL on `image` + its license entity).
+	 * optional parent organization entity link and the logo — ONLY the
+	 * `image` statement references the file; the license/author/license-info
+	 * live on the file's own image item + File: page (semantic-first model,
+	 * ImageUploadHelper), never on the consumer entity.
 	 *
 	 * @param array<string,mixed> $record
 	 * @return array<string,\Wikibase\DataModel\DataValue|\Wikibase\DataModel\DataValue[]>
@@ -204,17 +208,6 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 			$fileTitle = \MediaWiki\Title\Title::makeTitle( NS_FILE, (string)$record['logoFileTitle'] );
 			if ( $fileTitle !== null ) {
 				$specs[$props['image']] = new \DataValues\StringValue( $fileTitle->getFullURL() );
-			}
-		}
-		if ( !empty( $record['logoLicense'] ) && isset( $props['license'] ) ) {
-			$licenseItem = $this->parseItemId( (string)$record['logoLicense'] );
-			if ( $licenseItem !== null ) {
-				$specs[$props['license']] = new \Wikibase\DataModel\Entity\EntityIdValue( $licenseItem );
-			}
-		}
-		foreach ( [ 'imageAuthor' => 'logoAuthor', 'imageLicenseInfo' => 'logoLicenseInfo' ] as $propKey => $field ) {
-			if ( !empty( $record[$field] ) && isset( $props[$propKey] ) ) {
-				$specs[$props[$propKey]] = new \DataValues\StringValue( (string)$record[$field] );
 			}
 		}
 		return $specs;
