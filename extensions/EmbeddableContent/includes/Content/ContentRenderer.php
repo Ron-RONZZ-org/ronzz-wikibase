@@ -227,9 +227,9 @@ class ContentRenderer {
 			}
 			$value = $this->unwrapEntityValue( $snak->getDataValue() );
 			if ( $value instanceof \DataValues\MonolingualTextValue ) {
-				$result[$value->getLanguageCode()] = $value->getText();
+				$result[$value->getLanguageCode()] = PayloadCodec::decode( $value->getText() );
 			} elseif ( $value instanceof \DataValues\StringValue ) {
-				$result[''] = $value->getValue();
+				$result[''] = PayloadCodec::decode( $value->getValue() );
 			}
 		}
 		return $result;

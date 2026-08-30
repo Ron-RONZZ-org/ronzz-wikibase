@@ -2749,6 +2749,25 @@ def main() -> int:
         print(f"[ok] Special:AddMath -> {math_item}: math class + describes statement, "
               f"payload delimiter-stripped")
 
+        # 5b. Multi-line payloads (issue #6 §8 option A: escape-at-rest,
+        #     decode-at-render): a payload with real newlines stores
+        #     backslash-escaped (the wiki's string values reject vertical
+        #     whitespace) and renders decoded through the embed API.
+        math_ml_label = f"Page-flow E2E multiline math {int(time.time())}"
+        math_ml = track(flow_math(op, base, api, math_ml_label,
+                                  "a^2 + b^2 = c^2\n(by Pythagoras)", person))
+        claims, _ = entity_claims(op, api, math_ml)
+        stored = first_value(claims, latex_prop)
+        assert "\n" not in stored and "\\n" in stored, \
+            f"{math_ml} multi-line payload not escaped at rest ({stored!r})"
+        embed = api_call(op, api, {
+            "action": "embed", "entity": math_ml, "output": "html", "format": "json",
+        })
+        rendered = (embed.get("embed") or {}).get("html") or ""
+        assert "a^2 + b^2 = c^2\n(by Pythagoras)" in rendered and "\\n" not in rendered, \
+            f"{math_ml} embed did not decode the stored payload ({rendered!r})"
+        print(f"[ok] Special:AddMath multiline -> {math_ml}: stored escaped, rendered decoded")
+
         # 6. Cite-by-QID (issue #24 v1 + #25 v2): {{#cite}} inside <ref>,
         #    {{#citations:}} accumulated + explicit, embed auto-collect.
         #    The dogfood book must be a source-class item with harvested
