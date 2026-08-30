@@ -2956,7 +2956,7 @@ def main() -> int:
                 _, body = page_get(op, base, "/wiki/" + urllib.parse.quote(content_page.replace(" ", "_")))
             except urllib.error.HTTPError as exc:
                 raise FlowError(
-                    f"content-decoder page render failed: {exc.read()[:2000]!r}"
+                    f"content-decoder page render failed: {exc.read()[:8000]!r}"
                 ) from exc
             if 'wb-embed-math' not in body:
                 raise FlowError("{{#content:}} did not render the math fragment (wb-embed-math)")
