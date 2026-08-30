@@ -1855,6 +1855,74 @@ def flow_addsource_api(op, base: str, api: str, website_parent: str, author: str
     return qid, page_title
 
 
+def flow_addspecialcontent_api(op, api: str, person: str, instance_of: str,
+                               quotation_class: str, content_prop: str) -> str:
+    """action=addspecialcontent: create a quotation, assert the response and
+    the written statements, then update via qid (no-clobber). Returns the qid."""
+    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = csrf["query"]["tokens"]["csrftoken"]
+    stamp = int(time.time())
+    text1 = f"First words {stamp}"
+    text2 = f"Revised words {stamp}"
+
+    r = api_call(op, api, {
+        "action": "addspecialcontent", "kind": "quotation",
+        "label": f"Quotation {stamp}", "content": text1,
+        "attributedTo": person, "language": "en",
+        "token": token, "format": "json",
+    }, post=True)
+    if "content" not in r or not r["content"].get("created"):
+        raise FlowError(f"action=addspecialcontent create failed: {r}")
+    qid = r["content"]["entityId"]
+    claims, _ = entity_claims(op, api, qid)
+    assert first_value(claims, instance_of) == quotation_class, \
+        f"API quotation {qid} instance-of != quotation class ({first_value(claims, instance_of)})"
+    assert first_value(claims, content_prop), f"API quotation {qid} missing the payload"
+    print(f"[ok] action=addspecialcontent -> {qid}: quotation classified + payload")
+
+    r2 = api_call(op, api, {
+        "action": "addspecialcontent", "kind": "quotation", "qid": qid,
+        "content": text2, "token": token, "format": "json",
+    }, post=True)
+    if "content" not in r2 or not r2["content"].get("updated"):
+        raise FlowError(f"action=addspecialcontent update failed: {r2}")
+    claims2, _ = entity_claims(op, api, qid)
+    payload = first_value(claims2, content_prop)
+    assert payload is not None and text2 in str(payload), \
+        f"update did not replace the payload ({payload})"
+    assert first_value(claims2, resolve("attributed to", "property")) == person, \
+        "update clobbered the attribution (no-clobber violated)"
+    print(f"[ok] action=addspecialcontent (qid update) -> {qid}: payload replaced, attribution kept")
+    return qid
+
+
+def flow_addsemanticentity_api(op, api: str, instance_of: str, person_class: str) -> tuple[str, str]:
+    """action=addsemanticentity: create a person (derived label), assert the
+    response, the instance-of and the classic Person: page title, then update
+    via qid. Returns (qid, page_title)."""
+    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = csrf["query"]["tokens"]["csrftoken"]
+    stamp = int(time.time())
+
+    r = api_call(op, api, {
+        "action": "addsemanticentity", "kind": "person",
+        "givenName": f"E2E{stamp}", "familyName": "Tester",
+        "dateOfBirth": "2000-01-01",
+        "token": token, "format": "json",
+    }, post=True)
+    if "semantic" not in r or not r["semantic"].get("created"):
+        raise FlowError(f"action=addsemanticentity create failed: {r}")
+    qid = r["semantic"]["entityId"]
+    page_title = r["semantic"].get("pageTitle")
+    if page_title is None:
+        raise FlowError(f"action=addsemanticentity returned no Person: page for {qid}: {r}")
+    claims, _ = entity_claims(op, api, qid)
+    assert first_value(claims, instance_of) == person_class, \
+        f"API person {qid} instance-of != person ({first_value(claims, instance_of)})"
+    print(f"[ok] action=addsemanticentity -> {qid} ({page_title}): person + classic page")
+    return qid, page_title
+
+
 def flow_sitelink_tab(op, base: str, api: str, linked_page: str, linked_qid: str) -> None:
     """Sitelink tab rendering (issue follow-up): red (needs-set) on an
     unlinked content page, blue (is-set) on a sitelinked page."""
@@ -2619,6 +2687,19 @@ def main() -> int:
         track(api_page)
         if api_page_title not in created_pages:
             created_pages.append(api_page_title)
+
+        # 2c3. action=addspecialcontent API module: quotation create + update.
+        api_quote = track(flow_addspecialcontent_api(
+            op, api, person, instance_of, quotation_class,
+            resolve("content text", "property")))
+
+        # 2c4. action=addsemanticentity API module: person create (derived
+        #      label, classic Person: page) + update.
+        api_person, api_person_page = flow_addsemanticentity_api(
+            op, api, instance_of, person_class)
+        track(api_person)
+        if api_person_page not in created_pages:
+            created_pages.append(api_person_page)
 
         # 2d. Child class: bookExcerpt requires an existing book parent,
         #     auto-links it with a `part of` statement. Blank description /
