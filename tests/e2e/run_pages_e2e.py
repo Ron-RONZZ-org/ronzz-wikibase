@@ -2952,12 +2952,15 @@ def main() -> int:
         if r.get("edit", {}).get("result") != "Success":
             raise FlowError(f"content-decoder scratch page creation failed: {r!r}")
         try:
-            try:
-                _, body = page_get(op, base, "/wiki/" + urllib.parse.quote(content_page.replace(" ", "_")))
-            except urllib.error.HTTPError as exc:
+            parsed = api_call(op, api, {
+                "action": "parse", "page": content_page, "format": "json",
+                "formatversion": "2",
+            })
+            if "error" in parsed:
                 raise FlowError(
-                    f"content-decoder page render failed: {exc.read()[:8000]!r}"
-                ) from exc
+                    f"content-decoder page render failed: {parsed['error']!r}"
+                )
+            body = parsed["parse"]["text"]
             if 'wb-embed-math' not in body:
                 raise FlowError("{{#content:}} did not render the math fragment (wb-embed-math)")
             if "a^2 + b^2 = c^2\n(by Pythagoras)" not in body:
