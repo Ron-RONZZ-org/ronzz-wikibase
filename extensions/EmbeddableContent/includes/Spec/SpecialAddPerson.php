@@ -352,7 +352,7 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 			}
 			$osmId = trim( (string)$record[$field] );
 			if ( \EmbeddableContent\Spec\OsmPlace::isValidId( $osmId ) ) {
-				$specs[$props[$field]] = new StringValue( $osmId );
+				$specs[$props[$field]] = new \DataValues\StringValue( $osmId );
 			}
 		}
 		// Official website: optional validated URL statement (the shared
