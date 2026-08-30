@@ -201,7 +201,9 @@ def backfill(args) -> int:
         missing = False
         for p in page.get("query", {}).get("pages", {}).values():
             page_props = p.get("pageprops", {})
-            missing = bool(p.get("missing"))
+            # MW 1.46 marks a missing page with "missing":"" — presence of the
+            # key, not truthiness, is the signal.
+            missing = "missing" in p
         if missing:
             # The File: page was deleted after WDQS indexed it (eventual
             # consistency) — nothing to backfill.
@@ -305,33 +307,38 @@ def backfill(args) -> int:
                              "datavalue": {"value": source_url, "type": "string"}},
                 "type": "statement", "rank": "normal",
             }]
-        item_id = api.create_item(
-            {language: label},
-            {language: f"An image file uploaded to the instance ({file_title})"},
-            summary,
-        )
-        api.add_claims(item_id, claims, summary)
-        # Sitelink the File: page ↔ image item (the Add* pattern).
-        result = api._post(
-            "action=wbsetsitelink", token=api.require_csrf(),
-            id=item_id, linksite="wikibase", linktitle=file_title, summary=summary,
-        )
-        if "success" not in result:
-            raise WikibaseApiError(f"wbsetsitelink failed for {item_id}: {result}")
-        # File page attribution (idempotent).
-        license_display = license_label(api, license_id, language) if license_id else ""
-        new_text = build_attribution(page_text, license_display, author, license_info, source_url)
-        if new_text != page_text:
-            api.edit_page(file_title, new_text, summary)
-        print(f"    created image item {item_id} + sitelink + attribution")
-        done += 1
+        try:
+            item_id = api.create_item(
+                {language: label},
+                {language: f"An image file uploaded to the instance ({file_title})"},
+                summary,
+            )
+            api.add_claims(item_id, claims, summary)
+            # Sitelink the File: page ↔ image item (the Add* pattern).
+            result = api._post(
+                "action=wbsetsitelink", token=api.require_csrf(),
+                id=item_id, linksite="wikibase", linktitle=file_title, summary=summary,
+            )
+            if "success" not in result:
+                raise WikibaseApiError(f"wbsetsitelink failed for {item_id}: {result}")
+            # File page attribution (idempotent).
+            license_display = license_label(api, license_id, language) if license_id else ""
+            new_text = build_attribution(page_text, license_display, author, license_info, source_url)
+            if new_text != page_text:
+                api.edit_page(file_title, new_text, summary)
+            print(f"    created image item {item_id} + sitelink + attribution")
+            done += 1
+        except WikibaseApiError as exc:
+            # A single file must not halt the migration (stale references,
+            # mid-run changes): report and continue — re-running retries it.
+            print(f"    {file_title}: error: {exc} — skip (re-run to retry)")
+            continue
 
     print(f"\nbackfill complete: {done} image items created, {skipped} files already have one"
           + (" (dry-run — nothing written)" if args.dry_run else ""))
     if args.dry_run:
         print("re-run with --apply to write")
     return 0
-
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
