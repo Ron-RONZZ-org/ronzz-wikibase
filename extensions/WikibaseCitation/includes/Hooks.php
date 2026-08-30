@@ -67,17 +67,27 @@ class Hooks {
 	 * the ParserOutput. No-op when the page has no `{{#citations:}}` call.
 	 */
 	public static function onParserAfterTidy( Parser $parser, string &$text ): void {
+		$sourceIds = $parser->getOutput()->getExtensionData( CiteQ::EXT_DATA_KEY );
+		// appendExtensionData's UNION strategy stores values as a set
+		// (id => true) — array_keys restores the deduped citation order.
+		$sourceIds = is_array( $sourceIds ) ? array_keys( $sourceIds ) : [];
+
+		// Duplicate-footnote merge: Cite merges only name-attributed refs, so
+		// `<ref>{{#cite:Q985}}</ref>` used several times would otherwise
+		// render one footnote per use. Whenever the page cited entities (even
+		// without a {{#citations:}} collector — the classic page pattern), the
+		// rendered references list collapses identical footnotes into one
+		// with N backlinks (see ReferencesMerger).
+		if ( $sourceIds !== [] ) {
+			$text = ReferencesMerger::mergeDuplicateFootnotes( $text );
+		}
+
 		if ( strpos( $text, Citations::PLACEHOLDER ) === false ) {
 			return;
 		}
 		$services = MediaWikiServices::getInstance();
 		$engine = $services->get( 'WikibaseCitation.CitationEngine' );
 		$dependencies = $services->get( 'WikibaseCitation.CitationDependencies' );
-
-		$sourceIds = $parser->getOutput()->getExtensionData( CiteQ::EXT_DATA_KEY );
-		// appendExtensionData's UNION strategy stores values as a set
-		// (id => true) — array_keys restores the deduped citation order.
-		$sourceIds = is_array( $sourceIds ) ? array_keys( $sourceIds ) : [];
 
 		// v2 embed auto-collect: embedded entities join the bibliography
 		// through their source items; they also become cache dependencies.

@@ -1788,6 +1788,9 @@ Another ref to the same book.<ref name="book2">{{{{#cite:{book_qid}}}}}</ref>
 
 A multi-entity ref, book + quotation in one footnote.<ref>{{{{#cite:{book_qid}|{quote_qid}}}}}</ref>
 
+Duplicate unnamed refs to the same source (regression: must render ONE
+footnote with N backlinks, not one footnote per use).<ref>{{{{#cite:{book_qid}}}}}</ref><ref>{{{{#cite:{book_qid}}}}}</ref><ref>{{{{#cite:{book_qid}}}}}</ref>
+
 An embedded source item (v2 auto-collect): {base}/wiki/Special:Embed/{extra_source_qid}
 
 == References ==
@@ -1827,7 +1830,44 @@ Explicit bibliography (v2): {{{{#citations:{book_qid}|{quote_qid}}}}}
         if not any("10.1000/notes" in ref and "Lovelace" in ref for ref in refs):
             raise FlowError("multi-entity ref did not render both citations in one footnote")
 
-        # 3. Bibliographies: the accumulated {{#citations:}} (book + the
+        # 3. Duplicate-source merge (ReferencesMerger): the 3 duplicate
+        #    unnamed book refs must collapse into ONE footnote (stock Cite
+        #    never merges unnamed refs — one footnote per use). The
+        #    quotation ref merges into that group too when it renders the
+        #    same text (same source item); the multi-entity ref keeps its
+        #    own footnote (different text).
+        numeric_notes = re.findall(r'<li id="cite(?:_|&#95;)note-(\d+)"', body)
+        if len(numeric_notes) >= 5:
+            raise FlowError(
+                f"duplicate-source merge did not run: still {len(numeric_notes)} numeric "
+                f"footnotes for 5 unnamed refs: {numeric_notes}")
+        # Every in-text sup must still resolve to an existing footnote.
+        numeric_sups = re.findall(
+            r'<sup id="cite(?:_|&#95;)ref-(\d+)"[^>]*><a href="#cite(?:_|&#95;)note-(\d+)"', body)
+        for ref_id, note_id in numeric_sups:
+            if note_id not in numeric_notes:
+                raise FlowError(f"dangling sup cite_ref-{ref_id} -> cite_note-{note_id}")
+        if len(numeric_sups) != 5:
+            raise FlowError(
+                f"all in-text superscripts must survive the merge (backlink targets), "
+                f"got {len(numeric_sups)}")
+        # The surviving plain-book footnote (DOI present, multi-entity text
+        # absent) carries >= 3 backlinks (the 3 duplicate refs; +1 when the
+        # quotation ref rendered identical text).
+        for note_id in numeric_notes:
+            li_start = body.find(f'id="cite&#95;note-{note_id}"')
+            if li_start == -1:
+                li_start = body.find(f'id="cite_note-{note_id}"')
+            li_end = body.find("</li>", li_start)
+            li = body[li_start:li_end]
+            if "10.1000/notes" in li and "Analytical Engine" not in li:
+                if li.count('href="#cite_ref-') < 3:
+                    raise FlowError(
+                        f"merged plain-book footnote should carry >= 3 backlinks, got "
+                        f"{li.count('href=\"#cite_ref-')}: {li[:300]}")
+                break
+
+        # 4. Bibliographies: the accumulated {{#citations:}} (book + the
         #    embed-auto-collected article = 2 entries) and the explicit
         #    {{#citations:Qbook|Qquote}} (both resolve to the book = 1 entry).
         ols = re.findall(r'<ol class="wikibasecitation-sources">(.*?)</ol>', body, re.S)
