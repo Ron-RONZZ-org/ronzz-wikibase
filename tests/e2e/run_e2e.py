@@ -76,6 +76,27 @@ def check(args: argparse.Namespace) -> int:
         except CheckFailed as exc:
             failures.append(name)
             print(f"  [FAIL] {name}: {exc}")
+
+    def check_addsource_fields(api: str) -> None:
+        """The action=addsource-fields discovery endpoint — anonymous. The
+        regression the field maps exist for: every class must expose authors,
+        and the child classes must require parent."""
+        params = {"action": "addsource-fields", "format": "json", "formatversion": "2"}
+        status, body, _ = http_get(f"{api}?{urllib.parse.urlencode(params)}")
+        expect(status == 200, f"addsource-fields: HTTP {status}")
+        payload = json.loads(body.decode("utf-8", "replace"))
+        fields = payload.get("sourcefields", {})
+        expect("classes" in fields and "propertyIds" in fields,
+               f"addsource-fields: unexpected shape: {payload.get('error')!r}")
+        by_key = {c["classKey"]: c for c in fields["classes"]}
+        for class_key in ("book", "website", "webpage", "youtube-channel", "youtube-video"):
+            expect(class_key in by_key, f"addsource-fields: class {class_key} missing")
+            expect("authors" in by_key[class_key]["fields"],
+                   f"addsource-fields: {class_key} must expose authors (the drift regression)")
+        expect("parent" in by_key["webpage"]["requiredOnCreate"],
+               "addsource-fields: webpage must require a website parent")
+        expect("propertyIds" in fields and "instanceOf" in fields["propertyIds"],
+               "addsource-fields: missing property id map")
     def embed_html(entity: str, **extra) -> str:
         params = {"action": "embed", "entity": entity, "output": "html", "format": "json", **extra}
         status, body, _ = http_get(f"{api}?{urllib.parse.urlencode(params)}")
@@ -246,6 +267,7 @@ def check(args: argparse.Namespace) -> int:
     run("entity-creation pages registered + login-gated (issue #7)", check_entity_creation_pages)
     run("special pages listed on Special:SpecialPages + non-empty titles (issue #11)", check_specialpages_listing)
     run("Special:Embed error paths render 200 (issue #11)", check_embed_error_paths)
+    run("addsource-fields contract (webpage exposes authors — the drift regression)", lambda: check_addsource_fields(api))
 
     if args.allow_sparql_fail and "sparql instance-of check" in failures:
         print(

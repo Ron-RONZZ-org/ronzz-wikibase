@@ -1806,6 +1806,55 @@ def create_api_item(op, api: str, label: str) -> str:
     return r["entity"]["id"]
 
 
+def flow_addsource_api(op, base: str, api: str, website_parent: str, author: str,
+                       instance_of: str, url_prop: str, part_of_prop: str,
+                       webpage_class: str) -> tuple[str, str]:
+    """action=addsource (the entity-mode API module): create a webpage with
+    authors + a website parent via the API, assert the response and the
+    written statements, then update via qid with no-clobber semantics
+    (the part-of link must survive a url-only update). Returns
+    (webpage_qid, page_title)."""
+    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = csrf["query"]["tokens"]["csrftoken"]
+    stamp = int(time.time())
+    title = f"API-created page {stamp}"
+    url1 = f"https://example.org/api/{stamp}"
+    url2 = f"https://example.org/api/{stamp}-v2"
+
+    r = api_call(op, api, {
+        "action": "addsource", "class": "webpage", "title": title,
+        "authors": author, "url": url1, "parent": website_parent,
+        "token": token, "format": "json",
+    }, post=True)
+    if "source" not in r or not r["source"].get("created"):
+        raise FlowError(f"action=addsource create failed: {r}")
+    qid = r["source"]["entityId"]
+    page_title = r["source"].get("pageTitle")
+    if page_title is None:
+        raise FlowError(f"action=addsource create returned no pageTitle for {qid}: {r}")
+    claims, label = entity_claims(op, api, qid)
+    assert first_value(claims, instance_of) == webpage_class, \
+        f"API-created {qid} instance-of != web page ({first_value(claims, instance_of)})"
+    assert first_value(claims, part_of_prop) == website_parent, \
+        f"API-created {qid} missing part-of link to the website"
+    assert first_value(claims, url_prop) == url1, f"API-created {qid} URL mismatch"
+    print(f"[ok] action=addsource -> {qid} ({label}): webpage class, part-of -> "
+          f"{website_parent}, URL; classic page {page_title}")
+
+    r2 = api_call(op, api, {
+        "action": "addsource", "class": "webpage", "qid": qid, "url": url2,
+        "token": token, "format": "json",
+    }, post=True)
+    if "source" not in r2 or not r2["source"].get("updated"):
+        raise FlowError(f"action=addsource update failed: {r2}")
+    claims2, _ = entity_claims(op, api, qid)
+    assert first_value(claims2, url_prop) == url2, f"update did not replace the URL ({claims2})"
+    assert first_value(claims2, part_of_prop) == website_parent, \
+        f"update clobbered the part-of link (no-clobber violated)"
+    print(f"[ok] action=addsource (qid update) -> {qid}: URL replaced, part-of kept (no-clobber)")
+    return qid, page_title
+
+
 def flow_sitelink_tab(op, base: str, api: str, linked_page: str, linked_qid: str) -> None:
     """Sitelink tab rendering (issue follow-up): red (needs-set) on an
     unlinked content page, blue (is-set) on a sitelinked page."""
@@ -2559,6 +2608,17 @@ def main() -> int:
         assert first_value(claims, url_prop) == "https://example.org/e2e", \
             f"{website} missing the URL statement"
         print(f"[ok] AddSource (website, manual-only) -> {website}: website class + URL")
+
+        # 2c2. action=addsource API module (the entity-mode contract): the
+        #      same validation/statements/page machinery exposed to API
+        #      clients. Create a webpage with authors + the website parent
+        #      above, then update via qid (no-clobber).
+        api_page, api_page_title = flow_addsource_api(
+            op, api, website, person, instance_of, url_prop, part_of_prop,
+            resolve("web page", "item"))
+        track(api_page)
+        if api_page_title not in created_pages:
+            created_pages.append(api_page_title)
 
         # 2d. Child class: bookExcerpt requires an existing book parent,
         #     auto-links it with a `part of` statement. Blank description /
