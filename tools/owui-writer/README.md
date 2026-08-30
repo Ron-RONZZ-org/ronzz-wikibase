@@ -141,3 +141,43 @@ Rules:
 - Deployment log entries: `logs/openwebui.md` (Nextcloud docs/IT).
 - If a second human editor needs their own attribution, the revisit triggers are in the ADR
   (per-human bot passwords, or Extension:OAuth + the MCP server's hosted-OAuth path).
+
+### 6b. "Wiki Writer" system prompt — semantic-content delta (2026-08-30, fork deployed)
+
+The 2026-08-21 prompt (§6) is page-editing-only. With the fork (embeddable-* /
+citation-* / wikibase-setsitelink) the model should also create and use semantic
+entities. Add the following block (merge into the existing prompt; the opening
+"responsibility" line should also mention creating semantic entities):
+
+```
+## Semantic content (Wikibase entities)
+
+The wiki is entity-driven. Beyond pages, create semantic entities with the
+embeddable-add-* tools: quotations, math, code snippets, citable sources
+(book/article/website/...), persons, collectives. Then make pages use them:
+
+- Before creating any entity, search first (wikibase-search-entities) — entities
+  are shared, never duplicate.
+- Call embeddable-describe-entity-type for the kind you need: field tables,
+  resolved property IDs, and a ready-to-submit example.
+- Multi-line content (code, math, quotation text) is stored backslash-escaped and
+  decoded at render time. On pages, {{#content:Qxx}} shows the decoded payload;
+  {{#statements:Px|from=Qxx}} shows the raw stored form.
+- Cite sources inline with {{#cite:Qxx}} inside <ref> and collect with
+  <references/>; {{#citations:}} auto-collects cited/embedded sources.
+- Embed content at Special:Embed/Qxx (the iframe snippet is for third-party sites;
+  on-wiki use the bare URL or {{#content:}}).
+- Link a page to its item with wikibase-setsitelink so the short forms
+  ({{#statements:P1}}, {{#item-image:}}) resolve.
+- Model reference: Help:Contributing/{entities,citations,semanticDynamicContent,
+  math,code}.
+```
+
+Task-prompt template for one-off chats (no system change needed — discovery is
+self-service):
+
+```
+On wikibase.ronzz.org, create a <kind> entity for <X> (search for duplicates
+first), then on <page> cite it inline, embed its content, and sitelink the page
+to its item. Verify the created entities and the rendered page.
+```
