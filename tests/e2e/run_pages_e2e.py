@@ -980,14 +980,81 @@ def website_item_matching(op, api: str, site_name: str) -> str | None:
     return None
 
 
-def flow_source_webpage_parent_hint(op, base: str, api: str) -> None:
-    """Webpage parent inference — the NO-MATCH branch, asserted against the
-    LIVE state: a webpage URL whose site root has NO website-class record
-    must render the "No record found for <root>" hint (the website is real,
-    our record isn't). When a record DOES exist (production may already
-    hold one — e.g. an imported 'Example Domain' item), the same entry must
-    prefill the parent combobox with that website (and the confirmation
-    banner) instead — never silently nothing."""
+def normalize_host(url: str) -> str:
+    """Mirror of the server's SiteRootMatcher::normalizeHost: lowercase,
+    trailing dot stripped, `www.` collapsed. '' for an unparseable URL."""
+    try:
+        host = (urllib.parse.urlparse(url).hostname or "").lower().rstrip(".")
+    except ValueError:
+        return ""
+    return host[4:] if host.startswith("www.") else host
+
+
+def sparql_query(op, sparql: str, query: str) -> list[dict]:
+    """One SPARQL query against the endpoint; returns results.bindings."""
+    url = sparql + "?" + urllib.parse.urlencode({"query": query, "format": "json"})
+    resp = op.open(url, timeout=30)
+    data = json.load(resp)
+    rows = data.get("results", {}).get("bindings", [])
+    return rows if isinstance(rows, list) else []
+
+
+def website_item_by_root_host(op, base: str, sparql: str, api: str, host: str) -> str | None:
+    """Mirror of the server-side host match (SpecialAddSource::
+    websiteItemByRootHost): a website-class item whose URL statement's
+    normalized host equals the given host, or None. Uses WDQS — the same
+    eventual-consistency caveat as the server inference (absent sparql-url:
+    no result)."""
+    if not sparql:
+        return None
+    website_class = resolve_label(op, api, "website", "item")
+    instance_of = resolve_label(op, api, "instance of", "property")
+    url_prop = resolve_label(op, api, "URL", "property")
+    if website_class is None or instance_of is None or url_prop is None:
+        raise FlowError("website class / instance-of / URL property not resolvable")
+    concept = base.rstrip("/")
+    query = (
+        f"PREFIX wd: <{concept}/entity/> PREFIX wdt: <{concept}/prop/direct/> "
+        f"SELECT ?item ?url WHERE {{ "
+        f"?item wdt:{instance_of} wd:{website_class} ; wdt:{url_prop} ?url "
+        f"}} LIMIT 500"
+    )
+    target = normalize_host(host)
+    if not target:
+        return None
+    for row in sparql_query(op, sparql, query):
+        url = row.get("url", {}).get("value", "")
+        if url and normalize_host(url) == target:
+            return str(row["item"]["value"]).rsplit("/", 1)[-1]
+    return None
+
+
+def wait_for_host_match(op, base: str, sparql: str, api: str, host: str,
+                        timeout: int = 150) -> None:
+    """Bounded wait until a website item with a URL statement host-matching
+    the given host is visible via WDQS (the host match reads WDQS, which is
+    eventually consistent — production cron, updater polling)."""
+    deadline = time.time() + timeout
+    while True:
+        if website_item_by_root_host(op, base, sparql, api, host) is not None:
+            return
+        if time.time() >= deadline:
+            raise FlowError(
+                f"website item for host {host!r} not visible via WDQS within {timeout}s "
+                f"(host-match branch cannot be asserted)")
+        time.sleep(10)
+
+
+def flow_source_webpage_parent_hint(op, base: str, api: str, sparql: str) -> None:
+    """Webpage parent inference — asserted against the LIVE state, three
+    branches (in server priority order):
+      1. a website item whose URL host matches the root (WDQS host match) →
+         the parent is AUTO-ASSIGNED silently — prefilled, NO confirmation
+         banner (the host-match auto-assign, add-flow round-3 follow-up);
+      2. else a website record matching the site NAME → the site-name
+         fallback prefills with the confirmation banner;
+      3. else → the "No record found for <root>" hint (the website is real,
+         our record isn't). Never silently nothing."""
     url, body = page_get(op, base, "/wiki/Special:AddSource/webpage")
     token = edit_token(body)
     url, body = page_post(op, url, {
@@ -1002,13 +1069,22 @@ def flow_source_webpage_parent_hint(op, base: str, api: str) -> None:
     manual_path = (u.path or "/") + ("?" + u.query if u.query else "")
     _, body = page_get(op, base, manual_path)
     parent = input_value(body, "wpparent")
+    if website_item_by_root_host(op, base, sparql, api, "example.org") is not None:
+        # Host match (e.g. production's Example Domain record) — the parent
+        # must be prefilled SILENTLY (no confirmation banner).
+        if not parent or "wb-entity-confirm" in body:
+            raise FlowError(
+                f"AddSource/webpage parent NOT auto-assigned from the root-URL host "
+                f"match (parent={parent!r}, banner={'wb-entity-confirm' in body}): "
+                f"{find_error(body)}")
+        return
     if website_item_matching(op, api, "Example Domain") is not None:
-        # A local website record exists — the inference must have prefilled
-        # it with the confirmation banner (never the hint).
+        # A website record exists by NAME but no URL host matches — the
+        # site-name fallback prefills with the confirmation banner.
         if not parent or "wb-entity-confirm" not in body:
             raise FlowError(
-                f"AddSource/webpage parent NOT inferred although a website record "
-                f"exists (parent={parent!r}): {find_error(body)}")
+                f"AddSource/webpage parent NOT inferred via the site-name fallback "
+                f"although a website record exists (parent={parent!r}): {find_error(body)}")
         return
     # No website record — the "No record found for" hint must render. The
     # parsed message autolinks the root URL (bare-URL autolink in the
@@ -1021,24 +1097,30 @@ def flow_source_webpage_parent_hint(op, base: str, api: str) -> None:
             f"{find_error(body)}")
 
 
-def flow_source_webpage_parent_match(op, base: str, api: str,
+def flow_source_webpage_parent_match(op, base: str, api: str, sparql: str,
                                      author_qid: str) -> tuple[str, str, str | None]:
-    """Webpage parent inference — the MATCH branch: when a website item
-    exists (created here when none matches the site name — the CI stack; on
-    production a real record may already exist), a webpage whose root URL is
-    that site must auto-infer a website as the parent — the manual form
-    prefills wpparent with a website-class Q-id and renders the confirmation
-    banner, and the created webpage carries the `part of` statement.
+    """Webpage parent inference — the HOST-MATCH branch: when a website item
+    exists whose URL host matches the entered page's root (created here when
+    none — the CI stack; on production a real record may already exist), a
+    webpage under that root must AUTO-ASSIGN the website as the parent: the
+    manual form prefills wpparent with a website-class Q-id and NO
+    confirmation banner, and the created webpage carries the `part of`
+    statement.
 
     Returns (webpage qid, matched website qid, website qid created here or
     None). Only a website item CREATED here must be tracked for cleanup — a
     pre-existing (possibly real) record is never touched."""
     created_website = None
-    if website_item_matching(op, api, "Example Domain") is None:
-        # No website record yet (fresh CI stack): create one via the
-        # website URL-first flow (its fetched site name is 'Example Domain').
+    if website_item_by_root_host(op, base, sparql, api, "example.org") is None:
+        # No host-matching website record (fresh CI stack): create one via
+        # the website URL-first flow (its fetched site name is 'Example
+        # Domain', its URL statement collapses to https://example.org), then
+        # WAIT for WDQS to index the URL statement — the host match reads
+        # WDQS, which is eventually consistent (production cron / updater
+        # polling).
         created_website = flow_source_url_entry(
             op, base, api, "website", "https://example.org/e2e-site", author_qid)
+        wait_for_host_match(op, base, sparql, api, "example.org")
 
     url, body = page_get(op, base, "/wiki/Special:AddSource/webpage")
     token = edit_token(body)
@@ -1054,10 +1136,18 @@ def flow_source_webpage_parent_match(op, base: str, api: str,
     manual_path = (u.path or "/") + ("?" + u.query if u.query else "")
     manual_url, body = page_get(op, base, manual_path)
     parent = input_value(body, "wpparent")
-    if not parent or "wb-entity-confirm" not in body:
+    if not parent:
         raise FlowError(
-            f"AddSource/webpage parent NOT inferred from the root URL "
-            f"(parent={parent!r}): {find_error(body)}")
+            f"AddSource/webpage parent NOT auto-assigned from the root-URL host "
+            f"match (parent={parent!r}): {find_error(body)}")
+    if "wb-entity-confirm" in body:
+        # The host match is SILENT (no [Yes/No] banner) — a banner means the
+        # inference fell back to the site-name flow, which is no longer the
+        # expected branch for a host-matching record.
+        raise FlowError(
+            f"AddSource/webpage host-match auto-assign rendered a confirmation "
+            f"banner instead of assigning silently (parent={parent!r}): "
+            f"{find_error(body)}")
     # The prefilled parent must be a WEBSITE-class item (the server's
     # class-filtered matching contract), not any fuzzy false positive.
     website_class = resolve_label(op, api, "website", "item")
@@ -1868,10 +1958,16 @@ def main() -> int:
     parser.add_argument("--doi", default="10.1371/journal.pbio.2001414")
     parser.add_argument("--collective", default="The Beatles")
     parser.add_argument("--software", default="Flameshot")
+    parser.add_argument(
+        "--sparql-url", default=None,
+        help="WDQS SPARQL endpoint; required for the webpage-parent host-match "
+        "E2E branches (silent auto-assign assertions). Without it those branches "
+        "degrade to the name/hint checks.")
     args = parser.parse_args()
 
     base = args.base_url.rstrip("/")
     api = args.api_url or base + "/api.php"
+    sparql = args.sparql_url or ""
     password = open(args.password_file).read().strip()
 
     op = make_opener(base)
@@ -2399,18 +2495,19 @@ def main() -> int:
         manual_pick_url = flow_source_picker_route(op, base)
         print(f"[ok] AddSource picker -> {manual_pick_url.rsplit('/wiki/', 1)[-1]}")
 
-        # 2j1. Webpage → website parent inference (add-flow round): the site
-        #     root of the entered webpage URL is auto-matched against
-        #     website-class items — asserted against the LIVE state: no
-        #     record → the "No record found for <root>" hint; a record
-        #     exists (production may already hold a real 'Example Domain'
-        #     website) → the parent combobox prefilled + confirmation
-        #     banner. The created webpage carries the `part of` statement.
-        flow_source_webpage_parent_hint(op, base, api)
-        print("[ok] AddSource/webpage parent inference: no-record hint (or "
-              "prefilled record) rendered on the manual form")
+        # 2j1. Webpage → website parent inference (add-flow round + host-match
+        #     follow-up): the site root of the entered webpage URL is
+        #     auto-matched against website-class items — asserted against the
+        #     LIVE state: a URL-host record → the parent is AUTO-ASSIGNED
+        #     silently (no banner); only a name match → prefilled +
+        #     confirmation banner; no record → the "No record found for
+        #     <root>" hint. The created webpage carries the `part of`
+        #     statement.
+        flow_source_webpage_parent_hint(op, base, api, sparql)
+        print("[ok] AddSource/webpage parent inference: hint / banner / silent "
+              "host auto-assign rendered on the manual form")
         webpage_child, webpage_parent, webpage_created_site = \
-            flow_source_webpage_parent_match(op, base, api, person)
+            flow_source_webpage_parent_match(op, base, api, sparql, person)
         track(webpage_child)
         if webpage_created_site is not None:
             track(webpage_created_site)

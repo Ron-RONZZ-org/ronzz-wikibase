@@ -473,6 +473,8 @@ class SeedOrchestrator:
             previous_youtube_api_key=previous_key,
             preseed_ids=self.preseed_ids,
             license_ids=self.license_ids,
+            sparql_url=getattr(self.args, "config_sparql_url", None)
+            or getattr(self.args, "sparql_url", None),
         )
         report = config_builder.build_report(
             self.property_ids, self.class_ids, self.lexer_ids, self.dogfood_ids, self.languages_available
@@ -562,6 +564,13 @@ def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser.add_argument("--api-url", default="https://wikibase.ronzz.org/api.php")
     parser.add_argument("--base-url", default="https://wikibase.ronzz.org")
     parser.add_argument("--sparql-url", default="https://wikibase.ronzz.org/sparql")
+    parser.add_argument(
+        "--config-sparql-url",
+        default=None,
+        help="WDQS endpoint written into the emitted config map (what the wiki "
+        "process queries at runtime). Defaults to --sparql-url; the dev/CI stack "
+        "passes the container-internal http://wdqs:9999/... URL.",
+    )
     parser.add_argument("--user", default=None, help="wiki user or 'User@botname'")
     parser.add_argument("--password", default=None)
     parser.add_argument("--manifests-dir", type=Path, default=DEFAULT_MANIFESTS)
