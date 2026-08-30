@@ -358,22 +358,31 @@ def flow_search_select_create(op, base: str, api: str, special: str, search_fiel
             raise FlowError(
                 f"Special:{special} review form NOT prefilled from the harvested "
                 f"authority record (given={given!r}, family={family!r})")
-        # Place of birth (label-match flow, follow-up): the harvested
-        # WIKIDATA QID must never reach the local combobox. A non-empty
-        # default must be (a) an EXISTING local item — not a bare Wikidata
-        # id written blindly — and (b) the result of the label-match flow,
-        # which renders the [Yes]/[No] confirmation banner.
-        pob = input_value(body, "wpplaceOfBirth")
+        # Place of birth (OSM flow, osm-places feature): the harvested
+        # WIKIDATA QID must never reach the field. The harvested label is
+        # auto-matched on Nominatim (harvest-on-pick): a top match prefills
+        # the field with the node|way|relation/<id> AND renders the
+        # fetch-match-confirm banner ([Yes]/[No] — the portrait-license
+        # pattern); no match leaves the field empty with the "search
+        # OpenStreetMap to confirm" hint. A raw name never prefills (it
+        # would fail server validation on submit).
+        pob = input_value(body, "wpplaceOfBirthOsm")
+        if re.match(r"^Q\d+$", pob or ""):
+            raise FlowError(
+                f"Special:{special} place-of-birth default is a raw Wikidata QID: "
+                f"{pob!r} — the harvested QID must become a label + OSM match/hint, "
+                f"never a prefilled id")
         if pob:
-            r = api_call(op, api, {"action": "wbgetentities", "ids": pob, "format": "json"})
-            ent = r.get("entities", {}).get(pob, {})
-            if not ent or "missing" in ent:
+            if not re.match(r"^(node|way|relation)/\d+$", pob):
                 raise FlowError(
-                    f"Special:{special} place-of-birth default is not a LOCAL item: {pob!r} — "
-                    f"the harvested Wikidata QID must be resolved to a label and matched "
-                    f"against local items, never written blindly")
-            assert "wb-entity-confirm" in body, \
-                f"Special:{special} place-of-birth local match rendered without the confirmation banner"
+                    f"Special:{special} place-of-birth default is neither an OSM id nor "
+                    f"empty: {pob!r} (a harvested label must be matched or hinted, "
+                    f"never prefilled as text)")
+            # An auto-matched OSM id must come with the confirmation banner.
+            if "wb-entity-confirm" not in body:
+                raise FlowError(
+                    f"Special:{special} OSM place auto-match prefilled {pob!r} "
+                    f"without the fetch-match-confirm banner")
     token3 = edit_token(body)
     url, body = page_post(op, url, {
         "wpEditToken": token3,
@@ -791,10 +800,10 @@ def flow_update_person(op, base: str, api: str, qid: str, new_description: str) 
         "wpgivenName": given, "wpfamilyName": family,
         "wpdescription": new_description,
         "wpdateOfBirth": input_value(body, "wpdateOfBirth"),
-        "wpplaceOfBirth": input_value(body, "wpplaceOfBirth"),
+        "wpplaceOfBirthOsm": input_value(body, "wpplaceOfBirthOsm"),
         "wpdeceased": "1",  # the item under test has death facts — toggle open
         "wpdateOfDeath": input_value(body, "wpdateOfDeath"),
-        "wpplaceOfDeath": input_value(body, "wpplaceOfDeath"),
+        "wpplaceOfDeathOsm": input_value(body, "wpplaceOfDeathOsm"),
         "wpclass": class_item,
         "wpEditToken": token, "wpSubmit": "1",
     })
@@ -826,10 +835,10 @@ def flow_update_person_no_clobber(op, base: str, api: str, qid: str) -> str:
         # both must survive the update (no-clobber).
         "wpdescription": "",
         "wpdateOfBirth": input_value(body, "wpdateOfBirth"),
-        "wpplaceOfBirth": input_value(body, "wpplaceOfBirth"),
+        "wpplaceOfBirthOsm": input_value(body, "wpplaceOfBirthOsm"),
         "wpdeceased": "1",
         "wpdateOfDeath": input_value(body, "wpdateOfDeath"),
-        "wpplaceOfDeath": "",
+        "wpplaceOfDeathOsm": "",
         "wpclass": class_item,
         "wpEditToken": token, "wpSubmit": "1",
     })
@@ -1481,6 +1490,46 @@ def flow_uploadmeta_module_source(op, base: str) -> None:
                         "(multiple logo-license dialogs regression)")
 
 
+def flow_osmsuggest_module_source(op, base: str) -> None:
+    """The AddPerson/UpdatePerson place fields are OSM search comboboxes
+    (osm-places): the served osmsuggest module must wire them to Nominatim
+    (browser-first) and produce the canonical node|way|relation/<id> values
+    the server-side OsmPlace validation expects. A curl E2E cannot execute
+    the search, so assert the shipped source."""
+    _, body = page_get(op, base,
+        "/load.php?modules=ext.embeddableContent.osmsuggest&lang=en&skin=vector&debug=true")
+    if "nominatim.openstreetmap.org/search" not in body:
+        raise FlowError("osmsuggest module: Nominatim search URL missing")
+    if "osm_type + '/' + osm_id" not in body:
+        raise FlowError("osmsuggest module: node|way|relation/<id> value construction missing")
+
+
+def flow_addperson_osm_rejects_name(op, base: str, api: str, person_class: str) -> None:
+    """Server-side OSM id gate (osm-places): a place field carrying a raw
+    NAME — an unpicked harvested label, or a typo — must be rejected on
+    submit with the OSM validation error, and no item must be created."""
+    label = f"Page-flow E2E bad place {int(time.time())}"
+    url, body = page_get(op, base, "/wiki/Special:AddPerson/manual")
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "wpgivenName": "Bad",
+        "wpfamilyName": f"Place {int(time.time())}",
+        "wpplaceOfBirthOsm": "Cambridge",  # a name — never a valid OSM id
+        "wpclass": person_class,
+        "wpEditToken": token, "wpSubmit": "1",
+    })
+    if "Choose a place from the OpenStreetMap suggestions" not in body:
+        raise FlowError(
+            f"AddPerson/manual accepted a raw place name (no OSM validation error): "
+            f"{find_error(body)}")
+    # No item may have been created (the manual flow re-renders the form).
+    hits = api_call(op, api, {"action": "wbsearchentities", "search": label,
+                              "language": "en", "type": "item", "limit": 5, "format": "json"})
+    if any(h.get("label", "") == label for h in hits.get("search", [])):
+        raise FlowError("AddPerson/manual created an item despite the invalid OSM place")
+    print("[ok] AddPerson OSM place gate: a raw place name is rejected, no item created")
+
+
 def flow_upload_special_item(op, base: str, api: str, license_qid: str) -> str:
     """Special:Upload form submission (upload enhancements): uploads a 1x1
     PNG with the license combobox value (item id), author + license info,
@@ -1964,32 +2013,41 @@ def main() -> int:
         print(f"[ok] AddPerson -> {person} ({label}): instance-of person, Wikidata ID + import reference")
 
         # 1b. AddPerson manual with the birth/death facts: day-precision date
-        #     fields + entity-combobox places, with the deceased toggle open.
+        #     fields + OSM place comboboxes (Nominatim-picked node/way/relation
+        #     ids, osm-places feature), with the deceased toggle open.
         date_of_birth_prop = resolve("date of birth", "property")
-        place_of_birth_prop = resolve("place of birth", "property")
+        place_of_birth_osm_prop = resolve("place of birth (OSM)", "property")
+        place_of_birth_legacy_prop = resolve("place of birth", "property")
         date_of_death_prop = resolve("date of death", "property")
-        place_of_death_prop = resolve("place of death", "property")
+        place_of_death_osm_prop = resolve("place of death (OSM)", "property")
+        place_of_death_legacy_prop = resolve("place of death", "property")
         official_website_prop = resolve("official website", "property")
         person_manual_label = f"Page-flow E2E person {int(time.time())}"
         person_manual = track(flow_manual(op, base, api, "AddPerson", person_manual_label,
                                           person_class, {
                                               "wpdateOfBirth": "1960-01-02",
-                                              "wpplaceOfBirth": person,
+                                              "wpplaceOfBirthOsm": "node/261512419",
                                               "wpdeceased": "1",
                                               "wpdateOfDeath": "2015-03-04",
-                                              "wpplaceOfDeath": person,
+                                              "wpplaceOfDeathOsm": "relation/295355",
                                               "wpwebsite": "https://example.org/person",
                                           }))
         claims, _ = entity_claims(op, api, person_manual)
         assert first_value(claims, date_of_birth_prop) is not None and \
             first_value(claims, date_of_birth_prop).get("time", "").startswith("+1960-01-02"), \
             f"{person_manual} date of birth statement not written"
-        assert first_value(claims, place_of_birth_prop) == person, \
-            f"{person_manual} place of birth statement not written"
+        assert first_value(claims, place_of_birth_osm_prop) == "node/261512419", \
+            f"{person_manual} OSM place-of-birth statement not written ({first_value(claims, place_of_birth_osm_prop)!r})"
         assert first_value(claims, date_of_death_prop).get("time", "").startswith("+2015-03-04"), \
             f"{person_manual} date of death statement not written (deceased toggle)"
-        assert first_value(claims, place_of_death_prop) == person, \
-            f"{person_manual} place of death statement not written"
+        assert first_value(claims, place_of_death_osm_prop) == "relation/295355", \
+            f"{person_manual} OSM place-of-death statement not written ({first_value(claims, place_of_death_osm_prop)!r})"
+        # The legacy item-typed place properties are no longer written by
+        # the forms (osm-places: places live in OpenStreetMap).
+        assert first_value(claims, place_of_birth_legacy_prop) is None, \
+            f"{person_manual} legacy place-of-birth (item) statement written — OSM flow should not write it"
+        assert first_value(claims, place_of_death_legacy_prop) is None, \
+            f"{person_manual} legacy place-of-death (item) statement written — OSM flow should not write it"
         assert first_value(claims, official_website_prop) == "https://example.org/person", \
             f"{person_manual} official-website statement not written " \
             f"({first_value(claims, official_website_prop)})"
@@ -2009,10 +2067,14 @@ def main() -> int:
         assert first_value(claims, date_of_birth_prop) is not None and \
             first_value(claims, date_of_birth_prop).get("time", "").startswith("+1960-01-02"), \
             f"{person_manual} date of birth lost by the update"
-        assert first_value(claims, place_of_birth_prop) == person, \
-            f"{person_manual} place of birth lost by the update"
+        assert first_value(claims, place_of_birth_osm_prop) == "node/261512419", \
+            f"{person_manual} OSM place of birth lost by the update"
         print(f"[ok] Special:UpdatePerson/{person_manual}: description updated, "
               f"birth/death statements preserved")
+
+        # 1b2. OSM place gate (osm-places): a raw place NAME must be
+        #     rejected on submit — no item created.
+        flow_addperson_osm_rejects_name(op, base, api, person_class)
 
         # 1b1b. Update no-clobber (upload-ux batch): blanked managed fields
         #     (description + place of death) keep the existing values.
@@ -2021,8 +2083,8 @@ def main() -> int:
         assert entity_descriptions(op, api, person_manual) == old_description, \
             f"{person_manual} blanked description overwrote the existing one (no-clobber)"
         claims, _ = entity_claims(op, api, person_manual)
-        assert first_value(claims, place_of_death_prop) == person, \
-            f"{person_manual} blanked place-of-death field lost the existing statement (no-clobber)"
+        assert first_value(claims, place_of_death_osm_prop) == "relation/295355", \
+            f"{person_manual} blanked OSM place-of-death field lost the existing statement (no-clobber)"
         print(f"[ok] Special:UpdatePerson/{person_manual}: blanked fields keep existing "
               f"description + place-of-death (no-clobber)")
 
@@ -2710,6 +2772,8 @@ def main() -> int:
         flow_uploadmeta_module_source(op, base)
         print("[ok] uploadmeta module source: hostname parse (429 fix), 2000-char cap, "
               "dest-name normalization, validate latest-wins + banner dedupe")
+        flow_osmsuggest_module_source(op, base)
+        print("[ok] osmsuggest module source: Nominatim search + node|way|relation value form")
         upload_qid = flow_upload_special_item(op, base, api, license_item)
         upload_qid = track(upload_qid)
         print(f"[ok] Special:Upload -> {upload_qid}: image item + statements + "

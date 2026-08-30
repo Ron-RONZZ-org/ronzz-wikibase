@@ -173,6 +173,7 @@ class EmbeddableContentConfig {
 	public function personPropertyIds(): array {
 		return $this->requireStringMap( 'personProperties', [
 			'dateOfBirth', 'placeOfBirth', 'dateOfDeath', 'placeOfDeath',
+			'placeOfBirthOsm', 'placeOfDeathOsm',
 			'officialWebsite',
 			'image', 'license', 'imageAuthor', 'imageLicenseInfo',
 		] );

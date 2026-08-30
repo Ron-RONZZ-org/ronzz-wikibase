@@ -318,6 +318,18 @@
 				"mobile"
 			]
 		},
+		"ext.embeddableContent.osmsuggest": {
+			"scripts": [
+				"osmsuggest.js"
+			],
+			"dependencies": [
+				"oojs-ui"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
 		"ext.embeddableContent.updatebutton": {
 			"scripts": [
 				"updatebutton.js"

@@ -72,6 +72,12 @@ PERSON_PROPERTY_KINDS = {
     "place of birth": "placeOfBirth",
     "date of death": "dateOfDeath",
     "place of death": "placeOfDeath",
+    # OSM places (osm-places feature): the form writes the EXTERNAL-ID
+    # properties (node/way/relation ids picked from the Nominatim search
+    # combobox); the item-typed properties above stay in the vocabulary
+    # (aligned to P19/P20) but are no longer written by the forms.
+    "place of birth (OSM)": "placeOfBirthOsm",
+    "place of death (OSM)": "placeOfDeathOsm",
     "official website": "officialWebsite",
     # Portrait facts: the P18-aligned image (url) + the shared P275 license.
     "image": "image",
