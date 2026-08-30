@@ -441,6 +441,19 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   directly reads source-level fields from itself
   (`WikibaseCitationSourceClasses` config, defaulted from
   `EmbeddableContentConfig['sourceClasses']`).
+- **Duplicate-footnote merge (fix)**: stock Cite merges only *name*-attributed
+  refs — an unnamed `<ref>{{#cite:Q985}}</ref>` used several times on a page
+  rendered one footnote per use (the classic Manske page: 5 identical
+  footnotes for the same source). `ReferencesMerger::mergeDuplicateFootnotes`
+  post-processes the rendered references list in the existing `ParserAfterTidy`
+  hook (which runs after Cite's `ParserAfterParse` auto-append): footnotes with
+  identical reference text collapse into the first occurrence, the merged
+  in-text superscripts are re-pointed at the surviving footnote (relabelled
+  like Cite's named-ref UX — every anchor stays valid both ways), and the
+  surviving footnote gains one ↑ backlink per merged usage. Gated to pages that
+  cited entities (extension data non-empty), so plain pages keep stock Cite
+  behavior; only the default group's numeric-id footnotes merge (named refs and
+  `group=` lists are untouched).
 
 ## Constraints and Invariants
 
