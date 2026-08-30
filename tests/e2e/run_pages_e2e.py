@@ -1500,7 +1500,7 @@ def flow_osmsuggest_module_source(op, base: str) -> None:
         "/load.php?modules=ext.embeddableContent.osmsuggest&lang=en&skin=vector&debug=true")
     if "nominatim.openstreetmap.org/search" not in body:
         raise FlowError("osmsuggest module: Nominatim search URL missing")
-    if "osm_type + '/' + osm_id" not in body:
+    if "row.osm_type + '/' + row.osm_id" not in body:
         raise FlowError("osmsuggest module: node|way|relation/<id> value construction missing")
 
 
