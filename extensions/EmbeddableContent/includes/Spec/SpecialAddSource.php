@@ -298,33 +298,41 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 *  unavailable, or the instance predates the sparqlUrl config
 	 */
 	private function websiteItemByRootHost( string $websiteClassId, string $root ): ?array {
-		$endpoint = $this->config->sparqlUrl();
-		$urlProp = $this->config->sourcePropertyIds()['url'] ?? null;
-		if ( $endpoint === null || $urlProp === null ) {
-			return null;
-		}
-		// The instance does not pre-register wd:/wdt: prefixes — declare
-		// them from Wikibase's baseUri (the entity URI namespace), which is
-		// exactly what WDQS indexed (the seed's own SPARQL check does the
-		// same).
-		$baseUri = WikibaseRepo::getSettings()->getSetting( 'baseUri' );
-		if ( !is_string( $baseUri ) || $baseUri === '' ) {
-			return null;
-		}
-		$wd = rtrim( $baseUri, '/' ) . '/';
-		$wdt = str_replace( '/entity/', '/prop/direct/', $wd );
-		$instanceOf = $this->config->instanceOfPropertyId();
-		$query = "PREFIX wd: <{$wd}> PREFIX wdt: <{$wdt}>\n"
-			. "SELECT ?item ?label ?url WHERE {\n"
-			. "  ?item wdt:{$instanceOf} wd:{$websiteClassId} ; wdt:{$urlProp} ?url .\n"
-			. "  OPTIONAL { ?item rdfs:label ?label FILTER(LANG(?label) = \"en\") }\n"
-			. "} LIMIT 500";
+		try {
+			$endpoint = $this->config->sparqlUrl();
+			$urlProp = $this->config->sourcePropertyIds()['url'] ?? null;
+			if ( $endpoint === null || $urlProp === null ) {
+				return null;
+			}
+			// The instance does not pre-register wd:/wdt: prefixes — declare
+			// them from the entity URI namespace (the seed's own SPARQL
+			// check does the same). Derive it the way Wikibase's default
+			// entitySources does ($wgServer . '/entity/') — it is what WDQS
+			// indexed; there is no top-level 'baseUri' setting.
+			$server = $GLOBALS['wgServer'] ?? '';
+			if ( !is_string( $server ) || $server === '' ) {
+				return null;
+			}
+			$wd = rtrim( $server, '/' ) . '/entity/';
+			$wdt = str_replace( '/entity/', '/prop/direct/', $wd );
+			$instanceOf = $this->config->instanceOfPropertyId();
+			$query = "PREFIX wd: <{$wd}> PREFIX wdt: <{$wdt}>\n"
+				. "SELECT ?item ?label ?url WHERE {\n"
+				. "  ?item wdt:{$instanceOf} wd:{$websiteClassId} ; wdt:{$urlProp} ?url .\n"
+				. "  OPTIONAL { ?item rdfs:label ?label FILTER(LANG(?label) = \"en\") }\n"
+				. "} LIMIT 500";
 
-		$rows = $this->sparqlQuery( $endpoint, $query );
-		if ( $rows === null ) {
+			$rows = $this->sparqlQuery( $endpoint, $query );
+			if ( $rows === null ) {
+				return null;
+			}
+			return \EmbeddableContent\Fetch\SiteRootMatcher::findByHost( $rows, $root );
+		} catch ( \Throwable $e ) {
+			// The host match is an enhancement: any failure (config shape,
+			// service wiring) degrades to the site-name inference, never a
+			// 500 on the URL-entry flow.
 			return null;
 		}
-		return \EmbeddableContent\Fetch\SiteRootMatcher::findByHost( $rows, $root );
 	}
 
 	/**
