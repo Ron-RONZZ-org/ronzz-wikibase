@@ -45,12 +45,21 @@ return [
 				? array_values( (array)$embeddable['sourceClasses'] )
 				: [];
 		}
+		$partOf = $config->get( 'WikibaseCitationPartOf' );
+		if ( !is_string( $partOf ) || $partOf === '' ) {
+			// Fall back to the EmbeddableContent sourceProperties map.
+			$embeddable = $config->get( 'EmbeddableContentConfig' );
+			$partOf = is_array( $embeddable ) && isset( $embeddable['sourceProperties']['partOf'] )
+				? $embeddable['sourceProperties']['partOf']
+				: null;
+		}
 		return new StatementToCslConverter(
 			WikibaseRepo::getEntityLookup( $services ),
 			$services->get( 'WikibaseCitation.PropertyMap' ),
 			$services->get( 'WikibaseCitation.CslTypeMapper' ),
 			is_string( $instanceOf ) ? $instanceOf : null,
-			$sourceClasses
+			$sourceClasses,
+			is_string( $partOf ) && $partOf !== '' ? $partOf : null
 		);
 	},
 

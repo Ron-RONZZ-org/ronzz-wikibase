@@ -22,7 +22,9 @@ use Wikibase\DataModel\Statement\Statement;
  *  - CSL type follows the SOURCE class (content-class × source-class aware)
  *  - source-level fields (container-title/publisher/page/volume/issue/DOI/
  *    ISBN) are read from the `source` item via the source property map;
- *    container-title falls back to the source item's label (books)
+ *    an unset container-title falls back to the `part of` target's label,
+ *    then to the source item's own label for books (where the container IS
+ *    the item)
  *
  * Issue #24 (cite-by-QID) addition: self-cite — when the cited item itself
  * belongs to a configured source class (book / scholarly article / …) and
@@ -55,22 +57,30 @@ class StatementToCslConverter {
 	/** @var string[] source class item ids (from extension config, default []) */
 	private $sourceClasses;
 
+	/** @var string|null `part of` property id (from extension config) */
+	private $partOfPropertyId;
+
 	/**
 	 * @param string[] $sourceClasses Class item ids that are sources themselves
 	 *  (self-cite, issue #24). Default [] disables the self-cite behaviour.
+	 * @param string|null $partOfPropertyId The `part of` property id, whose
+	 *  target label supplies a missing container-title (a webpage's website,
+	 *  a book excerpt's book). Default null disables the fallback.
 	 */
 	public function __construct(
 		EntityLookup $entityLookup,
 		CitationMapLookup $propertyMap,
 		CslTypeMapper $typeMapper,
 		?string $instanceOfPropertyId = null,
-		array $sourceClasses = []
+		array $sourceClasses = [],
+		?string $partOfPropertyId = null
 	) {
 		$this->entityLookup = $entityLookup;
 		$this->propertyMap = $propertyMap;
 		$this->typeMapper = $typeMapper;
 		$this->instanceOfPropertyId = $instanceOfPropertyId;
 		$this->sourceClasses = $sourceClasses;
+		$this->partOfPropertyId = $partOfPropertyId;
 	}
 
 	/**
@@ -122,10 +132,19 @@ class StatementToCslConverter {
 			$this->addFromSource( $sourceItem, $field, $csl, $preferredLanguage );
 		}
 		if ( $sourceItem !== null && !isset( $csl['container-title'] ) ) {
-			// Books: the container IS the source item (label fallback).
-			$sourceLabel = $this->labelOf( $sourceItem, $preferredLanguage );
-			if ( $sourceLabel !== '' ) {
-				$csl['container-title'] = $sourceLabel;
+			// A `part of` target (a webpage's website, a book excerpt's book)
+			// names the container; the book-label fallback below is the last
+			// resort, and echoes the source item's own title for no class but
+			// the book, where the container IS the item.
+			$container = $this->partOfLabel( $sourceItem, $preferredLanguage );
+			if ( $container !== null && $container !== '' ) {
+				$csl['container-title'] = $container;
+			} elseif ( $csl['type'] === 'book' ) {
+				// Books: the container IS the source item (label fallback).
+				$sourceLabel = $this->labelOf( $sourceItem, $preferredLanguage );
+				if ( $sourceLabel !== '' ) {
+					$csl['container-title'] = $sourceLabel;
+				}
 			}
 		}
 
@@ -325,6 +344,34 @@ class StatementToCslConverter {
 		}
 		$target = $this->entityLookup->getEntity( $value );
 		return $target instanceof Item ? $target : null;
+	}
+
+	/**
+	 * The best-ranked `part of` target's label, or null when the property is
+	 * unconfigured, the statement is absent, or the target is not an item
+	 * with a label. Feeds the container-title fallback for child classes.
+	 */
+	private function partOfLabel( Item $sourceItem, ?string $preferredLanguage ): ?string {
+		if ( $this->partOfPropertyId === null ) {
+			return null;
+		}
+		$statement = $this->bestStatement( $sourceItem, $this->partOfPropertyId );
+		if ( $statement === null ) {
+			return null;
+		}
+		$snak = $statement->getMainSnak();
+		if ( !$snak instanceof PropertyValueSnak ) {
+			return null;
+		}
+		$value = $snak->getDataValue();
+		if ( $value instanceof EntityIdValue ) {
+			$value = $value->getEntityId();
+		}
+		if ( !$value instanceof ItemId ) {
+			return null;
+		}
+		$target = $this->entityLookup->getEntity( $value );
+		return $target instanceof Item ? $this->labelOf( $target, $preferredLanguage ) : null;
 	}
 
 	/**

@@ -118,11 +118,30 @@ class StatementToCslConverterTest extends TestCase {
 					);
 					return $item;
 				}
+				if ( $entityId->getSerialization() === 'Q40' ) {
+					// A website item — the part-of target of a webpage.
+					$item = new Item( new ItemId( 'Q40' ) );
+					$item->setLabel( 'en', 'mediawiki.org' );
+					return $item;
+				}
+				if ( $entityId->getSerialization() === 'Q41' ) {
+					// A webpage source: class Q42, part-of (P27) → website Q40,
+					// no `published in` statement.
+					$item = new Item( new ItemId( 'Q41' ) );
+					$item->setLabel( 'en', 'Release notes' );
+					$item->getStatements()->addNewStatement(
+						new PropertyValueSnak( new PropertyId( 'P31' ), new EntityIdValue( new ItemId( 'Q42' ) ) )
+					);
+					$item->getStatements()->addNewStatement(
+						new PropertyValueSnak( new PropertyId( 'P27' ), new EntityIdValue( new ItemId( 'Q40' ) ) )
+					);
+					return $item;
+				}
 				return null;
 			}
 
 			public function hasEntity( EntityId $entityId ) {
-				return in_array( $entityId->getSerialization(), [ 'Q10', 'Q11', 'Q12', 'Q20', 'Q30' ], true );
+				return in_array( $entityId->getSerialization(), [ 'Q10', 'Q11', 'Q12', 'Q20', 'Q30', 'Q40', 'Q41' ], true );
 			}
 		};
 	}
@@ -250,6 +269,51 @@ class StatementToCslConverterTest extends TestCase {
 		// Label fallback: the source item's label IS the container title.
 		$this->assertSame( 'The Old Man and the Sea', $csl['container-title'] );
 		$this->assertSame( 'book', $csl['type'] );
+	}
+
+	public function testContainerTitleComesFromPartOfTargetForWebpages(): void {
+		// Regression (issue report 2026-08-30): a self-cited webpage rendered
+		// "… In Release notes (mediawiki.org)" — the item's OWN label — because
+		// the unconditional fallback echoed the source title. The container is
+		// the part-of target (the website): "In mediawiki.org".
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31',
+			[ 'Q42' ],   // webpage class is a source class
+			'P27'        // `part of` property id
+		);
+		$webpage = $this->makeEntityLookup()->getEntity( new ItemId( 'Q41' ) );
+		$this->assertInstanceOf( Item::class, $webpage );
+
+		$csl = $converter->toCslJson( $webpage );
+
+		$this->assertSame( 'article', $csl['type'] );
+		$this->assertSame( 'mediawiki.org', $csl['container-title'] );
+	}
+
+	public function testMissingContainerTitleIsOmittedForNonBookSources(): void {
+		// Regression: a source with no container-title property statement and
+		// no part-of target used to echo its own label into the "In …" clause.
+		// It must be omitted entirely — no container name, no "In …" clause.
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31',
+			[ 'Q42' ],
+			'P27'
+		);
+		$item = new Item();
+		$item->setLabel( 'en', 'Release notes' );
+		$item->getStatements()->addNewStatement(
+			new PropertyValueSnak( new PropertyId( 'P31' ), new EntityIdValue( new ItemId( 'Q42' ) ) )
+		);
+
+		$csl = $converter->toCslJson( $item );
+
+		$this->assertArrayNotHasKey( 'container-title', $csl );
 	}
 
 	public function testSourceClassItemCitedDirectlyIsItsOwnSource(): void {

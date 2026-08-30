@@ -35,6 +35,10 @@
 		"WikibaseCitationSourceClasses": {
 			"value": [],
 			"description": "Class item ids that are sources themselves (book, scholarly article, ...) — enables the self-cite behaviour of the converter (issue #24). Defaults to the values of EmbeddableContentConfig['sourceClasses'] when unset."
+		},
+		"WikibaseCitationPartOf": {
+			"value": null,
+			"description": "The `part of` property id (e.g. P361) whose target label names a source's container when container-title is unset (a webpage's website, a book excerpt's book). Defaults to EmbeddableContentConfig['sourceProperties']['partOf'] when unset."
 		}
 	},
 	"Hooks": {
