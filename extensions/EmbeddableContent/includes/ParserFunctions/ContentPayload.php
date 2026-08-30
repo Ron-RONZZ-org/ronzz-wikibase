@@ -29,7 +29,13 @@ use Wikibase\Repo\WikibaseRepo;
  *
  *   `{{#content:Q1085}}`          — the payload of the named content item
  *   `{{#content:}}`               — the current page's sitelinked item
- *   `<pre>{{#content:Q1085}}</pre>` — multi-line code renders as typed
+ *
+ * NB (MW 1.46): the function expands only BARE. Inside a `<pre>`,
+ * `<syntaxhighlight>` or other extension-tag body, the preprocessor treats
+ * the content as literal (extension-tag content is not preprocessed, the
+ * T67318-era behavior), so `<pre>{{#content:Q1085}}</pre>` shows the raw
+ * invocation, not the decoded payload. Wrap the bare expansion in a styled
+ * container instead (e.g. a bordered div) when the page wants a code block.
  *
  * The kind is detected from the item's class (quotation / code / math); the
  * payload property id comes from the instance config, so no property ids are
