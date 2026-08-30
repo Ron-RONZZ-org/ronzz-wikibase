@@ -174,7 +174,7 @@ final class ImageUploadHelper {
 			// MW 1.46: 'help' is raw HTML (deprecated); 'help-message' is the
 			// key form — the bare key string rendered verbatim before.
 			'help-message' => $helpMsg,
-			'hide-if' => [ 'OR', [ '===', $prefix . 'Include', '' ], [ '!==', $prefix . 'Mode', 'existing' ] ],
+			'hide-if' => [ 'OR', [ '===', $prefix . 'Include', '' ], [ '===', $prefix . 'Mode', 'existing' ] ],
 		];
 	}
 
@@ -183,7 +183,7 @@ final class ImageUploadHelper {
 			'type' => 'text',
 			'label-message' => $msgKey,
 			'maxlength' => 250,
-			'hide-if' => [ 'OR', [ '===', $prefix . 'Include', '' ], [ '!==', $prefix . 'Mode', 'existing' ] ],
+			'hide-if' => [ 'OR', [ '===', $prefix . 'Include', '' ], [ '===', $prefix . 'Mode', 'existing' ] ],
 		];
 	}
 
@@ -192,7 +192,7 @@ final class ImageUploadHelper {
 			'type' => 'text',
 			'label-message' => $msgKey,
 			'maxlength' => 250,
-			'hide-if' => [ 'OR', [ '===', $prefix . 'Include', '' ], [ '!==', $prefix . 'Mode', 'existing' ] ],
+			'hide-if' => [ 'OR', [ '===', $prefix . 'Include', '' ], [ '===', $prefix . 'Mode', 'existing' ] ],
 		];
 	}
 

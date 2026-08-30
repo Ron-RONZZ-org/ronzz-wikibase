@@ -210,7 +210,7 @@ final class ImageUploadHelperTest extends TestCase {
 			$this->configStub()
 		);
 		$this->assertSame(
-			[ 'OR', [ '===', 'logoInclude', '' ], [ '!==', 'logoMode', 'existing' ] ],
+			[ 'OR', [ '===', 'logoInclude', '' ], [ '===', 'logoMode', 'existing' ] ],
 			$spec['hide-if']
 		);
 	}
@@ -218,7 +218,7 @@ final class ImageUploadHelperTest extends TestCase {
 	public function testAuthorFieldHiddenWhenModeExisting(): void {
 		$spec = ImageUploadHelper::authorField( 'portrait', 'embeddablecontent-person-portrait-author' );
 		$this->assertSame(
-			[ 'OR', [ '===', 'portraitInclude', '' ], [ '!==', 'portraitMode', 'existing' ] ],
+			[ 'OR', [ '===', 'portraitInclude', '' ], [ '===', 'portraitMode', 'existing' ] ],
 			$spec['hide-if']
 		);
 	}
@@ -226,7 +226,7 @@ final class ImageUploadHelperTest extends TestCase {
 	public function testLicenseInfoFieldHiddenWhenModeExisting(): void {
 		$spec = ImageUploadHelper::licenseInfoField( 'logo', 'embeddablecontent-collective-logo-license-info' );
 		$this->assertSame(
-			[ 'OR', [ '===', 'logoInclude', '' ], [ '!==', 'logoMode', 'existing' ] ],
+			[ 'OR', [ '===', 'logoInclude', '' ], [ '===', 'logoMode', 'existing' ] ],
 			$spec['hide-if']
 		);
 	}
