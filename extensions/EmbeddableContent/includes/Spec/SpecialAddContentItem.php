@@ -8,6 +8,7 @@ use DataValues\StringValue;
 use DataValues\TimeValue;
 use EmbeddableContent\Content\FragmentSanitizer;
 use EmbeddableContent\Content\MathRenderer;
+use EmbeddableContent\Content\PayloadCodec;
 use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\Spec\ItemIdList;
 use MediaWiki\HTMLForm\HTMLForm;
@@ -177,6 +178,13 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		if ( $this->getKind() === 'math' ) {
 			$payload = MathRenderer::stripDelimiters( $payload );
 		}
+
+		// The wiki's string/monolingualtext values reject vertical whitespace
+		// and tabs (wikibase-validator-illegal-string-chars), so a logically
+		// multi-line payload is stored backslash-escaped and decoded at render
+		// time (PayloadCodec + the {{#content:}} decoder function — issue #6
+		// §8 escalation, option A).
+		$payload = PayloadCodec::escape( $payload );
 
 		$classId = $this->config->classIds()[$this->getKind()] ?? null;
 		$payloadPropertyId = $this->config->payloadPropertyIds()[$this->getKind()] ?? null;
