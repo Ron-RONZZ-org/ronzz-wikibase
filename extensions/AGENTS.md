@@ -38,6 +38,25 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
 
 ### EmbeddableContent
 
+- **Entity-mode API modules (the MCP contract, `includes/Flow/` + `includes/Api/`)**: the
+  Add* flows are also exposed as write API modules for machine clients (bot sessions,
+  the MCP embeddable tools): `action=addsource` (citation sources), `action=addspecialcontent`
+  (quotation/math/code-snippet), `action=addsemanticentity` (person/software/collective/
+  fictional-character/other) — each with a read-only `-fields` discovery sibling
+  (`action=addsource-fields`, …) reporting the accepted fields, required-on-create rules
+  and resolved property ids. The field contracts live in `Flow/SourceFieldMap`,
+  `Flow/SpecialContentFieldMap`, `Flow/SemanticEntityFieldMap` (one publisher per flow —
+  the MCP tools and the discovery endpoints read them, so the "webpage rejects authors
+  yet demands one" drift of 2026-08-30 cannot recur); the pipelines live in the
+  `Flow/*FlowService` classes (pure PHP, unit-tested): validation (field whitelist,
+  agent-class authors, parent exists + right class, date/URL/duration formats),
+  book-excerpt year/authors/description inference, payload handling (math delimiter
+  stripping, backslash-escaping), label derivation (person given/family,
+  fictional-character suffix), collectiveClass preset resolution, no-clobber update
+  (`qid`), and classic-page + sitelink creation via `Flow/ClassicPageCreator`. The
+  browser forms keep their own field vocabulary and browser-only steps (external-authority
+  search, URL-first metadata fetch, content review, image/file uploads); delegating the
+  forms' statement building to the services is a documented follow-up.
 - **Vocabulary manifests** (`manifests/`: `properties.csv`, `classes.csv`,
   `languages.csv`) + `maintenance/importVocabulary.php` — the D1 importer.
   Includes the issue-#7 ExternalId authority + citation-metadata properties
