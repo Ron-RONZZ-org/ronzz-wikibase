@@ -5,6 +5,7 @@ declare( strict_types = 1 );
 use EmbeddableContent\Content\ContentRenderer;
 use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\Fetch\CurlHttpClient;
+use EmbeddableContent\Fetch\NominatimProvider;
 use EmbeddableContent\Fetch\ProviderClient;
 use EmbeddableContent\Fetch\RateLimitedHttpClient;
 use EmbeddableContent\Fetch\WikipediaContentProvider;
@@ -60,6 +61,15 @@ return [
 		// Add* page-content step.
 		return new WikipediaContentProvider(
 			new RateLimitedHttpClient( new CurlHttpClient( [ 'en.wikipedia.org' ] ) )
+		);
+	},
+
+	'EmbeddableContent.Nominatim' => static function ( MediaWikiServices $services ): NominatimProvider {
+		// Fixed-host OpenStreetMap Nominatim search (osm-places): the
+		// harvest-on-pick label→OSM auto-match. Pinned allowlist + the
+		// shared rate limiter at Nominatim's usage-policy minimum (1 req/s).
+		return new NominatimProvider(
+			new RateLimitedHttpClient( new CurlHttpClient( [ 'nominatim.openstreetmap.org' ] ), 1.1 )
 		);
 	},
 ];

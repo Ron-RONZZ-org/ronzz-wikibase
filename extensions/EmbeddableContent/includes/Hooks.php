@@ -104,6 +104,14 @@ class Hooks {
 			return;
 		}
 
+		// AddPerson/UpdatePerson — the place-of-birth/death fields are OSM
+		// search comboboxes (osm-places): osmsuggest.js wires them to
+		// Nominatim (browser-first). isSpecial() covers the class-scoped
+		// subpages too (Special:AddPerson/<token>/review/0).
+		if ( $title->isSpecial( 'AddPerson' ) || $title->isSpecial( 'UpdatePerson' ) ) {
+			$out->addModules( 'ext.embeddableContent.osmsuggest' );
+		}
+
 		$namespaceLookup = WikibaseRepo::getEntityNamespaceLookup();
 		$itemNamespace = $namespaceLookup->getEntityNamespace( Item::ENTITY_TYPE );
 		if ( $itemNamespace === false || $title->getNamespace() !== $itemNamespace ) {

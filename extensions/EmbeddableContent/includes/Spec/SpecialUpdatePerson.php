@@ -57,10 +57,10 @@ class SpecialUpdatePerson extends SpecialAddPerson {
 
 		$props = $this->config->personPropertyIds();
 		$record['dateOfBirth'] = $this->timeValueForProperty( $item, $props['dateOfBirth'] ?? null );
-		$record['placeOfBirth'] = $this->firstEntityForProperty( $item, $props['placeOfBirth'] ?? null );
+		$record['placeOfBirthOsm'] = $this->firstStringForProperty( $item, $props['placeOfBirthOsm'] ?? null );
 		$record['dateOfDeath'] = $this->timeValueForProperty( $item, $props['dateOfDeath'] ?? null );
-		$record['placeOfDeath'] = $this->firstEntityForProperty( $item, $props['placeOfDeath'] ?? null );
-		$record['deceased'] = $record['dateOfDeath'] !== '' || $record['placeOfDeath'] !== '';
+		$record['placeOfDeathOsm'] = $this->firstStringForProperty( $item, $props['placeOfDeathOsm'] ?? null );
+		$record['deceased'] = $record['dateOfDeath'] !== '' || $record['placeOfDeathOsm'] !== '';
 		$record['website'] = $this->firstStringForProperty( $item, $props['officialWebsite'] ?? null );
 
 		// Portrait facts are NOT prefilled into the upload section (the

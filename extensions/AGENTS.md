@@ -82,21 +82,37 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   Namespaces Person (2010/2011), Source (2012/2013), Collective (2014/2015)
   in dev config + production LocalSettings.
 - **AddPerson lifecycle fields**: VIAF/ISNI search (Wikidata-hub-only),
-  day-precision date of birth/death + entity-combobox place of birth/death
-  with a "This person is deceased" toggle revealing the death fields;
-  `personProperties` config section (P569/P19/P570/P20-aligned). The label
-  field is gone (issue #35): the label is the full name, auto-derived from
-  given/family (`primaryLabel`); a harvested label-only candidate keeps its
-  label. The search `name` box autofills the manual form as given/family
-  (every word except the last = given, last word = family — pure
-  `NameSplitter`). **Place of birth/death are harvested as LABELS, not
-  Wikidata QIDs** (the raw P19/P20 id was dropped into the local-item
-  combobox and written as a wrong local statement): the review field runs
-  the label through the shared `resolveEntityField` autofill-confirm flow —
-  a good local match prefills the combobox with the local id + the [Yes]/[No]
-  confirmation banner (`entityconfirm.js`), no match leaves the field empty
-  with an "External record: …" hint (`-unresolved` messages), an already-local
-  id (the Update flow) passes through unchanged.
+  day-precision date of birth/death + a "This person is deceased" toggle
+  revealing the death fields; `personProperties` config section (P569/P19/
+  P570/P20-aligned + the OSM external-id keys). The label field is gone
+  (issue #35): the label is the full name, auto-derived from given/family
+  (`primaryLabel`); a harvested label-only candidate keeps its label. The
+  search `name` box autofills the manual form as given/family (every word
+  except the last = given, last word = family — pure `NameSplitter`).
+- **AddPerson places live in OpenStreetMap (osm-places, ADR
+  `docs/decisions/osm-places.md`)**: the place-of-birth/death fields are OOUI
+  comboboxes (cssclass `wb-osm-combobox`) wired by `resources/osmsuggest.js`
+  to the **Nominatim search API browser-first** (CORS-open, per Nominatim's
+  client-side guidance; the server never proxies search-as-you-type), picking
+  a suggestion fills the field with the canonical **`node|way|relation/<id>`**
+  value (the formatter URL `https://www.openstreetmap.org/$1` dereferences
+  it). The statements write the NEW external-id properties `place of birth
+  (OSM)` / `place of death (OSM)` (manifest + `personProperties` config keys
+  `placeOfBirthOsm`/`placeOfDeathOsm`); the item-typed P19/P20 properties
+  stay in the vocabulary but the forms no longer write them (production had 0
+  statements — no migration). **Harvested Wikidata place LABELS are
+  auto-matched on Nominatim at harvest-on-pick** (`NominatimProvider`, fixed
+  host allowlist + the shared rate limiter at Nominatim's 1 req/s minimum,
+  invoked from `SpecialAddPerson::harvestContent`): a top match prefills the
+  field AND renders the fetch-match-confirm [Yes, that's right] / [No, let me
+  correct] banner (the portrait-license pattern); no match → the "External
+  record: {place} — search OpenStreetMap to confirm" hint (`-osm-hint`
+  messages); a stored id (the Update flow) prefills unchanged, no banner.
+  Server-side `OsmPlace::isValidId` gates the submitted value — a raw place
+  NAME is a form error in `beforeCreate`, never a silent drop.
+  `Template:Person` renders the OSM rows (`{{#statements:place of birth
+  (OSM)}}` / `…(OSM)}}`) as openstreetmap.org links, matching the
+  VIAF/ORCID/ISNI row pattern.
 - **AddSource bookExcerpt**: optional chapters (new string property,
   P2635-aligned) + volume fields; blank description auto-generates as
   "Pages a-b (Volume c) of {book}"; blank year/authors infer from the

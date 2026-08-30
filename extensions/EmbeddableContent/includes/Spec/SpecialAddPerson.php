@@ -174,11 +174,11 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 				'label-message' => 'embeddablecontent-field-dateofbirth',
 				'default' => (string)( $record['dateOfBirth'] ?? '' ),
 			],
-			'placeOfBirth' => $this->placeFieldSpec(
-				'placeOfBirth',
+			'placeOfBirthOsm' => $this->osmPlaceFieldSpec(
+				'placeOfBirthOsm',
 				'embeddablecontent-field-placeofbirth',
-				'embeddablecontent-field-placeofbirth-unresolved',
-				(string)( $record['placeOfBirth'] ?? '' )
+				'embeddablecontent-field-placeofbirth-osm-hint',
+				$record
 			),
 			'deceased' => [
 				'type' => 'check',
@@ -191,11 +191,11 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 				'default' => (string)( $record['dateOfDeath'] ?? '' ),
 				'hide-if' => [ '!==', 'deceased', '1' ],
 			],
-			'placeOfDeath' => $this->placeFieldSpec(
-				'placeOfDeath',
+			'placeOfDeathOsm' => $this->osmPlaceFieldSpec(
+				'placeOfDeathOsm',
 				'embeddablecontent-field-placeofdeath',
-				'embeddablecontent-field-placeofdeath-unresolved',
-				(string)( $record['placeOfDeath'] ?? '' ),
+				'embeddablecontent-field-placeofdeath-osm-hint',
+				$record,
 				[ 'hide-if' => [ '!==', 'deceased', '1' ] ]
 			),
 		]
@@ -248,58 +248,69 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 	}
 
 	/**
-	 * Entity combobox for place of birth / place of death.
+	 * OSM search combobox for place of birth / place of death.
 	 *
 	 * The harvested value arrives as a LABEL ("Cambridge") since the
 	 * autofill-confirm update batch — the raw Wikidata QID was previously
 	 * written blindly as a LOCAL item reference (a wrong/misleading
-	 * statement). The label goes through the same entity-autofill flow as
-	 * the harvested publisher/journal/license strings (resolveEntityField):
-	 * a good local match PREFILLS the combobox with the local id AND
-	 * renders a confirmation banner ("we think this corresponds to {label}
-	 * (Q#)" — entityconfirm.js Yes/No); no match leaves the field empty
-	 * with a "pick an existing item, or create it first" hint. An
-	 * already-local id (Special:UpdatePerson's recordFromItem) passes
-	 * through unchanged.
+	 * statement). Three prefill states:
+	 *  1. an auto-matched OSM id (harvestContent's Nominatim lookup) →
+	 *     prefilled with the node|way|relation/<id> value AND the
+	 *     fetch-match-confirm banner (the portrait-license pattern:
+	 *     "we think this corresponds to {display name} (node/123)"
+	 *     [Yes, that's right] / [No, let me correct]);
+	 *  2. a stored OSM id (Special:UpdatePerson's recordFromItem) → plain
+	 *     prefill, no banner;
+	 *  3. a harvested label with NO match → empty field + the "search
+	 *     OpenStreetMap to confirm" hint (a raw name would fail the
+	 *     server-side id validation on submit, so it never prefills).
+	 *
+	 * The combobox carries the `wb-osm-combobox` cssclass; resources/
+	 * osmsuggest.js wires it to the Nominatim search API (browser-first).
 	 *
 	 * @param string $fieldKey the form field key (wp + key = input name)
 	 * @param string $labelMessage message key of the field label
-	 * @param string $unresolvedMessage message key with $1 = the place label
-	 * @param string $harvested the record's place value (label or local QID)
+	 * @param string $hintMessage message key with $1 = the harvested place label
+	 * @param array<string,mixed> $record the review record (label, matched
+	 *  OSM id, confirm payload)
 	 * @param array<string,mixed> $extra extra field spec keys (e.g. hide-if)
 	 * @return array<string,mixed>
 	 */
-	private function placeFieldSpec( string $fieldKey, string $labelMessage, string $unresolvedMessage, string $harvested, array $extra = [] ): array {
+	private function osmPlaceFieldSpec( string $fieldKey, string $labelMessage, string $hintMessage, array $record, array $extra = [] ): array {
+		$labelKey = $fieldKey === 'placeOfBirthOsm' ? 'placeOfBirth' : 'placeOfDeath';
+		$harvested = (string)( $record[$labelKey] ?? '' );
+		$matched = (string)( $record[$fieldKey] ?? '' );
+		$confirm = $record[$fieldKey . 'Confirm'] ?? null;
+
 		$default = '';
 		$help = '';
-		if ( $harvested !== '' && preg_match( '/^Q[1-9]\d*$/i', $harvested ) !== 1 ) {
-			// A harvested label: resolve to an existing local item.
-			$resolved = $this->resolveEntityField( $harvested );
-			if ( $resolved !== null ) {
-				$default = $resolved['id'];
-				$help = $this->entityConfirmHtml(
-					'wp' . $fieldKey,
-					$this->msg( $labelMessage )->text(),
-					$harvested,
-					$resolved['label'],
-					$resolved['id']
-				);
-			} else {
-				// Plain text, HTML-escaped: the value comes from an external
-				// API and must never inject markup.
-				$help = htmlspecialchars(
-					$this->msg( $unresolvedMessage, $harvested )->text()
-				);
-			}
-		} elseif ( $harvested !== '' ) {
-			// Already a local item id (the Update flow).
-			$default = $harvested;
+		if ( $matched !== '' && \EmbeddableContent\Spec\OsmPlace::isValidId( $matched ) ) {
+			$default = $matched;
+		}
+		if ( is_array( $confirm ) ) {
+			// Fetch-match-confirm (the portrait-license pattern): the
+			// harvested label was auto-matched to an OSM entity — the user
+			// confirms or corrects before submit.
+			$help = $this->entityConfirmHtml(
+				'wp' . $fieldKey,
+				$this->msg( $labelMessage )->text(),
+				(string)( $confirm['fetched'] ?? '' ),
+				(string)( $confirm['label'] ?? '' ),
+				(string)( $confirm['id'] ?? '' )
+			);
+		} elseif ( $harvested !== '' && $default === '' ) {
+			// A harvested label with no auto-match: the OSM search hint.
+			// Plain text, HTML-escaped: the value comes from an external
+			// API and must never inject markup.
+			$help = htmlspecialchars(
+				$this->msg( $hintMessage, $harvested )->text()
+			);
 		}
 		$spec = [
 			'type' => 'combobox',
 			'options' => [],
 			'label-message' => $labelMessage,
-			'cssclass' => 'wb-entity-combobox',
+			'cssclass' => 'wb-osm-combobox',
 			'default' => $default,
 		];
 		if ( $help !== '' ) {
@@ -311,8 +322,9 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 	/**
 	 * Person statement specs: the base authority/citation facts plus the
 	 * birth/death facts — dates as day-precision TimeValues, places as
-	 * entity values referencing existing local items — plus the portrait
-	 * (uploaded File: URL on the `image` property) and its license.
+	 * EXTERNAL-ID OSM values (node/way/relation ids picked from the
+	 * Nominatim combobox) — plus the portrait (uploaded File: URL on the
+	 * `image` property) and its license.
 	 *
 	 * @param array<string,mixed> $record
 	 * @return array<string,\Wikibase\DataModel\DataValue|\Wikibase\DataModel\DataValue[]>
@@ -330,13 +342,17 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 				$specs[$props[$field]] = $time;
 			}
 		}
-		foreach ( [ 'placeOfBirth', 'placeOfDeath' ] as $field ) {
+		// OSM places (osm-places): the external-id properties carry the
+		// Nominatim-picked node/way/relation ids. The item-typed P19/P20
+		// properties are no longer written by the forms (the local-item
+		// place vocabulary was abandoned — places live in OpenStreetMap).
+		foreach ( [ 'placeOfBirthOsm', 'placeOfDeathOsm' ] as $field ) {
 			if ( !isset( $props[$field] ) || empty( $record[$field] ) ) {
 				continue;
 			}
-			$itemId = $this->parseItemId( (string)$record[$field] );
-			if ( $itemId !== null ) {
-				$specs[$props[$field]] = new EntityIdValue( $itemId );
+			$osmId = trim( (string)$record[$field] );
+			if ( \EmbeddableContent\Spec\OsmPlace::isValidId( $osmId ) ) {
+				$specs[$props[$field]] = new \DataValues\StringValue( $osmId );
 			}
 		}
 		// Official website: optional validated URL statement (the shared
@@ -388,6 +404,15 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 	 * @return string|null error message, or null to proceed
 	 */
 	protected function beforeCreate( array &$record ): ?string {
+		// OSM places: a filled-in field must carry a Nominatim-picked
+		// node/way/relation id — a raw place name (e.g. an unpicked
+		// harvested label) is a form error, never a silent drop.
+		foreach ( [ 'placeOfBirthOsm', 'placeOfDeathOsm' ] as $field ) {
+			$value = trim( (string)( $record[$field] ?? '' ) );
+			if ( $value !== '' && !\EmbeddableContent\Spec\OsmPlace::isValidId( $value ) ) {
+				return $this->msg( 'embeddablecontent-field-place-osm-error' )->text();
+			}
+		}
 		return \EmbeddableContent\Upload\ImageUploadHelper::handleUpload(
 			'portrait',
 			$record,
@@ -415,15 +440,51 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 		return $this->wikipedia;
 	}
 
+	/** @var \EmbeddableContent\Fetch\NominatimProvider|null lazily built */
+	private ?\EmbeddableContent\Fetch\NominatimProvider $nominatim = null;
+
+	private function nominatim(): \EmbeddableContent\Fetch\NominatimProvider {
+		$this->nominatim ??= \MediaWiki\MediaWikiServices::getInstance()
+			->get( 'EmbeddableContent.Nominatim' );
+		return $this->nominatim;
+	}
+
+	/**
+	 * Harvest-on-pick enrichment: the Wikipedia lead intro + the OSM place
+	 * auto-match — a harvested place LABEL is searched on Nominatim
+	 * (server-side, rate-limited); a top match prefills the OSM field with
+	 * the node/way/relation id AND a fetch-match-confirm banner (the
+	 * portrait-license pattern) so the user confirms or corrects. No match
+	 * / unreachable Nominatim → the plain "search OpenStreetMap to confirm"
+	 * hint on the review form. Best-effort: never throws.
+	 */
 	protected function harvestContent( array $record ): array {
 		$title = trim( (string)( $record['enwikiTitle'] ?? '' ) );
-		if ( $title === '' ) {
-			return $record;
+		if ( $title !== '' ) {
+			$intro = $this->wikipediaContent()->intro( $title );
+			if ( $intro !== null ) {
+				$record['biography'] = $intro;
+				$record['contentSources']['biography'] = 'wikipedia';
+			}
 		}
-		$intro = $this->wikipediaContent()->intro( $title );
-		if ( $intro !== null ) {
-			$record['biography'] = $intro;
-			$record['contentSources']['biography'] = 'wikipedia';
+		foreach ( [ 'placeOfBirth' => 'placeOfBirthOsm', 'placeOfDeath' => 'placeOfDeathOsm' ] as $labelKey => $osmKey ) {
+			$label = trim( (string)( $record[$labelKey] ?? '' ) );
+			if ( $label === '' || !empty( $record[$osmKey] ) || !empty( $record[$osmKey . 'Confirm'] ) ) {
+				continue;
+			}
+			try {
+				$match = $this->nominatim()->topMatchForLabel( $label, $this->getLanguage()->getCode() );
+			} catch ( \Throwable $e ) {
+				$match = null; // Nominatim down → the plain search hint.
+			}
+			if ( $match !== null ) {
+				$record[$osmKey] = $match['osmType'] . '/' . $match['osmId'];
+				$record[$osmKey . 'Confirm'] = [
+					'fetched' => $label,
+					'label' => $match['displayName'],
+					'id' => $record[$osmKey],
+				];
+			}
 		}
 		return $record;
 	}
