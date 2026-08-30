@@ -338,6 +338,8 @@ def main() -> int:
     args = parser.parse_args()
     if args.apply:
         args.dry_run = False
+    with open(args.password_file, encoding="utf-8") as fh:
+        args.password = fh.read().strip()
     try:
         return backfill(args)
     except (WikibaseApiError, urllib.error.URLError) as exc:
