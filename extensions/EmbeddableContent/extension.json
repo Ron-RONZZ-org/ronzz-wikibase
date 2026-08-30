@@ -133,6 +133,19 @@
 		},
 		"uploadmeta": {
 			"class": "EmbeddableContent\\Api\\ApiUploadMeta"
+		},
+		"addsource": {
+			"class": "EmbeddableContent\\Api\\ApiAddSource",
+			"services": [
+				"EmbeddableContent.SourceFlowService",
+				"EmbeddableContent.ClassicPageCreator"
+			]
+		},
+		"addsource-fields": {
+			"class": "EmbeddableContent\\Api\\ApiSourceFields",
+			"services": [
+				"EmbeddableContent.Config"
+			]
 		}
 	},
 	"HookHandlers": {

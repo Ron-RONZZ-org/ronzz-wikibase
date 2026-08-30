@@ -72,4 +72,19 @@ return [
 			new RateLimitedHttpClient( new CurlHttpClient( [ 'nominatim.openstreetmap.org' ] ), 1.1 )
 		);
 	},
+
+	'EmbeddableContent.SourceFlowService' => static function ( MediaWikiServices $services ): \EmbeddableContent\Flow\SourceFlowService {
+		return new \EmbeddableContent\Flow\SourceFlowService(
+			$services->get( 'EmbeddableContent.Config' ),
+			WikibaseRepo::getEntityLookup( $services ),
+			// Content messages (book-excerpt auto-description, the class
+			// disambiguation suffix) render in English, the language the
+			// item terms are stored in.
+			static fn ( string $key, array $params ) => wfMessage( $key, ...$params )->inLanguage( 'en' )->text()
+		);
+	},
+
+	'EmbeddableContent.ClassicPageCreator' => static function ( MediaWikiServices $services ): \EmbeddableContent\Flow\ClassicPageCreator {
+		return new \EmbeddableContent\Flow\ClassicPageCreator();
+	},
 ];
