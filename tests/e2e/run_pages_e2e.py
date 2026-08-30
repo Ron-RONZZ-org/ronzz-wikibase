@@ -2029,7 +2029,8 @@ def flow_add_more(op, base: str, api: str, person_qid: str, source_url: str) -> 
         "wpattributedTo": person_qid,
         "wpsourceUrl": source_url,
         "wpEditToken": token,
-        "wpaddmore": "Add more",
+        # HTMLForm keeps the field key's casing: 'addMore' -> 'wpaddMore'.
+        "wpaddMore": "Add more",
     })
     # Must REOPEN the form (carry-over), NOT redirect to the created item.
     if "/wiki/Item:" in url:

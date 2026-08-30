@@ -410,7 +410,9 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		// item here, otherwise the page just renders empty after submit.
 		// The "Add more" button instead reopens this page with the
 		// provenance inputs carried over (label + payload excluded).
-		if ( $this->getRequest()->getVal( 'wpaddmore' ) !== null ) {
+		// HTMLForm keeps the field key's casing in the request name:
+		// 'addMore' → 'wpaddMore'.
+		if ( $this->getRequest()->getVal( 'wpaddMore' ) !== null ) {
 			$this->getOutput()->redirect( $this->addMoreUrl( $data ) );
 			return true;
 		}
