@@ -210,6 +210,7 @@ jobs:
           python3 -m seed.seed_instance \
             --user "$MW_ADMIN_NAME" --password "$MW_ADMIN_PASS" \
             --api-url "$API_URL" --base-url "$BASE_URL" --sparql-url "$SPARQL_URL" \
+            --config-sparql-url "http://wdqs:9999/bigdata/namespace/wdq/sparql" \
             --config-out dev/config/ronzz-wikibase-config.php \
             --ids-out seed/generated/ids.json \
             --only=properties,classes,languages,preseed,dogfood,config

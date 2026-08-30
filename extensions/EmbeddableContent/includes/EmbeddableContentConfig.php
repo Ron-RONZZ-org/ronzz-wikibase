@@ -288,6 +288,18 @@ class EmbeddableContentConfig {
 	}
 
 	/**
+	 * WDQS SPARQL endpoint for read-only queries (the webpage→website
+	 * parent-inference host match). Operator config emitted by the seed —
+	 * never user input; only http(s) URLs are honoured. Null when absent
+	 * (an instance predating this feature): the inference degrades to the
+	 * site-name flow.
+	 */
+	public function sparqlUrl(): ?string {
+		$url = $this->optionalString( 'sparqlUrl' );
+		return $url !== null && preg_match( '#^https?://#i', $url ) === 1 ? $url : null;
+	}
+
+	/**
 	 * Issue #7: agent class ids (Special:AddPerson / AddCollective).
 	 *
 	 * @return array<string,string> canonical key => item id

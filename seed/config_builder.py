@@ -229,6 +229,7 @@ def build_config(
     previous_youtube_api_key: str = "",
     preseed_ids: dict[str, str] | None = None,
     license_ids: dict[str, str] | None = None,
+    sparql_url: str | None = None,
 ) -> str:
     """Returns a PHP snippet assigning $wgEmbeddableContentConfig and the
     Wikibase settings the seed is responsible for.
@@ -242,6 +243,13 @@ def build_config(
     is deploy-injected via the environment and must never be silently lost on
     re-emission: an explicitly exported YOUTUBE_API_KEY (even empty — an
     explicit disable) wins; otherwise the previous key is preserved.
+
+    sparql_url is the WDQS endpoint the EXTENSION queries at runtime (the
+    webpage→website parent host match). It must be reachable from the wiki
+    process — on the dev/CI stack that is the container-internal
+    http://wdqs:9999/… URL, on production the public /sparql URL. Defaults
+    to None (the config key is omitted; the host-match inference degrades to
+    the site-name flow).
 
     preseed_ids maps preseed-item English labels to their item ids (the
     common licenses/OSes/UI preseed phase).
@@ -406,6 +414,8 @@ def build_config(
     youtube_api_key = env_key if env_key is not None else previous_youtube_api_key
     config["youtubeApiKey"] = youtube_api_key
     config["youtubeSearchCacheTtl"] = int(os.environ.get("YOUTUBE_SEARCH_CACHE_TTL", "0") or 0)
+    if sparql_url:
+        config["sparqlUrl"] = sparql_url
     config = {k: v for k, v in config.items() if v not in (None, {}, [])}
 
     lines = [

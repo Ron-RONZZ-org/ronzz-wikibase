@@ -4,6 +4,7 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent;
 
+use EmbeddableContent\ParserFunctions\ContentPayload;
 use EmbeddableContent\ParserFunctions\ItemImage;
 use EmbeddableContent\ParserFunctions\SourceAccess;
 use MediaWiki\MediaWikiServices;
@@ -231,6 +232,13 @@ class Hooks {
 		} );
 		$parser->setFunctionHook( 'itemimage', static function ( Parser $parser, ...$args ) use ( $services ): array {
 			return ItemImage::onItemImage(
+				$services->get( 'EmbeddableContent.Config' ),
+				$parser,
+				$args
+			);
+		} );
+		$parser->setFunctionHook( 'content', static function ( Parser $parser, ...$args ) use ( $services ): array {
+			return ContentPayload::onContent(
 				$services->get( 'EmbeddableContent.Config' ),
 				$parser,
 				$args

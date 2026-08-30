@@ -61,19 +61,39 @@ QUOTATION_TEXT = {
     ),
 }
 
+# Host-match fixture (webpage→website parent inference): a website-class item
+# whose URL statement is https://example.org. On production the exact-label
+# skip reuses the pre-existing record Q562 ("Example Domain"); on the dev/CI
+# stack it is created by the seed and reaches WDQS via the CI TTL preload —
+# giving the host-match E2E branches a deterministic record on BOTH stacks
+# (the fresh-stack WDQS updater is unreliable, see the root AGENTS.md quirk).
+WEBSITE_LABELS = {
+    "en": "Example Domain",
+    "fr": "Example Domain",
+    "eo": "Example Domain",
+}
+WEBSITE_DESCRIPTIONS = {
+    "en": "Example website used by the E2E tests (webpage-parent host match)",
+    "fr": "Site web d'exemple utilisé par les tests E2E (correspondance hôte du parent)",
+    "eo": "Ekzempla retejo uzata de la E2E-testoj (gastiganto-kongruo de la patro)",
+}
+
+
 CODE_LABELS = {
     "en": "Factorial in Python",
     "fr": "Factorielle en Python",
     "eo": "Faktorialo en Python",
 }
 CODE_DESCRIPTIONS = {
-    "en": "Recursive factorial function in Python (single line: Wikibase string values reject newlines)",
-    "fr": "Fonction factorielle récursive en Python (une ligne : les chaînes Wikibase refusent les sauts de ligne)",
-    "eo": "Rekursia faktoriala funkcio en Python (unu linio: Wikibase-ĉenoj malakceptas linisaltojn)",
+    "en": "Recursive factorial function in Python",
+    "fr": "Fonction factorielle récursive en Python",
+    "eo": "Rekursia faktoriala funkcio en Python",
 }
 # NB: Wikibase `string`/`monolingualtext` values reject vertical whitespace
-# (ValidatorBuilders::getCommonStringValidators) — payloads must be single
-# line. Multiline content is a documented v1 escalation (issue #6 §8).
+# (ValidatorBuilders::getCommonStringValidators), so multi-line payloads are
+# stored backslash-escaped and decoded at render time (issue #6 §8 option A:
+# the extension's PayloadCodec + the {{#content:}} decoder function). This
+# dogfood stays a one-liner — both storage forms are valid.
 CODE_TEXT = "factorial = lambda n: 1 if n <= 1 else n * factorial(n - 1)"
 
 MATH_LABELS = {

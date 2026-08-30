@@ -214,16 +214,24 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 
 	/**
 	 * Webpage → website parent inference (the child-class requirement):
-	 * the site root of the entered webpage URL is fetched for its site
-	 * name, which is matched against existing website-class items — exact
-	 * label first, then the fuzzy EntityLabelMatcher (the same
-	 * autofill-confirm flow as the harvested publisher/journal). A match
-	 * stores the parent item id in $urlMeta['parent'] plus a confirmation
-	 * banner payload ($urlMeta['parentConfirm'] — the user confirms on the
-	 * manual form); no match stores $urlMeta['parentUnresolved'] (the site
-	 * exists, our record doesn't — the field stays required with a "add
-	 * the website first" hint). Best-effort: an unfetchable site root
-	 * simply skips the inference.
+	 * the site root of the entered webpage URL is matched against existing
+	 * website-class items in two steps:
+	 *
+	 *  1. **Normalized-host match** (this follow-up): the root URL's host is
+	 *     compared — via WDQS — against the URL statements of website-class
+	 *     items. An exact host match AUTO-ASSIGNS the parent silently (no
+	 *     confirmation banner): deterministic, independent of any metadata
+	 *     fetch (works even when the site blocks crawling). The user can
+	 *     still correct the prefilled combobox before submit.
+	 *  2. **Site-name match** (round 3, the fallback): the site root's
+	 *     fetched title is matched against website items — exact first,
+	 *     then the fuzzy EntityLabelMatcher — with the standard
+	 *     confirmation banner; no match stores the "add the website first"
+	 *     hint. Used when WDQS is unavailable/stale (a website created
+	 *     minutes ago on production) or the host matches nothing.
+	 *
+	 * Best-effort throughout: an unfetchable site root or an unreachable
+	 * WDQS simply skips that step, never failing the URL-entry flow.
 	 *
 	 * @param array<string,mixed> $urlMeta
 	 */
@@ -233,6 +241,18 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			return;
 		}
 		$root = \EmbeddableContent\Fetch\SsrfGuard::siteRoot( $url );
+
+		// 1) Normalized-host match → silent auto-assign (no banner).
+		$byHost = $this->websiteItemByRootHost( $websiteClassId, $root );
+		if ( $byHost !== null ) {
+			$urlMeta['parent'] = $byHost['id'];
+			return;
+		}
+
+		// 2) Site-name inference (round 3): banner / "add the website
+		//    first" hint. Runs even when the PAGE fetch failed (404/slow
+		//    page — example.org 404s every non-root path): the inference
+		//    only needs the SITE ROOT fetch, which is independent.
 		$siteMeta = $this->metadataFetcher->fetch( $root );
 		$siteName = $siteMeta !== null ? trim( (string)$siteMeta->title ) : '';
 		if ( $siteName === '' ) {
@@ -265,6 +285,86 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				'root' => $root,
 				'siteName' => $siteName,
 			];
+		}
+	}
+
+	/**
+	 * Normalized-host match against website-class items' URL statements via
+	 * WDQS: one SPARQL query for the (website-class × URL-statement) rows,
+	 * host-compared in PHP (SPARQL string matching would not normalize).
+	 *
+	 * @return array{id:string,label:string}|null the matching website item,
+	 *  or null when no URL statement host-matches, the endpoint is
+	 *  unavailable, or the instance predates the sparqlUrl config
+	 */
+	private function websiteItemByRootHost( string $websiteClassId, string $root ): ?array {
+		try {
+			$endpoint = $this->config->sparqlUrl();
+			$urlProp = $this->config->sourcePropertyIds()['url'] ?? null;
+			if ( $endpoint === null || $urlProp === null ) {
+				return null;
+			}
+			// The instance does not pre-register wd:/wdt: prefixes — declare
+			// them from the entity URI namespace (the seed's own SPARQL
+			// check does the same). Derive it the way Wikibase's default
+			// entitySources does ($wgServer . '/entity/') — it is what WDQS
+			// indexed; there is no top-level 'baseUri' setting.
+			$server = $GLOBALS['wgServer'] ?? '';
+			if ( !is_string( $server ) || $server === '' ) {
+				return null;
+			}
+			$wd = rtrim( $server, '/' ) . '/entity/';
+			$wdt = str_replace( '/entity/', '/prop/direct/', $wd );
+			$instanceOf = $this->config->instanceOfPropertyId();
+			$query = "PREFIX wd: <{$wd}> PREFIX wdt: <{$wdt}>\n"
+				. "SELECT ?item ?label ?url WHERE {\n"
+				. "  ?item wdt:{$instanceOf} wd:{$websiteClassId} ; wdt:{$urlProp} ?url .\n"
+				. "  OPTIONAL { ?item rdfs:label ?label FILTER(LANG(?label) = \"en\") }\n"
+				. "} LIMIT 500";
+
+			$rows = $this->sparqlQuery( $endpoint, $query );
+			if ( $rows === null ) {
+				return null;
+			}
+			return \EmbeddableContent\Fetch\SiteRootMatcher::findByHost( $rows, $root );
+		} catch ( \Throwable $e ) {
+			// The host match is an enhancement: any failure (config shape,
+			// service wiring) degrades to the site-name inference, never a
+			// 500 on the URL-entry flow.
+			return null;
+		}
+	}
+
+	/**
+	 * One read-only SPARQL query against the configured WDQS endpoint.
+	 * Returns the decoded `results.bindings` rows, or null on any failure
+	 * (endpoint down, malformed response, timeout) — the caller degrades
+	 * to the site-name inference, never fatal.
+	 *
+	 * @return array<int,array<string,array{type:string,value:string}>|array<string,mixed>>|null
+	 */
+	private function sparqlQuery( string $endpoint, string $query ): ?array {
+		try {
+			$http = \MediaWiki\MediaWikiServices::getInstance()->getHttpRequestFactory();
+			$request = $http->create(
+				$endpoint,
+				[ 'method' => 'POST', 'postData' => [ 'query' => $query ], 'timeout' => 10 ],
+				__METHOD__
+			);
+			$request->setHeader( 'Accept', 'application/sparql-results+json' );
+			if ( !$request->execute()->isOK() ) {
+				return null;
+			}
+			$decoded = json_decode( $request->getContent(), true );
+			if ( !is_array( $decoded ) || !isset( $decoded['results']['bindings'] ) ) {
+				return null;
+			}
+			$rows = $decoded['results']['bindings'];
+			return is_array( $rows ) ? $rows : null;
+		} catch ( \Throwable $e ) {
+			// WDQS unreachable: the host match is an enhancement, never a
+			// failure — the site-name inference takes over.
+			return null;
 		}
 	}
 
