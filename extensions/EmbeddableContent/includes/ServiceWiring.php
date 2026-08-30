@@ -94,4 +94,12 @@ return [
 			static fn ( string $key, array $params ) => wfMessage( $key, ...$params )->inLanguage( 'en' )->text()
 		);
 	},
+
+	'EmbeddableContent.SemanticEntityFlowService' => static function ( MediaWikiServices $services ): \EmbeddableContent\Flow\SemanticEntityFlowService {
+		return new \EmbeddableContent\Flow\SemanticEntityFlowService(
+			$services->get( 'EmbeddableContent.Config' ),
+			WikibaseRepo::getEntityLookup( $services ),
+			static fn ( string $key, array $params ) => wfMessage( $key, ...$params )->inLanguage( 'en' )->text()
+		);
+	},
 ];

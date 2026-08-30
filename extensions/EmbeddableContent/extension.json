@@ -158,6 +158,19 @@
 			"services": [
 				"EmbeddableContent.Config"
 			]
+		},
+		"addsemanticentity": {
+			"class": "EmbeddableContent\\Api\\ApiAddSemanticEntity",
+			"services": [
+				"EmbeddableContent.SemanticEntityFlowService",
+				"EmbeddableContent.ClassicPageCreator"
+			]
+		},
+		"addsemanticentity-fields": {
+			"class": "EmbeddableContent\\Api\\ApiSemanticEntityFields",
+			"services": [
+				"EmbeddableContent.Config"
+			]
 		}
 	},
 	"HookHandlers": {
