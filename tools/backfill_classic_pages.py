@@ -18,12 +18,12 @@ This tool heals those orphans:
        namespace + template) — skip with a warning when unknown;
     4. sanitize the label (strip HTML markup — the LabelSanitizer contract)
        and skip when it is unusable as a page title;
-    5. wbsetsitelink FIRST, then create the page with the class template +
-       the == Overview == lead (the item description, when present) — the
-       page-creation parse runs in a SEPARATE request and finds the
-       committed sitelink, so the wikibase_item page property is set
-       immediately (the extension's marker/finalize round-trip is an
-       same-request cache workaround, not needed here).
+    5. create the page with the class template + the == Overview == lead
+       (the item description, when present), THEN wbsetsitelink (the repo
+       API rejects sitelinks to non-existent pages — "no-external-page"),
+       THEN touch-edit the page so its parse runs with the committed
+       sitelink and sets the wikibase_item page property immediately (the
+       extension's complete/<id> finalize pattern).
 
 Idempotent and self-verifying: re-running skips healed items; --verify
 re-checks the sitelink + page existence afterwards.
@@ -115,8 +115,17 @@ def heal(api: WikibaseApi, qid: str, ns_map: dict, site_id: str, lang: str,
 
     if not dry_run:
         try:
-            # Sitelink FIRST (separate request → the page-creation parse
-            # below sees the committed sitelink and sets wikibase_item).
+            # Create the page FIRST: the repo's wbsetsitelink validates that
+            # the target page exists on the client site ("no-external-page"
+            # otherwise — the internal entity-store path the Add* flow uses
+            # accepts red links, the API does not).
+            text = f"{{{{{template}}}}}\n\n" if template else ""
+            if desc:
+                text += f"== Overview ==\n\n{desc}\n\n"
+            api.edit_page(
+                page_title, text,
+                "backfill: create the classic page for the item (backfill_classic_pages.py)",
+            )
             result = api._post(
                 "action=wbsetsitelink", token=api.require_csrf(),
                 id=qid, linksite=site_id, linktitle=page_title,
@@ -124,14 +133,13 @@ def heal(api: WikibaseApi, qid: str, ns_map: dict, site_id: str, lang: str,
             )
             if "success" not in result:
                 raise WikibaseApiError(f"wbsetsitelink failed for {qid}: {result}")
-            # Create the page ({{Template}} + the description as the
-            # == Overview == lead — the pageSkeleton convention).
-            text = f"{{{{{template}}}}}\n\n" if template else ""
-            if desc:
-                text += f"== Overview ==\n\n{desc}\n\n"
+            # Touch-edit the page so its parse runs with the COMMITTED
+            # sitelink — this sets the wikibase_item page property now (the
+            # extension's complete/<id> finalize pattern; otherwise it would
+            # wait for the next cron/job-driven re-parse).
             api.edit_page(
                 page_title, text,
-                "backfill: create the classic page for the item (backfill_classic_pages.py)",
+                "backfill: re-parse the page with the committed sitelink (backfill_classic_pages.py)",
             )
         except (WikibaseApiError, urllib.error.URLError) as exc:
             return f"{qid}: error: {exc} — re-run to retry", False
