@@ -152,7 +152,7 @@
 	"embeddablecontent-field-placeofbirth": "Naskiĝloko",
 	"embeddablecontent-field-placeofbirth-unresolved": "Ekstera registro: $1 — elektu ekzistantan eron aŭ kreu ĝin unue, se ĝi ankoraŭ ne ekzistas.",
 	"embeddablecontent-field-placeofbirth-osm-hint": "Ekstera registro: $1 — serĉu la lokon en OpenStreetMap supre, poste elektu ĝin el la sugestoj.",
-	"embeddablecontent-field-dateofbirth": "Naskiĝdato",
+	"embeddablecontent-field-dateofdeath": "Mortodato",
 	"embeddablecontent-field-placeofdeath": "Mortoloko",
 	"embeddablecontent-field-placeofdeath-unresolved": "Ekstera registro: $1 — elektu ekzistantan eron aŭ kreu ĝin unue, se ĝi ankoraŭ ne ekzistas.",
 	"embeddablecontent-field-placeofdeath-osm-hint": "Ekstera registro: $1 — serĉu la lokon en OpenStreetMap supre, poste elektu ĝin el la sugestoj.",

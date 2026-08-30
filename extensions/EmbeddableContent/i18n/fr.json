@@ -152,7 +152,7 @@
 	"embeddablecontent-field-placeofbirth": "Lieu de naissance",
 	"embeddablecontent-field-placeofbirth-unresolved": "Enregistrement externe : $1 — choisissez un élément existant, ou créez-le d'abord s'il n'existe pas encore.",
 	"embeddablecontent-field-placeofbirth-osm-hint": "Enregistrement externe : $1 — recherchez le lieu dans OpenStreetMap ci-dessus, puis choisissez-le dans les suggestions.",
-	"embeddablecontent-field-dateofbirth": "Date de naissance",
+	"embeddablecontent-field-dateofdeath": "Date de décès",
 	"embeddablecontent-field-placeofdeath": "Lieu de décès",
 	"embeddablecontent-field-placeofdeath-unresolved": "Enregistrement externe : $1 — choisissez un élément existant, ou créez-le d'abord s'il n'existe pas encore.",
 	"embeddablecontent-field-placeofdeath-osm-hint": "Enregistrement externe : $1 — recherchez le lieu dans OpenStreetMap ci-dessus, puis choisissez-le dans les suggestions.",
