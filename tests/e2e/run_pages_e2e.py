@@ -980,14 +980,56 @@ def website_item_matching(op, api: str, site_name: str) -> str | None:
     return None
 
 
+def normalize_host(url: str) -> str:
+    """Mirror of the server's SiteRootMatcher::normalizeHost: lowercase,
+    trailing dot stripped, `www.` collapsed. '' for an unparseable URL. A
+    scheme-less input (a bare host) is treated as https://host — urlparse
+    would otherwise parse it as a path with no hostname."""
+    if "://" not in url:
+        url = "https://" + url
+    try:
+        host = (urllib.parse.urlparse(url).hostname or "").lower().rstrip(".")
+    except ValueError:
+        return ""
+    return host[4:] if host.startswith("www.") else host
+
+
+def website_item_by_root_host(op, api: str, host: str) -> str | None:
+    """API-based host scan: a website-class item whose URL statement's
+    normalized host equals the given host, or None. Mirrors the SERVER's
+    host-match intent (root URL host against the URL statements of
+    website-class items) but reads the TERM STORE + claims directly (no
+    WDQS — deterministic; the server reads WDQS, which is eventually
+    consistent, so the two agree for pre-existing records)."""
+    website_class = resolve_label(op, api, "website", "item")
+    instance_of = resolve_label(op, api, "instance of", "property")
+    url_prop = resolve_label(op, api, "URL", "property")
+    target = normalize_host(host)
+    if website_class is None or instance_of is None or url_prop is None or not target:
+        return None
+    r = api_call(op, api, {"action": "wbsearchentities", "search": "Example Domain",
+                           "language": "en", "type": "item", "limit": 20, "format": "json"})
+    for hit in r.get("search", []):
+        qid = hit["id"]
+        claims, _ = entity_claims(op, api, qid)
+        if first_value(claims, instance_of) != website_class:
+            continue
+        url_value = first_value(claims, url_prop)
+        if url_value and normalize_host(str(url_value)) == target:
+            return qid
+    return None
+
+
 def flow_source_webpage_parent_hint(op, base: str, api: str) -> None:
-    """Webpage parent inference — the NO-MATCH branch, asserted against the
-    LIVE state: a webpage URL whose site root has NO website-class record
-    must render the "No record found for <root>" hint (the website is real,
-    our record isn't). When a record DOES exist (production may already
-    hold one — e.g. an imported 'Example Domain' item), the same entry must
-    prefill the parent combobox with that website (and the confirmation
-    banner) instead — never silently nothing."""
+    """Webpage parent inference — asserted against the LIVE state, three
+    branches (in server priority order):
+      1. a website item whose URL host matches the root (WDQS host match) →
+         the parent is AUTO-ASSIGNED silently — prefilled, NO confirmation
+         banner (the host-match auto-assign, add-flow round-3 follow-up);
+      2. else a website record matching the site NAME → the site-name
+         fallback prefills with the confirmation banner;
+      3. else → the "No record found for <root>" hint (the website is real,
+         our record isn't). Never silently nothing."""
     url, body = page_get(op, base, "/wiki/Special:AddSource/webpage")
     token = edit_token(body)
     url, body = page_post(op, url, {
@@ -1002,13 +1044,22 @@ def flow_source_webpage_parent_hint(op, base: str, api: str) -> None:
     manual_path = (u.path or "/") + ("?" + u.query if u.query else "")
     _, body = page_get(op, base, manual_path)
     parent = input_value(body, "wpparent")
+    if website_item_by_root_host(op, api, "example.org") is not None:
+        # Host match (e.g. production's Example Domain record) — the parent
+        # must be prefilled SILENTLY (no confirmation banner).
+        if not parent or "wb-entity-confirm" in body:
+            raise FlowError(
+                f"AddSource/webpage parent NOT auto-assigned from the root-URL host "
+                f"match (parent={parent!r}, banner={'wb-entity-confirm' in body}): "
+                f"{find_error(body)}")
+        return
     if website_item_matching(op, api, "Example Domain") is not None:
-        # A local website record exists — the inference must have prefilled
-        # it with the confirmation banner (never the hint).
+        # A website record exists by NAME but no URL host matches — the
+        # site-name fallback prefills with the confirmation banner.
         if not parent or "wb-entity-confirm" not in body:
             raise FlowError(
-                f"AddSource/webpage parent NOT inferred although a website record "
-                f"exists (parent={parent!r}): {find_error(body)}")
+                f"AddSource/webpage parent NOT inferred via the site-name fallback "
+                f"although a website record exists (parent={parent!r}): {find_error(body)}")
         return
     # No website record — the "No record found for" hint must render. The
     # parsed message autolinks the root URL (bare-URL autolink in the
@@ -1022,42 +1073,56 @@ def flow_source_webpage_parent_hint(op, base: str, api: str) -> None:
 
 
 def flow_source_webpage_parent_match(op, base: str, api: str,
-                                     author_qid: str) -> tuple[str, str, str | None]:
-    """Webpage parent inference — the MATCH branch: when a website item
-    exists (created here when none matches the site name — the CI stack; on
-    production a real record may already exist), a webpage whose root URL is
-    that site must auto-infer a website as the parent — the manual form
-    prefills wpparent with a website-class Q-id and renders the confirmation
-    banner, and the created webpage carries the `part of` statement.
+                                     author_qid: str) -> tuple[str, str]:
+    """Webpage parent inference — the HOST-MATCH branch: a website-class
+    record with a URL statement host-matching the entered page's root
+    exists on BOTH stacks (production's Q562 'Example Domain'; the dev/CI
+    dogfood website, which reaches WDQS via the CI TTL preload — the
+    fresh-stack WDQS updater is unreliable), so a webpage under that root
+    must AUTO-ASSIGN the website as the parent: the manual form prefills
+    wpparent with a website-class Q-id and NO confirmation banner, and the
+    created webpage carries the `part of` statement.
 
-    Returns (webpage qid, matched website qid, website qid created here or
-    None). Only a website item CREATED here must be tracked for cleanup — a
-    pre-existing (possibly real) record is never touched."""
-    created_website = None
-    if website_item_matching(op, api, "Example Domain") is None:
-        # No website record yet (fresh CI stack): create one via the
-        # website URL-first flow (its fetched site name is 'Example Domain').
-        created_website = flow_source_url_entry(
-            op, base, api, "website", "https://example.org/e2e-site", author_qid)
+    The server's host match reads WDQS (eventually consistent), so the
+    flow RETRIES the URL entry until the server's own inference renders
+    the silent prefill (bounded black-box wait).
 
-    url, body = page_get(op, base, "/wiki/Special:AddSource/webpage")
-    token = edit_token(body)
-    url, body = page_post(op, url, {
-        "wpurl": "https://example.org/e2e-page",
-        "wpEditToken": token, "wpSubmit": "1",
-    })
-    m = re.search(r"(Special:AddSource/webpage/manual)[^'\"]*token=([0-9a-f]+)", url)
-    if not m:
+    Returns (webpage qid, matched website qid). No fixture is created —
+    the record pre-exists on both stacks."""
+    if website_item_by_root_host(op, api, "example.org") is None:
         raise FlowError(
-            f"AddSource/webpage URL entry did not redirect to /manual?token=: {url} {find_error(body)}")
-    u = urllib.parse.urlparse(url)
-    manual_path = (u.path or "/") + ("?" + u.query if u.query else "")
-    manual_url, body = page_get(op, base, manual_path)
-    parent = input_value(body, "wpparent")
-    if not parent or "wb-entity-confirm" not in body:
-        raise FlowError(
-            f"AddSource/webpage parent NOT inferred from the root URL "
-            f"(parent={parent!r}): {find_error(body)}")
+            "no website record with a URL host of example.org — the dogfood/"
+            "production fixture is missing (host-match branch cannot run)")
+
+    manual_url = None
+    deadline = time.time() + 60
+    while True:
+        url, body = page_get(op, base, "/wiki/Special:AddSource/webpage")
+        token = edit_token(body)
+        url, body = page_post(op, url, {
+            "wpurl": "https://example.org/e2e-page",
+            "wpEditToken": token, "wpSubmit": "1",
+        })
+        m = re.search(r"(Special:AddSource/webpage/manual)[^'\"]*token=([0-9a-f]+)", url)
+        if not m:
+            raise FlowError(
+                f"AddSource/webpage URL entry did not redirect to /manual?token=: {url} {find_error(body)}")
+        u = urllib.parse.urlparse(url)
+        manual_path = (u.path or "/") + ("?" + u.query if u.query else "")
+        manual_url, body = page_get(op, base, manual_path)
+        parent = input_value(body, "wpparent")
+        if parent and "wb-entity-confirm" not in body:
+            break  # the host-match auto-assign fired
+        if "wb-entity-confirm" in body:
+            # The site-name fallback fired (WDQS lagging) — retry until the
+            # host match wins.
+            parent = None
+        if time.time() >= deadline:
+            raise FlowError(
+                f"AddSource/webpage host-match auto-assign did not fire within 60s "
+                f"(last parent={parent!r}, banner={'wb-entity-confirm' in body}): "
+                f"{find_error(body)}")
+        time.sleep(10)
     # The prefilled parent must be a WEBSITE-class item (the server's
     # class-filtered matching contract), not any fuzzy false positive.
     website_class = resolve_label(op, api, "website", "item")
@@ -1087,7 +1152,7 @@ def flow_source_webpage_parent_match(op, base: str, api: str,
         url, body = page_post(op, url, {"wpEditToken": token3, "wpSubmit": "1"})
     webpage_qid = flow_final_item(op, base, api, url, body,
                                   "AddSource/webpage (parent inference)")
-    return webpage_qid, parent, created_website
+    return webpage_qid, parent
 
 
 def flow_source_content_step(op, base: str, api: str, doi: str, author_qid: str) -> str:
@@ -2439,21 +2504,20 @@ def main() -> int:
         manual_pick_url = flow_source_picker_route(op, base)
         print(f"[ok] AddSource picker -> {manual_pick_url.rsplit('/wiki/', 1)[-1]}")
 
-        # 2j1. Webpage → website parent inference (add-flow round): the site
-        #     root of the entered webpage URL is auto-matched against
-        #     website-class items — asserted against the LIVE state: no
-        #     record → the "No record found for <root>" hint; a record
-        #     exists (production may already hold a real 'Example Domain'
-        #     website) → the parent combobox prefilled + confirmation
-        #     banner. The created webpage carries the `part of` statement.
+        # 2j1. Webpage → website parent inference (add-flow round + host-match
+        #     follow-up): the site root of the entered webpage URL is
+        #     auto-matched against website-class items — asserted against the
+        #     LIVE state: a URL-host record → the parent is AUTO-ASSIGNED
+        #     silently (no banner); only a name match → prefilled +
+        #     confirmation banner; no record → the "No record found for
+        #     <root>" hint. The created webpage carries the `part of`
+        #     statement.
         flow_source_webpage_parent_hint(op, base, api)
-        print("[ok] AddSource/webpage parent inference: no-record hint (or "
-              "prefilled record) rendered on the manual form")
-        webpage_child, webpage_parent, webpage_created_site = \
+        print("[ok] AddSource/webpage parent inference: hint / banner / silent "
+              "host auto-assign rendered on the manual form")
+        webpage_child, webpage_parent = \
             flow_source_webpage_parent_match(op, base, api, person)
         track(webpage_child)
-        if webpage_created_site is not None:
-            track(webpage_created_site)
         claims, label = entity_claims(op, api, webpage_child)
         assert first_value(claims, part_of_prop) == webpage_parent, \
             f"{webpage_child} part-of != inferred website {webpage_parent} " \

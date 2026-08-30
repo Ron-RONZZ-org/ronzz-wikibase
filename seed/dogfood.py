@@ -61,6 +61,24 @@ QUOTATION_TEXT = {
     ),
 }
 
+# Host-match fixture (webpage→website parent inference): a website-class item
+# whose URL statement is https://example.org. On production the exact-label
+# skip reuses the pre-existing record Q562 ("Example Domain"); on the dev/CI
+# stack it is created by the seed and reaches WDQS via the CI TTL preload —
+# giving the host-match E2E branches a deterministic record on BOTH stacks
+# (the fresh-stack WDQS updater is unreliable, see the root AGENTS.md quirk).
+WEBSITE_LABELS = {
+    "en": "Example Domain",
+    "fr": "Example Domain",
+    "eo": "Example Domain",
+}
+WEBSITE_DESCRIPTIONS = {
+    "en": "Example website used by the E2E tests (webpage-parent host match)",
+    "fr": "Site web d'exemple utilisé par les tests E2E (correspondance hôte du parent)",
+    "eo": "Ekzempla retejo uzata de la E2E-testoj (gastiganto-kongruo de la patro)",
+}
+
+
 CODE_LABELS = {
     "en": "Factorial in Python",
     "fr": "Factorielle en Python",
