@@ -982,7 +982,11 @@ def website_item_matching(op, api: str, site_name: str) -> str | None:
 
 def normalize_host(url: str) -> str:
     """Mirror of the server's SiteRootMatcher::normalizeHost: lowercase,
-    trailing dot stripped, `www.` collapsed. '' for an unparseable URL."""
+    trailing dot stripped, `www.` collapsed. '' for an unparseable URL. A
+    scheme-less input (a bare host) is treated as https://host — urlparse
+    would otherwise parse it as a path with no hostname."""
+    if "://" not in url:
+        url = "https://" + url
     try:
         host = (urllib.parse.urlparse(url).hostname or "").lower().rstrip(".")
     except ValueError:
@@ -1148,7 +1152,7 @@ def flow_source_webpage_parent_match(op, base: str, api: str,
         url, body = page_post(op, url, {"wpEditToken": token3, "wpSubmit": "1"})
     webpage_qid = flow_final_item(op, base, api, url, body,
                                   "AddSource/webpage (parent inference)")
-    return webpage_qid, parent, created_website
+    return webpage_qid, parent
 
 
 def flow_source_content_step(op, base: str, api: str, doi: str, author_qid: str) -> str:
