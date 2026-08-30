@@ -198,8 +198,16 @@ def backfill(args) -> int:
         page = api._get("action=query&prop=pageprops&format=json&titles="
                         + urllib.parse.quote(file_title))
         page_props = {}
+        missing = False
         for p in page.get("query", {}).get("pages", {}).values():
             page_props = p.get("pageprops", {})
+            missing = bool(p.get("missing"))
+        if missing:
+            # The File: page was deleted after WDQS indexed it (eventual
+            # consistency) — nothing to backfill.
+            print(f"  {file_title}: File: page missing (deleted) — skip")
+            skipped += 1
+            continue
         existing_item = page_props.get("wikibase_item", "")
         if existing_item:
             skipped += 1
