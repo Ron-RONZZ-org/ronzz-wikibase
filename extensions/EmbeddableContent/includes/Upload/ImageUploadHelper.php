@@ -45,10 +45,18 @@ use Throwable;
  *   {$prefix}File         — browser file input (hide-if !file)
  *   {$prefix}Url          — pasted URL (hide-if !url)
  *   {$prefix}Existing     — File: search combobox (hide-if !existing)
- *   {$prefix}License      — entity combobox (config licenseItems)
- *   {$prefix}Author       — free-text author
- *   {$prefix}LicenseInfo  — free-text additional license information
+ *   {$prefix}License      — entity combobox (config licenseItems); hidden
+ *                           in existing mode (the reused file has its own)
+ *   {$prefix}Author       — free-text author; hidden in existing mode
+ *   {$prefix}LicenseInfo  — free-text additional license information;
+ *                           hidden in existing mode
  *   {$prefix}FileTitle    — (set by handleUpload) the uploaded/ reused File: DB key
+ *
+ * Semantic-first image model: the image facts (license/author/license-info)
+ * are attached to the FILE — the newly created image-class item
+ * (ImageItemCreator) + the file description page text — never to the entity
+ * using the image; the consumer entity only references the file via its
+ * `image` statement.
  */
 final class ImageUploadHelper {
 
@@ -150,7 +158,13 @@ final class ImageUploadHelper {
 		];
 	}
 
-	/** Semantic license combobox (config licenseItems + entity search). */
+	/**
+	 * Semantic license combobox (config licenseItems + entity search). The
+	 * license is only asked for a NEW upload (file/url): when the image is
+	 * REUSED from an existing File: page, the license (and the author /
+	 * license-info) were already recorded on the file itself — the fields
+	 * hide in existing mode.
+	 */
 	public static function licenseField( string $prefix, string $msgKey, string $helpMsg, EmbeddableContentConfig $config ): array {
 		return [
 			'type' => 'combobox',
@@ -160,7 +174,7 @@ final class ImageUploadHelper {
 			// MW 1.46: 'help' is raw HTML (deprecated); 'help-message' is the
 			// key form — the bare key string rendered verbatim before.
 			'help-message' => $helpMsg,
-			'hide-if' => [ '===', $prefix . 'Include', '' ],
+			'hide-if' => [ 'OR', [ '===', $prefix . 'Include', '' ], [ '!==', $prefix . 'Mode', 'existing' ] ],
 		];
 	}
 
@@ -169,7 +183,7 @@ final class ImageUploadHelper {
 			'type' => 'text',
 			'label-message' => $msgKey,
 			'maxlength' => 250,
-			'hide-if' => [ '===', $prefix . 'Include', '' ],
+			'hide-if' => [ 'OR', [ '===', $prefix . 'Include', '' ], [ '!==', $prefix . 'Mode', 'existing' ] ],
 		];
 	}
 
@@ -178,7 +192,7 @@ final class ImageUploadHelper {
 			'type' => 'text',
 			'label-message' => $msgKey,
 			'maxlength' => 250,
-			'hide-if' => [ '===', $prefix . 'Include', '' ],
+			'hide-if' => [ 'OR', [ '===', $prefix . 'Include', '' ], [ '!==', $prefix . 'Mode', 'existing' ] ],
 		];
 	}
 
@@ -220,6 +234,15 @@ final class ImageUploadHelper {
 	 * proceed) — a provided image that cannot be honoured is NEVER silently
 	 * skipped.
 	 *
+	 * Semantic-first image model: the license / author / additional-license
+	 * info belong to the FILE, never to the entity using the image. A NEW
+	 * upload (file/url) therefore creates the sitelinked image-class item
+	 * (ImageItemCreator, the Special:Upload item-per-upload service) holding
+	 * those facts + the file description page carries the human-readable
+	 * attribution; the consumer entity only references the file via its
+	 * `image` statement. REUSING an existing file needs no license at all —
+	 * the file already carries its facts.
+	 *
 	 * The URL-mode path goes through UploadFromUrl (SSRF-guarded) with the
 	 * fetchFile() fix; the browser-blob fallback (uploadmeta.js) converts a
 	 * Wikimedia URL into a plain file upload BEFORE this runs — the original
@@ -229,6 +252,9 @@ final class ImageUploadHelper {
 	 * @param array<string,mixed> $record
 	 * @param array{error:string,licenseRequired:string,editSummary:string} $msgKeys
 	 * @param callable(array):string $primaryLabel record → item label
+	 * @param EmbeddableContentConfig|null $config the instance config map, or
+	 *   null to skip the image-item creation (never fatal — the upload
+	 *   itself succeeds without it)
 	 */
 	public static function handleUpload(
 		string $prefix,
@@ -236,7 +262,8 @@ final class ImageUploadHelper {
 		IContextSource $context,
 		User $user,
 		array $msgKeys,
-		callable $primaryLabel
+		callable $primaryLabel,
+		?EmbeddableContentConfig $config = null
 	): ?string {
 		$error = static function ( string $reason ) use ( $context, $msgKeys ): string {
 			return $context->msg( $msgKeys['error'], $reason )->text();
@@ -283,15 +310,79 @@ final class ImageUploadHelper {
 		if ( $title !== null ) {
 			$record[$prefix . 'FileTitle'] = $title->getDBkey();
 			$licenseItem = self::parseItemId( (string)( $record[$prefix . 'License'] ?? '' ) );
-			if ( $licenseItem === null ) {
+			// The license is mandatory only for a NEW upload (it is recorded
+			// on the newly created image item + the file page); a reused file
+			// already carries its license on its own page/item.
+			if ( $mode !== 'existing' && $licenseItem === null ) {
 				return $context->msg( $msgKeys['licenseRequired'] )->text();
 			}
-			$record[$prefix . 'License'] = $licenseItem->getSerialization();
+			$record[$prefix . 'License'] = $licenseItem !== null ? $licenseItem->getSerialization() : '';
+			// Semantic-first: a new upload becomes its own image-class item
+			// (sitelinked File: page ↔ item, statements on the item, prose on
+			// the page) — the consumer entity carries only the `image`
+			// statement (the Add* statementSpecs no longer write the image
+			// facts).
+			if ( $mode !== 'existing' && $config !== null && $licenseItem !== null ) {
+				self::createImageItem( $prefix, $record, $title, $context, $user, $config, $msgKeys, $primaryLabel );
+			}
 		} else {
 			$record[$prefix . 'FileTitle'] = '';
 			$record[$prefix . 'License'] = '';
 		}
 		return null;
+	}
+
+	/**
+	 * Creates (or reuses) the sitelinked image-class item for a NEW upload —
+	 * the semantic home of the image facts (license / author / additional
+	 * license information / source URL). Label = the file name without
+	 * extension (createOrReuse's idempotency key); the file page text carries
+	 * the prose. Best-effort: a missing vocabulary key skips the item
+	 * silently — the upload itself is unaffected.
+	 *
+	 * @param array<string,mixed> $record
+	 * @param array{error:string,licenseRequired:string,editSummary:string} $msgKeys
+	 * @param callable(array):string $primaryLabel
+	 */
+	private static function createImageItem(
+		string $prefix,
+		array $record,
+		Title $title,
+		IContextSource $context,
+		User $user,
+		EmbeddableContentConfig $config,
+		array $msgKeys,
+		callable $primaryLabel
+	): void {
+		$label = $primaryLabel( $record );
+		ImageItemCreator::createOrReuse(
+			$config,
+			$user,
+			(string)preg_replace( '/\.[^.]+$/', '', $title->getText() ),
+			ucfirst( $prefix ) . " of {$label}.",
+			$title->getPrefixedText(),
+			(string)( $record[$prefix . 'License'] ?? '' ),
+			(string)( $record[$prefix . 'Author'] ?? '' ),
+			(string)( $record[$prefix . 'LicenseInfo'] ?? '' ),
+			self::uploadSourceUrl( $context, 'url', $record, $prefix ),
+			$context->msg( $msgKeys['editSummary'], $label )->inContentLanguage()->text()
+		);
+	}
+
+	/**
+	 * Provenance URL of an upload: the browser-blob fallback's original
+	 * Wikimedia URL (wbUploadmetaSourceUrl) when present, else the pasted URL
+	 * for url-mode (server-side UploadFromUrl — the blob path is only for
+	 * Wikimedia hosts), else ''.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private static function uploadSourceUrl( IContextSource $context, string $mode, array $record, string $prefix ): string {
+		$source = trim( (string)$context->getRequest()->getVal( 'wbUploadmetaSourceUrl', '' ) );
+		if ( $source === '' && $mode === 'url' ) {
+			$source = trim( (string)( $record[$prefix . 'Url'] ?? '' ) );
+		}
+		return $source;
 	}
 
 	/** Local-file upload (mode=file; also the blob-fallback endpoint). */
@@ -325,7 +416,7 @@ final class ImageUploadHelper {
 		}
 		$base = new UploadFromFile();
 		$base->initializePathInfo( $destName, $tempPath, $upload->getSize() );
-		return self::performUpload( $prefix, $base, $record, $context, $user, $msgKeys, $primaryLabel );
+		return self::performUpload( $prefix, $base, $record, $context, $user, $msgKeys, $primaryLabel, 'file' );
 	}
 
 	/** Pasted-URL upload — UploadFromUrl so the instance's SSRF guards apply. */
@@ -366,10 +457,14 @@ final class ImageUploadHelper {
 		if ( !$status->isGood() || $tempPath === '' || !is_file( $tempPath ) ) {
 			return null;
 		}
-		return self::performUpload( $prefix, $base, $record, $context, $user, $msgKeys, $primaryLabel );
+		return self::performUpload( $prefix, $base, $record, $context, $user, $msgKeys, $primaryLabel, 'url' );
 	}
 
-	/** verifyUpload + performUpload; a rejected upload throws. */
+	/**
+	 * verifyUpload + performUpload; a rejected upload throws. $mode feeds
+	 * the file-page Source line (a pasted URL is the provenance for
+	 * server-side url-mode uploads).
+	 */
 	private static function performUpload(
 		string $prefix,
 		UploadBase $base,
@@ -377,7 +472,8 @@ final class ImageUploadHelper {
 		IContextSource $context,
 		User $user,
 		array $msgKeys,
-		callable $primaryLabel
+		callable $primaryLabel,
+		string $mode = ''
 	): ?Title {
 		$title = $base->getTitle();
 		if ( $title === null ) {
@@ -395,8 +491,17 @@ final class ImageUploadHelper {
 			throw new \RuntimeException( 'verifyUpload rejected (' . $detail . ')' );
 		}
 		$label = $primaryLabel( $record );
-		$sourceUrl = trim( (string)$context->getRequest()->getVal( 'wbUploadmetaSourceUrl', '' ) );
-		$pageText = self::pageText( $label, $prefix, $sourceUrl );
+		$sourceUrl = self::uploadSourceUrl( $context, $mode, $record, $prefix );
+		$licenseId = trim( (string)( $record[$prefix . 'License'] ?? '' ) );
+		$pageText = self::pageText(
+			$label,
+			$prefix,
+			$sourceUrl,
+			$licenseId,
+			$licenseId !== '' ? self::licenseLabel( $licenseId ) : '',
+			(string)( $record[$prefix . 'Author'] ?? '' ),
+			(string)( $record[$prefix . 'LicenseInfo'] ?? '' )
+		);
 		$status = $base->performUpload(
 			$context->msg( $msgKeys['editSummary'], $label )->inContentLanguage()->text(),
 			$pageText,
@@ -470,7 +575,7 @@ final class ImageUploadHelper {
 			return '';
 		}
 		$clean = (string)preg_replace( '/[#<>\[\]|{}:]/', '', trim( $label ) );
-		$clean = trim( (string)preg_replace( '/\s+/', ' ', $clean ) );
+		$clean = trim( (string)preg_replace( '/\s+/', '-', $clean ) );
 		if ( $clean === '' ) {
 			return '';
 		}
@@ -481,14 +586,67 @@ final class ImageUploadHelper {
 	 * File description page text: the identifying sentence (per-page: the
 	 * portrait/logo is uploaded from Special:AddPerson/AddSoftware) + the
 	 * original source URL when the browser-blob path carried one
-	 * (provenance).
+	 * (provenance). When the image facts are provided (a NEW upload), the
+	 * page carries the semantic attribution exactly like Special:Upload
+	 * (UploadHooks): a `== License ==` reference ([[Q42|label]], never a
+	 * {{Q42}} template call) and an `== Attribution ==` block (author /
+	 * additional license information / source). English headers: the file
+	 * description pages are content-language (en) and the lead sentence is
+	 * already English; keeps this method pure-PHP and unit-testable.
+	 *
+	 * @param string $licenseId item id of the license ("Q42", '' = no block)
+	 * @param string $licenseLabel resolved English label of the license item
 	 */
-	public static function pageText( string $label, string $suffix, string $sourceUrl = '' ): string {
+	public static function pageText(
+		string $label,
+		string $suffix,
+		string $sourceUrl = '',
+		string $licenseId = '',
+		string $licenseLabel = '',
+		string $author = '',
+		string $licenseInfo = ''
+	): string {
 		$text = ucfirst( $suffix ) . " of {$label}.";
+		if ( $licenseId !== '' ) {
+			// [[Q42|label]] — never a {{Q42}} template call (the UploadHooks
+			// contract: the license value is a semantic item id).
+			$text .= "\n\n== License ==\n[[" . $licenseId . '|' . htmlspecialchars( $licenseLabel ) . "]]\n";
+		}
+		$lines = [];
+		if ( $author !== '' ) {
+			$lines[] = 'Author: ' . $author;
+		}
+		if ( $licenseInfo !== '' ) {
+			$lines[] = 'Additional license information: ' . $licenseInfo;
+		}
 		if ( $sourceUrl !== '' ) {
-			$text .= "\n\nSource: {$sourceUrl}";
+			$lines[] = 'Source: ' . $sourceUrl;
+		}
+		if ( $lines !== [] ) {
+			$text .= "\n== Attribution ==\n" . implode( "\n", $lines ) . "\n";
 		}
 		return $text;
+	}
+
+	/**
+	 * English label of a license item (best-effort — the item id on any
+	 * lookup failure). Shared with UploadHooks::licenseLabel.
+	 */
+	public static function licenseLabel( string $itemId ): string {
+		try {
+			$entity = \Wikibase\Repo\WikibaseRepo::getEntityLookup()->getEntity(
+				new \Wikibase\DataModel\Entity\ItemId( $itemId )
+			);
+			if ( $entity instanceof \Wikibase\DataModel\Entity\Item ) {
+				$term = $entity->getLabels()->getByLanguage( 'en' );
+				if ( $term !== null ) {
+					return $term->getText();
+				}
+			}
+		} catch ( \Throwable $e ) {
+			// fall through
+		}
+		return $itemId;
 	}
 
 	/**

@@ -8,7 +8,6 @@ use EmbeddableContent\EmbeddableContentConfig;
 use MediaWiki\Context\RequestContext;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Upload\UploadBase;
-use Wikibase\Repo\WikibaseRepo;
 
 /**
  * Special:Upload enhancements (the upload-enhancements batch):
@@ -245,18 +244,7 @@ final class UploadHooks {
 
 	/** English label of a license item (best-effort). */
 	private static function licenseLabel( string $itemId ): string {
-		try {
-			$entity = WikibaseRepo::getEntityLookup()->getEntity( new \Wikibase\DataModel\Entity\ItemId( $itemId ) );
-			if ( $entity instanceof \Wikibase\DataModel\Entity\Item ) {
-				$term = $entity->getLabels()->getByLanguage( 'en' );
-				if ( $term !== null ) {
-					return $term->getText();
-				}
-			}
-		} catch ( \Throwable $e ) {
-			// fall through
-		}
-		return $itemId;
+		return ImageUploadHelper::licenseLabel( $itemId );
 	}
 
 	private static function config(): EmbeddableContentConfig {

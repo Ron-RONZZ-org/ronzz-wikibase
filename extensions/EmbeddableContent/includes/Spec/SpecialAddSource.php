@@ -1436,7 +1436,16 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 					if ( $upload instanceof \MediaWiki\Request\WebRequestUpload && $upload->getSize() > 0 ) {
 						return $this->msg( 'embeddablecontent-source-error-access-upload', 'unsupported file type' )->text();
 					}
-					return $this->msg( 'embeddablecontent-source-error-access-file-required' )->text();
+					// No file in THIS request — the browser file was already
+					// uploaded when the record-review step ran (the content
+					// review step re-runs beforeCreate without re-posting the
+					// file, and the record stored in the session keeps the
+					// uploaded fileTitle). Keep the previous upload instead of
+					// erroring — beforeCreate is idempotent across steps.
+					$title = $this->sessionAccessTitle( $record );
+					if ( $title === null ) {
+						return $this->msg( 'embeddablecontent-source-error-access-file-required' )->text();
+					}
 				}
 			} else {
 				$url = ( new FragmentSanitizer() )->validateUrl( (string)( $record['downloadUrl'] ?? '' ) );
@@ -1455,6 +1464,27 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			$record['fileTitle'] = $title->getDBkey();
 		}
 		return null;
+	}
+
+	/**
+	 * The access file title recorded on an EARLIER review step (the content
+	 * step re-runs beforeCreate without re-posting the browser file): the
+	 * uploaded File: title, or null when the recorded title is missing or no
+	 * longer exists (the caller surfaces the file-required error then).
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function sessionAccessTitle( array $record ): ?\MediaWiki\Title\Title {
+		$stored = trim( (string)( $record['fileTitle'] ?? '' ) );
+		if ( $stored === '' ) {
+			return null;
+		}
+		try {
+			$title = \MediaWiki\Title\Title::makeTitle( NS_FILE, $stored );
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+		return ( $title !== null && $title->exists() ) ? $title : null;
 	}
 
 	/**
@@ -1556,7 +1586,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			return '';
 		}
 		$label = (string)preg_replace( '/[#<>\[\]|{}:]/', '', trim( $this->primaryLabel( $record ) ) );
-		$label = trim( (string)preg_replace( '/\s+/', ' ', $label ) );
+		$label = trim( (string)preg_replace( '/\s+/', '-', $label ) );
 		if ( $label === '' ) {
 			return '';
 		}

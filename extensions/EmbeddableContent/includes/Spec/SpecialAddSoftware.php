@@ -306,25 +306,16 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		}
 
 		// Logo: the uploaded File:<Name>-logo.<ext> page URL (uploaded in
-		// beforeCreate, which sets $record['logoFileTitle']) + the license
-		// entity + the free-text attribution strings (P2093-aligned image
-		// author + unaligned additional license information).
+		// beforeCreate, which sets $record['logoFileTitle']). ONLY the
+		// `image` statement references the file on this entity — the logo's
+		// license/author/license-info live on the file's own image item +
+		// File: page (semantic-first model, ImageUploadHelper). The
+		// software's OWN license facts come from the `license` entity field
+		// (FOSS_ENTITY_FIELDS below), never from the logo.
 		if ( !empty( $record['logoFileTitle'] ) ) {
 			$fileTitle = \MediaWiki\Title\Title::makeTitle( NS_FILE, (string)$record['logoFileTitle'] );
 			if ( $fileTitle !== null ) {
 				$specs[$this->config->fossPropertyIds()['image']] = new StringValue( $fileTitle->getFullURL() );
-			}
-		}
-		if ( !empty( $record['logoLicense'] ) && isset( $this->config->fossPropertyIds()['license'] ) ) {
-			$licenseItem = $this->parseItemId( (string)$record['logoLicense'] );
-			if ( $licenseItem !== null ) {
-				$specs[$this->config->fossPropertyIds()['license']] = new EntityIdValue( $licenseItem );
-			}
-		}
-		$fossProps = $this->config->fossPropertyIds();
-		foreach ( [ 'imageAuthor' => 'logoAuthor', 'imageLicenseInfo' => 'logoLicenseInfo' ] as $propKey => $field ) {
-			if ( !empty( $record[$field] ) && isset( $fossProps[$propKey] ) ) {
-				$specs[$fossProps[$propKey]] = new StringValue( (string)$record[$field] );
 			}
 		}
 
@@ -407,11 +398,12 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 	 * toggle, behind the logoInclude toggle) as File:<Label>-logo.<ext> and
 	 * records the file title in $record['logoFileTitle'] for the image
 	 * statement and the FOSS: page skeleton. The license is mandatory when a
-	 * logo is provided. Idempotent: an already-uploaded file is left alone.
-	 * A provided logo that cannot be uploaded returns an error message
-	 * (aborting the creation — a failed field must never be silent).
-	 * Delegates to the shared ImageUploadHelper (same machinery as
-	 * AddPerson's portrait + Special:Upload).
+	 * NEW logo is provided (recorded on the file's own image item + File:
+	 * page); reusing an existing file needs no license. Idempotent: an
+	 * already-uploaded file is left alone. A provided logo that cannot be
+	 * uploaded returns an error message (aborting the creation — a failed
+	 * field must never be silent). Delegates to the shared ImageUploadHelper
+	 * (same machinery as AddPerson's portrait + Special:Upload).
 	 *
 	 * @param array<string,mixed> $record
 	 * @return string|null error message, or null to proceed
@@ -427,7 +419,8 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 				'licenseRequired' => 'embeddablecontent-software-logo-license-required',
 				'editSummary' => 'embeddablecontent-software-logo-edit-summary',
 			],
-			fn ( array $record ) => $this->primaryLabel( $record )
+			fn ( array $record ) => $this->primaryLabel( $record ),
+			$this->config
 		);
 	}
 

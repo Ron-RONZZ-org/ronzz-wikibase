@@ -362,24 +362,13 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 			$specs[$props['officialWebsite']] = $website;
 		}
 		// Portrait: the uploaded File:<label>-portrait.<ext> URL (image
-		// statement, P18-aligned) + the image license entity (P275-aligned)
-		// + the free-text attribution strings (P2093-aligned image author +
-		// unaligned additional license information).
+		// statement, P18-aligned). The license/author/license-info live on
+		// the file's own image item + File: page (semantic-first model,
+		// ImageUploadHelper) — never on the person entity.
 		if ( !empty( $record['portraitFileTitle'] ) && isset( $props['image'] ) ) {
 			$fileTitle = \MediaWiki\Title\Title::makeTitle( NS_FILE, (string)$record['portraitFileTitle'] );
 			if ( $fileTitle !== null ) {
 				$specs[$props['image']] = new \DataValues\StringValue( $fileTitle->getFullURL() );
-			}
-		}
-		if ( !empty( $record['portraitLicense'] ) && isset( $props['license'] ) ) {
-			$licenseItem = $this->parseItemId( (string)$record['portraitLicense'] );
-			if ( $licenseItem !== null ) {
-				$specs[$props['license']] = new EntityIdValue( $licenseItem );
-			}
-		}
-		foreach ( [ 'imageAuthor' => 'portraitAuthor', 'imageLicenseInfo' => 'portraitLicenseInfo' ] as $propKey => $field ) {
-			if ( !empty( $record[$field] ) && isset( $props[$propKey] ) ) {
-				$specs[$props[$propKey]] = new \DataValues\StringValue( (string)$record[$field] );
 			}
 		}
 		return $specs;
@@ -394,11 +383,13 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 	 * Uploads the optional portrait (local file or pasted URL, per the
 	 * portraitMode toggle, behind the portraitInclude toggle) as
 	 * File:<label>-portrait.<ext> and records the file title in
-	 * $record['portraitFileTitle'] for the image statement. When a portrait
-	 * IS provided, its license is mandatory. Idempotent: an already-uploaded
-	 * file is left alone. A provided portrait that cannot be honoured aborts
-	 * the creation (never silent). Delegates to the shared ImageUploadHelper
-	 * (the same machinery AddSoftware's logo and Special:Upload use).
+	 * $record['portraitFileTitle'] for the image statement. When a NEW
+	 * portrait IS provided, its license is mandatory (recorded on the file's
+	 * own image item + File: page); reusing an existing file needs no
+	 * license. Idempotent: an already-uploaded file is left alone. A
+	 * provided portrait that cannot be honoured aborts the creation (never
+	 * silent). Delegates to the shared ImageUploadHelper (the same machinery
+	 * AddSoftware's logo and Special:Upload use).
 	 *
 	 * @param array<string,mixed> $record
 	 * @return string|null error message, or null to proceed
@@ -423,7 +414,8 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 				'licenseRequired' => 'embeddablecontent-person-portrait-license-required',
 				'editSummary' => 'embeddablecontent-person-portrait-edit-summary',
 			],
-			fn ( array $record ) => $this->primaryLabel( $record )
+			fn ( array $record ) => $this->primaryLabel( $record ),
+			$this->config
 		);
 	}
 
