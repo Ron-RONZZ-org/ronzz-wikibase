@@ -103,8 +103,8 @@ final class ContentPayload {
 
 		// Render the fragment like the embed surface, and load the module
 		// that styles it and renders math client-side.
-		$parser->getOutput()->addModuleStyles( self::EMBED_MODULE );
-		$parser->getOutput()->addModules( self::EMBED_MODULE );
+		$parser->getOutput()->addModuleStyles( [ self::EMBED_MODULE ] );
+		$parser->getOutput()->addModules( [ self::EMBED_MODULE ] );
 
 		$sanitizer = new FragmentSanitizer();
 		switch ( $kind ) {
