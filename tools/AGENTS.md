@@ -56,6 +56,20 @@ wire the wiki into the LLM writing studio, or keep the wiki content conformant.
   (`--apply` writes); the consumer's old statements are KEPT (copy, not
   move — an AddSoftware `license` mixes the software's own license with the
   old logo license and cannot be split safely). Python stdlib only.
+- **`tools/backfill_classic_pages.py`** — heals items the Add\* flow created
+  WITHOUT their classic page + sitelink (the Q1232 bug: a harvested title
+  carrying HTML markup made the page title invalid, so afterCreate silently
+  skipped the page). For each given item: skip when already sitelinked;
+  sanitize the en label (the `LabelSanitizer` contract — strip markup,
+  reject title-forbidden chars); look the instance-of class up in the
+  required `--ns-map` (class id → `{"ns": "Source", "template":
+  "ScholarlyArticle"}`); `wbsetsitelink` FIRST, then create the page
+  (`{{Template}}` + the description as the `== Overview ==` lead) in a
+  separate request so the `wikibase_item` page property is set immediately
+  (the extension's marker/finalize round-trip is a same-request cache
+  workaround, not needed here). **Dry-run by default** (`--apply` writes);
+  `--verify` re-checks the sitelink + page + wikibase_item afterwards.
+  Python stdlib only (reuses `seed/wikibase_api.py`).
 
 ## Constraints and Invariants
 

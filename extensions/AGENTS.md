@@ -476,6 +476,51 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   button prepends); copy citation gains an APA (default)/Vancouver/BibTeX/
   RIS selector (`wb-embed-toolbar-style`), fetched lazily and cached per
   format (the APA probe doubles as the first text).
+- **Content-page "Add more" + label prefill (ADR
+  `docs/decisions/add-more-and-access-collapse.md`)**: `Special:AddQuotation`/
+  `AddCodeSnippet`/`AddMath` prefill the `label` field with the parenthetical
+  class marker (`(quotation)` / `(code snippet)` / `(math snippet)` — the
+  AddSource label convention) and gain a second **"Add more"** submit button
+  (`submitbutton` field `addMore`, distinguishable via the `wpaddmore`
+  request value): the submit creates the item, then redirects back to the
+  page with `?addmore=1` and the submitted provenance fields as query params
+  (attributedTo/source/sourceUrl/date/language/lexer/describes/
+  implementationOf) — **label resets to the default prefill, payload to
+  empty** (`carryOverParams()` gates the prefill to the addmore return
+  trip). The content-page submit is now **login-gated** (the write surface;
+  page loads stay open).
+- **Label sanitization for page titles (fix, same ADR — the Q1232 bug)**:
+  harvested titles carry HTML markup (OpenAlex `<i>…</i>` italics), which was
+  stored verbatim in the item label and made the classic-page title invalid
+  (`Title::isValid()` rejects `< >`) — `afterCreate()` silently fell back to
+  the item redirect (item Q1232 "Planck 2018 results (Scholarly article)"
+  has statements but no `Source:` page). New pure `LabelSanitizer::stripMarkup`
+  (decode entities → strip tags → collapse whitespace, unit-tested) is
+  applied in `SpecialAddSource::disambiguatedTitle()` and — defense-in-depth —
+  in `pageTitleForRecord()`; `afterCreate()` now renders a **warning + link
+  to the item** instead of a silent redirect when the page namespace exists
+  but the title is unusable. The afterCreate sitelink/page block was
+  refactored into `linkPageToItem()` / `createClassicPage()` (no behavior
+  change).
+- **Update* missing-page heal (fix, same ADR)**: after a successful update,
+  when the kind declares a page namespace, the item has no wikibase sitelink
+  and the label is a usable title, the classic page is created (sitelink
+  first + marked page, the `afterCreate` pattern) and the flow routes through
+  the `complete/<id>` finalize (`executeComplete` routing added to the
+  Update `execute()`). Heals Q1232-class damage through the normal update
+  flow; `tools/backfill_classic_pages.py` heals the already-orphaned items
+  (stdlib, `--ns-map` class → namespace/template, `wbsetsitelink` first so
+  the separate page-creation request sets `wikibase_item` immediately).
+- **UpdateSource access collapse (UX, same ADR)**: the access section
+  (`accessMode` radio + accessUrl/downloadUrl/accessFile/license) is hidden
+  behind an **"I will update the resource access instructions"** checkbox
+  (`accessInclude`, default unchecked — the `ImageUploadHelper::includeField`
+  hide-if pattern; `accessFieldSpec` is now protected so `SpecialUpdateSource`
+  can gate the parent's fields). An unchecked submit **neutralizes the
+  access record keys** in `beforeCreate`, so `statementSpecs` writes nothing
+  and `applyUpdate` removes nothing — the item's access statements survive
+  byte-identical (no re-upload, no GUID churn). The Add* flow keeps the
+  section always visible.
 
 ### WikibaseCitation
 
