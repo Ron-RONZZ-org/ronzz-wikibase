@@ -44,6 +44,18 @@ wire the wiki into the LLM writing studio, or keep the wiki content conformant.
   `~/.config/mediawiki-mcp/ronzz-wikibase.json` (or `--user`/`--password`) —
   never committed, never echoed. Used for the 2026-08-23 migration (179 tags,
   12 pages). Python stdlib only.
+- **`tools/backfill_image_items.py`** — one-off backfill for the
+  image-facts-semantics batch: every existing Add\* image file gets its
+  sitelinked `image`-class item + the File-page `== License ==` /
+  `== Attribution ==` blocks (the flows now create these on new uploads).
+  Finds the files via WDQS (items whose `image` statement references a
+  `File:` URL), skips files that already have an image item, collects the
+  facts (license / image author / additional license information + the
+  Source line from the file page) from the referencing consumer entity, then
+  creates the item + sitelink + attribution. **Dry-run by default**
+  (`--apply` writes); the consumer's old statements are KEPT (copy, not
+  move — an AddSoftware `license` mixes the software's own license with the
+  old logo license and cannot be split safely). Python stdlib only.
 
 ## Constraints and Invariants
 
