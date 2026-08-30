@@ -997,17 +997,22 @@ def website_item_by_root_host(op, api: str, host: str) -> str | None:
     website-class items) but reads the TERM STORE + claims directly (no
     WDQS — deterministic; the server reads WDQS, which is eventually
     consistent, so the two agree for pre-existing records)."""
-    qid = website_item_matching(op, api, "Example Domain")
-    if qid is None:
-        return None
-    claims, _ = entity_claims(op, api, qid)
+    website_class = resolve_label(op, api, "website", "item")
+    instance_of = resolve_label(op, api, "instance of", "property")
     url_prop = resolve_label(op, api, "URL", "property")
     target = normalize_host(host)
-    if not target or url_prop is None:
+    if website_class is None or instance_of is None or url_prop is None or not target:
         return None
-    url_value = first_value(claims, url_prop)
-    if url_value and normalize_host(str(url_value)) == target:
-        return qid
+    r = api_call(op, api, {"action": "wbsearchentities", "search": "Example Domain",
+                           "language": "en", "type": "item", "limit": 20, "format": "json"})
+    for hit in r.get("search", []):
+        qid = hit["id"]
+        claims, _ = entity_claims(op, api, qid)
+        if first_value(claims, instance_of) != website_class:
+            continue
+        url_value = first_value(claims, url_prop)
+        if url_value and normalize_host(str(url_value)) == target:
+            return qid
     return None
 
 
@@ -1064,33 +1069,29 @@ def flow_source_webpage_parent_hint(op, base: str, api: str) -> None:
 
 
 def flow_source_webpage_parent_match(op, base: str, api: str,
-                                     author_qid: str) -> tuple[str, str, str | None]:
-    """Webpage parent inference — the HOST-MATCH branch: when a website item
-    exists whose URL host matches the entered page's root (created here when
-    none — the CI stack; on production a real record may already exist), a
-    webpage under that root must AUTO-ASSIGN the website as the parent: the
-    manual form prefills wpparent with a website-class Q-id and NO
-    confirmation banner, and the created webpage carries the `part of`
-    statement.
+                                     author_qid: str) -> tuple[str, str]:
+    """Webpage parent inference — the HOST-MATCH branch: a website-class
+    record with a URL statement host-matching the entered page's root
+    exists on BOTH stacks (production's Q562 'Example Domain'; the dev/CI
+    dogfood website, which reaches WDQS via the CI TTL preload — the
+    fresh-stack WDQS updater is unreliable), so a webpage under that root
+    must AUTO-ASSIGN the website as the parent: the manual form prefills
+    wpparent with a website-class Q-id and NO confirmation banner, and the
+    created webpage carries the `part of` statement.
 
-    The server's host match reads WDQS, which is eventually consistent (the
-    CI fixture was just created), so the flow RETRIES the URL entry until
-    the server's own inference renders the silent prefill (bounded) — a
-    black-box wait, no WDQS mirror in the E2E.
+    The server's host match reads WDQS (eventually consistent), so the
+    flow RETRIES the URL entry until the server's own inference renders
+    the silent prefill (bounded black-box wait).
 
-    Returns (webpage qid, matched website qid, website qid created here or
-    None). Only a website item CREATED here must be tracked for cleanup — a
-    pre-existing (possibly real) record is never touched."""
-    created_website = None
+    Returns (webpage qid, matched website qid). No fixture is created —
+    the record pre-exists on both stacks."""
     if website_item_by_root_host(op, api, "example.org") is None:
-        # No host-matching website record (fresh CI stack): create one via
-        # the website URL-first flow (its fetched site name is 'Example
-        # Domain', its URL statement collapses to https://example.org).
-        created_website = flow_source_url_entry(
-            op, base, api, "website", "https://example.org/e2e-site", author_qid)
+        raise FlowError(
+            "no website record with a URL host of example.org — the dogfood/"
+            "production fixture is missing (host-match branch cannot run)")
 
     manual_url = None
-    deadline = time.time() + 180
+    deadline = time.time() + 60
     while True:
         url, body = page_get(op, base, "/wiki/Special:AddSource/webpage")
         token = edit_token(body)
@@ -1109,12 +1110,12 @@ def flow_source_webpage_parent_match(op, base: str, api: str,
         if parent and "wb-entity-confirm" not in body:
             break  # the host-match auto-assign fired
         if "wb-entity-confirm" in body:
-            # The site-name fallback fired (the fixture is in the term store
-            # but not yet in WDQS) — retry until the host match wins.
+            # The site-name fallback fired (WDQS lagging) — retry until the
+            # host match wins.
             parent = None
         if time.time() >= deadline:
             raise FlowError(
-                f"AddSource/webpage host-match auto-assign did not fire within 180s "
+                f"AddSource/webpage host-match auto-assign did not fire within 60s "
                 f"(last parent={parent!r}, banner={'wb-entity-confirm' in body}): "
                 f"{find_error(body)}")
         time.sleep(10)
@@ -2470,11 +2471,9 @@ def main() -> int:
         flow_source_webpage_parent_hint(op, base, api)
         print("[ok] AddSource/webpage parent inference: hint / banner / silent "
               "host auto-assign rendered on the manual form")
-        webpage_child, webpage_parent, webpage_created_site = \
+        webpage_child, webpage_parent = \
             flow_source_webpage_parent_match(op, base, api, person)
         track(webpage_child)
-        if webpage_created_site is not None:
-            track(webpage_created_site)
         claims, label = entity_claims(op, api, webpage_child)
         assert first_value(claims, part_of_prop) == webpage_parent, \
             f"{webpage_child} part-of != inferred website {webpage_parent} " \

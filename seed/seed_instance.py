@@ -298,7 +298,7 @@ class SeedOrchestrator:
     def phase_dogfood(self) -> None:
         print("— dogfood entities")
         if self.args.dry_run:
-            for kind in ("person", "book", "quotation", "code", "math"):
+            for kind in ("person", "book", "website", "quotation", "code", "math"):
                 print(f"  [dry-run] create {kind}")
             return
 
@@ -435,6 +435,28 @@ class SeedOrchestrator:
         )
         if math_created and math_claims:
             self.api.add_claims(math_id, math_claims, SUMMARY_PREFIX + "populate math item")
+
+        # Website host-match fixture (webpage→website parent inference): the
+        # E2E's host-match branches need a website-class item whose URL
+        # statement host-matches the test root (example.org) ON THE CI STACK
+        # — the fresh-stack WDQS updater is unreliable (root AGENTS.md quirk),
+        # so CI populates WDQS via the TTL preload of the seeded entities.
+        # On production the exact-label skip reuses Q562 (already
+        # instance-of website + URL https://example.org), so no duplicate.
+        website_claims = {}
+        website_class = self.class_ids.get("website")
+        url_property_id = self.find("URL", "property", ANCHOR_LANGUAGE)
+        if instance_of_id and website_class:
+            website_claims[instance_of_id] = [dogfood.entity_claim(instance_of_id, website_class)]
+        if url_property_id:
+            website_claims.setdefault(url_property_id, []).append(
+                dogfood.url_claim(url_property_id, "https://example.org")
+            )
+        website_id, website_created = self.dogfood_item(
+            dogfood.WEBSITE_LABELS, dogfood.WEBSITE_DESCRIPTIONS, "website"
+        )
+        if website_created and website_claims:
+            self.api.add_claims(website_id, website_claims, SUMMARY_PREFIX + "populate website")
 
     def dogfood_item(self, labels: dict[str, str], descriptions: dict[str, str], kind: str) -> tuple[str, bool]:
         """Create-or-skip a dogfood entity by its English label (idempotent
