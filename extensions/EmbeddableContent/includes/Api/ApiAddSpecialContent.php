@@ -67,7 +67,7 @@ class ApiAddSpecialContent extends ApiBase {
 		$user = $this->getUser();
 		$summary = $params['summary'];
 		$store = WikibaseRepo::getEntityStore();
-		$confirmDuplicate = ( $params['confirmDuplicate'] ?? '' ) === '1';
+		$confirmDuplicate = !empty( $params['confirmDuplicate'] );
 
 		if ( $creating ) {
 			// Duplication guard: an existing item carrying the record's
