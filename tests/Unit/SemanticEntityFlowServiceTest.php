@@ -203,6 +203,9 @@ class SemanticEntityFlowServiceTest extends TestCase {
 		$service = $this->makeService();
 		$record = [ 'givenName' => 'Ada', 'familyName' => 'Lovelace', 'orcid' => '0000-0001' ];
 		$item = $service->buildItem( 'person', $record );
+		// applyUpdate runs on a LOADED item (the caller fetched it from the
+		// store) — it needs the id to assign statement GUIDs.
+		$item->setId( new ItemId( 'Q42' ) );
 
 		$service->applyUpdate( 'person', $item, [ 'orcid' => '0000-0002' ] );
 
@@ -215,6 +218,10 @@ class SemanticEntityFlowServiceTest extends TestCase {
 		foreach ( $item->getStatements() as $statement ) {
 			if ( $statement->getPropertyId()->getSerialization() === 'P13' ) {
 				$orcid = $statement->getMainSnak()->getDataValue();
+				// The replaced statement carries a GUID (the entity-page
+				// client matches statements to the DOM by GUID — a
+				// GUID-less statement renders as an empty edit-mode row).
+				$this->assertNotNull( $statement->getGuid() );
 			}
 		}
 		$this->assertSame( '0000-0002', $orcid->getValue() );

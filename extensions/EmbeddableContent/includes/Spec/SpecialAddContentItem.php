@@ -373,12 +373,18 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		}
 		try {
 			$item = $this->contentFlow()->buildItem( $kind, $flowRecord );
-			WikibaseRepo::getEntityStore()->saveEntity(
+			$store = WikibaseRepo::getEntityStore();
+			$summary = $this->msg( 'embeddablecontent-add-edit-summary', $label )->inContentLanguage()->text();
+			$store->saveEntity( $item, $summary, $this->getUser(), EDIT_NEW );
+			// The first save assigns the item id; statements must carry
+			// GUIDs or the entity page renders them as empty edit-mode rows
+			// for logged-in users (the client matches statements to the DOM
+			// by GUID).
+			\EmbeddableContent\Flow\StatementGuidAssigner::ensureGuids(
 				$item,
-				$this->msg( 'embeddablecontent-add-edit-summary', $label )->inContentLanguage()->text(),
-				$this->getUser(),
-				EDIT_NEW
+				new \Wikibase\DataModel\Services\Statement\GuidGenerator()
 			);
+			$store->saveEntity( $item, $summary, $this->getUser(), EDIT_UPDATE );
 		} catch ( \Exception $e ) {
 			return $this->msg( 'embeddablecontent-add-error-save' )->text();
 		}

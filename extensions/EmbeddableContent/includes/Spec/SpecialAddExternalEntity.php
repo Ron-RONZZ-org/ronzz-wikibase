@@ -859,11 +859,22 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			}
 		}
 
-		WikibaseRepo::getEntityStore()->saveEntity(
+		$store = WikibaseRepo::getEntityStore();
+		$store->saveEntity(
 			$item,
 			$this->msg( 'embeddablecontent-extcreate-edit-summary', $label )->inContentLanguage()->text(),
 			$this->getUser(),
 			EDIT_NEW
+		);
+		// The first save assigns the item id; statements must carry GUIDs or
+		// the entity page renders them as empty edit-mode rows for logged-in
+		// users (the client matches statements to the DOM by GUID).
+		\EmbeddableContent\Flow\StatementGuidAssigner::ensureGuids( $item, new GuidGenerator() );
+		$store->saveEntity(
+			$item,
+			$this->msg( 'embeddablecontent-extcreate-edit-summary', $label )->inContentLanguage()->text(),
+			$this->getUser(),
+			EDIT_UPDATE
 		);
 		return $item->getId()->getSerialization();
 	}
