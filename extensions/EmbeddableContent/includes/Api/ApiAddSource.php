@@ -79,7 +79,7 @@ class ApiAddSource extends ApiBase {
 				'entityId' => $itemId,
 				'entityType' => 'item',
 				'latestRevisionId' => $revision->getRevisionId(),
-				'created' => true,
+				'created' => '1',
 			];
 			$record['itemId'] = $itemId;
 			$pageSpec = $this->flow->pageSpecFor( $classKey );
@@ -110,7 +110,7 @@ class ApiAddSource extends ApiBase {
 				'entityId' => $entity->getId()->getSerialization(),
 				'entityType' => 'item',
 				'latestRevisionId' => $revision->getRevisionId(),
-				'updated' => true,
+				'updated' => '1',
 			];
 		}
 

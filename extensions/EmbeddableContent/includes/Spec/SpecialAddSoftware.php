@@ -93,6 +93,12 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 	 */
 	protected function semanticFlowRecord( string $kind, array $record ): array {
 		$out = $this->pickServiceFields( $record, \EmbeddableContent\Flow\SemanticEntityFieldMap::fieldsForKind( 'software' ) );
+		// The form's website field is keyed 'website'; the service contract
+		// calls it officialWebsite.
+		if ( !empty( $record['website'] ) ) {
+			$out['officialWebsite'] = (string)$record['website'];
+		}
+
 		if ( !empty( $record['sourceRepository'] ) ) {
 			$out['sourceCodeRepository'] = (string)$record['sourceRepository'];
 		}

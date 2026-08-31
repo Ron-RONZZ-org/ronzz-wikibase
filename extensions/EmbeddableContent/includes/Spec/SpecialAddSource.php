@@ -1867,22 +1867,25 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 * @param array<string,mixed> $record
 	 */
 	private function createViaFlow( array $record ): string {
+		// The form keys are camelCase (scholarlyArticle); the service takes
+		// the API keys (scholarly-article).
+		$classKey = \EmbeddableContent\Flow\SourceFieldMap::apiKey( $this->currentClassKey );
 		$flowRecord = $this->flowRecord( $record );
-		$error = $this->sourceFlow()->prepare( $this->currentClassKey, $flowRecord, true );
+		$error = $this->sourceFlow()->prepare( $classKey, $flowRecord, true );
 		if ( $error !== null ) {
 			// The form's own validation should have caught this; surface it
 			// as a form error via createItemAndRedirect's catch rather than
 			// silently proceeding (or feeding a string to new ItemId).
 			throw new \RuntimeException( $error );
 		}
-		$label = $this->sourceFlow()->labelFor( $this->currentClassKey, $flowRecord );
+		$label = $this->sourceFlow()->labelFor( $classKey, $flowRecord );
 
 		$existing = $this->findItemIdByLabel( $label );
 		if ( $existing !== null ) {
 			return $existing;
 		}
 
-		$item = $this->sourceFlow()->buildItem( $this->currentClassKey, $flowRecord );
+		$item = $this->sourceFlow()->buildItem( $classKey, $flowRecord );
 
 		// Import reference (harvested records): every statement but the
 		// instance-of one carries the authority URL + retrieval date.
@@ -1913,8 +1916,12 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 * @return array<string,mixed>
 	 */
 	protected function flowRecord( array $record ): array {
+		$classKey = \EmbeddableContent\Flow\SourceFieldMap::apiKey( $this->currentClassKey );
 		$out = [];
-		foreach ( \EmbeddableContent\Flow\SourceFieldMap::ALL_FIELDS as $field ) {
+		// Only the fields the class's contract exposes reach the service — a
+		// harvested extra (e.g. the direct `url` of a scholarly article,
+		// whose contract field is accessUrl) is dropped rather than rejected.
+		foreach ( \EmbeddableContent\Flow\SourceFieldMap::fieldsForClass( $classKey ) as $field ) {
 			if ( $field === 'year' ) {
 				$year = (string)( $record['issuedYear'] ?? '' );
 				if ( $year !== '' ) {

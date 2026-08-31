@@ -85,7 +85,7 @@ class ApiAddSemanticEntity extends ApiBase {
 				'entityId' => $itemId,
 				'entityType' => 'item',
 				'latestRevisionId' => $revision->getRevisionId(),
-				'created' => true,
+				'created' => '1',
 			];
 			$record['itemId'] = $itemId;
 			$pageTitle = $this->pageTitleFor( $kind, $record, $user );
@@ -108,7 +108,7 @@ class ApiAddSemanticEntity extends ApiBase {
 				'entityId' => $entity->getId()->getSerialization(),
 				'entityType' => 'item',
 				'latestRevisionId' => $revision->getRevisionId(),
-				'updated' => true,
+				'updated' => '1',
 			];
 		}
 

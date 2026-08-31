@@ -45,6 +45,12 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 	 */
 	protected function semanticFlowRecord( string $kind, array $record ): array {
 		$out = $this->pickServiceFields( $record, \EmbeddableContent\Flow\SemanticEntityFieldMap::fieldsForKind( 'person' ) );
+		// The form's website field is keyed 'website'; the service contract
+		// calls it officialWebsite.
+		if ( !empty( $record['website'] ) ) {
+			$out['officialWebsite'] = (string)$record['website'];
+		}
+
 		// The forms write places as OSM external-ids only — drop the
 		// item-typed place fields (a harvested Wikidata QID is not a local
 		// item and must never become a statement).

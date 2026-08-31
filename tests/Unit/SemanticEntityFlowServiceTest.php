@@ -46,6 +46,8 @@ class SemanticEntityFlowServiceTest extends TestCase {
 		],
 		'citationMetadata' => [ 'givenName' => 'P25', 'familyName' => 'P26' ],
 		'agentClasses' => [ 'person' => 'Q6', 'organization' => 'Q7' ],
+		'fossClasses' => [ 'foss' => 'Q14' ],
+		'fictionalCharacterClasses' => [ 'fictionalCharacter' => 'Q22' ],
 	];
 
 	private function makeService(): SemanticEntityFlowService {
@@ -84,6 +86,7 @@ class SemanticEntityFlowServiceTest extends TestCase {
 		$this->assertSame( 'Ada Lovelace', $service->labelFor( 'person', $record ) );
 
 		$specs = $service->statementSpecs( 'person', $record );
+		$this->assertSame( 'Q6', $specs['P1']->getEntityId()->getSerialization() );
 		$this->assertSame( 'Ada', $specs['P25']->getValue() );
 		$this->assertSame( 'Lovelace', $specs['P26']->getValue() );
 		$this->assertSame( 'node/123', $specs['P61']->getValue() );
@@ -112,6 +115,7 @@ class SemanticEntityFlowServiceTest extends TestCase {
 
 		$this->assertNull( $service->prepare( 'software', $record, true ) );
 		$specs = $service->statementSpecs( 'software', $record );
+		$this->assertSame( 'Q14', $specs['P1']->getEntityId()->getSerialization() );
 		$this->assertSame( [ 'Q6' ], array_map(
 			static fn ( $v ) => $v->getEntityId()->getSerialization(),
 			$specs['P33']
@@ -149,6 +153,7 @@ class SemanticEntityFlowServiceTest extends TestCase {
 		// Description auto-generated from the work label (best-effort).
 		$this->assertSame( 'fictional character in The Hobbit', $record['description'] );
 		$specs = $service->statementSpecs( 'fictional-character', $record );
+		$this->assertSame( 'Q22', $specs['P1']->getEntityId()->getSerialization() );
 		$this->assertSame( [ 'Q42' ], array_map(
 			static fn ( $v ) => $v->getEntityId()->getSerialization(),
 			$specs['P59']

@@ -73,7 +73,7 @@ class ApiAddSpecialContent extends ApiBase {
 				'entityId' => $item->getId()->getSerialization(),
 				'entityType' => 'item',
 				'latestRevisionId' => $revision->getRevisionId(),
-				'created' => true,
+				'created' => '1',
 			];
 		} else {
 			$entity = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $qid ) );
@@ -91,7 +91,7 @@ class ApiAddSpecialContent extends ApiBase {
 				'entityId' => $entity->getId()->getSerialization(),
 				'entityType' => 'item',
 				'latestRevisionId' => $revision->getRevisionId(),
-				'updated' => true,
+				'updated' => '1',
 			];
 		}
 

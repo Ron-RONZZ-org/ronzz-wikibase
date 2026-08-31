@@ -11,6 +11,7 @@ use Wikibase\DataModel\DataValue;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
+use Wikibase\DataModel\Entity\NumericPropertyId;
 use Wikibase\DataModel\Entity\PropertyId;
 use Wikibase\DataModel\Services\Lookup\EntityLookup;
 use Wikibase\DataModel\Snak\PropertyValueSnak;
@@ -122,10 +123,22 @@ final class SemanticEntityFlowService {
 				return "{$urlField} \"{$url}\" is not an http(s) URL.";
 			}
 		}
-		foreach ( [ 'placeOfBirth', 'placeOfDeath', 'parentOrganization', 'instanceOf', 'developer', 'license', 'operatingSystem', 'userInterface', 'hasUse' ] as $entityField ) {
+		// Single- and multi-valued entity fields: the software facts
+		// (developer/license/operating-system/user-interface/has-use) accept
+		// comma-separated item ids (one statement per id), the rest are
+		// single ids.
+		$multiEntityFields = [ 'developer', 'license', 'operatingSystem', 'userInterface', 'hasUse' ];
+		foreach ( [ 'placeOfBirth', 'placeOfDeath', 'parentOrganization', 'instanceOf' ] as $entityField ) {
 			$id = trim( (string)( $record[$entityField] ?? '' ) );
 			if ( $id !== '' && preg_match( '/^Q[1-9]\d*$/', $id ) !== 1 ) {
 				return "{$entityField} \"{$id}\" is not an item ID.";
+			}
+		}
+		foreach ( $multiEntityFields as $entityField ) {
+			foreach ( $this->splitItemIds( (string)( $record[$entityField] ?? '' ) ) as $id ) {
+				if ( preg_match( '/^Q[1-9]\d*$/', $id ) !== 1 ) {
+					return "{$entityField} contains \"{$id}\", which is not an item ID.";
+				}
 			}
 		}
 
@@ -181,6 +194,10 @@ final class SemanticEntityFlowService {
 		switch ( $kind ) {
 			case 'person':
 				$person = $this->config->personPropertyIds();
+				$personClass = $this->config->agentClasses()['person'] ?? null;
+				if ( $personClass !== null ) {
+					$specs[$this->config->instanceOfPropertyId()] = new EntityIdValue( new ItemId( $personClass ) );
+				}
 				foreach ( [ 'dateOfBirth' => 'dateOfBirth', 'dateOfDeath' => 'dateOfDeath' ] as $field => $key ) {
 					$date = trim( (string)( $record[$field] ?? '' ) );
 					if ( $date !== '' && isset( $person[$key] ) && preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $date, $m ) === 1 ) {
@@ -212,6 +229,10 @@ final class SemanticEntityFlowService {
 
 			case 'software':
 				$foss = $this->config->fossPropertyIds();
+				$fossClass = $this->config->fossClasses()['foss'] ?? null;
+				if ( $fossClass !== null ) {
+					$specs[$this->config->instanceOfPropertyId()] = new EntityIdValue( new ItemId( $fossClass ) );
+				}
 				foreach ( [ 'developer', 'license', 'operatingSystem', 'userInterface', 'hasUse' ] as $field ) {
 					$ids = $this->splitItemIds( (string)( $record[$field] ?? '' ) );
 					if ( $ids !== [] && isset( $foss[$field] ) ) {
@@ -267,6 +288,10 @@ final class SemanticEntityFlowService {
 				break;
 
 			case 'fictional-character':
+				$characterClass = $this->config->fictionalCharacterClasses()['fictionalCharacter'] ?? null;
+				if ( $characterClass !== null ) {
+					$specs[$this->config->instanceOfPropertyId()] = new EntityIdValue( new ItemId( $characterClass ) );
+				}
 				$appearsIn = $this->config->fictionalCharacterPropertyIds()['appearsIn'] ?? null;
 				if ( $appearsIn !== null ) {
 					foreach ( $this->splitItemIds( (string)( $record['presentInWork'] ?? '' ) ) as $id ) {
@@ -313,7 +338,7 @@ final class SemanticEntityFlowService {
 		foreach ( $this->statementSpecs( $kind, $record ) as $propertyId => $value ) {
 			foreach ( is_array( $value ) ? $value : [ $value ] as $single ) {
 				$item->getStatements()->addNewStatement(
-					new PropertyValueSnak( new PropertyId( $propertyId ), $single )
+					new PropertyValueSnak( $this->propertyId( $propertyId ), $single )
 				);
 			}
 		}
@@ -344,7 +369,7 @@ final class SemanticEntityFlowService {
 			foreach ( $this->statementSpecs( $kind, $record ) as $propertyId => $value ) {
 				foreach ( is_array( $value ) ? $value : [ $value ] as $single ) {
 					$item->getStatements()->addNewStatement(
-						new PropertyValueSnak( new PropertyId( $propertyId ), $single )
+						new PropertyValueSnak( $this->propertyId( $propertyId ), $single )
 					);
 				}
 			}
@@ -398,4 +423,18 @@ final class SemanticEntityFlowService {
 	private function isHttpUrl( string $url ): bool {
 		return preg_match( '#^https?://\S+$#i', $url ) === 1;
 	}
+
+	/**
+	 * Property-id factory across data-model versions: the Wikibase bundle
+	 * (production, 9.7+) made PropertyId an interface with NumericPropertyId
+	 * as the concrete class; the unit-test image's 9.6.1 has PropertyId
+	 * concrete and no NumericPropertyId. Instantiate whichever exists.
+	 */
+	private function propertyId( string $serialization ): PropertyId {
+		if ( class_exists( NumericPropertyId::class ) ) {
+			return new NumericPropertyId( $serialization );
+		}
+		return new PropertyId( $serialization );
+	}
+
 }

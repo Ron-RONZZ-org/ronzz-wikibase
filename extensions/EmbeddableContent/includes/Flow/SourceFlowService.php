@@ -16,6 +16,7 @@ use Wikibase\DataModel\DataValue;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
+use Wikibase\DataModel\Entity\NumericPropertyId;
 use Wikibase\DataModel\Entity\PropertyId;
 use Wikibase\DataModel\Services\Lookup\EntityLookup;
 use Wikibase\DataModel\Snak\PropertyValueSnak;
@@ -300,7 +301,7 @@ final class SourceFlowService {
 		foreach ( $this->statementSpecs( $classKey, $record ) as $propertyId => $value ) {
 			foreach ( is_array( $value ) ? $value : [ $value ] as $single ) {
 				$item->getStatements()->addNewStatement(
-					new PropertyValueSnak( new PropertyId( $propertyId ), $single )
+					new PropertyValueSnak( $this->propertyId( $propertyId ), $single )
 				);
 			}
 		}
@@ -308,7 +309,7 @@ final class SourceFlowService {
 		if ( $classItemId !== null ) {
 			$item->getStatements()->addNewStatement(
 				new PropertyValueSnak(
-					new PropertyId( $this->config->instanceOfPropertyId() ),
+					$this->propertyId( $this->config->instanceOfPropertyId() ),
 					new EntityIdValue( new ItemId( $classItemId ) )
 				)
 			);
@@ -358,7 +359,7 @@ final class SourceFlowService {
 			foreach ( $this->statementSpecs( $classKey, $record ) as $propertyId => $value ) {
 				foreach ( is_array( $value ) ? $value : [ $value ] as $single ) {
 					$item->getStatements()->addNewStatement(
-						new PropertyValueSnak( new PropertyId( $propertyId ), $single )
+						new PropertyValueSnak( $this->propertyId( $propertyId ), $single )
 					);
 				}
 			}
@@ -568,7 +569,7 @@ final class SourceFlowService {
 
 	private function itemHasClass( Item $item, array $classItemIds ): bool {
 		$propertyId = $this->config->instanceOfPropertyId();
-		foreach ( $item->getStatements()->getByPropertyId( new PropertyId( $propertyId ) ) as $statement ) {
+		foreach ( $item->getStatements()->getByPropertyId( $this->propertyId( $propertyId ) ) as $statement ) {
 			$value = $statement->getMainSnak()->getDataValue();
 			if ( $value instanceof EntityIdValue
 				&& in_array( $value->getEntityId()->getSerialization(), $classItemIds, true )
@@ -583,7 +584,7 @@ final class SourceFlowService {
 		if ( $dateProperty === null ) {
 			return null;
 		}
-		foreach ( $item->getStatements()->getByPropertyId( new PropertyId( $dateProperty ) ) as $statement ) {
+		foreach ( $item->getStatements()->getByPropertyId( $this->propertyId( $dateProperty ) ) as $statement ) {
 			$value = $statement->getMainSnak()->getDataValue();
 			if ( $value instanceof TimeValue ) {
 				return (int)substr( $value->getTime(), 1, 4 );
@@ -595,7 +596,7 @@ final class SourceFlowService {
 	/** @return string[] entity ids of the item's statements on the property */
 	private function entityValuesFor( Item $item, string $propertyId ): array {
 		$out = [];
-		foreach ( $item->getStatements()->getByPropertyId( new PropertyId( $propertyId ) ) as $statement ) {
+		foreach ( $item->getStatements()->getByPropertyId( $this->propertyId( $propertyId ) ) as $statement ) {
 			$value = $statement->getMainSnak()->getDataValue();
 			if ( $value instanceof EntityIdValue ) {
 				$out[] = $value->getEntityId()->getSerialization();
@@ -621,4 +622,18 @@ final class SourceFlowService {
 	private function message( string $key, array $params ): string {
 		return ( $this->message )( $key, $params );
 	}
+
+	/**
+	 * Property-id factory across data-model versions: the Wikibase bundle
+	 * (production, 9.7+) made PropertyId an interface with NumericPropertyId
+	 * as the concrete class; the unit-test image's 9.6.1 has PropertyId
+	 * concrete and no NumericPropertyId. Instantiate whichever exists.
+	 */
+	private function propertyId( string $serialization ): PropertyId {
+		if ( class_exists( NumericPropertyId::class ) ) {
+			return new NumericPropertyId( $serialization );
+		}
+		return new PropertyId( $serialization );
+	}
+
 }

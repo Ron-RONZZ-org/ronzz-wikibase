@@ -1856,7 +1856,8 @@ def flow_addsource_api(op, base: str, api: str, website_parent: str, author: str
 
 
 def flow_addspecialcontent_api(op, api: str, person: str, instance_of: str,
-                               quotation_class: str, content_prop: str) -> str:
+                               quotation_class: str, content_prop: str,
+                               attributed_to_prop: str) -> str:
     """action=addspecialcontent: create a quotation, assert the response and
     the written statements, then update via qid (no-clobber). Returns the qid."""
     csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
@@ -1890,7 +1891,7 @@ def flow_addspecialcontent_api(op, api: str, person: str, instance_of: str,
     payload = first_value(claims2, content_prop)
     assert payload is not None and text2 in str(payload), \
         f"update did not replace the payload ({payload})"
-    assert first_value(claims2, resolve("attributed to", "property")) == person, \
+    assert first_value(claims2, attributed_to_prop) == person, \
         "update clobbered the attribution (no-clobber violated)"
     print(f"[ok] action=addspecialcontent (qid update) -> {qid}: payload replaced, attribution kept")
     return qid
@@ -2682,7 +2683,7 @@ def main() -> int:
         #      clients. Create a webpage with authors + the website parent
         #      above, then update via qid (no-clobber).
         api_page, api_page_title = flow_addsource_api(
-            op, api, website, person, instance_of, url_prop, part_of_prop,
+            op, base, api, website, person, instance_of, url_prop, part_of_prop,
             resolve("web page", "item"))
         track(api_page)
         if api_page_title not in created_pages:
@@ -2691,7 +2692,8 @@ def main() -> int:
         # 2c3. action=addspecialcontent API module: quotation create + update.
         api_quote = track(flow_addspecialcontent_api(
             op, api, person, instance_of, quotation_class,
-            resolve("content text", "property")))
+            resolve("content text", "property"),
+            resolve("attributed to", "property")))
 
         # 2c4. action=addsemanticentity API module: person create (derived
         #      label, classic Person: page) + update.
