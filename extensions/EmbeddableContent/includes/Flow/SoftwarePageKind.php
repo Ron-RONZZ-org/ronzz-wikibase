@@ -37,13 +37,22 @@ final class SoftwarePageKind {
 	 */
 	public static function defaultFor( EmbeddableContentConfig $config, string $licenseInput ): string {
 		$fossLicenseClass = $config->fossLicenseClasses()['fossLicense'] ?? null;
-		if ( $fossLicenseClass === null || trim( $licenseInput ) === '' ) {
-			// No FOSS-license class configured, or no license given (e.g. a
-			// harvested license label that did not resolve to a local item):
-			// keep the historical FOSS: default — the caller may override.
+		if ( $fossLicenseClass === null ) {
+			// No FOSS-license class configured: keep the historical FOSS:
+			// default — the caller may override.
 			return self::FOSS;
 		}
-		foreach ( self::splitIds( $licenseInput ) as $id ) {
+		$ids = self::splitIds( $licenseInput );
+		if ( $ids === [] ) {
+			// No parseable license item ids: an empty license, or an
+			// UNRESOLVED harvested label (Wikidata's "GNU General Public
+			// License v3.0" vs the preseed's "GNU GPL-3.0" — the form shows
+			// the label as context, the statement is only written once the
+			// user picks a local item). Nothing to judge FOSS-ness from —
+			// keep the historical FOSS: default.
+			return self::FOSS;
+		}
+		foreach ( $ids as $id ) {
 			try {
 				$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $id ) );
 			} catch ( \Throwable $e ) {
