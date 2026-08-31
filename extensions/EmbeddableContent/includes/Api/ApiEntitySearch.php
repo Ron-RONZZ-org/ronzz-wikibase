@@ -200,7 +200,7 @@ class ApiEntitySearch extends ApiBase {
 			],
 			'limit' => [
 				self::PARAM_TYPE => 'limit',
-				self::PARAM_DEFAULT => 10,
+				self::PARAM_DFLT => 10,
 				self::PARAM_MIN => 1,
 				self::PARAM_MAX => self::MAX_LIMIT,
 				self::PARAM_MAX2 => self::MAX_LIMIT,
