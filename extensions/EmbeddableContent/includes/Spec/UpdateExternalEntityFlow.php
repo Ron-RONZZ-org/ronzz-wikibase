@@ -222,7 +222,7 @@ trait UpdateExternalEntityFlow {
 		// (a cleared field is not an implicit removal; that is an explicit
 		// item-page edit). The specs keys also cover newly-uploaded image
 		// facts (portrait/logo), so an untouched existing image survives.
-		$specs = $this->statementSpecs( $record );
+		$specs = $this->updateStatementSpecs( $record );
 		foreach ( array_keys( $specs ) as $propertyId ) {
 			// StatementList has no removeStatement() — remove by guid.
 			foreach ( $item->getStatements()->getByPropertyId( new NumericPropertyId( $propertyId ) ) as $statement ) {
@@ -270,6 +270,19 @@ trait UpdateExternalEntityFlow {
 		// update is the natural repair surface; creating the page here sends
 		// the user through the complete/<id> finalize round-trip.
 		return $this->healClassicPage( $item, $record, $newLabel );
+	}
+
+	/**
+	 * The statement specs for an update — the no-clobber contract's managed
+	 * set. Default: the legacy per-form statementSpecs; the Update* classes
+	 * delegate to their flow service (updateStatementSpecs overrides) so the
+	 * statement building lives in one place with the create path.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,\Wikibase\DataModel\DataValue|\Wikibase\DataModel\DataValue[]>
+	 */
+	protected function updateStatementSpecs( array $record ): array {
+		return $this->statementSpecs( $record );
 	}
 
 	/**

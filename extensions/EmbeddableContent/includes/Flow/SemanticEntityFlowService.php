@@ -52,6 +52,14 @@ final class SemanticEntityFlowService {
 	];
 
 	/**
+	 * Record keys the API contract does not expose but the browser forms
+	 * feed in: the OSM place external-ids (the forms' osm-places model) and
+	 * the uploaded portrait/logo file URL. Accepted by prepare (no exposure
+	 * check) and written by statementSpecs.
+	 */
+	private const INTERNAL_FIELDS = [ 'placeOfBirthOsm', 'placeOfDeathOsm', 'imageFileUrl' ];
+
+	/**
 	 * @param \Closure(string $messageKey, string[] $params): string $message
 	 */
 	public function __construct(
@@ -73,12 +81,15 @@ final class SemanticEntityFlowService {
 		if ( !in_array( $kind, SemanticEntityFieldMap::KINDS, true ) ) {
 			return "kind {$kind} is not one of " . implode( ', ', SemanticEntityFieldMap::KINDS ) . '.';
 		}
-		$unknown = array_diff( array_keys( $record ), SemanticEntityFieldMap::ALL_FIELDS );
+		$unknown = array_diff( array_keys( $record ), array_merge( SemanticEntityFieldMap::ALL_FIELDS, self::INTERNAL_FIELDS ) );
 		if ( $unknown !== [] ) {
 			return 'unknown field(s): ' . implode( ', ', $unknown ) . '.';
 		}
 		$provided = array_filter( $record, static fn ( $v ) => $v !== null && $v !== '' );
-		$disallowed = array_diff( array_keys( $provided ), SemanticEntityFieldMap::fieldsForKind( $kind ) );
+		$disallowed = array_diff(
+			array_keys( $provided ),
+			array_merge( SemanticEntityFieldMap::fieldsForKind( $kind ), self::INTERNAL_FIELDS )
+		);
 		if ( $disallowed !== [] ) {
 			return "kind {$kind} does not accept the field(s) " . implode( ', ', $disallowed )
 				. '. Its fields are ' . implode( ', ', SemanticEntityFieldMap::fieldsForKind( $kind ) ) . '.';
@@ -155,6 +166,20 @@ final class SemanticEntityFlowService {
 		$specs = [];
 		switch ( $kind ) {
 			case 'person':
+			case 'fictional-character':
+				// The given/family name statements the citation engine reads
+				// for author rendering (the forms write them too).
+				$citation = $this->config->citationMetadataPropertyIds();
+				foreach ( [ 'givenName', 'familyName' ] as $nameField ) {
+					$value = trim( (string)( $record[$nameField] ?? '' ) );
+					if ( $value !== '' && isset( $citation[$nameField] ) ) {
+						$specs[$citation[$nameField]] = new StringValue( $value );
+					}
+				}
+				break;
+		}
+		switch ( $kind ) {
+			case 'person':
 				$person = $this->config->personPropertyIds();
 				foreach ( [ 'dateOfBirth' => 'dateOfBirth', 'dateOfDeath' => 'dateOfDeath' ] as $field => $key ) {
 					$date = trim( (string)( $record[$field] ?? '' ) );
@@ -162,10 +187,10 @@ final class SemanticEntityFlowService {
 						$specs[$person[$key]] = $this->dayTime( $m );
 					}
 				}
-				foreach ( [ 'placeOfBirth' => 'placeOfBirth', 'placeOfDeath' => 'placeOfDeath' ] as $field => $key ) {
-					$id = trim( (string)( $record[$field] ?? '' ) );
-					if ( $id !== '' && isset( $person[$key] ) ) {
-						$specs[$person[$key]] = new EntityIdValue( new ItemId( $id ) );
+				foreach ( [ 'placeOfBirthOsm' => 'placeOfBirthOsm', 'placeOfDeathOsm' => 'placeOfDeathOsm' ] as $field => $key ) {
+					$osmId = trim( (string)( $record[$field] ?? '' ) );
+					if ( $osmId !== '' && isset( $person[$key] ) && \EmbeddableContent\Spec\OsmPlace::isValidId( $osmId ) ) {
+						$specs[$person[$key]] = new StringValue( $osmId );
 					}
 				}
 				foreach ( [ 'orcid' => 'orcid', 'viafId' => 'viaf', 'isni' => 'isni', 'wikidataId' => 'wikidata', 'openalexAuthorId' => 'openalexAuthor' ] as $field => $key ) {
@@ -179,14 +204,20 @@ final class SemanticEntityFlowService {
 				if ( $website !== '' && isset( $person['officialWebsite'] ) ) {
 					$specs[$person['officialWebsite']] = new StringValue( $website );
 				}
+				$imageUrl = trim( (string)( $record['imageFileUrl'] ?? '' ) );
+				if ( $imageUrl !== '' && isset( $person['image'] ) ) {
+					$specs[$person['image']] = new StringValue( $imageUrl );
+				}
 				break;
 
 			case 'software':
 				$foss = $this->config->fossPropertyIds();
 				foreach ( [ 'developer', 'license', 'operatingSystem', 'userInterface', 'hasUse' ] as $field ) {
-					$id = trim( (string)( $record[$field] ?? '' ) );
-					if ( $id !== '' && isset( $foss[$field] ) ) {
-						$specs[$foss[$field]] = new EntityIdValue( new ItemId( $id ) );
+					$ids = $this->splitItemIds( (string)( $record[$field] ?? '' ) );
+					if ( $ids !== [] && isset( $foss[$field] ) ) {
+						foreach ( $ids as $id ) {
+							$specs[$foss[$field]][] = new EntityIdValue( new ItemId( $id ) );
+						}
 					}
 				}
 				$language = trim( (string)( $record['programmingLanguage'] ?? '' ) );
@@ -203,6 +234,10 @@ final class SemanticEntityFlowService {
 				$wikidataProp = $this->config->externalIdPropertyIds()['wikidata'] ?? null;
 				if ( $wikidata !== '' && $wikidataProp !== null ) {
 					$specs[$wikidataProp] = new StringValue( $wikidata );
+				}
+				$imageUrl = trim( (string)( $record['imageFileUrl'] ?? '' ) );
+				if ( $imageUrl !== '' && isset( $foss['image'] ) ) {
+					$specs[$foss['image']] = new StringValue( $imageUrl );
 				}
 				break;
 
@@ -224,6 +259,10 @@ final class SemanticEntityFlowService {
 				$wikidataProp = $this->config->externalIdPropertyIds()['wikidata'] ?? null;
 				if ( $wikidata !== '' && $wikidataProp !== null ) {
 					$specs[$wikidataProp] = new StringValue( $wikidata );
+				}
+				$imageUrl = trim( (string)( $record['imageFileUrl'] ?? '' ) );
+				if ( $imageUrl !== '' && isset( $collective['image'] ) ) {
+					$specs[$collective['image']] = new StringValue( $imageUrl );
 				}
 				break;
 

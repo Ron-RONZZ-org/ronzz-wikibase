@@ -30,19 +30,21 @@ class SemanticEntityFlowServiceTest extends TestCase {
 		'fallbackLanguages' => [ 'en' ],
 		'personProperties' => [
 			'dateOfBirth' => 'P50', 'placeOfBirth' => 'P51', 'dateOfDeath' => 'P52',
-			'placeOfDeath' => 'P53', 'officialWebsite' => 'P36',
+			'placeOfDeath' => 'P53', 'placeOfBirthOsm' => 'P61', 'placeOfDeathOsm' => 'P62',
+			'officialWebsite' => 'P36', 'image' => 'P63',
 		],
 		'fossProperties' => [
 			'developer' => 'P33', 'license' => 'P34', 'operatingSystem' => 'P35',
 			'officialWebsite' => 'P36', 'sourceRepository' => 'P37', 'hasUse' => 'P39',
-			'userInterface' => 'P41', 'documentationUrl' => 'P43',
+			'userInterface' => 'P41', 'documentationUrl' => 'P43', 'image' => 'P63',
 		],
-		'collectiveProperties' => [ 'parentOrganization' => 'P60', 'officialWebsite' => 'P36' ],
+		'collectiveProperties' => [ 'parentOrganization' => 'P60', 'officialWebsite' => 'P36', 'image' => 'P63' ],
 		'fictionalCharacterProperties' => [ 'appearsIn' => 'P59' ],
 		'externalIds' => [
 			'wikidata' => 'P12', 'orcid' => 'P13', 'viaf' => 'P14', 'isni' => 'P15',
 			'openalexAuthor' => 'P58',
 		],
+		'citationMetadata' => [ 'givenName' => 'P25', 'familyName' => 'P26' ],
 		'agentClasses' => [ 'person' => 'Q6', 'organization' => 'Q7' ],
 	];
 
@@ -72,18 +74,24 @@ class SemanticEntityFlowServiceTest extends TestCase {
 		$service = $this->makeService();
 		$record = [
 			'givenName' => 'Ada', 'familyName' => 'Lovelace',
-			'dateOfBirth' => '1815-12-10', 'placeOfBirth' => 'Q42',
+			'dateOfBirth' => '1815-12-10',
+			'placeOfBirthOsm' => 'node/123', 'placeOfDeathOsm' => 'relation/456',
 			'orcid' => '0000-0001-0002-0003', 'officialWebsite' => 'https://example.org/ada',
+			'imageFileUrl' => 'https://example.org/File:Ada-portrait.png',
 		];
 
 		$this->assertNull( $service->prepare( 'person', $record, true ) );
 		$this->assertSame( 'Ada Lovelace', $service->labelFor( 'person', $record ) );
 
 		$specs = $service->statementSpecs( 'person', $record );
-		$this->assertSame( 'Q42', $specs['P51']->getEntityId()->getSerialization() );
+		$this->assertSame( 'Ada', $specs['P25']->getValue() );
+		$this->assertSame( 'Lovelace', $specs['P26']->getValue() );
+		$this->assertSame( 'node/123', $specs['P61']->getValue() );
+		$this->assertSame( 'relation/456', $specs['P62']->getValue() );
 		$this->assertInstanceOf( TimeValue::class, $specs['P50'] );
 		$this->assertSame( '0000-0001-0002-0003', $specs['P13']->getValue() );
 		$this->assertSame( 'https://example.org/ada', $specs['P36']->getValue() );
+		$this->assertSame( 'https://example.org/File:Ada-portrait.png', $specs['P63']->getValue() );
 	}
 
 	public function testPersonRequiresANamePart(): void {
@@ -104,7 +112,10 @@ class SemanticEntityFlowServiceTest extends TestCase {
 
 		$this->assertNull( $service->prepare( 'software', $record, true ) );
 		$specs = $service->statementSpecs( 'software', $record );
-		$this->assertSame( 'Q6', $specs['P33']->getEntityId()->getSerialization() );
+		$this->assertSame( [ 'Q6' ], array_map(
+			static fn ( $v ) => $v->getEntityId()->getSerialization(),
+			$specs['P33']
+		) );
 		$this->assertSame( 'Q42', $specs['P5']->getEntityId()->getSerialization() );
 		$this->assertSame( 'https://github.com/x', $specs['P37']->getValue() );
 	}

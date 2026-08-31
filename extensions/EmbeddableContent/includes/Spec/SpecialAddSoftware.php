@@ -81,6 +81,40 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		return 'software';
 	}
 
+
+	/** The create path delegates to the shared semantic flow service. */
+	protected function semanticFlowKindKey(): ?string {
+		return 'software';
+	}
+
+	/**
+	 * The form record → the shared service vocabulary: the repository key
+	 * and the lexer combobox value (resolved to its lexer item id).
+	 */
+	protected function semanticFlowRecord( string $kind, array $record ): array {
+		$out = $this->pickServiceFields( $record, \EmbeddableContent\Flow\SemanticEntityFieldMap::fieldsForKind( 'software' ) );
+		if ( !empty( $record['sourceRepository'] ) ) {
+			$out['sourceCodeRepository'] = (string)$record['sourceRepository'];
+		}
+		unset( $out['sourceRepository'] );
+		if ( !empty( $record['programmingLanguage'] ) ) {
+			$lexer = strtolower( trim( (string)$record['programmingLanguage'] ) );
+			$lexer = self::LEXER_ALIASES[$lexer] ?? $lexer;
+			if ( $lexer !== '' && isset( $this->config->lexerItemIds()[$lexer] ) ) {
+				$out['programmingLanguage'] = $this->config->lexerItemIds()[$lexer];
+			} else {
+				unset( $out['programmingLanguage'] );
+			}
+		}
+		if ( !empty( $record['logoFileTitle'] ) ) {
+			$title = \MediaWiki\Title\Title::makeTitle( NS_FILE, (string)$record['logoFileTitle'] );
+			if ( $title !== null ) {
+				$out['imageFileUrl'] = $title->getFullURL();
+			}
+		}
+		return $out;
+	}
+
 	protected function buildSearchFields(): array {
 		return [
 			'name' => [
@@ -286,65 +320,6 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 	 * @param array<string,mixed> $record
 	 * @return array<string,\Wikibase\DataModel\DataValue> property id => DataValue
 	 */
-	protected function statementSpecs( array $record ): array {
-		$sanitizer = new FragmentSanitizer();
-		$specs = [];
-
-		// URL facts — validated; invalid harvested URLs are dropped rather
-		// than blocking creation (the author saw them on the review form).
-		$website = $this->websiteStatementValue( $record );
-		if ( $website !== null && isset( $this->config->fossPropertyIds()['officialWebsite'] ) ) {
-			$specs[$this->config->fossPropertyIds()['officialWebsite']] = $website;
-		}
-		$repository = $sanitizer->validateUrl( (string)( $record['sourceRepository'] ?? '' ) );
-		if ( $repository !== null ) {
-			$specs[$this->config->fossPropertyIds()['sourceRepository']] = new StringValue( $repository );
-		}
-		$documentation = $sanitizer->validateUrl( (string)( $record['documentationUrl'] ?? '' ) );
-		if ( $documentation !== null ) {
-			$specs[$this->config->fossPropertyIds()['documentationUrl']] = new StringValue( $documentation );
-		}
-
-		// Logo: the uploaded File:<Name>-logo.<ext> page URL (uploaded in
-		// beforeCreate, which sets $record['logoFileTitle']). ONLY the
-		// `image` statement references the file on this entity — the logo's
-		// license/author/license-info live on the file's own image item +
-		// File: page (semantic-first model, ImageUploadHelper). The
-		// software's OWN license facts come from the `license` entity field
-		// (FOSS_ENTITY_FIELDS below), never from the logo.
-		if ( !empty( $record['logoFileTitle'] ) ) {
-			$fileTitle = \MediaWiki\Title\Title::makeTitle( NS_FILE, (string)$record['logoFileTitle'] );
-			if ( $fileTitle !== null ) {
-				$specs[$this->config->fossPropertyIds()['image']] = new StringValue( $fileTitle->getFullURL() );
-			}
-		}
-
-		// Programming language: lexer combobox value (Pygments-style name)
-		// → the configured lexer item. The harvested value is a display label
-		// ("C++") — alias-map it to the lexer key; unknown names are dropped
-		// (the combobox restricts to configured lexers).
-		$lexer = strtolower( trim( (string)( $record['programmingLanguage'] ?? '' ) ) );
-		$lexer = self::LEXER_ALIASES[$lexer] ?? $lexer;
-		if ( $lexer !== '' && isset( $this->config->lexerItemIds()[$lexer] ) ) {
-			$specs[$this->config->programmingLanguagePropertyId()][] =
-				new EntityIdValue( new ItemId( $this->config->lexerItemIds()[$lexer] ) );
-		}
-
-		// Item-typed facts: entity combobox values (existing local items).
-		// Each field accepts several comma-separated item ids → one
-		// statement per id (a software has several developers/OSes/licenses).
-		foreach ( self::FOSS_ENTITY_FIELDS as $field ) {
-			$itemIds = $this->parseOptionalItemIds( (string)( $record[$field] ?? '' ) );
-			if ( $itemIds === [] ) {
-				continue;
-			}
-			foreach ( $itemIds as $itemId ) {
-				$specs[$this->config->fossPropertyIds()[$field]][] = new EntityIdValue( $itemId );
-			}
-		}
-
-		return $specs + $this->externalIdStatements( $record );
-	}
 
 	// ------------------------------------------------------------- classic pages
 	// The FOSS:<Name> wiki page + sitelink machinery (issue #26) lives in the

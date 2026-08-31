@@ -19,6 +19,17 @@ use Wikibase\DataModel\Entity\Item;
  * @license GPL-2.0-or-later
  */
 class SpecialUpdateCollective extends SpecialAddCollective {
+	/**
+	 * The no-clobber managed set + replacement values come from the shared
+	 * SemanticEntityFlowService (the action=addsemanticentity contract).
+	 */
+	protected function updateStatementSpecs( array $record ): array {
+		return $this->semanticFlow()->statementSpecs(
+			'collective',
+			$this->semanticFlowRecord( 'collective', $record )
+		);
+	}
+
 
 	use UpdateExternalEntityFlow;
 

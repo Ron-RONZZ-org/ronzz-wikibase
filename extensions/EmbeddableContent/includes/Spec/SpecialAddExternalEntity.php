@@ -802,6 +802,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 */
 	protected function createFromRecord( array $record, string $classItemId ): string {
 		$record = $this->enrichRecord( $record );
+		$flowKind = $this->semanticFlowKindKey();
+		if ( $flowKind !== null ) {
+			return $this->createViaSemanticFlow( $flowKind, $record );
+		}
 		return $this->createOrSkipItem(
 			$this->primaryLabel( $record ),
 			$classItemId,
@@ -811,12 +815,107 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	}
 
 	/**
+	 * The kind key of the shared SemanticEntityFlowService when this form
+	 * delegates its creation there (person/software/collective/
+	 * fictional-character), or null for the legacy path. The delegation
+	 * keeps statement building, label derivation and the item save in one
+	 * place — the action=addsemanticentity contract.
+	 */
+	protected function semanticFlowKindKey(): ?string {
+		return null;
+	}
+
+	/**
+	 * Delegates creation to the shared SemanticEntityFlowService: the record
+	 * is adapted (semanticFlowRecord), validated (the form's own validation
+	 * already ran — this is the safety net), deduplicated by label, built
+	 * with the service, and saved once with the import reference attached to
+	 * every statement but the instance-of one.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function createViaSemanticFlow( string $kind, array $record ): string {
+		$flowRecord = $this->semanticFlowRecord( $kind, $record );
+		$error = $this->semanticFlow()->prepare( $kind, $flowRecord, true );
+		if ( $error !== null ) {
+			return $error;
+		}
+		$label = $this->semanticFlow()->labelFor( $kind, $flowRecord );
+
+		$existing = $this->findItemIdByLabel( $label );
+		if ( $existing !== null ) {
+			return $existing;
+		}
+
+		$item = $this->semanticFlow()->buildItem( $kind, $flowRecord );
+		$referenceSnaks = $this->importReferenceSnaks( $record );
+		if ( $referenceSnaks !== null ) {
+			foreach ( $item->getStatements() as $statement ) {
+				if ( $statement->getPropertyId()->getSerialization() !== $this->config->instanceOfPropertyId() ) {
+					$statement->addNewReference( ...$referenceSnaks );
+				}
+			}
+		}
+
+		WikibaseRepo::getEntityStore()->saveEntity(
+			$item,
+			$this->msg( 'embeddablecontent-extcreate-edit-summary', $label )->inContentLanguage()->text(),
+			$this->getUser(),
+			EDIT_NEW
+		);
+		return $item->getId()->getSerialization();
+	}
+
+	/**
+	 * The form record → the shared service vocabulary, kind by kind.
+	 * Subclasses map their browser field names onto the API contract
+	 * (sourceRepository → sourceCodeRepository, appearsIn → presentInWork,
+	 * …) and resolve browser-only values (the portrait/logo file title →
+	 * its URL).
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,mixed>
+	 */
+	protected function semanticFlowRecord( string $kind, array $record ): array {
+		return $this->pickServiceFields( $record, \EmbeddableContent\Flow\SemanticEntityFieldMap::ALL_FIELDS );
+	}
+
+	/**
+	 * @param array<string,mixed> $record
+	 * @param string[] $fields
+	 * @return array<string,mixed>
+	 */
+	protected function pickServiceFields( array $record, array $fields ): array {
+		$out = [];
+		foreach ( $fields as $field ) {
+			$value = $record[$field] ?? null;
+			if ( $value !== null && $value !== '' ) {
+				$out[$field] = (string)$value;
+			}
+		}
+		return $out;
+	}
+
+	/** @var \EmbeddableContent\Flow\SemanticEntityFlowService|null lazily built */
+	private ?\EmbeddableContent\Flow\SemanticEntityFlowService $semanticFlow = null;
+
+	protected function semanticFlow(): \EmbeddableContent\Flow\SemanticEntityFlowService {
+		$this->semanticFlow ??= \MediaWiki\MediaWikiServices::getInstance()
+			->get( 'EmbeddableContent.SemanticEntityFlowService' );
+		return $this->semanticFlow;
+	}
+
+	/**
 	 * Creates the item from the manual-form record (no external record, no
 	 * import reference). Same statement specs as the review path.
 	 *
 	 * @param array<string,mixed> $record
 	 */
 	protected function manualCreate( string $label, string $classItemId, array $record ): string {
+		$flowKind = $this->semanticFlowKindKey();
+		if ( $flowKind !== null ) {
+			return $this->createViaSemanticFlow( $flowKind, $record );
+		}
 		return $this->createOrSkipItem( $label, $classItemId, $this->statementSpecs( $record ), $record );
 	}
 
@@ -1484,7 +1583,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	/**
 	 * Import-provenance reference: source URL → authority URL, date → today.
 	 */
-	private function importReferenceSnaks( array $record ): ?SnakList {
+	protected function importReferenceSnaks( array $record ): ?SnakList {
 		$provenance = $this->config->provenancePropertyIds();
 		$url = $this->authorityUrl( $record );
 		if ( $url === null || !isset( $provenance['sourceUrl'], $provenance['date'] ) ) {

@@ -29,6 +29,26 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 		return 'collective';
 	}
 
+
+	/** The create path delegates to the shared semantic flow service. */
+	protected function semanticFlowKindKey(): ?string {
+		return 'collective';
+	}
+
+	/**
+	 * The form record → the shared service vocabulary (the logo file URL).
+	 */
+	protected function semanticFlowRecord( string $kind, array $record ): array {
+		$out = $this->pickServiceFields( $record, \EmbeddableContent\Flow\SemanticEntityFieldMap::fieldsForKind( 'collective' ) );
+		if ( !empty( $record['logoFileTitle'] ) ) {
+			$title = \MediaWiki\Title\Title::makeTitle( NS_FILE, (string)$record['logoFileTitle'] );
+			if ( $title !== null ) {
+				$out['imageFileUrl'] = $title->getFullURL();
+			}
+		}
+		return $out;
+	}
+
 	protected function buildSearchFields(): array {
 		return [
 			'name' => [
@@ -188,30 +208,6 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 	 * @param array<string,mixed> $record
 	 * @return array<string,\Wikibase\DataModel\DataValue|\Wikibase\DataModel\DataValue[]>
 	 */
-	protected function statementSpecs( array $record ): array {
-		$specs = parent::statementSpecs( $record );
-		$props = $this->config->collectivePropertyIds();
-		$parent = trim( (string)( $record['parentOrganization'] ?? '' ) );
-		if ( $parent !== '' && isset( $props['parentOrganization'] ) ) {
-			$itemId = $this->parseItemId( $parent );
-			if ( $itemId !== null ) {
-				$specs[$props['parentOrganization']] = new \Wikibase\DataModel\Entity\EntityIdValue( $itemId );
-			}
-		}
-		// Official website: optional validated URL statement (the shared
-		// P856-aligned property).
-		$website = $this->websiteStatementValue( $record );
-		if ( $website !== null && isset( $props['officialWebsite'] ) ) {
-			$specs[$props['officialWebsite']] = $website;
-		}
-		if ( !empty( $record['logoFileTitle'] ) && isset( $props['image'] ) ) {
-			$fileTitle = \MediaWiki\Title\Title::makeTitle( NS_FILE, (string)$record['logoFileTitle'] );
-			if ( $fileTitle !== null ) {
-				$specs[$props['image']] = new \DataValues\StringValue( $fileTitle->getFullURL() );
-			}
-		}
-		return $specs;
-	}
 
 	// ------------------------------------------------------------- classic page
 	// The base afterCreate() writes a sitelinked Collective:<label> page

@@ -45,6 +45,13 @@ final class SourceFlowService {
 	public const ERROR_AUTHOR_CLASS = 'author "%s" is not an agent-class item.';
 
 	/**
+	 * Record keys the API contract does not expose but the browser forms'
+	 * access flow feeds in (the uploaded file's URL and the license entity).
+	 * Accepted by prepare (no exposure check) and written by statementSpecs.
+	 */
+	private const INTERNAL_FIELDS = [ 'license', 'accessFileUrl' ];
+
+	/**
 	 * @param \Closure(string $messageKey, string[] $params): string $message
 	 *  Formats i18n messages for CONTENT (the book-excerpt auto-description,
 	 *  the class-label disambiguation suffix); validation errors are plain
@@ -69,7 +76,7 @@ final class SourceFlowService {
 			return "classKey {$classKey} is not one of " . implode( ', ', SourceFieldMap::CLASS_KEYS ) . '.';
 		}
 
-		$unknown = array_diff( array_keys( $record ), SourceFieldMap::ALL_FIELDS );
+		$unknown = array_diff( array_keys( $record ), array_merge( SourceFieldMap::ALL_FIELDS, self::INTERNAL_FIELDS ) );
 		if ( $unknown !== [] ) {
 			return 'unknown field(s): ' . implode( ', ', $unknown ) . '.';
 		}
@@ -77,7 +84,10 @@ final class SourceFlowService {
 			$record,
 			static fn ( $v ) => $v !== null && $v !== '',
 		);
-		$disallowed = array_diff( array_keys( $provided ), SourceFieldMap::fieldsForClass( $classKey ) );
+		$disallowed = array_diff(
+			array_keys( $provided ),
+			array_merge( SourceFieldMap::fieldsForClass( $classKey ), self::INTERNAL_FIELDS )
+		);
 		if ( $disallowed !== [] ) {
 			return "classKey {$classKey} does not expose the field(s) " . implode( ', ', $disallowed )
 				. '. Its fields are ' . implode( ', ', SourceFieldMap::fieldsForClass( $classKey ) ) . '.';
@@ -200,6 +210,16 @@ final class SourceFlowService {
 		$accessUrl = trim( (string)( $record['accessUrl'] ?? '' ) );
 		if ( $accessUrl !== '' && isset( $props['accessUrl'] ) && $this->isHttpUrl( $accessUrl ) ) {
 			$specs[$props['accessUrl']] = new StringValue( $accessUrl );
+		}
+		// Access facts from the browser forms (the uploaded file's URL and the
+		// license entity) — internal record keys, not part of the API contract.
+		$fileUrl = trim( (string)( $record['accessFileUrl'] ?? '' ) );
+		if ( $fileUrl !== '' && isset( $props['file'] ) && $this->isHttpUrl( $fileUrl ) ) {
+			$specs[$props['file']] = new StringValue( $fileUrl );
+		}
+		$licenseId = trim( (string)( $record['license'] ?? '' ) );
+		if ( $licenseId !== '' && isset( $props['license'] ) && preg_match( '/^Q[1-9]\d*$/', $licenseId ) === 1 ) {
+			$specs[$props['license']] = new EntityIdValue( new ItemId( $licenseId ) );
 		}
 
 		$authorIds = ItemIdList::split( (string)( $record['authors'] ?? '' ) );

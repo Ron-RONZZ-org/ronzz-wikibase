@@ -28,6 +28,18 @@ use Wikibase\DataModel\Entity\Item;
  * @license GPL-2.0-or-later
  */
 class SpecialUpdateSource extends SpecialAddSource {
+	/**
+	 * The no-clobber managed set + replacement values come from the shared
+	 * SourceFlowService (the action=addsource contract), never from a
+	 * per-form copy.
+	 */
+	protected function updateStatementSpecs( array $record ): array {
+		return $this->sourceFlow()->statementSpecs(
+			\EmbeddableContent\Flow\SourceFieldMap::apiKey( $this->currentClassKey ),
+			$this->flowRecord( $record )
+		);
+	}
+
 
 	use UpdateExternalEntityFlow;
 

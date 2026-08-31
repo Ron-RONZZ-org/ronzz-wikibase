@@ -70,6 +70,20 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		}
 	}
 
+	/** @var \EmbeddableContent\Flow\SpecialContentFlowService|null lazily built */
+	private ?\EmbeddableContent\Flow\SpecialContentFlowService $flow = null;
+
+	/**
+	 * The shared entity-mode pipeline (the same service the
+	 * action=addspecialcontent API module runs): the item is built and saved
+	 * here, so the browser form and the API can never drift.
+	 */
+	private function contentFlow(): \EmbeddableContent\Flow\SpecialContentFlowService {
+		$this->flow ??= \MediaWiki\MediaWikiServices::getInstance()
+			->get( 'EmbeddableContent.SpecialContentFlowService' );
+		return $this->flow;
+	}
+
 	protected function buildFields(): array {
 		// Carry-over prefill (the "Add more" return trip): the previous
 		// item's provenance fields arrive as query params (?addmore=1&…)
@@ -248,19 +262,9 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		if ( $label === '' || $payload === '' ) {
 			return $this->msg( 'embeddablecontent-add-error-required' )->text();
 		}
-		// Math payloads often arrive wrapped in $…$ / $$…$$ / \(…\) / \[…\]
-		// delimiters (pasted from Markdown or MediaWiki) — strip one layer so
-		// the stored content is the bare TeX, matching what KaTeX renders.
-		if ( $this->getKind() === 'math' ) {
-			$payload = MathRenderer::stripDelimiters( $payload );
-		}
-
-		// The wiki's string/monolingualtext values reject vertical whitespace
-		// and tabs (wikibase-validator-illegal-string-chars), so a logically
-		// multi-line payload is stored backslash-escaped and decoded at render
-		// time (PayloadCodec + the {{#content:}} decoder function — issue #6
-		// §8 escalation, option A).
-		$payload = PayloadCodec::escape( $payload );
+		// The math delimiter stripping and the multi-line backslash-escaping
+		// happen in the shared SpecialContentFlowService (the action=addspecialcontent
+		// contract) — the payload is passed raw.
 
 		$classId = $this->config->classIds()[$this->getKind()] ?? null;
 		$payloadPropertyId = $this->config->payloadPropertyIds()[$this->getKind()] ?? null;
@@ -312,94 +316,68 @@ abstract class SpecialAddContentItem extends SpecialPage {
 			return $this->msg( 'embeddablecontent-add-error-baditemid', 'date' )->text();
 		}
 
-		// Save 1: create the item with the label (the store assigns the id).
-		$item = new Item();
-		$item->setLabel( $this->getLanguage()->getCode(), $label );
+		// The item is built and saved by the shared SpecialContentFlowService
+		// (the same pipeline the action=addspecialcontent API module runs), so
+		// the browser form and the API can never drift. The form's validation
+		// above (label/payload required, language, lexer, provenance) stays;
+		// the service re-validates as the safety net.
+		$kind = $this->getKind() === 'code' ? 'code-snippet' : $this->getKind();
+		$flowRecord = [
+			'label' => $label,
+			'content' => trim( (string)$data['payload'] ),
+			'labelLanguage' => $this->getLanguage()->getCode(),
+		];
+		if ( $kind === 'quotation' ) {
+			$flowRecord['language'] = $language;
+		}
+		if ( $kind === 'code-snippet' && $lexer !== '' ) {
+			$languageItemId = $this->config->lexerItemIds()[$lexer] ?? null;
+			if ( $languageItemId !== null ) {
+				$flowRecord['programmingLanguage'] = $languageItemId;
+			}
+		}
+		if ( $attributedTo !== null ) {
+			$flowRecord['attributedTo'] = $attributedTo->getSerialization();
+		}
+		if ( $source !== null ) {
+			$flowRecord['source'] = $source->getSerialization();
+		}
+		if ( $sourceUrl !== null ) {
+			$flowRecord['sourceUrl'] = $sourceUrl;
+		}
+		if ( $date !== null ) {
+			$flowRecord['date'] = (string)$data['date'];
+		}
+		if ( $kind === 'math' && $this->config->describesPropertyId() !== null ) {
+			$result = $this->splitItemIds( (string)$data['describes'], 'describes' );
+			if ( $result['error'] !== null ) {
+				return $result['error'];
+			}
+			if ( $result['ids'] !== [] ) {
+				$flowRecord['describes'] = implode( ', ', $result['ids'] );
+			}
+		}
+		if ( $kind === 'code-snippet' && $this->config->implementationOfPropertyId() !== null ) {
+			$result = $this->splitItemIds( (string)$data['implementationOf'], 'implementation of' );
+			if ( $result['error'] !== null ) {
+				return $result['error'];
+			}
+			if ( $result['ids'] !== [] ) {
+				$flowRecord['implementationOf'] = implode( ', ', $result['ids'] );
+			}
+		}
 
+		$error = $this->contentFlow()->prepare( $kind, $flowRecord, true );
+		if ( $error !== null ) {
+			return $this->msg( 'embeddablecontent-add-error-save' )->text() . ' ' . $error;
+		}
 		try {
+			$item = $this->contentFlow()->buildItem( $kind, $flowRecord );
 			WikibaseRepo::getEntityStore()->saveEntity(
 				$item,
 				$this->msg( 'embeddablecontent-add-edit-summary', $label )->inContentLanguage()->text(),
 				$this->getUser(),
 				EDIT_NEW
-			);
-		} catch ( \Exception $e ) {
-			return $this->msg( 'embeddablecontent-add-error-save' )->text();
-		}
-
-		// Save 2: add class, payload and provenance statements (correct GUIDs
-		// now that the id is known). Still one item, zero nested entities.
-		$parser = WikibaseRepo::getEntityIdParser();
-		$guidGenerator = new GuidGenerator();
-		$itemValue = static function ( string $idString ) {
-			return new EntityIdValue( new ItemId( $idString ) );
-		};
-		$add = static function ( $propertyIdString, $value ) use ( $item, $parser, $guidGenerator ): void {
-			$item->getStatements()->addNewStatement(
-				new PropertyValueSnak( $parser->parse( $propertyIdString ), $value ),
-				null,
-				null,
-				$guidGenerator->newGuid( $item->getId() )
-			);
-		};
-
-		$add( $this->config->instanceOfPropertyId(), $itemValue( $classId ) );
-
-		if ( $this->getKind() === 'quotation' ) {
-			$add( $payloadPropertyId, new MonolingualTextValue( (string)$data['language'], $payload ) );
-		} else {
-			$add( $payloadPropertyId, new StringValue( $payload ) );
-		}
-
-		if ( $this->getKind() === 'code' && $lexer !== '' ) {
-			$languageItemId = $this->config->lexerItemIds()[$lexer] ?? null;
-			if ( $languageItemId !== null ) {
-				$add( $this->config->programmingLanguagePropertyId(), $itemValue( $languageItemId ) );
-			}
-		}
-
-		if ( $attributedTo !== null ) {
-			$add( $this->config->provenancePropertyIds()['attributedTo'], new EntityIdValue( $attributedTo ) );
-		}
-		if ( $source !== null ) {
-			$add( $this->config->provenancePropertyIds()['source'], new EntityIdValue( $source ) );
-		}
-		if ( $sourceUrl !== null ) {
-			$add( $this->config->provenancePropertyIds()['sourceUrl'], new StringValue( $sourceUrl ) );
-		}
-		if ( $date !== null ) {
-			$add( $this->config->provenancePropertyIds()['date'], $date );
-		}
-
-		// Content-subject statements (issue follow-up): math 'describes',
-		// code 'implementation of'. Optional, multi-valued — one statement
-		// per valid item id; any invalid element is a hard error (same
-		// strictness as the single-value contract below).
-		if ( $this->getKind() === 'math' && $this->config->describesPropertyId() !== null ) {
-			$result = $this->splitItemIds( (string)$data['describes'], 'describes' );
-			if ( $result['error'] !== null ) {
-				return $result['error'];
-			}
-			foreach ( $result['ids'] as $id ) {
-				$add( $this->config->describesPropertyId(), new EntityIdValue( $id ) );
-			}
-		}
-		if ( $this->getKind() === 'code' && $this->config->implementationOfPropertyId() !== null ) {
-			$result = $this->splitItemIds( (string)$data['implementationOf'], 'implementation of' );
-			if ( $result['error'] !== null ) {
-				return $result['error'];
-			}
-			foreach ( $result['ids'] as $id ) {
-				$add( $this->config->implementationOfPropertyId(), new EntityIdValue( $id ) );
-			}
-		}
-
-		try {
-			WikibaseRepo::getEntityStore()->saveEntity(
-				$item,
-				$this->msg( 'embeddablecontent-add-edit-summary', $label )->inContentLanguage()->text(),
-				$this->getUser(),
-				EDIT_UPDATE
 			);
 		} catch ( \Exception $e ) {
 			return $this->msg( 'embeddablecontent-add-error-save' )->text();

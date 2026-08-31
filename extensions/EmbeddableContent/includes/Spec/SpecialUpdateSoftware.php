@@ -20,6 +20,17 @@ use Wikibase\DataModel\Entity\Item;
  * @license GPL-2.0-or-later
  */
 class SpecialUpdateSoftware extends SpecialAddSoftware {
+	/**
+	 * The no-clobber managed set + replacement values come from the shared
+	 * SemanticEntityFlowService (the action=addsemanticentity contract).
+	 */
+	protected function updateStatementSpecs( array $record ): array {
+		return $this->semanticFlow()->statementSpecs(
+			'software',
+			$this->semanticFlowRecord( 'software', $record )
+		);
+	}
+
 
 	use UpdateExternalEntityFlow;
 

@@ -80,6 +80,12 @@ final class SourceFieldMap {
 		return self::FORM_KEYS[$classKey] ?? $classKey;
 	}
 
+	/** The form class key for an API class key (identity for the plain ones). */
+	public static function apiKey( string $formKey ): string {
+		$apiKey = array_search( $formKey, self::FORM_KEYS, true );
+		return $apiKey !== false ? $apiKey : $formKey;
+	}
+
 	/** Fields whose value is an entity id (Q-number), never a bare string. */
 	private const ENTITY_FIELDS = [ 'authors', 'publisher', 'journal', 'parent' ];
 

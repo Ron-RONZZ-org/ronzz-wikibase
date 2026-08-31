@@ -39,6 +39,24 @@ class SpecialAddFictionalCharacter extends SpecialAddExternalEntity {
 		return 'fictionalcharacter';
 	}
 
+
+	/** The create path delegates to the shared semantic flow service. */
+	protected function semanticFlowKindKey(): ?string {
+		return 'fictional-character';
+	}
+
+	/**
+	 * The form record → the shared service vocabulary: appearsIn →
+	 * presentInWork.
+	 */
+	protected function semanticFlowRecord( string $kind, array $record ): array {
+		$out = $this->pickServiceFields( $record, \EmbeddableContent\Flow\SemanticEntityFieldMap::fieldsForKind( 'fictional-character' ) );
+		if ( !empty( $record['appearsIn'] ) ) {
+			$out['presentInWork'] = (string)$record['appearsIn'];
+		}
+		return $out;
+	}
+
 	protected function buildSearchFields(): array {
 		return [
 			'name' => [
@@ -154,18 +172,6 @@ class SpecialAddFictionalCharacter extends SpecialAddExternalEntity {
 	 * @param array<string,mixed> $record
 	 * @return array<string,\Wikibase\DataModel\DataValue|\Wikibase\DataModel\DataValue[]>
 	 */
-	protected function statementSpecs( array $record ): array {
-		$specs = parent::statementSpecs( $record );
-		$props = $this->config->fictionalCharacterPropertyIds();
-		if ( isset( $props['appearsIn'] ) ) {
-			foreach ( ItemIdList::split( (string)( $record['appearsIn'] ?? '' ) ) as $id ) {
-				if ( preg_match( '/^Q[1-9]\d*$/', $id ) === 1 ) {
-					$specs[$props['appearsIn']][] = new EntityIdValue( new ItemId( $id ) );
-				}
-			}
-		}
-		return $specs;
-	}
 
 	protected function classOptions(): array {
 		return $this->config->fictionalCharacterClasses();

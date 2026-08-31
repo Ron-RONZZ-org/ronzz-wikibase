@@ -32,6 +32,33 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 		return 'person';
 	}
 
+
+	/** The create path delegates to the shared semantic flow service. */
+	protected function semanticFlowKindKey(): ?string {
+		return 'person';
+	}
+
+	/**
+	 * The form record → the shared service vocabulary: the OSM place
+	 * external-ids and the portrait file URL (the API contract's item-typed
+	 * place fields are not written by the forms — places live in OSM).
+	 */
+	protected function semanticFlowRecord( string $kind, array $record ): array {
+		$out = $this->pickServiceFields( $record, \EmbeddableContent\Flow\SemanticEntityFieldMap::fieldsForKind( 'person' ) );
+		foreach ( [ 'placeOfBirthOsm', 'placeOfDeathOsm' ] as $osmField ) {
+			if ( !empty( $record[$osmField] ) ) {
+				$out[$osmField] = (string)$record[$osmField];
+			}
+		}
+		if ( !empty( $record['portraitFileTitle'] ) ) {
+			$title = \MediaWiki\Title\Title::makeTitle( NS_FILE, (string)$record['portraitFileTitle'] );
+			if ( $title !== null ) {
+				$out['imageFileUrl'] = $title->getFullURL();
+			}
+		}
+		return $out;
+	}
+
 	protected function buildSearchFields(): array {
 		return [
 			'name' => [
@@ -329,50 +356,6 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 	 * @param array<string,mixed> $record
 	 * @return array<string,\Wikibase\DataModel\DataValue|\Wikibase\DataModel\DataValue[]>
 	 */
-	protected function statementSpecs( array $record ): array {
-		$specs = parent::statementSpecs( $record );
-		$props = $this->config->personPropertyIds();
-
-		foreach ( [ 'dateOfBirth', 'dateOfDeath' ] as $field ) {
-			if ( !isset( $props[$field] ) || empty( $record[$field] ) ) {
-				continue;
-			}
-			$time = $this->dateToTimeValue( (string)$record[$field] );
-			if ( $time !== null ) {
-				$specs[$props[$field]] = $time;
-			}
-		}
-		// OSM places (osm-places): the external-id properties carry the
-		// Nominatim-picked node/way/relation ids. The item-typed P19/P20
-		// properties are no longer written by the forms (the local-item
-		// place vocabulary was abandoned — places live in OpenStreetMap).
-		foreach ( [ 'placeOfBirthOsm', 'placeOfDeathOsm' ] as $field ) {
-			if ( !isset( $props[$field] ) || empty( $record[$field] ) ) {
-				continue;
-			}
-			$osmId = trim( (string)$record[$field] );
-			if ( \EmbeddableContent\Spec\OsmPlace::isValidId( $osmId ) ) {
-				$specs[$props[$field]] = new \DataValues\StringValue( $osmId );
-			}
-		}
-		// Official website: optional validated URL statement (the shared
-		// P856-aligned property).
-		$website = $this->websiteStatementValue( $record );
-		if ( $website !== null && isset( $props['officialWebsite'] ) ) {
-			$specs[$props['officialWebsite']] = $website;
-		}
-		// Portrait: the uploaded File:<label>-portrait.<ext> URL (image
-		// statement, P18-aligned). The license/author/license-info live on
-		// the file's own image item + File: page (semantic-first model,
-		// ImageUploadHelper) — never on the person entity.
-		if ( !empty( $record['portraitFileTitle'] ) && isset( $props['image'] ) ) {
-			$fileTitle = \MediaWiki\Title\Title::makeTitle( NS_FILE, (string)$record['portraitFileTitle'] );
-			if ( $fileTitle !== null ) {
-				$specs[$props['image']] = new \DataValues\StringValue( $fileTitle->getFullURL() );
-			}
-		}
-		return $specs;
-	}
 
 	// ------------------------------------------------------------- portrait
 	// The portrait upload machinery (field specs, file/URL upload,

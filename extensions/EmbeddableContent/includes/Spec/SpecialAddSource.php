@@ -693,6 +693,23 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		return $this->wikipedia;
 	}
 
+	/** @var \EmbeddableContent\Flow\SourceFlowService|null lazily built */
+	private ?\EmbeddableContent\Flow\SourceFlowService $flow = null;
+
+	/**
+	 * The shared entity-mode pipeline (the same service the action=addsource
+	 * API module runs): statement building and item creation are delegated
+	 * here so the browser form and the API can never drift. The form keeps
+	 * its browser-specific steps — beforeCreate's access-field uploads and
+	 * validation, the harvested-content review, afterCreate's page
+	 * machinery — around the delegation.
+	 */
+	protected function sourceFlow(): \EmbeddableContent\Flow\SourceFlowService {
+		$this->flow ??= \MediaWiki\MediaWikiServices::getInstance()
+			->get( 'EmbeddableContent.SourceFlowService' );
+		return $this->flow;
+	}
+
 	protected function harvestContent( array $record ): array {
 		switch ( $this->currentClassKey ) {
 			case 'scholarlyArticle':
@@ -1821,105 +1838,104 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 * @param array<string,mixed> $record
 	 * @return array<string,mixed> property id => DataValue | DataValue[]
 	 */
-	protected function statementSpecs( array $record ): array {
-		$specs = $this->externalIdStatements( $record ) + $this->citationMetadataStatements( $record );
-		$props = $this->config->sourcePropertyIds();
+	/**
+	 * The review and manual creation paths delegate to the shared
+	 * SourceFlowService: statement building and the item save live in one
+	 * place (the action=addsource contract), while this form keeps the
+	 * browser-only steps around them — beforeCreate's access uploads and
+	 * validation, the harvest enrichment, and afterCreate's page machinery.
+	 * The two-save GUID dance of createOrSkipItem is gone: Wikibase assigns
+	 * statement GUIDs on save.
+	 */
+	protected function createFromRecord( array $record, string $classItemId ): string {
+		$record = $this->enrichRecord( $record );
+		return $this->createViaFlow( $record );
+	}
 
-		// Publisher: entity-only — the value is an item id (combobox), written
-		// as an entity statement on the entity-typed publisher property.
-		$publisherId = trim( (string)( $record['publisher'] ?? '' ) );
-		$publisherItem = $this->parseItemId( $publisherId );
-		$publisherProp = $this->config->citationMetadataPropertyIds()['publisher'] ?? null;
-		if ( $publisherItem !== null && $publisherProp !== null ) {
-			$specs[$publisherProp] = new EntityIdValue( $publisherItem );
+	protected function manualCreate( string $label, string $classItemId, array $record ): string {
+		return $this->createViaFlow( $record );
+	}
+
+	/**
+	 * Builds and saves the item through SourceFlowService. The record is
+	 * adapted from the form vocabulary (issuedYear → year, the uploaded
+	 * file's URL) to the shared one; the service's prepare is the safety
+	 * net after beforeCreate (the form's own validation already ran).
+	 * Create-or-skip by label is preserved, and the import reference is
+	 * attached to every statement but the instance-of one.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function createViaFlow( array $record ): string {
+		$flowRecord = $this->flowRecord( $record );
+		$error = $this->sourceFlow()->prepare( $this->currentClassKey, $flowRecord, true );
+		if ( $error !== null ) {
+			// The form's own validation should have caught this; surface it
+			// as a form error rather than silently proceeding.
+			return $error;
+		}
+		$label = $this->sourceFlow()->labelFor( $this->currentClassKey, $flowRecord );
+
+		$existing = $this->findItemIdByLabel( $label );
+		if ( $existing !== null ) {
+			return $existing;
 		}
 
-		// Journal (scholarlyArticle): entity-only, like the publisher — the
-		// entity-typed journal property (P1433-aligned) replaces the legacy
-		// string container title, which the citation engine resolves to the
-		// journal item's label at render time.
-		$journalId = trim( (string)( $record['journal'] ?? '' ) );
-		$journalItem = $this->parseItemId( $journalId );
-		$journalProp = $this->config->citationMetadataPropertyIds()['journal'] ?? null;
-		if ( $journalItem !== null && $journalProp !== null ) {
-			$specs[$journalProp] = new EntityIdValue( $journalItem );
-		}
+		$item = $this->sourceFlow()->buildItem( $this->currentClassKey, $flowRecord );
 
-		if ( !empty( $record['durationSeconds'] ) && isset( $props['duration'] ) ) {
-			$specs[$props['duration']] = QuantityValue::newFromNumber( (int)$record['durationSeconds'] );
-		}
-
-		// Chapters (book excerpts): optional count/range string.
-		if ( !empty( $record['chapters'] ) && isset( $props['chapters'] ) ) {
-			$specs[$props['chapters']] = new StringValue( (string)$record['chapters'] );
-		}
-
-		// Year: publication/creation date at YEAR precision on the shared
-		// `date` property (P577-aligned — the citation engine already reads
-		// it as publicationDate). Book-excerpt inference copies this
-		// statement from the parent book item.
-		$year = (int)( $record['issuedYear'] ?? 0 );
-		if ( $year > 0 ) {
-			$dateProp = $this->config->provenancePropertyIds()['date'] ?? null;
-			if ( $dateProp !== null ) {
-				$specs[$dateProp] = new TimeValue(
-					sprintf( '+%04d-00-00T00:00:00Z', $year ),
-					0, 0, 0,
-					TimeValue::PRECISION_YEAR,
-					'http://www.wikidata.org/entity/Q1985727'
-				);
+		// Import reference (harvested records): every statement but the
+		// instance-of one carries the authority URL + retrieval date.
+		$referenceSnaks = $this->importReferenceSnaks( $record );
+		if ( $referenceSnaks !== null ) {
+			foreach ( $item->getStatements() as $statement ) {
+				if ( $statement->getPropertyId()->getSerialization() !== $this->config->instanceOfPropertyId() ) {
+					$statement->addNewReference( ...$referenceSnaks );
+				}
 			}
 		}
 
-		$url = ( new FragmentSanitizer() )->validateUrl( (string)( $record['url'] ?? '' ) );
-		if ( $url !== null && isset( $props['url'] ) ) {
-			$specs[$props['url']] = new StringValue( $url );
-		}
+		WikibaseRepo::getEntityStore()->saveEntity(
+			$item,
+			$this->msg( 'embeddablecontent-extcreate-edit-summary', $label )->inContentLanguage()->text(),
+			$this->getUser(),
+			EDIT_NEW
+		);
+		return $item->getId()->getSerialization();
+	}
 
-		if ( !empty( $record['youtubeChannelId'] ) && isset( $props['youtubeChannelId'] ) ) {
-			$specs[$props['youtubeChannelId']] = new StringValue( (string)$record['youtubeChannelId'] );
+	/**
+	 * The form record → the shared service vocabulary: only the service's
+	 * fields, with issuedYear folded into year and the uploaded access file
+	 * resolved to its URL.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,mixed>
+	 */
+	protected function flowRecord( array $record ): array {
+		$out = [];
+		foreach ( \EmbeddableContent\Flow\SourceFieldMap::ALL_FIELDS as $field ) {
+			if ( $field === 'year' ) {
+				$year = (string)( $record['issuedYear'] ?? '' );
+				if ( $year !== '' ) {
+					$out['year'] = $year;
+				}
+				continue;
+			}
+			$value = $record[$field] ?? null;
+			if ( $value !== null && $value !== '' ) {
+				$out[$field] = (string)$value;
+			}
 		}
-		if ( !empty( $record['youtubeVideoId'] ) && isset( $props['youtubeVideoId'] ) ) {
-			$specs[$props['youtubeVideoId']] = new StringValue( (string)$record['youtubeVideoId'] );
-		}
-
-		// Access facts (issue #35): non-direct access URL, the uploaded file
-		// (File: page URL) and the license entity — all set by
-		// validateAccessField before creation.
-		$accessUrl = ( new FragmentSanitizer() )->validateUrl( (string)( $record['accessUrl'] ?? '' ) );
-		if ( $accessUrl !== null && isset( $props['accessUrl'] ) ) {
-			$specs[$props['accessUrl']] = new StringValue( $accessUrl );
-		}
-		if ( !empty( $record['fileTitle'] ) && isset( $props['file'] ) ) {
+		if ( !empty( $record['fileTitle'] ) ) {
 			$fileTitle = \MediaWiki\Title\Title::makeTitle( NS_FILE, (string)$record['fileTitle'] );
 			if ( $fileTitle !== null ) {
-				$specs[$props['file']] = new StringValue( $fileTitle->getFullURL() );
+				$out['accessFileUrl'] = $fileTitle->getFullURL();
 			}
 		}
-		if ( !empty( $record['license'] ) && isset( $props['license'] ) ) {
-			$licenseItem = $this->parseItemId( (string)$record['license'] );
-			if ( $licenseItem !== null ) {
-				$specs[$props['license']] = new EntityIdValue( $licenseItem );
-			}
+		if ( !empty( $record['license'] ) ) {
+			$out['license'] = (string)$record['license'];
 		}
-
-		// Authors: one `attributed to` statement per entity (≥1 enforced in
-		// beforeCreate; multi-valued specs write one statement per element).
-		$authorIds = ItemIdList::split( (string)( $record['authors'] ?? '' ) );
-		$attributedTo = $this->config->provenancePropertyIds()['attributedTo'] ?? null;
-		if ( $authorIds !== [] && $attributedTo !== null ) {
-			foreach ( $authorIds as $authorId ) {
-				$specs[$attributedTo][] = new EntityIdValue( new ItemId( $authorId ) );
-			}
-		}
-
-		// Child→parent link (`part of`), validated in beforeCreate.
-		$parentId = trim( (string)( $record['parent'] ?? '' ) );
-		if ( $parentId !== '' && isset( $props['partOf'] ) && preg_match( '/^Q[1-9]\d*$/', $parentId ) === 1 ) {
-			$specs[$props['partOf']] = new EntityIdValue( new ItemId( $parentId ) );
-		}
-
-		return $specs;
+		return $out;
 	}
 
 	// ------------------------------------------------------------- duration helpers
