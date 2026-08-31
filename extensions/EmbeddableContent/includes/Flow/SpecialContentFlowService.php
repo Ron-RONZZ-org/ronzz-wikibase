@@ -14,6 +14,7 @@ use Wikibase\DataModel\DataValue;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
+use Wikibase\DataModel\Services\Statement\GuidGenerator;
 use Wikibase\DataModel\Entity\NumericPropertyId;
 use Wikibase\DataModel\Entity\PropertyId;
 use Wikibase\DataModel\Snak\PropertyValueSnak;
@@ -233,6 +234,11 @@ final class SpecialContentFlowService {
 					);
 				}
 			}
+			// The item id is known on updates — assign GUIDs to the newly
+			// added statements now (the entity-page client matches statements
+			// to the DOM by GUID; a GUID-less statement renders as an empty
+			// edit-mode row for logged-in users).
+			StatementGuidAssigner::ensureGuids( $item, new GuidGenerator() );
 		}
 		$label = trim( (string)( $record['label'] ?? '' ) );
 		if ( $label !== '' ) {

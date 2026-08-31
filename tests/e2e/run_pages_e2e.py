@@ -256,6 +256,21 @@ def first_reference_url(claims: dict, prop_id: str) -> str | None:
     return None
 
 
+def assert_claim_ids(op, api: str, qid: str, where: str) -> None:
+    """Every claim of the item must carry a statement id (GUID). The
+    entity-page client matches server-rendered statement DOM to the entity
+    JSON BY GUID (ViewFactory.getStatementGroupListView); a GUID-less
+    statement never matches and renders as an EMPTY edit-mode row for
+    logged-in users — the flow-services GUID bug of 2026-08-31 (every item
+    created through the flows before the fix). This is the regression net:
+    any flow that creates an item without claim ids fails here."""
+    claims, _ = entity_claims(op, api, qid)
+    missing = [pid for pid, stmts in claims.items()
+               for s in stmts if not s.get("id")]
+    assert not missing, \
+        f"{where}: item {qid} has GUID-less claims: {missing} — {json.dumps(claims)}"
+
+
 # Classic pages (Source:/Person:/Collective:) created by the Add* flows.
 # The cleanup deletes the ITEM pages (entities) but never the classic pages
 # (pre-existing leak: a re-run's create-or-skip + afterCreate re-points the
@@ -275,7 +290,9 @@ def flow_final_item(op, base: str, api: str, url: str, body: str, special: str) 
     back to the item."""
     m = re.search(r"/wiki/Item:(Q\d+)$", url)
     if m:
-        return m.group(1)
+        qid = m.group(1)
+        assert_claim_ids(op, api, qid, special)
+        return qid
     m = re.search(r"/wiki/((?:Person|Source|Collective):[^?#]+)$", url)
     if m:
         page_title = urllib.parse.unquote(m.group(1)).replace("_", " ")
@@ -297,6 +314,7 @@ def flow_final_item(op, base: str, api: str, url: str, body: str, special: str) 
             for page in r.get("query", {}).get("pages", {}).values():
                 qid = page.get("pageprops", {}).get("wikibase_item")
                 if qid:
+                    assert_claim_ids(op, api, qid, special)
                     return qid
             time.sleep(15)
         raise FlowError(f"{special} page {page_title} has no wikibase_item "
@@ -525,6 +543,7 @@ def flow_cite_collective_author(op, base: str, api: str, collective_class: str) 
         raise FlowError(f"action=addsemanticentity collective creation failed: {r}")
     collective_qid = r["semantic"]["entityId"]
     collective_page = r["semantic"].get("pageTitle")
+    assert_claim_ids(op, api, collective_qid, "action=addsemanticentity collective")
 
     r2 = api_call(op, api, {
         "action": "addspecialcontent", "kind": "quotation",
@@ -536,6 +555,7 @@ def flow_cite_collective_author(op, base: str, api: str, collective_class: str) 
     if "content" not in r2 or not r2["content"].get("created"):
         raise FlowError(f"action=addspecialcontent quotation creation failed: {r2}")
     quote_qid = r2["content"]["entityId"]
+    assert_claim_ids(op, api, quote_qid, "action=addspecialcontent quotation")
 
     out = api_call(op, api, {
         "action": "citation", "entity": quote_qid,
@@ -1934,6 +1954,7 @@ def flow_addsource_api(op, base: str, api: str, website_parent: str, author: str
     if page_title is None:
         raise FlowError(f"action=addsource create returned no pageTitle for {qid}: {r}")
     claims, label = entity_claims(op, api, qid)
+    assert_claim_ids(op, api, qid, "action=addsource create")
     assert first_value(claims, instance_of) == webpage_class, \
         f"API-created {qid} instance-of != web page ({first_value(claims, instance_of)})"
     assert first_value(claims, part_of_prop) == website_parent, \
@@ -1949,6 +1970,7 @@ def flow_addsource_api(op, base: str, api: str, website_parent: str, author: str
     if "source" not in r2 or not r2["source"].get("updated"):
         raise FlowError(f"action=addsource update failed: {r2}")
     claims2, _ = entity_claims(op, api, qid)
+    assert_claim_ids(op, api, qid, "action=addsource update")
     assert first_value(claims2, url_prop) == url2, f"update did not replace the URL ({claims2})"
     assert first_value(claims2, part_of_prop) == website_parent, \
         f"update clobbered the part-of link (no-clobber violated)"
@@ -1977,6 +1999,7 @@ def flow_addspecialcontent_api(op, api: str, person: str, instance_of: str,
         raise FlowError(f"action=addspecialcontent create failed: {r}")
     qid = r["content"]["entityId"]
     claims, _ = entity_claims(op, api, qid)
+    assert_claim_ids(op, api, qid, "action=addspecialcontent create")
     assert first_value(claims, instance_of) == quotation_class, \
         f"API quotation {qid} instance-of != quotation class ({first_value(claims, instance_of)})"
     assert first_value(claims, content_prop), f"API quotation {qid} missing the payload"

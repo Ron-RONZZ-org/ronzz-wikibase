@@ -1844,8 +1844,13 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 * place (the action=addsource contract), while this form keeps the
 	 * browser-only steps around them — beforeCreate's access uploads and
 	 * validation, the harvest enrichment, and afterCreate's page machinery.
-	 * The two-save GUID dance of createOrSkipItem is gone: Wikibase assigns
-	 * statement GUIDs on save.
+	 * Direct EntityStore::saveEntity does NOT assign statement GUIDs (that
+	 * is ChangeOp territory — wbeditentity goes through ChangeOps, this
+	 * flow does not), so the create saves twice: the first save assigns the
+	 * item id, GUIDs are generated from it, the second save persists them.
+	 * Without GUIDs the entity page renders every statement as an empty
+	 * edit-mode row for logged-in users (the client matches statements to
+	 * the DOM by GUID).
 	 */
 	protected function createFromRecord( array $record, string $classItemId ): string {
 		$record = $this->enrichRecord( $record );
@@ -1898,11 +1903,22 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			}
 		}
 
-		WikibaseRepo::getEntityStore()->saveEntity(
+		$store = WikibaseRepo::getEntityStore();
+		$store->saveEntity(
 			$item,
 			$this->msg( 'embeddablecontent-extcreate-edit-summary', $label )->inContentLanguage()->text(),
 			$this->getUser(),
 			EDIT_NEW
+		);
+		// The first save assigns the item id; statements must carry GUIDs or
+		// the entity page renders them as empty edit-mode rows for logged-in
+		// users (the client matches statements to the DOM by GUID).
+		\EmbeddableContent\Flow\StatementGuidAssigner::ensureGuids( $item, new \Wikibase\DataModel\Services\Statement\GuidGenerator() );
+		$store->saveEntity(
+			$item,
+			$this->msg( 'embeddablecontent-extcreate-edit-summary', $label )->inContentLanguage()->text(),
+			$this->getUser(),
+			EDIT_UPDATE
 		);
 		return $item->getId()->getSerialization();
 	}

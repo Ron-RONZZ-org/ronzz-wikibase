@@ -112,6 +112,9 @@ class SpecialContentFlowServiceTest extends TestCase {
 		$service = $this->makeService();
 		$record = [ 'label' => 'q', 'content' => 'hello', 'attributedTo' => 'Q6' ];
 		$item = $service->buildItem( 'quotation', $record );
+		// applyUpdate runs on a LOADED item (the caller fetched it from the
+		// store) — it needs the id to assign statement GUIDs.
+		$item->setId( new ItemId( 'Q42' ) );
 
 		$service->applyUpdate( 'quotation', $item, [ 'content' => 'goodbye' ] );
 
@@ -127,6 +130,10 @@ class SpecialContentFlowServiceTest extends TestCase {
 		foreach ( $item->getStatements() as $statement ) {
 			if ( $statement->getPropertyId()->getSerialization() === 'P2' ) {
 				$payload = $statement->getMainSnak()->getDataValue();
+				// The replaced statement carries a GUID (the entity-page
+				// client matches statements to the DOM by GUID — a
+				// GUID-less statement renders as an empty edit-mode row).
+				$this->assertNotNull( $statement->getGuid() );
 			}
 		}
 		$this->assertSame( 'goodbye', $payload->getText() );

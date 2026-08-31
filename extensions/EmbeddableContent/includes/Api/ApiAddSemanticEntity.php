@@ -8,10 +8,12 @@ use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\Flow\SemanticEntityFieldMap;
 use EmbeddableContent\Flow\SemanticEntityFlowService;
 use EmbeddableContent\Flow\SoftwarePageKind;
+use EmbeddableContent\Flow\StatementGuidAssigner;
 use MediaWiki\Api\ApiBase;
 use MediaWiki\Message\RawMessage;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
+use Wikibase\DataModel\Services\Statement\GuidGenerator;
 use Wikibase\Repo\WikibaseRepo;
 
 /**
@@ -95,12 +97,14 @@ class ApiAddSemanticEntity extends ApiBase {
 
 		if ( $creating ) {
 			$item = $this->flow->buildItem( $kind, $record );
-			$revision = $store->saveEntity(
-				$item,
-				$summary ?? 'Add semantic entity',
-				$user,
-				EDIT_NEW
-			);
+			$summaryText = $summary ?? 'Add semantic entity';
+			$store->saveEntity( $item, $summaryText, $user, EDIT_NEW );
+			// The first save assigns the item id; statements must carry
+			// GUIDs or the entity page renders them as empty edit-mode rows
+			// for logged-in users (the client matches statements to the DOM
+			// by GUID).
+			StatementGuidAssigner::ensureGuids( $item, new GuidGenerator() );
+			$revision = $store->saveEntity( $item, $summaryText, $user, EDIT_UPDATE );
 			$itemId = $item->getId()->getSerialization();
 			$result = [
 				'entityId' => $itemId,
