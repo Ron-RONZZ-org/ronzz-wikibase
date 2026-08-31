@@ -2138,7 +2138,7 @@ def flow_duplicate_manual(op, base: str, api: str, special: str, label: str,
     fields2 = dict(fields)
     fields2["wpEditToken"] = edit_token(body)
     url, body = page_post(op, url, fields2)
-    m = re.search(r"/wiki/Special:" + re.escape(special) + r"/([0-9a-f]{32})/duplicate/(Q\d+)$", url)
+    m = re.search(r"/wiki/Special:" + re.escape(special) + r"/([0-9a-f]{16})/duplicate/(Q\d+)$", url)
     if not m:
         raise FlowError(f"duplicate guard did not route to the confirm page: "
                         f"{url} {find_error(body)}")

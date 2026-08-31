@@ -168,7 +168,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			$this->executeReview( $first, (int)$parts[2] );
 			return;
 		}
-		// Duplication-guard confirms (tokens are 32-hex, so `duplicate` can
+		// Duplication-guard confirms (tokens are 16-hex (MWCryptRand::generateHex(16)), so `duplicate` can
 		// never collide with a token): /<token>/duplicate/<index>/<Qid> is
 		// the search-pick early warning; /<token>/duplicate/<Qid> is the
 		// create-gate confirm whose [No, create it anyway] POSTs back here.
@@ -188,7 +188,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		}
 		// Finalize a just-created classic page in a FRESH request (the page
 		// is written by afterCreate; this step strips the pending marker —
-		// tokens are 32-hex so `complete` can never collide with them).
+		// tokens are 16-hex (MWCryptRand::generateHex(16)) so `complete` can never collide with them).
 		if ( $first === 'complete' && ( $parts[1] ?? '' ) !== '' ) {
 			$this->executeComplete( $parts[1] );
 			return;
