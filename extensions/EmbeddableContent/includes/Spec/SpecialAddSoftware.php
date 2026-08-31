@@ -237,19 +237,23 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 				)->parse();
 		}
 
-		// Classic-page kind: FOSS: page (the historical default) or
-		// Software: page — asked PER CREATE (the license facts only drive
-		// the default; the user overrides here). A software whose license
-		// is free/open-source documents as `FOSS:<Name>`, everything else
-		// as `Software:<Name>`.
+		// Classic-page kind: FOSS: page or Software: page — asked PER CREATE
+		// (the license facts drive the default, the user overrides here).
+		// The radio defaults to 'auto' ("follow the license") because the
+		// render-time form cannot know the license the user will submit —
+		// HTMLForm fills a MISSING radio with its render-time default, so a
+		// license-derived default would silently override the posted license
+		// (a scripted POST without wppageKind). beforeCreate resolves 'auto'
+		// against the SUBMITTED license; 'foss'/'software' are explicit.
 		$fields['pageKind'] = [
 			'type' => 'radio',
 			'label-message' => 'embeddablecontent-software-pagekind',
 			'options-messages' => [
+				'embeddablecontent-software-pagekind-auto' => 'auto',
 				'embeddablecontent-software-pagekind-foss' => 'foss',
 				'embeddablecontent-software-pagekind-software' => 'software',
 			],
-			'default' => $this->defaultPageKindForRecord( $record ),
+			'default' => 'auto',
 			'help-message' => 'embeddablecontent-software-pagekind-help',
 		];
 
@@ -375,21 +379,6 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		return ( $record['pageKind'] ?? '' ) === 'software' ? 'Software' : parent::pageTemplateForRecord( $record );
 	}
 
-	/**
-	 * The FOSS: vs Software: default for a record, derived from the chosen
-	 * license(s) — the shared SoftwarePageKind rule (any free/open-source
-	 * license wins; no license keeps the historical FOSS: default). The
-	 * page-kind radio lets the contributor override either way.
-	 *
-	 * @param array<string,mixed> $record
-	 */
-	protected function defaultPageKindForRecord( array $record ): string {
-		return \EmbeddableContent\Flow\SoftwarePageKind::defaultFor(
-			$this->config,
-			(string)( $record['license'] ?? '' )
-		);
-	}
-
 	protected function pagePendingMarker(): string {
 		return '__FOSS_LINK_PENDING__';
 	}
@@ -443,10 +432,12 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 	 * @return string|null error message, or null to proceed
 	 */
 	protected function beforeCreate( array &$record ): ?string {
-		// Defense in depth: an ABSENT page-kind value (a scripted POST that
-		// bypasses the rendered radio) still follows the license default —
-		// the page-kind radio on the form submits its value anyway.
-		if ( empty( $record['pageKind'] ) ) {
+		// Resolve the page-kind radio: 'auto' (the default — the render-time
+		// form cannot know the license the user submits) or an ABSENT value
+		// (a scripted POST) follows the SUBMITTED license; 'foss'/'software'
+		// are the user's explicit override and pass through untouched.
+		$pageKind = (string)( $record['pageKind'] ?? '' );
+		if ( $pageKind === '' || $pageKind === 'auto' ) {
 			$record['pageKind'] = \EmbeddableContent\Flow\SoftwarePageKind::defaultFor(
 				$this->config,
 				(string)( $record['license'] ?? '' )

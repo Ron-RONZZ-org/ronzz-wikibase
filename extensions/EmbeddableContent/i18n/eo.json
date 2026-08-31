@@ -143,6 +143,7 @@
 	"embeddablecontent-collective-logo-edit-summary": "Alŝutis la emblemon de $1",
 	"embeddablecontent-software-page-edit-summary": "FOSS-paĝo kreita por $1",
 	"embeddablecontent-software-pagekind": "Speco de paĝo",
+	"embeddablecontent-software-pagekind-auto": "Aŭtomata (laŭ la permesilo)",
 	"embeddablecontent-software-pagekind-foss": "Paĝo de libera programaro (FOSS:)",
 	"embeddablecontent-software-pagekind-software": "Paĝo de programaro (Software:)",
 	"embeddablecontent-software-pagekind-help": "La nomspaco de la kreota vikipaĝo. La implicitaĵo devenas de la permesilo: libera/malfermitkoda permesilo enmetas en la nomspacon FOSS:, ĉio alia en la nomspacon Software:. Vi povas ŝanĝi ĝin ĉi tie.",

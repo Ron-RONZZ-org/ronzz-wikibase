@@ -143,6 +143,7 @@
 	"embeddablecontent-collective-logo-edit-summary": "A importé le logo de $1",
 	"embeddablecontent-software-page-edit-summary": "Page FOSS créée pour $1",
 	"embeddablecontent-software-pagekind": "Type de page",
+	"embeddablecontent-software-pagekind-auto": "Automatique (selon la licence)",
 	"embeddablecontent-software-pagekind-foss": "Page de logiciel libre (FOSS:)",
 	"embeddablecontent-software-pagekind-software": "Page de logiciel (Software:)",
 	"embeddablecontent-software-pagekind-help": "L'espace de noms de la page wiki créée. La valeur par défaut découle de la licence : une licence libre/open source aboutit dans l'espace FOSS:, toute autre licence dans l'espace Software:. Vous pouvez la modifier ici.",

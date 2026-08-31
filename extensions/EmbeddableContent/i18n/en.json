@@ -144,6 +144,7 @@
 	"embeddablecontent-software-page-edit-summary": "Created the FOSS page for $1",
 	"embeddablecontent-software-sitelink-edit-summary": "Linked $1 to its FOSS page",
 	"embeddablecontent-software-pagekind": "Page kind",
+	"embeddablecontent-software-pagekind-auto": "Automatic (from the license)",
 	"embeddablecontent-software-pagekind-foss": "Free-software page (FOSS:)",
 	"embeddablecontent-software-pagekind-software": "Software page (Software:)",
 	"embeddablecontent-software-pagekind-help": "The namespace of the created wiki page. Defaults from the license: a free/open-source license lands in the FOSS: namespace, anything else in the Software: namespace. You can override it here.",
