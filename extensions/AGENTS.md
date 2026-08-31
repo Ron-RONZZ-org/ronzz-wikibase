@@ -114,9 +114,14 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   (default = license) via the shared `SoftwarePageKind` helper;
   `tools/backfill_classic_pages.py` accepts `{"software": true}` ns-map
   entries resolved per item (`--license-property` +
-  `--software-license-ids`). The item CLASS stays `free and open-source
-  software` for every page kind (a plain "software" class is a documented
-  follow-up).
+  `--software-license-ids`). **The item CLASS follows the page kind**: a
+  FOSS: page writes `instance of` → `free and open-source software`, a
+  Software: page writes `instance of` → the new plain **`software`** class
+  (`softwareClasses` config, Q7397-aligned) — a non-FOSS item never carries
+  the FOSS class. The class is written by `SemanticEntityFlowService` from
+  the record's `pageKind` (a flow field in `SemanticEntityFieldMap`, not a
+  statement), resolved by the form's `beforeCreate` / the API module before
+  statement building.
 - **Classic pages for Person/Source/Collective (issue follow-up, ADR
   `docs/decisions/pages-and-fields.md`)**: the AddSoftware page machinery
   (afterCreate → sitelink → `complete/<id>` finalize) moved into the base

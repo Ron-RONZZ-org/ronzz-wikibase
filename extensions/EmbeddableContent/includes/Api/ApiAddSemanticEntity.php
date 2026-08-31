@@ -69,13 +69,19 @@ class ApiAddSemanticEntity extends ApiBase {
 		$creating = $qid === null;
 
 		// pageKind (kind=software only) is a PAGE decision, not a statement
-		// field: keep it out of the flow validation, apply it after prepare.
+		// field: it rides the flow record so the item's class follows the
+		// page kind (FOSS: ↔ FOSS class, Software: ↔ software class).
 		$pageKind = $params['pageKind'];
 		$record = [];
 		foreach ( $this->fieldParams() as $field ) {
 			if ( $params[$field] !== null && $params[$field] !== '' ) {
 				$record[$field] = $params[$field];
 			}
+		}
+		if ( $kind === 'software' ) {
+			$record['pageKind'] = $pageKind !== null
+				? $pageKind
+				: SoftwarePageKind::defaultFor( $this->config, (string)( $record['license'] ?? '' ) );
 		}
 
 		$error = $this->flow->prepare( $kind, $record, $creating );
@@ -103,11 +109,6 @@ class ApiAddSemanticEntity extends ApiBase {
 				'created' => '1',
 			];
 			$record['itemId'] = $itemId;
-			if ( $kind === 'software' ) {
-				$record['pageKind'] = $pageKind !== null
-					? $pageKind
-					: SoftwarePageKind::defaultFor( $this->config, (string)( $record['license'] ?? '' ) );
-			}
 			$pageTitle = $this->pageTitleFor( $kind, $record, $user );
 			if ( $pageTitle !== null ) {
 				$result['pageTitle'] = $pageTitle;

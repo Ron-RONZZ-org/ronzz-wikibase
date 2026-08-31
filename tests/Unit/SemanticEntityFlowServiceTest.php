@@ -47,6 +47,7 @@ class SemanticEntityFlowServiceTest extends TestCase {
 		'citationMetadata' => [ 'givenName' => 'P25', 'familyName' => 'P26' ],
 		'agentClasses' => [ 'person' => 'Q6', 'organization' => 'Q7' ],
 		'fossClasses' => [ 'foss' => 'Q14' ],
+		'softwareClasses' => [ 'software' => 'Q23' ],
 		'fictionalCharacterClasses' => [ 'fictionalCharacter' => 'Q22' ],
 	];
 
@@ -122,6 +123,22 @@ class SemanticEntityFlowServiceTest extends TestCase {
 		) );
 		$this->assertSame( 'Q42', $specs['P5']->getEntityId()->getSerialization() );
 		$this->assertSame( 'https://github.com/x', $specs['P37']->getValue() );
+	}
+
+	public function testSoftwareClassFollowsPageKind(): void {
+		// FOSS:/Software: split — a Software: page means the item is NOT
+		// free/open-source and must not carry the FOSS class (Q14); it gets
+		// the plain software class (Q23) instead. Default (no pageKind, or
+		// pageKind=foss) keeps the FOSS class.
+		$service = $this->makeService();
+
+		$foss = [ 'label' => 'Flameshot', 'pageKind' => 'foss' ];
+		$this->assertNull( $service->prepare( 'software', $foss, true ) );
+		$this->assertSame( 'Q14', $service->statementSpecs( 'software', $foss )['P1']->getEntityId()->getSerialization() );
+
+		$nonfree = [ 'label' => 'Proprietary Thing', 'pageKind' => 'software' ];
+		$this->assertNull( $service->prepare( 'software', $nonfree, true ) );
+		$this->assertSame( 'Q23', $service->statementSpecs( 'software', $nonfree )['P1']->getEntityId()->getSerialization() );
 	}
 
 	public function testCollectiveClassPresetResolves(): void {

@@ -459,13 +459,17 @@ def flow_software_manual(op, base: str, api: str, label: str, class_item: str,
 
 def flow_software_manual_pagekind(op, base: str, api: str, label: str, class_item: str,
                                   license_qid: str, expected_ns: str,
+                                  expected_class: str, instance_of_prop: str,
                                   page_kind: str | None = None) -> tuple[str, str]:
     """Special:AddSoftware/manual — the FOSS:/Software: classic-page split.
 
     Creates from blank WITH a license (wplicense), optionally overriding the
     license-derived default via wppageKind (the per-create radio), and asserts
-    the finalize redirect lands in the expected namespace. Returns (item qid,
-    page title).
+    the finalize redirect lands in the expected namespace AND the created item
+    carries the expected class (the item class follows the page kind: FOSS:
+    page ↔ free and open-source software, Software: page ↔ software — a
+    non-FOSS item must never carry the FOSS class). Returns (item qid, page
+    title).
     """
     url, body = page_get(op, base, "/wiki/Special:AddSoftware/manual")
     token = edit_token(body)
@@ -493,6 +497,10 @@ def flow_software_manual_pagekind(op, base: str, api: str, label: str, class_ite
     if not qid:
         raise FlowError(f"AddSoftware/manual {expected_ns} page {page_title} has no "
                         f"wikibase_item (finalize step did not map the sitelink)")
+    claims, _ = entity_claims(op, api, qid)
+    assert first_value(claims, instance_of_prop) == expected_class, \
+        f"{qid} instance-of != {expected_class} (the class must follow the page kind); " \
+        f"claims: {json.dumps(claims)}"
     return qid, page_title
 
 
@@ -3423,11 +3431,15 @@ def main() -> int:
 
         # 3e1b. AddSoftware page-kind split (FOSS: vs Software:): the license
         #     decides the default (free/open-source → FOSS:, anything else →
-        #     Software:), and the wppageKind radio overrides per create.
+        #     Software:), and the wppageKind radio overrides per create. The
+        #     ITEM CLASS follows the page kind — a Software: page never
+        #     carries the free and open-source software class.
         nonfree_license = resolve("CC BY-NC 4.0", "item")  # preseed, non-FOSS
+        software_class = resolve("software", "item")
         sw_ns_label = f"Page-flow E2E nonfree software {int(time.time())}"
         sw_nonfree, sw_nonfree_page = flow_software_manual_pagekind(
-            op, base, api, sw_ns_label, foss_class, nonfree_license, "Software")
+            op, base, api, sw_ns_label, foss_class, nonfree_license,
+            "Software", software_class, instance_of)
         sw_nonfree = track(sw_nonfree)
         _, raw = page_get(op, base, "/wiki/" + urllib.parse.quote(
             sw_nonfree_page.replace(" ", "_")) + "?action=raw")
@@ -3436,30 +3448,34 @@ def main() -> int:
         if sw_nonfree in created:
             created_pages.append(sw_nonfree_page)
         print(f"[ok] AddSoftware/manual (non-FOSS license) -> {sw_nonfree}: "
-              f"Software: page by license default")
+              f"Software: page + {software_class} class by license default")
 
         # Explicit override: a FOSS license, but the user picks the Software
-        # page (the radio wins over the license default).
+        # page (the radio wins over the license default) — the class follows
+        # the page, so the item is NOT free-and-open-source classified.
         sw_override_label = f"Page-flow E2E override software {int(time.time())}"
         sw_override, sw_override_page = flow_software_manual_pagekind(
-            op, base, api, sw_override_label, foss_class, license_item, "Software",
+            op, base, api, sw_override_label, foss_class, license_item,
+            "Software", software_class, instance_of,
             page_kind="software")
         sw_override = track(sw_override)
         if sw_override in created:
             created_pages.append(sw_override_page)
         print(f"[ok] AddSoftware/manual (pageKind override) -> {sw_override}: "
-              f"Software: page despite a FOSS license")
+              f"Software: page + {software_class} class despite a FOSS license")
 
-        # And the inverse: a non-FOSS license, but the user picks the FOSS page.
+        # And the inverse: a non-FOSS license, but the user picks the FOSS page
+        # — the class follows the page (FOSS), consistent with the override.
         sw_foss_label = f"Page-flow E2E foss override {int(time.time())}"
         sw_foss_override, sw_foss_override_page = flow_software_manual_pagekind(
-            op, base, api, sw_foss_label, foss_class, nonfree_license, "FOSS",
+            op, base, api, sw_foss_label, foss_class, nonfree_license,
+            "FOSS", foss_class, instance_of,
             page_kind="foss")
         sw_foss_override = track(sw_foss_override)
         if sw_foss_override in created:
             created_pages.append(sw_foss_override_page)
         print(f"[ok] AddSoftware/manual (pageKind override) -> {sw_foss_override}: "
-              f"FOSS: page despite a non-FOSS license")
+              f"FOSS: page + {foss_class} class despite a non-FOSS license")
 
         # 3e2. AddPerson/manual + portrait (upload enhancements): the
         #     portrait section collapsed behind the toggle, local PNG upload

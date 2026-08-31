@@ -229,9 +229,16 @@ final class SemanticEntityFlowService {
 
 			case 'software':
 				$foss = $this->config->fossPropertyIds();
-				$fossClass = $this->config->fossClasses()['foss'] ?? null;
-				if ( $fossClass !== null ) {
-					$specs[$this->config->instanceOfPropertyId()] = new EntityIdValue( new ItemId( $fossClass ) );
+				// The item class FOLLOWS the page kind (FOSS:/Software: split):
+				// a Software: page means the item is NOT free/open-source, so
+				// it must not carry the FOSS class. The pageKind is resolved
+				// by the caller (the form's beforeCreate / the API module)
+				// before statement building.
+				$classId = ( $record['pageKind'] ?? '' ) === 'software'
+					? ( $this->config->softwareClasses()['software'] ?? null )
+					: ( $this->config->fossClasses()['foss'] ?? null );
+				if ( $classId !== null ) {
+					$specs[$this->config->instanceOfPropertyId()] = new EntityIdValue( new ItemId( $classId ) );
 				}
 				foreach ( [ 'developer', 'license', 'operatingSystem', 'userInterface', 'hasUse' ] as $field ) {
 					$ids = $this->splitItemIds( (string)( $record[$field] ?? '' ) );

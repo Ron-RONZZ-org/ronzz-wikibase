@@ -205,6 +205,13 @@ FOSS_CLASS_KINDS = {
     "free and open-source software": "foss",
 }
 
+# FOSS:/Software: split: the class for NON-FOSS software items — the item's
+# class follows its page kind (FOSS: page ↔ free and open-source software,
+# Software: page ↔ software), never the reverse.
+SOFTWARE_CLASS_KINDS = {
+    "software": "software",
+}
+
 # FOSS/Software classic-page split: the class that marks a LICENSE as
 # free/open-source. Special:AddSoftware reads the chosen license item's
 # `instance of` statements against this class to default the page kind
@@ -293,6 +300,11 @@ def build_config(
     for label, kind in FOSS_CLASS_KINDS.items():
         if label in class_ids:
             foss_classes[kind] = class_ids[label]
+
+    software_classes: dict[str, str] = {}
+    for label, kind in SOFTWARE_CLASS_KINDS.items():
+        if label in class_ids:
+            software_classes[kind] = class_ids[label]
 
     foss_license_classes: dict[str, str] = {}
     for label, kind in FOSS_LICENSE_CLASS_KINDS.items():
@@ -393,6 +405,7 @@ def build_config(
         "fossClasses": foss_classes,
         "fossProperties": foss_props,
         "fossLicenseClasses": foss_license_classes,
+        "softwareClasses": software_classes,
         "imageClasses": image_classes,
         "imageProperties": image_props,
         "fictionalCharacterClasses": fictional_character_classes,

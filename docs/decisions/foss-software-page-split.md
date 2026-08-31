@@ -66,9 +66,12 @@ would have rendered an empty author).
   — one rule, two surfaces).
 - **`tools/backfill_classic_pages.py`** supports `{"software": true}` ns-map entries resolved
   per item from the license statements (`--license-property` + `--software-license-ids`).
-- The item **class** stays `free and open-source software` regardless of the page kind (the
-  AddSoftware class picker contract). A follow-up "software" class for non-FOSS items is
-  flagged as future work — the page split itself is the requested scope.
+- **The item class follows the page kind**: a FOSS: page writes `instance of` →
+  `free and open-source software`; a Software: page writes `instance of` → the new plain
+  **`software`** class (Q7397-aligned, `softwareClasses` config) — a non-FOSS item never
+  carries the FOSS class. `SemanticEntityFlowService` writes the class from the record's
+  `pageKind` (a flow field in `SemanticEntityFieldMap`, not a statement); the form's
+  `beforeCreate` and the API module resolve `pageKind` before statement building.
 
 ### 3. Fulltext combobox search via `action=entitysearch`
 
@@ -107,5 +110,6 @@ instance grows.
   the FOSS block) — see `RonzzIT:Deployment/Wikibase`.
 - `Template:Software` + `Template:Software/Infobox` are on-wiki deploy items.
 - Re-run the seed's `preseed` phase (with `classes` first) to classify the FOSS licenses and
-  re-classify existing license items (idempotent).
+  re-classify existing license items (idempotent); the D1 class importer creates the new
+  `free software license` AND `software` classes.
 - The `integration` CI stack seeds the same vocabulary, so the E2E flows cover the split.

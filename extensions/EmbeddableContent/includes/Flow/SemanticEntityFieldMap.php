@@ -45,6 +45,10 @@ final class SemanticEntityFieldMap {
 		'presentInWork',
 		'instanceOf',
 		'statements',
+		// Page-kind decision (FOSS: vs Software: classic page) — a PAGE
+		// attribute, not a statement field; it rides the software record so
+		// the flow service can write the matching item class.
+		'pageKind',
 	];
 
 	/** Fields whose value is an item id (Q-number). */
@@ -64,7 +68,7 @@ final class SemanticEntityFieldMap {
 	/** kind => fields the flow accepts for it. */
 	private const KIND_FIELDS = [
 		'person' => [ 'givenName', 'familyName', 'description', 'dateOfBirth', 'placeOfBirth', 'dateOfDeath', 'placeOfDeath', 'orcid', 'viafId', 'isni', 'wikidataId', 'openalexAuthorId', 'officialWebsite' ],
-		'software' => [ 'label', 'description', 'developer', 'license', 'programmingLanguage', 'operatingSystem', 'userInterface', 'hasUse', 'officialWebsite', 'sourceCodeRepository', 'documentationUrl', 'wikidataId' ],
+		'software' => [ 'label', 'description', 'developer', 'license', 'programmingLanguage', 'operatingSystem', 'userInterface', 'hasUse', 'officialWebsite', 'sourceCodeRepository', 'documentationUrl', 'wikidataId', 'pageKind' ],
 		'collective' => [ 'label', 'description', 'collectiveClass', 'parentOrganization', 'officialWebsite', 'wikidataId' ],
 		'fictional-character' => [ 'givenName', 'familyName', 'description', 'presentInWork' ],
 		'other' => [ 'label', 'description', 'instanceOf', 'statements' ],

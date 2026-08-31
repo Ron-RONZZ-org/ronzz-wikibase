@@ -343,6 +343,19 @@ class EmbeddableContentConfig {
 	}
 
 	/**
+	 * FOSS:/Software: split: the class id for NON-FOSS software items. The
+	 * item's class follows its page kind — FOSS: page ↔ the FOSS class,
+	 * Software: page ↔ this class — written by the semantic flow service
+	 * from the record's pageKind. Empty on instances seeded before the
+	 * class existed (software then falls back to the FOSS class).
+	 *
+	 * @return array<string,string> canonical key => item id
+	 */
+	public function softwareClasses(): array {
+		return $this->requireStringMap( 'softwareClasses', [ 'software' ] );
+	}
+
+	/**
 	 * FOSS/Software page split: the class id that marks a LICENSE item as
 	 * free/open-source (the preseed `foss`-flagged licenses are classified
 	 * `instance of` it). Special:AddSoftware reads the chosen license
