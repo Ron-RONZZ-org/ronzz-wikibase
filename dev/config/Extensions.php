@@ -83,6 +83,16 @@ $wgNamespacesWithSubpages[NS_COLLECTIVE] = true; // Collective:Name/fr static tr
 $wgContentNamespaces[] = NS_COLLECTIVE;
 $wgNamespacesToBeSearchedDefault[NS_COLLECTIVE] = true;
 
+// ---- Software namespace (non-FOSS software classic pages, the FOSS: vs
+// Software: split on Special:AddSoftware) — same pattern as FOSS/Person.
+define( 'NS_SOFTWARE', 2016 ); // free constant id
+define( 'NS_SOFTWARE_TALK', 2017 );
+$wgExtraNamespaces[NS_SOFTWARE] = 'Software';
+$wgExtraNamespaces[NS_SOFTWARE_TALK] = 'Software_talk';
+$wgNamespacesWithSubpages[NS_SOFTWARE] = true; // Software:Name/fr static translations
+$wgContentNamespaces[] = NS_SOFTWARE;
+$wgNamespacesToBeSearchedDefault[NS_SOFTWARE] = true;
+
 // ---- Forum namespace (DPLforum, discussion forum) ----
 // Mirrors the production block in LocalSettings.php (see
 // RonzzIT:Deployment/Wikibase on the instance). DPLforum's extension.json

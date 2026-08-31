@@ -39,7 +39,14 @@ The ns-map keys are the instance's class item ids (resolve them on-wiki or
 from the seed output): person → Person:+Template:Person, collective →
 Collective:+Template:Collective, the source classes → Source:+per-class
 templates (Book/ScholarlyArticle/Website/Song/Film/Video/YouTubeChannel/
-YouTubeVideo/Webpage), software → FOSS:+FOSS-Infobox.
+YouTubeVideo/Webpage), software → FOSS:+FOSS-Infobox. Since the FOSS: vs
+Software: split (the license decides the page kind), a software entry may
+use the special form {"software": true} — the tool then resolves the
+namespace per item from the license statements: pass --license-property
+(the license property id) + --software-license-ids (comma-separated Q-ids
+of the free/open-source licenses) and the page lands in FOSS: for a FOSS
+license, Software: otherwise (fallback: FOSS:, with a warning, when the
+flags are absent).
 
 Python stdlib only (AGENTS.md: no pip dependencies).
 """
@@ -80,8 +87,30 @@ def fetch_entity(api: WikibaseApi, qid: str) -> dict:
         raise WikibaseApiError(f"wbgetentities returned no entity {qid}") from exc
 
 
+def resolve_mapping(entity: dict, mapping: dict, license_property: str,
+                    software_license_ids: set[str]) -> dict:
+    """Resolves a class mapping to (ns, template) for one item. A plain
+    mapping is used as-is; a {"software": true} mapping (the FOSS: vs
+    Software: split on Special:AddSoftware) decides from the item's license
+    statements: any license value in software_license_ids → FOSS:, else
+    Software:. Falls back to FOSS: with a warning when the license flags
+    were not given."""
+    if not mapping.get("software"):
+        return mapping
+    if not license_property or not software_license_ids:
+        print("    warning: software mapping without --license-property/"
+              "--software-license-ids — defaulting to FOSS:", file=sys.stderr)
+        return {"ns": "FOSS", "template": "FOSS"}
+    for st in entity.get("claims", {}).get(license_property, []):
+        dv = st.get("mainsnak", {}).get("datavalue", {})
+        if dv.get("type") == "wikibase-entityid" and dv["value"].get("id") in software_license_ids:
+            return {"ns": "FOSS", "template": "FOSS"}
+    return {"ns": "Software", "template": "Software"}
+
+
 def heal(api: WikibaseApi, qid: str, ns_map: dict, site_id: str, lang: str,
-         dry_run: bool) -> tuple[str, bool]:
+         dry_run: bool, license_property: str = "",
+         software_license_ids: set[str] | None = None) -> tuple[str, bool]:
     """Heals one orphan item; returns (status, healed)."""
     entity = fetch_entity(api, qid)
     if "sitelinks" in entity and entity["sitelinks"].get(site_id):
@@ -109,7 +138,8 @@ def heal(api: WikibaseApi, qid: str, ns_map: dict, site_id: str, lang: str,
     class_id = next((c for c in classes if c in ns_map), None)
     if class_id is None:
         return f"{qid}: no ns-map entry for instance-of {classes} — skip", False
-    mapping = ns_map[class_id]
+    mapping = resolve_mapping(entity, ns_map[class_id], license_property,
+                              software_license_ids or set())
     page_title = f"{mapping['ns']}:{label}"
     template = mapping.get("template", "")
 
@@ -181,7 +211,14 @@ def main() -> int:
     parser.add_argument("--site-id", default="wikibase")
     parser.add_argument(
         "--ns-map", required=True,
-        help='JSON: instance-of class id -> {"ns": "Source", "template": "ScholarlyArticle"}')
+        help='JSON: instance-of class id -> {"ns": "Source", "template": "ScholarlyArticle"} '
+             'or {"software": true} for license-resolved software pages')
+    parser.add_argument("--license-property", default="",
+                        help="the license property id (P34) — required to resolve a "
+                             '{"software": true} mapping (the FOSS:/Software: split)')
+    parser.add_argument("--software-license-ids", default="",
+                        help="comma-separated Q-ids of the free/open-source licenses — "
+                             "required to resolve a {\"software\": true} mapping")
     parser.add_argument("--dry-run", action="store_true", default=True,
                         help="plan only (default); pass --apply to write")
     parser.add_argument("--apply", action="store_true", help="actually write (dry-run is default)")
@@ -195,6 +232,9 @@ def main() -> int:
     except json.JSONDecodeError as exc:
         print(f"error: --ns-map is not valid JSON: {exc}", file=sys.stderr)
         return 1
+    software_license_ids = {
+        q.strip().upper() for q in args.software_license_ids.split(",") if q.strip()
+    }
     with open(args.password_file, encoding="utf-8") as fh:
         password = fh.read().strip()
     api = WikibaseApi(args.base_url, args.user, password)
@@ -206,7 +246,8 @@ def main() -> int:
 
     healed = 0
     for qid in args.qids:
-        status, done = heal(api, qid, ns_map, args.site_id, args.lang, args.dry_run)
+        status, done = heal(api, qid, ns_map, args.site_id, args.lang, args.dry_run,
+                            args.license_property, software_license_ids)
         print(f"  {status}")
         healed += done
     print(f"\nbackfill complete: {healed} items healed"

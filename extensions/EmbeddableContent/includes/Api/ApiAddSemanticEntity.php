@@ -4,8 +4,10 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\Api;
 
+use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\Flow\SemanticEntityFieldMap;
 use EmbeddableContent\Flow\SemanticEntityFlowService;
+use EmbeddableContent\Flow\SoftwarePageKind;
 use MediaWiki\Api\ApiBase;
 use MediaWiki\Message\RawMessage;
 use Wikibase\DataModel\Entity\Item;
@@ -20,11 +22,16 @@ use Wikibase\Repo\WikibaseRepo;
  * AddFictionalCharacter, driven by SemanticEntityFieldMap. Portraits and
  * logos (image uploads) stay browser-only; kind=other takes no raw
  * statements (use wbeditentity for those). Semantic items create their
- * classic Person:/Collective: pages through ClassicPageCreator.
+ * classic Person:/Collective:/FOSS:/Software: pages through
+ * ClassicPageCreator.
  *
  * Create (no qid): kind + the kind's required fields. Update (qid): replaces
  * the statements for the fields provided, keeps everything else
  * (no-clobber), never changes the class.
+ *
+ * kind=software accepts an optional pageKind (foss|software) naming the
+ * classic page namespace; the default follows the chosen license (the
+ * FOSS: vs Software: split — see SoftwarePageKind).
  *
  * @license GPL-2.0-or-later
  */
@@ -36,15 +43,20 @@ class ApiAddSemanticEntity extends ApiBase {
 	/** @var \EmbeddableContent\Flow\ClassicPageCreator */
 	private $pageCreator;
 
+	/** @var EmbeddableContentConfig */
+	private $config;
+
 	public function __construct(
 		$mainModule,
 		$moduleName,
 		SemanticEntityFlowService $flow,
-		\EmbeddableContent\Flow\ClassicPageCreator $pageCreator
+		\EmbeddableContent\Flow\ClassicPageCreator $pageCreator,
+		EmbeddableContentConfig $config
 	) {
 		parent::__construct( $mainModule, $moduleName );
 		$this->flow = $flow;
 		$this->pageCreator = $pageCreator;
+		$this->config = $config;
 	}
 
 	public function execute() {
@@ -56,6 +68,9 @@ class ApiAddSemanticEntity extends ApiBase {
 		}
 		$creating = $qid === null;
 
+		// pageKind (kind=software only) is a PAGE decision, not a statement
+		// field: keep it out of the flow validation, apply it after prepare.
+		$pageKind = $params['pageKind'];
 		$record = [];
 		foreach ( $this->fieldParams() as $field ) {
 			if ( $params[$field] !== null && $params[$field] !== '' ) {
@@ -88,6 +103,11 @@ class ApiAddSemanticEntity extends ApiBase {
 				'created' => '1',
 			];
 			$record['itemId'] = $itemId;
+			if ( $kind === 'software' ) {
+				$record['pageKind'] = $pageKind !== null
+					? $pageKind
+					: SoftwarePageKind::defaultFor( $this->config, (string)( $record['license'] ?? '' ) );
+			}
 			$pageTitle = $this->pageTitleFor( $kind, $record, $user );
 			if ( $pageTitle !== null ) {
 				$result['pageTitle'] = $pageTitle;
@@ -123,6 +143,12 @@ class ApiAddSemanticEntity extends ApiBase {
 			],
 			'qid' => [ self::PARAM_TYPE => 'string', self::PARAM_REQUIRED => false ],
 			'summary' => [ self::PARAM_TYPE => 'string', self::PARAM_REQUIRED => false ],
+			// kind=software only: the classic-page namespace (foss|software);
+			// absent → the license decides (SoftwarePageKind).
+			'pageKind' => [
+				self::PARAM_TYPE => [ SoftwarePageKind::FOSS, SoftwarePageKind::SOFTWARE ],
+				self::PARAM_REQUIRED => false,
+			],
 		];
 		foreach ( $this->fieldParams() as $field ) {
 			$params[$field] = [ self::PARAM_TYPE => 'string', self::PARAM_REQUIRED => false ];
@@ -157,13 +183,18 @@ class ApiAddSemanticEntity extends ApiBase {
 
 	private function pageTitleFor( string $kind, array $record, $user ): ?string {
 		// Person → Person: page, collective → Collective: page, software →
-		// FOSS: page (the forms' classic-page pattern); fictional-character
-		// items create no classic page.
+		// FOSS: page unless the record's pageKind says Software: (the
+		// FOSS:/Software: split, license-driven default + pageKind override);
+		// fictional-character items create no classic page.
 		$specs = [
 			'person' => [ 'NS_PERSON', 'Person' ],
 			'collective' => [ 'NS_COLLECTIVE', 'Collective' ],
-			'software' => [ 'NS_FOSS', 'FOSS' ],
 		];
+		if ( $kind === 'software' ) {
+			$specs['software'] = ( $record['pageKind'] ?? '' ) === SoftwarePageKind::SOFTWARE
+				? [ 'NS_SOFTWARE', 'Software' ]
+				: [ 'NS_FOSS', 'FOSS' ];
+		}
 		$pageSpec = $specs[$kind] ?? null;
 		if ( $pageSpec === null || !defined( $pageSpec[0] ) ) {
 			return null;

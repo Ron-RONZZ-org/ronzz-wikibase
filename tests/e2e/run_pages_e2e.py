@@ -457,6 +457,99 @@ def flow_software_manual(op, base: str, api: str, label: str, class_item: str,
     return qid, page_title
 
 
+def flow_software_manual_pagekind(op, base: str, api: str, label: str, class_item: str,
+                                  license_qid: str, expected_ns: str,
+                                  page_kind: str | None = None) -> tuple[str, str]:
+    """Special:AddSoftware/manual — the FOSS:/Software: classic-page split.
+
+    Creates from blank WITH a license (wplicense), optionally overriding the
+    license-derived default via wppageKind (the per-create radio), and asserts
+    the finalize redirect lands in the expected namespace. Returns (item qid,
+    page title).
+    """
+    url, body = page_get(op, base, "/wiki/Special:AddSoftware/manual")
+    token = edit_token(body)
+    fields = {
+        "wplabel": label,
+        "wpclass": class_item,
+        "wplicense": license_qid,
+        "wpEditToken": token,
+        "wpSubmit": "1",
+    }
+    if page_kind is not None:
+        fields["wppageKind"] = page_kind
+    url, body = page_post(op, url, fields)
+    m = re.search(rf"/wiki/({expected_ns}:[^?#]+)$", url)
+    if not m:
+        raise FlowError(
+            f"AddSoftware/manual did not redirect to a {expected_ns} page: {url} {find_error(body)}")
+    page_title = urllib.parse.unquote(m.group(1)).replace("_", " ")
+
+    r = api_call(op, api, {"action": "query", "titles": page_title,
+                           "prop": "pageprops", "format": "json"})
+    qid = None
+    for page in r.get("query", {}).get("pages", {}).values():
+        qid = page.get("pageprops", {}).get("wikibase_item")
+    if not qid:
+        raise FlowError(f"AddSoftware/manual {expected_ns} page {page_title} has no "
+                        f"wikibase_item (finalize step did not map the sitelink)")
+    return qid, page_title
+
+
+def flow_cite_collective_author(op, base: str, api: str, collective_class: str) -> tuple[str, str, str]:
+    """The collective-author citation regression ("Foundation, W."): an author
+    item classified as a collective (NOT a person) must render as a CSL
+    literal name in the citation output, never a split given/family. Creates
+    the collective via action=addsemanticentity and a quotation attributed to
+    it via action=addspecialcontent, then asserts the APA citation carries the
+    collective label verbatim. Returns (collective qid, quotation qid,
+    collective page title or None)."""
+    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = csrf["query"]["tokens"]["csrftoken"]
+    stamp = int(time.time())
+    collective_label = f"Wikimedia Foundation E2E {stamp}"
+    r = api_call(op, api, {
+        "action": "addsemanticentity", "kind": "collective",
+        "label": collective_label, "collectiveClass": collective_class,
+        "token": token, "format": "json",
+    }, post=True)
+    if "semantic" not in r or not r["semantic"].get("created"):
+        raise FlowError(f"action=addsemanticentity collective creation failed: {r}")
+    collective_qid = r["semantic"]["entityId"]
+    collective_page = r["semantic"].get("pageTitle")
+
+    r2 = api_call(op, api, {
+        "action": "addspecialcontent", "kind": "quotation",
+        "label": f"E2E quotation by the Foundation {stamp}",
+        "content": f"Words of the Foundation {stamp}",
+        "attributedTo": collective_qid, "language": "en",
+        "token": token, "format": "json",
+    }, post=True)
+    if "content" not in r2 or not r2["content"].get("created"):
+        raise FlowError(f"action=addspecialcontent quotation creation failed: {r2}")
+    quote_qid = r2["content"]["entityId"]
+
+    out = api_call(op, api, {
+        "action": "citation", "entity": quote_qid,
+        "style": "apa", "output": "text", "format": "json",
+    })
+    citation = out.get("citation")
+    if not isinstance(citation, str) or citation.strip() == "":
+        raise FlowError(f"citation for {quote_qid} returned nothing: {out!r}")
+    # Regression: the collective label must appear VERBATIM — the bug split
+    # "Wikimedia Foundation" into given/family ("Foundation, W.") and mangled
+    # the name into initials.
+    if collective_label not in citation:
+        raise FlowError(
+            f"collective author not rendered as a literal name in the citation; "
+            f"got: {citation[:300]!r} (expected to contain {collective_label!r})")
+    if re.search(r"Foundation, [A-Z]", citation):
+        raise FlowError(f"collective author still split like a personal name: {citation[:200]!r}")
+    print(f"[ok] cite collective author -> {quote_qid} cites {collective_qid}: "
+          f"literal name in APA output")
+    return collective_qid, quote_qid, collective_page
+
+
 def flow_software(op, base: str, api: str, name: str) -> tuple[str, str]:
     """Special:AddSoftware search -> select -> review -> create (issue #26).
 
@@ -3328,6 +3421,46 @@ def main() -> int:
         if logo_qid in created:
             created_pages.append(logo_page)
 
+        # 3e1b. AddSoftware page-kind split (FOSS: vs Software:): the license
+        #     decides the default (free/open-source → FOSS:, anything else →
+        #     Software:), and the wppageKind radio overrides per create.
+        nonfree_license = resolve("CC BY-NC 4.0", "item")  # preseed, non-FOSS
+        sw_ns_label = f"Page-flow E2E nonfree software {int(time.time())}"
+        sw_nonfree, sw_nonfree_page = flow_software_manual_pagekind(
+            op, base, api, sw_ns_label, foss_class, nonfree_license, "Software")
+        sw_nonfree = track(sw_nonfree)
+        _, raw = page_get(op, base, "/wiki/" + urllib.parse.quote(
+            sw_nonfree_page.replace(" ", "_")) + "?action=raw")
+        assert re.search(r"\{\{Software(?:\|[^}]*)?\}\}", raw), \
+            f"{sw_nonfree_page} does not transclude {{Software}}"
+        if sw_nonfree in created:
+            created_pages.append(sw_nonfree_page)
+        print(f"[ok] AddSoftware/manual (non-FOSS license) -> {sw_nonfree}: "
+              f"Software: page by license default")
+
+        # Explicit override: a FOSS license, but the user picks the Software
+        # page (the radio wins over the license default).
+        sw_override_label = f"Page-flow E2E override software {int(time.time())}"
+        sw_override, sw_override_page = flow_software_manual_pagekind(
+            op, base, api, sw_override_label, foss_class, license_item, "Software",
+            page_kind="software")
+        sw_override = track(sw_override)
+        if sw_override in created:
+            created_pages.append(sw_override_page)
+        print(f"[ok] AddSoftware/manual (pageKind override) -> {sw_override}: "
+              f"Software: page despite a FOSS license")
+
+        # And the inverse: a non-FOSS license, but the user picks the FOSS page.
+        sw_foss_label = f"Page-flow E2E foss override {int(time.time())}"
+        sw_foss_override, sw_foss_override_page = flow_software_manual_pagekind(
+            op, base, api, sw_foss_label, foss_class, nonfree_license, "FOSS",
+            page_kind="foss")
+        sw_foss_override = track(sw_foss_override)
+        if sw_foss_override in created:
+            created_pages.append(sw_foss_override_page)
+        print(f"[ok] AddSoftware/manual (pageKind override) -> {sw_foss_override}: "
+              f"FOSS: page despite a non-FOSS license")
+
         # 3e2. AddPerson/manual + portrait (upload enhancements): the
         #     portrait section collapsed behind the toggle, local PNG upload
         #     with the mandatory license + author / license info. Semantic
@@ -3496,6 +3629,17 @@ def main() -> int:
             f"{book} instance-of != book ({first_value(claims, instance_of)}) — dogfood book not source-class"
         quote_dogfood = resolve("The Analytical Engine has no pretensions whatever to originate anything", "item")
         flow_cite_by_qid(op, base, api, book, quote_dogfood, source)
+
+        # 7. Collective-author citation ("Foundation, W." regression): an
+        #     author item classified as a collective must render as a CSL
+        #     literal name, never a split given/family.
+        collective_class = resolve("organization", "item")
+        collective_qid, collective_quote_qid, collective_page = \
+            flow_cite_collective_author(op, base, api, collective_class)
+        collective_qid = track(collective_qid)
+        collective_quote_qid = track(collective_quote_qid)
+        if collective_page:
+            created_pages.append(collective_page)
     finally:
         if not args.keep:
             for page in created_pages + CREATED_CLASSIC_PAGES:

@@ -131,6 +131,12 @@
 				"EmbeddableContent.ContentRenderer"
 			]
 		},
+		"entitysearch": {
+			"class": "EmbeddableContent\\Api\\ApiEntitySearch",
+			"services": [
+				"EmbeddableContent.Config"
+			]
+		},
 		"uploadmeta": {
 			"class": "EmbeddableContent\\Api\\ApiUploadMeta"
 		},
@@ -163,7 +169,8 @@
 			"class": "EmbeddableContent\\Api\\ApiAddSemanticEntity",
 			"services": [
 				"EmbeddableContent.SemanticEntityFlowService",
-				"EmbeddableContent.ClassicPageCreator"
+				"EmbeddableContent.ClassicPageCreator",
+				"EmbeddableContent.Config"
 			]
 		},
 		"addsemanticentity-fields": {

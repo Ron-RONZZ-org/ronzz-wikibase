@@ -53,13 +53,25 @@ return [
 				? $embeddable['sourceProperties']['partOf']
 				: null;
 		}
+		$personClass = $config->get( 'WikibaseCitationPersonClass' );
+		if ( !is_string( $personClass ) || $personClass === '' ) {
+			// Fall back to the EmbeddableContent agentClasses map: the
+			// person class id tells the converter a collective author item
+			// (Wikimedia Foundation) from a person, so it can render a CSL
+			// literal name instead of "Foundation, W.".
+			$embeddable = $config->get( 'EmbeddableContentConfig' );
+			$personClass = is_array( $embeddable ) && isset( $embeddable['agentClasses']['person'] )
+				? $embeddable['agentClasses']['person']
+				: null;
+		}
 		return new StatementToCslConverter(
 			WikibaseRepo::getEntityLookup( $services ),
 			$services->get( 'WikibaseCitation.PropertyMap' ),
 			$services->get( 'WikibaseCitation.CslTypeMapper' ),
 			is_string( $instanceOf ) ? $instanceOf : null,
 			$sourceClasses,
-			is_string( $partOf ) && $partOf !== '' ? $partOf : null
+			is_string( $partOf ) && $partOf !== '' ? $partOf : null,
+			is_string( $personClass ) && $personClass !== '' ? $personClass : null
 		);
 	},
 

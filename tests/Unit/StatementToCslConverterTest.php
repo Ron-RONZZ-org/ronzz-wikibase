@@ -79,7 +79,8 @@ class StatementToCslConverterTest extends TestCase {
 					return $item;
 				}
 				if ( $entityId->getSerialization() === 'Q12' ) {
-					// A person with BOTH harvested names.
+					// A person with BOTH harvested names, classified as a
+					// person (Q100 — the configured person class).
 					$item = new Item( new ItemId( 'Q12' ) );
 					$item->setLabel( 'en', 'Grace Hopper' );
 					$item->getStatements()->addNewStatement(
@@ -87,6 +88,9 @@ class StatementToCslConverterTest extends TestCase {
 					);
 					$item->getStatements()->addNewStatement(
 						new PropertyValueSnak( new PropertyId( 'P26' ), new StringValue( 'Hopper' ) )
+					);
+					$item->getStatements()->addNewStatement(
+						new PropertyValueSnak( new PropertyId( 'P31' ), new EntityIdValue( new ItemId( 'Q100' ) ) )
 					);
 					return $item;
 				}
@@ -137,11 +141,22 @@ class StatementToCslConverterTest extends TestCase {
 					);
 					return $item;
 				}
+				if ( $entityId->getSerialization() === 'Q50' ) {
+					// A COLLECTIVE author (Wikimedia Foundation): classified
+					// `instance of` organization (Q99), NOT a person — must
+					// render as a CSL literal name, never a split given/family.
+					$item = new Item( new ItemId( 'Q50' ) );
+					$item->setLabel( 'en', 'Wikimedia Foundation' );
+					$item->getStatements()->addNewStatement(
+						new PropertyValueSnak( new PropertyId( 'P31' ), new EntityIdValue( new ItemId( 'Q99' ) ) )
+					);
+					return $item;
+				}
 				return null;
 			}
 
 			public function hasEntity( EntityId $entityId ) {
-				return in_array( $entityId->getSerialization(), [ 'Q10', 'Q11', 'Q12', 'Q20', 'Q30', 'Q40', 'Q41' ], true );
+				return in_array( $entityId->getSerialization(), [ 'Q10', 'Q11', 'Q12', 'Q20', 'Q30', 'Q40', 'Q41', 'Q50' ], true );
 			}
 		};
 	}
@@ -495,5 +510,84 @@ class StatementToCslConverterTest extends TestCase {
 			[ 'Q20' ]
 		) )->toCslJson( $this->makeItem(), 'en' );
 		$this->assertSame( [ [ 'given' => 'Ada', 'family' => 'Lovelace' ] ], $converter['author'] );
+	}
+
+	public function testCollectiveAuthorRendersLiteralName(): void {
+		// Regression ("Foundation, W."): a collective author item (Wikimedia
+		// Foundation, classified `instance of` organization — NOT a person)
+		// must render as a CSL literal name, which APA renders as-is.
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31',
+			[ 'Q20' ],
+			null,
+			'Q100' // the person class id
+		);
+		$item = new Item();
+		$item->setLabel( 'en', 'A quotation by the Foundation' );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P31' ), new EntityIdValue( new ItemId( 'Q5' ) ) ) );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P6' ), new EntityIdValue( new ItemId( 'Q50' ) ) ) );
+
+		$csl = $converter->toCslJson( $item, 'en' );
+		$this->assertSame( [ [ 'literal' => 'Wikimedia Foundation' ] ], $csl['author'] );
+	}
+
+	public function testUnconfiguredPersonClassKeepsLegacyCollectiveTreatment(): void {
+		// No person class configured → the collective keeps the legacy
+		// person-name split (backwards compat for instances without config).
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31',
+			[ 'Q20' ]
+		);
+		$item = new Item();
+		$item->setLabel( 'en', 'A quotation by the Foundation' );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P31' ), new EntityIdValue( new ItemId( 'Q5' ) ) ) );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P6' ), new EntityIdValue( new ItemId( 'Q50' ) ) ) );
+
+		$csl = $converter->toCslJson( $item, 'en' );
+		$this->assertSame( [ [ 'given' => 'Wikimedia', 'family' => 'Foundation' ] ], $csl['author'] );
+	}
+
+	public function testUnclassifiedAuthorKeepsLegacySplitWithPersonClass(): void {
+		// Q10 (Ada Lovelace) has NO class statements: even with the person
+		// class configured there is no signal it is NOT a person → the
+		// legacy split is kept (never invent a collective).
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31',
+			[ 'Q20' ],
+			null,
+			'Q100'
+		);
+		$csl = $converter->toCslJson( $this->makeItem(), 'en' );
+		$this->assertSame( [ [ 'given' => 'Ada', 'family' => 'Lovelace' ] ], $csl['author'] );
+	}
+
+	public function testPersonClassMemberKeepsPersonTreatment(): void {
+		// Q12 (Grace Hopper) IS classified as a person → person treatment
+		// even with the collective check active.
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31',
+			[ 'Q20' ],
+			null,
+			'Q100'
+		);
+		$item = new Item();
+		$item->setLabel( 'en', 'A quotation by Grace' );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P31' ), new EntityIdValue( new ItemId( 'Q5' ) ) ) );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P6' ), new EntityIdValue( new ItemId( 'Q12' ) ) ) );
+
+		$csl = $converter->toCslJson( $item, 'en' );
+		$this->assertSame( [ [ 'given' => 'Grace', 'family' => 'Hopper' ] ], $csl['author'] );
 	}
 }

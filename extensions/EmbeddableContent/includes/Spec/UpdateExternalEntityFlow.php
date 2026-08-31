@@ -261,8 +261,11 @@ trait UpdateExternalEntityFlow {
 			EDIT_UPDATE
 		);
 
-		if ( $oldLabel !== '' && $oldLabel !== $newLabel ) {
-			$this->renameClassicPage( $item, $oldLabel, $newLabel );
+		// Rename the classic page on a label change OR a page-kind flip
+		// (FOSS: ↔ Software: when the license changed). renameClassicPage
+		// no-ops when the old sitelink page and the new title coincide.
+		if ( $oldLabel !== '' ) {
+			$this->renameClassicPage( $item, $oldLabel, $newLabel, $record );
 		}
 		// Heal a missing classic page: the class declares a page namespace
 		// but the item has no sitelink/page (created before the page
@@ -297,7 +300,7 @@ trait UpdateExternalEntityFlow {
 	 * @return string|null redirect target, or null
 	 */
 	private function healClassicPage( Item $item, array $record, string $label ): ?string {
-		if ( $this->pageNamespace() === null
+		if ( $this->pageNamespaceForRecord( $record ) === null
 			|| $item->getSiteLinkList()->hasLinkWithSiteId( 'wikibase' )
 		) {
 			return null;
@@ -348,23 +351,32 @@ trait UpdateExternalEntityFlow {
 	}
 
 	/**
-	 * Best-effort classic-page rename on a label change: move the sitelinked
-	 * page to the new label (+ subpages/talk), then update the sitelink to
-	 * the new page name. A failure leaves the old page in place — the item
-	 * update itself is never rolled back.
+	 * Best-effort classic-page rename on a label or page-kind change: move
+	 * the sitelinked page to the new title (a label change within the same
+	 * namespace, OR a license flip moving it between the FOSS: and
+	 * Software: namespaces), then update the sitelink to the new page name.
+	 * The OLD page name comes from the item's sitelink (ground truth —
+	 * it knows exactly where the page is); the NEW title from the updated
+	 * record's namespace + label. A failure leaves the old page in place —
+	 * the item update itself is never rolled back.
 	 */
-	private function renameClassicPage( Item $item, string $oldLabel, string $newLabel ): void {
-		$pageNamespace = $this->pageNamespace();
-		if ( $pageNamespace === null ) {
+	private function renameClassicPage( Item $item, string $oldLabel, string $newLabel, array $record ): void {
+		$sitelinks = $item->getSiteLinkList();
+		if ( !$sitelinks->hasLinkWithSiteId( 'wikibase' ) ) {
+			// No sitelink → no page to move (the heal path creates it).
+			return;
+		}
+		$newNs = $this->pageNamespaceForRecord( $record );
+		if ( $newNs === null ) {
 			return;
 		}
 		try {
-			$oldTitle = Title::makeTitle( $pageNamespace, $oldLabel );
-			$newTitle = Title::makeTitle( $pageNamespace, $newLabel );
+			$oldTitle = Title::newFromText( $sitelinks->getBySiteId( 'wikibase' )->getPageName() );
+			$newTitle = Title::makeTitle( $newNs, $newLabel );
 		} catch ( \Throwable $e ) {
 			return;
 		}
-		if ( !$oldTitle->exists() || $newTitle->exists() ) {
+		if ( $oldTitle === null || $oldTitle->equals( $newTitle ) || !$oldTitle->exists() || $newTitle->exists() ) {
 			return;
 		}
 		try {
@@ -383,7 +395,6 @@ trait UpdateExternalEntityFlow {
 			return;
 		}
 		// Point the sitelink at the new page name (entity save + table).
-		$sitelinks = $item->getSiteLinkList();
 		if ( $sitelinks->hasLinkWithSiteId( 'wikibase' ) ) {
 			$sitelinks->setNewSiteLink( 'wikibase', $newTitle->getPrefixedText() );
 			WikibaseRepo::getEntityStore()->saveEntity(

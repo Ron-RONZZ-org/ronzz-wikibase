@@ -103,7 +103,10 @@ def load_languages(path: str | Path) -> list[dict[str, Any]]:
 def load_preseed(path: str | Path) -> list[dict[str, Any]]:
     """Loads the preseed items manifest (issue follow-up: common operating
     systems, FOSS licenses and user interfaces for Special:AddSoftware).
-    Each row names the class (by English label) the item is an instance of."""
+    Each row names the class (by English label) the item is an instance of;
+    the optional `foss` flag (true/false) marks the software-license rows
+    that qualify as free/open-source (the FOSS: vs Software: classic-page
+    split on Special:AddSoftware)."""
     rows = _read_rows(path)
     result = []
     seen = set()
@@ -122,6 +125,7 @@ def load_preseed(path: str | Path) -> list[dict[str, Any]]:
                 "class_label": class_label,
                 "labels": _terms(row, "label"),
                 "descriptions": _terms(row, "description"),
+                "foss": row.get("foss", "").strip().lower() in {"1", "true", "yes", "y"},
             }
         )
     return result

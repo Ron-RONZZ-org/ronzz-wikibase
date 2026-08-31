@@ -1001,6 +1001,19 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		return null;
 	}
 
+	/**
+	 * Namespace of the classic page for a SPECIFIC record, or null for
+	 * item-only flows. Defaults to pageNamespace() — subclasses whose page
+	 * kind depends on the record (Special:AddSoftware's FOSS: vs Software:
+	 * split) override. All page creation reads this, so a per-record
+	 * override takes effect on create AND update (heal/rename) alike.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function pageNamespaceForRecord( array $record ): ?int {
+		return $this->pageNamespace();
+	}
+
 	/** Marker left in the first page revision, removed by the finalize step. */
 	protected function pagePendingMarker(): string {
 		return '__EXTERNAL_LINK_PENDING__';
@@ -1012,6 +1025,15 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	}
 
 	/**
+	 * Template name for a SPECIFIC record (see pageNamespaceForRecord).
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function pageTemplateForRecord( array $record ): string {
+		return $this->pageTemplate();
+	}
+
+	/**
 	 * Classic page title for a created item, or null when the kind creates
 	 * no page (pageNamespace() null) or the label is unusable as a title
 	 * (empty, or containing title-forbidden characters like #).
@@ -1019,7 +1041,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 * @param array<string,mixed> $record
 	 */
 	protected function pageTitleForRecord( array $record ): ?Title {
-		$ns = $this->pageNamespace();
+		$ns = $this->pageNamespaceForRecord( $record );
 		if ( $ns === null ) {
 			return null;
 		}
@@ -1050,7 +1072,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 */
 	protected function pageSkeleton( array $record, bool $withMarker = false ): string {
 		$marker = $withMarker ? "\n<!-- " . $this->pagePendingMarker() . " -->\n" : "";
-		$template = $this->pageTemplate();
+		$template = $this->pageTemplateForRecord( $record );
 		$body = $template !== '' ? "{{" . $template . "}}\n\n" : '';
 		$overview = trim( (string)( $record['description'] ?? '' ) );
 		if ( $overview !== '' ) {
@@ -1091,7 +1113,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			// LabelSanitizer stripping). NEVER skip silently:
 			// createItemAndRedirect renders the warning + a link to the
 			// created item instead of redirecting.
-			if ( $this->pageNamespace() !== null && $this->pageTemplate() !== '' ) {
+			if ( $this->pageNamespaceForRecord( $record ) !== null && $this->pageTemplateForRecord( $record ) !== '' ) {
 				$this->pageTitleWarning = $this->msg( 'embeddablecontent-page-title-warning' )->parse();
 			}
 			return null;

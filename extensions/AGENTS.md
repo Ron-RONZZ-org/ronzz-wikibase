@@ -90,6 +90,33 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   (`manifests/preseed.csv` + seed `preseed` phase): common operating
   systems, FOSS licenses and user interfaces classified under their parent
   classes.
+- **FOSS:/Software: page split (ADR `docs/decisions/foss-software-page-split.md`)**:
+  the classic page for a software item is a **FOSS:** page when its license
+  qualifies as free/open-source, a **Software:** page otherwise — the
+  review/manual form carries a **Page kind radio** (defaulting from the
+  license: ANY chosen license classified `instance of` the new
+  `free software license` class → FOSS:, no license keeps the historical
+  FOSS: default). The preseed license rows gain a **`foss` flag** (the
+  FSF/OSI line — everything except the CC BY-NC*/ND* variants) and the seed
+  classifies `foss`-flagged licenses `instance of` BOTH `software license`
+  (the license-combobox class) and `free software license` (re-classifying
+  existing items idempotently); the seed emits `fossLicenseClasses`
+  (`EmbeddableContentConfig::fossLicenseClasses()`). The base-class page
+  machinery reads record-aware `pageNamespaceForRecord()` /
+  `pageTemplateForRecord()` (default = the old `pageNamespace()` /
+  `pageTemplate()` contract), so create, update-heal and update-rename all
+  honor the per-record kind; `Software:` (NS 2016/2017) mirrors the FOSS
+  namespace in dev config + production LocalSettings, `Template:Software`
+  mirrors `Template:FOSS`. `Special:UpdateSoftware` recomputes the kind
+  from the updated license and **moves** the page across namespaces on a
+  flip (`renameClassicPage` derives the old title from the sitelink);
+  `action=addsemanticentity` kind=software accepts an optional `pageKind`
+  (default = license) via the shared `SoftwarePageKind` helper;
+  `tools/backfill_classic_pages.py` accepts `{"software": true}` ns-map
+  entries resolved per item (`--license-property` +
+  `--software-license-ids`). The item CLASS stays `free and open-source
+  software` for every page kind (a plain "software" class is a documented
+  follow-up).
 - **Classic pages for Person/Source/Collective (issue follow-up, ADR
   `docs/decisions/pages-and-fields.md`)**: the AddSoftware page machinery
   (afterCreate → sitelink → `complete/<id>` finalize) moved into the base
@@ -98,8 +125,9 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   `Special:AddSource` a `Source:` page with a per-class template
   (Book/ScholarlyArticle/Website/Song/Film/Video/YouTubeChannel/
   YouTubeVideo/Webpage). **bookExcerpt creates NO page** (part of a book).
-  Namespaces Person (2010/2011), Source (2012/2013), Collective (2014/2015)
-  in dev config + production LocalSettings.
+  Namespaces Person (2010/2011), Source (2012/2013), Collective (2014/2015),
+  Software (2016/2017 — the non-FOSS software pages, see the FOSS:/Software:
+  split bullet) in dev config + production LocalSettings.
 - **AddPerson lifecycle fields**: VIAF/ISNI search (Wikidata-hub-only),
   day-precision date of birth/death + a "This person is deceased" toggle
   revealing the death fields; `personProperties` config section (P569/P19/
@@ -254,6 +282,23 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   input via `combo.$input` (no `.input` sub-widget in this OOUI), and
   queries raw + title-cased + uppercase variants of the typed text because
   the instance's `wbsearchentities` is case-sensitive (upstream T242644).
+- **Fulltext combobox search (ADR `docs/decisions/foss-software-page-split.md`)**:
+  the entity comboboxes (Add\* pages, Special:Upload, the sitelink-tab
+  dialog) now query the extension's **`action=entitysearch`** module, not
+  `wbsearchentities` — the instance's term store (no CirrusSearch) only
+  matches exact/prefix, so "AGPL" could never find "GNU AGPL-3.0" and
+  "Einstein" never "Albert Einstein". The module runs a CONTAINS match
+  (`LIKE %term%`) over the same `wbt_*` term tables Wikibase's
+  `DatabaseMatchingTermsLookup` reads (label + alias, term-type ids
+  hardcoded per upstream `TermTypeIds`), querying the raw + title-cased +
+  uppercase variants (case-sensitive VARBINARY `wbx_text`), merging deduped
+  hits, and resolving display labels/descriptions with the configured
+  fallback order; result shape mirrors `wbsearchentities`
+  (`search[].id/label/description`). The direct `wbt_*` SQL is a documented
+  deviation from the stable-API rule (read-only, in-process, schema stable
+  across 1.4x); CirrusSearch + WikibaseCirrusSearch (real token fulltext,
+  needs Elasticsearch ~1–1.5 GB) is the documented upgrade path for a
+  larger instance.
 - **Instance data rights are CC BY-SA 4.0** (seed `dataRightsUrl` /
   `rdfDataRightsUrl`), matching the CC BY-SA sourced page content and
   contributor licensing.
@@ -581,6 +626,16 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   cited entities (extension data non-empty), so plain pages keep stock Cite
   behavior; only the default group's numeric-id footnotes merge (named refs and
   `group=` lists are untouched).
+- **Collective authors render as literal names (fix, ADR
+  `docs/decisions/foss-software-page-split.md`)**: an item-typed author whose
+  `instance of` classes do NOT include the person class (a collective /
+  organization — Wikimedia Foundation, a band, an institution) renders as a
+  CSL `literal` name, never a split given/family ("Foundation, W."). The
+  person class id comes from the new `WikibaseCitationPersonClass` config
+  (fallback: `EmbeddableContentConfig['agentClasses']['person']`); an author
+  item with NO class statements keeps the legacy person-name split (no signal
+  to contradict it); string-valued authors keep the legacy split (no class
+  information).
 
 ## Constraints and Invariants
 

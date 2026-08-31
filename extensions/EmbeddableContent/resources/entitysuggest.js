@@ -5,9 +5,11 @@
  *
  * The server renders the fields as OOUI ComboBoxInputWidgets
  * (HTMLForm type `combobox`, cssclass `wb-entity-combobox`); this module
- * wires them to wbsearchentities (the instance's own Wikibase API): typing
- * suggests matching entities, picking one fills the field with its item id.
- * The submitted value remains an item id (e.g. "Q42").
+ * wires them to action=entitysearch (the extension's FULLTEXT search — the
+ * instance's wbsearchentities only matches exact/prefix, so "AGPL" could
+ * never find "GNU AGPL-3.0" and "Einstein" never "Albert Einstein"):
+ * typing suggests matching entities, picking one fills the field with its
+ * item id. The submitted value remains an item id (e.g. "Q42").
  *
  * Fields with the extra cssclass `wb-entity-combobox-multi` accept SEVERAL
  * item ids, comma-separated ("Q42, Q179"). For those fields:
@@ -66,52 +68,33 @@
 				if ( pending ) {
 					Array.isArray( pending ) ? pending.forEach( function ( r ) { r.abort(); } ) : pending.abort();
 				}
-				// The instance's wbsearchentities is CASE-SENSITIVE by
-				// default (upstream Wikibase T242644 — the term store keeps
-				// wbx_text as VARBINARY and matches the exact-case prefix).
-				// People type lowercase, so query the raw text plus the
-				// likely-case variants in parallel (title-cased per word for
-				// ordinary labels, all-uppercase for acronyms like "GNU")
-				// and merge the deduped hits.
-				var queries = [ q ];
-				var tc = q.replace( /(^|\s)(\S)/g, function ( m, pre, ch ) {
-					return pre + ch.toUpperCase();
+				// One FULLTEXT query: the server module runs the raw +
+				// title-cased + uppercase variants itself (the instance's
+				// term store is case-sensitive, upstream T242644) and merges
+				// the deduped hits.
+				pending = api.get( {
+					action: 'entitysearch',
+					search: q,
+					language: mw.config.get( 'wgUserLanguage' ) || 'en',
+					limit: 10,
+					format: 'json'
 				} );
-				var up = q.toUpperCase();
-				if ( tc !== q ) {
-					queries.push( tc );
-				}
-				if ( up !== q && up !== tc ) {
-					queries.push( up );
-				}
-				pending = queries.map( function ( sq ) {
-					return api.get( {
-						action: 'wbsearchentities',
-						search: sq,
-						language: mw.config.get( 'wgUserLanguage' ) || 'en',
-						type: 'item',
-						limit: 10,
-						format: 'json'
-					} );
-				} );
-				Promise.all( pending ).then( function ( results ) {
+				Promise.resolve( pending ).then( function ( data ) {
 					var seen = {};
 					var options = [];
-					( results || [] ).forEach( function ( data ) {
-						( data.search || [] ).forEach( function ( row ) {
-							if ( seen[ row.id ] ) {
-								return;
-							}
-							seen[ row.id ] = true;
-							var label = row.id;
-							if ( row.label ) {
-								label = row.id + ' — ' + row.label;
-							}
-							if ( row.description ) {
-								label += ' (' + row.description + ')';
-							}
-							options.push( { data: row.id, label: label } );
-						} );
+					( data.search || [] ).forEach( function ( row ) {
+						if ( seen[ row.id ] ) {
+							return;
+						}
+						seen[ row.id ] = true;
+						var label = row.id;
+						if ( row.label ) {
+							label = row.id + ' — ' + row.label;
+						}
+						if ( row.description ) {
+							label += ' (' + row.description + ')';
+						}
+						options.push( { data: row.id, label: label } );
 					} );
 					combo.setOptions( options );
 					// setOptions does not open the menu on its own.

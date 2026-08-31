@@ -260,9 +260,39 @@ def check(args: argparse.Namespace) -> int:
         status, body, _ = http_get(f"{base}/wiki/Special:Embed/{args.quote}")
         expect(status == 200, f"Special:Embed/{args.quote}: HTTP {status}")
 
+    def check_entitysearch_fulltext() -> None:
+        """action=entitysearch (the combobox fulltext search): a CONTAINS
+        match must find labels that wbsearchentities' exact/prefix search
+        never could — "AGPL" inside "GNU AGPL-3.0", a mid-word fragment of
+        the dogfood person "Ada Lovelace". Read-only, anonymous."""
+        def search(text: str) -> list[dict]:
+            params = {"action": "entitysearch", "search": text,
+                      "language": "en", "limit": 10, "format": "json"}
+            status, body, _ = http_get(f"{api}?{urllib.parse.urlencode(params)}")
+            expect(status == 200, f"entitysearch {text!r}: HTTP {status}")
+            payload = json.loads(body.decode("utf-8", "replace"))
+            expect("search" in payload, f"entitysearch {text!r}: API error: {payload.get('error')!r}")
+            return payload["search"]
+
+        agpl = search("AGPL")
+        expect(any("AGPL" in (r.get("label") or "") for r in agpl),
+               f"entitysearch 'AGPL' did not find the AGPL license (labels: "
+               f"{[r.get('label') for r in agpl]})")
+        lovelace = search("ovelace")  # mid-word fragment — prefix can never match it
+        expect(any("Ada Lovelace" == r.get("label") for r in lovelace),
+               f"entitysearch 'ovelace' did not find Ada Lovelace (labels: "
+               f"{[r.get('label') for r in lovelace]})")
+        einstein = search("einstein")  # lowercase variant of a mid-name fragment
+        expect(isinstance(einstein, list), "entitysearch 'einstein' must not error")
+        # The wbsearchentities prefix search CANNOT find these — the module
+        # exists precisely to cover that gap (informational, not a gate).
+        print(f"      (wbsearchentities prefix would miss 'AGPL'/'ovelace' — "
+              f"fulltext found {len(agpl)}/{len(lovelace)} hits)")
+
     run("embed surfaces (api + /embed/ + oEmbed)", check_embed_surfaces)
     run("language negotiation (?lang=)", check_embed_negotiation)
     run("citation styles (json/apa/vancouver/bibtex/ris)", check_citation_styles)
+    run("entitysearch fulltext (combobox search)", check_entitysearch_fulltext)
     run("sparql instance-of check", check_sparql)
     run("entity-creation pages registered + login-gated (issue #7)", check_entity_creation_pages)
     run("special pages listed on Special:SpecialPages + non-empty titles (issue #11)", check_specialpages_listing)

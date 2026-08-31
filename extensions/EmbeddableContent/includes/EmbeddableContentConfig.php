@@ -343,6 +343,20 @@ class EmbeddableContentConfig {
 	}
 
 	/**
+	 * FOSS/Software page split: the class id that marks a LICENSE item as
+	 * free/open-source (the preseed `foss`-flagged licenses are classified
+	 * `instance of` it). Special:AddSoftware reads the chosen license
+	 * item's classes against this to default the classic-page kind
+	 * (FOSS: page vs Software: page). Empty on instances seeded before the
+	 * class existed.
+	 *
+	 * @return array<string,string> canonical key => item id
+	 */
+	public function fossLicenseClasses(): array {
+		return $this->requireStringMap( 'fossLicenseClasses', [ 'fossLicense' ] );
+	}
+
+	/**
 	 * Issue follow-up: fictional-character class ids
 	 * (Special:AddFictionalCharacter).
 	 *

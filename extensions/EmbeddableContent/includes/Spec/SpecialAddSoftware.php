@@ -4,14 +4,11 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\Spec;
 
-use DataValues\StringValue;
 use EmbeddableContent\Content\FragmentSanitizer;
 use EmbeddableContent\EntityLabelMatcher;
 use EmbeddableContent\Fetch\ProviderResult;
 use EmbeddableContent\Spec\ItemIdList;
-use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\ItemId;
-use Wikibase\Repo\WikibaseRepo;
 
 /**
  * Special:AddSoftware — create a FOSS software item + its FOSS:<Name> wiki
@@ -240,6 +237,22 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 				)->parse();
 		}
 
+		// Classic-page kind: FOSS: page (the historical default) or
+		// Software: page — asked PER CREATE (the license facts only drive
+		// the default; the user overrides here). A software whose license
+		// is free/open-source documents as `FOSS:<Name>`, everything else
+		// as `Software:<Name>`.
+		$fields['pageKind'] = [
+			'type' => 'radio',
+			'label-message' => 'embeddablecontent-software-pagekind',
+			'options-messages' => [
+				'embeddablecontent-software-pagekind-foss' => 'foss',
+				'embeddablecontent-software-pagekind-software' => 'software',
+			],
+			'default' => $this->defaultPageKindForRecord( $record ),
+			'help-message' => 'embeddablecontent-software-pagekind-help',
+		];
+
 		// Programming language: the same typeable lexer combobox as
 		// Special:AddCodeSnippet (options = configured lexers) — a picker
 		// beats free item ids, and the instance's 80+ language items are
@@ -335,8 +348,20 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		return defined( 'NS_FOSS' ) ? NS_FOSS : null;
 	}
 
-	protected function pagePendingMarker(): string {
-		return '__FOSS_LINK_PENDING__';
+	/**
+	 * The classic page lands in the FOSS: namespace (free/open-source
+	 * license) or the Software: namespace (everything else) — the page-kind
+	 * radio on the review form decides, defaulting from the license facts.
+	 * Null (namespace not registered — e.g. dev before the config block) is
+	 * the item-only fallback.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function pageNamespaceForRecord( array $record ): ?int {
+		if ( ( $record['pageKind'] ?? '' ) === 'software' ) {
+			return defined( 'NS_SOFTWARE' ) ? NS_SOFTWARE : null;
+		}
+		return parent::pageNamespaceForRecord( $record );
 	}
 
 	protected function pageTemplate(): string {
@@ -344,11 +369,38 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 	}
 
 	/**
-	 * FOSS: page skeleton — prose lives on the page, facts in the item; the
-	 * logo (when uploaded) is passed to Template:FOSS, which hands it to the
-	 * infobox so it renders inside the box (see Template:FOSS). Only
-	 * sections with content are rendered: an == Overview == from the
-	 * description when present, never an empty scaffold.
+	 * @param array<string,mixed> $record
+	 */
+	protected function pageTemplateForRecord( array $record ): string {
+		return ( $record['pageKind'] ?? '' ) === 'software' ? 'Software' : parent::pageTemplateForRecord( $record );
+	}
+
+	/**
+	 * The FOSS: vs Software: default for a record, derived from the chosen
+	 * license(s) — the shared SoftwarePageKind rule (any free/open-source
+	 * license wins; no license keeps the historical FOSS: default). The
+	 * page-kind radio lets the contributor override either way.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function defaultPageKindForRecord( array $record ): string {
+		return \EmbeddableContent\Flow\SoftwarePageKind::defaultFor(
+			$this->config,
+			(string)( $record['license'] ?? '' )
+		);
+	}
+
+	protected function pagePendingMarker(): string {
+		return '__FOSS_LINK_PENDING__';
+	}
+
+	/**
+	 * FOSS:/Software: page skeleton — prose lives on the page, facts in the
+	 * item; the logo (when uploaded) is passed to the kind's template
+	 * (Template:FOSS / Template:Software), which hands it to the infobox so
+	 * it renders inside the box. Only sections with content are rendered:
+	 * an == Overview == from the description when present, never an empty
+	 * scaffold.
 	 *
 	 * @param array<string,mixed> $record
 	 */
@@ -358,7 +410,8 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		$logoParam = $logoFile !== ''
 			? '|logo=[[File:' . $logoFile . '|frameless|220px|Logo]]'
 			: '';
-		$body = "{{FOSS{$logoParam}}}\n\n";
+		$template = $this->pageTemplateForRecord( $record );
+		$body = "{{{$template}{$logoParam}}}\n\n";
 		$overview = trim( (string)( $record['description'] ?? '' ) );
 		if ( $overview !== '' ) {
 			$body .= "== Overview ==\n\n{$overview}\n\n";
@@ -390,6 +443,15 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 	 * @return string|null error message, or null to proceed
 	 */
 	protected function beforeCreate( array &$record ): ?string {
+		// Defense in depth: an ABSENT page-kind value (a scripted POST that
+		// bypasses the rendered radio) still follows the license default —
+		// the page-kind radio on the form submits its value anyway.
+		if ( empty( $record['pageKind'] ) ) {
+			$record['pageKind'] = \EmbeddableContent\Flow\SoftwarePageKind::defaultFor(
+				$this->config,
+				(string)( $record['license'] ?? '' )
+			);
+		}
 		return \EmbeddableContent\Upload\ImageUploadHelper::handleUpload(
 			'logo',
 			$record,

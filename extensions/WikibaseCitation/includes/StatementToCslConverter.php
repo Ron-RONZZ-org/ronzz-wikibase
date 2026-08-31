@@ -60,12 +60,20 @@ class StatementToCslConverter {
 	/** @var string|null `part of` property id (from extension config) */
 	private $partOfPropertyId;
 
+	/** @var string|null person class item id (from extension config) */
+	private $personClassId;
+
 	/**
 	 * @param string[] $sourceClasses Class item ids that are sources themselves
 	 *  (self-cite, issue #24). Default [] disables the self-cite behaviour.
 	 * @param string|null $partOfPropertyId The `part of` property id, whose
 	 *  target label supplies a missing container-title (a webpage's website,
 	 *  a book excerpt's book). Default null disables the fallback.
+	 * @param string|null $personClassId The person class item id. When set,
+	 *  an item-typed author whose classes do NOT include it (a collective /
+	 *  organization — Wikimedia Foundation, a band, an institution) renders
+	 *  as a CSL literal name instead of a split given/family name. Null (or
+	 *  an unclassified author item) keeps the legacy person-name treatment.
 	 */
 	public function __construct(
 		EntityLookup $entityLookup,
@@ -73,7 +81,8 @@ class StatementToCslConverter {
 		CslTypeMapper $typeMapper,
 		?string $instanceOfPropertyId = null,
 		array $sourceClasses = [],
-		?string $partOfPropertyId = null
+		?string $partOfPropertyId = null,
+		?string $personClassId = null
 	) {
 		$this->entityLookup = $entityLookup;
 		$this->propertyMap = $propertyMap;
@@ -81,6 +90,7 @@ class StatementToCslConverter {
 		$this->instanceOfPropertyId = $instanceOfPropertyId;
 		$this->sourceClasses = $sourceClasses;
 		$this->partOfPropertyId = $partOfPropertyId;
+		$this->personClassId = $personClassId;
 	}
 
 	/**
@@ -204,17 +214,26 @@ class StatementToCslConverter {
 	 * statements (source map fields, the issue-#7 harvest) when present,
 	 * deriving a missing part from the label (given-name prefix or
 	 * family-name suffix); without statements, the legacy label split.
+	 * A NON-person author (a collective / organization item — Wikimedia
+	 * Foundation) renders as a CSL `literal` name: treating it as a personal
+	 * name split the label into given/family ("Wikimedia" / "Foundation"),
+	 * which APA rendered as "Foundation, W.". Literal names render as-is in
+	 * every style.
 	 *
 	 * @return array<int,array<string,string>>
 	 */
 	private function authorName( Item $authorItem, ?string $preferredLanguage ): array {
+		$label = $this->labelOf( $authorItem, $preferredLanguage );
+		if ( $this->isNonPerson( $authorItem ) ) {
+			return $label !== '' ? [ [ 'literal' => $label ] ] : [];
+		}
+
 		$given = $this->statementValue( $authorItem, 'givenName', $preferredLanguage );
 		$family = $this->statementValue( $authorItem, 'familyName', $preferredLanguage );
 		if ( $given === null && $family === null ) {
-			return $this->splitNameLabel( $this->labelOf( $authorItem, $preferredLanguage ) );
+			return $this->splitNameLabel( $label );
 		}
 
-		$label = $this->labelOf( $authorItem, $preferredLanguage );
 		if ( $given === null || $given === '' ) {
 			// Derive the given name from the label minus the family suffix.
 			if ( $family !== null && $family !== '' && $label !== ''
@@ -235,6 +254,24 @@ class StatementToCslConverter {
 			return [ [ 'given' => $given ?? '', 'family' => $family ?? '' ] ];
 		}
 		return $this->splitNameLabel( $label );
+	}
+
+	/**
+	 * True when an author item is classified as something OTHER than a
+	 * person (a collective / organization / band / institution) — the signal
+	 * to render a literal name. Requires the person class id to be
+	 * configured; an item with NO class statements at all is treated as a
+	 * person (legacy behaviour — no signal to contradict it).
+	 */
+	private function isNonPerson( Item $authorItem ): bool {
+		if ( $this->personClassId === null ) {
+			return false;
+		}
+		$classIds = $this->classIdsOf( $authorItem );
+		if ( $classIds === [] ) {
+			return false;
+		}
+		return !in_array( $this->personClassId, $classIds, true );
 	}
 
 	/**

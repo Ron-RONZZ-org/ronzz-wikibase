@@ -1,9 +1,9 @@
 /**
  * Sitelink tab popup (issue #7 follow-up): the red "Sitelink" tab on content
  * pages opens a dialog that links the current page to an item — type a label
- * to search (wbsearchentities, the instance's own Wikibase API, same wiring
- * as entitysuggest.js) or enter a Q-id directly — then wbsetsitelink on
- * confirm. The blue tab is a plain link to the Item page (no JS needed).
+ * to search (action=entitysearch, the extension's FULLTEXT search — the same
+ * wiring as entitysuggest.js) or enter a Q-id directly — then wbsetsitelink
+ * on confirm. The blue tab is a plain link to the Item page (no JS needed).
  *
  * Anonymous users get the no-JS fallback (Special:NewItem prefill): the
  * dialog only opens when a session user is present.
@@ -21,7 +21,7 @@
 			options: []
 		} );
 
-		// Label search with the same wbsearchentities wiring as
+		// Label search with the same action=entitysearch wiring as
 		// entitysuggest.js; a typed Q-id skips the search entirely.
 		combo.on( 'change', OO.ui.debounce( function ( value ) {
 			var q = String( value || '' ).trim();
@@ -33,10 +33,9 @@
 				return;
 			}
 			api.get( {
-				action: 'wbsearchentities',
+				action: 'entitysearch',
 				search: q,
 				language: mw.config.get( 'wgUserLanguage' ) || 'en',
-				type: 'item',
 				limit: 10,
 				format: 'json'
 			} ).then( function ( data ) {

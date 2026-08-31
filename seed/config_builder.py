@@ -205,6 +205,14 @@ FOSS_CLASS_KINDS = {
     "free and open-source software": "foss",
 }
 
+# FOSS/Software classic-page split: the class that marks a LICENSE as
+# free/open-source. Special:AddSoftware reads the chosen license item's
+# `instance of` statements against this class to default the page kind
+# (FOSS: page vs Software: page).
+FOSS_LICENSE_CLASS_KINDS = {
+    "free software license": "fossLicense",
+}
+
 # Upload enhancements: the image class + image-fact properties for the
 # item-per-upload created by Special:Upload (every uploaded file gets a
 # sitelinked image item carrying these statements — same semantic model as
@@ -285,6 +293,11 @@ def build_config(
     for label, kind in FOSS_CLASS_KINDS.items():
         if label in class_ids:
             foss_classes[kind] = class_ids[label]
+
+    foss_license_classes: dict[str, str] = {}
+    for label, kind in FOSS_LICENSE_CLASS_KINDS.items():
+        if label in class_ids:
+            foss_license_classes[kind] = class_ids[label]
 
     image_classes: dict[str, str] = {}
     for label, kind in IMAGE_CLASS_KINDS.items():
@@ -379,6 +392,7 @@ def build_config(
         "sourceProperties": source_props,
         "fossClasses": foss_classes,
         "fossProperties": foss_props,
+        "fossLicenseClasses": foss_license_classes,
         "imageClasses": image_classes,
         "imageProperties": image_props,
         "fictionalCharacterClasses": fictional_character_classes,

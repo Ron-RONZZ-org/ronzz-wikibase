@@ -258,22 +258,39 @@ class SeedOrchestrator:
         licenses, user interfaces) that Special:AddSoftware's entity
         comboboxes reference — each classified `instance of` its manifest
         class (operating system / software license / user interface).
-        Idempotent: exact-en-label skip, same contract as every phase."""
+        Software-license rows flagged `foss` are ALSO classified `instance
+        of` the free software license class: that class is what
+        Special:AddSoftware reads to decide the FOSS: vs Software: classic
+        page. Idempotent: exact-en-label skip, same contract as every
+        phase; the extra class claim is added to EXISTING items too
+        (add_claims skips claims already present, so re-running converges).
+        """
         print(f"— preseed items ({len(self.preseed)})")
         instance_of_id = self.find("instance of", "property", ANCHOR_LANGUAGE)
+        foss_license_class_id = self.class_ids.get("free software license")
         if self.args.dry_run:
             for row in self.preseed:
+                extra = " + free software license" if (row["foss"] and row["class_label"] == "software license") else ""
                 print(f"  [dry-run] create {row['labels'][ANCHOR_LANGUAGE]} "
-                      f"(instance of {row['class_label']})")
+                      f"(instance of {row['class_label']}{extra})")
             return
 
         for row in self.preseed:
             label = row["labels"][ANCHOR_LANGUAGE]
             existing = self.find(label, "item", ANCHOR_LANGUAGE)
+            is_foss_license = bool(row["foss"]) and row["class_label"] == "software license"
             if existing:
                 self.preseed_ids[label] = existing
                 if row["class_label"] == "software license":
                     self.license_ids[label] = existing
+                # Re-classify a FOSS license created before the class
+                # existed (idempotent — add_claims skips existing claims).
+                if is_foss_license and instance_of_id and foss_license_class_id:
+                    self.api.add_claims(
+                        existing,
+                        {instance_of_id: [dogfood.entity_claim(instance_of_id, foss_license_class_id)]},
+                        SUMMARY_PREFIX + "classify preseed item (free software license)",
+                    )
                 print(f"  skip {label} ({existing})")
                 continue
             if self.args.dry_run:
@@ -288,10 +305,17 @@ class SeedOrchestrator:
             print(f"  created {label} ({entity_id})")
 
             class_id = self.class_ids.get(row["class_label"])
+            claims: dict[str, list[dict[str, Any]]] = {}
             if instance_of_id and class_id:
+                claims[instance_of_id] = [dogfood.entity_claim(instance_of_id, class_id)]
+            if is_foss_license and instance_of_id and foss_license_class_id:
+                claims.setdefault(instance_of_id, []).append(
+                    dogfood.entity_claim(instance_of_id, foss_license_class_id)
+                )
+            if claims:
                 self.api.add_claims(
                     entity_id,
-                    {instance_of_id: [dogfood.entity_claim(instance_of_id, class_id)]},
+                    claims,
                     SUMMARY_PREFIX + "classify preseed item",
                 )
 

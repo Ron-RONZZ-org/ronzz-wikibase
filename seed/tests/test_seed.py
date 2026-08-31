@@ -109,6 +109,39 @@ class ManifestLoaderTest(unittest.TestCase):
                          "GUI (graphical user interface)", "CLI (command-line interface)"]:
             self.assertIn(expected, labels, f"preseed item {expected!r} missing")
 
+    def test_load_preseed_foss_flag(self):
+        """The `foss` column marks the software-license rows that qualify as
+        free/open-source (the FOSS: vs Software: classic-page split on
+        Special:AddSoftware). FSF/OSI-line licenses are flagged; the
+        non-commercial / no-derivatives CC variants are not; OS/UI rows are
+        never flagged."""
+        rows = manifest_loader.load_preseed(MANIFESTS / "preseed.csv")
+        flagged = {r["labels"]["en"] for r in rows if r["foss"]}
+        not_flagged = {r["labels"]["en"] for r in rows if not r["foss"]}
+        # The free line: the GPL family, permissive licenses, CC0/public
+        # domain, CC BY / CC BY-SA / GFDL / ODbL.
+        for free in ["GNU AGPL-3.0", "GNU GPL-3.0", "MIT License", "Apache License 2.0",
+                     "BSD 3-Clause License", "CC0 1.0", "CC BY 4.0", "CC BY-SA 4.0",
+                     "The Unlicense", "GNU FDL-1.3", "ISC License", "Public domain",
+                     "Open Database License 1.0"]:
+            self.assertIn(free, flagged, f"{free!r} must be foss-flagged")
+        # The non-free line: every NC (no commercial use) / ND (no
+        # derivatives) CC variant.
+        for restricted in ["CC BY-NC 4.0", "CC BY-NC-SA 4.0", "CC BY-NC-ND 4.0",
+                           "CC BY-ND 4.0", "CC BY-NC 3.0", "CC BY-NC-SA 3.0",
+                           "CC BY-NC-ND 3.0", "CC BY-ND 3.0"]:
+            self.assertNotIn(restricted, flagged, f"{restricted!r} must NOT be foss-flagged")
+            self.assertIn(restricted, not_flagged)
+        # OS/UI rows are not licenses: never flagged.
+        self.assertNotIn("Linux", flagged)
+        self.assertNotIn("GUI (graphical user interface)", flagged)
+        # The flag only applies to software-license rows (no accidental
+        # flags on the OS/UI vocabulary).
+        by_class: dict[str, set[str]] = {}
+        for r in rows:
+            by_class.setdefault(r["class_label"], set()).add(r["labels"]["en"])
+        self.assertTrue(flagged <= by_class["software license"])
+
     def test_manifest_languages(self):
         langs = manifest_loader.manifest_languages(MANIFESTS / "properties.csv")
         self.assertEqual(langs, ["fr", "en", "eo"])
@@ -303,6 +336,28 @@ class ConfigBuilderTest(unittest.TestCase):
         # CC BY-SA 4.0 data rights (was CC0).
         self.assertIn("['dataRightsUrl'] = 'https://creativecommons.org/licenses/by-sa/4.0/'", snippet)
         self.assertNotIn("publicdomain/zero/1.0", snippet)
+
+    def test_foss_license_class_emitted(self):
+        """The `fossLicenseClasses` config map (the class marking a license
+        as free/open-source) is emitted when the class item exists, and
+        omitted otherwise (instances seeded before the class existed)."""
+        snippet = config_builder.build_config(
+            property_ids={"instance of": "P31"},
+            class_ids={"free software license": "Q555"},
+            lexer_ids={},
+            fallback_languages=["fr", "en", "eo"],
+        )
+        self.assertIn("'fossLicenseClasses'", snippet)
+        self.assertIn("'fossLicense' => 'Q555'", snippet)
+        # Absent class → the section is simply omitted (config consumers
+        # default to no FOSS-license class).
+        snippet = config_builder.build_config(
+            property_ids={"instance of": "P31"},
+            class_ids={},
+            lexer_ids={},
+            fallback_languages=["fr", "en", "eo"],
+        )
+        self.assertNotIn("'fossLicenseClasses'", snippet)
 
     def test_licenses_map_excludes_non_license_preseed(self):
         """The `licenses` config map (the license combobox options) must
