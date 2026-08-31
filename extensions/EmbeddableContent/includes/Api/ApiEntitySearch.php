@@ -85,11 +85,13 @@ class ApiEntitySearch extends ApiBase {
 	private function containsRows( string $search, int $limit ): array {
 		$services = MediaWikiServices::getInstance();
 		$source = WikibaseRepo::getLocalEntitySource();
-		$database = $source->getDatabaseName();
+		// getDatabaseName() is string|false — false = the wiki database
+		// (repoDatabase=false for the local source); getConnection() takes
+		// the same string|false domain, so pass it through unchanged.
 		$dbr = $services->getDBLoadBalancer()->getConnection(
 			DB_REPLICA,
 			[],
-			$database !== false ? $database : null
+			$source->getDatabaseName()
 		);
 
 		$variants = [ $search ];
