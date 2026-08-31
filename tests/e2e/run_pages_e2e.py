@@ -2048,14 +2048,17 @@ def flow_addsemanticentity_api(op, api: str, instance_of: str, person_class: str
     return qid, page_title
 
 
-def flow_duplicate_api_id(op, api: str, collective_class: str) -> tuple[str, str]:
+def flow_duplicate_api_id(op, api: str, collective_class: str,
+                          wikidata_id_prop: str) -> tuple[str, list[str], str]:
     """The duplication guard on action=addsemanticentity: an identical
     external id (Wikidata) aborts with a duplicate result (no create);
     confirmDuplicate=1 forces the create. The re-submit retries until WDQS
-    has indexed the first item (the guard reads WDQS — eventually
-    consistent). The re-submit labels share NO significant words with the
-    first (the label signal would otherwise fire first). Returns
-    (first qid, force-created qid)."""
+    has indexed the id (the guard reads WDQS — eventually consistent); a
+    laggy first re-submit may CREATE a second item carrying the same id —
+    the guard then matches whichever item WDQS has (asserted via the id
+    statement itself). The re-submit labels share NO significant words with
+    the first (the label signal would otherwise fire first). Returns
+    (first qid, extra created qids, force-created qid)."""
     csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
     token = csrf["query"]["tokens"]["csrftoken"]
     stamp = int(time.time())
@@ -2071,6 +2074,7 @@ def flow_duplicate_api_id(op, api: str, collective_class: str) -> tuple[str, str
     first_qid = r["semantic"]["entityId"]
 
     dup = None
+    extra: list[str] = []
     last = None
     for _ in range(20):
         last = api_call(op, api, {
@@ -2081,13 +2085,19 @@ def flow_duplicate_api_id(op, api: str, collective_class: str) -> tuple[str, str
         if last.get("semantic", {}).get("duplicate"):
             dup = last["semantic"]
             break
+        if last.get("semantic", {}).get("created"):
+            extra.append(last["semantic"]["entityId"])  # the laggy create
         time.sleep(2)
     assert dup is not None, f"duplicate guard did not fire for identical Wikidata ID: {last}"
-    assert dup.get("duplicateOf") == first_qid, f"duplicateOf != {first_qid}: {dup}"
+    matched = dup.get("duplicateOf")
+    assert matched in [first_qid] + extra, f"duplicateOf names an unexpected item: {dup}"
+    matched_claims, _ = entity_claims(op, api, matched)
+    assert first_value(matched_claims, wikidata_id_prop) == wid, \
+        f"the matched item {matched} does not carry the Wikidata ID {wid}"
     assert dup.get("match") == "id", f"match != id: {dup}"
     assert not dup.get("entityId"), f"duplicate result must not create: {dup}"
     print(f"[ok] action=addsemanticentity duplicate guard: identical Wikidata ID "
-          f"-> {dup['duplicateOf']} (match=id, no create)")
+          f"-> {matched} (match=id, no create)")
 
     r2 = api_call(op, api, {
         "action": "addsemanticentity", "kind": "collective",
@@ -2098,7 +2108,7 @@ def flow_duplicate_api_id(op, api: str, collective_class: str) -> tuple[str, str
         raise FlowError(f"confirmDuplicate=1 did not force the create: {r2}")
     forced_qid = r2["semantic"]["entityId"]
     print(f"[ok] action=addsemanticentity confirmDuplicate=1 -> created {forced_qid}")
-    return first_qid, forced_qid
+    return first_qid, extra, forced_qid
 
 
 def flow_duplicate_manual(op, base: str, api: str, special: str, label: str,
@@ -2982,8 +2992,11 @@ def main() -> int:
         # 2c5. Duplication guard (API): an identical Wikidata ID aborts with
         #      a duplicate result; confirmDuplicate=1 force-creates.
         collective_class = resolve("organization", "item")
-        dup_first, dup_forced = flow_duplicate_api_id(op, api, collective_class)
+        dup_first, dup_extra, dup_forced = flow_duplicate_api_id(
+            op, api, collective_class, wikidata_id_prop)
         track(dup_first)
+        for qid in dup_extra:
+            track(qid)
         track(dup_forced)
 
         # 2c6. Duplication guard (create gate): the manual flow's same-label
