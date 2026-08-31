@@ -1871,8 +1871,9 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		$error = $this->sourceFlow()->prepare( $this->currentClassKey, $flowRecord, true );
 		if ( $error !== null ) {
 			// The form's own validation should have caught this; surface it
-			// as a form error rather than silently proceeding.
-			return $error;
+			// as a form error via createItemAndRedirect's catch rather than
+			// silently proceeding (or feeding a string to new ItemId).
+			throw new \RuntimeException( $error );
 		}
 		$label = $this->sourceFlow()->labelFor( $this->currentClassKey, $flowRecord );
 

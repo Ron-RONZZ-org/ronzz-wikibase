@@ -838,7 +838,9 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		$flowRecord = $this->semanticFlowRecord( $kind, $record );
 		$error = $this->semanticFlow()->prepare( $kind, $flowRecord, true );
 		if ( $error !== null ) {
-			return $error;
+			// The form's own validation should have caught this; surface it
+			// as a form error via createItemAndRedirect's catch.
+			throw new \RuntimeException( $error );
 		}
 		$label = $this->semanticFlow()->labelFor( $kind, $flowRecord );
 
