@@ -37,7 +37,10 @@ final class SoftwarePageKind {
 	 */
 	public static function defaultFor( EmbeddableContentConfig $config, string $licenseInput ): string {
 		$fossLicenseClass = $config->fossLicenseClasses()['fossLicense'] ?? null;
-		if ( $fossLicenseClass === null ) {
+		if ( $fossLicenseClass === null || trim( $licenseInput ) === '' ) {
+			// No FOSS-license class configured, or no license given (e.g. a
+			// harvested license label that did not resolve to a local item):
+			// keep the historical FOSS: default — the caller may override.
 			return self::FOSS;
 		}
 		foreach ( self::splitIds( $licenseInput ) as $id ) {
