@@ -2048,6 +2048,158 @@ def flow_addsemanticentity_api(op, api: str, instance_of: str, person_class: str
     return qid, page_title
 
 
+def flow_duplicate_api_id(op, api: str, collective_class: str) -> tuple[str, str]:
+    """The duplication guard on action=addsemanticentity: an identical
+    external id (Wikidata) aborts with a duplicate result (no create);
+    confirmDuplicate=1 forces the create. The re-submit retries until WDQS
+    has indexed the first item (the guard reads WDQS — eventually
+    consistent). The re-submit labels share NO significant words with the
+    first (the label signal would otherwise fire first). Returns
+    (first qid, force-created qid)."""
+    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = csrf["query"]["tokens"]["csrftoken"]
+    stamp = int(time.time())
+    wid = f"Q{900000 + stamp % 100000}"  # syntactically valid, unique Wikidata-style id
+
+    r = api_call(op, api, {
+        "action": "addsemanticentity", "kind": "collective",
+        "label": f"Alpha collective {stamp}", "collectiveClass": collective_class,
+        "wikidataId": wid, "token": token, "format": "json",
+    }, post=True)
+    if "semantic" not in r or not r["semantic"].get("created"):
+        raise FlowError(f"addsemanticentity (seed collective) failed: {r}")
+    first_qid = r["semantic"]["entityId"]
+
+    dup = None
+    last = None
+    for _ in range(20):
+        last = api_call(op, api, {
+            "action": "addsemanticentity", "kind": "collective",
+            "label": f"Bravo collective {stamp}", "collectiveClass": collective_class,
+            "wikidataId": wid, "token": token, "format": "json",
+        }, post=True)
+        if last.get("semantic", {}).get("duplicate"):
+            dup = last["semantic"]
+            break
+        time.sleep(2)
+    assert dup is not None, f"duplicate guard did not fire for identical Wikidata ID: {last}"
+    assert dup.get("duplicateOf") == first_qid, f"duplicateOf != {first_qid}: {dup}"
+    assert dup.get("match") == "id", f"match != id: {dup}"
+    assert not dup.get("entityId"), f"duplicate result must not create: {dup}"
+    print(f"[ok] action=addsemanticentity duplicate guard: identical Wikidata ID "
+          f"-> {dup['duplicateOf']} (match=id, no create)")
+
+    r2 = api_call(op, api, {
+        "action": "addsemanticentity", "kind": "collective",
+        "label": f"Charlie collective {stamp}", "collectiveClass": collective_class,
+        "wikidataId": wid, "confirmDuplicate": "1", "token": token, "format": "json",
+    }, post=True)
+    if "semantic" not in r2 or not r2["semantic"].get("created"):
+        raise FlowError(f"confirmDuplicate=1 did not force the create: {r2}")
+    forced_qid = r2["semantic"]["entityId"]
+    print(f"[ok] action=addsemanticentity confirmDuplicate=1 -> created {forced_qid}")
+    return first_qid, forced_qid
+
+
+def flow_duplicate_manual(op, base: str, api: str, special: str, label: str,
+                          class_item: str) -> tuple[str, str]:
+    """The create-gate duplication guard on a manual flow: submitting a
+    label that already exists (the fuzzy-label signal, term-store immediate)
+    routes to the duplicate confirm page; [No — create the item anyway]
+    POSTs back (CSRF-token form) and FORCE-creates a second item with the
+    same label (the silent exact-label reuse is bypassed). Returns
+    (first qid, second qid)."""
+    url, body = page_get(op, base, f"/wiki/Special:{special}/manual")
+    token = edit_token(body)
+    fields = {"wpclass": class_item, "wpEditToken": token, "wpSubmit": "1"}
+    if special == "AddPerson":
+        given, _, family = label.rpartition(" ")
+        fields["wpgivenName"] = given
+        fields["wpfamilyName"] = family
+    else:
+        fields["wplabel"] = label
+    url, body = page_post(op, url, fields)
+    first_qid = flow_final_item(op, base, api, url, body, f"Special:{special}/manual")
+
+    url, body = page_get(op, base, f"/wiki/Special:{special}/manual")
+    fields2 = dict(fields)
+    fields2["wpEditToken"] = edit_token(body)
+    url, body = page_post(op, url, fields2)
+    m = re.search(r"/wiki/Special:" + re.escape(special) + r"/([0-9a-f]{32})/duplicate/(Q\d+)$", url)
+    if not m:
+        raise FlowError(f"duplicate guard did not route to the confirm page: "
+                        f"{url} {find_error(body)}")
+    dup_qid = m.group(2)
+    assert dup_qid == first_qid, f"duplicate confirm names {dup_qid}, expected {first_qid}"
+    assert "Possible duplicate" in body, f"confirm page missing the warning title: {body[:400]}"
+    assert f"/wiki/Item:{first_qid}" in body, \
+        f"confirm page missing the existing-item link: {body[:600]}"
+    # [No — create the item anyway]: a POST to the confirm URL (its own
+    # wpEditToken).
+    url2, body2 = page_post(op, url, {"wpEditToken": edit_token(body)})
+    second_qid = flow_final_item(op, base, api, url2, body2, f"Special:{special}/manual")
+    assert second_qid != first_qid, "force-create reused the first item"
+    _, second_label = entity_claims(op, api, second_qid)
+    assert second_label == label, \
+        f"the force-created item carries {second_label!r}, expected the same label {label!r}"
+    print(f"[ok] {special} duplicate guard (create gate): same label -> confirm -> "
+          f"create-anyway made {second_qid} (≠ {first_qid})")
+    return first_qid, second_qid
+
+
+def flow_duplicate_url_entry(op, base: str, api: str, website_class: str,
+                             author: str, instance_of: str, url_prop: str) -> str:
+    """The URL-entry duplication guard (website/webpage/YouTube URL flows):
+    entering a URL an existing item already carries warns on the URL-entry
+    page — [Yes] → the existing item; the acknowledge checkbox fetches
+    anyway (the flow proceeds to the manual form). Creates the website item
+    via action=addsource first; the re-entry retries until WDQS has indexed
+    the URL (eventually consistent). Returns the website qid."""
+    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = csrf["query"]["tokens"]["csrftoken"]
+    stamp = int(time.time())
+    url = f"https://dupe-{stamp}.example.org"
+    r = api_call(op, api, {
+        "action": "addsource", "class": "website",
+        "title": f"Duplicate URL E2E site {stamp}",
+        "url": url, "authors": author, "token": token, "format": "json",
+    }, post=True)
+    if "source" not in r or not r["source"].get("created"):
+        raise FlowError(f"addsource website creation failed: {r}")
+    site_qid = r["source"]["entityId"]
+    claims, _ = entity_claims(op, api, site_qid)
+    assert first_value(claims, instance_of) == website_class, \
+        f"website {site_qid} instance-of mismatch ({first_value(claims, instance_of)})"
+    assert first_value(claims, url_prop) == url, f"website {site_qid} URL statement missing"
+
+    warned = None
+    last_body = ""
+    for _ in range(20):
+        u, body = page_get(op, base, "/wiki/Special:AddSource/website")
+        u2, b2 = page_post(op, u, {
+            "wpurl": url, "wpEditToken": edit_token(body), "wpSubmit": "1",
+        })
+        if "Possible duplicate" in b2 and site_qid in b2:
+            warned = (u2, b2)
+            break
+        last_body = b2
+        time.sleep(2)
+    assert warned is not None, \
+        f"URL-entry duplicate guard did not warn: {last_body[:500]}"
+    print(f"[ok] AddSource/website URL-entry guard: entering an existing URL warns "
+          f"(→ {site_qid}), [Yes] link present")
+
+    u3, b3 = page_post(op, warned[0], {
+        "wpurl": url, "wpduplicateAcknowledge": "1",
+        "wpEditToken": edit_token(warned[1]), "wpSubmit": "1",
+    })
+    if "/manual" not in u3:
+        raise FlowError(f"acknowledged URL entry did not proceed to the manual form: "
+                        f"{u3} {find_error(b3)}")
+    print("[ok] acknowledged URL entry proceeds to the manual form")
+    return site_qid
+
+
 def flow_sitelink_tab(op, base: str, api: str, linked_page: str, linked_qid: str) -> None:
     """Sitelink tab rendering (issue follow-up): red (needs-set) on an
     unlinked content page, blue (is-set) on a sitelinked page."""
@@ -2826,6 +2978,29 @@ def main() -> int:
         track(api_person)
         if api_person_page not in created_pages:
             created_pages.append(api_person_page)
+
+        # 2c5. Duplication guard (API): an identical Wikidata ID aborts with
+        #      a duplicate result; confirmDuplicate=1 force-creates.
+        collective_class = resolve("organization", "item")
+        dup_first, dup_forced = flow_duplicate_api_id(op, api, collective_class)
+        track(dup_first)
+        track(dup_forced)
+
+        # 2c6. Duplication guard (create gate): the manual flow's same-label
+        #      submit routes to the confirm page; "create it anyway"
+        #      force-creates a second item.
+        dup_label = f"Duplicate guard E2E person {int(time.time())}"
+        dup_gate_first, dup_gate_second = flow_duplicate_manual(
+            op, base, api, "AddPerson", dup_label, person_class)
+        track(dup_gate_first)
+        track(dup_gate_second)
+
+        # 2c7. Duplication guard (URL entry): re-entering an existing
+        #      website URL warns on the URL-entry page; acknowledging
+        #      proceeds to the manual form.
+        dup_site = flow_duplicate_url_entry(
+            op, base, api, website_class, person, instance_of, url_prop)
+        track(dup_site)
 
         # 2d. Child class: bookExcerpt requires an existing book parent,
         #     auto-links it with a `part of` statement. Blank description /

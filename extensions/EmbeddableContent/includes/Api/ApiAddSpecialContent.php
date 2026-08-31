@@ -4,6 +4,7 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\Api;
 
+use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\Flow\SpecialContentFieldMap;
 use EmbeddableContent\Flow\SpecialContentFlowService;
 use EmbeddableContent\Flow\StatementGuidAssigner;
@@ -33,9 +34,13 @@ class ApiAddSpecialContent extends ApiBase {
 	/** @var SpecialContentFlowService */
 	private $flow;
 
-	public function __construct( $mainModule, $moduleName, SpecialContentFlowService $flow ) {
+	/** @var EmbeddableContentConfig */
+	private $config;
+
+	public function __construct( $mainModule, $moduleName, SpecialContentFlowService $flow, EmbeddableContentConfig $config ) {
 		parent::__construct( $mainModule, $moduleName );
 		$this->flow = $flow;
+		$this->config = $config;
 	}
 
 	public function execute() {
@@ -62,8 +67,31 @@ class ApiAddSpecialContent extends ApiBase {
 		$user = $this->getUser();
 		$summary = $params['summary'];
 		$store = WikibaseRepo::getEntityStore();
+		$confirmDuplicate = ( $params['confirmDuplicate'] ?? '' ) === '1';
 
 		if ( $creating ) {
+			// Duplication guard: an existing item carrying the record's
+			// external ids / URLs, or a highly similar label, aborts with a
+			// duplicate result (no create) — machine clients decide;
+			// confirmDuplicate=1 forces the create.
+			if ( !$confirmDuplicate ) {
+				$classId = $this->config->classIds()[$kind] ?? null;
+				$duplicate = \EmbeddableContent\Spec\DuplicateChecker::find(
+					$this->config,
+					$record,
+					$this->flow->labelFor( $kind, $record ),
+					$classId !== null ? [ $classId ] : []
+				);
+				if ( $duplicate !== null ) {
+					$this->getResult()->addValue( null, 'content', [
+						'duplicate' => '1',
+						'duplicateOf' => $duplicate['itemId'],
+						'duplicateLabel' => $duplicate['label'],
+						'match' => $duplicate['match'],
+					] );
+					return;
+				}
+			}
 			$item = $this->flow->buildItem( $kind, $record );
 			$summaryText = $summary ?? 'Add content item';
 			$store->saveEntity( $item, $summaryText, $user, EDIT_NEW );
@@ -110,6 +138,9 @@ class ApiAddSpecialContent extends ApiBase {
 			],
 			'qid' => [ self::PARAM_TYPE => 'string', self::PARAM_REQUIRED => false ],
 			'summary' => [ self::PARAM_TYPE => 'string', self::PARAM_REQUIRED => false ],
+			// Force the create past the duplication guard (the default: a
+			// duplicate hit returns { duplicate: 1, duplicateOf, match }).
+			'confirmDuplicate' => [ self::PARAM_TYPE => 'boolean', self::PARAM_REQUIRED => false ],
 		];
 		foreach ( $this->fieldParams() as $field ) {
 			$params[$field] = [ self::PARAM_TYPE => 'string', self::PARAM_REQUIRED => false ];

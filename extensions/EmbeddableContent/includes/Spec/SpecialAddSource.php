@@ -141,7 +141,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				\MediaWiki\Html\Html::warningBox( $this->msg( 'embeddablecontent-source-website-explanation' )->parse() )
 			);
 		}
-		$form = \MediaWiki\HTMLForm\HTMLForm::factory( 'ooui', [
+		$fields = [
 			'url' => [
 				'type' => 'url',
 				'label-message' => 'embeddablecontent-source-field-url',
@@ -150,7 +150,18 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				'placeholder' => 'https://…',
 				'help-message' => 'embeddablecontent-source-url-help',
 			],
-		], $this->getContext() );
+		];
+		// The duplication guard's "continue anyway" checkbox: revealed only
+		// after onUrlEntrySubmit found an existing item with the exact URL
+		// (the session flag is set by the guard and cleared on proceed).
+		if ( $this->getRequest()->getSession()->get( 'extadd:urlack' ) === '1' ) {
+			$fields['duplicateAcknowledge'] = [
+				'type' => 'check',
+				'label-message' => 'embeddablecontent-duplicate-ack-url',
+				'default' => false,
+			];
+		}
+		$form = \MediaWiki\HTMLForm\HTMLForm::factory( 'ooui', $fields, $this->getContext() );
 		$form->setTitle( $this->stepTitle() )
 			->setSubmitTextMsg( 'embeddablecontent-source-url-submit' )
 			->setSubmitCallback( [ $this, 'onUrlEntrySubmit' ] )
@@ -158,6 +169,32 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			->setWrapperLegendMsg( 'embeddablecontent-source-url-legend' );
 		$form->show();
 		$this->getOutput()->addHTML( $this->manualFallbackHtml() );
+	}
+
+	/**
+	 * The URL-entry duplicate warning panel (the "URL entered" trigger of
+	 * the duplication guard): "We think this item may be a duplicate of
+	 * [[Item:Qxxx|label]]" + [Yes, that's right → the existing item]; the
+	 * continue decision is the form's acknowledge checkbox below.
+	 *
+	 * @param array{itemId:string,label:string,match:string} $duplicate
+	 */
+	private function urlDuplicateWarningHtml( array $duplicate ): string {
+		$itemUrl = WikibaseRepo::getEntityTitleStoreLookup()
+			->getTitleForId( new \Wikibase\DataModel\Entity\ItemId( $duplicate['itemId'] ) )->getFullURL();
+		// The label rides the parsed warning message as wikilink display
+		// text — sanitize it like a page title (stripMarkup).
+		$safeLabel = \EmbeddableContent\Spec\LabelSanitizer::stripMarkup( $duplicate['label'] );
+		return \MediaWiki\Html\Html::warningBox(
+			'<p>' . $this->msg(
+				'embeddablecontent-duplicate-warning',
+				$safeLabel,
+				$duplicate['itemId']
+			)->parse() . '</p>'
+			. '<p><a class="wb-duplicate-guard-yes mw-ui-button mw-ui-progressive" href="'
+			. htmlspecialchars( $itemUrl ) . '">'
+			. $this->msg( 'embeddablecontent-duplicate-yes' )->escaped() . '</a></p>'
+		);
 	}
 
 	/**
@@ -183,6 +220,29 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			// its root (https://www.bbc.co.uk/article1 → https://www.bbc.co.uk).
 			$url = \EmbeddableContent\Fetch\SsrfGuard::siteRoot( $url );
 		}
+
+		// Duplication guard (URL entered — the earliest trigger for the
+		// website/webpage/YouTube URL flows): an existing item carrying the
+		// exact URL routes to a warning panel on this page — [Yes, that's
+		// right] → the existing item; the "continue" checkbox below the form
+		// fetches the metadata anyway (the user judged it a different
+		// record). The final create gate re-checks regardless.
+		if ( !isset( $data['duplicateAcknowledge'] ) ) {
+			$duplicate = \EmbeddableContent\Spec\DuplicateChecker::find(
+				$this->config,
+				[ 'url' => $url ],
+				'',
+				[]
+			);
+			if ( $duplicate !== null ) {
+				$this->getRequest()->getSession()->set( 'extadd:urlack', '1' );
+				$this->getOutput()->addHTML( $this->urlDuplicateWarningHtml( $duplicate ) );
+				// false → the form re-renders silently (URL preserved) with
+				// the acknowledge checkbox revealed (executeUrlEntry).
+				return false;
+			}
+		}
+		$this->getRequest()->getSession()->remove( 'extadd:urlack' );
 		$this->metadataFetcher ??= new \EmbeddableContent\Fetch\PageMetadataFetcher();
 		$fetched = $this->metadataFetcher->fetch( $url );
 
@@ -1851,14 +1911,17 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 * Without GUIDs the entity page renders every statement as an empty
 	 * edit-mode row for logged-in users (the client matches statements to
 	 * the DOM by GUID).
+	 *
+	 * @param bool $forceCreate skip the silent exact-label reuse (the user
+	 *        confirmed a duplicate warning and wants a second item)
 	 */
-	protected function createFromRecord( array $record, string $classItemId ): string {
+	protected function createFromRecord( array $record, string $classItemId, bool $forceCreate = false ): string {
 		$record = $this->enrichRecord( $record );
-		return $this->createViaFlow( $record );
+		return $this->createViaFlow( $record, $forceCreate );
 	}
 
-	protected function manualCreate( string $label, string $classItemId, array $record ): string {
-		return $this->createViaFlow( $record );
+	protected function manualCreate( string $label, string $classItemId, array $record, bool $forceCreate = false ): string {
+		return $this->createViaFlow( $record, $forceCreate );
 	}
 
 	/**
@@ -1870,8 +1933,10 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 * attached to every statement but the instance-of one.
 	 *
 	 * @param array<string,mixed> $record
+	 * @param bool $forceCreate skip the silent exact-label reuse (the user
+	 *        confirmed a duplicate warning and wants a second item)
 	 */
-	private function createViaFlow( array $record ): string {
+	private function createViaFlow( array $record, bool $forceCreate = false ): string {
 		// The form keys are camelCase (scholarlyArticle); the service takes
 		// the API keys (scholarly-article).
 		$classKey = \EmbeddableContent\Flow\SourceFieldMap::apiKey( $this->currentClassKey );
@@ -1885,9 +1950,11 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		}
 		$label = $this->sourceFlow()->labelFor( $classKey, $flowRecord );
 
-		$existing = $this->findItemIdByLabel( $label );
-		if ( $existing !== null ) {
-			return $existing;
+		if ( !$forceCreate ) {
+			$existing = $this->findItemIdByLabel( $label );
+			if ( $existing !== null ) {
+				return $existing;
+			}
 		}
 
 		$item = $this->sourceFlow()->buildItem( $classKey, $flowRecord );

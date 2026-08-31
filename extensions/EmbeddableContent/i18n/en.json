@@ -1,5 +1,11 @@
 {
-	"@metadata": {"authors": ["ronzz.org"], "description": "Embeddable content items (quotation, code snippet, mathematical expression) on a Wikibase instance — vocabulary manifests, maintenance scripts, embed rendering and content creation pages.", "license-name": "GPL-2.0-or-later"},
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		],
+		"description": "Embeddable content items (quotation, code snippet, mathematical expression) on a Wikibase instance — vocabulary manifests, maintenance scripts, embed rendering and content creation pages.",
+		"license-name": "GPL-2.0-or-later"
+	},
 	"embeddablecontent-desc": "Embeddable content items (quotation, code snippet, mathematical expression) on a Wikibase instance",
 	"special-embed": "Embed",
 	"special-addquotation": "Add quotation",
@@ -351,5 +357,13 @@
 	"embeddablecontent-update-collective-logo-include": "I will upload a new logo image for this collective (replacing existing)",
 	"embeddablecontent-update-source-access-include": "I will update the resource access instructions",
 	"embeddablecontent-page-title-warning": "The item was created, but a classic page could not be created: the label cannot be used as a page title (it is empty or contains characters MediaWiki forbids in titles, e.g. # &lt; &gt; [ ] { } |).",
-	"embeddablecontent-page-title-warning-goto": "Go to the created item"
+	"embeddablecontent-page-title-warning-goto": "Go to the created item",
+	"embeddablecontent-duplicate-title": "Possible duplicate",
+	"embeddablecontent-duplicate-warning": "We think this item may be a duplicate of [[Item:$2|$1]].",
+	"embeddablecontent-duplicate-match-id": "An existing item already carries the same external identifier or web URL.",
+	"embeddablecontent-duplicate-match-label": "An existing item has a very similar label.",
+	"embeddablecontent-duplicate-yes": "Yes, that's right",
+	"embeddablecontent-duplicate-no-continue": "No — continue with the creation",
+	"embeddablecontent-duplicate-no-create": "No — create the item anyway",
+	"embeddablecontent-duplicate-ack-url": "I've verified this URL is not a duplicate — continue"
 }
