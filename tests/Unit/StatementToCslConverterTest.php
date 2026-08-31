@@ -512,10 +512,31 @@ class StatementToCslConverterTest extends TestCase {
 		$this->assertSame( [ [ 'given' => 'Ada', 'family' => 'Lovelace' ] ], $converter['author'] );
 	}
 
+	public function testSingleWordStringAuthorRendersFamilyOnly(): void {
+		// A single-word STRING author must render (citeproc-php drops CSL
+		// literal names, so the family-only form is the rendering-correct
+		// fallback — a literal would have produced an empty author).
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31'
+		);
+		$item = new Item();
+		$item->setLabel( 'en', 'A quotation with a single-word string author' );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P31' ), new EntityIdValue( new ItemId( 'Q5' ) ) ) );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P6' ), new StringValue( 'Wikimedia' ) ) );
+
+		$csl = $converter->toCslJson( $item, 'en' );
+		$this->assertSame( [ [ 'family' => 'Wikimedia' ] ], $csl['author'] );
+	}
+
 	public function testCollectiveAuthorRendersLiteralName(): void {
 		// Regression ("Foundation, W."): a collective author item (Wikimedia
 		// Foundation, classified `instance of` organization — NOT a person)
-		// must render as a CSL literal name, which APA renders as-is.
+		// must render as a family-only name, which APA renders verbatim.
+		// (The CSL `literal` field is dropped by the in-process citeproc-php
+		// processor, so the family form is the rendering-correct one.)
 		$converter = new StatementToCslConverter(
 			$this->makeEntityLookup(),
 			$this->makeMapLookup(),
@@ -531,7 +552,7 @@ class StatementToCslConverterTest extends TestCase {
 		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P6' ), new EntityIdValue( new ItemId( 'Q50' ) ) ) );
 
 		$csl = $converter->toCslJson( $item, 'en' );
-		$this->assertSame( [ [ 'literal' => 'Wikimedia Foundation' ] ], $csl['author'] );
+		$this->assertSame( [ [ 'family' => 'Wikimedia Foundation' ] ], $csl['author'] );
 	}
 
 	public function testUnconfiguredPersonClassKeepsLegacyCollectiveTreatment(): void {

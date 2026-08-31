@@ -626,16 +626,20 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   cited entities (extension data non-empty), so plain pages keep stock Cite
   behavior; only the default group's numeric-id footnotes merge (named refs and
   `group=` lists are untouched).
-- **Collective authors render as literal names (fix, ADR
+- **Collective authors render as family-only names (fix, ADR
   `docs/decisions/foss-software-page-split.md`)**: an item-typed author whose
   `instance of` classes do NOT include the person class (a collective /
   organization — Wikimedia Foundation, a band, an institution) renders as a
-  CSL `literal` name, never a split given/family ("Foundation, W."). The
+  FAMILY-ONLY CSL name, never a split given/family ("Foundation, W."). ⚠️ The
+  CSL `literal` field is dropped by the in-process citeproc-php processor
+  (v2.7.1 — verified: a literal author renders NO author), so the family form
+  is the rendering-correct one (all five styles). The
   person class id comes from the new `WikibaseCitationPersonClass` config
   (fallback: `EmbeddableContentConfig['agentClasses']['person']`); an author
   item with NO class statements keeps the legacy person-name split (no signal
   to contradict it); string-valued authors keep the legacy split (no class
-  information).
+  information); the single-word string fallback is family-only too (a literal
+  would render an empty author).
 
 ## Constraints and Invariants
 

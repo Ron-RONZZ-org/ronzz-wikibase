@@ -215,17 +215,20 @@ class StatementToCslConverter {
 	 * deriving a missing part from the label (given-name prefix or
 	 * family-name suffix); without statements, the legacy label split.
 	 * A NON-person author (a collective / organization item — Wikimedia
-	 * Foundation) renders as a CSL `literal` name: treating it as a personal
+	 * Foundation) renders as a FAMILY-ONLY name: treating it as a personal
 	 * name split the label into given/family ("Wikimedia" / "Foundation"),
-	 * which APA rendered as "Foundation, W.". Literal names render as-is in
-	 * every style.
+	 * which APA rendered as "Foundation, W.". A family-only name renders
+	 * the full label as-is in every style. (The CSL `literal` name field
+	 * would be the spec-correct form, but the in-process citeproc-php
+	 * processor DROPS literal names entirely — verified v2.7.1 — so the
+	 * family-only representation is what actually renders.)
 	 *
 	 * @return array<int,array<string,string>>
 	 */
 	private function authorName( Item $authorItem, ?string $preferredLanguage ): array {
 		$label = $this->labelOf( $authorItem, $preferredLanguage );
 		if ( $this->isNonPerson( $authorItem ) ) {
-			return $label !== '' ? [ [ 'literal' => $label ] ] : [];
+			return $label !== '' ? [ [ 'family' => $label ] ] : [];
 		}
 
 		$given = $this->statementValue( $authorItem, 'givenName', $preferredLanguage );
@@ -276,7 +279,9 @@ class StatementToCslConverter {
 
 	/**
 	 * Legacy deterministic split: last word = family, the rest = given.
-	 * Single-word names fall back to a literal name.
+	 * Single-word names fall back to a family-only name (the citeproc-php
+	 * processor drops CSL `literal` names, so the family form is what
+	 * actually renders).
 	 *
 	 * @return array<int,array<string,string>>
 	 */
@@ -284,7 +289,7 @@ class StatementToCslConverter {
 		if ( preg_match( '/^(.*?)\s+(\S+)$/u', $name, $m ) === 1 ) {
 			return [ [ 'given' => $m[1], 'family' => $m[2] ] ];
 		}
-		return [ [ 'literal' => $name ] ];
+		return [ [ 'family' => $name ] ];
 	}
 
 	/**

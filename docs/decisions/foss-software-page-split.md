@@ -26,14 +26,20 @@ Three follow-up bugs/requests after the FOSS software docs launch (issue #30):
 
 ## Decision
 
-### 1. Collective authors render as CSL literal names
+### 1. Collective authors render as family-only CSL names
 
 `StatementToCslConverter` gains a **person-class** config (`WikibaseCitationPersonClass`,
 falling back to `EmbeddableContentConfig['agentClasses']['person']`). An item-typed author
 whose `instance of` classes do **not** include the person class (and which has *any* class —
-an unclassified item keeps the legacy split, never inventing a collective) renders as a CSL
-`literal` name — `{"literal": "Wikimedia Foundation"}` — which APA/Vancouver render verbatim.
-String-valued authors keep the legacy split (no class information exists for them).
+an unclassified item keeps the legacy split, never inventing a collective) renders as a
+FAMILY-ONLY CSL name — `{"family": "Wikimedia Foundation"}` — which APA/Vancouver render
+verbatim. ⚠️ The CSL `literal` name field would be the spec-correct form, but the in-process
+citeproc-php processor (v2.7.1, and upstream master) **drops literal names entirely**
+(verified: an APA citation with a `literal` author renders no author), so the family-only
+representation is the one that actually renders — in all five styles (JSON/BibTeX/RIS native
+serializers handle family-only too). String-valued authors keep the legacy split (no class
+information exists for them); the single-word fallback also uses the family form (a `literal`
+would have rendered an empty author).
 
 ### 2. FOSS:/Software: page split on software creation
 
@@ -86,7 +92,7 @@ instance grows.
 
 ## Consequences
 
-- Citations of collective authors render correctly in every style (literal names), and the
+- Citations of collective authors render correctly in every style (family-only names), and the
   classic `Person:`/`Source:`/`Collective:` author treatment is unchanged for classified
   persons.
 - Non-FOSS software gets its own page namespace; the license drives the default, the editor
