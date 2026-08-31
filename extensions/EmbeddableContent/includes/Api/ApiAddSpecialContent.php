@@ -76,10 +76,12 @@ class ApiAddSpecialContent extends ApiBase {
 			// confirmDuplicate=1 forces the create.
 			if ( !$confirmDuplicate ) {
 				$classId = $this->config->classIds()[$kind] ?? null;
+				// SpecialContentFlowService has no labelFor — the content
+				// label IS the record's label field.
 				$duplicate = \EmbeddableContent\Spec\DuplicateChecker::find(
 					$this->config,
 					$record,
-					$this->flow->labelFor( $kind, $record ),
+					(string)( $record['label'] ?? '' ),
 					$classId !== null ? [ $classId ] : []
 				);
 				if ( $duplicate !== null ) {
