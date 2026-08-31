@@ -2076,10 +2076,13 @@ def flow_duplicate_api_id(op, api: str, collective_class: str,
     dup = None
     extra: list[str] = []
     last = None
-    for _ in range(20):
+    for attempt in range(1, 21):
+        # Per-attempt labels: a laggy attempt creates its own item, and a
+        # repeated label would fuzzy-match it on the next attempt — each
+        # label is unique so ONLY the id signal can fire.
         last = api_call(op, api, {
             "action": "addsemanticentity", "kind": "collective",
-            "label": f"Bravo collective {stamp}", "collectiveClass": collective_class,
+            "label": f"Bravo collective {stamp} #{attempt}", "collectiveClass": collective_class,
             "wikidataId": wid, "token": token, "format": "json",
         }, post=True)
         if last.get("semantic", {}).get("duplicate"):
