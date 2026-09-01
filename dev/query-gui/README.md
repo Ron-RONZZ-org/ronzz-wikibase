@@ -82,10 +82,16 @@ The server never builds anything anymore. The old on-server GUI build steps
 - **Blast radius if the key leaks**: write access to the two served dirs
   (defacement/XSS on query.ronzz.org) + the backup dir — nothing else (no
   wiki, no DB, no root). GitHub secrets are never exposed to fork PRs.
-- **Rollback**: nightly snapshot cron (03:05 UTC) mirrors both live dirs into
-  `/var/backups/wdqs-frontends/{gui,builder}/<YYYYMMDD>/` (14-day retention);
-  manual rollback as ronzz: `rsync -a --delete
-  /var/backups/wdqs-frontends/gui/<date>/ /var/www/wdqs/query-gui/build/`.
+- **Rollback**: every rsync through the gate first hardlink-snapshots the
+  current live dir into `/var/backups/wdqs-frontends/{gui,builder}/pre-<ts>/`
+  (no extra space; 14-day retention) — restoring a `pre-*` snapshot reverts
+  **exactly the last deploy** and keeps earlier good deploys:
+  `rsync -a --delete /var/backups/wdqs-frontends/gui/pre-<ts>/
+  /var/www/wdqs/query-gui/build/`. The nightly snapshot cron (03:05 UTC,
+  `/var/backups/wdqs-frontends/{gui,builder}/<YYYYMMDD>/`, 14-day retention)
+  remains the deeper fallback; manual restore as ronzz:
+  `rsync -a --delete /var/backups/wdqs-frontends/gui/<date>/
+  /var/www/wdqs/query-gui/build/`.
 
 ### Emergency offline rebuild (on the server, as ronzz)
 
