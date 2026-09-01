@@ -117,3 +117,25 @@ jobs:
             gui-build/ deploy@158.178.193.231:/var/www/wdqs/query-gui/build/
           rsync -rlptDz --delete -e "$SSH" \
             builder-dist/ deploy@158.178.193.231:/var/www/wdqs/query-builder/dist/
+
+      # Post-deploy gate: the UX E2E (Playwright, read-only) against the
+      # freshly deployed production GUI. ctrl+space autocomplete, run-a-query
+      # with instance results, examples + query-builder links. Red = the
+      # deploy broke the UX — roll back from the nightly snapshot
+      # (/var/backups/wdqs-frontends, see dev/query-gui/README.md).
+      - uses: actions/checkout@v4
+        with:
+          path: repo
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Post-deploy UX smoke (Playwright, read-only)
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/qgui-smoke
+          cd /tmp/qgui-smoke
+          npm init -y >/dev/null
+          npm i --no-audit --no-fund playwright@1.55.0 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null 2>&1 || npx playwright install chromium >/dev/null
+          cp "$GITHUB_WORKSPACE/repo/tests/e2e/run_query_gui_ux_e2e.mjs" .
+          node run_query_gui_ux_e2e.mjs --base-url https://query.ronzz.org

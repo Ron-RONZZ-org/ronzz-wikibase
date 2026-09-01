@@ -257,6 +257,17 @@ jobs:
           fi
           exit ${E2E_RC:-0}
 
+      - name: Query GUI E2E (SPARQL correctness + autocomplete API contract)
+        run: |
+          python3 tests/e2e/run_query_gui_e2e.py check \
+            --sparql-url "$SPARQL_URL" \
+            --api-url "$API_URL" \
+            --gui-origin "$BASE_URL" \
+            --entity-base "http://wikibase/entity/" \
+            --prop-direct "http://wikibase/prop/direct/" \
+            --instance-of "$(jq -r '."properties"."instance of"' seed/generated/ids.json)" \
+            --person-class "$(jq -r '."classes"."person"' seed/generated/ids.json)"
+
       - name: XSS suite (injections must not survive)
         run: |
           python3 tests/e2e/run_e2e.py xss \

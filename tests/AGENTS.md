@@ -4,7 +4,8 @@
 
 Test suites for ronzz-wikibase: pure-PHP PHPUnit unit tests (`tests/Unit/`)
 with no MediaWiki runtime, and Python E2E suites (`tests/e2e/`) that curl the
-live endpoints of a seeded instance (acceptance, XSS, issue-#7 page flows).
+live endpoints of a seeded instance (acceptance, XSS, issue-#7 page flows),
+plus the Playwright browser UX suite for the query GUI (query.ronzz.org).
 
 ## Purpose and Expected Behavior
 
@@ -33,13 +34,40 @@ live endpoints of a seeded instance (acceptance, XSS, issue-#7 page flows).
   **self-cleaning**. Needs the diagram renderers in the wiki container (apt
   `graphviz`/`mscgen` + the pinned PlantUML jar via
   `tools/install-plantuml.sh` — see `dev/README.md` step 0b / ci.yml).
+- **`tests/e2e/run_query_gui_e2e.py`** — HTTP-level acceptance for the
+  query.ronzz.org frontend stack (read-only): bare `wd:`/`wdt:` prefixes
+  (the store's `prefixes.conf`) and explicit `PREFIX` clauses both return
+  the instance's entity URIs; the `/sparql` read-only guard (`?update=` /
+  `application/sparql-update` → 403, production proxy only);
+  `wbsearchentities` CORS `*` for the GUI origin (the autocomplete API
+  contract); the GUI's runtime config merge (`custom-config.json` values);
+  the public `SPARQL examples` page parses anonymously (the Examples
+  dialog); the Query Builder at `/querybuilder/`. Checks self-skip when the
+  endpoint they need wasn't provided — production runs everything, CI runs
+  the SPARQL + API parts against the dev stack.
+- **`tests/e2e/run_query_gui_ux_e2e.mjs`** — Playwright browser UX suite for
+  the query GUI (read-only, never writes): ctrl+space entity/property
+  autocomplete (the regression test for the entity-autocomplete patch
+  `dev/query-gui/patches/0002-entity-autocomplete.patch`), keyword/variable
+  hints, run-a-query with result links carrying the instance's entity URIs,
+  the Examples dialog and the Query Builder navbar link, zero page/console
+  errors. **Run it whenever the query frontends are touched** (patch,
+  `custom-config.json`, `query-builder.env.production`, the
+  `frontends-deploy.yml` workflow): it is the frontends-deploy post-deploy
+  gate (red = rollback from `/var/backups/wdqs-frontends`), and it runs
+  against any base URL, so it can also smoke a local GUI build before
+  pushing. Needs `playwright` installed where the script runs (npm scratch
+  dir on CI, `~/node_modules` locally).
 - The `integration` CI job runs the full E2E stack on 16 GB runners — see
   root AGENTS.md for the recommended edit → unit → push → CI loop.
 
 ## Constraints and Invariants
 
 - **Python standard library only** in the E2E suites (urllib, json, argparse)
-  — no pip dependencies.
+  — no pip dependencies. The one exception is the Playwright browser UX
+  suite (`run_query_gui_ux_e2e.mjs`): browser behavior (ctrl+space
+  autocomplete, click-to-run rendering) cannot be exercised with curl, so it
+  uses the `playwright` npm package — pinned in the CI workflows that run it.
 - **Test via the public API wherever possible** — curl the live endpoints
   (`api.php`, embed surfaces, citation API, SPARQL). Mock external services
   (fetch providers) only at system boundaries.
