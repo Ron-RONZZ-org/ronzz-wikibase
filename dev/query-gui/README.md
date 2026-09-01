@@ -47,6 +47,43 @@ Verify: `curl -s -o /dev/null -w '%{http_code}' https://query.ronzz.org/` (200);
 `curl -sG --data-urlencode 'query=SELECT * WHERE { ?s ?p ?o } LIMIT 1' --data 'format=json' https://query.ronzz.org/sparql`
 (JSON); `curl -s -o /dev/null -w '%{http_code}' 'https://query.ronzz.org/sparql?update=DELETE%20WHERE%20%7B%3Fs%20%3Fp%20%3Fo%7D'` (403).
 
+## Query Builder (wikimedia/wikidata-query-builder)
+
+Visual, form-based query building (no SPARQL needed) for users of the
+instance — Wikidata's own Query Builder, pointed at RonzzWiki. Served at
+`https://query.ronzz.org/querybuilder/` (nginx `location /querybuilder/` →
+`/var/www/wdqs/query-builder/dist/`; the GUI's `api.query-builder.server`
+config links to it).
+
+- **Config**: Vite 2 + Vue 3 app; all values are build-time env vars in
+  `.env.production` (NOT runtime — rebuild to change):
+  `VUE_APP_WIKIBASE_API_URL=https://wikibase.ronzz.org/w/api.php`,
+  `VUE_APP_QUERY_SERVICE_URL=https://query.ronzz.org/`,
+  `VUE_APP_QUERY_SERVICE_EMBED_URL=https://query.ronzz.org/embed.html`,
+  `VUE_APP_SUBCLASS_PROPERTY_MAP={"default": "P31"}` (our subclass-of property —
+  upstream defaults to P279). Omit the statsv/shortener/privacy vars (features
+  hide themselves).
+- **Why no source patch**: `QueryBuilderSparqlGenerator.getString()` strips all
+  `PREFIX` lines from the generated query, so it ships bare `wd:`/`wdt:`/`p:`
+  prefixes that resolve via the store's `prefixes.conf` (the 2026-09-01 prefix
+  fix) — no wikidata.org URIs leak into queries. `wikibase:label` is the
+  fixed `wikiba.se` URI, identical everywhere. Verified live: generated
+  `?item p:P1 ?s. ?s (ps:P1/(wdt:P31*)) wd:Q6` → 28 people.
+- **Build & deploy** (off the production box — builds here or on a dev box;
+  the 11 GiB server wedged once under load):
+  ```bash
+  git clone https://github.com/wikimedia/wikidata-query-builder.git
+  cd wikidata-query-builder
+  # write .env.production as above
+  npm ci --no-audit --no-fund --ignore-scripts   # skips the cypress binary
+  npm run build -- --base=/querybuilder/          # base path must match the nginx location
+  rsync -av --rsync-path="sudo rsync" dist/ ronzz-linux-server-2:/var/www/wdqs/query-builder/dist/
+  ```
+  Then `sudo systemctl reload nginx`. ⚠️ `alias` + `try_files` are
+  incompatible in nginx — the location uses bare `alias` + `index` (the
+  builder is a single-view app with no router, so no SPA fallback is needed;
+  the first attempt with `try_files` 404'd every asset).
+
 ## Known limitations / follow-ups
 
 - **Read-only residual gap**: nginx cannot inspect POST form-urlencoded bodies,
@@ -71,9 +108,9 @@ Verify: `curl -s -o /dev/null -w '%{http_code}' https://query.ronzz.org/` (200);
   MariaDB. Check `free -h` before rebuilding — a rebuild during a memory
   stall wedged the box on 2026-09-01 (all userspace unresponsive; hard
   restart from the OCI console). Keep rebuilds short and quiet.
-- **Query Builder link**: the navbar "Query Builder" button + banner point at
-  query.wikidata.org's builder (default-config). Deploying
-  wikimedia/WikidataQueryBuilder against this instance would make it usable;
-  until then it is outbound-only.
+- **Query Builder — DEPLOYED (2026-09-01)**: the navbar "Query Builder" button
+  + the GUI config now point at the instance's own builder at
+  `https://query.ronzz.org/querybuilder/` (previously outbound to
+  query.wikidata.org). See the [Query Builder](#query-builder) section below.
 - **Upstream**: no releases — master only, pinned commit above; rebuild after
   upstream merges (mirrors the mediawiki-mcp-server convention).

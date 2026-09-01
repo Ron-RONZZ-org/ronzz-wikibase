@@ -8,7 +8,8 @@
       "pageTitle": "SPARQL examples",
       "pagePathElement": "wiki/"
     },
-    "urlShortener": "tinyurl"
+    "urlShortener": "tinyurl",
+    "query-builder": { "server": "https://query.ronzz.org/querybuilder/" }
   },
   "brand": {
     "title": "RonzzWiki Query Service",
