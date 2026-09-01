@@ -109,8 +109,8 @@ jobs:
           chmod 600 "$HOME/.ssh/deploy_key"
           # server host key pinned (public); no TOFU
           cat >> "$HOME/.ssh/known_hosts" <<'EOF'
-158.178.193.231 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMe38H8iJk+OXP5Y2WJY8R9WdZQF/6PsjyxBWxSJuLCA
-EOF
+          158.178.193.231 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMe38H8iJk+OXP5Y2WJY8R9WdZQF/6PsjyxBWxSJuLCA
+          EOF
           SSH="ssh -i $HOME/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes"
           # -rlptDz = -a without -o/-g (the deploy user can't chown; avoids warnings)
           rsync -rlptDz --delete -e "$SSH" \
