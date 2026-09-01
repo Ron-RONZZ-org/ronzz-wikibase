@@ -1,5 +1,10 @@
 {
-	"@metadata": {"authors": ["ronzz.org"], "description": "Enigeblaj enhavaj elementoj (citaĵo, kodero, matematika esprimo) en Wikibase-instancujo — vortaraj manifestoj, prizorgaj skriptoj, bildigo de enigoj kaj paĝoj por krei enhavon."},
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		],
+		"description": "Enigeblaj enhavaj elementoj (citaĵo, kodero, matematika esprimo) en Wikibase-instancujo — vortaraj manifestoj, prizorgaj skriptoj, bildigo de enigoj kaj paĝoj por krei enhavon."
+	},
 	"embeddablecontent-desc": "Enigeblaj enhavaj elementoj (citaĵo, kodero, matematika esprimo) en Wikibase-instancujo",
 	"special-embed": "Enigi",
 	"special-addquotation": "Aldoni citaĵon",
@@ -351,5 +356,13 @@
 	"embeddablecontent-update-collective-logo-include": "Mi alŝutos novan emblemon por ĉi tiu kolektivo (anstataŭigante la ekzistantan)",
 	"embeddablecontent-update-source-access-include": "Mi ĝisdatigos la alirinstrukciojn de la rimedo",
 	"embeddablecontent-page-title-warning": "La elemento estis kreita, sed klasika paĝo ne povis esti kreita: la etikedo ne taŭgas kiel paĝtitolo (ĝi estas malplena aŭ enhavas signojn, kiujn MediaWiki malpermesas en titoloj, ekz. # &lt; &gt; [ ] { } |).",
-	"embeddablecontent-page-title-warning-goto": "Iri al la kreita elemento"
+	"embeddablecontent-page-title-warning-goto": "Iri al la kreita elemento",
+	"embeddablecontent-duplicate-title": "Ebla duplikato",
+	"embeddablecontent-duplicate-warning": "Ni opinias, ke ĉi tiu elemento povus esti duplikato de [[Item:$2|$1]].",
+	"embeddablecontent-duplicate-match-id": "Ekzistanta elemento jam havas la saman eksteran identigilon aŭ retadreson.",
+	"embeddablecontent-duplicate-match-label": "Ekzistanta elemento havas tre similan etikedon.",
+	"embeddablecontent-duplicate-yes": "Jes, ĝuste",
+	"embeddablecontent-duplicate-no-continue": "Ne — daŭrigi la kreadon",
+	"embeddablecontent-duplicate-no-create": "Ne — krei la elementon ĉiuokaze",
+	"embeddablecontent-duplicate-ack-url": "Mi kontrolis, ke ĉi tiu retadreso ne estas duplikato — daŭrigi"
 }

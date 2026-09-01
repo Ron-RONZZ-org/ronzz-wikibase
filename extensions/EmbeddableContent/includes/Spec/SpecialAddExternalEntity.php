@@ -168,9 +168,27 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			$this->executeReview( $first, (int)$parts[2] );
 			return;
 		}
+		// Duplication-guard confirms (tokens are 16-hex (MWCryptRand::generateHex(16)), so `duplicate` can
+		// never collide with a token): /<token>/duplicate/<index>/<Qid> is
+		// the search-pick early warning; /<token>/duplicate/<Qid> is the
+		// create-gate confirm whose [No, create it anyway] POSTs back here.
+		if ( ( $parts[1] ?? '' ) === 'duplicate' ) {
+			if ( ( $parts[3] ?? '' ) !== '' && preg_match( '/^Q[1-9]\d*$/i', (string)$parts[3] ) === 1 ) {
+				$this->executeDuplicatePick( $first, (int)$parts[2], strtoupper( (string)$parts[3] ) );
+				return;
+			}
+			if ( ( $parts[2] ?? '' ) !== '' && preg_match( '/^Q[1-9]\d*$/i', (string)$parts[2] ) === 1 ) {
+				if ( $this->getRequest()->wasPosted() ) {
+					$this->onDuplicateCreateSubmit( $first, strtoupper( (string)$parts[2] ) );
+					return;
+				}
+				$this->executeDuplicateCreate( $first, strtoupper( (string)$parts[2] ) );
+				return;
+			}
+		}
 		// Finalize a just-created classic page in a FRESH request (the page
 		// is written by afterCreate; this step strips the pending marker —
-		// tokens are 32-hex so `complete` can never collide with them).
+		// tokens are 16-hex (MWCryptRand::generateHex(16)) so `complete` can never collide with them).
 		if ( $first === 'complete' && ( $parts[1] ?? '' ) !== '' ) {
 			$this->executeComplete( $parts[1] );
 			return;
@@ -350,8 +368,156 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// record; the user can correct errors before anything is created.
 		$records[$index] = $this->enrichRecord( $record );
 		$this->getRequest()->getSession()->set( self::SESSION_PREFIX . $token, $records );
+
+		// Duplication guard (early warning — the user just picked a record
+		// whose authority id / URL already exists locally). [Yes, that's
+		// right] → the existing item; [No] → the review step continues.
+		$duplicate = $this->findDuplicate( $records[$index] );
+		if ( $duplicate !== null ) {
+			$this->getOutput()->redirect(
+				$this->stepTitle( $token . '/duplicate/' . $index . '/' . $duplicate['itemId'] )->getFullURL()
+			);
+			return true;
+		}
+
 		$this->getOutput()->redirect( $this->stepTitle( $token . '/review/' . $index )->getFullURL() );
 		return true;
+	}
+
+	// ----------------------------------------------------- duplication guard
+
+	/**
+	 * Existing item the record would duplicate, or null (best-effort: a
+	 * WDQS or term-store failure yields no duplicate — the guard never
+	 * blocks creation). Signals: identical external ids / URLs first, then
+	 * the fuzzy label within the flow's own class set.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array{itemId:string,label:string,match:string}|null
+	 */
+	protected function findDuplicate( array $record ): ?array {
+		try {
+			return \EmbeddableContent\Spec\DuplicateChecker::find(
+				$this->config,
+				$record,
+				trim( $this->primaryLabel( $record ) ),
+				array_values( $this->classOptions() )
+			);
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+	}
+
+	/**
+	 * The shared duplicate-confirm page: "We think this item may be a
+	 * duplicate of [[Item:Qxxx|label]]" + [Yes, that's right] (→ the
+	 * existing item) + a No action. $yesTarget is the existing item URL;
+	 * $noTarget is the continuation URL ([No] on the search-pick = the
+	 * review step, a link; on the create gate = the create-anyway submit,
+	 * a POST carrying the CSRF token).
+	 */
+	protected function executeDuplicateConfirm( string $itemId, string $label, string $match, string $noTarget, string $noMessage, bool $isPost ): void {
+		$this->setHeaders();
+		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-duplicate-title' )->text() );
+		$itemUrl = WikibaseRepo::getEntityTitleStoreLookup()->getTitleForId( new ItemId( $itemId ) )->getFullURL();
+		// The label rides the parsed warning message as wikilink display
+		// text — sanitize it like a page title (stripMarkup, the page-title
+		// contract) so markup cannot leak through the [[Item:Q#|label]] link.
+		$safeLabel = \EmbeddableContent\Spec\LabelSanitizer::stripMarkup( $label );
+		$detail = $match === 'id'
+			? $this->msg( 'embeddablecontent-duplicate-match-id' )->text()
+			: $this->msg( 'embeddablecontent-duplicate-match-label' )->text();
+		$noAction = $isPost
+			? '<form method="post" action="' . htmlspecialchars( $noTarget ) . '">'
+				. '<input type="hidden" name="wpEditToken" value="'
+				. htmlspecialchars( $this->getContext()->getCsrfTokenSet()->getToken()->toString() ) . '">'
+				. '<button type="submit" class="wb-duplicate-guard-no mw-ui-button">'
+				. htmlspecialchars( $noMessage ) . '</button></form>'
+			: '<a class="wb-duplicate-guard-no mw-ui-button" href="'
+				. htmlspecialchars( $noTarget ) . '">'
+				. htmlspecialchars( $noMessage ) . '</a>';
+		$html = '<div class="wb-duplicate-guard">'
+			. \MediaWiki\Html\Html::warningBox(
+				'<p>' . $this->msg( 'embeddablecontent-duplicate-warning', $safeLabel, $itemId )->parse() . '</p>'
+				. '<p class="wb-duplicate-guard-detail">' . htmlspecialchars( $detail ) . '</p>'
+				. '<p><a class="wb-duplicate-guard-yes mw-ui-button mw-ui-progressive" href="'
+				. htmlspecialchars( $itemUrl ) . '">'
+				. $this->msg( 'embeddablecontent-duplicate-yes' )->escaped() . '</a></p>'
+			)
+			. $noAction
+			. '</div>';
+		$this->getOutput()->addHTML( $html );
+	}
+
+	/** /<token>/duplicate/<index>/<Qid> — search-pick early warning. */
+	protected function executeDuplicatePick( string $token, int $index, string $qid ): void {
+		$records = $this->loadSessionRecords( $token );
+		$record = $records[$index] ?? null;
+		if ( $record === null || !is_array( $record ) ) {
+			$this->showExpired();
+			return;
+		}
+		$label = (string)( $record['label'] ?? $this->primaryLabel( $record ) );
+		$this->executeDuplicateConfirm(
+			$qid,
+			$label !== '' ? $label : $qid,
+			'id',
+			$this->stepTitle( $token . '/review/' . $index )->getFullURL(),
+			$this->msg( 'embeddablecontent-duplicate-no-continue' )->text(),
+			false
+		);
+	}
+
+	/** /<token>/duplicate/<Qid> — create-gate confirm; [No] creates anyway. */
+	protected function executeDuplicateCreate( string $dupToken, string $qid ): void {
+		$pending = $this->getRequest()->getSession()
+			->get( self::SESSION_PREFIX . $dupToken . ':pending' );
+		if ( !is_array( $pending ) ) {
+			$this->showExpired();
+			return;
+		}
+		$dup = $pending['duplicate'] ?? null;
+		if ( !is_array( $dup ) ) {
+			$this->showExpired();
+			return;
+		}
+		$this->executeDuplicateConfirm(
+			$qid,
+			(string)( $dup['label'] ?? $qid ),
+			(string)( $dup['match'] ?? 'id' ),
+			$this->stepTitle( $dupToken . '/duplicate/' . $qid )->getFullURL(),
+			$this->msg( 'embeddablecontent-duplicate-no-create' )->text(),
+			true
+		);
+	}
+
+	/**
+	 * The create-gate "No, create it anyway" submit: re-runs the pending
+	 * creation with forceCreate (skips the gate AND the silent label reuse).
+	 *
+	 * @return bool
+	 */
+	protected function onDuplicateCreateSubmit( string $dupToken, string $qid ): bool {
+		// Write action — CSRF-gated like every other step of the flow.
+		if ( !$this->getContext()->getCsrfTokenSet()
+			->matchToken( (string)$this->getRequest()->getVal( 'wpEditToken' ) )
+		) {
+			$this->showExpired();
+			return true;
+		}
+		$session = $this->getRequest()->getSession();
+		$pending = $session->get( self::SESSION_PREFIX . $dupToken . ':pending' );
+		if ( !is_array( $pending ) || !isset( $pending['record'], $pending['classItemId'] ) ) {
+			$this->showExpired();
+			return true;
+		}
+		$session->remove( self::SESSION_PREFIX . $dupToken . ':pending' );
+		return $this->createItemAndRedirect(
+			$pending['record'],
+			(string)$pending['classItemId'],
+			$dupToken,
+			true
+		);
 	}
 
 	// ------------------------------------------------------------- step 3
@@ -525,14 +691,37 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 * redirected (classic page via afterCreate, or the item).
 	 *
 	 * @param array<string,mixed> $record
+	 * @param bool $forceCreate true after the user explicitly confirmed a
+	 *        duplicate warning ("No, create it anyway") — skips the
+	 *        duplicate gate AND the silent exact-label reuse
 	 * @return bool|string
 	 */
-	private function createItemAndRedirect( array $record, string $classItemId, string $token ): bool {
+	private function createItemAndRedirect( array $record, string $classItemId, string $token, bool $forceCreate = false ): bool {
 		if ( trim( $this->primaryLabel( $record ) ) === '' ) {
 			return $this->msg( 'embeddablecontent-add-error-required' )->text();
 		}
+		// Duplication guard (final gate): an identical external id / URL or
+		// a highly similar label routes to a confirm step — [Yes, that's
+		// right] redirects to the existing item, [No, create it anyway]
+		// re-enters here with $forceCreate. WDQS/term-store failures yield
+		// no duplicate (the guard never blocks creation).
+		if ( !$forceCreate ) {
+			$duplicate = $this->findDuplicate( $record );
+			if ( $duplicate !== null ) {
+				$dupToken = \MWCryptRand::generateHex( 16 );
+				$this->getRequest()->getSession()->set( self::SESSION_PREFIX . $dupToken . ':pending', [
+					'record' => $record,
+					'classItemId' => $classItemId,
+					'duplicate' => $duplicate,
+				] );
+				$this->getOutput()->redirect(
+					$this->stepTitle( $dupToken . '/duplicate/' . $duplicate['itemId'] )->getFullURL()
+				);
+				return true;
+			}
+		}
 		try {
-			$itemId = $this->createFromRecord( $record, $classItemId );
+			$itemId = $this->createFromRecord( $record, $classItemId, $forceCreate );
 		} catch ( \Throwable $e ) {
 			return $this->msg( 'embeddablecontent-extcreate-error', get_class( $e ), $e->getMessage() )->text();
 		}
@@ -799,18 +988,22 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	/**
 	 * Creates (or reuses) the local item for the selected record.
 	 * Returns the item id.
+	 *
+	 * @param bool $forceCreate skip the silent exact-label reuse (the user
+	 *        confirmed a duplicate warning and wants a second item)
 	 */
-	protected function createFromRecord( array $record, string $classItemId ): string {
+	protected function createFromRecord( array $record, string $classItemId, bool $forceCreate = false ): string {
 		$record = $this->enrichRecord( $record );
 		$flowKind = $this->semanticFlowKindKey();
 		if ( $flowKind !== null ) {
-			return $this->createViaSemanticFlow( $flowKind, $record );
+			return $this->createViaSemanticFlow( $flowKind, $record, $forceCreate );
 		}
 		return $this->createOrSkipItem(
 			$this->primaryLabel( $record ),
 			$classItemId,
 			$this->statementSpecs( $record ),
-			$record
+			$record,
+			$forceCreate
 		);
 	}
 
@@ -833,8 +1026,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 * every statement but the instance-of one.
 	 *
 	 * @param array<string,mixed> $record
+	 * @param bool $forceCreate skip the silent exact-label reuse (the user
+	 *        confirmed a duplicate warning and wants a second item)
 	 */
-	private function createViaSemanticFlow( string $kind, array $record ): string {
+	private function createViaSemanticFlow( string $kind, array $record, bool $forceCreate = false ): string {
 		$flowRecord = $this->semanticFlowRecord( $kind, $record );
 		$error = $this->semanticFlow()->prepare( $kind, $flowRecord, true );
 		if ( $error !== null ) {
@@ -844,9 +1039,11 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		}
 		$label = $this->semanticFlow()->labelFor( $kind, $flowRecord );
 
-		$existing = $this->findItemIdByLabel( $label );
-		if ( $existing !== null ) {
-			return $existing;
+		if ( !$forceCreate ) {
+			$existing = $this->findItemIdByLabel( $label );
+			if ( $existing !== null ) {
+				return $existing;
+			}
 		}
 
 		$item = $this->semanticFlow()->buildItem( $kind, $flowRecord );
@@ -1142,6 +1339,17 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// data update, the sitelink table.
 		// Guard: on create-or-skip reuse the item may already carry the link
 		// — never rewrite existing sitelink state.
+		// The classic-page sitelink is UNIQUE per page: on the
+		// duplication-guard force-create ("create it anyway" with the same
+		// label) the title's sitelink already belongs to the EXISTING item —
+		// never steal it (WikiPageEntityStore throws StorageException).
+		// Create the new item page-less (the item redirect) — the classic
+		// page keeps rendering the original item.
+		$linkOwner = WikibaseRepo::getStore()->newSiteLinkStore()
+			->getItemIdForLink( 'wikibase', $title->getPrefixedText() );
+		if ( $linkOwner !== null && $linkOwner->getSerialization() !== $itemId ) {
+			return null;
+		}
 		$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
 		if ( $item instanceof Item ) {
 			$this->linkPageToItem( $item, $title, $label );
@@ -1552,11 +1760,15 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 * licenses, …) land on the item.
 	 *
 	 * @param array<string,mixed> $statementSpecs property id => DataValue | DataValue[]
+	 * @param bool $forceCreate skip the silent exact-label reuse (the user
+	 *        confirmed a duplicate warning and wants a second item)
 	 */
-	protected function createOrSkipItem( string $label, string $classItemId, array $statementSpecs, array $record ): string {
-		$existing = $this->findItemIdByLabel( $label );
-		if ( $existing !== null ) {
-			return $existing;
+	protected function createOrSkipItem( string $label, string $classItemId, array $statementSpecs, array $record, bool $forceCreate = false ): string {
+		if ( !$forceCreate ) {
+			$existing = $this->findItemIdByLabel( $label );
+			if ( $existing !== null ) {
+				return $existing;
+			}
 		}
 
 		$item = new Item();

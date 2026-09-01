@@ -1,5 +1,10 @@
 {
-	"@metadata": {"authors": ["ronzz.org"], "description": "Éléments de contenu intégrables (citation, extrait de code, expression mathématique) sur une instance Wikibase — manifests de vocabulaire, scripts de maintenance, rendu des intégrations et pages de création de contenu."},
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		],
+		"description": "Éléments de contenu intégrables (citation, extrait de code, expression mathématique) sur une instance Wikibase — manifests de vocabulaire, scripts de maintenance, rendu des intégrations et pages de création de contenu."
+	},
 	"embeddablecontent-desc": "Éléments de contenu intégrables (citation, extrait de code, expression mathématique) sur une instance Wikibase",
 	"special-embed": "Intégrer",
 	"special-addquotation": "Ajouter une citation",
@@ -351,5 +356,13 @@
 	"embeddablecontent-update-collective-logo-include": "Je vais importer un nouveau logo pour ce collectif (en remplacement de l'existant)",
 	"embeddablecontent-update-source-access-include": "Je vais mettre à jour les instructions d'accès à la ressource",
 	"embeddablecontent-page-title-warning": "L'élément a été créé, mais la page classique n'a pas pu être créée : le libellé ne peut pas servir de titre de page (il est vide ou contient des caractères interdits par MediaWiki dans les titres, p. ex. # &lt; &gt; [ ] { } |).",
-	"embeddablecontent-page-title-warning-goto": "Aller à l'élément créé"
+	"embeddablecontent-page-title-warning-goto": "Aller à l'élément créé",
+	"embeddablecontent-duplicate-title": "Doublon possible",
+	"embeddablecontent-duplicate-warning": "Nous pensons que cet élément est peut-être un doublon de [[Item:$2|$1]].",
+	"embeddablecontent-duplicate-match-id": "Un élément existant porte déjà le même identifiant externe ou la même URL web.",
+	"embeddablecontent-duplicate-match-label": "Un élément existant a un libellé très similaire.",
+	"embeddablecontent-duplicate-yes": "Oui, c'est bien cela",
+	"embeddablecontent-duplicate-no-continue": "Non — poursuivre la création",
+	"embeddablecontent-duplicate-no-create": "Non — créer l’élément quand même",
+	"embeddablecontent-duplicate-ack-url": "J'ai vérifié que cette URL n'est pas un doublon — continuer"
 }

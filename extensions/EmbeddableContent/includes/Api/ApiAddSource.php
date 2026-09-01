@@ -4,6 +4,7 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\Api;
 
+use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\Flow\ClassicPageCreator;
 use EmbeddableContent\Flow\SourceFlowService;
 use EmbeddableContent\Flow\StatementGuidAssigner;
@@ -36,10 +37,20 @@ class ApiAddSource extends ApiBase {
 	/** @var ClassicPageCreator */
 	private $pageCreator;
 
-	public function __construct( $mainModule, $moduleName, SourceFlowService $flow, ClassicPageCreator $pageCreator ) {
+	/** @var EmbeddableContentConfig */
+	private $config;
+
+	public function __construct(
+		$mainModule,
+		$moduleName,
+		SourceFlowService $flow,
+		ClassicPageCreator $pageCreator,
+		EmbeddableContentConfig $config
+	) {
 		parent::__construct( $mainModule, $moduleName );
 		$this->flow = $flow;
 		$this->pageCreator = $pageCreator;
+		$this->config = $config;
 	}
 
 	public function execute() {
@@ -66,8 +77,33 @@ class ApiAddSource extends ApiBase {
 		$user = $this->getUser();
 		$summary = $params['summary'];
 		$store = WikibaseRepo::getEntityStore();
+		$confirmDuplicate = !empty( $params['confirmDuplicate'] );
 
 		if ( $creating ) {
+			// Duplication guard: an existing item carrying the record's
+			// external ids / URLs, or a highly similar label, aborts with a
+			// duplicate result (no create) — machine clients decide;
+			// confirmDuplicate=1 forces the create.
+			if ( !$confirmDuplicate ) {
+				$classId = $this->config->sourceClasses()[
+					\EmbeddableContent\Flow\SourceFieldMap::formKey( $classKey )
+				] ?? null;
+				$duplicate = \EmbeddableContent\Spec\DuplicateChecker::find(
+					$this->config,
+					$record,
+					$this->flow->labelFor( $classKey, $record ),
+					$classId !== null ? [ $classId ] : []
+				);
+				if ( $duplicate !== null ) {
+					$this->getResult()->addValue( null, 'source', [
+						'duplicate' => '1',
+						'duplicateOf' => $duplicate['itemId'],
+						'duplicateLabel' => $duplicate['label'],
+						'match' => $duplicate['match'],
+					] );
+					return;
+				}
+			}
 			$item = $this->flow->buildItem( $classKey, $record );
 			$summaryText = $summary ?? 'Add source item';
 			$store->saveEntity( $item, $summaryText, $user, EDIT_NEW );
@@ -133,6 +169,12 @@ class ApiAddSource extends ApiBase {
 			],
 			'summary' => [
 				self::PARAM_TYPE => 'string',
+				self::PARAM_REQUIRED => false,
+			],
+			// Force the create past the duplication guard (the default: a
+			// duplicate hit returns { duplicate: 1, duplicateOf, match }).
+			'confirmDuplicate' => [
+				self::PARAM_TYPE => 'boolean',
 				self::PARAM_REQUIRED => false,
 			],
 		];

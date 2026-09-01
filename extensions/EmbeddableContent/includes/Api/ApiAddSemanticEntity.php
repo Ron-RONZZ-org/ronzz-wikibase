@@ -94,8 +94,30 @@ class ApiAddSemanticEntity extends ApiBase {
 		$user = $this->getUser();
 		$summary = $params['summary'];
 		$store = WikibaseRepo::getEntityStore();
+		$confirmDuplicate = !empty( $params['confirmDuplicate'] );
 
 		if ( $creating ) {
+			// Duplication guard: an existing item carrying the record's
+			// external ids / URLs, or a highly similar label, aborts with a
+			// duplicate result (no create) — machine clients decide;
+			// confirmDuplicate=1 forces the create.
+			if ( !$confirmDuplicate ) {
+				$duplicate = \EmbeddableContent\Spec\DuplicateChecker::find(
+					$this->config,
+					$record,
+					$this->flow->labelFor( $kind, $record ),
+					self::classFilter( $this->config, $kind, $record )
+				);
+				if ( $duplicate !== null ) {
+					$this->getResult()->addValue( null, 'semantic', [
+						'duplicate' => '1',
+						'duplicateOf' => $duplicate['itemId'],
+						'duplicateLabel' => $duplicate['label'],
+						'match' => $duplicate['match'],
+					] );
+					return;
+				}
+			}
 			$item = $this->flow->buildItem( $kind, $record );
 			$summaryText = $summary ?? 'Add semantic entity';
 			$store->saveEntity( $item, $summaryText, $user, EDIT_NEW );
@@ -148,6 +170,9 @@ class ApiAddSemanticEntity extends ApiBase {
 			],
 			'qid' => [ self::PARAM_TYPE => 'string', self::PARAM_REQUIRED => false ],
 			'summary' => [ self::PARAM_TYPE => 'string', self::PARAM_REQUIRED => false ],
+			// Force the create past the duplication guard (the default: a
+			// duplicate hit returns { duplicate: 1, duplicateOf, match }).
+			'confirmDuplicate' => [ self::PARAM_TYPE => 'boolean', self::PARAM_REQUIRED => false ],
 			// kind=software only: the classic-page namespace (foss|software);
 			// absent → the license decides (SoftwarePageKind).
 			'pageKind' => [
@@ -184,6 +209,30 @@ class ApiAddSemanticEntity extends ApiBase {
 			'documentationUrl', 'collectiveClass', 'parentOrganization',
 			'presentInWork', 'instanceOf',
 		];
+	}
+
+	/**
+	 * Class filter for the duplicate-guard label match, per kind.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return string[]
+	 */
+	private static function classFilter( EmbeddableContentConfig $config, string $kind, array $record ): array {
+		switch ( $kind ) {
+			case 'person':
+				$person = $config->agentClasses()['person'] ?? null;
+				return $person !== null ? [ $person ] : [];
+			case 'collective':
+				return array_values( $config->agentClasses() );
+			case 'software':
+				return array_values( $config->fossClasses() );
+			case 'fictional-character':
+				return array_values( $config->fictionalCharacterClasses() );
+			case 'other':
+				$instanceOf = (string)( $record['instanceOf'] ?? '' );
+				return $instanceOf !== '' ? [ $instanceOf ] : [];
+		}
+		return [];
 	}
 
 	private function pageTitleFor( string $kind, array $record, $user ): ?string {

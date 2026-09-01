@@ -144,7 +144,8 @@
 			"class": "EmbeddableContent\\Api\\ApiAddSource",
 			"services": [
 				"EmbeddableContent.SourceFlowService",
-				"EmbeddableContent.ClassicPageCreator"
+				"EmbeddableContent.ClassicPageCreator",
+				"EmbeddableContent.Config"
 			]
 		},
 		"addsource-fields": {
@@ -156,7 +157,8 @@
 		"addspecialcontent": {
 			"class": "EmbeddableContent\\Api\\ApiAddSpecialContent",
 			"services": [
-				"EmbeddableContent.SpecialContentFlowService"
+				"EmbeddableContent.SpecialContentFlowService",
+				"EmbeddableContent.Config"
 			]
 		},
 		"addspecialcontent-fields": {

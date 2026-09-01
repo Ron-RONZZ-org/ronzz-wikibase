@@ -590,6 +590,48 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   and `applyUpdate` removes nothing — the item's access statements survive
   byte-identical (no re-upload, no GUID churn). The Add* flow keeps the
   section always visible.
+- **Statement GUIDs on flow-created items (fix, 2026-08-31)**: the flow
+  services (`SemanticEntityFlowService`/`SourceFlowService`/
+  `SpecialContentFlowService`) built statements via `addNewStatement()`
+  WITHOUT a GUID, bypassing Wikibase's ChangeOps (which auto-assign GUIDs in
+  `ChangeOpStatement::apply`). The entity-page client matches server-rendered
+  statement DOM to the entity JSON **BY GUID**
+  (`ViewFactory.getStatementGroupListView` → `getStatementForGuid`), so a
+  GUID-less statement never matched and rendered as an **EMPTY edit-mode row
+  for logged-in users** — "item page in edit mode with content gone"
+  (anon users get read-mode rendering, hence the anon-OK/logged-in-broken
+  split; every flow-created item since the delegation refactor was affected,
+  e.g. Q1402/Q1428 `claim id = None`). Fix: `Flow/StatementGuidAssigner`
+  (pure, idempotent) + **create paths save twice** — the first save assigns
+  the item id, GUIDs are generated from it (`GuidGenerator::newGuid`), the
+  second persists them (the `ImageItemCreator` pattern) — and `applyUpdate`
+  assigns GUIDs inline (item id known). `maintenance/assignStatementGuids.php`
+  backfills existing GUID-less claims (idempotent, `--dry-run`/`--verify`).
+  E2E regression net: every flow-created item's claims must carry ids
+  (`assert_claim_ids` in `run_pages_e2e.py`).
+- **Duplication guard on the Add* flows (ADR
+  `docs/decisions/duplicate-guard.md`)**: an existing item carrying an
+  identical authority external id (Wikidata/OpenAlex/ORCID/DOI/ISBN/VIAF/
+  ISNI/YouTube) or web URL (official website/source repo/docs URL/access
+  URL), or a highly similar (≥ 0.75, class-filtered) label, triggers the
+  confirm panel "We think this item may be a duplicate of
+  [[Item:Qxxx|label]]" — [Yes, that's right] → the existing item page; [No]
+  → the flow continues and the create gate **force-creates** (the previous
+  silent exact-label reuse in `createOrSkipItem`/`createViaSemanticFlow`/
+  `createViaFlow` is bypassed). Trigger points, earliest-first: the
+  **search-pick** step (a picked record whose authority id exists →
+  `/<token>/duplicate/<index>/<Qid>`), the **URL-entry** step (website/
+  webpage/YouTube — an existing URL warns inline with an acknowledge
+  checkbox), and the **create gate** (every review/manual/content submit
+  re-checks the final record). The API modules (`addsemanticentity`/
+  `addsource`/`addspecialcontent`) return `{ duplicate: 1, duplicateOf,
+  duplicateLabel, match }` instead of creating; `confirmDuplicate=1`
+  force-creates. `Spec/DuplicateFinder` (pure — one `VALUES (?p ?v)` WDQS
+  query + `EntityLabelMatcher`), `Spec/DuplicateGuard` (record → pairs,
+  shared by forms + API), `Spec/DuplicateChecker` (MW facade, `sparqlUrl`).
+  **Exception-safe**: a WDQS/term-store failure yields no warning, creation
+  never blocks. The create-anyway POST is CSRF-gated; warning labels pass
+  `LabelSanitizer::stripMarkup`. No vocabulary/config-map change.
 
 ### WikibaseCitation
 
