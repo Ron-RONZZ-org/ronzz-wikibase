@@ -17,33 +17,66 @@ The [Wikidata Query Service GUI](https://github.com/wikimedia/wikidata-query-gui
   (blocks `?update=` and `Content-Type: application/sparql-update`, rate
   limited 10 r/s, CORS `*`).
 
-## Build & deploy (server ronzz-linux-server-2, as ronzz)
+## Build & deploy — zero-touch via CI
+
+Both frontends are built and deployed by the GitHub Actions workflow
+[`.github/workflows/frontends-deploy.yml`](../../.github/workflows/frontends-deploy.yml):
+
+- **Trigger**: push to `main` touching `custom-config.json`,
+  `query-builder.env.production`, `patches/**`, `deploy-rsync-gate.sh` or the
+  workflow itself — or `workflow_dispatch` for a manual rebuild.
+- **Build** happens on GitHub runners (node 22, x86_64): GUI job checks out
+  `wikimedia/wikidata-query-gui@dd58b26`, applies the noise patch, `npm ci
+  --ignore-scripts` + `grunt only_build`, copies `custom-config.json` into
+  `build/`; builder job checks out `wikimedia/wikidata-query-builder@d2b960a`,
+  writes `.env.production` from `query-builder.env.production`, `npm ci
+  --ignore-scripts` + `vite build --base=/querybuilder/`.
+- **Deploy** job rsyncs both artifacts over SSH as the least-privileged
+  `deploy` user to `/var/www/wdqs/query-gui/build/` and
+  `/var/www/wdqs/query-builder/dist/` (`-rlptDz --delete`; no chown attempts).
+  Static files only — no nginx reload needed.
+
+The server never builds anything anymore. The old on-server GUI build steps
+(section below) are retained for emergency offline rebuilds only.
+
+### The `deploy` user and the rsync gate
+
+- **User**: `deploy` on ronzz-linux-server-2 — locked password, no sudo,
+  owns *only* the two dist dirs + `/var/backups/wdqs-frontends`.
+- **Key**: ed25519, held only in the GitHub secret `DEPLOY_SSH_KEY` (never
+  committed; `gh secret set DEPLOY_SSH_KEY --repo Ron-RONZZ-org/ronzz-wikibase
+  --body-file <keyfile>` to set/rotate). The server pins the key's
+  `authorized_keys` entry to `restrict,command="/usr/local/sbin/deploy-rsync-gate"`.
+- **Gate** (`deploy-rsync-gate.sh`, mirrored here): allows rsync PUSH only
+  into the three allowed paths; rejects interactive shells, arbitrary
+  commands, rsync pulls (`--sender`), non-absolute destinations and `..`
+  traversal. Verified live 2026-09-01 (push-to-/tmp, pull, traversal, shell —
+  all refused with exit 12; allowed push OK).
+- **sshd**: `/etc/ssh/sshd_config.d/99-deploy.conf` (Match User deploy: no
+  password/tty/forwarding).
+- **Blast radius if the key leaks**: write access to the two served dirs
+  (defacement/XSS on query.ronzz.org) + the backup dir — nothing else (no
+  wiki, no DB, no root). GitHub secrets are never exposed to fork PRs.
+- **Rollback**: nightly snapshot cron (03:05 UTC) mirrors both live dirs into
+  `/var/backups/wdqs-frontends/{gui,builder}/<YYYYMMDD>/` (14-day retention);
+  manual rollback as ronzz: `rsync -a --delete
+  /var/backups/wdqs-frontends/gui/<date>/ /var/www/wdqs/query-gui/build/`.
+
+### Emergency offline rebuild (on the server, as ronzz)
 
 ```bash
 cd /var/www/wdqs/query-gui
 git fetch -q origin && git reset -q --hard origin/master   # pin: dd58b26 (2025-02-24)
-# apply the local patch (upstream App.js logs expected sparqljs parse failures
-# at error level — see "Known limitations"); re-apply after every git reset:
 curl -sfLo /tmp/query-helper-noise.patch \
   https://raw.githubusercontent.com/Ron-RONZZ-org/ronzz-wikibase/main/dev/query-gui/patches/0001-query-helper-parse-noise.patch
 git apply /tmp/query-helper-noise.patch
-# rsync this dir's custom-config.json over the clone's (or keep the server copy)
-
-# node 22: puppeteer's postinstall fails on arm64 (no Chromium build) — skip scripts:
 rm -rf node_modules build
-HOME=/tmp npm ci --no-audit --no-fund --ignore-scripts
-
-# IMPORTANT: use `grunt only_build`, NOT `grunt build`:
-# `build` runs `auto_install` = `npm install --production`, which prunes the
-# devDependencies mid-build and breaks grunt-usemin ("Cannot find module
-# ../lib/flow"). only_build skips it and leaves node_modules intact.
-./node_modules/.bin/grunt only_build
-cp custom-config.json build/custom-config.json   # copy:release ships only default-config.json
-
-sudo systemctl reload nginx   # after editing /etc/nginx/sites-available/query.ronzz.org.conf
+HOME=/tmp npm ci --no-audit --no-fund --ignore-scripts   # arm64: skip scripts (puppeteer)
+./node_modules/.bin/grunt only_build   # NOT `grunt build` (auto_install prunes devDeps)
+cp custom-config.json build/custom-config.json
 ```
 
-Verify: `curl -s -o /dev/null -w '%{http_code}' https://query.ronzz.org/` (200);
+Verify after any deploy: `curl -s -o /dev/null -w '%{http_code}' https://query.ronzz.org/` (200);
 `curl -sG --data-urlencode 'query=SELECT * WHERE { ?s ?p ?o } LIMIT 1' --data 'format=json' https://query.ronzz.org/sparql`
 (JSON); `curl -s -o /dev/null -w '%{http_code}' 'https://query.ronzz.org/sparql?update=DELETE%20WHERE%20%7B%3Fs%20%3Fp%20%3Fo%7D'` (403).
 
@@ -69,20 +102,13 @@ config links to it).
   fix) — no wikidata.org URIs leak into queries. `wikibase:label` is the
   fixed `wikiba.se` URI, identical everywhere. Verified live: generated
   `?item p:P1 ?s. ?s (ps:P1/(wdt:P31*)) wd:Q6` → 28 people.
-- **Build & deploy** (off the production box — builds here or on a dev box;
-  the 11 GiB server wedged once under load):
-  ```bash
-  git clone https://github.com/wikimedia/wikidata-query-builder.git
-  cd wikidata-query-builder
-  # write .env.production as above
-  npm ci --no-audit --no-fund --ignore-scripts   # skips the cypress binary
-  npm run build -- --base=/querybuilder/          # base path must match the nginx location
-  rsync -av --rsync-path="sudo rsync" dist/ ronzz-linux-server-2:/var/www/wdqs/query-builder/dist/
-  ```
-  Then `sudo systemctl reload nginx`. ⚠️ `alias` + `try_files` are
-  incompatible in nginx — the location uses bare `alias` + `index` (the
-  builder is a single-view app with no router, so no SPA fallback is needed;
-  the first attempt with `try_files` 404'd every asset).
+- **Build & deploy**: via CI (`frontends-deploy.yml`) — the workflow writes
+  `.env.production` from `query-builder.env.production` and builds with
+  `vite build --base=/querybuilder/`; no builds on the production box.
+  ⚠️ `alias` + `try_files` are incompatible in nginx — the location uses bare
+  `alias` + `index` (the builder is a single-view app with no router, so no
+  SPA fallback is needed; the first attempt with `try_files` 404'd every
+  asset).
 
 ## Known limitations / follow-ups
 
@@ -103,11 +129,10 @@ config links to it).
   parse) — but the spam hid genuine errors in devtools. Re-apply after every
   `git reset` (see build steps). Verified live 2026-09-01: 0 console errors
   while typing partial queries; the helper still draws for parseable ones.
-- **Server resources**: the GUI build runs on the 11 GiB production box next
-  to Blazegraph (`-Xmx4g` + large native buffers), the WDQS updater and
-  MariaDB. Check `free -h` before rebuilding — a rebuild during a memory
-  stall wedged the box on 2026-09-01 (all userspace unresponsive; hard
-  restart from the OCI console). Keep rebuilds short and quiet.
+- **Builds run on CI** (2026-09-01): the GUI build previously ran on the
+  production box; that load is gone (the 2026-09-01 memory-stall wedge that
+  needed an OCI hard restart was the trigger for moving builds off the
+  server). Emergency on-server rebuild steps are retained above.
 - **Query Builder — DEPLOYED (2026-09-01)**: the navbar "Query Builder" button
   + the GUI config now point at the instance's own builder at
   `https://query.ronzz.org/querybuilder/` (previously outbound to
