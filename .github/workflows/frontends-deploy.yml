@@ -34,7 +34,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: wikimedia/wikidata-query-gui
-          ref: dd58b26   # pinned 2025-02-24; upstream has no releases
+          ref: dd58b265363e654ab2c8a6ec553aced2637fec18   # pinned dd58b26 (2025-02-24); upstream has no releases
           path: gui
       - uses: actions/checkout@v4
         with:
@@ -64,7 +64,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: wikimedia/wikidata-query-builder
-          ref: d2b960a   # pinned 2025-03-27
+          ref: d2b960af9b6417ce2c9c32d224671d5988d5ad37   # pinned d2b960a (2025-03-27)
           path: builder
       - uses: actions/checkout@v4
         with:
