@@ -264,6 +264,7 @@ jobs:
             --api-url "$API_URL" \
             --gui-origin "$BASE_URL" \
             --entity-base "http://wikibase/entity/" \
+            --prop-direct "http://wikibase/prop/direct/" \
             --instance-of "$(jq -r '."properties"."instance of"' seed/generated/ids.json)" \
             --person-class "$(jq -r '."classes"."person"' seed/generated/ids.json)"
 
