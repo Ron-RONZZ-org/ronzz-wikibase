@@ -1031,6 +1031,15 @@ def flow_source_url_entry(op, base: str, api: str, class_key: str, url: str,
     url_page, body = page_post(op, url_page, {
         "wpurl": url, "wpEditToken": token, "wpSubmit": "1",
     })
+    # The duplication guard (URL entry): a URL an existing item already
+    # carries re-renders the URL page with the inline warning + the
+    # acknowledge checkbox — the test's URL collapses onto the dogfood
+    # website's root (https://example.org), so acknowledge and proceed.
+    if "We think this item may be a duplicate of" in body:
+        url_page, body = page_post(op, url_page, {
+            "wpurl": url, "wpduplicateAcknowledge": "1",
+            "wpEditToken": edit_token(body), "wpSubmit": "1",
+        })
     m = re.search(r"(Special:AddSource/" + class_key + r"/manual)[^'\"]*token=([0-9a-f]+)", url_page)
     if not m:
         raise FlowError(
@@ -1064,12 +1073,21 @@ def flow_source_url_entry(op, base: str, api: str, class_key: str, url: str,
     if post_extra:
         fields.update(post_extra)
     url_page, body = page_post(op, manual_url, fields)
+    # Duplication guard (create gate): the record matches an existing item
+    # (here: the website's URL is the dogfood root) → the confirm page;
+    # acknowledge ("No — create the item anyway") and continue.
+    if re.search(r"/duplicate/Q\d+$", url_page):
+        url_page, body = page_post(op, url_page, {"wpEditToken": edit_token(body)})
     # The fetched intro (site description) is reviewed on the content step
     # (/manual/content?token= — the redirect renders as
     # /w/index.php?title=Special:.../manual/content&token=) — submit it too.
     if re.search(r"Special:AddSource/" + class_key + r"/manual/content[^'\"]*token=", url_page):
         token3 = edit_token(body)
         url_page, body = page_post(op, url_page, {"wpEditToken": token3, "wpSubmit": "1"})
+        # Duplication guard (create gate) on the content step's submit —
+        # acknowledge and continue.
+        if re.search(r"/duplicate/Q\d+$", url_page):
+            url_page, body = page_post(op, url_page, {"wpEditToken": edit_token(body)})
         # Debug aid: surface the content-step response when the creation did
         # not complete (the form re-renders without a redirect).
         if not re.search(r"/wiki/(?:Item:Q\d+|Source:[^?#]+)$", url_page):

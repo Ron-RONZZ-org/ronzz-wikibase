@@ -416,7 +416,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 * review step, a link; on the create gate = the create-anyway submit,
 	 * a POST carrying the CSRF token).
 	 */
-	private function executeDuplicateConfirm( string $itemId, string $label, string $match, string $noTarget, string $noMessage, bool $isPost ): void {
+	protected function executeDuplicateConfirm( string $itemId, string $label, string $match, string $noTarget, string $noMessage, bool $isPost ): void {
 		$this->setHeaders();
 		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-duplicate-title' )->text() );
 		$itemUrl = WikibaseRepo::getEntityTitleStoreLookup()->getTitleForId( new ItemId( $itemId ) )->getFullURL();
@@ -450,7 +450,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	}
 
 	/** /<token>/duplicate/<index>/<Qid> — search-pick early warning. */
-	private function executeDuplicatePick( string $token, int $index, string $qid ): void {
+	protected function executeDuplicatePick( string $token, int $index, string $qid ): void {
 		$records = $this->loadSessionRecords( $token );
 		$record = $records[$index] ?? null;
 		if ( $record === null || !is_array( $record ) ) {
@@ -469,7 +469,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	}
 
 	/** /<token>/duplicate/<Qid> — create-gate confirm; [No] creates anyway. */
-	private function executeDuplicateCreate( string $dupToken, string $qid ): void {
+	protected function executeDuplicateCreate( string $dupToken, string $qid ): void {
 		$pending = $this->getRequest()->getSession()
 			->get( self::SESSION_PREFIX . $dupToken . ':pending' );
 		if ( !is_array( $pending ) ) {
@@ -497,7 +497,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 *
 	 * @return bool
 	 */
-	public function onDuplicateCreateSubmit( string $dupToken, string $qid ): bool {
+	protected function onDuplicateCreateSubmit( string $dupToken, string $qid ): bool {
 		// Write action — CSRF-gated like every other step of the flow.
 		if ( !$this->getContext()->getCsrfTokenSet()
 			->matchToken( (string)$this->getRequest()->getVal( 'wpEditToken' ) )

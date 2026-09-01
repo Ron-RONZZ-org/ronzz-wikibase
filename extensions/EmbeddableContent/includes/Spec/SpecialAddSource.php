@@ -480,6 +480,23 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			$this->executeComplete( $parts[2] );
 			return;
 		}
+		// Duplication-guard confirms (the base-class routes, class-scoped):
+		// /<classKey>/<token>/duplicate/<index>/<Qid> (search-pick) and
+		// /<classKey>/<token>/duplicate/<Qid> (create-gate POST).
+		if ( ( $parts[2] ?? '' ) === 'duplicate' ) {
+			if ( ( $parts[4] ?? '' ) !== '' && preg_match( '/^Q[1-9]\d*$/i', (string)$parts[4] ) === 1 ) {
+				$this->executeDuplicatePick( $second, (int)$parts[3], strtoupper( (string)$parts[4] ) );
+				return;
+			}
+			if ( ( $parts[3] ?? '' ) !== '' && preg_match( '/^Q[1-9]\d*$/i', (string)$parts[3] ) === 1 ) {
+				if ( $this->getRequest()->wasPosted() ) {
+					$this->onDuplicateCreateSubmit( $second, strtoupper( (string)$parts[3] ) );
+					return;
+				}
+				$this->executeDuplicateCreate( $second, strtoupper( (string)$parts[3] ) );
+				return;
+			}
+		}
 		if ( ( $parts[2] ?? '' ) === 'review' && ( $parts[3] ?? '' ) !== '' ) {
 			if ( ( $parts[4] ?? '' ) === 'content' ) {
 				$this->executeContent( $second, (int)$parts[3] );
