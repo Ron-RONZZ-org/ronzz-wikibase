@@ -42,8 +42,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Apply the Query-Helper noise patch
-        run: git -C gui apply ../repo/dev/query-gui/patches/0001-query-helper-parse-noise.patch
+      - name: Apply the local patches (0001 noise, 0002 entity autocomplete)
+        run: |
+          git -C gui apply ../repo/dev/query-gui/patches/0001-query-helper-parse-noise.patch
+          git -C gui apply ../repo/dev/query-gui/patches/0002-entity-autocomplete.patch
       - name: npm ci (skip scripts — puppeteer postinstall not needed)
         working-directory: gui
         run: npm ci --no-audit --no-fund --ignore-scripts
