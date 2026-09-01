@@ -22,6 +22,11 @@ The [Wikidata Query Service GUI](https://github.com/wikimedia/wikidata-query-gui
 ```bash
 cd /var/www/wdqs/query-gui
 git fetch -q origin && git reset -q --hard origin/master   # pin: dd58b26 (2025-02-24)
+# apply the local patch (upstream App.js logs expected sparqljs parse failures
+# at error level — see "Known limitations"); re-apply after every git reset:
+curl -sfLo /tmp/query-helper-noise.patch \
+  https://raw.githubusercontent.com/Ron-RONZZ-org/ronzz-wikibase/main/dev/query-gui/patches/0001-query-helper-parse-noise.patch
+git apply /tmp/query-helper-noise.patch
 # rsync this dir's custom-config.json over the clone's (or keep the server copy)
 
 # node 22: puppeteer's postinstall fails on arm64 (no Chromium build) — skip scripts:
@@ -50,8 +55,22 @@ Verify: `curl -s -o /dev/null -w '%{http_code}' https://query.ronzz.org/` (200);
   Options if ever needed: `com.bigdata.rdf.sail.update=false` in
   `RWStore.properties` (would also break the incident-5 LOAD procedure), or an
   nginx module with body inspection.
-- **Query Helper noise**: the info-circle helper's parser logs a console error
-  for queries using `SERVICE wikibase:label` (non-fatal; the query itself runs).
+- **Query Helper noise — FIXED (local patch)**: upstream `App.js`'s
+  `_drawQueryHelper` catch logs every sparqljs parse failure via
+  `window.console.error` — but parse failures are an *expected* part of
+  editing (the helper re-parses the query debounced 1.5 s after edits, so any
+  half-typed text throws). The patch (`patches/0001-query-helper-parse-noise.patch`)
+  downgrades parse errors to `console.debug`, keeping `console.error` for real
+  failures. Non-functional either way (the error is caught; the only effect is
+  the intended "standardize format" button disabling while the query doesn't
+  parse) — but the spam hid genuine errors in devtools. Re-apply after every
+  `git reset` (see build steps). Verified live 2026-09-01: 0 console errors
+  while typing partial queries; the helper still draws for parseable ones.
+- **Server resources**: the GUI build runs on the 11 GiB production box next
+  to Blazegraph (`-Xmx4g` + large native buffers), the WDQS updater and
+  MariaDB. Check `free -h` before rebuilding — a rebuild during a memory
+  stall wedged the box on 2026-09-01 (all userspace unresponsive; hard
+  restart from the OCI console). Keep rebuilds short and quiet.
 - **Query Builder link**: the navbar "Query Builder" button + banner point at
   query.wikidata.org's builder (default-config). Deploying
   wikimedia/WikidataQueryBuilder against this instance would make it usable;

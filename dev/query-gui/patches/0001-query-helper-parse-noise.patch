@@ -1,0 +1,20 @@
+diff --git a/wikibase/queryService/ui/App.js b/wikibase/queryService/ui/App.js
+index e08165f..b3c8edc 100644
+--- a/wikibase/queryService/ui/App.js
++++ b/wikibase/queryService/ui/App.js
+@@ -523,7 +523,14 @@ wikibase.queryService.ui.App = ( function ( $, window, _, Cookies, moment ) {
+ 			// TODO: Re-enable when handling of WITH is fixed
+ 			// this._editor.highlightError( e.message );
+ 			this._setUnparsable( true );
+-			window.console.error( e );
++			// sparqljs parse failures are an expected part of editing (incomplete
++			// queries mid-typing): the helper simply doesn't draw and the format
++			// button stays disabled. Log at debug so they don't drown real errors.
++			if ( e && e.message && e.message.indexOf( 'Parse error on line' ) === 0 ) {
++				window.console.debug( e );
++			} else {
++				window.console.error( e );
++			}
+ 		}
+ 		var storedValue = this._editor.getStoredValue();
+ 		var currentValue = this._editor.getValue();
