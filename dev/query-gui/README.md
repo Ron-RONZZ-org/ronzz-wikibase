@@ -26,7 +26,7 @@ Both frontends are built and deployed by the GitHub Actions workflow
   `query-builder.env.production`, `patches/**`, `deploy-rsync-gate.sh` or the
   workflow itself — or `workflow_dispatch` for a manual rebuild.
 - **Build** happens on GitHub runners (node 22, x86_64): GUI job checks out
-  `wikimedia/wikidata-query-gui@dd58b26`, applies the noise patch, `npm ci
+  `wikimedia/wikidata-query-gui@dd58b26`, applies the patches, `npm ci
   --ignore-scripts` + `grunt only_build`, copies `custom-config.json` into
   `build/`; builder job checks out `wikimedia/wikidata-query-builder@d2b960a`,
   writes `.env.production` from `query-builder.env.production`, `npm ci
@@ -35,9 +35,34 @@ Both frontends are built and deployed by the GitHub Actions workflow
   `deploy` user to `/var/www/wdqs/query-gui/build/` and
   `/var/www/wdqs/query-builder/dist/` (`-rlptDz --delete`; no chown attempts).
   Static files only — no nginx reload needed.
+- **Post-deploy gate**: the deploy job then runs the Playwright UX E2E
+  (`tests/e2e/run_query_gui_ux_e2e.mjs`, read-only) against
+  `https://query.ronzz.org` — ctrl+space autocomplete, run-a-query with
+  instance results, examples/query-builder links, zero console errors. Red =
+  roll back from the nightly snapshot
+  (`/var/backups/wdqs-frontends/{gui,builder}/<YYYYMMDD>/`).
 
 The server never builds anything anymore. The old on-server GUI build steps
 (section below) are retained for emergency offline rebuilds only.
+
+### Local patches (applied by CI, in this order)
+
+1. `patches/0001-query-helper-parse-noise.patch` — downgrades the Query
+   Helper's expected parse failures from `console.error` to `console.debug`
+   (mid-typing re-parses throw; the noise hid real errors in devtools).
+2. `patches/0002-entity-autocomplete.patch` — **entity/property autocomplete
+   for non-wikidata instances**. Upstream `RdfNamespaces.ENTITY_TYPES` is
+   hardcoded to wikidata.org URIs, so a configured instance's prefixes (this
+   repo's `custom-config.json` `prefixes`) were filtered out of the entity
+   search map and ctrl+space silently produced nothing. The patch adds
+   `RdfNamespaces.addEntityTypes()`/`getEntityTypeForUrl()` (path-shape
+   classifier, origin-agnostic), wires it from `init.js` after
+   `addPrefixes()`, and makes the toolbar "Add prefixes" button emit the
+   standard names resolved through the config-merged `ALL_PREFIXES` (it used
+   to insert hardcoded wikidata.org `PREFIX` lines — a query that returns
+   nothing on this instance).
+
+**After every `git reset` re-apply BOTH patches** (see the emergency block).
 
 ### The `deploy` user and the rsync gate
 
@@ -67,9 +92,11 @@ The server never builds anything anymore. The old on-server GUI build steps
 ```bash
 cd /var/www/wdqs/query-gui
 git fetch -q origin && git reset -q --hard origin/master   # pin: dd58b26 (2025-02-24)
-curl -sfLo /tmp/query-helper-noise.patch \
-  https://raw.githubusercontent.com/Ron-RONZZ-org/ronzz-wikibase/main/dev/query-gui/patches/0001-query-helper-parse-noise.patch
-git apply /tmp/query-helper-noise.patch
+for p in 0001-query-helper-parse-noise.patch 0002-entity-autocomplete.patch; do
+  curl -sfLo /tmp/$p \
+    https://raw.githubusercontent.com/Ron-RONZZ-org/ronzz-wikibase/main/dev/query-gui/patches/$p
+  git apply /tmp/$p
+done
 rm -rf node_modules build
 HOME=/tmp npm ci --no-audit --no-fund --ignore-scripts   # arm64: skip scripts (puppeteer)
 ./node_modules/.bin/grunt only_build   # NOT `grunt build` (auto_install prunes devDeps)
@@ -79,6 +106,27 @@ cp custom-config.json build/custom-config.json
 Verify after any deploy: `curl -s -o /dev/null -w '%{http_code}' https://query.ronzz.org/` (200);
 `curl -sG --data-urlencode 'query=SELECT * WHERE { ?s ?p ?o } LIMIT 1' --data 'format=json' https://query.ronzz.org/sparql`
 (JSON); `curl -s -o /dev/null -w '%{http_code}' 'https://query.ronzz.org/sparql?update=DELETE%20WHERE%20%7B%3Fs%20%3Fp%20%3Fo%7D'` (403).
+The frontends-deploy workflow runs these automatically as the post-deploy
+gate (the Playwright UX E2E, see `tests/e2e/run_query_gui_ux_e2e.mjs`).
+
+## E2E
+
+- **`tests/e2e/run_query_gui_e2e.py`** (Python stdlib, read-only): SPARQL
+  correctness with bare + explicit prefixes, the `/sparql` read-only guard,
+  the `wbsearchentities` CORS contract, the runtime config merge, the
+  examples page, the Query Builder. Production: everything; CI: the SPARQL +
+  API parts against the dev stack.
+- **`tests/e2e/run_query_gui_ux_e2e.mjs`** (Playwright, read-only): the
+  browser UX — ctrl+space entity/property autocomplete, keyword hints,
+  run-a-query with instance results, examples/query-builder links, zero
+  console errors. This is the frontends-deploy post-deploy gate; run it
+  locally too whenever these frontends are touched:
+
+  ```bash
+  # from a directory where `playwright` is installed (npm scratch dir / ~/node_modules):
+  node /path/to/ronzz-wikibase/tests/e2e/run_query_gui_ux_e2e.mjs --base-url https://query.ronzz.org
+  # a local GUI build (served anywhere) can be smoked the same way with --base-url.
+  ```
 
 ## Query Builder (wikimedia/wikidata-query-builder)
 
@@ -129,6 +177,14 @@ config links to it).
   parse) — but the spam hid genuine errors in devtools. Re-apply after every
   `git reset` (see build steps). Verified live 2026-09-01: 0 console errors
   while typing partial queries; the helper still draws for parseable ones.
+- **Entity autocomplete — FIXED (local patch)**: ctrl+space produced no hint
+  popup at all on this instance (upstream `RdfNamespaces.ENTITY_TYPES` only
+  knows wikidata.org URIs, so the configured ronzz.org prefixes were filtered
+  out of the entity search map and the Rdf hint rejected). Fixed by
+  `patches/0002-entity-autocomplete.patch` (config-merged entity types + a
+  config-aware "Add prefixes" toolbar button). Verified with the Playwright
+  UX E2E: `wd:` + ctrl+space lists the instance's entities, `wdt:` its
+  properties.
 - **Builds run on CI** (2026-09-01): the GUI build previously ran on the
   production box; that load is gone (the 2026-09-01 memory-stall wedge that
   needed an OCI hard restart was the trigger for moving builds off the

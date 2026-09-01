@@ -1,0 +1,101 @@
+diff --git a/wikibase/init.js b/wikibase/init.js
+index 7accc12..311bbab 100644
+--- a/wikibase/init.js
++++ b/wikibase/init.js
+@@ -97,6 +97,10 @@
+ 
+ 		if ( config.prefixes ) {
+ 			wb.RdfNamespaces.addPrefixes( config.prefixes );
++			// Register the configured prefixes as entity prefixes (item/property)
++			// so ctrl+space and the hover tooltip search this instance's
++			// entities/properties (the stock ENTITY_TYPES only knows wikidata.org).
++			wb.RdfNamespaces.addEntityTypes( config.prefixes );
+ 		}
+ 
+ 		function afterLanguageChange() {
+diff --git a/wikibase/queryService/RdfNamespaces.js b/wikibase/queryService/RdfNamespaces.js
+index 93dbb8b..caed180 100644
+--- a/wikibase/queryService/RdfNamespaces.js
++++ b/wikibase/queryService/RdfNamespaces.js
+@@ -89,6 +89,62 @@ wikibase.queryService.RdfNamespaces = {};
+ 		$.extend( RdfNamespaces.ALL_PREFIXES, prefixes );
+ 	};
+ 
++	/**
++	 * Register configured prefixes as entity prefixes (item/property) so the
++	 * editor autocomplete and the hover tooltip search the configured instance
++	 * instead of wikidata.org. The stock ENTITY_TYPES only knows wikidata.org
++	 * URIs; any other instance's prefixes are filtered out by getPrefixMap.
++	 *
++	 * @param {Object} prefixes map of prefix name -> RDF namespace URL
++	 */
++	RdfNamespaces.addEntityTypes = function ( prefixes ) {
++		$.each( prefixes, function ( prefix, url ) {
++			var type = RdfNamespaces.getEntityTypeForUrl( url );
++			if ( type ) {
++				RdfNamespaces.ENTITY_TYPES[url] = type;
++			}
++		} );
++	};
++
++	/**
++	 * Classify an RDF namespace URL as a searchable entity type, mirroring the
++	 * stock ENTITY_TYPES path set (origin-agnostic).
++	 *
++	 * @param {string} url
++	 * @return {string|null} 'item', 'property' or null when not an entity type
++	 */
++	RdfNamespaces.getEntityTypeForUrl = function ( url ) {
++		var entityTypePaths = {
++				'property': [
++					'/prop/direct/', '/prop/direct-normalized/', '/prop/', '/prop/novalue/',
++					'/prop/statement/', '/prop/statement/value/', '/prop/statement/value-normalized/',
++					'/prop/qualifier/', '/prop/qualifier/value/', '/prop/qualifier/value-normalized/',
++					'/prop/reference/', '/prop/reference/value/', '/prop/reference/value-normalized/'
++				],
++				'item': [ '/entity/', '/wiki/Special:EntityData/' ]
++			},
++			path, type, patterns, i;
++
++		try {
++			path = new URL( url ).pathname;
++		} catch ( e ) {
++			return null;
++		}
++
++		for ( type in entityTypePaths ) {
++			if ( entityTypePaths.hasOwnProperty( type ) ) {
++				patterns = entityTypePaths[type];
++				for ( i = 0; i < patterns.length; i++ ) {
++					if ( path === patterns[i] ) {
++						return type;
++					}
++				}
++			}
++		}
++
++		return null;
++	};
++
+ 	RdfNamespaces.getPrefixMap = function ( entityTypes ) {
+ 		var prefixes = {};
+ 		$.each( RdfNamespaces.ALL_PREFIXES, function ( prefix, url ) {
+diff --git a/wikibase/queryService/ui/App.js b/wikibase/queryService/ui/App.js
+index e08165f..69dc7e2 100644
+--- a/wikibase/queryService/ui/App.js
++++ b/wikibase/queryService/ui/App.js
+@@ -684,7 +684,14 @@ wikibase.queryService.ui.App = ( function ( $, window, _, Cookies, moment ) {
+ 
+ 		$( '.addPrefixes' ).click( function () {
+ 			var standardPrefixes = wikibase.queryService.RdfNamespaces.STANDARD_PREFIXES,
++				allPrefixes = wikibase.queryService.RdfNamespaces.ALL_PREFIXES,
+ 				prefixes = Object.keys( standardPrefixes ).map( function ( x ) {
++					// Resolve the standard names through the config-merged map so
++					// non-wikidata instances insert their own entity URIs (the
++					// stock STANDARD_PREFIXES are hardcoded to wikidata.org).
++					if ( allPrefixes[x] ) {
++						return 'PREFIX ' + x + ': <' + allPrefixes[x] + '>';
++					}
+ 					return standardPrefixes[x];
+ 				} ).join( '\n' );
+ 
