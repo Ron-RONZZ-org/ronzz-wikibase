@@ -2161,29 +2161,25 @@ def flow_duplicate_manual(op, base: str, api: str, special: str, label: str,
 
 
 def flow_duplicate_url_entry(op, base: str, api: str, website_class: str,
-                             author: str, instance_of: str, url_prop: str) -> str:
+                             instance_of: str, url_prop: str) -> str:
     """The URL-entry duplication guard (website/webpage/YouTube URL flows):
     entering a URL an existing item already carries warns on the URL-entry
     page — [Yes] → the existing item; the acknowledge checkbox fetches
-    anyway (the flow proceeds to the manual form). Creates the website item
-    via action=addsource first; the re-entry retries until WDQS has indexed
-    the URL (eventually consistent). Returns the website qid."""
-    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
-    token = csrf["query"]["tokens"]["csrftoken"]
-    stamp = int(time.time())
-    url = f"https://dupe-{stamp}.example.org"
-    r = api_call(op, api, {
-        "action": "addsource", "class": "website",
-        "title": f"Duplicate URL E2E site {stamp}",
-        "url": url, "authors": author, "token": token, "format": "json",
-    }, post=True)
-    if "source" not in r or not r["source"].get("created"):
-        raise FlowError(f"addsource website creation failed: {r}")
-    site_qid = r["source"]["entityId"]
+    anyway (the flow proceeds to the manual form).
+
+    Uses the SEED dogfood website ("Example Domain") as the duplicate: it is
+    an E2E fixture AND its URL statement is in WDQS from the updater's
+    initial catch-up (the guard reads WDQS, which is eventually consistent —
+    a fresh item created mid-E2E would lag). Returns the website qid."""
+    site_qid = resolve_label(op, api, "Example Domain", "item")
+    if site_qid is None:
+        raise FlowError("seed dogfood website 'Example Domain' not resolvable")
     claims, _ = entity_claims(op, api, site_qid)
     assert first_value(claims, instance_of) == website_class, \
-        f"website {site_qid} instance-of mismatch ({first_value(claims, instance_of)})"
-    assert first_value(claims, url_prop) == url, f"website {site_qid} URL statement missing"
+        f"dogfood website {site_qid} instance-of mismatch ({first_value(claims, instance_of)})"
+    url = str(first_value(claims, url_prop) or "")
+    assert url.startswith("http"), f"dogfood website {site_qid} has no URL statement"
+    print(f"[ok] URL-entry duplicate fixture: {site_qid} ({url})")
 
     warned = None
     last_body = ""
@@ -3017,7 +3013,7 @@ def main() -> int:
         #      website URL warns on the URL-entry page; acknowledging
         #      proceeds to the manual form.
         dup_site = flow_duplicate_url_entry(
-            op, base, api, website_class, person, instance_of, url_prop)
+            op, base, api, website_class, instance_of, url_prop)
         track(dup_site)
 
         # 2d. Child class: bookExcerpt requires an existing book parent,
