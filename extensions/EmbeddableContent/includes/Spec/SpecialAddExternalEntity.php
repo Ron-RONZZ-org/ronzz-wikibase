@@ -1339,6 +1339,17 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// data update, the sitelink table.
 		// Guard: on create-or-skip reuse the item may already carry the link
 		// — never rewrite existing sitelink state.
+		// The classic-page sitelink is UNIQUE per page: on the
+		// duplication-guard force-create ("create it anyway" with the same
+		// label) the title's sitelink already belongs to the EXISTING item —
+		// never steal it (WikiPageEntityStore throws StorageException).
+		// Create the new item page-less (the item redirect) — the classic
+		// page keeps rendering the original item.
+		$linkOwner = WikibaseRepo::getStore()->newSiteLinkStore()
+			->getItemIdForLink( 'wikibase', $title->getPrefixedText() );
+		if ( $linkOwner !== null && $linkOwner->getSerialization() !== $itemId ) {
+			return null;
+		}
 		$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
 		if ( $item instanceof Item ) {
 			$this->linkPageToItem( $item, $title, $label );

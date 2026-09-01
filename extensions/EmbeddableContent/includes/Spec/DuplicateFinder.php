@@ -61,10 +61,16 @@ final class DuplicateFinder {
 	 * pairs, or null. One SPARQL query:
 	 *
 	 *   SELECT ?item ?label WHERE {
-	 *     VALUES (?p ?v) { (wdt:P12 "Q28771536") (wdt:P37 "https://…") }
+	 *     VALUES (?p ?v) { (wdt:P12 "Q28771536") (wdt:P12 <Q28771536>)
+	 *                      (wdt:P37 "https://…") (wdt:P37 <https://…>) }
 	 *     ?item ?p ?v .
 	 *     OPTIONAL { ?item rdfs:label ?label FILTER(LANG(?label) = "en") }
 	 *   } LIMIT 5
+	 *
+	 * Every pair is emitted in BOTH forms — string literal AND IRI — because
+	 * URL-typed statement values are RDF URIs while external-id values are
+	 * string literals; the wrong form never matches (harmless), the right
+	 * form does.
 	 *
 	 * @param array<string,string> $pairs property id (P12) => exact value
 	 * @param string $wd   entity URI base, e.g. https://wikibase.ronzz.org/entity/
@@ -84,7 +90,15 @@ final class DuplicateFinder {
 			if ( preg_match( '/^P[1-9]\d*$/i', $propertyId ) !== 1 ) {
 				continue;
 			}
-			$values[] = '(wdt:' . strtoupper( $propertyId ) . ' "' . self::escapeLiteral( trim( $value ) ) . '")';
+			$value = trim( $value );
+			// URL-typed statement values are RDF URIs, external ids are
+			// string literals — emit BOTH the literal and the IRI form so
+			// either datatype matches (the wrong form never matches, it is
+			// not an error).
+			$values[] = '(wdt:' . strtoupper( $propertyId ) . ' "'
+				. self::escapeLiteral( $value ) . '")'
+				. ' (wdt:' . strtoupper( $propertyId ) . ' <'
+				. self::escapeIri( $value ) . '>)';
 		}
 		if ( $values === [] ) {
 			return null;
@@ -145,6 +159,11 @@ final class DuplicateFinder {
 	/** SPARQL string-literal escaping (" and \). */
 	public static function escapeLiteral( string $value ): string {
 		return strtr( $value, [ '\\' => '\\\\', '"' => '\\"' ] );
+	}
+
+	/** SPARQL IRI escaping (>, \ and whitespace — a URL never carries these). */
+	public static function escapeIri( string $value ): string {
+		return strtr( $value, [ '\\' => '\\\\', '>' => '\\>', ' ' => '%20' ] );
 	}
 
 	// ------------------------------------------------------------- internals

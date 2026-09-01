@@ -2192,7 +2192,9 @@ def flow_duplicate_url_entry(op, base: str, api: str, website_class: str,
         u2, b2 = page_post(op, u, {
             "wpurl": url, "wpEditToken": edit_token(body), "wpSubmit": "1",
         })
-        if "Possible duplicate" in b2 and site_qid in b2:
+        # The URL-entry warning is an inline panel on the URL page (no
+        # dedicated confirm title): assert the warning line + the Yes link.
+        if "We think this item may be a duplicate of" in b2 and f"/wiki/Item:{site_qid}" in b2:
             warned = (u2, b2)
             break
         last_body = b2

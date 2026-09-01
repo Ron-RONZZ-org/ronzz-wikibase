@@ -35,7 +35,13 @@ class DuplicateFinderTest extends TestCase {
 		);
 		$this->assertSame( 'Q1402', $match['itemId'] );
 		$this->assertSame( 'Moby Project', $match['label'] );
-		$this->assertStringContainsString( 'VALUES (?p ?v) { (wdt:P12 "Q28771536") (wdt:P37 "https://github.com/moby/moby") }', $captured );
+		// URL/string values emit BOTH the literal and the IRI form (URL
+		// statement values are RDF URIs, external ids are literals).
+		$this->assertStringContainsString(
+			'VALUES (?p ?v) { (wdt:P12 "Q28771536") (wdt:P12 <Q28771536>)'
+			. ' (wdt:P37 "https://github.com/moby/moby") (wdt:P37 <https://github.com/moby/moby>) }',
+			$captured
+		);
 		$this->assertStringContainsString( '?item ?p ?v', $captured );
 	}
 
@@ -48,7 +54,9 @@ class DuplicateFinderTest extends TestCase {
 			}
 		);
 		$finder->findByValues( [ 'P55' => 'a"b\\c' ], 'e/', 'p/' );
-		$this->assertStringContainsString( '(wdt:P55 "a\\"b\\\\c")', $captured );
+		// Literal form: " and \ escaped. IRI form: \ escaped (">" would be);
+		// a quote is legal inside an IRIREF.
+		$this->assertStringContainsString( '(wdt:P55 "a\\"b\\\\c") (wdt:P55 <a"b\\\\c>)', $captured );
 	}
 
 	public function testFindByValuesSkipsEmptyAndInvalidPairs(): void {
