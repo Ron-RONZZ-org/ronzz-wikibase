@@ -8,6 +8,7 @@ use MediaWiki\Api\ApiBase;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\Title;
 use Wikimedia\Rdbms\IExpression;
+use Wikimedia\Rdbms\LikeValue;
 
 /**
  * api.php?action=filesearch&search=…&limit=… — CONTAINS file-title search
@@ -71,10 +72,20 @@ class ApiFileSearch extends ApiBase {
 		}
 
 		$dbr = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_REPLICA );
-		$pattern = '%' . implode( '%', array_map(
-			static fn ( string $token ): string => $dbr->escapeLike( $token ),
-			$tokens
-		) ) . '%';
+		// LIKE pattern via LikeValue parts (the ApiEntitySearch precedent):
+		// each typed token is a LITERAL part — LikeValue escapes %/_ inside
+		// it — and $dbr->anyString() between the tokens (and at both ends)
+		// is the "any text" wildcard, so "european space" matches
+		// "European_Space_Agency-logo.png" AND "European-Space-Agency-logo.png".
+		// A plain string value passed to expr(IExpression::LIKE, …) would be
+		// escaped as a literal (the empty-result CI failure) — LikeValue is
+		// how the builder expresses a LIKE pattern with wildcard parts.
+		$likeParts = [ $dbr->anyString() ];
+		foreach ( $tokens as $token ) {
+			$likeParts[] = $token;
+			$likeParts[] = $dbr->anyString();
+		}
+		$pattern = new LikeValue( ...$likeParts );
 		// DB-key prefix form of the typed term for the relevance sort
 		// (page_title stores spaces as underscores): "european space" →
 		// "european_space".

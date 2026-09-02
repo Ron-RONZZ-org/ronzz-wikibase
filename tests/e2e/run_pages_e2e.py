@@ -2807,7 +2807,8 @@ def flow_filesearch_contains(op, api: str, expected_file: str, fragment: str) ->
     if expected_file not in titles:
         raise FlowError(
             f"action=filesearch {fragment!r} did not find {expected_file} "
-            f"(CONTAINS match failed; hits: {titles[:5]})")
+            f"(CONTAINS match failed; hits: {titles[:5]}; raw: "
+            f"{json.dumps(r)[:300]})")
     print(f"[ok] filesearch {fragment!r} -> {expected_file} (CONTAINS fragment match)")
 
 
