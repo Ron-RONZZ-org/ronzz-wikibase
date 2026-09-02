@@ -633,6 +633,33 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   never blocks. The create-anyway POST is CSRF-gated; warning labels pass
   `LabelSanitizer::stripMarkup`. No vocabulary/config-map change.
 
+- **Reuse-file CONTAINS search, subdomain parent inference, Source-page
+  internal citation (ADR `docs/decisions/reuse-file-subdomain-sourcecite.md`)**:
+  (a) **`action=filesearch`** (new read-only `Api/ApiFileSearch` module) —
+  the reuse-file combobox's autocomplete source, replacing
+  `generator=search`: the wiki's search matches whole WORD TOKENS ("astro"
+  finds nothing although `Astronomy and Astrophysics-logo.svg` exists), the
+  module runs a CONTAINS (`LIKE %term%`) match over the File namespace's
+  `page_title` — the page-table analogue of `action=entitysearch` — where
+  whitespace/`_`/`-` split into tokens that may match any text in between
+  and prefix matches rank first; no case variants needed (page_title
+  collation is case-insensitive, unlike the VARBINARY entity term store).
+  `resources/fileselect.js` queries it and batch-fetches the 64 px
+  thumbnails via one `imageinfo` call (latest-wins `searchSeq` guard, raw
+  in-flight requests kept for abort). (b) **Subdomain parent inference** —
+  `SiteRootMatcher::findByHost` matches a recorded website whose host is the
+  page host OR an **ancestor domain** of it ("univ-lorraine.fr" is the site
+  of "scifa.univ-lorraine.fr"); the longest (most specific) matching host
+  wins, the reverse direction never matches; one WDQS query + silent
+  auto-assign + exception-safe degradation unchanged. (c) **Source: pages
+  "Copy internal citation"** — `Hooks::onBeforePageDisplay`'s `NS_SOURCE`
+  branch resolves the page→item id (site-link store) and sets
+  `wbInternalCiteItem` + loads `ext.embeddableContent.sourcecite`
+  (`resources/sourcecite.js`), which renders ONE `.wb-embed-toolbar` button
+  under the title copying `<ref>{{#cite:Q42}}</ref>` (the gadget row +
+  "Copied to clipboard." primitives). i18n keys
+  `embeddablecontent-sourcecite-button`/`-hint` (en/fr/eo).
+
 ### WikibaseCitation
 
 
