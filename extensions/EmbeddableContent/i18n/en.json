@@ -365,5 +365,7 @@
 	"embeddablecontent-duplicate-yes": "Yes, that's right",
 	"embeddablecontent-duplicate-no-continue": "No — continue with the creation",
 	"embeddablecontent-duplicate-no-create": "No — create the item anyway",
-	"embeddablecontent-duplicate-ack-url": "I've verified this URL is not a duplicate — continue"
+	"embeddablecontent-duplicate-ack-url": "I've verified this URL is not a duplicate — continue",
+	"embeddablecontent-sourcecite-button": "Copy internal citation",
+	"embeddablecontent-sourcecite-hint": "Copies <ref>{{#cite:$1}}</ref> — paste it on a wiki page to cite this source"
 }

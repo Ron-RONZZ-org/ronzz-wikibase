@@ -415,6 +415,26 @@
 			"styles": [
 				"katex/katex.min.css"
 			]
+		},
+		"ext.embeddableContent.sourcecite": {
+			"scripts": [
+				"sourcecite.js"
+			],
+			"styles": [
+				"gadget.css"
+			],
+			"messages": [
+				"embeddablecontent-sourcecite-button",
+				"embeddablecontent-sourcecite-hint",
+				"embeddablecontent-gadget-copied"
+			],
+			"dependencies": [
+				"mediawiki.notification"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
 		}
 	},
 	"ResourceFileModulePaths": {
