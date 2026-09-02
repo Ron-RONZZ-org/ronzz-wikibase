@@ -3818,6 +3818,11 @@ def main() -> int:
             ts_str = ts_digits.group(0)
             fragment = ts_str[len(ts_str) // 2 - 2:len(ts_str) // 2 + 2]
             flow_filesearch_contains(op, api, logo_file, fragment)
+            # A LOWERCASE word fragment must also find the file — the page
+            # table's collation is case-sensitive on production (a
+            # lowercase "space" misses "European_Space_Agency"), the
+            # CONTAINS match lowercases both sides.
+            flow_filesearch_contains(op, api, logo_file, "page-flow")
         print(f"[ok] AddSoftware/manual (logo) -> {logo_qid}: {logo_file} (dash-normalized) + "
               f"image item {logo_image_item} (license/attribution on the file), "
               f"infobox logo on {logo_page}")

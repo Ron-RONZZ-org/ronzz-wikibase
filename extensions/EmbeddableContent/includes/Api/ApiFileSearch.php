@@ -7,8 +7,6 @@ namespace EmbeddableContent\Api;
 use MediaWiki\Api\ApiBase;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\Title;
-use Wikimedia\Rdbms\IExpression;
-use Wikimedia\Rdbms\LikeValue;
 
 /**
  * api.php?action=filesearch&search=…&limit=… — CONTAINS file-title search
@@ -28,10 +26,11 @@ use Wikimedia\Rdbms\LikeValue;
  * Separators: whitespace, '_' and '-' in the typed search split into
  * tokens that may match ANY text in between ("european space" finds both
  * "European_Space_Agency-logo.png" and "European-Space-Agency-logo.png"),
- * so a typed human fragment finds the stored DB key. No case variants are
- * needed: page_title uses the page table's collation (case-insensitive
- * utf8mb4 on this instance) — unlike the VARBINARY wbt_text the entity
- * search must vary (T242644).
+ * so a typed human fragment finds the stored DB key. Matching is
+ * case-insensitive by construction: the LIKE comparison runs on
+ * CONVERT(page_title USING utf8mb4) — this instance's page table stores
+ * page_title in a case-SENSITIVE charset ("space" misses
+ * "European_Space_Agency" without it, verified live).
  *
  * Result shape mirrors the entity search consumers: search[].title, each a
  * "File:…" prefixed title; prefix matches (title starts with the typed
@@ -72,20 +71,25 @@ class ApiFileSearch extends ApiBase {
 		}
 
 		$dbr = MediaWikiServices::getInstance()->getDBLoadBalancer()->getConnection( DB_REPLICA );
-		// LIKE pattern via LikeValue parts (the ApiEntitySearch precedent):
-		// each typed token is a LITERAL part — LikeValue escapes %/_ inside
-		// it — and $dbr->anyString() between the tokens (and at both ends)
-		// is the "any text" wildcard, so "european space" matches
-		// "European_Space_Agency-logo.png" AND "European-Space-Agency-logo.png".
-		// A plain string value passed to expr(IExpression::LIKE, …) would be
-		// escaped as a literal (the empty-result CI failure) — LikeValue is
-		// how the builder expresses a LIKE pattern with wildcard parts.
-		$likeParts = [ $dbr->anyString() ];
-		foreach ( $tokens as $token ) {
-			$likeParts[] = $token;
-			$likeParts[] = $dbr->anyString();
-		}
-		$pattern = new LikeValue( ...$likeParts );
+		// Case-insensitive CONTAINS over the File namespace's page_title:
+		//   CONVERT(page_title USING utf8mb4) LIKE '<pattern>' ESCAPE '!'
+		// The CONVERT is REQUIRED — on wikibase.ronzz.org the page table
+		// stores page_title in a case-SENSITIVE (binary) charset: a
+		// lowercase "space" search missed "European_Space_Agency" (verified
+		// live; LOWER() is a no-op on such columns — MySQL's LOWER follows
+		// the column collation). CONVERTing to utf8mb4 yields a
+		// case-insensitive default collation on MySQL/MariaDB (the dev/CI
+		// stack's standard utf8mb4 columns are untouched and already _ci).
+		// Pattern: each typed token is literal — %/_/! escaped (!% / !_ / !!)
+		// — and the '%' between tokens (and at both ends) is the "any text"
+		// separator: "european space" matches European_Space_Agency AND
+		// European-Space-Agency. Raw SQL is used because the expression
+		// builder's IExpression::LIKE escapes plain strings as literals and
+		// LikeValue cannot express the CONVERT; MySQL/MariaDB is assumed
+		// (the instance + dev/CI stack).
+		$escape = static fn ( string $token ): string =>
+			strtr( $token, [ '!' => '!!', '%' => '!%', '_' => '!_' ] );
+		$pattern = '%' . implode( '%', array_map( $escape, $tokens ) ) . '%';
 		// DB-key prefix form of the typed term for the relevance sort
 		// (page_title stores spaces as underscores): "european space" →
 		// "european_space".
@@ -95,7 +99,8 @@ class ApiFileSearch extends ApiBase {
 			->select( [ 'page_title' ] )
 			->from( 'page' )
 			->where( [ 'page_namespace' => NS_FILE, 'page_is_redirect' => 0 ] )
-			->andWhere( $dbr->expr( 'page_title', IExpression::LIKE, $pattern ) )
+			->andWhere( 'CONVERT(page_title USING utf8mb4) LIKE '
+				. $dbr->addQuotes( $pattern ) . " ESCAPE '!'" )
 			// Overshoot per query: the PHP sort below slices to $limit.
 			->limit( $limit * 4 )
 			->caller( __METHOD__ )
