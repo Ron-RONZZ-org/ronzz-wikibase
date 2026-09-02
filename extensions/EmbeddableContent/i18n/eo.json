@@ -364,5 +364,7 @@
 	"embeddablecontent-duplicate-yes": "Jes, ĝuste",
 	"embeddablecontent-duplicate-no-continue": "Ne — daŭrigi la kreadon",
 	"embeddablecontent-duplicate-no-create": "Ne — krei la elementon ĉiuokaze",
-	"embeddablecontent-duplicate-ack-url": "Mi kontrolis, ke ĉi tiu retadreso ne estas duplikato — daŭrigi"
+	"embeddablecontent-duplicate-ack-url": "Mi kontrolis, ke ĉi tiu retadreso ne estas duplikato — daŭrigi",
+	"embeddablecontent-sourcecite-button": "Kopii la internan citaĵon",
+	"embeddablecontent-sourcecite-hint": "Kopias <ref>{{#cite:$1}}</ref> — algluu ĝin en vikian paĝon por citi ĉi tiun fonton"
 }

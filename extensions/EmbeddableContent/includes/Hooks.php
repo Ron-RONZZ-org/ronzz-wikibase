@@ -19,6 +19,7 @@ use Wikibase\Repo\WikibaseRepo;
 
 /**
  * Entry-point hooks: entity-page gadget (copy embed / copy citation), the
+ * Source: classic-page "Copy internal citation" button (sourcecite), the
  * oEmbed discovery <link> on item pages (issue #6 §4.3, §4.4), and the
  * page↔item Sitelink tab (issue #7 follow-up: red = not linked → popup to
  * link by label search or Q-id; blue = linked → the Item page).
@@ -110,6 +111,24 @@ class Hooks {
 		// subpages too (Special:AddPerson/<token>/review/0).
 		if ( $title->isSpecial( 'AddPerson' ) || $title->isSpecial( 'UpdatePerson' ) ) {
 			$out->addModules( 'ext.embeddableContent.osmsuggest' );
+		}
+
+		// Source: classic pages — the "Copy internal citation" button
+		// (sourcecite.js): a sitelinked source page gets a toolbar button
+		// that copies the wikitext snippet `<ref>{{#cite:Q42}}</ref>` for
+		// citing the item on a wiki page. The page → item id resolution is
+		// server-side (the same site-link store the parser functions and
+		// the Sitelink tab use) — no client API roundtrip. Only pages that
+		// ARE linked to an item render the button (a /fr translation
+		// subpage has no sitelink of its own).
+		if ( defined( 'NS_SOURCE' ) && $title->getNamespace() === NS_SOURCE && $title->exists() ) {
+			$itemId = WikibaseRepo::getStore()->newSiteLinkStore()
+				->getItemIdForLink( 'wikibase', $title->getPrefixedText() );
+			if ( $itemId !== null ) {
+				$out->addJsConfigVars( 'wbInternalCiteItem', $itemId->getSerialization() );
+				$out->addModules( 'ext.embeddableContent.sourcecite' );
+			}
+			return;
 		}
 
 		$namespaceLookup = WikibaseRepo::getEntityNamespaceLookup();

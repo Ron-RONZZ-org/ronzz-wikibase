@@ -6,9 +6,11 @@
  * cssclass `wb-file-combobox` (ImageUploadHelper::existingField); this
  * module wires it to the instance's OWN File: namespace search:
  *
- *  - typing queries `action=query&generator=search&gsrnamespace=6` (the
- *    File: namespace) with imageinfo thumbnails (`iiurlwidth=64`) — each
- *    suggestion shows the file's thumbnail + title;
+ *  - typing queries `action=filesearch` (the extension's CONTAINS file-title
+ *    search — the wiki's search only matches whole word tokens, so "astro"
+ *    could never find "Astronomy and Astrophysics-logo.svg"), then fetches
+ *    imageinfo thumbnails (`iiurlwidth=64`) for the hits — each suggestion
+ *    shows the file's thumbnail + title;
  *  - picking a suggestion fills the combobox with "File:<title>" (the
  *    server validates the file exists in beforeCreate) and renders a 220px
  *    preview into the field's `.wb-file-preview` slot;
@@ -20,8 +22,10 @@
  *
  * Wiring conventions mirror entitysuggest.js: the widget element is
  * targeted via its OOUI class (`.wb-file-combobox.oo-ui-comboBoxInputWidget`,
- * NOT the FieldLayout wrapper), the text input is `combo.$input`, and the
- * instance's search is queried with case-variant fallbacks (T242644).
+ * NOT the FieldLayout wrapper) and the text input is `combo.$input`. The
+ * server-side match is case-insensitive (page_title collation), so no
+ * case-variant queries are needed (unlike the VARBINARY entity term store,
+ * T242644).
  */
 ( function () {
 	'use strict';
@@ -31,51 +35,88 @@
 		return combo.$input ? combo.$input[ 0 ] : null;
 	}
 
+	// Latest-started search id: a stale response (the user typed on while a
+	// search was in flight) must never overwrite the newer suggestions.
+	var searchSeq = 0;
+	// The currently in-flight raw API request (searchFiles keeps the RAW
+	// api.get() here — a .then() derivative is a plain promise without
+	// .abort(), so aborting must target the request itself).
+	var pending = null;
+
 	/**
 	 * Queries the File: namespace for a fragment and returns the hits as
-	 * suggestion data: [{ title: "File:…", thumb: "https://…" }]. The raw
-	 * query plus a title-cased variant run in parallel and are merged
-	 * (deduped) — the instance's search is case-sensitive for the term
-	 * store, so "national geographic" must still hit "National Geographic".
+	 * suggestion data: [{ title: "File:…", thumb: "https://…" }].
+	 *
+	 * Two sequential API calls: action=filesearch returns the CONTAINS
+	 * matches (the combobox autocomplete source), then one batched
+	 * imageinfo call fetches the 64px thumbnails for those titles (the
+	 * server-side module returns titles only — thumbnailing is an
+	 * imageinfo concern). The calls are kept as raw api.get() requests in
+	 * `pending` so an in-flight search can be aborted when a newer one
+	 * starts; searchSeq guards against a stale-but-not-aborted second stage
+	 * landing after a newer search.
 	 */
 	function searchFiles( q ) {
 		var api = new mw.Api();
-		var queries = [ q ];
-		var tc = q.replace( /(^|\s)(\S)/g, function ( m, pre, ch ) {
-			return pre + ch.toUpperCase();
-		} );
-		if ( tc !== q ) {
-			queries.push( tc );
+		var my = ++searchSeq;
+		// Abort whatever is still in flight (the previous search's first or
+		// second stage) — the seq guard above is the correctness net, the
+		// abort saves the round-trip.
+		if ( pending && pending.abort ) {
+			pending.abort();
 		}
-		return Promise.all( queries.map( function ( sq ) {
-			return api.get( {
+		var first = api.get( {
+			action: 'filesearch',
+			search: q,
+			limit: 8,
+			format: 'json',
+			formatversion: 2
+		} );
+		pending = first;
+		return first.then( function ( data ) {
+			if ( my !== searchSeq ) {
+				return [];
+			}
+			var titles = [];
+			( data.search || [] ).forEach( function ( hit ) {
+				if ( hit.title ) {
+					titles.push( hit.title );
+				}
+			} );
+			if ( titles.length === 0 ) {
+				return [];
+			}
+			var second = api.get( {
 				action: 'query',
-				generator: 'search',
-				gsrsearch: sq,
-				gsrnamespace: 6,
-				gsrlimit: 8,
+				titles: titles.join( '|' ),
 				prop: 'imageinfo',
 				iiprop: 'url',
 				iiurlwidth: 64,
 				format: 'json',
 				formatversion: 2
 			} );
-		} ) ).then( function ( results ) {
-			var seen = {};
-			var out = [];
-			( results || [] ).forEach( function ( data ) {
-				( data.query && data.query.pages || [] ).forEach( function ( page ) {
-					if ( seen[ page.title ] ) {
-						return;
+			pending = second;
+			return second;
+		} ).then( function ( data ) {
+			if ( my !== searchSeq ) {
+				return [];
+			}
+			var thumbs = {};
+			if ( data && data.query && data.query.pages ) {
+				data.query.pages.forEach( function ( page ) {
+					if ( page.imageinfo && page.imageinfo[ 0 ] && page.imageinfo[ 0 ].thumburl ) {
+						thumbs[ page.title ] = page.imageinfo[ 0 ].thumburl;
 					}
-					seen[ page.title ] = true;
-					out.push( {
-						title: page.title,
-						thumb: page.imageinfo && page.imageinfo[ 0 ]
-							? page.imageinfo[ 0 ].thumburl || null
-							: null
-					} );
 				} );
+			}
+			var out = [];
+			var seen = {};
+			( data && data.query && data.query.pages || [] ).forEach( function ( page ) {
+				if ( seen[ page.title ] || !/^File:/i.test( page.title ) ) {
+					return;
+				}
+				seen[ page.title ] = true;
+				out.push( { title: page.title, thumb: thumbs[ page.title ] || null } );
 			} );
 			return out;
 		} );
@@ -136,7 +177,6 @@
 		}
 		$el.data( 'wbFileCombobox', true );
 		var combo = OO.ui.ComboBoxInputWidget.static.infuse( $el );
-		var pending = null;
 
 		combo.on( 'change', OO.ui.debounce( function ( value ) {
 			var q = String( value || '' ).trim();
@@ -150,12 +190,7 @@
 				}
 				return;
 			}
-			if ( pending ) {
-				Array.isArray( pending ) ? pending.forEach( function ( r ) { r.abort(); } ) : pending.abort();
-			}
-			var req = searchFiles( q );
-			pending = req;
-			req.then( function ( hits ) {
+			searchFiles( q ).then( function ( hits ) {
 				var options = hits.map( function ( hit ) {
 					var $label = $( '<span>' );
 					if ( hit.thumb ) {

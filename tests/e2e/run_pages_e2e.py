@@ -1306,6 +1306,92 @@ def flow_source_webpage_parent_match(op, base: str, api: str,
     return webpage_qid, parent
 
 
+def flow_source_webpage_parent_subdomain(op, base: str, api: str,
+                                         author_qid: str) -> tuple[str, str]:
+    """Webpage parent inference — the ANCESTOR-DOMAIN branch (the
+    subdomain follow-up): the recorded website's host may be a PARENT of
+    the entered page's host — "univ-lorraine.fr" is the site of
+    "scifa.univ-lorraine.fr" — so a webpage on a subdomain of a recorded
+    website must auto-assign that website too.
+
+    The page URL is https://scifa<runid>.example.org/... — a NON-resolving
+    subdomain of the recorded dogfood website (example.org on both stacks;
+    the run-unique host label keeps the URL-entry duplication guard from
+    colliding with leftovers of an aborted earlier run). The host match is
+    pure WDQS (no fetch involved — the ancestor match runs on the
+    normalized hosts), so the flow is deterministic: the manual form must
+    prefill wpparent with the website-class Q-id and NO confirmation
+    banner, exactly like the exact-host branch. Before the ancestor-domain
+    change this URL matched nothing (exact host only) and the fetch
+    failing left NO parent — the regression this flow guards.
+
+    Returns (webpage qid, matched website qid)."""
+    if website_item_by_root_host(op, api, "example.org") is None:
+        raise FlowError(
+            "no website record with a URL host of example.org — the dogfood/"
+            "production fixture is missing (subdomain branch cannot run)")
+
+    page_host = f"scifa{int(time.time())}.example.org"
+    manual_url = None
+    deadline = time.time() + 60
+    while True:
+        url, body = page_get(op, base, "/wiki/Special:AddSource/webpage")
+        token = edit_token(body)
+        url, body = page_post(op, url, {
+            "wpurl": f"https://{page_host}/e2e-subdomain-page",
+            "wpEditToken": token, "wpSubmit": "1",
+        })
+        m = re.search(r"(Special:AddSource/webpage/manual)[^'\"]*token=([0-9a-f]+)", url)
+        if not m:
+            raise FlowError(
+                f"AddSource/webpage URL entry did not redirect to /manual?token=: {url} {find_error(body)}")
+        u = urllib.parse.urlparse(url)
+        manual_path = (u.path or "/") + ("?" + u.query if u.query else "")
+        manual_url, body = page_get(op, base, manual_path)
+        parent = input_value(body, "wpparent")
+        if parent and "wb-entity-confirm" not in body:
+            break  # the ancestor-domain host match auto-assigned the parent
+        if "wb-entity-confirm" in body:
+            # The site-name fallback fired (WDQS lagging) — retry until the
+            # host match wins (scifa.example.org does not resolve, so the
+            # site-name fallback would never fire on its own).
+            parent = None
+        if time.time() >= deadline:
+            raise FlowError(
+                f"AddSource/webpage subdomain host-match auto-assign did not fire within 60s "
+                f"(last parent={parent!r}, banner={'wb-entity-confirm' in body}): "
+                f"{find_error(body)}")
+        time.sleep(10)
+    # The prefilled parent must be a WEBSITE-class item (the server's
+    # class-filtered matching contract) — the example.org website, matched
+    # through the scifa.example.org subdomain.
+    website_class = resolve_label(op, api, "website", "item")
+    instance_of = resolve_label(op, api, "instance of", "property")
+    if website_class is None or instance_of is None:
+        raise FlowError("website class / instance-of property not resolvable")
+    claims, _ = entity_claims(op, api, parent)
+    if first_value(claims, instance_of) != website_class:
+        raise FlowError(f"AddSource/webpage inferred parent {parent} is not a website-class item")
+    token2 = edit_token(body)
+    fields = {
+        "wptitle": f"Page-flow E2E subdomain webpage {int(time.time())}",
+        "wpauthors": author_qid,
+        "wpparent": parent,
+        "wpEditToken": token2,
+        "wpSubmit": "1",
+    }
+    url, body = page_post(op, manual_url, fields)
+    # The subdomain does not resolve, so no page content was fetched — the
+    # content review step never appears; handle it anyway if the stack
+    # resolved scifa.example.org somehow (the host match still fired).
+    if re.search(r"Special:AddSource/webpage/manual/content[^'\"]*token=", url):
+        token3 = edit_token(body)
+        url, body = page_post(op, url, {"wpEditToken": token3, "wpSubmit": "1"})
+    webpage_qid = flow_final_item(op, base, api, url, body,
+                                  "AddSource/webpage (subdomain parent inference)")
+    return webpage_qid, parent
+
+
 def flow_source_content_step(op, base: str, api: str, doi: str, author_qid: str,
                              license_qid: str = "") -> str:
     """Scholarly-article fetched-content review step (issue follow-up):
@@ -2707,6 +2793,43 @@ Explicit bibliography (v2): {{{{#citations:{book_qid}|{quote_qid}}}}}
                            "reason": "page-flow E2E cleanup (run_pages_e2e.py)", "format": "json"}, post=True)
 
 
+def flow_filesearch_contains(op, api: str, expected_file: str, fragment: str) -> None:
+    """action=filesearch (the reuse-file combobox's CONTAINS file-title
+    search — the filesearch feature): the file must be findable by a
+    MID-NAME FRAGMENT — a substring inside a title token. The wiki's search
+    index matches whole word tokens only ("astro" finds nothing although
+    "Astronomy and Astrophysics-logo.svg" exists), so this is the assertion
+    that the combobox autocomplete actually reaches files the old search
+    could not."""
+    r = api_call(op, api, {"action": "filesearch", "search": fragment,
+                           "limit": 20, "format": "json"})
+    titles = [e.get("title") for e in r.get("search", [])]
+    if expected_file not in titles:
+        raise FlowError(
+            f"action=filesearch {fragment!r} did not find {expected_file} "
+            f"(CONTAINS match failed; hits: {titles[:5]}; raw: "
+            f"{json.dumps(r)[:300]})")
+    print(f"[ok] filesearch {fragment!r} -> {expected_file} (CONTAINS fragment match)")
+
+
+def flow_source_cite_button(op, base: str, source_page: str, expected_qid: str) -> None:
+    """The Source: page "Copy internal citation" button wiring (sourcecite):
+    the server resolves the page's sitelinked item and, on Source-namespace
+    content pages, sets wbInternalCiteItem + loads
+    ext.embeddableContent.sourcecite (the module renders the toolbar button
+    that copies `<ref>{{#cite:Q42}}</ref>`). The button itself is
+    JS-rendered; this flow asserts the SERVER-side wiring — the config var
+    and the module in the page HTML — on a real created Source: page."""
+    _, body = page_get(op, base, "/wiki/" + urllib.parse.quote(source_page.replace(" ", "_")))
+    if "wbInternalCiteItem" not in body or expected_qid not in body:
+        raise FlowError(
+            f"{source_page} missing the wbInternalCiteItem={expected_qid} config "
+            f"(sourcecite wiring): {find_error(body)}")
+    if "ext.embeddableContent.sourcecite" not in body:
+        raise FlowError(f"{source_page} does not load ext.embeddableContent.sourcecite")
+    print(f"[ok] Source: page copy-citation wiring on {source_page} -> {expected_qid}")
+
+
 # ------------------------------------------------------------------- main
 
 
@@ -3374,6 +3497,38 @@ def main() -> int:
               f"parent prefilled + confirmed, part-of -> {webpage_parent}, "
               f"label suffixed (Webpage)")
 
+        # 2j1a. Webpage parent inference on a SUBDOMAIN (the ancestor-domain
+        #     follow-up): the recorded website's host is the PARENT of the
+        #     page's host ("univ-lorraine.fr" of "scifa.univ-lorraine.fr"),
+        #     so a webpage under a subdomain of a recorded website
+        #     auto-assigns it too — no exact-host record needed. The page
+        #     URL is a NON-resolving subdomain of the dogfood website host
+        #     (scifa.example.org): the host match is pure WDQS, independent
+        #     of any fetch, so the flow is deterministic on both stacks.
+        subdomain_child, subdomain_parent = \
+            flow_source_webpage_parent_subdomain(op, base, api, person)
+        track(subdomain_child)
+        claims, _ = entity_claims(op, api, subdomain_child)
+        assert first_value(claims, part_of_prop) == subdomain_parent, \
+            f"{subdomain_child} part-of != ancestor-inferred website " \
+            f"{subdomain_parent} ({first_value(claims, part_of_prop)})"
+        print(f"[ok] AddSource/webpage subdomain parent inference -> "
+              f"{subdomain_child}: scifa-style subdomain auto-assigned "
+              f"part-of -> {subdomain_parent} (ancestor host match)")
+
+        # 2j1b. The Source: page "Copy internal citation" button wiring
+        #     (sourcecite): the created webpage's Source: page must carry
+        #     the wbInternalCiteItem config + load the sourcecite module.
+        r = api_call(op, api, {"action": "wbgetentities", "ids": subdomain_child,
+                               "props": "sitelinks", "format": "json"})
+        sitelinks = r.get("entities", {}).get(subdomain_child, {}).get("sitelinks", {})
+        webpage_page = next((sl.get("title") for sl in sitelinks.values()
+                             if sl.get("site") == "wikibase"), None)
+        if not webpage_page:
+            raise FlowError(f"{subdomain_child} has no wikibase sitelink — "
+                            f"cannot check the Source: page cite wiring")
+        flow_source_cite_button(op, base, webpage_page, subdomain_child)
+
         # 2k. Website URL-first flow (issue follow-up): the first page is a
         #     URL entry; the fetched metadata prefills the manual form.
         website_url_item = track(flow_source_url_entry(
@@ -3653,6 +3808,16 @@ def main() -> int:
         # even without the skeleton param (upload-ux follow-up).
         flow_item_image_renders(op, base, api, logo_qid, "-logo.png")
         created_pages.append(logo_file)
+        # 3e0. The reuse-file combobox's CONTAINS search (action=filesearch,
+        #     the filesearch feature): the file just uploaded must be
+        #     findable by a MID-NAME FRAGMENT of its title (a substring
+        #     inside a token — the wiki's token search cannot match inside
+        #     a word, e.g. "astro" in "Astronomy and Astrophysics-logo.svg").
+        ts_digits = re.search(r"\d{6,}", logo_label)
+        if ts_digits:
+            ts_str = ts_digits.group(0)
+            fragment = ts_str[len(ts_str) // 2 - 2:len(ts_str) // 2 + 2]
+            flow_filesearch_contains(op, api, logo_file, fragment)
         print(f"[ok] AddSoftware/manual (logo) -> {logo_qid}: {logo_file} (dash-normalized) + "
               f"image item {logo_image_item} (license/attribution on the file), "
               f"infobox logo on {logo_page}")

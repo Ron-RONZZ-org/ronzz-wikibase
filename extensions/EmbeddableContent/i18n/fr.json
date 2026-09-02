@@ -364,5 +364,7 @@
 	"embeddablecontent-duplicate-yes": "Oui, c'est bien cela",
 	"embeddablecontent-duplicate-no-continue": "Non — poursuivre la création",
 	"embeddablecontent-duplicate-no-create": "Non — créer l’élément quand même",
-	"embeddablecontent-duplicate-ack-url": "J'ai vérifié que cette URL n'est pas un doublon — continuer"
+	"embeddablecontent-duplicate-ack-url": "J'ai vérifié que cette URL n'est pas un doublon — continuer",
+	"embeddablecontent-sourcecite-button": "Copier la citation interne",
+	"embeddablecontent-sourcecite-hint": "Copie <ref>{{#cite:$1}}</ref> — à coller sur une page du wiki pour citer cette source"
 }
