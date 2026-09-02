@@ -180,6 +180,9 @@
 			"services": [
 				"EmbeddableContent.Config"
 			]
+		},
+		"filesearch": {
+			"class": "EmbeddableContent\\Api\\ApiFileSearch"
 		}
 	},
 	"HookHandlers": {
