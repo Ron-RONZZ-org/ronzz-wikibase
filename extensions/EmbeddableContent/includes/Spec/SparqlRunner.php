@@ -64,7 +64,7 @@ final class SparqlRunner {
 		}
 		if ( $status < 200 || $status >= 300 ) {
 			error_log( 'SparqlRunner: request to ' . $endpoint . ' failed with status ' . $status
-				. ' body: ' . substr( (string)$body, 0, 2000 ) );
+				. ' body: ' . substr( (string)$body, 0, 8000 ) );
 			return null;
 		}
 		$decoded = json_decode( (string)$body, true );
