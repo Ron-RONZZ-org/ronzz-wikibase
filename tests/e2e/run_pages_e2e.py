@@ -1034,7 +1034,8 @@ def flow_update_content_button(op, base: str, qid: str) -> None:
 
 
 def flow_update_content(op, base: str, api: str, qid: str, new_label: str,
-                        new_payload: str, attributed_to_prop: str) -> str:
+                        new_payload: str, content_prop: str,
+                        attributed_to_prop: str) -> str:
     """'Edit content' flow (issue #80): Special:UpdateQuotation/<qid>
     renders the AddQuotation form prefilled from the item — the payload
     textarea shows the DECODED multi-line content (a real newline, never
@@ -1070,7 +1071,7 @@ def flow_update_content(op, base: str, api: str, qid: str, new_label: str,
     if first_value(claims, attributed_to_prop) != attribution:
         raise FlowError(
             f"UpdateQuotation/{qid} clobbered the attribution (no-clobber violated)")
-    payload_dv = first_value(claims, resolve("content text", "property"))
+    payload_dv = first_value(claims, content_prop)
     stored = payload_dv.get("text") if isinstance(payload_dv, dict) else str(payload_dv or "")
     expected = new_payload.replace("\\", "\\\\").replace("\n", "\\n")
     if stored != expected:
@@ -4061,6 +4062,7 @@ def main() -> int:
         flow_update_content(op, base, api, edit_qid,
                             edit_label + " (revised)",
                             "A revised first line.\nA revised second line.",
+                            resolve("content text", "property"),
                             resolve("attributed to", "property"))
         print(f"[ok] Edit content (Special:UpdateQuotation) -> {edit_qid}: "
               f"decoded multiline prefill, label+payload updated, author kept")
