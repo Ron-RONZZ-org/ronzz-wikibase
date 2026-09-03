@@ -314,6 +314,14 @@ abstract class SpecialAddContentItem extends SpecialPage {
 			return $this->msg( 'embeddablecontent-add-error-save' )->text();
 		}
 
+		// The Source: page "Quotations" auto-link must refresh when a
+		// quotation with a source lands (the source item's own revision did
+		// not change, so the parser-cache dependency never fires) —
+		// invalidate the source's classic page, best-effort.
+		if ( isset( $flowRecord['source'] ) && $flowRecord['source'] !== '' ) {
+			\EmbeddableContent\Spec\QuotationLookup::invalidateSourcePages( [ $flowRecord['source'] ] );
+		}
+
 		$this->createdItemId = $item->getId();
 		// Modern HTMLForm has no onSuccess step — redirect to the created
 		// item here, otherwise the page just renders empty after submit.

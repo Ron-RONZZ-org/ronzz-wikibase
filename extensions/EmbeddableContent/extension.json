@@ -131,6 +131,12 @@
 			"services": [
 				"EmbeddableContent.Config"
 			]
+		},
+		"QuotationsOf": {
+			"class": "EmbeddableContent\\Spec\\SpecialQuotationsOf",
+			"services": [
+				"EmbeddableContent.Config"
+			]
 		}
 	},
 	"APIModules": {

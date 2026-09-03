@@ -499,6 +499,32 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   page transcluding `{{#item-image:<qid>}}` must render the uploaded file
   (the CI stack has no page templates, hence the explicit-id argument).
 
+- **Source quotation listing + auto-link (issue #79, ADR
+  `docs/decisions/source-quotations-listing.md`)**: quotation items whose
+  `source` statement points at a source item are listed on
+  **`Special:QuotationsOf/<Qid>`** — an always-live page (never a stored
+  `Source:xxx/quotation` subpage that can go stale): WDQS SPARQL per load,
+  class filter (`instance of` quotation), each row shows the **decoded**
+  payload (`PayloadCodec`, real multi-line) + an item link. `QuotationFinder`
+  is pure (query building + row parsing, injected SPARQL runner — the
+  `DuplicateFinder` shape, unit-tested); `QuotationLookup` is the
+  MW-bound facade (the `DuplicateChecker` shape: POST to the config
+  `sparqlUrl` endpoint). Exception-safe: a WDQS failure shows an explicit
+  "unavailable" notice on the page, never a 500. The Source pages
+  **auto-link** through `{{#quotations-of:}}` (magic word `quotations-of`,
+  en/fr/eo): it resolves the page's sitelinked item (or an explicit
+  `{{#quotations-of:Q42}}`), counts via the same lookup and renders a
+  COMPLETE wikitext table row `| Quotations || [[Special:QuotationsOf/Q42|N]]`
+  when N ≥ 1 and nothing otherwise (ParserFunctions `#if` is not installed,
+  so the empty-row hiding lives in the function) — the per-class Source
+  templates gain one line. The source item is a parser-cache dependency
+  (`ParserOutput::addTemplate`); quotation creations/updates **invalidate
+  the source's classic page** explicitly (`Title::invalidateCache`,
+  best-effort) from `SpecialAddContentItem` and `ApiAddSpecialContent`,
+  because adding a quotation does not touch the source item's revision.
+  WDQS is eventually consistent — a fresh quotation joins the listing after
+  the updater polls it.
+
 - **Wikimedia blob fallback fixes on the Add\* pages (follow-up, same ADR)**: the
   shared `uploadmeta.js` submit-time blob fallback had a chain of latent bugs
   that   only manifest on the OOUI Add\* forms (Special:Upload's php-mode form

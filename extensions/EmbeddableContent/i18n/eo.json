@@ -371,5 +371,13 @@
 	"embeddablecontent-duplicate-no-create": "Ne — krei la elementon ĉiuokaze",
 	"embeddablecontent-duplicate-ack-url": "Mi kontrolis, ke ĉi tiu retadreso ne estas duplikato — daŭrigi",
 	"embeddablecontent-sourcecite-button": "Kopii la internan citaĵon",
-	"embeddablecontent-sourcecite-hint": "Kopias <ref>{{#cite:$1}}</ref> — algluu ĝin en vikian paĝon por citi ĉi tiun fonton"
+	"embeddablecontent-sourcecite-hint": "Kopias <ref>{{#cite:$1}}</ref> — algluu ĝin en vikian paĝon por citi ĉi tiun fonton",
+	"special-quotationsof": "Citaĵoj de fonto",
+	"embeddablecontent-quotationsof-title": "Citaĵoj de ",
+	"embeddablecontent-quotationsof-intro": "Citaĵoj, kies fonto estas ĉi tiu ero.",
+	"embeddablecontent-quotationsof-back": "Vidu la fontan paĝon: ",
+	"embeddablecontent-quotationsof-badid": "Nevalida identigilo de ero.",
+	"embeddablecontent-quotationsof-notfound": "Ero  ne trovita.",
+	"embeddablecontent-quotationsof-none": "Tiu fonto ankoraŭ havas neniun citaĵon en la vikio.",
+	"embeddablecontent-quotationsof-unavailable": "La listo de citaĵoj ne povis esti ŝargita (la pridemanda servo ne disponeblas). Bonvolu reprovi poste."
 }

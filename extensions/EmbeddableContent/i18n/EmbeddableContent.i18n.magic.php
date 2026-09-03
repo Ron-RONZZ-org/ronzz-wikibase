@@ -21,6 +21,7 @@ $magicWords['en'] = [
 	'sourceaccess' => [ 0, 'source-access' ],
 	'itemimage' => [ 0, 'item-image' ],
 	'content' => [ 0, 'content' ],
+	'quotationsof' => [ 0, 'quotations-of' ],
 ];
 
 /** French (français) */
@@ -28,6 +29,7 @@ $magicWords['fr'] = [
 	'sourceaccess' => [ 0, 'source-access' ],
 	'itemimage' => [ 0, 'item-image' ],
 	'content' => [ 0, 'contenu' ],
+	'quotationsof' => [ 0, 'quotations-of' ],
 ];
 
 /** Esperanto (Esperanto) */
@@ -35,4 +37,5 @@ $magicWords['eo'] = [
 	'sourceaccess' => [ 0, 'source-access' ],
 	'itemimage' => [ 0, 'item-image' ],
 	'content' => [ 0, 'enhavo' ],
+	'quotationsof' => [ 0, 'quotations-of' ],
 ];

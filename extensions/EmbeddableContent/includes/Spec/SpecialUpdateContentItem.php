@@ -261,6 +261,9 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 			if ( !$fresh instanceof Item ) {
 				return $this->msg( 'embeddablecontent-update-notfound', $itemId )->text();
 			}
+			// The source(s) BEFORE the update — a re-sourced quotation must
+			// refresh the OLD source page's auto-link too.
+			$previousSources = $this->sourceIdsOf( $fresh );
 			$this->contentFlow()->applyUpdate( $converted['kind'], $fresh, $record );
 			$label = trim( (string)( $record['label'] ?? '' ) );
 			if ( $label === '' ) {
@@ -272,6 +275,11 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 				$this->getUser(),
 				EDIT_UPDATE
 			);
+			$invalidSources = $previousSources;
+			if ( !empty( $record['source'] ) ) {
+				$invalidSources[] = $record['source'];
+			}
+			\EmbeddableContent\Spec\QuotationLookup::invalidateSourcePages( $invalidSources );
 		} catch ( \Throwable $e ) {
 			return $this->msg( 'embeddablecontent-update-error', get_class( $e ), $e->getMessage() )->text();
 		}
@@ -279,6 +287,26 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 			WikibaseRepo::getEntityTitleStoreLookup()->getTitleForId( $item->getId() )->getFullURL()
 		);
 		return true;
+	}
+
+	/**
+	 * The source item ids currently on the item (the `source` provenance
+	 * statements), for invalidating the old source's page on re-source.
+	 *
+	 * @return string[]
+	 */
+	private function sourceIdsOf( Item $item ): array {
+		$propertyId = $this->config->provenancePropertyIds()['source'] ?? null;
+		if ( $propertyId === null ) {
+			return [];
+		}
+		$ids = [];
+		foreach ( $this->statementValues( $item, $propertyId ) as $value ) {
+			if ( isset( $value['entity'] ) ) {
+				$ids[] = $value['entity'];
+			}
+		}
+		return $ids;
 	}
 
 	/** The label term shown in the edit summary when the form label is blank. */

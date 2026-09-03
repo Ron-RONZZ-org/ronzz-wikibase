@@ -371,5 +371,13 @@
 	"embeddablecontent-duplicate-no-create": "Non — créer l’élément quand même",
 	"embeddablecontent-duplicate-ack-url": "J'ai vérifié que cette URL n'est pas un doublon — continuer",
 	"embeddablecontent-sourcecite-button": "Copier la citation interne",
-	"embeddablecontent-sourcecite-hint": "Copie <ref>{{#cite:$1}}</ref> — à coller sur une page du wiki pour citer cette source"
+	"embeddablecontent-sourcecite-hint": "Copie <ref>{{#cite:$1}}</ref> — à coller sur une page du wiki pour citer cette source",
+	"special-quotationsof": "Citations d’une source",
+	"embeddablecontent-quotationsof-title": "Citations de ",
+	"embeddablecontent-quotationsof-intro": "Les citations dont la source est cet élément.",
+	"embeddablecontent-quotationsof-back": "Voir la page source : ",
+	"embeddablecontent-quotationsof-badid": "Identifiant d’élément non valide.",
+	"embeddablecontent-quotationsof-notfound": "Élément  introuvable.",
+	"embeddablecontent-quotationsof-none": "Cette source n’a pas encore de citation sur le wiki.",
+	"embeddablecontent-quotationsof-unavailable": "La liste des citations n’a pas pu être chargée (le service de requêtes est indisponible). Veuillez réessayer plus tard."
 }
