@@ -779,6 +779,19 @@ def input_value(body: str, field: str) -> str:
     return ""
 
 
+def textarea_value(body: str, field: str) -> str:
+    """Content of a <textarea name="wp<FieldName>"> — OOUI php-mode renders
+    textarea content BETWEEN the tags (a value attribute does not exist), so
+    input_value() cannot read it. Match either attribute quote style."""
+    for quote in ('"', "'"):
+        m = re.search(
+            r"<textarea[^>]*name=" + quote + field + quote + r"[^>]*>(.*?)</textarea>",
+            body, re.S)
+        if m:
+            return m.group(1)
+    return ""
+
+
 def flow_manual_link_from(op, base: str, body: str, special: str) -> str:
     """The tokenised 'create manually' href in a search-result page (zero-hit
     AND selection pages both carry it since issue #35).
@@ -996,6 +1009,76 @@ def flow_update_source(op, base: str, api: str, qid: str, new_description: str) 
     })
     if qid not in url:
         raise FlowError(f"UpdateSource/{qid} did not redirect to the item: {url} {find_error(body)}")
+    return url
+
+
+def flow_update_content_button(op, base: str, qid: str) -> None:
+    """'Edit content' toolbar target (issue #80): an Item page whose item
+    is of a CONTENT class (quotation/math/code-snippet) carries the
+    wbUpdateBasicInfoUrl config pointing at the Special:Update* content
+    page AND wbUpdateBasicInfoLabel set to the 'Edit content' message key
+    (the server picks the label per item kind; updatebutton.js resolves it)."""
+    url, body = page_get(op, base, f"/wiki/Item:{qid}")
+    m = re.search(r'"wbUpdateBasicInfoUrl"\s*:\s*"([^"]*Special:UpdateQuotation/'
+                  + re.escape(qid) + r')"', body)
+    if not m:
+        raise FlowError(
+            f"Item:{qid} carries no 'Edit content' URL for UpdateQuotation: "
+            f"{find_error(body)}")
+    l = re.search(r'"wbUpdateBasicInfoLabel"\s*:\s*"([^"]+)"', body)
+    if not l or l.group(1) != "embeddablecontent-update-content-button":
+        raise FlowError(
+            f"Item:{qid} does not carry the 'Edit content' label key "
+            f"({l.group(1) if l else None!r})")
+    print(f"[ok] Item:{qid} -> Edit content -> {m.group(1)}")
+
+
+def flow_update_content(op, base: str, api: str, qid: str, new_label: str,
+                        new_payload: str, content_prop: str,
+                        attributed_to_prop: str) -> str:
+    """'Edit content' flow (issue #80): Special:UpdateQuotation/<qid>
+    renders the AddQuotation form prefilled from the item — the payload
+    textarea shows the DECODED multi-line content (a real newline, never
+    the escaped-at-rest two-character sequence \n). A changed label +
+    payload UPDATES the item (stored escaped again) and the untouched
+    attribution survives (no-clobber). Returns the final URL."""
+    url, body = page_get(op, base, f"/wiki/Special:UpdateQuotation/{qid}")
+    if "Edit a quotation" not in body:
+        raise FlowError(f"Special:UpdateQuotation/{qid} did not render: {find_error(body)}")
+    if not input_value(body, "wplabel"):
+        raise FlowError(f"UpdateQuotation/{qid} did not prefill the label: {find_error(body)}")
+    payload = textarea_value(body, "wppayload")
+    if "\n" not in payload or "\\n" in payload:
+        raise FlowError(
+            f"UpdateQuotation/{qid} payload not decoded to real newlines ({payload!r})")
+    attribution = input_value(body, "wpattributedTo")
+    if not attribution:
+        raise FlowError(f"UpdateQuotation/{qid} did not prefill attributedTo: {find_error(body)}")
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "wplabel": new_label,
+        "wppayload": new_payload,
+        "wplanguage": "en",
+        "wpattributedTo": attribution,
+        "wpEditToken": token, "wpSubmit": "1",
+    })
+    if qid not in url:
+        raise FlowError(
+            f"UpdateQuotation/{qid} did not redirect to the item: {url} {find_error(body)}")
+    claims, label_now = entity_claims(op, api, qid)
+    if label_now != new_label:
+        raise FlowError(f"UpdateQuotation/{qid} label not updated ({label_now!r})")
+    if first_value(claims, attributed_to_prop) != attribution:
+        raise FlowError(
+            f"UpdateQuotation/{qid} clobbered the attribution (no-clobber violated)")
+    payload_dv = first_value(claims, content_prop)
+    stored = payload_dv.get("text") if isinstance(payload_dv, dict) else str(payload_dv or "")
+    expected = new_payload.replace("\\", "\\\\").replace("\n", "\\n")
+    if stored != expected:
+        raise FlowError(
+            f"UpdateQuotation/{qid} payload not updated at rest ({stored!r} != {expected!r})")
+    print(f"[ok] Special:UpdateQuotation/{qid}: prefilled decoded multiline; "
+          f"label + payload updated, attribution kept")
     return url
 
 
@@ -3958,6 +4041,31 @@ def main() -> int:
                 f"{qid} add-more item missing the carried source URL"
         print(f"[ok] Special:AddQuotation Add more -> {addmore_a} + {addmore_b}: "
               f"provenance carried over, label/payload reset")
+
+        # 4c. "Edit content" (issue #80): the Item page of a content item
+        #     carries the 'Edit content' button (wbUpdateBasicInfoLabel);
+        #     Special:UpdateQuotation/<qid> renders the AddQuotation form
+        #     prefilled from the item with the payload DECODED (real
+        #     multiline — the stored form is backslash-escaped at rest); a
+        #     changed label + payload UPDATES the item and the untouched
+        #     attribution survives.
+        edit_label = f"Page-flow E2E edit-content {int(time.time())}"
+        edit_payload = "First line of the quote.\nSecond line, after the break."
+        edit_qid = track(flow_quotation(op, base, api, edit_label, edit_payload, person))
+        payload_dv = first_value(entity_claims(op, api, edit_qid)[0],
+                                 resolve("content text", "property"))
+        stored = payload_dv.get("text") if isinstance(payload_dv, dict) else str(payload_dv or "")
+        if stored != edit_payload.replace("\\", "\\\\").replace("\n", "\\n"):
+            raise FlowError(f"{edit_qid} multiline quotation payload not escaped at rest "
+                            f"({stored!r})")
+        flow_update_content_button(op, base, edit_qid)
+        flow_update_content(op, base, api, edit_qid,
+                            edit_label + " (revised)",
+                            "A revised first line.\nA revised second line.",
+                            resolve("content text", "property"),
+                            resolve("attributed to", "property"))
+        print(f"[ok] Edit content (Special:UpdateQuotation) -> {edit_qid}: "
+              f"decoded multiline prefill, label+payload updated, author kept")
 
         # 5. Special:AddMath with the 'describes' subject field (issue
         #    follow-up) + delimiter stripping: a $$…$$-wrapped payload must be

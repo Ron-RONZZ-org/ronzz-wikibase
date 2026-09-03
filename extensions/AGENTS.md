@@ -394,6 +394,31 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   `updatebutton.js` + the config-derived class→Update map in
   `Hooks::onBeforePageDisplay`) links to the Update page for any item whose
   class has one.
+- **Content-item "Edit content" (issue #80, ADR
+  `docs/decisions/content-item-edit-pages.md`)**: quotation/math/code-snippet
+  items — created via `Special:AddQuotation`/`AddMath`/`AddCodeSnippet`,
+  which carry NO classic page — get three new Update pages
+  (`Special:UpdateQuotation`/`UpdateMath`/`UpdateCodeSnippet`, URL
+  `Special:UpdateQuotation/Q42`) extending `SpecialAddContentItem` via the
+  new `SpecialUpdateContentItem` base. The edit form is the EXACT same form
+  as Add (`buildFields` minus the "Add more" button), prefilled from the
+  item (`recordFromItem` — the reverse of `SpecialContentFlowService::statementSpecs`)
+  with the payload **decoded** (`PayloadCodec`) so multi-line content
+  appears exactly as entered in Add, the quotation language and the code
+  lexer pre-selected, and the subject lists (`describes`/`implementation
+  of`)/provenance carrying their ids. Submit = the shared flow service
+  `prepare(creating:false)` + `applyUpdate` (no-clobber: a blank field
+  keeps the existing statement; removal is an explicit item-page edit) —
+  the same pipeline the `action=addspecialcontent` qid update runs; the
+  label is written back in the term language it was prefilled from and the
+  class never changes. The class→Update map (`Hooks::updateTargetForItem`,
+  the renamed `updateUrlForItem`) now also covers the content classes and
+  sets a per-kind button label — content items render an **"Edit content"**
+  button (`wbUpdateBasicInfoLabel` + `embeddablecontent-update-content-button`,
+  en/fr/eo), the semantic entities keep "Update basic information". The
+  form→record conversion of the Add* submit was extracted to
+  `SpecialAddContentItem::flowRecordFromForm()` so the Add and the Update
+  forms share one vocabulary (drift-proof, the API/forms contract rule).
 
 - **Upload UX fixes (upload-ux-fixes ADR, todo.md batch)**: (a)
   `uploadmeta.js` validate is latest-wins — a per-URL-field generation

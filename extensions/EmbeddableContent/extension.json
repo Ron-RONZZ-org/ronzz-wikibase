@@ -117,6 +117,15 @@
 				"EmbeddableContent.ProviderClient"
 			]
 		},
+		"UpdateQuotation": {
+			"class": "EmbeddableContent\\Spec\\SpecialUpdateQuotation"
+		},
+		"UpdateMath": {
+			"class": "EmbeddableContent\\Spec\\SpecialUpdateMath"
+		},
+		"UpdateCodeSnippet": {
+			"class": "EmbeddableContent\\Spec\\SpecialUpdateCodeSnippet"
+		},
 		"SourceFile": {
 			"class": "EmbeddableContent\\Spec\\SpecialSourceFile",
 			"services": [
@@ -387,9 +396,10 @@
 			"styles": [
 				"gadget.css"
 			],
-			"messages": [
-				"embeddablecontent-update-button"
-			],
+ "messages": [
+  "embeddablecontent-update-button",
+  "embeddablecontent-update-content-button"
+ ],
 			"targets": [
 				"desktop",
 				"mobile"
