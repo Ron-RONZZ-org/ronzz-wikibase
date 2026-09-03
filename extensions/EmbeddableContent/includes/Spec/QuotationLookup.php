@@ -6,6 +6,9 @@ namespace EmbeddableContent\Spec;
 
 use EmbeddableContent\EmbeddableContentConfig;
 use MediaWiki\MediaWikiServices;
+use MediaWiki\Title\Title;
+use Wikibase\DataModel\Entity\ItemId;
+use Wikibase\Repo\WikibaseRepo;
 
 /**
  * MediaWiki-bound facade for the source-quotation listing (issue #79): runs
@@ -33,32 +36,38 @@ final class QuotationLookup {
 	 * @return array<int,array{qid:string,content:string,label:string}>|null
 	 */
 	public static function findForSource( EmbeddableContentConfig $config, string $sourceItemId ): ?array {
-		$contentPropertyId = $config->payloadPropertyIds()['quotation'] ?? null;
-		$sourcePropertyId = $config->provenancePropertyIds()['source'] ?? null;
-		$quotationClassId = $config->classIds()['quotation'] ?? null;
-		$endpoint = $config->sparqlUrl();
-		if ( $contentPropertyId === null || $sourcePropertyId === null
-			|| $quotationClassId === null || $endpoint === null
-		) {
+		try {
+			$contentPropertyId = $config->payloadPropertyIds()['quotation'] ?? null;
+			$sourcePropertyId = $config->provenancePropertyIds()['source'] ?? null;
+			$quotationClassId = $config->classIds()['quotation'] ?? null;
+			$endpoint = $config->sparqlUrl();
+			if ( $contentPropertyId === null || $sourcePropertyId === null
+				|| $quotationClassId === null || $endpoint === null
+			) {
+				return null;
+			}
+			$prefixes = self::entityPrefixes();
+			if ( $prefixes === null ) {
+				return null;
+			}
+			[ $wd, $wdt ] = $prefixes;
+			$finder = new QuotationFinder(
+				static fn ( string $query ): ?array => self::runSparql( $endpoint, $query )
+			);
+			return $finder->findForSource(
+				$sourceItemId,
+				$quotationClassId,
+				$contentPropertyId,
+				$sourcePropertyId,
+				$config->instanceOfPropertyId(),
+				$wd,
+				$wdt
+			);
+		} catch ( \Throwable $e ) {
+			// A malformed/absent content vocabulary or endpoint degrades to
+			// "no data" — never a 500 (the DuplicateChecker contract).
 			return null;
 		}
-		$prefixes = self::entityPrefixes();
-		if ( $prefixes === null ) {
-			return null;
-		}
-		[ $wd, $wdt ] = $prefixes;
-		$finder = new QuotationFinder(
-			static fn ( string $query ): ?array => self::runSparql( $endpoint, $query )
-		);
-		return $finder->findForSource(
-			$sourceItemId,
-			$quotationClassId,
-			$contentPropertyId,
-			$sourcePropertyId,
-			$config->instanceOfPropertyId(),
-			$wd,
-			$wdt
-		);
 	}
 
 	/** @return array{string,string}|null [wd, wdt] entity URI bases, or null */
@@ -69,6 +78,39 @@ final class QuotationLookup {
 		}
 		$wd = rtrim( $server, '/' ) . '/entity/';
 		return [ $wd, str_replace( '/entity/', '/prop/direct/', $wd ) ];
+	}
+
+	/**
+	 * Refreshes the parser cache of the given source items' classic pages
+	 * (the "Quotations" auto-link row on the Source: pages). Adding,
+	 * updating or re-sourcing a quotation does NOT touch the source item's
+	 * revision, so the parser-cache dependency (ParserOutput::addTemplate)
+	 * never fires for that change — the page must be invalidated
+	 * explicitly. Called by the content-creation paths
+	 * (SpecialAddContentItem, SpecialUpdateContentItem,
+	 * ApiAddSpecialContent) when their record carries a `source`.
+	 *
+	 * Best-effort: a failure (no sitelink, DB hiccup) only delays the row
+	 * refresh until the parser-cache TTL — it never breaks the item save.
+	 *
+	 * @param string[] $sourceItemIds
+	 */
+	public static function invalidateSourcePages( array $sourceItemIds ): void {
+		foreach ( array_unique( array_filter( $sourceItemIds, 'is_string' ) ) as $itemId ) {
+			if ( preg_match( '/^Q[1-9]\d*$/i', $itemId ) !== 1 ) {
+				continue;
+			}
+			try {
+				$link = WikibaseRepo::getStore()->newSiteLinkStore()
+					->getLinkForItemId( new ItemId( $itemId ) );
+				$title = Title::newFromText( (string)( $link['pageName'] ?? '' ) );
+				if ( $title !== null && $title->exists() ) {
+					$title->invalidateCache();
+				}
+			} catch ( \Throwable $e ) {
+				// Best-effort (see above).
+			}
+		}
 	}
 
 	/** @return array<int,array<string,mixed>>|null */

@@ -114,6 +114,9 @@ class ApiAddSpecialContent extends ApiBase {
 			if ( !$entity instanceof Item ) {
 				$this->dieWithError( new RawMessage( "Entity \"{$qid}\" not found." ), 'not_found' );
 			}
+			// The source(s) BEFORE the update — a re-sourced quotation must
+			// refresh the OLD source page's auto-link too.
+			$previousSources = self::sourceIdsOf( $entity, $this->config );
 			$this->flow->applyUpdate( $kind, $entity, $record );
 			$revision = $store->saveEntity(
 				$entity,
@@ -129,7 +132,46 @@ class ApiAddSpecialContent extends ApiBase {
 			];
 		}
 
+		// The Source: page "Quotations" auto-link must refresh when a
+		// content item with a source lands or is re-sourced (the source
+		// item's own revision did not change, so the parser-cache
+		// dependency never fires) — invalidate the affected classic pages,
+		// best-effort.
+		$invalidSources = $creating ? [] : ( $previousSources ?? [] );
+		if ( isset( $record['source'] ) && $record['source'] !== '' ) {
+			$invalidSources[] = $record['source'];
+		}
+		if ( $invalidSources !== [] ) {
+			\EmbeddableContent\Spec\QuotationLookup::invalidateSourcePages( $invalidSources );
+		}
+
 		$this->getResult()->addValue( null, 'content', $result );
+	}
+
+	/**
+	 * The `source` statement values (item ids) of an item, for invalidating
+	 * the old source's page when a content item is re-sourced via the API.
+	 *
+	 * @return string[]
+	 */
+	private static function sourceIdsOf( Item $item, EmbeddableContentConfig $config ): array {
+		$propertyId = $config->provenancePropertyIds()['source'] ?? null;
+		if ( $propertyId === null ) {
+			return [];
+		}
+		$ids = [];
+		try {
+			$prop = new \Wikibase\DataModel\Entity\NumericPropertyId( $propertyId );
+		} catch ( \Throwable $e ) {
+			return [];
+		}
+		foreach ( $item->getStatements()->getByPropertyId( $prop ) as $statement ) {
+			$value = $statement->getMainSnak()->getDataValue();
+			if ( $value instanceof \Wikibase\DataModel\Entity\EntityIdValue ) {
+				$ids[] = $value->getEntityId()->getSerialization();
+			}
+		}
+		return $ids;
 	}
 
 	public function getAllowedParams() {
