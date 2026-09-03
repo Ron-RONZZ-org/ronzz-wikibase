@@ -523,7 +523,19 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   best-effort) from `SpecialAddContentItem` and `ApiAddSpecialContent`,
   because adding a quotation does not touch the source item's revision.
   WDQS is eventually consistent — a fresh quotation joins the listing after
-  the updater polls it.
+  the updater polls it. **Query-building footgun (2026-09-03 incident)**: a
+  SINGLE-quoted `'\n'` in a SPARQL query string is a literal backslash-n —
+  Blazegraph 400s it ("Lexical error … Encountered: '\\'") and the lookup
+  silently degraded to "unavailable" on production (CLI reproductions
+  passed because manual test queries were hand-built). The regression test
+  bans any backslash from the generated query. The WDQS lookups run through
+  `Spec/SparqlRunner` (direct cURL GET with the query as an
+  `http_build_query` URL parameter, failures logged) — not MediaWiki's
+  HttpRequestFactory, whose php-fpm body transport mangled multi-line
+  queries in testing; production overrides the config-map `sparqlUrl` in
+  LocalSettings to the runbook's local WDQS endpoint
+  (`http://127.0.0.1:9999/bigdata/namespace/wdq/sparql`) for server-side
+  reads.
 
 - **Wikimedia blob fallback fixes on the Add\* pages (follow-up, same ADR)**: the
   shared `uploadmeta.js` submit-time blob fallback had a chain of latent bugs

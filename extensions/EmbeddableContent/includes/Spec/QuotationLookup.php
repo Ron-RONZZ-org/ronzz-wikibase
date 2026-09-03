@@ -5,7 +5,6 @@ declare( strict_types = 1 );
 namespace EmbeddableContent\Spec;
 
 use EmbeddableContent\EmbeddableContentConfig;
-use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\Title;
 use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\Repo\WikibaseRepo;
@@ -44,10 +43,18 @@ final class QuotationLookup {
 			if ( $contentPropertyId === null || $sourcePropertyId === null
 				|| $quotationClassId === null || $endpoint === null
 			) {
+				// Diagnosable: name the missing vocabulary piece rather than
+				// degrading silently (the page already shows "unavailable").
+				error_log( 'QuotationLookup: content vocabulary incomplete for source ' . $sourceItemId
+					. ' (payload=' . var_export( $contentPropertyId, true )
+					. ' source=' . var_export( $sourcePropertyId, true )
+					. ' class=' . var_export( $quotationClassId, true )
+					. ' sparqlUrl=' . var_export( $endpoint, true ) . ')' );
 				return null;
 			}
 			$prefixes = self::entityPrefixes();
 			if ( $prefixes === null ) {
+				error_log( 'QuotationLookup: wgServer not set — cannot derive entity prefixes' );
 				return null;
 			}
 			[ $wd, $wdt ] = $prefixes;
@@ -65,7 +72,10 @@ final class QuotationLookup {
 			);
 		} catch ( \Throwable $e ) {
 			// A malformed/absent content vocabulary or endpoint degrades to
-			// "no data" — never a 500 (the DuplicateChecker contract).
+			// "no data" — never a 500 (the DuplicateChecker contract). The
+			// failure stays observable (php-fpm stderr → the nginx error log).
+			error_log( 'QuotationLookup: findForSource(' . $sourceItemId . ') failed: '
+				. get_class( $e ) . ': ' . $e->getMessage() );
 			return null;
 		}
 	}
@@ -115,24 +125,15 @@ final class QuotationLookup {
 
 	/** @return array<int,array<string,mixed>>|null */
 	private static function runSparql( string $endpoint, string $query ): ?array {
+		// Direct cURL, not MediaWiki's HttpRequestFactory: the php-fpm POST
+		// transport mangled multi-line queries into Blazegraph (see
+		// SparqlRunner). GET with the query URL-parameter is the
+		// WDQS-standard read form.
 		try {
-			$http = MediaWikiServices::getInstance()->getHttpRequestFactory();
-			$request = $http->create(
-				$endpoint,
-				[ 'method' => 'POST', 'postData' => [ 'query' => $query ], 'timeout' => 10 ],
-				__METHOD__
-			);
-			$request->setHeader( 'Accept', 'application/sparql-results+json' );
-			if ( !$request->execute()->isOK() ) {
-				return null;
-			}
-			$decoded = json_decode( $request->getContent(), true );
-			if ( !is_array( $decoded ) || !isset( $decoded['results']['bindings'] ) ) {
-				return null;
-			}
-			$rows = $decoded['results']['bindings'];
-			return is_array( $rows ) ? $rows : null;
+			return SparqlRunner::select( $endpoint, $query );
 		} catch ( \Throwable $e ) {
+			error_log( 'QuotationLookup: SPARQL request to ' . $endpoint . ' threw '
+				. get_class( $e ) . ': ' . $e->getMessage() );
 			return null;
 		}
 	}

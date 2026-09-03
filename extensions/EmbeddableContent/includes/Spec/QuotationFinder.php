@@ -84,7 +84,7 @@ final class QuotationFinder {
 			// literals; STR() keeps the text.
 			. '  ?item wdt:' . strtoupper( $sourcePropertyId ) . ' wd:' . strtoupper( $sourceItemId ) . " .\n"
 			. '  ?item wdt:' . strtoupper( $instanceOfPropertyId ) . ' wd:' . strtoupper( $quotationClassId ) . " .\n"
-			. '  OPTIONAL { ?item wdt:' . strtoupper( $contentPropertyId ) . ' ?content }\n'
+			. '  OPTIONAL { ?item wdt:' . strtoupper( $contentPropertyId ) . ' ?content }' . "\n"
 			. '  OPTIONAL { ?item rdfs:label ?label FILTER(LANG(?label) = "en") }' . "\n"
 			. '} ORDER BY ?item LIMIT ' . self::MAX_ROWS;
 
