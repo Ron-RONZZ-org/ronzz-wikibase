@@ -5,7 +5,6 @@ declare( strict_types = 1 );
 namespace EmbeddableContent\Spec;
 
 use EmbeddableContent\EmbeddableContentConfig;
-use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\Title;
 use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\Repo\WikibaseRepo;
@@ -126,33 +125,12 @@ final class QuotationLookup {
 
 	/** @return array<int,array<string,mixed>>|null */
 	private static function runSparql( string $endpoint, string $query ): ?array {
+		// Direct cURL, not MediaWiki's HttpRequestFactory: the php-fpm POST
+		// transport mangled multi-line queries into Blazegraph (see
+		// SparqlRunner). GET with the query URL-parameter is the
+		// WDQS-standard read form.
 		try {
-			$http = MediaWikiServices::getInstance()->getHttpRequestFactory();
-			// GET with the query in the URL string. MediaWiki's POST bodies
-			// are sent by different transports in CLI vs php-fpm (curl vs
-			// Guzzle) and the php-fpm transport mangled the multi-line
-			// query into Blazegraph ("Lexical error … Encountered: '\\'" —
-			// a literal \n reached the parser); a GET query parameter is
-			// encoded by http_build_query and never goes through a body
-			// transport. WDQS accepts GET (the runbook's own status
-			// commands use it).
-			$url = $endpoint . ( strpos( $endpoint, '?' ) === false ? '?' : '&' )
-				. http_build_query( [ 'query' => $query ] );
-			$request = $http->create( $url, [ 'method' => 'GET', 'timeout' => 20 ], __METHOD__ );
-			$request->setHeader( 'Accept', 'application/sparql-results+json' );
-			if ( !$request->execute()->isOK() ) {
-				error_log( 'QuotationLookup: SPARQL request to ' . $endpoint . ' failed with status '
-					. $request->getStatus() . ' body: ' . substr( (string)$request->getContent(), 0, 2000 ) );
-				return null;
-			}
-			$decoded = json_decode( $request->getContent(), true );
-			if ( !is_array( $decoded ) || !isset( $decoded['results']['bindings'] ) ) {
-				error_log( 'QuotationLookup: SPARQL response from ' . $endpoint . ' was not '
-					. 'application/sparql-results+json (' . substr( (string)$request->getContent(), 0, 120 ) . ')' );
-				return null;
-			}
-			$rows = $decoded['results']['bindings'];
-			return is_array( $rows ) ? $rows : null;
+			return SparqlRunner::select( $endpoint, $query );
 		} catch ( \Throwable $e ) {
 			error_log( 'QuotationLookup: SPARQL request to ' . $endpoint . ' threw '
 				. get_class( $e ) . ': ' . $e->getMessage() );

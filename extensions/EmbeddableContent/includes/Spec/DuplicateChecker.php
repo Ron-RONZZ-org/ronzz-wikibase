@@ -5,7 +5,6 @@ declare( strict_types = 1 );
 namespace EmbeddableContent\Spec;
 
 use EmbeddableContent\EmbeddableContentConfig;
-use MediaWiki\MediaWikiServices;
 
 /**
  * MediaWiki-bound facade for the duplication guard: assembles the record's
@@ -78,24 +77,12 @@ final class DuplicateChecker {
 
 	/** @return array<int,array<string,mixed>>|null */
 	private static function runSparql( string $endpoint, string $query ): ?array {
+		// Direct cURL (SparqlRunner), not MediaWiki's HttpRequestFactory —
+		// the php-fpm POST transport mangled multi-line queries into
+		// Blazegraph (see SparqlRunner; the duplication guard's WDQS id
+		// signal silently no-opped on production because of it).
 		try {
-			$http = MediaWikiServices::getInstance()->getHttpRequestFactory();
-			// GET with the query in the URL string — MediaWiki's php-fpm
-			// POST transport mangled multi-line queries into Blazegraph
-			// (a literal \n reached the parser; see QuotationLookup::runSparql).
-			$url = $endpoint . ( strpos( $endpoint, '?' ) === false ? '?' : '&' )
-				. http_build_query( [ 'query' => $query ] );
-			$request = $http->create( $url, [ 'method' => 'GET', 'timeout' => 10 ], __METHOD__ );
-			$request->setHeader( 'Accept', 'application/sparql-results+json' );
-			if ( !$request->execute()->isOK() ) {
-				return null;
-			}
-			$decoded = json_decode( $request->getContent(), true );
-			if ( !is_array( $decoded ) || !isset( $decoded['results']['bindings'] ) ) {
-				return null;
-			}
-			$rows = $decoded['results']['bindings'];
-			return is_array( $rows ) ? $rows : null;
+			return SparqlRunner::select( $endpoint, $query, 10 );
 		} catch ( \Throwable $e ) {
 			return null;
 		}
