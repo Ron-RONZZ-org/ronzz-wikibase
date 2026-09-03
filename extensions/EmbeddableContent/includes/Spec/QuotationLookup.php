@@ -128,11 +128,17 @@ final class QuotationLookup {
 	private static function runSparql( string $endpoint, string $query ): ?array {
 		try {
 			$http = MediaWikiServices::getInstance()->getHttpRequestFactory();
-			$request = $http->create(
-				$endpoint,
-				[ 'method' => 'POST', 'postData' => [ 'query' => $query ], 'timeout' => 20 ],
-				__METHOD__
-			);
+			// GET with the query in the URL string. MediaWiki's POST bodies
+			// are sent by different transports in CLI vs php-fpm (curl vs
+			// Guzzle) and the php-fpm transport mangled the multi-line
+			// query into Blazegraph ("Lexical error … Encountered: '\\'" —
+			// a literal \n reached the parser); a GET query parameter is
+			// encoded by http_build_query and never goes through a body
+			// transport. WDQS accepts GET (the runbook's own status
+			// commands use it).
+			$url = $endpoint . ( strpos( $endpoint, '?' ) === false ? '?' : '&' )
+				. http_build_query( [ 'query' => $query ] );
+			$request = $http->create( $url, [ 'method' => 'GET', 'timeout' => 20 ], __METHOD__ );
 			$request->setHeader( 'Accept', 'application/sparql-results+json' );
 			if ( !$request->execute()->isOK() ) {
 				error_log( 'QuotationLookup: SPARQL request to ' . $endpoint . ' failed with status '

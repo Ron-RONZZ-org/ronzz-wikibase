@@ -80,11 +80,12 @@ final class DuplicateChecker {
 	private static function runSparql( string $endpoint, string $query ): ?array {
 		try {
 			$http = MediaWikiServices::getInstance()->getHttpRequestFactory();
-			$request = $http->create(
-				$endpoint,
-				[ 'method' => 'POST', 'postData' => [ 'query' => $query ], 'timeout' => 10 ],
-				__METHOD__
-			);
+			// GET with the query in the URL string — MediaWiki's php-fpm
+			// POST transport mangled multi-line queries into Blazegraph
+			// (a literal \n reached the parser; see QuotationLookup::runSparql).
+			$url = $endpoint . ( strpos( $endpoint, '?' ) === false ? '?' : '&' )
+				. http_build_query( [ 'query' => $query ] );
+			$request = $http->create( $url, [ 'method' => 'GET', 'timeout' => 10 ], __METHOD__ );
 			$request->setHeader( 'Accept', 'application/sparql-results+json' );
 			if ( !$request->execute()->isOK() ) {
 				return null;
