@@ -136,7 +136,7 @@ final class QuotationLookup {
 			$request->setHeader( 'Accept', 'application/sparql-results+json' );
 			if ( !$request->execute()->isOK() ) {
 				error_log( 'QuotationLookup: SPARQL request to ' . $endpoint . ' failed with status '
-					. $request->getStatus() . ' body: ' . substr( (string)$request->getContent(), 0, 400 ) );
+					. $request->getStatus() . ' body: ' . substr( (string)$request->getContent(), 0, 2000 ) );
 				return null;
 			}
 			$decoded = json_decode( $request->getContent(), true );
