@@ -6,6 +6,7 @@ namespace EmbeddableContent;
 
 use EmbeddableContent\ParserFunctions\ContentPayload;
 use EmbeddableContent\ParserFunctions\ItemImage;
+use EmbeddableContent\ParserFunctions\QuotationsOf;
 use EmbeddableContent\ParserFunctions\SourceAccess;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Output\OutputPage;
@@ -318,6 +319,13 @@ class Hooks {
 		} );
 		$parser->setFunctionHook( 'content', static function ( Parser $parser, ...$args ) use ( $services ): array {
 			return ContentPayload::onContent(
+				$services->get( 'EmbeddableContent.Config' ),
+				$parser,
+				$args
+			);
+		} );
+		$parser->setFunctionHook( 'quotationsof', static function ( Parser $parser, ...$args ) use ( $services ): array {
+			return QuotationsOf::onQuotationsOf(
 				$services->get( 'EmbeddableContent.Config' ),
 				$parser,
 				$args
