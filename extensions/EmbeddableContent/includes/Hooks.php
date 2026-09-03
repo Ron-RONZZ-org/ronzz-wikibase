@@ -144,12 +144,15 @@ class Hooks {
 
 		$out->addModules( 'ext.embeddableContent.gadget' );
 
-		// "Update basic information" button (the autofill-confirm-update
-		// batch): items whose class has a Special:Update* counterpart link
-		// to it — server-side class detection, no client API roundtrip.
-		$updateUrl = self::updateUrlForItem( $entityId->getSerialization() );
-		if ( $updateUrl !== null ) {
-			$out->addJsConfigVars( 'wbUpdateBasicInfoUrl', $updateUrl );
+		// "Update basic information" / "Edit content" button (the
+		// autofill-confirm-update batch + issue #80): items whose class has
+		// a Special:Update* counterpart link to it — server-side class
+		// detection, no client API roundtrip. The button LABEL follows the
+		// item kind (content items: "Edit content").
+		$updateTarget = self::updateTargetForItem( $entityId->getSerialization() );
+		if ( $updateTarget !== null ) {
+			$out->addJsConfigVars( 'wbUpdateBasicInfoUrl', $updateTarget['url'] );
+			$out->addJsConfigVars( 'wbUpdateBasicInfoLabel', $updateTarget['messageKey'] );
 			$out->addModules( 'ext.embeddableContent.updatebutton' );
 		}
 
@@ -163,16 +166,20 @@ class Hooks {
 	}
 
 	/**
-	 * The Special:Update* URL for an item, or null when the item's class has
-	 * no Update page (not part of the Add* vocabulary). Class → Update page
-	 * mapping (all config-derived, instance-agnostic):
+	 * The Special:Update* target for an item, or null when the item's class
+	 * has no Update page (not part of the Add* vocabulary). Class → Update
+	 * page mapping (all config-derived, instance-agnostic):
 	 *  - any source class      → Special:UpdateSource (per-class detection)
 	 *  - the person class      → Special:UpdatePerson
 	 *  - the other agent classes → Special:UpdateCollective
 	 *  - the FOSS class        → Special:UpdateSoftware
 	 *  - the fictional class   → Special:UpdateFictionalCharacter
+	 *  - the content classes (quotation/math/code-snippet) → the
+	 *    Special:UpdateQuotation/Math/CodeSnippet pages ("Edit content").
+	 *
+	 * @return array{url:string,messageKey:string}|null
 	 */
-	private static function updateUrlForItem( string $itemId ): ?string {
+	private static function updateTargetForItem( string $itemId ): ?array {
 		try {
 			$config = MediaWikiServices::getInstance()->get( 'EmbeddableContent.Config' );
 			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
@@ -194,29 +201,82 @@ class Hooks {
 			return null;
 		}
 
+		// Content classes (quotation / math / code-snippet) — "Edit
+		// content" pages (issue #80). A config without the content
+		// vocabulary ('classes' map) degrades to no content button — it
+		// must never break the semantic-entity mappings below.
+		$contentTarget = self::contentUpdateTarget( $itemId, $config, $classIds );
+		if ( $contentTarget !== null ) {
+			return $contentTarget;
+		}
+
 		foreach ( $config->sourceClasses() as $id ) {
 			if ( in_array( $id, $classIds, true ) ) {
-				return SpecialPage::getTitleFor( 'UpdateSource', $itemId )->getFullURL();
+				return [
+					'url' => SpecialPage::getTitleFor( 'UpdateSource', $itemId )->getFullURL(),
+					'messageKey' => 'embeddablecontent-update-button',
+				];
 			}
 		}
 		$agentClasses = $config->agentClasses();
 		if ( isset( $agentClasses['person'] ) && in_array( $agentClasses['person'], $classIds, true ) ) {
-			return SpecialPage::getTitleFor( 'UpdatePerson', $itemId )->getFullURL();
+			return [
+				'url' => SpecialPage::getTitleFor( 'UpdatePerson', $itemId )->getFullURL(),
+				'messageKey' => 'embeddablecontent-update-button',
+			];
 		}
 		foreach ( $agentClasses as $key => $id ) {
 			if ( $key !== 'person' && in_array( $id, $classIds, true ) ) {
-				return SpecialPage::getTitleFor( 'UpdateCollective', $itemId )->getFullURL();
+				return [
+					'url' => SpecialPage::getTitleFor( 'UpdateCollective', $itemId )->getFullURL(),
+					'messageKey' => 'embeddablecontent-update-button',
+				];
 			}
 		}
 		foreach ( $config->fossClasses() as $id ) {
 			if ( in_array( $id, $classIds, true ) ) {
-				return SpecialPage::getTitleFor( 'UpdateSoftware', $itemId )->getFullURL();
+				return [
+					'url' => SpecialPage::getTitleFor( 'UpdateSoftware', $itemId )->getFullURL(),
+					'messageKey' => 'embeddablecontent-update-button',
+				];
 			}
 		}
 		foreach ( $config->fictionalCharacterClasses() as $id ) {
 			if ( in_array( $id, $classIds, true ) ) {
-				return SpecialPage::getTitleFor( 'UpdateFictionalCharacter', $itemId )->getFullURL();
+				return [
+					'url' => SpecialPage::getTitleFor( 'UpdateFictionalCharacter', $itemId )->getFullURL(),
+					'messageKey' => 'embeddablecontent-update-button',
+				];
 			}
+		}
+		return null;
+	}
+
+	/**
+	 * The "Edit content" update target for an item whose instance-of
+	 * classes include a content class (quotation / math / code-snippet).
+	 *
+	 * @return array{url:string,messageKey:string}|null
+	 */
+	private static function contentUpdateTarget( string $itemId, $config, array $classIds ): ?array {
+		try {
+			$updatePages = [
+				'quotation' => 'UpdateQuotation',
+				'math' => 'UpdateMath',
+				'code' => 'UpdateCodeSnippet',
+			];
+			foreach ( $config->classIds() as $kind => $classId ) {
+				if ( in_array( $classId, $classIds, true ) && isset( $updatePages[$kind] ) ) {
+					return [
+						'url' => SpecialPage::getTitleFor( $updatePages[$kind], $itemId )->getFullURL(),
+						'messageKey' => 'embeddablecontent-update-content-button',
+					];
+				}
+			}
+		} catch ( \Throwable $e ) {
+			// A malformed/absent content vocabulary never breaks the
+			// semantic-entity update buttons.
+			return null;
 		}
 		return null;
 	}

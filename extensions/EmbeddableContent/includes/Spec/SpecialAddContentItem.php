@@ -58,15 +58,7 @@ abstract class SpecialAddContentItem extends SpecialPage {
 			->setSubmitID( 'wb-embed-add-form' );
 		$form->show();
 		if ( $this->getKind() === 'math' ) {
-			// KaTeX live preview: the module wires the Preview button to the
-			// vendored KaTeX, rendering the delimiter-stripped payload.
-			$this->getOutput()->addModules( 'ext.embeddableContent.addmath' );
-			$this->getOutput()->addHTML(
-				'<div id="wb-math-preview-box" class="wb-math-preview-box" hidden>'
-				. '<div class="wb-math-preview-title">'
-				. $this->msg( 'embeddablecontent-add-math-preview-label' )->escaped()
-				. '</div><div id="wb-math-preview-content" class="wb-math-preview-content"></div></div>'
-			);
+			$this->addMathPreviewBox();
 		}
 	}
 
@@ -78,10 +70,25 @@ abstract class SpecialAddContentItem extends SpecialPage {
 	 * action=addspecialcontent API module runs): the item is built and saved
 	 * here, so the browser form and the API can never drift.
 	 */
-	private function contentFlow(): \EmbeddableContent\Flow\SpecialContentFlowService {
+	protected function contentFlow(): \EmbeddableContent\Flow\SpecialContentFlowService {
 		$this->flow ??= \MediaWiki\MediaWikiServices::getInstance()
 			->get( 'EmbeddableContent.SpecialContentFlowService' );
 		return $this->flow;
+	}
+
+	/**
+	 * The KaTeX live-preview box (math pages): the module wires the Preview
+	 * button to the vendored KaTeX, rendering the delimiter-stripped
+	 * payload. Shared by the Add* and the Update* math pages.
+	 */
+	protected function addMathPreviewBox(): void {
+		$this->getOutput()->addModules( 'ext.embeddableContent.addmath' );
+		$this->getOutput()->addHTML(
+			'<div id="wb-math-preview-box" class="wb-math-preview-box" hidden>'
+			. '<div class="wb-math-preview-title">'
+			. $this->msg( 'embeddablecontent-add-math-preview-label' )->escaped()
+			. '</div><div id="wb-math-preview-content" class="wb-math-preview-content"></div></div>'
+		);
 	}
 
 	protected function buildFields(): array {
@@ -272,100 +279,18 @@ abstract class SpecialAddContentItem extends SpecialPage {
 			return $this->msg( 'embeddablecontent-add-error-config' )->text();
 		}
 
-		// The quotation language combobox accepts any of the 500+ languages;
-		// reject garbage codes instead of letting Wikibase fail on save.
-		$language = (string)( $data['language'] ?? $this->getLanguage()->getCode() );
-		if (
-			$this->getKind() === 'quotation'
-			&& !\MediaWiki\MediaWikiServices::getInstance()->getLanguageNameUtils()->isValidCode( $language )
-		) {
-			return $this->msg( 'embeddablecontent-add-error-badlanguage' )->text();
+		// Convert the browser form's values into the flow record (the
+		// action=addspecialcontent vocabulary). Validation of the
+		// browser-only fields — quotation language code, code lexer,
+		// entity ids, URL, date — lives in flowRecordFromForm(), shared
+		// with the Special:Update* content pages, so the Add and the
+		// Update forms can never drift.
+		$converted = $this->flowRecordFromForm( $data );
+		if ( $converted['error'] !== null ) {
+			return $converted['error'];
 		}
-
-		// The code-snippet lexer combobox accepts free typing (Pygments-style
-		// names are lowercase — normalize before comparing). A value outside
-		// the configured lexers is a hard error: silently skipping the
-		// programming-language statement would drop user input.
-		$lexer = '';
-		if ( $this->getKind() === 'code' ) {
-			$lexer = strtolower( trim( (string)( $data['lexer'] ?? '' ) ) );
-			if ( $lexer !== '' && !isset( $this->config->lexerItemIds()[$lexer] ) ) {
-				return $this->msg( 'embeddablecontent-add-error-badlexer', $data['lexer'] )->text();
-			}
-		}
-
-		$attributedTo = $this->parseOptionalItemId( (string)$data['attributedTo'] );
-		$source = $this->parseOptionalItemId( (string)$data['source'] );
-		if ( (string)$data['attributedTo'] !== '' && $attributedTo === null ) {
-			return $this->msg( 'embeddablecontent-add-error-baditemid', 'attributed to' )->text();
-		}
-		if ( (string)$data['source'] !== '' && $source === null ) {
-			return $this->msg( 'embeddablecontent-add-error-baditemid', 'source' )->text();
-		}
-
-		$sourceUrl = null;
-		if ( (string)$data['sourceUrl'] !== '' ) {
-			$sourceUrl = ( new FragmentSanitizer() )->validateUrl( (string)$data['sourceUrl'] );
-			if ( $sourceUrl === null ) {
-				return $this->msg( 'embeddablecontent-add-error-badurl' )->text();
-			}
-		}
-
-		$date = $this->parseDate( (string)$data['date'] );
-		if ( (string)$data['date'] !== '' && $date === null ) {
-			return $this->msg( 'embeddablecontent-add-error-baditemid', 'date' )->text();
-		}
-
-		// The item is built and saved by the shared SpecialContentFlowService
-		// (the same pipeline the action=addspecialcontent API module runs), so
-		// the browser form and the API can never drift. The form's validation
-		// above (label/payload required, language, lexer, provenance) stays;
-		// the service re-validates as the safety net.
-		$kind = $this->getKind() === 'code' ? 'code-snippet' : $this->getKind();
-		$flowRecord = [
-			'label' => $label,
-			'content' => trim( (string)$data['payload'] ),
-			'labelLanguage' => $this->getLanguage()->getCode(),
-		];
-		if ( $kind === 'quotation' ) {
-			$flowRecord['language'] = $language;
-		}
-		if ( $kind === 'code-snippet' && $lexer !== '' ) {
-			$languageItemId = $this->config->lexerItemIds()[$lexer] ?? null;
-			if ( $languageItemId !== null ) {
-				$flowRecord['programmingLanguage'] = $languageItemId;
-			}
-		}
-		if ( $attributedTo !== null ) {
-			$flowRecord['attributedTo'] = $attributedTo->getSerialization();
-		}
-		if ( $source !== null ) {
-			$flowRecord['source'] = $source->getSerialization();
-		}
-		if ( $sourceUrl !== null ) {
-			$flowRecord['sourceUrl'] = $sourceUrl;
-		}
-		if ( $date !== null ) {
-			$flowRecord['date'] = (string)$data['date'];
-		}
-		if ( $kind === 'math' && $this->config->describesPropertyId() !== null ) {
-			$result = $this->splitItemIds( (string)$data['describes'], 'describes' );
-			if ( $result['error'] !== null ) {
-				return $result['error'];
-			}
-			if ( $result['ids'] !== [] ) {
-				$flowRecord['describes'] = implode( ', ', $result['ids'] );
-			}
-		}
-		if ( $kind === 'code-snippet' && $this->config->implementationOfPropertyId() !== null ) {
-			$result = $this->splitItemIds( (string)$data['implementationOf'], 'implementation of' );
-			if ( $result['error'] !== null ) {
-				return $result['error'];
-			}
-			if ( $result['ids'] !== [] ) {
-				$flowRecord['implementationOf'] = implode( ', ', $result['ids'] );
-			}
-		}
+		$kind = $converted['kind'];
+		$flowRecord = $converted['record'];
 
 		$error = $this->contentFlow()->prepare( $kind, $flowRecord, true );
 		if ( $error !== null ) {
@@ -427,7 +352,124 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		$this->getOutput()->redirect( $title ? $title->getFullURL() : $this->getPageTitle()->getFullURL() );
 	}
 
-	private function parseOptionalItemId( string $input ): ?ItemId {
+	/**
+	 * Converts the Add\* / Update\* content form's submitted values into a
+	 * flow
+	 * record — the action=addspecialcontent / SpecialContentFlowService
+	 * vocabulary — validating the browser-only fields along the way: the
+	 * quotation language code, the code lexer (outside the configured
+	 * lexers is a hard error, never a silent drop), entity-id fields, the
+	 * http(s) source URL and the YYYY-MM-DD date. The math delimiter
+	 * stripping and the multi-line backslash-escaping stay in the flow
+	 * service (prepare()), so the payload is passed raw.
+	 *
+	 * Shared by the create submit (SpecialAddContentItem::onSubmit) and the
+	 * update submit (SpecialUpdateContentItem::onUpdateSubmit) — the two
+	 * forms can never drift. On UPDATE the label and payload may be blank
+	 * (no-clobber: a blank managed field keeps the existing statement), so
+	 * only present non-empty values land in the record; the required-on-
+	 * create rules stay in the form fields and in the flow service.
+	 *
+	 * @param array<string,mixed> $data HTMLForm data (field keys: label,
+	 *  payload, labelLanguage, language, lexer, attributedTo, sourceUrl,
+	 *  source, date, describes, implementationOf)
+	 * @return array{record: array<string,mixed>, kind: string, error: ?string}
+	 */
+	protected function flowRecordFromForm( array $data ): array {
+		$kind = $this->getKind() === 'code' ? 'code-snippet' : $this->getKind();
+		$record = [
+			'label' => trim( (string)( $data['label'] ?? '' ) ),
+			'content' => trim( (string)( $data['payload'] ?? '' ) ),
+			'labelLanguage' => (string)( $data['labelLanguage'] ?? $this->getLanguage()->getCode() ),
+		];
+		$errors = [];
+
+		// The quotation language combobox accepts any of the 500+ languages;
+		// reject garbage codes instead of letting Wikibase fail on save.
+		if ( $kind === 'quotation' ) {
+			$language = (string)( $data['language'] ?? $this->getLanguage()->getCode() );
+			if ( !\MediaWiki\MediaWikiServices::getInstance()->getLanguageNameUtils()->isValidCode( $language ) ) {
+				$errors[] = $this->msg( 'embeddablecontent-add-error-badlanguage' )->text();
+			} else {
+				$record['language'] = $language;
+			}
+		}
+
+		// The code-snippet lexer combobox accepts free typing (Pygments-style
+		// names are lowercase — normalize before comparing). A value outside
+		// the configured lexers is a hard error: silently skipping the
+		// programming-language statement would drop user input.
+		if ( $kind === 'code-snippet' ) {
+			$lexer = strtolower( trim( (string)( $data['lexer'] ?? '' ) ) );
+			if ( $lexer !== '' ) {
+				$languageItemId = $this->config->lexerItemIds()[$lexer] ?? null;
+				if ( $languageItemId === null ) {
+					$errors[] = $this->msg( 'embeddablecontent-add-error-badlexer', $data['lexer'] )->text();
+				} else {
+					$record['programmingLanguage'] = $languageItemId;
+				}
+			}
+		}
+
+		foreach ( [ 'attributedTo' => 'attributed to', 'source' => 'source' ] as $field => $label ) {
+			$raw = trim( (string)( $data[$field] ?? '' ) );
+			if ( $raw === '' ) {
+				continue;
+			}
+			$id = $this->parseOptionalItemId( $raw );
+			if ( $id === null ) {
+				$errors[] = $this->msg( 'embeddablecontent-add-error-baditemid', $label )->text();
+			} else {
+				$record[$field] = $id->getSerialization();
+			}
+		}
+
+		$sourceUrl = trim( (string)( $data['sourceUrl'] ?? '' ) );
+		if ( $sourceUrl !== '' ) {
+			$validated = ( new FragmentSanitizer() )->validateUrl( $sourceUrl );
+			if ( $validated === null ) {
+				$errors[] = $this->msg( 'embeddablecontent-add-error-badurl' )->text();
+			} else {
+				$record['sourceUrl'] = $validated;
+			}
+		}
+
+		$date = trim( (string)( $data['date'] ?? '' ) );
+		if ( $date !== '' && $this->parseDate( $date ) === null ) {
+			$errors[] = $this->msg( 'embeddablecontent-add-error-baditemid', 'date' )->text();
+		} elseif ( $date !== '' ) {
+			$record['date'] = $date;
+		}
+
+		// Content-subject fields: math 'describes', code 'implementation of'.
+		foreach ( [
+			'math' => [ 'describes', 'describes' ],
+			'code-snippet' => [ 'implementationOf', 'implementation of' ],
+		] as $subjectKind => [ $field, $label ] ) {
+			if ( $kind !== $subjectKind ) {
+				continue;
+			}
+			$propertyGated = $subjectKind === 'math'
+				? $this->config->describesPropertyId() !== null
+				: $this->config->implementationOfPropertyId() !== null;
+			if ( !$propertyGated ) {
+				continue;
+			}
+			$result = $this->splitItemIds( (string)( $data[$field] ?? '' ), $label );
+			if ( $result['error'] !== null ) {
+				$errors[] = $result['error'];
+			} elseif ( $result['ids'] !== [] ) {
+				$record[$field] = implode( ', ', array_map(
+					static fn ( ItemId $id ): string => $id->getSerialization(),
+					$result['ids']
+				) );
+			}
+		}
+
+		return [ 'record' => $record, 'kind' => $kind, 'error' => $errors === [] ? null : $errors[0] ];
+	}
+
+	protected function parseOptionalItemId( string $input ): ?ItemId {
 		$input = trim( $input );
 		if ( $input === '' ) {
 			return null;
@@ -448,7 +490,7 @@ abstract class SpecialAddContentItem extends SpecialPage {
 	 *
 	 * @return array{ids: ItemId[], error: ?string}
 	 */
-	private function splitItemIds( string $input, string $fieldLabel ): array {
+	protected function splitItemIds( string $input, string $fieldLabel ): array {
 		$candidates = ItemIdList::split( $input );
 		if ( $candidates === [] ) {
 			return [ 'ids' => [], 'error' => null ];
@@ -464,7 +506,7 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		return [ 'ids' => $parsed, 'error' => null ];
 	}
 
-	private function parseDate( string $input ): ?TimeValue {
+	protected function parseDate( string $input ): ?TimeValue {
 		$input = trim( $input );
 		if ( $input === '' ) {
 			return null;
