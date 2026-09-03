@@ -11,6 +11,10 @@
 #      ronzz-wikibase-writer.json.example (real bot password) — MUST be readable by
 #      the container's nodejs user (uid 100 / gid 101): chgrp 101 + chmod 640
 #      (a plain 0600 makes the container crash with EACCES)
+#   3. create the local-file upload dir (host): sudo mkdir -p /mnt/uploads &&
+#      sudo chown ubuntu:ubuntu /mnt/uploads — mounted ro below + allowlisted via
+#      "uploadDirs" in the config. Empty uploadDirs disables upload-file/update-file
+#      ("uploads are disabled on this server"). See the wiki runbook RonzzIT:Runbook/WikiWriterMCP.
 #
 # No host ports are published: the endpoint is reachable ONLY from the compose network.
 # Do not publish it without a security re-review (see docs/decisions/owui-wiki-writer.md).
@@ -21,6 +25,7 @@ services:
     restart: unless-stopped
     volumes:
       - /opt/openwebui/config/mediawiki-mcp-writer.json:/app/config.json:ro
+      - /mnt/uploads:/mnt/uploads:ro
     environment:
       MCP_TRANSPORT: http              # Streamable HTTP at the fixed /mcp path
       PORT: "8080"

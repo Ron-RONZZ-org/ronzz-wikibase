@@ -1,5 +1,6 @@
 {
   "defaultWiki": "wikibase.ronzz.org",
+  "uploadDirs": ["/mnt/uploads"],
   "wikis": {
     "wikibase.ronzz.org": {
       "sitename": "Wikibase",

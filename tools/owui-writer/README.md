@@ -73,12 +73,19 @@ sudo chgrp 101 /opt/openwebui/config/mediawiki-mcp-writer.json && sudo chmod 640
 Credentials live on the server (owner ubuntu, group 101, mode 640 — on this host gid 101
 maps to the `lxd` group, whose only member is ubuntu) — **never on the wiki, never in this repo**.
 
+The example config also carries `"uploadDirs": ["/mnt/uploads"]` — the allowlist for the
+server-side `upload-file`/`update-file` tools (see § 8). If you deploy from an older example
+that lacks it, add the key; **without it every local upload fails** with "uploads are disabled
+on this server (no upload directories configured)".
+
 ### 4. Merge the compose fragment
 
 Append the `mediawiki-mcp-writer` service from `docker-compose.mcp-writer.yml` to
-`/opt/openwebui/docker-compose.yml`, then:
+`/opt/openwebui/docker-compose.yml`. The fragment mounts host `/mnt/uploads` (ro) into the
+container — create it first:
 
 ```bash
+sudo mkdir -p /mnt/uploads && sudo chown ubuntu:ubuntu /mnt/uploads
 cd /opt/openwebui && docker compose up -d && docker compose ps
 ```
 
@@ -128,6 +135,26 @@ Rules:
   edit under `RonzzWikiCowriterAI` with the AI summary.
 - Conflict drill: edit the page in another tab between preview and approval — the applied
   write must fail/rebase, not clobber.
+
+### 8. Local-file uploads (`upload-file` / `update-file`)
+
+`upload-file` reads a file **from the writer container's disk, under an allowlisted dir only**
+(server-side guard — the request never reaches the wiki otherwise). OWUI and the writer share
+no writable volume, so a file generated in chat cannot be uploaded directly; an operator places
+it on the host first:
+
+```bash
+sudo cp chart.png /mnt/uploads/                    # readable by uid 100 (default 0644 is fine)
+docker exec mediawiki-mcp-writer ls -l /mnt/uploads/   # confirm it is visible inside
+```
+
+Then the model calls `upload-file` with `filepath=/mnt/uploads/chart.png`, `title`, `text`
+(file-page wikitext) and optional `comment`. Host `/mnt/uploads` is mounted `ro` into the
+container and allowlisted via `"uploadDirs"` in the config.
+
+To add another upload dir: append the absolute path to `uploadDirs` **and** bind-mount the
+host dir into the container, then `docker compose up -d mediawiki-mcp-writer`. Full incident
+response (symptom "uploads are disabled on this server"): `RonzzIT:Runbook/WikiWriterMCP`.
 
 ## Rollback
 
