@@ -44,10 +44,18 @@ final class QuotationLookup {
 			if ( $contentPropertyId === null || $sourcePropertyId === null
 				|| $quotationClassId === null || $endpoint === null
 			) {
+				// Diagnosable: name the missing vocabulary piece rather than
+				// degrading silently (the page already shows "unavailable").
+				error_log( 'QuotationLookup: content vocabulary incomplete for source ' . $sourceItemId
+					. ' (payload=' . var_export( $contentPropertyId, true )
+					. ' source=' . var_export( $sourcePropertyId, true )
+					. ' class=' . var_export( $quotationClassId, true )
+					. ' sparqlUrl=' . var_export( $endpoint, true ) . ')' );
 				return null;
 			}
 			$prefixes = self::entityPrefixes();
 			if ( $prefixes === null ) {
+				error_log( 'QuotationLookup: wgServer not set — cannot derive entity prefixes' );
 				return null;
 			}
 			[ $wd, $wdt ] = $prefixes;
@@ -65,7 +73,10 @@ final class QuotationLookup {
 			);
 		} catch ( \Throwable $e ) {
 			// A malformed/absent content vocabulary or endpoint degrades to
-			// "no data" — never a 500 (the DuplicateChecker contract).
+			// "no data" — never a 500 (the DuplicateChecker contract). The
+			// failure stays observable (php-fpm stderr → the nginx error log).
+			error_log( 'QuotationLookup: findForSource(' . $sourceItemId . ') failed: '
+				. get_class( $e ) . ': ' . $e->getMessage() );
 			return null;
 		}
 	}
@@ -119,20 +130,26 @@ final class QuotationLookup {
 			$http = MediaWikiServices::getInstance()->getHttpRequestFactory();
 			$request = $http->create(
 				$endpoint,
-				[ 'method' => 'POST', 'postData' => [ 'query' => $query ], 'timeout' => 10 ],
+				[ 'method' => 'POST', 'postData' => [ 'query' => $query ], 'timeout' => 20 ],
 				__METHOD__
 			);
 			$request->setHeader( 'Accept', 'application/sparql-results+json' );
 			if ( !$request->execute()->isOK() ) {
+				error_log( 'QuotationLookup: SPARQL request to ' . $endpoint . ' failed with status '
+					. $request->getStatus() );
 				return null;
 			}
 			$decoded = json_decode( $request->getContent(), true );
 			if ( !is_array( $decoded ) || !isset( $decoded['results']['bindings'] ) ) {
+				error_log( 'QuotationLookup: SPARQL response from ' . $endpoint . ' was not '
+					. 'application/sparql-results+json (' . substr( (string)$request->getContent(), 0, 120 ) . ')' );
 				return null;
 			}
 			$rows = $decoded['results']['bindings'];
 			return is_array( $rows ) ? $rows : null;
 		} catch ( \Throwable $e ) {
+			error_log( 'QuotationLookup: SPARQL request to ' . $endpoint . ' threw '
+				. get_class( $e ) . ': ' . $e->getMessage() );
 			return null;
 		}
 	}
