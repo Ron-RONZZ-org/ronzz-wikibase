@@ -66,6 +66,10 @@ class QuotationFinderTest extends TestCase {
 			$captured
 		);
 		$this->assertStringContainsString( 'ORDER BY ?item LIMIT ' . QuotationFinder::MAX_ROWS, $captured );
+		// No LITERAL backslash-n anywhere — a single-quoted '\n' reached
+		// Blazegraph as a backslash character and 400'd the query ("Lexical
+		// error … Encountered: '\\'", the 2026-09-03 production incident).
+		$this->assertStringNotContainsString( '\\', $captured );
 	}
 
 	public function testInvalidSourceOrMissingPropertiesYieldsEmptyNoQuery(): void {
