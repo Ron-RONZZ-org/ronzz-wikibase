@@ -694,12 +694,22 @@ production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
   post-processes the rendered references list in the existing `ParserAfterTidy`
   hook (which runs after Cite's `ParserAfterParse` auto-append): footnotes with
   identical reference text collapse into the first occurrence, the merged
-  in-text superscripts are re-pointed at the surviving footnote (relabelled
-  like Cite's named-ref UX — every anchor stays valid both ways), and the
-  surviving footnote gains one ↑ backlink per merged usage. Gated to pages that
+  in-text superscripts are re-pointed at the surviving footnote, and the
+  surviving footnote gains one ↑ backlink per merged usage. The collapse is
+  followed by a **consecutive renumbering pass**: the references `<ol>`'s
+  markers are POSITIONAL (the browser numbers the surviving `<li>`s 1..K no
+  matter their `cite_note-N` ids), so each survivor is assigned its final
+  list position and EVERY superscript label (survivor and duplicate alike)
+  is rewritten to the position it points at — the output numbers exactly
+  like a page written with Cite *named* refs. Without it the body kept the
+  survivors' original numbers while the list collapsed (survivors 1/3/9
+  displayed 1. 2. 3. next to superscripts [1][3][9] — the UFR-SciFA report:
+  clicking [3] highlighted the entry shown as "2.", the list "had no 9").
+  Gated to pages that
   cited entities (extension data non-empty), so plain pages keep stock Cite
   behavior; only the default group's numeric-id footnotes merge (named refs and
-  `group=` lists are untouched).
+  `group=` lists are untouched — they pass through in place and still consume
+  a list position, which the renumbering accounts for).
 - **Collective authors render as family-only names (fix, ADR
   `docs/decisions/foss-software-page-split.md`)**: an item-typed author whose
   `instance of` classes do NOT include the person class (a collective /
