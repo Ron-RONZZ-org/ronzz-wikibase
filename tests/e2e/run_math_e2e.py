@@ -128,9 +128,10 @@ def assert_math_tag(api: str) -> None:
 def assert_no_xss(api: str) -> None:
     body = api_parse(api, XSS_PROBES)
     # LIVE markup must not survive: any payload that still carries real
-    # angle brackets (or a real <img/<svg tag) would be executable. The
-    # escaped forms (&lt;…&gt;) legitimately contain the probe text.
-    for probe in ("<script>alert(1)", "<img src=x", "<svg", " onerror="):
+    # angle brackets before a tag name would be executable HTML. The escaped
+    # forms (&lt;…&gt;) legitimately keep the inner attribute text, so only
+    # the bracketed tag starts are probed.
+    for probe in ("<script>alert(1)", "<img", "<svg"):
         if probe in body:
             raise FlowError(f"XSS probe {probe!r} survived as LIVE markup: {body[:400]!r}")
     # The payloads must be present ONLY escaped — the <math> payload as
