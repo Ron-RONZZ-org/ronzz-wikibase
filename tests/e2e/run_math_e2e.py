@@ -127,16 +127,19 @@ def assert_math_tag(api: str) -> None:
 
 def assert_no_xss(api: str) -> None:
     body = api_parse(api, XSS_PROBES)
-    # Raw live payloads must not survive in any form.
-    for probe in ("<script>alert(1)</script>", "<img src=x onerror=alert(2)>",
-                  "onerror=alert(2)"):
+    # LIVE markup must not survive: any payload that still carries real
+    # angle brackets (or a real <img/<svg tag) would be executable. The
+    # escaped forms (&lt;…&gt;) legitimately contain the probe text.
+    for probe in ("<script>alert(1)", "<img src=x", "<svg", " onerror="):
         if probe in body:
-            raise FlowError(f"XSS probe {probe!r} survived rendering: {body[:400]!r}")
-    # The payloads must be present ONLY escaped (Html::element / wikitext
-    # text escaping) — the marker around the <math> payload proves the TeX
-    # was inert server-side text.
-    if "alert(1)" not in body or "&lt;script&gt;" not in body:
-        raise FlowError(f"XSS probe payload missing/not escaped: {body[:400]!r}")
+            raise FlowError(f"XSS probe {probe!r} survived as LIVE markup: {body[:400]!r}")
+    # The payloads must be present ONLY escaped — the <math> payload as
+    # &lt;script&gt; inside the inert [math] marker, the $…$ probe as plain
+    # escaped page text. Both prove the server never emits live HTML from TeX.
+    if "&lt;script&gt;alert(1)&lt;/script&gt;" not in body:
+        raise FlowError(f"<math> XSS payload not escaped inside the marker: {body[:400]!r}")
+    if "&lt;img src=x onerror=alert(2)&gt;" not in body:
+        raise FlowError(f"$…$ XSS payload not escaped as page text: {body[:400]!r}")
     print("[ok] no XSS payload survives — <math>/$…$ content stays inert escaped text")
 
 
