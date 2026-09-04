@@ -46,6 +46,7 @@ services:
       - ../extensions/DPLforum:/var/www/html/extensions/DPLforum:ro
       - ../extensions/InputBox:/var/www/html/extensions/InputBox:ro
       - ../extensions/Diagrams:/var/www/html/extensions/Diagrams:ro
+      - ../extensions/SimpleMathJax:/var/www/html/extensions/SimpleMathJax:ro
     depends_on:
       mysql:
         condition: service_healthy

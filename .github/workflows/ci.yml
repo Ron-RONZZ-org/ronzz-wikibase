@@ -215,6 +215,14 @@ jobs:
             --ids-out seed/generated/ids.json \
             --only=properties,classes,languages,preseed,dogfood,config
 
+      # SimpleMathJax ($...$ inline LaTeX math): MathJax 3 assets are NOT in
+      # git (gitignored — ~24 MB es5/ tree, installed by the pinned-tarball
+      # script like the PlantUML jar). The extension dir is a read-only bind
+      # mount, so the assets must exist in the checkout on the RUNNER HOST
+      # (not inside the container) before the math E2E fetches them.
+      - name: Install MathJax assets (SimpleMathJax local mode)
+        run: tools/install-mathjax.sh
+
       - name: Restart the wiki to load the emitted config map
         run: |
           $COMPOSE restart wikibase
@@ -294,6 +302,11 @@ jobs:
           python3 tests/e2e/run_diagrams_e2e.py \
             --base-url "$BASE_URL" --api-url "$API_URL" \
             --user "$MW_ADMIN_NAME" --password-file /tmp/e2e-pass
+
+      - name: Math E2E (SimpleMathJax — $...$ inline LaTeX, server-side contract)
+        run: |
+          python3 tests/e2e/run_math_e2e.py \
+            --base-url "$BASE_URL" --api-url "$API_URL"
 
       - name: Tear down the stack
         if: always()

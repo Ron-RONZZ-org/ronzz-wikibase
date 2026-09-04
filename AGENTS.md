@@ -88,7 +88,7 @@ forum extension, and the seed tooling that bootstrapped the instance.
 | Wiki platform | MediaWiki 1.46 + Wikibase (repo), self-hosted at wikibase.ronzz.org |
 | Query service | WDQS (Blazegraph SPARQL 0.3.156) |
 | Database | MySQL / MariaDB |
-| Custom extensions | EmbeddableContent (D3 + issue #7), WikibaseCitation (D4) — standalone, never forks of Wikibase; DPLforum (vendored third-party forum, `extensions/DPLforum/`) + InputBox (vendored, thread-creation field, `extensions/InputBox/`); Diagrams (vendored third-party diagram extension — PlantUML/GraphViz/Mscgen server-side + Mermaid client-side, `extensions/Diagrams/`) — see their `VENDORED.md` |
+| Custom extensions | EmbeddableContent (D3 + issue #7), WikibaseCitation (D4) — standalone, never forks of Wikibase; DPLforum (vendored third-party forum, `extensions/DPLforum/`) + InputBox (vendored, thread-creation field, `extensions/InputBox/`); Diagrams (vendored third-party diagram extension — PlantUML/GraphViz/Mscgen server-side + Mermaid client-side, `extensions/Diagrams/`); SimpleMathJax (vendored third-party inline-LaTeX math — `$…$`/`$$…$$`/`<math>` typeset client-side by MathJax 3, `extensions/SimpleMathJax/`) — see their `VENDORED.md` |
 | Seed/tooling | Python 3 (stdlib only) |
 | Unit tests | PHPUnit 10 (pure-PHP) + Python `unittest` |
 | E2E | Python suites in `tests/e2e/` (curl the live endpoints) |
@@ -113,7 +113,10 @@ forum extension, and the seed tooling that bootstrapped the instance.
   (urllib, json, csv, argparse) — no pip dependencies.
 - Vendored third-party frontend assets live in
   `extensions/EmbeddableContent/resources/` (KaTeX, highlight.js, CSL styles) —
-  never re-fetch from CDNs at runtime.
+  never re-fetch from CDNs at runtime. SimpleMathJax's MathJax 3 assets
+  (~24 MB) are NOT committed — installed per environment by
+  `tools/install-mathjax.sh` (pinned sha256-checked tarball; also never a
+  runtime CDN — `$wgSmjUseCdn = false`).
 
 ## Coding Guidelines
 

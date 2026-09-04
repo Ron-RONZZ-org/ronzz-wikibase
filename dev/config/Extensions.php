@@ -33,6 +33,28 @@ wfLoadExtension( 'Diagrams' );
 $wgDiagramsDefaultFormat = 'svg';
 $wgDiagramsLocalCommands['plantuml'] = 'env PLANTUML_SECURITY_PROFILE=SANDBOX /usr/local/bin/plantuml';
 
+// ---- Inline LaTeX math ($...$ / $$...$$, SimpleMathJax, vendored at
+// extensions/SimpleMathJax, see its VENDORED.md + docs/decisions/inline-latex-math.md) ----
+// Mirrors the production LocalSettings.php block (see
+// RonzzIT:Deployment/Wikibase on the instance). Client-side MathJax 3
+// rendering: the server never builds HTML from the TeX.
+// - $wgSmjUseCdn = false: MathJax is served locally from
+//   extensions/SimpleMathJax/resources/MathJax/es5/ — installed by
+//   tools/install-mathjax.sh (the repo rule: never fetch from CDNs at
+//   runtime). Run that script on the host of this checkout BEFORE booting
+//   the stack (the extension dir is a read-only bind mount).
+// - $wgSmjExtraInlineMath = $…$ : inline math in prose; $$…$$ display math.
+//   <pre>/<code>/SyntaxHighlight blocks are skipped by MathJax, so code with
+//   $ stays literal; escape a lone dollar as \$ (SmjDirectMathJax=full).
+wfLoadExtension( 'SimpleMathJax' );
+$wgSmjUseCdn = false;
+$wgSmjExtraInlineMath = [ [ '$', '$' ] ];
+$wgSmjDisplayMath = [ [ '$$', '$$' ] ];
+$wgSmjUseChem = false;
+$wgSmjDirectMathJax = 'full';
+$wgSmjEnableMenu = false;
+$wgSmjDisplayAlign = 'center';
+
 // Issue #24 (cite-by-QID): `{{#cite:Q42}}` inside `<ref>` needs the stock
 // Cite extension. The WBS image does not bundle Cite — the CI / local stack
 // installs it into /var/www/html/extensions/Cite (see .github/workflows/ci.yml
