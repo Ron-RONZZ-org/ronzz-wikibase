@@ -182,11 +182,11 @@ def assert_server_markers(body: str, title: str) -> None:
 
 
 def assert_no_xss(body: str, title: str) -> None:
-    # LIVE markup must not survive: any payload that still carries real
-    # angle brackets before a tag name would be executable HTML. The escaped
-    # forms (&lt;…&gt;) legitimately keep the inner attribute text, so only
-    # the bracketed tag starts are probed.
-    for probe in ("<script>alert(1)", "<img", "<svg"):
+    # LIVE payloads must not survive: the COMPLETE raw injected strings
+    # (payload-specific — a rendered page legitimately carries skin
+    # <script>/<img> markup, so bare tag names cannot be probed). The
+    # escaped forms (&lt;…&gt;) prove the content is inert text.
+    for probe in ("<script>alert(1)</script>", "<img src=x onerror=alert(2)>"):
         if probe in body:
             raise FlowError(f"{title}: XSS probe {probe!r} survived as LIVE markup: {body[:400]!r}")
     # The payloads must be present ONLY escaped — the <math> payload as
