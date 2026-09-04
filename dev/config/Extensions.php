@@ -54,6 +54,10 @@ $wgSmjUseChem = false;
 $wgSmjDirectMathJax = 'full';
 $wgSmjEnableMenu = false;
 $wgSmjDisplayAlign = 'center';
+// Honour the <math> tag's display="block|inline" attribute (upstream
+// drops ALL tag attributes otherwise — a display=block tag would silently
+// render as inline).
+$wgSmjEnableHtmlAttributes = true;
 
 // Issue #24 (cite-by-QID): `{{#cite:Q42}}` inside `<ref>` needs the stock
 // Cite extension. The WBS image does not bundle Cite — the CI / local stack

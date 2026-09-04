@@ -50,7 +50,9 @@ server-side markup, escaped via `Html::Element` + `markerType=nowiki`):
 - `$$…$$` — display math (configured via `$wgSmjDisplayMath`)
 - `[math]…[/math]` — always-on inline delimiters (upstream default)
 - `<math>…</math>` / `<chem>…</chem>` — tag form (server-side marker; chem
-  disabled on this instance)
+  disabled on this instance). `<math display="block">` gives block math —
+  requires `$wgSmjEnableHtmlAttributes = true` (upstream drops all tag
+  attributes otherwise)
 - `\$` — literal dollar (escape, `SmjDirectMathJax=full`)
 
 `<pre>`/`<code>`/SyntaxHighlight blocks are skipped by MathJax's
