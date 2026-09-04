@@ -110,7 +110,7 @@ def check_extension_loaded(api: str) -> None:
 
 def assert_math_tag(api: str) -> None:
     body = api_parse(api, MATH_TAG)
-    if 'class=" smj-container"' not in body:
+    if 'class="smj-container"' not in body:
         raise FlowError(f"<math> tag did not render a smj-container span: {body[:300]!r}")
     if "[math]" not in body or "[/math]" not in body:
         raise FlowError(f"<math> tag did not emit the [math] marker: {body[:300]!r}")
