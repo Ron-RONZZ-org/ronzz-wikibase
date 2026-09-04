@@ -167,6 +167,41 @@ def rendered_path(title: str) -> str:
     return "/wiki/" + urllib.parse.quote(title.replace(" ", "_"))
 
 
+def api_parse_wikitext(op, api: str, text: str) -> str:
+    """action=parse of a wikitext fragment -> rendered HTML body."""
+    r = api_call(op, api, {
+        "action": "parse", "text": text, "contentmodel": "wikitext",
+        "prop": "text", "format": "json",
+        "disablelimitreport": "1", "disableeditsection": "1",
+    })
+    if "parse" not in r or "text" not in r["parse"]:
+        raise FlowError(f"action=parse failed: {r!r}")
+    return r["parse"]["text"]["*"]
+
+
+def assert_apostrophe_guard(op, api: str) -> None:
+    """'' / ''' inside $…$ math must survive wikitext emphasis parsing.
+
+    MediaWiki turns '' into italics markup; inside MathJax-delimited math
+    those are TeX primes (y'', f'''(x)). The guard (InternalParseBeforeLinks
+    strip markers) must keep the literal quotes in the HTML for MathJax,
+    while prose ''italic'' keeps working as emphasis.
+    """
+    inline = api_parse_wikitext(op, api, "Derivative: $y'' = 2a_2$ then.")
+    if "$y'' = 2a_2$" not in inline or "$y<i>" in inline or "<i> = 2a_2" in inline:
+        raise FlowError(f"'' inside inline $…$ math was mangled by italics parsing: {inline[:300]!r}")
+
+    display = api_parse_wikitext(op, api, "$$y'' - xy = 0$$")
+    if "$$y'' - xy = 0$$" not in display:
+        raise FlowError(f"'' inside display $$…$$ math was mangled: {display[:300]!r}")
+
+    prose = api_parse_wikitext(op, api, "plain ''italic'' text stays")
+    if "<i>italic</i>" not in prose:
+        raise FlowError(f"prose ''italic'' no longer renders as emphasis: {prose[:300]!r}")
+
+    print("[ok] '' / ''' inside $…$ math survive; prose italics untouched")
+
+
 def assert_server_markers(body: str, title: str) -> None:
     """<math> tags -> escaped smj-container markers; display=block -> displaymjx."""
     if 'class="smj-container"' not in body:
@@ -251,6 +286,7 @@ def math_flow(op, api: str, base: str, keep: bool) -> None:
                 "math E2E scratch (run_math_e2e.py)")
 
     try:
+        assert_apostrophe_guard(op, api)
         body = page_get(op, base, rendered_path(page))
         assert_server_markers(body, page)
         assert_no_xss(body, page)
