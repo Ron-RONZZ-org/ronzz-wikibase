@@ -18,11 +18,14 @@ Self-hosted **Wikibase** (structured-data wiki, the software behind Wikidata) on
   see their `VENDORED.md` + `docs/decisions/forum-dplforum.md`); **Diagrams**
   (third-party diagram extension — PlantUML/GraphViz/Mscgen server-side +
   Mermaid client-side — vendored at `extensions/Diagrams/` — see
-  `VENDORED.md` + `docs/decisions/diagrams.md`)
+  `VENDORED.md` + `docs/decisions/diagrams.md`); **SimpleMathJax** (third-party
+  inline-LaTeX-math extension, `$…$`/`$$…$$` via client-side MathJax 3 —
+  vendored at `extensions/SimpleMathJax/` — see `VENDORED.md` +
+  `docs/decisions/inline-latex-math.md`)
 - seed/ (bootstrap orchestrator), tools/, tests/, dev/ (CI stack)
 - `docs/decisions/` — ADR-style design rationale (opaque IDs, ontology alignment,
   raw RDF in Blazegraph, cite-by-QID, static LLM translation, forum via DPLforum,
-  diagrams via Extension:Diagrams)
+  diagrams via Extension:Diagrams, inline LaTeX math via SimpleMathJax)
 - `docs/contribution-guide.md` — pointer to the on-wiki `Help:Contributing` family
 - Editor-facing rules live on-wiki at `Help:Contributing` (public)
 

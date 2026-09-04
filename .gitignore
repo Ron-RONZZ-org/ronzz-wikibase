@@ -15,6 +15,11 @@ seed/generated/
 # MediaWiki extension build artifacts
 *.log
 
+# SimpleMathJax MathJax 3 assets — installed by tools/install-mathjax.sh
+# (pinned npm tarball, sha256-checked; never committed — see
+# extensions/SimpleMathJax/VENDORED.md)
+/extensions/SimpleMathJax/resources/MathJax/
+
 # IDE / OS
 .idea/
 .vscode/

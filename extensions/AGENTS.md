@@ -34,6 +34,21 @@ SVG/PNG files are cached in the wiki file store under `images/diagrams/`
 production LocalSettings (`$wgDiagramsDefaultFormat = 'svg'` +
 `$wgDiagramsLocalCommands['plantuml'] = 'env PLANTUML_SECURITY_PROFILE=SANDBOX /usr/local/bin/plantuml'`).
 
+Plus a third **vendored third-party** extension: **SimpleMathJax** (inline
+LaTeX math — see `SimpleMathJax/VENDORED.md` for provenance and
+`../docs/decisions/inline-latex-math.md` for the choice rationale). Same
+rules: upstream code, do not modify, upgrade = re-vendor. It typesets
+`$…$` (inline) / `$$…$$` (display) / `<math>…</math>` **client-side** with
+**MathJax 3**, served locally (`$wgSmjUseCdn = false`) from
+`extensions/SimpleMathJax/resources/MathJax/es5/` — the ~24 MB asset tree is
+**not committed**; install it per environment with `tools/install-mathjax.sh`
+(pinned, sha256-checked npm tarball), on the host of a dev/CI checkout
+before the stack boots and on the server after rsync. The server never
+builds HTML from the TeX (inert `[math]…[/math]` markers for the tags; `$…$`
+content is plain escaped page text), so the XSS surface stays server-side
+inert. KaTeX rendering of the structured math-snippet items (`Special:AddMath`
+→ `{{#content:}}`) is unchanged — the two engines coexist.
+
 ## Purpose and Expected Behavior
 
 ### EmbeddableContent
