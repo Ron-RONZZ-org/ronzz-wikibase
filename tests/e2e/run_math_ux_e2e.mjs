@@ -55,6 +55,22 @@ const failures = [];
 const pageErrors = [];
 const consoleErrors = [];
 
+// Known-benign console noise on this instance (verified live):
+// - favicon.ico 404 — no favicon configured; every page logs it (the console
+//   message text carries no URL — match on the message location)
+// - "jquery.ui" deprecation — core/skin ResourceLoader warning, unrelated
+// - MathJax "No version information available for component [tex]/autoload" —
+//   the loader's version probe when MathJax is served locally (no version
+//   manifest); it loads the component anyway
+function ignoredConsole(msg) {
+	const text = msg.text();
+	const url = (msg.location && msg.location().url) || '';
+	return text.toLowerCase().includes('favicon.ico')
+		|| url.toLowerCase().includes('favicon.ico')
+		|| text.includes('jquery.ui')
+		|| text.includes('No version information available for component');
+}
+
 const PAGE_TITLE = `Math E2E UX ${Date.now()}`;
 const PAGE_TEXT = `MathJax UX E2E scratch page.
 
@@ -128,7 +144,7 @@ async function main() {
 	const page = await browser.newPage();
 	page.on('pageerror', (err) => pageErrors.push(String(err)));
 	page.on('console', (msg) => {
-		if (msg.type() === 'error' || msg.type() === 'warning') {
+		if ((msg.type() === 'error' || msg.type() === 'warning') && !ignoredConsole(msg)) {
 			consoleErrors.push(`[${msg.type()}] ${msg.text()}`);
 		}
 	});
