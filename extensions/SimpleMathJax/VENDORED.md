@@ -64,3 +64,37 @@ rationale and the `$…$`-vs-currency false-positive risk.
 Upgrade = re-vendor the upstream tag + bump `tools/install-mathjax.sh`'s
 MathJax pin only if the new upstream requires it. Do not modify the vendored
 `src/` without a documented reason.
+
+## Local patch — quote guard for `''`/`'''` inside `$…$` math
+
+**Modified files** (vs upstream tag `v0.9.0`, `6fe10e18`): `extension.json`
+(+`InternalParseBeforeLinks` hook, +`SimpleMathJaxQuotes` autoload),
+`SimpleMathJaxHooks.php` (+`onInternalParseBeforeLinks`), plus the new file
+`SimpleMathJaxQuotes.php`. Regenerate the diff against the upstream tag with
+`git diff 6fe10e1836d5377577e679b99ca6cc02f17598c3 -- extensions/SimpleMathJax/`.
+
+**Why**: MediaWiki parses `''`/`'''` in wikitext as italics/bold markup. Inside
+MathJax-delimited math they are TeX **primes** (`y''`, `f'''(x)`): the parser
+inserted `<i>`/`<b>` inside the delimited text, splitting it so MathJax could
+no longer find the closing `$` — the dangling delimiter then swallowed the
+surrounding prose as math (hit live on the Power_series page, 2026-09-04).
+Single primes (`y'`) are not wikitext markup and were never affected.
+
+**Fix**: an `InternalParseBeforeLinks` handler (runs after nowiki/tag
+stripping, before `handleAllQuotes`) that mirrors MathJax v3 `FindTeX`'s
+delimiter scanning (longest-first starts, brace/control-sequence skipping,
+`processEscapes` `\$`/`\\` skip, `\begin…\end` environments) and replaces
+every run of 2+ apostrophes inside math spans with a `Parser::insertStripItem()`
+marker — the emphasis pass skips them and the literal `''` is re-inserted
+into the final HTML for MathJax to parse as primes. Prose `''italic''` is
+untouched. Gated to `$wgSmjDirectMathJax !== 'none'` and to the configured
+`$wgSmjExtraInlineMath`/`$wgSmjDisplayMath` delimiter pairs.
+
+**Testing**: pure-PHP unit tests `tests/Unit/SimpleMathJaxQuotesTest.php`
+(scanner against a fake protector) + server-side E2E assertions in
+`tests/e2e/run_math_e2e.py` (`''` survives inside `$…$`/`$$…$$`, prose
+italics still renders).
+
+**Status**: proposed upstream as PR to `jmnote/SimpleMathJax` (this is the
+same change). On re-vendor, re-apply the patch or drop it once upstream
+merges a version containing it.

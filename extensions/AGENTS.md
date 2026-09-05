@@ -48,6 +48,15 @@ builds HTML from the TeX (inert `[math]…[/math]` markers for the tags; `$…$`
 content is plain escaped page text), so the XSS surface stays server-side
 inert. KaTeX rendering of the structured math-snippet items (`Special:AddMath`
 → `{{#content:}}`) is unchanged — the two engines coexist.
+**Local patch (2026-09-04, `fix/math-quote-guard`):** the vendored copy
+carries one documented modification — an `InternalParseBeforeLinks`
+quote-guard (`SimpleMathJaxQuotes` + `onInternalParseBeforeLinks`) that
+protects `''`/`'''` (TeX primes: `y''`, `f'''(x)`) inside `$…$`/`$$…$$` math
+from MediaWiki's wikitext italics/bold parsing (which otherwise inserts
+`<i>`/`<b>` inside the delimited text and breaks MathJax's closing-delimiter
+search). Prose `''italic''` is untouched. See `SimpleMathJax/VENDORED.md`
+§Local patch; the same change is proposed upstream (jmnote/SimpleMathJax
+PR #66) — drop the patch on re-vendor once upstream merges it.
 
 ## Purpose and Expected Behavior
 
