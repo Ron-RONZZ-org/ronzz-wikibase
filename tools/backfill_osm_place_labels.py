@@ -50,7 +50,11 @@ OSM_PROPERTY_LABELS = {
 }
 INSTANCE_OF_LABEL = "instance of"
 PERSON_CLASS_LABEL = "person"
-REVERSE_API = "https://nominatim.openstreetmap.org/reverse"
+# Nominatim LOOKUP (id → display name), not /reverse: the reverse
+# endpoint only accepts lat/lon, while /lookup resolves OSM ids directly
+# ("R3169865" — single-letter type prefixes) — the exact inverse of the
+# node|way|relation/<id> values the forms store.
+LOOKUP_API = "https://nominatim.openstreetmap.org/lookup"
 USER_AGENT = "ronzz-wikibase-backfill/1.0 (place labels)"
 
 SPARQL_PREFIXES = (
@@ -82,25 +86,27 @@ def sparql_http_get(endpoint: str, query: str) -> list[dict]:
 
 
 def reverse_geocode(osm_value: str) -> str | None:
-    """Nominatim reverse lookup of a node|way|relation/<id> value → the
-    display name (the human-readable label). None when the id cannot be
-    parsed or the endpoint rejects the lookup. One request per call — pace
-    at the caller's 1 req/s."""
+    """Nominatim lookup of a node|way|relation/<id> value → the display
+    name (the human-readable label). None when the id cannot be parsed or
+    the endpoint rejects the lookup (stale/unknown ids return an empty
+    list). One request per call — pace at the caller's 1 req/s."""
     parts = osm_value.split("/")
     if len(parts) != 2 or parts[0] not in ("node", "way", "relation") or not parts[1].isdigit():
         return None
+    prefix = {"node": "N", "way": "W", "relation": "R"}[parts[0]]
     params = urllib.parse.urlencode({
-        "osm_type": parts[0],
-        "osm_id": parts[1],
+        "osm_ids": f"{prefix}{parts[1]}",
         "format": "jsonv2",
         "accept-language": "en",
     })
     request = urllib.request.Request(
-        f"{REVERSE_API}?{params}", headers={"User-Agent": USER_AGENT}
+        f"{LOOKUP_API}?{params}", headers={"User-Agent": USER_AGENT}
     )
     with urllib.request.urlopen(request, timeout=30) as resp:
         payload = json.loads(resp.read().decode("utf-8", "replace"))
-    name = str(payload.get("display_name", "")).strip()
+    if not isinstance(payload, list) or not payload:
+        return None
+    name = str(payload[0].get("display_name", "")).strip()
     return name if name else None
 
 
