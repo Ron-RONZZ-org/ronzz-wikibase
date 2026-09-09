@@ -157,6 +157,18 @@ class Hooks {
 			$out->addModules( 'ext.embeddableContent.updatebutton' );
 		}
 
+		// Item pages of SOURCE-class items get the same "Copy internal
+		// citation" toolbar button as the Source: classic pages (sourcecite):
+		// the item IS the source entity, and a book excerpt or any source
+		// item without a classic page (bookExcerpt creates none) still needs
+		// the one-click `<ref>{{#cite:Q42}}</ref>` snippet. Class detection
+		// is server-side (the same instance-of scan updateTargetForItem
+		// runs); sourcecite.js appends into the shared .wb-embed-toolbar row.
+		if ( self::isSourceClassItem( $entityId->getSerialization() ) ) {
+			$out->addJsConfigVars( 'wbInternalCiteItem', $entityId->getSerialization() );
+			$out->addModules( 'ext.embeddableContent.sourcecite' );
+		}
+
 		$oembedUrl = SpecialPage::getTitleFor( 'Embed', 'oembed' )
 			->getFullURL( [ 'url' => $title->getFullURL() ] );
 		$out->addLink( [
@@ -164,6 +176,42 @@ class Hooks {
 			'type' => 'application/json+oembed',
 			'href' => $oembedUrl,
 		] );
+	}
+
+	/**
+	 * Whether the item is classified under one of the configured source
+	 * classes (book, scholarly article, website, …). Server-side class
+	 * detection over the instance-of statements — the same scan
+	 * updateTargetForItem performs, extracted so the sourcecite wiring can
+	 * reuse it on Item pages.
+	 */
+	private static function isSourceClassItem( string $itemId ): bool {
+		try {
+			$config = MediaWikiServices::getInstance()->get( 'EmbeddableContent.Config' );
+			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
+		} catch ( \Throwable $e ) {
+			return false;
+		}
+		if ( !$item instanceof Item ) {
+			return false;
+		}
+		$classIds = [];
+		$propertyId = new \Wikibase\DataModel\Entity\NumericPropertyId( $config->instanceOfPropertyId() );
+		foreach ( $item->getStatements()->getByPropertyId( $propertyId ) as $statement ) {
+			$value = $statement->getMainSnak()->getDataValue();
+			if ( $value instanceof \Wikibase\DataModel\Entity\EntityIdValue ) {
+				$classIds[] = $value->getEntityId()->getSerialization();
+			}
+		}
+		if ( $classIds === [] ) {
+			return false;
+		}
+		foreach ( $config->sourceClasses() as $id ) {
+			if ( in_array( $id, $classIds, true ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**

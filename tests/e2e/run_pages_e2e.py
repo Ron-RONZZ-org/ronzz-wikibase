@@ -2940,6 +2940,23 @@ def flow_source_cite_button(op, base: str, source_page: str, expected_qid: str) 
     print(f"[ok] Source: page copy-citation wiring on {source_page} -> {expected_qid}")
 
 
+def flow_item_source_cite_button(op, base: str, source_qid: str) -> None:
+    """The Item: page "Copy internal citation" button wiring (sourcecite on
+    source-class ITEMS, not only their Source: classic pages): the Item page
+    of a source-class item must carry wbInternalCiteItem + load
+    ext.embeddableContent.sourcecite. A source item WITHOUT a classic page
+    (bookExcerpt) must still get the wiring — the item is the only place to
+    copy the cite snippet from."""
+    _, body = page_get(op, base, "/wiki/Item:" + source_qid)
+    if "wbInternalCiteItem" not in body or source_qid not in body:
+        raise FlowError(
+            f"Item:{source_qid} missing the wbInternalCiteItem={source_qid} config "
+            f"(item-page sourcecite wiring): {find_error(body)}")
+    if "ext.embeddableContent.sourcecite" not in body:
+        raise FlowError(f"Item:{source_qid} does not load ext.embeddableContent.sourcecite")
+    print(f"[ok] Item: page copy-citation wiring on Item:{source_qid}")
+
+
 # ------------------------------------------------------------------- main
 
 
@@ -3638,6 +3655,12 @@ def main() -> int:
             raise FlowError(f"{subdomain_child} has no wikibase sitelink — "
                             f"cannot check the Source: page cite wiring")
         flow_source_cite_button(op, base, webpage_page, subdomain_child)
+
+        # 2j1c. The Item: page of a source-class item ALSO carries the
+        #     "Copy internal citation" wiring (not only its Source: classic
+        #     page — source items without a classic page, e.g. bookExcerpt,
+        #     need it on the item page).
+        flow_item_source_cite_button(op, base, subdomain_child)
 
         # 2k. Website URL-first flow (issue follow-up): the first page is a
         #     URL entry; the fetched metadata prefills the manual form.
