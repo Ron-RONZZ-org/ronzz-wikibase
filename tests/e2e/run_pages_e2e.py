@@ -1991,6 +1991,16 @@ def flow_osmsuggest_module_source(op, base: str) -> None:
         raise FlowError("osmsuggest module: Nominatim search URL missing")
     if "row.osm_type + '/' + row.osm_id" not in body:
         raise FlowError("osmsuggest module: node|way|relation/<id> value construction missing")
+    # The parallel human-readable place label (osm-places follow-up): a
+    # picked suggestion also fills the hidden wpplaceOfBirthOsmLabel-style
+    # field, and a non-picked change clears it (never a stale label with a
+    # different id).
+    if "labelName = name ? name + 'Label' : ''" not in body:
+        raise FlowError("osmsuggest module: hidden place-label field resolution missing "
+                        "(display-label capture regression)")
+    if "setLabel( label )" not in body:
+        raise FlowError("osmsuggest module: picked suggestion does not write the display "
+                        "label (display-label capture regression)")
 
 
 def flow_entityconfirm_module_source(op, base: str) -> None:
