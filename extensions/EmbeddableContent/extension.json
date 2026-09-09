@@ -284,7 +284,11 @@
 				"embeddablecontent-gadget-copycitation",
 				"embeddablecontent-gadget-copied",
 				"embeddablecontent-gadget-embed-auto",
-				"embeddablecontent-gadget-embed-all"
+				"embeddablecontent-gadget-embed-all",
+				"embeddablecontent-gadget-embed-option-internal",
+				"embeddablecontent-gadget-embed-option-internal-hint",
+				"embeddablecontent-gadget-embed-option-external",
+				"embeddablecontent-gadget-embed-option-external-hint"
 			],
 			"targets": [
 				"desktop"

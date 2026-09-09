@@ -379,5 +379,9 @@
 	"embeddablecontent-quotationsof-badid": "Nevalida identigilo de ero.",
 	"embeddablecontent-quotationsof-notfound": "Ero  ne trovita.",
 	"embeddablecontent-quotationsof-none": "Tiu fonto ankoraŭ havas neniun citaĵon en la vikio.",
-	"embeddablecontent-quotationsof-unavailable": "La listo de citaĵoj ne povis esti ŝargita (la pridemanda servo ne disponeblas). Bonvolu reprovi poste."
+	"embeddablecontent-quotationsof-unavailable": "La listo de citaĵoj ne povis esti ŝargita (la pridemanda servo ne disponeblas). Bonvolu reprovi poste.",
+	"embeddablecontent-gadget-embed-option-internal": "Interna (en-vikia)",
+	"embeddablecontent-gadget-embed-option-external": "Ekstera (iframe)",
+	"embeddablecontent-gadget-embed-option-internal-hint": "Kopias {{#content:Q42}} — algluu ĝin en vikian paĝon por montri ĉi tiun enhavon",
+	"embeddablecontent-gadget-embed-option-external-hint": "Kopias <iframe> de Special:Embed — algluu ĝin en ajnan retejon"
 }

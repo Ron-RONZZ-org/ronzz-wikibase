@@ -32,3 +32,16 @@
 	padding: 4px 6px;
 	font-size: 0.9em;
 }
+
+/* The embed-flavour chooser (internal {{#content:}} vs external iframe):
+ * opens in the toolbar row next to the "Copy embed code" button. */
+.wb-embed-embed-options {
+	display: inline-flex;
+	gap: 4px;
+	margin-inline-start: 2px;
+}
+
+.wb-embed-embed-options .wb-embed-toolbar-btn {
+	padding: 4px 8px;
+	font-size: 0.85em;
+}

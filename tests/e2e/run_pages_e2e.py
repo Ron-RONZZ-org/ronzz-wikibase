@@ -2016,6 +2016,25 @@ def flow_entityconfirm_module_source(op, base: str) -> None:
                         "(cleared DOM value would not clear the combobox regression)")
 
 
+def flow_gadget_module_source(op, base: str) -> None:
+    """The Item-page toolbar gadget's "Copy embed code" must offer TWO
+    snippet flavours on click — internal (the {{#content:Q42}} wikitext for
+    on-wiki embedding) and external (the <iframe> of Special:Embed for
+    third-party pages). A curl E2E cannot click; assert the shipped source
+    carries both snippet builders and the chooser wiring."""
+    _, body = page_get(op, base,
+        "/load.php?modules=ext.embeddableContent.gadget&lang=en&skin=vector&debug=true")
+    if "contentSnippet" not in body or "{{#content:' + entityId + '}}" not in body:
+        raise FlowError("gadget module: internal {{#content:Q42}} snippet builder missing "
+                        "(embed flavour chooser regression)")
+    if "embedSnippet" not in body or "Special:Embed/" not in body:
+        raise FlowError("gadget module: external iframe snippet builder missing "
+                        "(embed flavour chooser regression)")
+    if "ca-wb-embed-copy-internal" not in body or "ca-wb-embed-copy-external" not in body:
+        raise FlowError("gadget module: embed flavour chooser buttons missing "
+                        "(embed flavour chooser regression)")
+
+
 def flow_addperson_osm_rejects_name(op, base: str, api: str, person_class: str) -> None:
     """Server-side OSM id gate (osm-places): a place field carrying a raw
     NAME — an unpicked harvested label, or a typo — must be rejected on
@@ -4054,6 +4073,9 @@ def main() -> int:
         flow_entityconfirm_module_source(op, base)
         print("[ok] entityconfirm module source: delegated [Yes]/[No] binding "
               "(autoinfuse banner-node orphaning fix)")
+        flow_gadget_module_source(op, base)
+        print("[ok] gadget module source: embed flavour chooser (internal {{#content:}} vs "
+              "external iframe)")
         upload_qid = flow_upload_special_item(op, base, api, license_item)
         upload_qid = track(upload_qid)
         print(f"[ok] Special:Upload -> {upload_qid}: image item + statements + "

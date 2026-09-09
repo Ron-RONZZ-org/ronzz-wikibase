@@ -379,5 +379,9 @@
 	"embeddablecontent-quotationsof-badid": "Identifiant d’élément non valide.",
 	"embeddablecontent-quotationsof-notfound": "Élément  introuvable.",
 	"embeddablecontent-quotationsof-none": "Cette source n’a pas encore de citation sur le wiki.",
-	"embeddablecontent-quotationsof-unavailable": "La liste des citations n’a pas pu être chargée (le service de requêtes est indisponible). Veuillez réessayer plus tard."
+	"embeddablecontent-quotationsof-unavailable": "La liste des citations n’a pas pu être chargée (le service de requêtes est indisponible). Veuillez réessayer plus tard.",
+	"embeddablecontent-gadget-embed-option-internal": "Interne (sur le wiki)",
+	"embeddablecontent-gadget-embed-option-external": "Externe (iframe)",
+	"embeddablecontent-gadget-embed-option-internal-hint": "Copie {{#content:Q42}} — collez-le sur une page du wiki pour afficher ce contenu en ligne",
+	"embeddablecontent-gadget-embed-option-external-hint": "Copie une <iframe> de Special:Embed — collez-la sur n’importe quel site"
 }

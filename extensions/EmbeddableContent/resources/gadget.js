@@ -77,6 +77,15 @@
 			'" loading="lazy" style="width:100%;border:0;min-height:120px"></iframe>';
 	}
 
+	/**
+	 * The on-wiki (internal) embed snippet: the {{#content:Q42}} parser
+	 * function renders the item's payload inline on any wiki page, with the
+	 * language negotiated from the embedding page — no lang param needed.
+	 */
+	function contentSnippet() {
+		return '{{#content:' + entityId + '}}';
+	}
+
 	function copyText( text ) {
 		var done = function () {
 			mw.notify( mw.msg( 'embeddablecontent-gadget-copied' ) );
@@ -117,14 +126,60 @@
 	/**
 	 * Embed button + (for multi-language quotations) a language selector.
 	 *
+	 * Clicking "Copy embed code" offers a CHOICE of two snippet flavours
+	 * (issue request): internal (the {{#content:Q42}} parser-function
+	 * wikitext, for embedding on this wiki) and external (the <iframe> of
+	 * Special:Embed, for third-party pages). The chooser opens on the first
+	 * click (the button becomes "which flavour?"), the chosen flavour is
+	 * copied on the second, and the chooser closes. Language select stays
+	 * beside the button and applies to the iframe ({{#content:}} negotiates
+	 * from the embedding page, so it needs no lang parameter).
+	 *
 	 * @param {Object} languages code => text, from the embed API response
 	 * @return {jQuery[]} toolbar children for the embed action
 	 */
 	function embedControls( languages ) {
+		var $chooser;
+		var close = function () {
+			if ( $chooser ) {
+				$chooser.hide();
+			}
+		};
 		var $btn = makeButton( 'ca-wb-embed-copy', 'embeddablecontent-gadget-copyembed', function () {
-			copyText( embedSnippet() );
+			if ( $chooser && $chooser.is( ':visible' ) ) {
+				close();
+				return;
+			}
+			if ( $chooser ) {
+				$chooser.show();
+			}
 		} );
-		var controls = [ $btn ];
+
+		// Two flavour buttons — the internal (content#) one first: it is the
+		// on-wiki default, the iframe the third-party one.
+		$chooser = $( '<span class="wb-embed-embed-options" style="display:none"></span>' )
+			.append( $( '<button>' )
+				.attr( 'type', 'button' )
+				.addClass( 'wb-embed-toolbar-btn' )
+				.attr( 'id', 'ca-wb-embed-copy-internal' )
+				.attr( 'title', mw.msg( 'embeddablecontent-gadget-embed-option-internal-hint' ) )
+				.text( mw.msg( 'embeddablecontent-gadget-embed-option-internal' ) )
+				.on( 'click', function () {
+					copyText( contentSnippet() );
+					close();
+				} ) )
+			.append( $( '<button>' )
+				.attr( 'type', 'button' )
+				.addClass( 'wb-embed-toolbar-btn' )
+				.attr( 'id', 'ca-wb-embed-copy-external' )
+				.attr( 'title', mw.msg( 'embeddablecontent-gadget-embed-option-external-hint' ) )
+				.text( mw.msg( 'embeddablecontent-gadget-embed-option-external' ) )
+				.on( 'click', function () {
+					copyText( embedSnippet() );
+					close();
+				} ) );
+
+		var controls = [ $btn, $chooser ];
 		if ( languages && Object.keys( languages ).length > 1 ) {
 			var $select = $( '<select>' )
 				.addClass( 'wb-embed-toolbar-lang' )
@@ -138,6 +193,17 @@
 			} );
 			controls.push( $select );
 		}
+		// Close the flavour chooser when clicking anywhere else.
+		$( document ).on( 'click', function ( e ) {
+			if ( !$chooser.is( ':visible' ) ) {
+				return;
+			}
+			var $t = $( e.target );
+			if ( $t.closest( '.wb-embed-embed-options' ).length || $t.closest( '#ca-wb-embed-copy' ).length ) {
+				return;
+			}
+			close();
+		} );
 		return controls;
 	}
 
