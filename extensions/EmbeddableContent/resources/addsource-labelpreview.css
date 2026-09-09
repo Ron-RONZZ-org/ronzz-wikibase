@@ -1,0 +1,45 @@
+/* AddSource live label preview (addsource-labelpreview.js): the Title
+ * field row gains a read-only "final label" preview to its right, showing
+ * the title plus the class-disambiguation suffix as the user types. */
+
+/* The title input + preview share one line: make the field cell a flex
+ * row (label stays above — OOUI align-top untouched). */
+.wb-addsource-title-row .oo-ui-fieldLayout-field {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5em;
+}
+
+.wb-addsource-title-row .oo-ui-fieldLayout-field .oo-ui-textInputWidget {
+	flex: 1 1 18em;
+	min-width: 12em;
+}
+
+.wb-label-preview {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 0.4em;
+	background: #f8f9fa;
+	border: 1px solid #a2a9b1;
+	border-left: 3px solid #36c;
+	border-radius: 2px;
+	padding: 0.3em 0.6em;
+	font-size: 0.9em;
+	line-height: 1.4;
+	align-self: flex-end;
+	margin-bottom: 2px;
+}
+
+.wb-label-preview-label {
+	font-size: 0.78em;
+	color: #72777d;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+	white-space: nowrap;
+}
+
+.wb-label-preview-text {
+	color: #202122;
+	overflow-wrap: anywhere;
+}

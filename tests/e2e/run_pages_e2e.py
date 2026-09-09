@@ -2035,6 +2035,42 @@ def flow_gadget_module_source(op, base: str) -> None:
                         "(embed flavour chooser regression)")
 
 
+def flow_addsource_label_preview(op, base: str) -> None:
+    """The AddSource label-preview (addsource-labelpreview.js): class-scoped
+    manual/review steps of Special:AddSource carry a Title field whose value
+    becomes the item label with the class suffix appended at creation. The
+    review/manual page must (1) expose the wbLabelSuffix JS config (the
+    English " (Class)" suffix) and load ext.embeddableContent
+    .addsourcelabelpreview, and (2) the served module must contain the
+    idempotent suffix-append logic (mirroring disambiguatedTitle). A curl
+    E2E cannot type, so assert the server wiring + shipped source."""
+    # The /book manual page (class-scoped, manual from blank): suffix set.
+    _, body = page_get(op, base, "/wiki/Special:AddSource/book/manual")
+    if "wbLabelSuffix" not in body or '" (Book)"' not in body:
+        raise FlowError("AddSource/book manual missing the wbLabelSuffix config "
+                        "(label-preview wiring): " + find_error(body))
+    if "ext.embeddableContent.addsourcelabelpreview" not in body:
+        raise FlowError("AddSource/book manual does not load "
+                        "ext.embeddableContent.addsourcelabelpreview: " + find_error(body))
+    # The class-picker ROOT has no class → no suffix, no module.
+    _, root = page_get(op, base, "/wiki/Special:AddSource")
+    if "ext.embeddableContent.addsourcelabelpreview" in root:
+        raise FlowError("AddSource class-picker root must NOT load the label-preview "
+                        "module (no class selected yet)")
+    # Module source: the idempotent suffix logic must be shipped.
+    _, src = page_get(op, base,
+        "/load.php?modules=ext.embeddableContent.addsourcelabelpreview&lang=en&skin=vector&debug=true")
+    if "wbLabelSuffix" not in src:
+        raise FlowError("addsource-labelpreview module: wbLabelSuffix config read missing")
+    if "endsWith( needle )" not in src:
+        raise FlowError("addsource-labelpreview module: idempotent suffix-append missing "
+                        "(double-suffix regression)")
+    if "input[name=\"wptitle\"]" not in src:
+        raise FlowError("addsource-labelpreview module: Title-field target missing")
+    print("[ok] AddSource label preview: wbLabelSuffix + module on /book/manual, "
+          "absent on the picker root, idempotent suffix logic shipped")
+
+
 def flow_addperson_osm_rejects_name(op, base: str, api: str, person_class: str) -> None:
     """Server-side OSM id gate (osm-places): a place field carrying a raw
     NAME — an unpicked harvested label, or a typo — must be rejected on
@@ -4076,6 +4112,8 @@ def main() -> int:
         flow_gadget_module_source(op, base)
         print("[ok] gadget module source: embed flavour chooser (internal {{#content:}} vs "
               "external iframe)")
+        flow_addsource_label_preview(op, base)
+        print("[ok] AddSource label preview: manual/review wiring + idempotent suffix module")
         upload_qid = flow_upload_special_item(op, base, api, license_item)
         upload_qid = track(upload_qid)
         print(f"[ok] Special:Upload -> {upload_qid}: image item + statements + "

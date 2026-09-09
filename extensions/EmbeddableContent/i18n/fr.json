@@ -383,5 +383,7 @@
 	"embeddablecontent-gadget-embed-option-internal": "Interne (sur le wiki)",
 	"embeddablecontent-gadget-embed-option-external": "Externe (iframe)",
 	"embeddablecontent-gadget-embed-option-internal-hint": "Copie {{#content:Q42}} — collez-le sur une page du wiki pour afficher ce contenu en ligne",
-	"embeddablecontent-gadget-embed-option-external-hint": "Copie une <iframe> de Special:Embed — collez-la sur n’importe quel site"
+	"embeddablecontent-gadget-embed-option-external-hint": "Copie une <iframe> de Special:Embed — collez-la sur n’importe quel site",
+	"embeddablecontent-addsource-label-preview": "Libellé final",
+	"embeddablecontent-addsource-label-preview-hint": "Le libellé de l’élément est créé comme « {title} ({class label}) » — cet aperçu montre le libellé final avant l’envoi."
 }

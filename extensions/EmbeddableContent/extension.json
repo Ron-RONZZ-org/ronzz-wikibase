@@ -452,6 +452,25 @@
 				"desktop",
 				"mobile"
 			]
+		},
+		"ext.embeddableContent.addsourcelabelpreview": {
+			"scripts": [
+				"addsource-labelpreview.js"
+			],
+			"styles": [
+				"addsource-labelpreview.css"
+			],
+			"dependencies": [
+				"oojs-ui"
+			],
+			"messages": [
+				"embeddablecontent-addsource-label-preview",
+				"embeddablecontent-addsource-label-preview-hint"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
 		}
 	},
 	"ResourceFileModulePaths": {

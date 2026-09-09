@@ -383,5 +383,7 @@
 	"embeddablecontent-gadget-embed-option-internal": "Interna (en-vikia)",
 	"embeddablecontent-gadget-embed-option-external": "Ekstera (iframe)",
 	"embeddablecontent-gadget-embed-option-internal-hint": "Kopias {{#content:Q42}} — algluu ĝin en vikian paĝon por montri ĉi tiun enhavon",
-	"embeddablecontent-gadget-embed-option-external-hint": "Kopias <iframe> de Special:Embed — algluu ĝin en ajnan retejon"
+	"embeddablecontent-gadget-embed-option-external-hint": "Kopias <iframe> de Special:Embed — algluu ĝin en ajnan retejon",
+	"embeddablecontent-addsource-label-preview": "Fina etikedo",
+	"embeddablecontent-addsource-label-preview-hint": "La etikedo de la ero estas kreata kiel \"{title} ({class label})\" — ĉi tiu antaŭvido montras la finan etikedon antaŭ sendado."
 }
