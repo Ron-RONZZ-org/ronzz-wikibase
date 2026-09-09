@@ -106,6 +106,12 @@ class SpecialQuotationsOf extends SpecialPage {
 	}
 
 	/**
+	 * Each quotation renders as a <blockquote> (the .wb-embed quotation
+	 * visual language, matching the on-wiki {{#content:}} fragment) with the
+	 * decoded multi-line text, followed by the item link — and a blank line
+	 * of separation between entries (CSS margin on the entry wrapper, so the
+	 * quotations read as a list of quotes, not a dense text block).
+	 *
 	 * @param array<int,array{qid:string,content:string,label:string}> $quotations
 	 */
 	private function listHtml( array $quotations ): string {
@@ -113,15 +119,21 @@ class SpecialQuotationsOf extends SpecialPage {
 		foreach ( $quotations as $row ) {
 			$text = $row['content'] !== '' ? $row['content'] : ( $row['label'] !== '' ? $row['label'] : $row['qid'] );
 			$itemTitle = WikibaseRepo::getEntityTitleStoreLookup()->getTitleForId( new ItemId( $row['qid'] ) );
-			$items[] = Html::rawElement( 'li', [],
-				Html::element( 'span', [ 'class' => 'wb-quotation-text' ], $text )
-				. ' ' . Html::element( 'a',
-					[ 'href' => $itemTitle ? $itemTitle->getFullURL() : '#', 'title' => $row['qid'] ],
-					'[' . $row['qid'] . ']'
+			$link = Html::element( 'a',
+				[ 'href' => $itemTitle ? $itemTitle->getFullURL() : '#', 'title' => $row['qid'] ],
+				'[' . $row['qid'] . ']'
+			);
+			// The quotation text is escaped as text (Html::rawElement would
+			// render stored markup — the payload is decode-at-render, never
+			// raw HTML on this surface).
+			$items[] = Html::rawElement( 'div', [ 'class' => 'wb-quotations-of-entry' ],
+				Html::rawElement( 'blockquote', [ 'class' => 'wb-embed wb-embed-quotation' ],
+					Html::element( 'p', [], $text )
 				)
+				. Html::rawElement( 'p', [ 'class' => 'wb-quotations-of-source' ], $link )
 			);
 		}
-		return Html::rawElement( 'ul', [ 'class' => 'wb-quotations-of-list' ], implode( "\n", $items ) );
+		return Html::rawElement( 'div', [ 'class' => 'wb-quotations-of-list' ], implode( "\n", $items ) );
 	}
 
 	private function itemIdFromSubPage( $subPage ): ?string {
