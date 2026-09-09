@@ -6,10 +6,13 @@
  * of portlet links hidden in the ⋯ "More options" menu; the update button
  * and the embed/citation buttons share the same .wb-embed-toolbar flex row).
  *
- * Embed snippets use an ABSOLUTE URL (wgServer + path) — the iframe is meant
- * to be pasted on third-party sites. Multi-language quotations offer a
- * language selector: auto (server negotiates), all languages (?lang=all), or
- * a specific language.
+ * The copy-embed action offers TWO snippet flavours (Sep-2026 UX batch):
+ * internal ({{#content:Q42}} — the on-wiki wikitext) and external (the
+ * <iframe> of Special:Embed, meant for third-party sites, with an ABSOLUTE
+ * URL (wgServer + path)). Multi-language quotations offer a language
+ * selector next to the button: auto (server negotiates), all languages
+ * (?lang=all), or a specific language — it applies to the iframe flavour
+ * ({{#content:}} negotiates from the embedding page).
  *
  * Copy citation offers a FORMAT selector: APA / Vancouver / BibTeX / RIS
  * (the four text formats api.php?action=citation supports; json is a raw
