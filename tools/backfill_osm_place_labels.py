@@ -249,14 +249,18 @@ def main() -> int:
     parser.add_argument("--base-url", default="https://wikibase.ronzz.org")
     parser.add_argument("--sparql-url", required=True)
     parser.add_argument("--user", default="SeedBot")
-    parser.add_argument("--password-file", required=True)
+    parser.add_argument("--password-file", help="file containing the bot password (0600)")
     parser.add_argument("--lang", default="en")
     parser.add_argument("--summary-prefix", default="Tool: ")
     parser.add_argument("--dry-run", action="store_true", help="plan only, no writes")
     parser.add_argument("--verify", action="store_true", help="only recount OSM statements missing labels")
     args = parser.parse_args()
-    if not Path(args.password_file).exists():
+    if not args.password_file or not Path(args.password_file).exists():
         raise SystemExit(f"password file not found: {args.password_file}")
+    with open(args.password_file, encoding="utf-8") as f:
+        args.password = f.read().strip()
+    if not args.password:
+        raise SystemExit("empty password file")
     if args.verify:
         return verify(args)
     return backfill(args)
