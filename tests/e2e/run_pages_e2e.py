@@ -1989,6 +1989,33 @@ def flow_osmsuggest_module_source(op, base: str) -> None:
         raise FlowError("osmsuggest module: node|way|relation/<id> value construction missing")
 
 
+def flow_entityconfirm_module_source(op, base: str) -> None:
+    """The autofill-confirm banner buttons ([Yes, that's right] / [No, let
+    me correct]) are DELEGATED at document level (entityconfirm.js): the
+    OOUI HTMLForm re-creates autoinfuse field layouts client-side from
+    their data-ooui config, replacing the server-rendered banner node — a
+    handler bound per-node at module load is orphaned and the buttons go
+    dead (the AddPerson place-of-birth confirm report). A curl E2E cannot
+    click, so assert the shipped source carries the delegated binding and
+    not the old per-node wiring."""
+    _, body = page_get(op, base,
+        "/load.php?modules=ext.embeddableContent.entityconfirm&lang=en&skin=vector&debug=true")
+    if "$( document ).on( 'click', '.wb-entity-confirm-yes'" not in body:
+        raise FlowError("entityconfirm module: missing the delegated [Yes] binding "
+                        "(autoinfuse banner-node orphaning regression)")
+    if "$( document ).on( 'click', '.wb-entity-confirm-no'" not in body:
+        raise FlowError("entityconfirm module: missing the delegated [No] binding "
+                        "(autoinfuse banner-node orphaning regression)")
+    if "$( '.wb-entity-confirm' ).each" in body:
+        raise FlowError("entityconfirm module: still binding per-node at module load "
+                        "(banner buttons dead after OOUI autoinfuse regression)")
+    if "wb-entity-confirm-yes" not in body or "data-field" not in body:
+        raise FlowError("entityconfirm module: banner button/field-resolution logic missing")
+    if "dispatchEvent( new Event( 'change'" not in body:
+        raise FlowError("entityconfirm module: [No] does not re-sync the OOUI widget value "
+                        "(cleared DOM value would not clear the combobox regression)")
+
+
 def flow_addperson_osm_rejects_name(op, base: str, api: str, person_class: str) -> None:
     """Server-side OSM id gate (osm-places): a place field carrying a raw
     NAME — an unpicked harvested label, or a typo — must be rejected on
@@ -4001,6 +4028,9 @@ def main() -> int:
               "dest-name normalization, validate latest-wins + banner dedupe")
         flow_osmsuggest_module_source(op, base)
         print("[ok] osmsuggest module source: Nominatim search + node|way|relation value form")
+        flow_entityconfirm_module_source(op, base)
+        print("[ok] entityconfirm module source: delegated [Yes]/[No] binding "
+              "(autoinfuse banner-node orphaning fix)")
         upload_qid = flow_upload_special_item(op, base, api, license_item)
         upload_qid = track(upload_qid)
         print(f"[ok] Special:Upload -> {upload_qid}: image item + statements + "

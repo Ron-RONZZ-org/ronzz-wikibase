@@ -353,9 +353,6 @@
 			"styles": [
 				"uploadmeta.css"
 			],
-			"dependencies": [
-				"oojs-ui"
-			],
 			"messages": [
 				"embeddablecontent-entityconfirm-line",
 				"embeddablecontent-entityconfirm-yes",
