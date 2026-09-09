@@ -55,6 +55,29 @@ class SpecialUpdateSource extends SpecialAddSource {
 	}
 
 	/**
+	 * A source update may create/change/remove the item's `part of` parent
+	 * (the child-items listing's relation) — invalidate the OLD and NEW
+	 * parents' classic pages so the child-items auto-link row refreshes
+	 * (best-effort; the parser-cache dependency fires only when the parent
+	 * item itself changes).
+	 *
+	 * @param \Wikibase\DataModel\Entity\Item $item the just-updated item
+	 * @param array<string,mixed> $record the update record
+	 * @param string[] $oldParents the item's part-of parents BEFORE the update
+	 */
+	protected function afterUpdate( \Wikibase\DataModel\Entity\Item $item, array $record, array $oldParents ): void {
+		$parents = $oldParents;
+		// NEW parent: the no-clobber contract only replaces part-of when the
+		// record provides one — a blank parent keeps the existing statement.
+		if ( !empty( $record['parent'] ) ) {
+			$parents[] = (string)$record['parent'];
+		}
+		if ( $parents !== [] ) {
+			\EmbeddableContent\Spec\ChildItemLookup::invalidateParentPages( $parents );
+		}
+	}
+
+	/**
 	 * The AddSource class-disambiguation label suffix (" (Book)", …) is a
 	 * CREATION-time convention: an update shows the item's existing label
 	 * as-is (re-adding the suffix would rename every pre-convention item on

@@ -386,5 +386,16 @@
 	"embeddablecontent-gadget-embed-option-internal-hint": "Copies {{#content:Q42}} — paste it on a wiki page to show this content inline",
 	"embeddablecontent-gadget-embed-option-external-hint": "Copies an <iframe> of Special:Embed — paste it on any website",
 	"embeddablecontent-addsource-label-preview": "Final label",
-	"embeddablecontent-addsource-label-preview-hint": "The item label is created as \"{title} ({class label})\" — this preview shows the final label before you submit."
+	"embeddablecontent-addsource-label-preview-hint": "The item label is created as \"{title} ({class label})\" — this preview shows the final label before you submit.",
+	"embeddablecontent-childitemsof-badid": "Not a valid item id.",
+	"embeddablecontent-childitemsof-notfound": "Item $1 was not found.",
+	"embeddablecontent-childitemsof-title": "Child items of $1",
+	"embeddablecontent-childitemsof-intro": "Items that are part of this item.",
+	"embeddablecontent-childitemsof-none": "This item has no child items on the wiki yet.",
+	"embeddablecontent-childitemsof-unavailable": "The child-item list could not be loaded (the query service is unavailable). Please try again later.",
+	"embeddablecontent-childitemsof-back": "See the source page: $1",
+	"embeddablecontent-childitems-label-bookExcerpt": "Book excerpts",
+	"embeddablecontent-childitems-label-youtubeVideo": "YouTube videos",
+	"embeddablecontent-childitems-label-webpage": "Web pages",
+	"special-childitemsof": "Child items of a source"
 }

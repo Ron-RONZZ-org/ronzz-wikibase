@@ -2028,7 +2028,16 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			$this->getUser(),
 			EDIT_UPDATE
 		);
-		return $item->getId()->getSerialization();
+		$itemId = $item->getId()->getSerialization();
+
+		// A newly created CHILD item (bookExcerpt/webpage/youtubeVideo) joins
+		// its parent's child-items listing — the parent's revision did not
+		// change, so the parser-cache dependency never fires; invalidate the
+		// parent's classic page explicitly (best-effort).
+		if ( !empty( $flowRecord['parent'] ) ) {
+			\EmbeddableContent\Spec\ChildItemLookup::invalidateParentPages( [ $flowRecord['parent'] ] );
+		}
+		return $itemId;
 	}
 
 	/**

@@ -3012,6 +3012,33 @@ def flow_item_source_cite_button(op, base: str, source_qid: str) -> None:
     print(f"[ok] Item: page copy-citation wiring on Item:{source_qid}")
 
 
+def flow_child_items_listing(op, base: str, api: str, book_qid: str,
+                             excerpt_qid: str, excerpt_label: str) -> None:
+    """The child-items listing (Special:ChildItemsOf), the source-children
+    batch: after a bookExcerpt child of the dogfood book is created, the
+    listing must show the child as a label link to its own page (book
+    excerpts create no classic Source: page → the Item: link fallback).
+    WDQS is eventually consistent, so the assertion retries up to 60 s (the
+    parent host-match pattern) — the created excerpt joins WDQS after the
+    updater polls it. No scratch pages."""
+    deadline = time.time() + 60
+    seen = None
+    while time.time() < deadline:
+        _, seen = page_get(op, base, "/wiki/Special:ChildItemsOf/" + book_qid)
+        # The child row must carry the excerpt's Q-id as an Item: link
+        # (bookExcerpt has no Source: page — the Item fallback).
+        if f"Item:{excerpt_qid}" in seen:
+            break
+        time.sleep(10)
+    else:
+        raise FlowError(
+            f"Special:ChildItemsOf/{book_qid} did not list the new excerpt "
+            f"{excerpt_qid} ({excerpt_label!r}) within 60 s — WDQS lag or listing "
+            f"regression: {find_error(seen or '')}")
+    print(f"[ok] Special:ChildItemsOf/{book_qid}: lists {excerpt_qid} "
+          f"({excerpt_label!r}) linked to Item:{excerpt_qid}")
+
+
 # ------------------------------------------------------------------- main
 
 
@@ -3374,6 +3401,12 @@ def main() -> int:
             f"bookExcerpt {excerpt} unexpectedly created a Source: page"
         print(f"[ok] AddSource (bookExcerpt) -> {excerpt}: child class + part-of -> {book}; "
               f"description autogen + year/authors inferred from parent, no Source: page")
+
+        # 2d1. Child-items listing (source-children batch): the created
+        #     excerpt is a child of the dogfood book — Special:ChildItemsOf
+        #     must list it (label → Item link, since bookExcerpt has no
+        #     classic page). WDQS eventual consistency → bounded retry.
+        flow_child_items_listing(op, base, api, book, excerpt, excerpt_label)
 
         # 2e. YouTube chain: a channel (URL -> ID derived server-side), then a
         #     youtubeVideo child of that channel with a duration in seconds.

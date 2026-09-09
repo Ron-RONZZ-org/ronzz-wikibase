@@ -4,6 +4,7 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent;
 
+use EmbeddableContent\ParserFunctions\ChildItemsOf;
 use EmbeddableContent\ParserFunctions\ContentPayload;
 use EmbeddableContent\ParserFunctions\ItemImage;
 use EmbeddableContent\ParserFunctions\QuotationsOf;
@@ -374,6 +375,13 @@ class Hooks {
 		} );
 		$parser->setFunctionHook( 'quotationsof', static function ( Parser $parser, ...$args ) use ( $services ): array {
 			return QuotationsOf::onQuotationsOf(
+				$services->get( 'EmbeddableContent.Config' ),
+				$parser,
+				$args
+			);
+		} );
+		$parser->setFunctionHook( 'childitemsof', static function ( Parser $parser, ...$args ) use ( $services ): array {
+			return \EmbeddableContent\ParserFunctions\ChildItemsOf::onChildItemsOf(
 				$services->get( 'EmbeddableContent.Config' ),
 				$parser,
 				$args

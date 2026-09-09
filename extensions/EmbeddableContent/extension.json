@@ -1,6 +1,6 @@
 {
 	"name": "EmbeddableContent",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"author": [
 		"ronzz.org"
 	],
@@ -134,6 +134,12 @@
 		},
 		"QuotationsOf": {
 			"class": "EmbeddableContent\\Spec\\SpecialQuotationsOf",
+			"services": [
+				"EmbeddableContent.Config"
+			]
+		},
+		"ChildItemsOf": {
+			"class": "EmbeddableContent\\Spec\\SpecialChildItemsOf",
 			"services": [
 				"EmbeddableContent.Config"
 			]
