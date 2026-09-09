@@ -211,6 +211,10 @@ trait UpdateExternalEntityFlow {
 		// that RE-PARENTS a child can refresh BOTH the old and new parent's
 		// child-items rows. Harmless for kinds without the property.
 		$oldParents = $this->partOfParentIds( $item );
+		// The pre-update OSM place ids (person place-label hygiene: a label
+		// must never survive a changed/cleared place id). Harmless for kinds
+		// without the person vocabulary.
+		$oldOsmPlaces = $this->osmPlaceIds( $item );
 
 		// Terms: the en label + description. No-clobber: a BLANK description
 		// keeps the existing one (only a new valid value replaces it).
@@ -268,8 +272,9 @@ trait UpdateExternalEntityFlow {
 
 		// Post-update hook: the default no-ops; Special:UpdateSource
 		// overrides it to invalidate the parent pages whose child-items
-		// listing changed (a new/changed parent on a child item).
-		$this->afterUpdate( $item, $record, $oldParents );
+		// listing changed (a new/changed parent on a child item);
+		// Special:UpdatePerson drops place labels that lost their OSM id.
+		$this->afterUpdate( $item, $record, $oldParents, $oldOsmPlaces );
 
 		// Rename the classic page on a label change OR a page-kind flip
 		// (FOSS: ↔ Software: when the license changed). renameClassicPage
@@ -289,12 +294,38 @@ trait UpdateExternalEntityFlow {
 	 * Post-update hook (after the entity save, before the classic-page
 	 * rename/heal). The default no-ops; update kinds whose item participates
 	 * in derived listings override it (Special:UpdateSource invalidates the
-	 * affected parent pages' child-items rows).
+	 * affected parent pages' child-items rows; Special:UpdatePerson drops a
+	 * place label that no longer matches its OSM id).
 	 *
 	 * @param array<string,mixed> $record
 	 * @param string[] $oldParents the item's part-of parents BEFORE the update
+	 * @param array<string,string> $oldOsmPlaces the item's OSM place ids
+	 *   (birth/death) BEFORE the update
 	 */
-	protected function afterUpdate( Item $item, array $record, array $oldParents ): void {
+	protected function afterUpdate( Item $item, array $record, array $oldParents, array $oldOsmPlaces ): void {
+	}
+
+	/**
+	 * The item's OSM place ids (person vocabulary: placeOfBirthOsm /
+	 * placeOfDeathOsm), or [] when the kind/config lacks them. Read BEFORE
+	 * an update mutates the item, so label hygiene can tell a changed id
+	 * from an untouched one.
+	 *
+	 * @return array<string,string> [placeOfBirthOsm|placeOfDeathOsm => id]
+	 */
+	private function osmPlaceIds( Item $item ): array {
+		try {
+			$props = $this->config->personPropertyIds();
+		} catch ( \Throwable $e ) {
+			return [];
+		}
+		$ids = [];
+		foreach ( [ 'placeOfBirthOsm', 'placeOfDeathOsm' ] as $key ) {
+			if ( isset( $props[$key] ) ) {
+				$ids[$key] = $this->firstStringForProperty( $item, $props[$key] );
+			}
+		}
+		return $ids;
 	}
 
 	/**

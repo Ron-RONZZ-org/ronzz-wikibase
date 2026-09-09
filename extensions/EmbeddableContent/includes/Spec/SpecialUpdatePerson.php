@@ -56,6 +56,71 @@ class SpecialUpdatePerson extends SpecialAddPerson {
 		return $this->config->agentClasses()['person'] ?? null;
 	}
 
+	/**
+	 * Post-update label hygiene for the OSM place fields: the no-clobber
+	 * contract replaces a statement only when the form provides a NEW
+	 * non-empty value — but a place label must never survive its OSM id.
+	 * When the submitted OSM id CHANGED (or was cleared) relative to the
+	 * pre-update item and no new label was submitted, remove the stored
+	 * label statement so the Person: page never shows a stale display name
+	 * for a different place (a newly picked place always carries a fresh
+	 * label from osmsuggest).
+	 *
+	 * Runs only when a label was actually removed — an update that changed
+	 * nothing else writes no extra revision.
+	 *
+	 * @param \Wikibase\DataModel\Entity\Item $item the just-updated item
+	 * @param array<string,mixed> $record the update record
+	 * @param string[] $oldParents unused for persons (no child-items rows)
+	 * @param array<string,string> $oldOsmPlaces the OSM place ids BEFORE the update
+	 */
+	protected function afterUpdate( \Wikibase\DataModel\Entity\Item $item, array $record, array $oldParents, array $oldOsmPlaces ): void {
+		$props = $this->config->personPropertyIds();
+		$dirty = false;
+		foreach ( [
+			'placeOfBirthOsm' => [ 'placeOfBirthLabel', 'placeOfBirthOsmLabel' ],
+			'placeOfDeathOsm' => [ 'placeOfDeathLabel', 'placeOfDeathOsmLabel' ],
+		] as $osmField => [ $labelPropKey, $labelFormKey ] ) {
+			$labelProp = $props[$labelPropKey] ?? null;
+			$submittedOsm = trim( (string)( $record[$osmField] ?? '' ) );
+			$submittedLabel = trim( (string)( $record[$labelFormKey] ?? '' ) );
+			if ( $labelProp === null || $submittedLabel !== '' ) {
+				continue;
+			}
+			$oldOsm = trim( (string)( $oldOsmPlaces[$osmField] ?? '' ) );
+			if ( $oldOsm !== '' && $submittedOsm !== '' && $oldOsm !== $submittedOsm ) {
+				// The OSM id was REPLACED by a different one without a new
+				// label — drop any stored label so it cannot describe the
+				// old place. A BLANKED field is not removal (no-clobber:
+				// both the id and its label survive); a fresh pick always
+				// carries its own label from osmsuggest.
+				foreach ( $item->getStatements()->getByPropertyId(
+					new \Wikibase\DataModel\Entity\NumericPropertyId( $labelProp )
+				) as $statement ) {
+					$guid = $statement->getGuid();
+					if ( $guid !== null ) {
+						$item->getStatements()->removeStatementsWithGuid( $guid );
+						$dirty = true;
+					}
+				}
+			}
+		}
+		if ( $dirty ) {
+			try {
+				WikibaseRepo::getEntityStore()->saveEntity(
+					$item,
+					$this->msg( 'embeddablecontent-update-edit-summary', $this->itemLabel( $item ) )
+						->inContentLanguage()->text(),
+					$this->getUser(),
+					EDIT_UPDATE
+				);
+			} catch ( \Throwable $e ) {
+				// Best-effort label hygiene: the item update itself already
+				// saved; a failed tidy only leaves a stale label behind.
+			}
+		}
+	}
+
 	protected function recordFromItem( Item $item ): array {
 		$record = [
 			'description' => $this->itemDescription( $item ),
@@ -71,6 +136,15 @@ class SpecialUpdatePerson extends SpecialAddPerson {
 		$record['placeOfBirthOsm'] = $this->firstStringForProperty( $item, $props['placeOfBirthOsm'] ?? null );
 		$record['dateOfDeath'] = $this->timeValueForProperty( $item, $props['dateOfDeath'] ?? null );
 		$record['placeOfDeathOsm'] = $this->firstStringForProperty( $item, $props['placeOfDeathOsm'] ?? null );
+		// The parallel human-readable place labels (osm-places follow-up):
+		// prefilled so an update keeps them (they are managed statements —
+		// a blank keeps the stored value).
+		$record['placeOfBirthOsmLabel'] = $this->firstStringForProperty(
+			$item, $props['placeOfBirthLabel'] ?? null
+		);
+		$record['placeOfDeathOsmLabel'] = $this->firstStringForProperty(
+			$item, $props['placeOfDeathLabel'] ?? null
+		);
 		$record['deceased'] = $record['dateOfDeath'] !== '' || $record['placeOfDeathOsm'] !== '';
 		$record['website'] = $this->firstStringForProperty( $item, $props['officialWebsite'] ?? null );
 

@@ -935,9 +935,13 @@ def flow_update_person(op, base: str, api: str, qid: str, new_description: str) 
         "wpdescription": new_description,
         "wpdateOfBirth": input_value(body, "wpdateOfBirth"),
         "wpplaceOfBirthOsm": input_value(body, "wpplaceOfBirthOsm"),
+        # The parallel place-label hidden fields (osm-places follow-up): a
+        # real browser submits them alongside their OSM ids.
+        "wpplaceOfBirthOsmLabel": input_value(body, "wpplaceOfBirthOsmLabel"),
         "wpdeceased": "1",  # the item under test has death facts — toggle open
         "wpdateOfDeath": input_value(body, "wpdateOfDeath"),
         "wpplaceOfDeathOsm": input_value(body, "wpplaceOfDeathOsm"),
+        "wpplaceOfDeathOsmLabel": input_value(body, "wpplaceOfDeathOsmLabel"),
         "wpclass": class_item,
         "wpEditToken": token, "wpSubmit": "1",
     })
@@ -2615,6 +2619,45 @@ def flow_item_image_renders(op, base: str, api: str, qid: str, expect: str) -> N
                            "reason": "page-flow E2E cleanup (run_pages_e2e.py)", "format": "json"}, post=True)
 
 
+def flow_osm_place_renders(op, base: str, api: str, qid: str, osm_id: str, label: str) -> None:
+    """The {{#osm-place:birth}} parser function renders a Person page's OSM
+    place row as a human-readable LABEL linked to openstreetmap.org (the
+    osm-places follow-up — not the raw relation/… id): a scratch page
+    transcluding {{#osm-place:birth|<qid>}} must show the stored display
+    label as the link text pointing at https://www.openstreetmap.org/<osm id>.
+    Self-cleaning: the scratch page is deleted afterwards."""
+    scratch = f"OsmPlace scratch {int(time.time())}"
+    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = csrf["query"]["tokens"]["csrftoken"]
+    r = api_call(op, api, {
+        "action": "edit", "title": scratch, "text": f"{{{{#osm-place:birth|{qid}}}}}",
+        "token": token, "summary": "page-flow E2E scratch ({{#osm-place:}})",
+        "format": "json",
+    }, post=True)
+    if r.get("edit", {}).get("result") != "Success":
+        raise FlowError(f"{{{{#osm-place:}}}} scratch page creation failed: {r!r}")
+    try:
+        _, rendered = page_get(op, base, "/wiki/" + urllib.parse.quote(scratch.replace(" ", "_")))
+        if "<span class=\"error\"" in rendered or "errorbox" in rendered:
+            raise FlowError(f"{{{{#osm-place:birth|{qid}}}}} scratch page rendered parser errors")
+        if "openstreetmap.org/" + osm_id not in rendered:
+            raise FlowError(
+                f"{{{{#osm-place:birth|{qid}}}}} did not link to the OSM id "
+                f"(expect https://www.openstreetmap.org/{osm_id}): {find_error(rendered)}")
+        # The stored label must be the LINK TEXT — the human-readable name,
+        # not the raw relation/… id.
+        if label not in rendered:
+            raise FlowError(
+                f"{{{{#osm-place:birth|{qid}}}}} link text is not the stored label "
+                f"{label!r}: {find_error(rendered)}")
+    finally:
+        csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+        token = csrf["query"]["tokens"]["csrftoken"]
+        api_call(op, api, {"action": "delete", "title": scratch, "token": token,
+                           "reason": "page-flow E2E cleanup (run_pages_e2e.py)", "format": "json"}, post=True)
+    print(f"[ok] {{{{#osm-place:birth|{qid}}}}}: renders {label!r} linked to OSM {osm_id}")
+
+
 def flow_math(op, base: str, api: str, label: str, latex: str, describes_qid: str) -> str:
     """Special:AddMath with the 'describes' subject field (issue follow-up)."""
     url, body = page_get(op, base, "/wiki/Special:AddMath")
@@ -3157,9 +3200,11 @@ def main() -> int:
         #     ids, osm-places feature), with the deceased toggle open.
         date_of_birth_prop = resolve("date of birth", "property")
         place_of_birth_osm_prop = resolve("place of birth (OSM)", "property")
+        place_of_birth_label_prop = resolve("place of birth (label)", "property")
         place_of_birth_legacy_prop = resolve("place of birth", "property")
         date_of_death_prop = resolve("date of death", "property")
         place_of_death_osm_prop = resolve("place of death (OSM)", "property")
+        place_of_death_label_prop = resolve("place of death (label)", "property")
         place_of_death_legacy_prop = resolve("place of death", "property")
         official_website_prop = resolve("official website", "property")
         person_manual_label = f"Page-flow E2E person {int(time.time())}"
@@ -3167,9 +3212,14 @@ def main() -> int:
                                           person_class, {
                                               "wpdateOfBirth": "1960-01-02",
                                               "wpplaceOfBirthOsm": "node/261512419",
+                                              # The parallel human-readable place
+                                              # labels (osm-places follow-up): stored
+                                              # next to their OSM ids.
+                                              "wpplaceOfBirthOsmLabel": "Greenwich, London, England",
                                               "wpdeceased": "1",
                                               "wpdateOfDeath": "2015-03-04",
                                               "wpplaceOfDeathOsm": "relation/295355",
+                                              "wpplaceOfDeathOsmLabel": "Paris, France",
                                               "wpwebsite": "https://example.org/person",
                                           }))
         claims, _ = entity_claims(op, api, person_manual)
@@ -3178,10 +3228,16 @@ def main() -> int:
             f"{person_manual} date of birth statement not written"
         assert first_value(claims, place_of_birth_osm_prop) == "node/261512419", \
             f"{person_manual} OSM place-of-birth statement not written ({first_value(claims, place_of_birth_osm_prop)!r})"
+        assert first_value(claims, place_of_birth_label_prop) == "Greenwich, London, England", \
+            f"{person_manual} place-of-birth label statement not written " \
+            f"({first_value(claims, place_of_birth_label_prop)!r})"
         assert first_value(claims, date_of_death_prop).get("time", "").startswith("+2015-03-04"), \
             f"{person_manual} date of death statement not written (deceased toggle)"
         assert first_value(claims, place_of_death_osm_prop) == "relation/295355", \
             f"{person_manual} OSM place-of-death statement not written ({first_value(claims, place_of_death_osm_prop)!r})"
+        assert first_value(claims, place_of_death_label_prop) == "Paris, France", \
+            f"{person_manual} place-of-death label statement not written " \
+            f"({first_value(claims, place_of_death_label_prop)!r})"
         # The legacy item-typed place properties are no longer written by
         # the forms (osm-places: places live in OpenStreetMap).
         assert first_value(claims, place_of_birth_legacy_prop) is None, \
@@ -3191,8 +3247,14 @@ def main() -> int:
         assert first_value(claims, official_website_prop) == "https://example.org/person", \
             f"{person_manual} official-website statement not written " \
             f"({first_value(claims, official_website_prop)})"
-        print(f"[ok] AddPerson/manual -> {person_manual}: birth/death dates + places, "
-              f"deceased toggle, official website")
+        print(f"[ok] AddPerson/manual -> {person_manual}: birth/death dates + places "
+              f"(with display labels), deceased toggle, official website")
+
+        # 1b0b. The {{#osm-place:birth}} parser function renders the stored
+        #     label (not the raw OSM id) linked to the OSM map — the
+        #     Template:Person cell the follow-up ships.
+        flow_osm_place_renders(op, base, api, person_manual,
+                               "node/261512419", "Greenwich, London, England")
 
         # 1b1. Update flows (autofill-confirm-update): the Item page offers
         #     "Update basic information"; Special:UpdatePerson/<qid> renders
@@ -3209,8 +3271,12 @@ def main() -> int:
             f"{person_manual} date of birth lost by the update"
         assert first_value(claims, place_of_birth_osm_prop) == "node/261512419", \
             f"{person_manual} OSM place of birth lost by the update"
+        assert first_value(claims, place_of_birth_label_prop) == "Greenwich, London, England", \
+            f"{person_manual} place-of-birth label lost by the update"
+        assert first_value(claims, place_of_death_label_prop) == "Paris, France", \
+            f"{person_manual} place-of-death label lost by the update"
         print(f"[ok] Special:UpdatePerson/{person_manual}: description updated, "
-              f"birth/death statements preserved")
+              f"birth/death statements + place labels preserved")
 
         # 1b2. OSM place gate (osm-places): a raw place NAME must be
         #     rejected on submit — no item created.

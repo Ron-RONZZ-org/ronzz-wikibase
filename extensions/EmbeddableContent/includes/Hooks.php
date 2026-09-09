@@ -387,5 +387,12 @@ class Hooks {
 				$args
 			);
 		} );
+		$parser->setFunctionHook( 'osmplace', static function ( Parser $parser, ...$args ) use ( $services ): array {
+			return \EmbeddableContent\ParserFunctions\OsmPlaceRow::onOsmPlaceRow(
+				$services->get( 'EmbeddableContent.Config' ),
+				$parser,
+				$args
+			);
+		} );
 	}
 }

@@ -59,6 +59,17 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 			if ( !empty( $record[$osmField] ) ) {
 				$out[$osmField] = (string)$record[$osmField];
 			}
+			// The parallel human-readable label (osm-places follow-up): the
+			// FORM field is placeOfBirthOsmLabel/placeOfDeathOsmLabel (the
+			// hidden sibling of the combobox); the FLOW vocabulary is
+			// placeOfBirthLabel/placeOfDeathLabel (SemanticEntityFlowService
+			// INTERNAL_FIELDS). Copied ONLY with its OSM id — an orphan
+			// label is dropped here, never silently swallowed later.
+			$formLabelField = $osmField === 'placeOfBirthOsm' ? 'placeOfBirthOsmLabel' : 'placeOfDeathOsmLabel';
+			$flowLabelField = $osmField === 'placeOfBirthOsm' ? 'placeOfBirthLabel' : 'placeOfDeathLabel';
+			if ( !empty( $record[$formLabelField] ) && !empty( $record[$osmField] ) ) {
+				$out[$flowLabelField] = (string)$record[$formLabelField];
+			}
 		}
 		if ( !empty( $record['portraitFileTitle'] ) ) {
 			$title = \MediaWiki\Title\Title::makeTitle( NS_FILE, (string)$record['portraitFileTitle'] );
@@ -236,6 +247,10 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 				[ 'hide-if' => [ '!==', 'deceased', '1' ] ]
 			),
 		]
+		// The parallel OSM place labels (hidden; osmsuggest.js fills them
+		// with the picked suggestion's display name).
+		+ $this->osmPlaceLabelFieldSpec( 'placeOfBirthOsm', $record )
+		+ $this->osmPlaceLabelFieldSpec( 'placeOfDeathOsm', $record )
 		// Official website (optional URL field, shared with AddSoftware/
 		// AddCollective — the P856-aligned property).
 		+ $this->websiteFieldSpec( $record )
@@ -357,6 +372,32 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 	}
 
 	/**
+	 * The parallel human-readable label of an OSM place field: a HIDDEN
+	 * form field that osmsuggest.js fills with the picked suggestion's
+	 * display name (the combobox itself stores only the
+	 * node|way|relation/<id>). The server writes it as the parallel
+	 * `place of birth (label)`/`place of death (label)` string statement
+	 * next to the OSM external-id — Template:Person renders the label, not
+	 * the raw id. A label is only accepted with its OSM id (statementSpecs
+	 * gates both).
+	 *
+	 * @return array<string,mixed> hidden-field spec
+	 */
+	private function osmPlaceLabelFieldSpec( string $fieldKey, array $record ): array {
+		$labelFieldKey = $fieldKey === 'placeOfBirthOsm' ? 'placeOfBirthOsmLabel' : 'placeOfDeathOsmLabel';
+		$value = (string)( $record[$labelFieldKey] ?? '' );
+		$matched = (string)( $record[$fieldKey] ?? '' );
+		// Prefill the label only when the OSM id itself is present (the
+		// harvest auto-match or the Update flow) — never an orphan label.
+		$default = ( $value !== '' && \EmbeddableContent\Spec\OsmPlace::isValidId( $matched ) ) ? $value : '';
+		return [ $labelFieldKey => [
+			'type' => 'hidden',
+			'default' => $default,
+			'maxlength' => 250,
+		] ];
+	}
+
+	/**
 	 * Person statement specs: the base authority/citation facts plus the
 	 * birth/death facts — dates as day-precision TimeValues, places as
 	 * EXTERNAL-ID OSM values (node/way/relation ids picked from the
@@ -464,6 +505,11 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 			}
 			if ( $match !== null ) {
 				$record[$osmKey] = $match['osmType'] . '/' . $match['osmId'];
+				// The parallel human-readable label (osm-places follow-up):
+				// the match's display name rides along so the created item
+				// stores it next to the OSM id (Template:Person renders the
+				// label, not the raw id).
+				$record[$osmKey . 'Label'] = $match['displayName'];
 				$record[$osmKey . 'Confirm'] = [
 					'fetched' => $label,
 					'label' => $match['displayName'],

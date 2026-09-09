@@ -23,6 +23,7 @@ $magicWords['en'] = [
 	'content' => [ 0, 'content' ],
 	'quotationsof' => [ 0, 'quotations-of' ],
 	'childitemsof' => [ 0, 'child-items-of' ],
+	'osmplace' => [ 0, 'osm-place' ],
 ];
 
 /** French (français) */
@@ -32,6 +33,7 @@ $magicWords['fr'] = [
 	'content' => [ 0, 'contenu' ],
 	'quotationsof' => [ 0, 'quotations-of' ],
 	'childitemsof' => [ 0, 'child-items-of' ],
+	'osmplace' => [ 0, 'osm-place' ],
 ];
 
 /** Esperanto (Esperanto) */
@@ -41,4 +43,5 @@ $magicWords['eo'] = [
 	'content' => [ 0, 'enhavo' ],
 	'quotationsof' => [ 0, 'quotations-of' ],
 	'childitemsof' => [ 0, 'child-items-of' ],
+	'osmplace' => [ 0, 'osm-place' ],
 ];
