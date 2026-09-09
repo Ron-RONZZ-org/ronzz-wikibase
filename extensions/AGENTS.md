@@ -747,6 +747,68 @@ PR #66) — drop the patch on re-vendor once upstream merges it.
   "Copied to clipboard." primitives). i18n keys
   `embeddablecontent-sourcecite-button`/`-hint` (en/fr/eo).
 
+- **Sep-2026 UX batch (ADR `docs/decisions/ux-batch-2026-09.md`)**:
+  (a) **Autofill-confirm banner buttons are DELEGATED** (`resources/
+  entityconfirm.js`): the OOUI HTMLForm re-creates autoinfuse field layouts
+  client-side from `data-ooui`, replacing the server-rendered
+  `.wb-entity-confirm` node — a per-node handler bound at module load was
+  orphaned and every banner's [Yes]/[No] was dead (the AddPerson
+  place-of-birth report). Binding is now at `document` level, resolving the
+  banner + field input at click time; [No] re-syncs the OOUI widget with
+  native change/input events. (b) **Copy internal citation on Item pages
+  of source-class items** — `Hooks::onBeforePageDisplay`'s Item branch
+  detects source classes over instance-of (`isSourceClassItem`) and loads
+  `sourcecite` too (bookExcerpt has no classic page; the Item page is the
+  only cite surface). (c) **Embed-code chooser** (`resources/gadget.js`):
+  "Copy embed code" opens two flavours — internal `{{#content:Q42}}`
+  (parser-function wikitext, page-language negotiated) vs the existing
+  external `<iframe>` snippet; language selector unchanged. (d) **AddSource
+  live label preview** (`resources/addsource-labelpreview.js`,
+  `SpecialAddSource::enableLabelPreview`): a read-only "Final label" field
+  beside the Title field mirrors the idempotent `disambiguatedTitle` rule
+  live on class-scoped manual/review steps (`wbLabelSuffix` config; never
+  on the class-picker root or `Special:UpdateSource`).
+  (e) **`Special:QuotationsOf` blockquotes** — each quotation renders as
+  `<blockquote class="wb-embed wb-embed-quotation">` with the decoded
+  multi-line text (`white-space: pre-line`), the item link below, and
+  margin-spaced entries (the requested blank line between quotations).
+
+- **Source child-items listing (ADR
+  `docs/decisions/source-children-listing.md`)**:
+  `Special:ChildItemsOf/<Qid>` lists every item that `part of` the parent
+  AND is classified under one of its class's child classes (book →
+  bookExcerpt, youtubeChannel → youtubeVideo — config-driven over
+  `sourceParents()`), grouped by child class under its plural label
+  message; each child links to its own page (classic Source: page when it
+  has one, Item page otherwise). `ChildItemFinder` (pure, unit-tested, the
+  `QuotationFinder` shape incl. the no-backslash regression) +
+  `ChildItemLookup` (MW facade, exception-safe). `{{#child-items-of:}}`
+  (magic word `child-items-of`, en/fr/eo) renders one complete table row
+  per child class with children on the Source templates
+  (`| Book excerpts || N`), nothing otherwise; the parent is a
+  parser-cache dependency. Child creation/re-parenting invalidates the
+  parent's classic page from the AddSource form + API + Update paths
+  (`ChildItemLookup::invalidateParentPages`).
+
+- **OSM place labels (ADR `docs/decisions/place-labels.md`)**:
+  `Template:Person`'s place rows render a HUMAN-READABLE label linked to
+  openstreetmap.org, not the raw `relation/…` id. Two new string
+  properties `place of birth (label)` / `place of death (label)`
+  (manifests + `personProperties` keys `placeOfBirthLabel`/
+  `placeOfDeathLabel`) capture the Nominatim display name at
+  create/update: the harvest auto-match (`harvestContent`), the combobox
+  pick (`osmsuggest.js` writes the hidden `placeOfBirthOsmLabel`/
+  `placeOfDeathOsmLabel` fields, cleared when the id changes off a pick),
+  and the Update prefill (`SpecialUpdatePerson::recordFromItem`).
+  `SemanticEntityFlowService` writes a label statement only with its OSM
+  id; `UpdateExternalEntityFlow::afterUpdate` drops a stored label when
+  its id was replaced without a fresh one (a blanked field keeps both —
+  no-clobber). `{{#osm-place:birth|death}}` (magic word `osm-place`,
+  en/fr/eo) renders the cell: label linked to the OSM map, raw-id
+  fallback. `tools/backfill_osm_place_labels.py` reverse-geocodes the
+  existing OSM statements lacking labels (Nominatim reverse, 1 req/s,
+  idempotent, `--verify`).
+
 ### WikibaseCitation
 
 

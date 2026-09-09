@@ -222,6 +222,8 @@ def check(args: argparse.Namespace) -> int:
             "AddPerson": "Add person",
             "AddSource": "Add source",
             "AddCollective": "Add collective",
+            "QuotationsOf": "Quotations of a source",
+            "ChildItemsOf": "Child items of a source",
         }
         status, body, _ = http_get(f"{base}/wiki/Special:SpecialPages")
         html = body.decode("utf-8", "replace")

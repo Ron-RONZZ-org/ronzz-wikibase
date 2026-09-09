@@ -935,9 +935,13 @@ def flow_update_person(op, base: str, api: str, qid: str, new_description: str) 
         "wpdescription": new_description,
         "wpdateOfBirth": input_value(body, "wpdateOfBirth"),
         "wpplaceOfBirthOsm": input_value(body, "wpplaceOfBirthOsm"),
+        # The parallel place-label hidden fields (osm-places follow-up): a
+        # real browser submits them alongside their OSM ids.
+        "wpplaceOfBirthOsmLabel": input_value(body, "wpplaceOfBirthOsmLabel"),
         "wpdeceased": "1",  # the item under test has death facts — toggle open
         "wpdateOfDeath": input_value(body, "wpdateOfDeath"),
         "wpplaceOfDeathOsm": input_value(body, "wpplaceOfDeathOsm"),
+        "wpplaceOfDeathOsmLabel": input_value(body, "wpplaceOfDeathOsmLabel"),
         "wpclass": class_item,
         "wpEditToken": token, "wpSubmit": "1",
     })
@@ -1987,6 +1991,98 @@ def flow_osmsuggest_module_source(op, base: str) -> None:
         raise FlowError("osmsuggest module: Nominatim search URL missing")
     if "row.osm_type + '/' + row.osm_id" not in body:
         raise FlowError("osmsuggest module: node|way|relation/<id> value construction missing")
+    # The parallel human-readable place label (osm-places follow-up): a
+    # picked suggestion also fills the hidden wpplaceOfBirthOsmLabel-style
+    # field, and a non-picked change clears it (never a stale label with a
+    # different id).
+    if "labelName = name ? name + 'Label' : ''" not in body:
+        raise FlowError("osmsuggest module: hidden place-label field resolution missing "
+                        "(display-label capture regression)")
+    if "setLabel( label )" not in body:
+        raise FlowError("osmsuggest module: picked suggestion does not write the display "
+                        "label (display-label capture regression)")
+
+
+def flow_entityconfirm_module_source(op, base: str) -> None:
+    """The autofill-confirm banner buttons ([Yes, that's right] / [No, let
+    me correct]) are DELEGATED at document level (entityconfirm.js): the
+    OOUI HTMLForm re-creates autoinfuse field layouts client-side from
+    their data-ooui config, replacing the server-rendered banner node — a
+    handler bound per-node at module load is orphaned and the buttons go
+    dead (the AddPerson place-of-birth confirm report). A curl E2E cannot
+    click, so assert the shipped source carries the delegated binding and
+    not the old per-node wiring."""
+    _, body = page_get(op, base,
+        "/load.php?modules=ext.embeddableContent.entityconfirm&lang=en&skin=vector&debug=true")
+    if "$( document ).on( 'click', '.wb-entity-confirm-yes'" not in body:
+        raise FlowError("entityconfirm module: missing the delegated [Yes] binding "
+                        "(autoinfuse banner-node orphaning regression)")
+    if "$( document ).on( 'click', '.wb-entity-confirm-no'" not in body:
+        raise FlowError("entityconfirm module: missing the delegated [No] binding "
+                        "(autoinfuse banner-node orphaning regression)")
+    if "$( '.wb-entity-confirm' ).each" in body:
+        raise FlowError("entityconfirm module: still binding per-node at module load "
+                        "(banner buttons dead after OOUI autoinfuse regression)")
+    if "wb-entity-confirm-yes" not in body or "data-field" not in body:
+        raise FlowError("entityconfirm module: banner button/field-resolution logic missing")
+    if "dispatchEvent( new Event( 'change'" not in body:
+        raise FlowError("entityconfirm module: [No] does not re-sync the OOUI widget value "
+                        "(cleared DOM value would not clear the combobox regression)")
+
+
+def flow_gadget_module_source(op, base: str) -> None:
+    """The Item-page toolbar gadget's "Copy embed code" must offer TWO
+    snippet flavours on click — internal (the {{#content:Q42}} wikitext for
+    on-wiki embedding) and external (the <iframe> of Special:Embed for
+    third-party pages). A curl E2E cannot click; assert the shipped source
+    carries both snippet builders and the chooser wiring."""
+    _, body = page_get(op, base,
+        "/load.php?modules=ext.embeddableContent.gadget&lang=en&skin=vector&debug=true")
+    if "contentSnippet" not in body or "{{#content:' + entityId + '}}" not in body:
+        raise FlowError("gadget module: internal {{#content:Q42}} snippet builder missing "
+                        "(embed flavour chooser regression)")
+    if "embedSnippet" not in body or "Special:Embed/" not in body:
+        raise FlowError("gadget module: external iframe snippet builder missing "
+                        "(embed flavour chooser regression)")
+    if "ca-wb-embed-copy-internal" not in body or "ca-wb-embed-copy-external" not in body:
+        raise FlowError("gadget module: embed flavour chooser buttons missing "
+                        "(embed flavour chooser regression)")
+
+
+def flow_addsource_label_preview(op, base: str) -> None:
+    """The AddSource label-preview (addsource-labelpreview.js): class-scoped
+    manual/review steps of Special:AddSource carry a Title field whose value
+    becomes the item label with the class suffix appended at creation. The
+    review/manual page must (1) expose the wbLabelSuffix JS config (the
+    English " (Class)" suffix) and load ext.embeddableContent
+    .addsourcelabelpreview, and (2) the served module must contain the
+    idempotent suffix-append logic (mirroring disambiguatedTitle). A curl
+    E2E cannot type, so assert the server wiring + shipped source."""
+    # The /book manual page (class-scoped, manual from blank): suffix set.
+    _, body = page_get(op, base, "/wiki/Special:AddSource/book/manual")
+    if "wbLabelSuffix" not in body or '" (Book)"' not in body:
+        raise FlowError("AddSource/book manual missing the wbLabelSuffix config "
+                        "(label-preview wiring): " + find_error(body))
+    if "ext.embeddableContent.addsourcelabelpreview" not in body:
+        raise FlowError("AddSource/book manual does not load "
+                        "ext.embeddableContent.addsourcelabelpreview: " + find_error(body))
+    # The class-picker ROOT has no class → no suffix, no module.
+    _, root = page_get(op, base, "/wiki/Special:AddSource")
+    if "ext.embeddableContent.addsourcelabelpreview" in root:
+        raise FlowError("AddSource class-picker root must NOT load the label-preview "
+                        "module (no class selected yet)")
+    # Module source: the idempotent suffix logic must be shipped.
+    _, src = page_get(op, base,
+        "/load.php?modules=ext.embeddableContent.addsourcelabelpreview&lang=en&skin=vector&debug=true")
+    if "wbLabelSuffix" not in src:
+        raise FlowError("addsource-labelpreview module: wbLabelSuffix config read missing")
+    if "endsWith( needle )" not in src:
+        raise FlowError("addsource-labelpreview module: idempotent suffix-append missing "
+                        "(double-suffix regression)")
+    if "input[name=\"wptitle\"]" not in src:
+        raise FlowError("addsource-labelpreview module: Title-field target missing")
+    print("[ok] AddSource label preview: wbLabelSuffix + module on /book/manual, "
+          "absent on the picker root, idempotent suffix logic shipped")
 
 
 def flow_addperson_osm_rejects_name(op, base: str, api: str, person_class: str) -> None:
@@ -2533,6 +2629,45 @@ def flow_item_image_renders(op, base: str, api: str, qid: str, expect: str) -> N
                            "reason": "page-flow E2E cleanup (run_pages_e2e.py)", "format": "json"}, post=True)
 
 
+def flow_osm_place_renders(op, base: str, api: str, qid: str, osm_id: str, label: str) -> None:
+    """The {{#osm-place:birth}} parser function renders a Person page's OSM
+    place row as a human-readable LABEL linked to openstreetmap.org (the
+    osm-places follow-up — not the raw relation/… id): a scratch page
+    transcluding {{#osm-place:birth|<qid>}} must show the stored display
+    label as the link text pointing at https://www.openstreetmap.org/<osm id>.
+    Self-cleaning: the scratch page is deleted afterwards."""
+    scratch = f"OsmPlace scratch {int(time.time())}"
+    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = csrf["query"]["tokens"]["csrftoken"]
+    r = api_call(op, api, {
+        "action": "edit", "title": scratch, "text": f"{{{{#osm-place:birth|{qid}}}}}",
+        "token": token, "summary": "page-flow E2E scratch ({{#osm-place:}})",
+        "format": "json",
+    }, post=True)
+    if r.get("edit", {}).get("result") != "Success":
+        raise FlowError(f"{{{{#osm-place:}}}} scratch page creation failed: {r!r}")
+    try:
+        _, rendered = page_get(op, base, "/wiki/" + urllib.parse.quote(scratch.replace(" ", "_")))
+        if "<span class=\"error\"" in rendered or "errorbox" in rendered:
+            raise FlowError(f"{{{{#osm-place:birth|{qid}}}}} scratch page rendered parser errors")
+        if "openstreetmap.org/" + osm_id not in rendered:
+            raise FlowError(
+                f"{{{{#osm-place:birth|{qid}}}}} did not link to the OSM id "
+                f"(expect https://www.openstreetmap.org/{osm_id}): {find_error(rendered)}")
+        # The stored label must be the LINK TEXT — the human-readable name,
+        # not the raw relation/… id.
+        if label not in rendered:
+            raise FlowError(
+                f"{{{{#osm-place:birth|{qid}}}}} link text is not the stored label "
+                f"{label!r}: {find_error(rendered)}")
+    finally:
+        csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+        token = csrf["query"]["tokens"]["csrftoken"]
+        api_call(op, api, {"action": "delete", "title": scratch, "token": token,
+                           "reason": "page-flow E2E cleanup (run_pages_e2e.py)", "format": "json"}, post=True)
+    print(f"[ok] {{{{#osm-place:birth|{qid}}}}}: renders {label!r} linked to OSM {osm_id}")
+
+
 def flow_math(op, base: str, api: str, label: str, latex: str, describes_qid: str) -> str:
     """Special:AddMath with the 'describes' subject field (issue follow-up)."""
     url, body = page_get(op, base, "/wiki/Special:AddMath")
@@ -2913,6 +3048,50 @@ def flow_source_cite_button(op, base: str, source_page: str, expected_qid: str) 
     print(f"[ok] Source: page copy-citation wiring on {source_page} -> {expected_qid}")
 
 
+def flow_item_source_cite_button(op, base: str, source_qid: str) -> None:
+    """The Item: page "Copy internal citation" button wiring (sourcecite on
+    source-class ITEMS, not only their Source: classic pages): the Item page
+    of a source-class item must carry wbInternalCiteItem + load
+    ext.embeddableContent.sourcecite. A source item WITHOUT a classic page
+    (bookExcerpt) must still get the wiring — the item is the only place to
+    copy the cite snippet from."""
+    _, body = page_get(op, base, "/wiki/Item:" + source_qid)
+    if "wbInternalCiteItem" not in body or source_qid not in body:
+        raise FlowError(
+            f"Item:{source_qid} missing the wbInternalCiteItem={source_qid} config "
+            f"(item-page sourcecite wiring): {find_error(body)}")
+    if "ext.embeddableContent.sourcecite" not in body:
+        raise FlowError(f"Item:{source_qid} does not load ext.embeddableContent.sourcecite")
+    print(f"[ok] Item: page copy-citation wiring on Item:{source_qid}")
+
+
+def flow_child_items_listing(op, base: str, api: str, book_qid: str,
+                             excerpt_qid: str, excerpt_label: str) -> None:
+    """The child-items listing (Special:ChildItemsOf), the source-children
+    batch: after a bookExcerpt child of the dogfood book is created, the
+    listing must show the child as a label link to its own page (book
+    excerpts create no classic Source: page → the Item: link fallback).
+    WDQS is eventually consistent, so the assertion retries up to 60 s (the
+    parent host-match pattern) — the created excerpt joins WDQS after the
+    updater polls it. No scratch pages."""
+    deadline = time.time() + 60
+    seen = None
+    while time.time() < deadline:
+        _, seen = page_get(op, base, "/wiki/Special:ChildItemsOf/" + book_qid)
+        # The child row must carry the excerpt's Q-id as an Item: link
+        # (bookExcerpt has no Source: page — the Item fallback).
+        if f"Item:{excerpt_qid}" in seen:
+            break
+        time.sleep(10)
+    else:
+        raise FlowError(
+            f"Special:ChildItemsOf/{book_qid} did not list the new excerpt "
+            f"{excerpt_qid} ({excerpt_label!r}) within 60 s — WDQS lag or listing "
+            f"regression: {find_error(seen or '')}")
+    print(f"[ok] Special:ChildItemsOf/{book_qid}: lists {excerpt_qid} "
+          f"({excerpt_label!r}) linked to Item:{excerpt_qid}")
+
+
 # ------------------------------------------------------------------- main
 
 
@@ -3031,9 +3210,11 @@ def main() -> int:
         #     ids, osm-places feature), with the deceased toggle open.
         date_of_birth_prop = resolve("date of birth", "property")
         place_of_birth_osm_prop = resolve("place of birth (OSM)", "property")
+        place_of_birth_label_prop = resolve("place of birth (label)", "property")
         place_of_birth_legacy_prop = resolve("place of birth", "property")
         date_of_death_prop = resolve("date of death", "property")
         place_of_death_osm_prop = resolve("place of death (OSM)", "property")
+        place_of_death_label_prop = resolve("place of death (label)", "property")
         place_of_death_legacy_prop = resolve("place of death", "property")
         official_website_prop = resolve("official website", "property")
         person_manual_label = f"Page-flow E2E person {int(time.time())}"
@@ -3041,9 +3222,14 @@ def main() -> int:
                                           person_class, {
                                               "wpdateOfBirth": "1960-01-02",
                                               "wpplaceOfBirthOsm": "node/261512419",
+                                              # The parallel human-readable place
+                                              # labels (osm-places follow-up): stored
+                                              # next to their OSM ids.
+                                              "wpplaceOfBirthOsmLabel": "Greenwich, London, England",
                                               "wpdeceased": "1",
                                               "wpdateOfDeath": "2015-03-04",
                                               "wpplaceOfDeathOsm": "relation/295355",
+                                              "wpplaceOfDeathOsmLabel": "Paris, France",
                                               "wpwebsite": "https://example.org/person",
                                           }))
         claims, _ = entity_claims(op, api, person_manual)
@@ -3052,10 +3238,16 @@ def main() -> int:
             f"{person_manual} date of birth statement not written"
         assert first_value(claims, place_of_birth_osm_prop) == "node/261512419", \
             f"{person_manual} OSM place-of-birth statement not written ({first_value(claims, place_of_birth_osm_prop)!r})"
+        assert first_value(claims, place_of_birth_label_prop) == "Greenwich, London, England", \
+            f"{person_manual} place-of-birth label statement not written " \
+            f"({first_value(claims, place_of_birth_label_prop)!r})"
         assert first_value(claims, date_of_death_prop).get("time", "").startswith("+2015-03-04"), \
             f"{person_manual} date of death statement not written (deceased toggle)"
         assert first_value(claims, place_of_death_osm_prop) == "relation/295355", \
             f"{person_manual} OSM place-of-death statement not written ({first_value(claims, place_of_death_osm_prop)!r})"
+        assert first_value(claims, place_of_death_label_prop) == "Paris, France", \
+            f"{person_manual} place-of-death label statement not written " \
+            f"({first_value(claims, place_of_death_label_prop)!r})"
         # The legacy item-typed place properties are no longer written by
         # the forms (osm-places: places live in OpenStreetMap).
         assert first_value(claims, place_of_birth_legacy_prop) is None, \
@@ -3065,8 +3257,14 @@ def main() -> int:
         assert first_value(claims, official_website_prop) == "https://example.org/person", \
             f"{person_manual} official-website statement not written " \
             f"({first_value(claims, official_website_prop)})"
-        print(f"[ok] AddPerson/manual -> {person_manual}: birth/death dates + places, "
-              f"deceased toggle, official website")
+        print(f"[ok] AddPerson/manual -> {person_manual}: birth/death dates + places "
+              f"(with display labels), deceased toggle, official website")
+
+        # 1b0b. The {{#osm-place:birth}} parser function renders the stored
+        #     label (not the raw OSM id) linked to the OSM map — the
+        #     Template:Person cell the follow-up ships.
+        flow_osm_place_renders(op, base, api, person_manual,
+                               "node/261512419", "Greenwich, London, England")
 
         # 1b1. Update flows (autofill-confirm-update): the Item page offers
         #     "Update basic information"; Special:UpdatePerson/<qid> renders
@@ -3083,8 +3281,12 @@ def main() -> int:
             f"{person_manual} date of birth lost by the update"
         assert first_value(claims, place_of_birth_osm_prop) == "node/261512419", \
             f"{person_manual} OSM place of birth lost by the update"
+        assert first_value(claims, place_of_birth_label_prop) == "Greenwich, London, England", \
+            f"{person_manual} place-of-birth label lost by the update"
+        assert first_value(claims, place_of_death_label_prop) == "Paris, France", \
+            f"{person_manual} place-of-death label lost by the update"
         print(f"[ok] Special:UpdatePerson/{person_manual}: description updated, "
-              f"birth/death statements preserved")
+              f"birth/death statements + place labels preserved")
 
         # 1b2. OSM place gate (osm-places): a raw place NAME must be
         #     rejected on submit — no item created.
@@ -3275,6 +3477,12 @@ def main() -> int:
             f"bookExcerpt {excerpt} unexpectedly created a Source: page"
         print(f"[ok] AddSource (bookExcerpt) -> {excerpt}: child class + part-of -> {book}; "
               f"description autogen + year/authors inferred from parent, no Source: page")
+
+        # 2d1. Child-items listing (source-children batch): the created
+        #     excerpt is a child of the dogfood book — Special:ChildItemsOf
+        #     must list it (label → Item link, since bookExcerpt has no
+        #     classic page). WDQS eventual consistency → bounded retry.
+        flow_child_items_listing(op, base, api, book, excerpt, excerpt_label)
 
         # 2e. YouTube chain: a channel (URL -> ID derived server-side), then a
         #     youtubeVideo child of that channel with a duration in seconds.
@@ -3611,6 +3819,12 @@ def main() -> int:
             raise FlowError(f"{subdomain_child} has no wikibase sitelink — "
                             f"cannot check the Source: page cite wiring")
         flow_source_cite_button(op, base, webpage_page, subdomain_child)
+
+        # 2j1c. The Item: page of a source-class item ALSO carries the
+        #     "Copy internal citation" wiring (not only its Source: classic
+        #     page — source items without a classic page, e.g. bookExcerpt,
+        #     need it on the item page).
+        flow_item_source_cite_button(op, base, subdomain_child)
 
         # 2k. Website URL-first flow (issue follow-up): the first page is a
         #     URL entry; the fetched metadata prefills the manual form.
@@ -4001,6 +4215,14 @@ def main() -> int:
               "dest-name normalization, validate latest-wins + banner dedupe")
         flow_osmsuggest_module_source(op, base)
         print("[ok] osmsuggest module source: Nominatim search + node|way|relation value form")
+        flow_entityconfirm_module_source(op, base)
+        print("[ok] entityconfirm module source: delegated [Yes]/[No] binding "
+              "(autoinfuse banner-node orphaning fix)")
+        flow_gadget_module_source(op, base)
+        print("[ok] gadget module source: embed flavour chooser (internal {{#content:}} vs "
+              "external iframe)")
+        flow_addsource_label_preview(op, base)
+        print("[ok] AddSource label preview: manual/review wiring + idempotent suffix module")
         upload_qid = flow_upload_special_item(op, base, api, license_item)
         upload_qid = track(upload_qid)
         print(f"[ok] Special:Upload -> {upload_qid}: image item + statements + "

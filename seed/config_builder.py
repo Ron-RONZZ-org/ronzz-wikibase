@@ -78,6 +78,11 @@ PERSON_PROPERTY_KINDS = {
     # (aligned to P19/P20) but are no longer written by the forms.
     "place of birth (OSM)": "placeOfBirthOsm",
     "place of death (OSM)": "placeOfDeathOsm",
+    # Human-readable display labels of the OSM places (the Person: infobox
+    # row label; captured at creation/update from the Nominatim suggestion
+    # or the harvest auto-match, backfilled for older items).
+    "place of birth (label)": "placeOfBirthLabel",
+    "place of death (label)": "placeOfDeathLabel",
     "official website": "officialWebsite",
     # Portrait facts: the P18-aligned image (url) + the shared P275 license.
     "image": "image",

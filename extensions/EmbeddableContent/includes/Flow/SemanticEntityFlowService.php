@@ -59,7 +59,14 @@ final class SemanticEntityFlowService {
 	 * the uploaded portrait/logo file URL. Accepted by prepare (no exposure
 	 * check) and written by statementSpecs.
 	 */
-	private const INTERNAL_FIELDS = [ 'placeOfBirthOsm', 'placeOfDeathOsm', 'imageFileUrl' ];
+	private const INTERNAL_FIELDS = [
+		'placeOfBirthOsm', 'placeOfDeathOsm',
+		// Human-readable display labels of the OSM places (osm-places
+		// follow-up): the value picked from Nominatim at creation/update,
+		// written as parallel string statements.
+		'placeOfBirthLabel', 'placeOfDeathLabel',
+		'imageFileUrl',
+	];
 
 	/**
 	 * @param \Closure(string $messageKey, string[] $params): string $message
@@ -209,6 +216,20 @@ final class SemanticEntityFlowService {
 					$osmId = trim( (string)( $record[$field] ?? '' ) );
 					if ( $osmId !== '' && isset( $person[$key] ) && \EmbeddableContent\Spec\OsmPlace::isValidId( $osmId ) ) {
 						$specs[$person[$key]] = new StringValue( $osmId );
+					}
+				}
+				// The parallel human-readable display labels of the OSM
+				// places: written alongside the external-id only when BOTH
+				// are present (a label without an id is dropped; the
+				// Template:Person row shows the id as the fallback text).
+				foreach ( [ 'placeOfBirthLabel' => 'placeOfBirthLabel', 'placeOfDeathLabel' => 'placeOfDeathLabel' ] as $field => $key ) {
+					$label = trim( (string)( $record[$field] ?? '' ) );
+					$labelOf = $field === 'placeOfBirthLabel' ? 'placeOfBirthOsm' : 'placeOfDeathOsm';
+					$osmId = trim( (string)( $record[$labelOf] ?? '' ) );
+					if ( $label !== '' && isset( $person[$key] )
+						&& \EmbeddableContent\Spec\OsmPlace::isValidId( $osmId )
+					) {
+						$specs[$person[$key]] = new StringValue( $label );
 					}
 				}
 				foreach ( [ 'orcid' => 'orcid', 'viafId' => 'viaf', 'isni' => 'isni', 'wikidataId' => 'wikidata', 'openalexAuthorId' => 'openalexAuthor' ] as $field => $key ) {

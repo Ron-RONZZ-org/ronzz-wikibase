@@ -114,6 +114,12 @@ class ApiAddSource extends ApiBase {
 			StatementGuidAssigner::ensureGuids( $item, new GuidGenerator() );
 			$revision = $store->saveEntity( $item, $summaryText, $user, EDIT_UPDATE );
 			$itemId = $item->getId()->getSerialization();
+			// A newly created CHILD item (bookExcerpt/webpage/youtubeVideo)
+			// joins its parent's child-items listing — invalidate the
+			// parent's classic page (best-effort, the form-flow pattern).
+			if ( !empty( $record['parent'] ) ) {
+				\EmbeddableContent\Spec\ChildItemLookup::invalidateParentPages( [ $record['parent'] ] );
+			}
 
 			$result = [
 				'entityId' => $itemId,
@@ -139,6 +145,9 @@ class ApiAddSource extends ApiBase {
 			if ( !$entity instanceof Item ) {
 				$this->dieWithError( new RawMessage( "Entity \"{$qid}\" not found." ), 'not_found' );
 			}
+			// The parent(s) BEFORE the update — a re-parented child must
+			// refresh the OLD parent's listing row too.
+			$previousParents = self::parentIdsOf( $entity, $this->config );
 			$this->flow->applyUpdate( $classKey, $entity, $record );
 			$revision = $store->saveEntity(
 				$entity,
@@ -152,6 +161,13 @@ class ApiAddSource extends ApiBase {
 				'latestRevisionId' => $revision->getRevisionId(),
 				'updated' => '1',
 			];
+			$invalidParents = $previousParents;
+			if ( !empty( $record['parent'] ) ) {
+				$invalidParents[] = $record['parent'];
+			}
+			if ( $invalidParents !== [] ) {
+				\EmbeddableContent\Spec\ChildItemLookup::invalidateParentPages( $invalidParents );
+			}
 		}
 
 		$this->getResult()->addValue( null, 'source', $result );
@@ -206,5 +222,34 @@ class ApiAddSource extends ApiBase {
 			'pages', 'chapters', 'year', 'isbn', 'doi', 'wikidataId', 'openalexWorkId',
 			'pubmedId', 'url', 'duration', 'youtubeChannelId', 'youtubeVideoId', 'accessUrl', 'parent',
 		];
+	}
+
+	/**
+	 * The `parent` statement values (item ids) of an item — the part-of
+	 * parents, for invalidating the old parent's child-items row when a
+	 * child is re-parented via the API.
+	 *
+	 * @return string[]
+	 */
+	private static function parentIdsOf( Item $item, EmbeddableContentConfig $config ): array {
+		$propertyId = $config->sourcePropertyIds()['partOf'] ?? null;
+		if ( $propertyId === null ) {
+			return [];
+		}
+		$ids = [];
+		foreach ( $item->getStatements()->getByPropertyId( new \Wikibase\DataModel\Entity\NumericPropertyId( $propertyId ) ) as $statement ) {
+			$snak = $statement->getMainSnak();
+			if ( !$snak instanceof \Wikibase\DataModel\Snak\PropertyValueSnak ) {
+				continue;
+			}
+			$value = $snak->getDataValue();
+			if ( $value instanceof \Wikibase\DataModel\Entity\EntityIdValue ) {
+				$id = $value->getEntityId()->getSerialization();
+				if ( preg_match( '/^Q[1-9]\d*$/i', $id ) === 1 ) {
+					$ids[] = $id;
+				}
+			}
+		}
+		return $ids;
 	}
 }

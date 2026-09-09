@@ -472,6 +472,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				$this->executeManualContent();
 				return;
 			}
+			$this->enableLabelPreview();
 			$this->executeManual();
 			return;
 		}
@@ -502,10 +503,33 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				$this->executeContent( $second, (int)$parts[3] );
 				return;
 			}
+			$this->enableLabelPreview();
 			$this->executeReview( $second, (int)$parts[3] );
 			return;
 		}
 		$this->executeSelection( $second );
+	}
+
+	/**
+	 * The manual/review steps of Special:AddSource carry a Title field whose
+	 * value becomes the item LABEL with the class-disambiguation suffix
+	 * appended at creation ("The Hobbit" → "The Hobbit (Book)"). The suffix
+	 * is invisible until submit — this loads the live label-preview module
+	 * (addsource-labelpreview.js) that shows the final label in a read-only
+	 * field to the right of the Title field, updating as the user types.
+	 * Only on the AddSource flow: Special:UpdateSource keeps stored labels
+	 * as-is (applyLabelSuffix() = false), so the preview never loads there.
+	 */
+	private function enableLabelPreview(): void {
+		if ( !$this->applyLabelSuffix() ) {
+			return;
+		}
+		$suffix = $this->sourceLabelSuffix();
+		if ( $suffix === '' ) {
+			return;
+		}
+		$this->getOutput()->addJsConfigVars( 'wbLabelSuffix', $suffix );
+		$this->getOutput()->addModules( 'ext.embeddableContent.addsourcelabelpreview' );
 	}
 
 	// ------------------------------------------------------------- class picker
@@ -2004,7 +2028,16 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			$this->getUser(),
 			EDIT_UPDATE
 		);
-		return $item->getId()->getSerialization();
+		$itemId = $item->getId()->getSerialization();
+
+		// A newly created CHILD item (bookExcerpt/webpage/youtubeVideo) joins
+		// its parent's child-items listing — the parent's revision did not
+		// change, so the parser-cache dependency never fires; invalidate the
+		// parent's classic page explicitly (best-effort).
+		if ( !empty( $flowRecord['parent'] ) ) {
+			\EmbeddableContent\Spec\ChildItemLookup::invalidateParentPages( [ $flowRecord['parent'] ] );
+		}
+		return $itemId;
 	}
 
 	/**

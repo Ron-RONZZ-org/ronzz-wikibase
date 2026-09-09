@@ -10,6 +10,29 @@
 	font-style: italic;
 }
 
+/* Special:QuotationsOf — each quotation is a blockquote entry; the
+ * wrapper margin supplies the extra blank line between quotations. */
+.wb-quotations-of-entry {
+	margin-bottom: 1.5em;
+}
+
+.wb-quotations-of-entry blockquote.wb-embed {
+	margin: 0 0 0.25em;
+}
+
+/* The decoded payload is multi-line text; keep the author's line breaks
+ * (pre-line collapses whitespace runs but honors \n). */
+.wb-quotations-of-entry blockquote.wb-embed p {
+	white-space: pre-line;
+	margin: 0;
+}
+
+.wb-quotations-of-source {
+	margin: 0;
+	font-size: 0.85em;
+	color: #72777d;
+}
+
 .wb-embed-code pre,
 .wb-embed-code .highlight {
 	margin: 0;

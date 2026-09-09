@@ -1,6 +1,6 @@
 {
 	"name": "EmbeddableContent",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"author": [
 		"ronzz.org"
 	],
@@ -134,6 +134,12 @@
 		},
 		"QuotationsOf": {
 			"class": "EmbeddableContent\\Spec\\SpecialQuotationsOf",
+			"services": [
+				"EmbeddableContent.Config"
+			]
+		},
+		"ChildItemsOf": {
+			"class": "EmbeddableContent\\Spec\\SpecialChildItemsOf",
 			"services": [
 				"EmbeddableContent.Config"
 			]
@@ -284,7 +290,11 @@
 				"embeddablecontent-gadget-copycitation",
 				"embeddablecontent-gadget-copied",
 				"embeddablecontent-gadget-embed-auto",
-				"embeddablecontent-gadget-embed-all"
+				"embeddablecontent-gadget-embed-all",
+				"embeddablecontent-gadget-embed-option-internal",
+				"embeddablecontent-gadget-embed-option-internal-hint",
+				"embeddablecontent-gadget-embed-option-external",
+				"embeddablecontent-gadget-embed-option-external-hint"
 			],
 			"targets": [
 				"desktop"
@@ -352,9 +362,6 @@
 			],
 			"styles": [
 				"uploadmeta.css"
-			],
-			"dependencies": [
-				"oojs-ui"
 			],
 			"messages": [
 				"embeddablecontent-entityconfirm-line",
@@ -446,6 +453,25 @@
 			],
 			"dependencies": [
 				"mediawiki.notification"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.addsourcelabelpreview": {
+			"scripts": [
+				"addsource-labelpreview.js"
+			],
+			"styles": [
+				"addsource-labelpreview.css"
+			],
+			"dependencies": [
+				"oojs-ui"
+			],
+			"messages": [
+				"embeddablecontent-addsource-label-preview",
+				"embeddablecontent-addsource-label-preview-hint"
 			],
 			"targets": [
 				"desktop",

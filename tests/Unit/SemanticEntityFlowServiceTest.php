@@ -31,6 +31,7 @@ class SemanticEntityFlowServiceTest extends TestCase {
 		'personProperties' => [
 			'dateOfBirth' => 'P50', 'placeOfBirth' => 'P51', 'dateOfDeath' => 'P52',
 			'placeOfDeath' => 'P53', 'placeOfBirthOsm' => 'P61', 'placeOfDeathOsm' => 'P62',
+			'placeOfBirthLabel' => 'P64', 'placeOfDeathLabel' => 'P65',
 			'officialWebsite' => 'P36', 'image' => 'P63',
 		],
 		'fossProperties' => [
@@ -79,6 +80,9 @@ class SemanticEntityFlowServiceTest extends TestCase {
 			'givenName' => 'Ada', 'familyName' => 'Lovelace',
 			'dateOfBirth' => '1815-12-10',
 			'placeOfBirthOsm' => 'node/123', 'placeOfDeathOsm' => 'relation/456',
+			// The parallel human-readable place labels (osm-places
+			// follow-up): written next to their OSM ids.
+			'placeOfBirthLabel' => 'London, England', 'placeOfDeathLabel' => 'Paris, France',
 			'orcid' => '0000-0001-0002-0003', 'officialWebsite' => 'https://example.org/ada',
 			'imageFileUrl' => 'https://example.org/File:Ada-portrait.png',
 		];
@@ -92,10 +96,29 @@ class SemanticEntityFlowServiceTest extends TestCase {
 		$this->assertSame( 'Lovelace', $specs['P26']->getValue() );
 		$this->assertSame( 'node/123', $specs['P61']->getValue() );
 		$this->assertSame( 'relation/456', $specs['P62']->getValue() );
+		$this->assertSame( 'London, England', $specs['P64']->getValue() );
+		$this->assertSame( 'Paris, France', $specs['P65']->getValue() );
 		$this->assertInstanceOf( TimeValue::class, $specs['P50'] );
 		$this->assertSame( '0000-0001-0002-0003', $specs['P13']->getValue() );
 		$this->assertSame( 'https://example.org/ada', $specs['P36']->getValue() );
 		$this->assertSame( 'https://example.org/File:Ada-portrait.png', $specs['P63']->getValue() );
+	}
+
+	public function testPersonPlaceLabelRequiresItsOsmId(): void {
+		// A label without its OSM id is dropped (never a floating display
+		// name that names nothing) — and an OSM id without a label is fine
+		// (older data falls back to the raw id on the Person: page).
+		$service = $this->makeService();
+
+		$orphan = [
+			'givenName' => 'Ada', 'familyName' => 'Lovelace',
+			'placeOfBirthLabel' => 'London, England',
+			'placeOfDeathOsm' => 'relation/456',
+		];
+		$this->assertNull( $service->prepare( 'person', $orphan, true ) );
+		$specs = $service->statementSpecs( 'person', $orphan );
+		$this->assertArrayNotHasKey( 'P64', $specs, 'an orphan place label must be dropped' );
+		$this->assertSame( 'relation/456', $specs['P62']->getValue() );
 	}
 
 	public function testPersonRequiresANamePart(): void {

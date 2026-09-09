@@ -206,6 +206,15 @@ trait UpdateExternalEntityFlow {
 			throw new \RuntimeException( 'item not found at update time' );
 		}
 		$oldLabel = $this->itemLabel( $item );
+		// The pre-update part-of parents (the child-items listing relation)
+		// — captured before the statement replacement below, so an update
+		// that RE-PARENTS a child can refresh BOTH the old and new parent's
+		// child-items rows. Harmless for kinds without the property.
+		$oldParents = $this->partOfParentIds( $item );
+		// The pre-update OSM place ids (person place-label hygiene: a label
+		// must never survive a changed/cleared place id). Harmless for kinds
+		// without the person vocabulary.
+		$oldOsmPlaces = $this->osmPlaceIds( $item );
 
 		// Terms: the en label + description. No-clobber: a BLANK description
 		// keeps the existing one (only a new valid value replaces it).
@@ -261,6 +270,12 @@ trait UpdateExternalEntityFlow {
 			EDIT_UPDATE
 		);
 
+		// Post-update hook: the default no-ops; Special:UpdateSource
+		// overrides it to invalidate the parent pages whose child-items
+		// listing changed (a new/changed parent on a child item);
+		// Special:UpdatePerson drops place labels that lost their OSM id.
+		$this->afterUpdate( $item, $record, $oldParents, $oldOsmPlaces );
+
 		// Rename the classic page on a label change OR a page-kind flip
 		// (FOSS: ↔ Software: when the license changed). renameClassicPage
 		// no-ops when the old sitelink page and the new title coincide.
@@ -273,6 +288,77 @@ trait UpdateExternalEntityFlow {
 		// update is the natural repair surface; creating the page here sends
 		// the user through the complete/<id> finalize round-trip.
 		return $this->healClassicPage( $item, $record, $newLabel );
+	}
+
+	/**
+	 * Post-update hook (after the entity save, before the classic-page
+	 * rename/heal). The default no-ops; update kinds whose item participates
+	 * in derived listings override it (Special:UpdateSource invalidates the
+	 * affected parent pages' child-items rows; Special:UpdatePerson drops a
+	 * place label that no longer matches its OSM id).
+	 *
+	 * @param array<string,mixed> $record
+	 * @param string[] $oldParents the item's part-of parents BEFORE the update
+	 * @param array<string,string> $oldOsmPlaces the item's OSM place ids
+	 *   (birth/death) BEFORE the update
+	 */
+	protected function afterUpdate( Item $item, array $record, array $oldParents, array $oldOsmPlaces ): void {
+	}
+
+	/**
+	 * The item's OSM place ids (person vocabulary: placeOfBirthOsm /
+	 * placeOfDeathOsm), or [] when the kind/config lacks them. Read BEFORE
+	 * an update mutates the item, so label hygiene can tell a changed id
+	 * from an untouched one.
+	 *
+	 * @return array<string,string> [placeOfBirthOsm|placeOfDeathOsm => id]
+	 */
+	private function osmPlaceIds( Item $item ): array {
+		try {
+			$props = $this->config->personPropertyIds();
+		} catch ( \Throwable $e ) {
+			return [];
+		}
+		$ids = [];
+		foreach ( [ 'placeOfBirthOsm', 'placeOfDeathOsm' ] as $key ) {
+			if ( isset( $props[$key] ) ) {
+				$ids[$key] = $this->firstStringForProperty( $item, $props[$key] );
+			}
+		}
+		return $ids;
+	}
+
+	/**
+	 * The item's `part of` parent item ids (the child→parent source
+	 * relation the child-items listing reads). Reads the config's partOf
+	 * property; kinds without it (persons, software, …) return [].
+	 *
+	 * @return string[]
+	 */
+	private function partOfParentIds( Item $item ): array {
+		try {
+			$propertyId = $this->config->sourcePropertyIds()['partOf'] ?? null;
+		} catch ( \Throwable $e ) {
+			return [];
+		}
+		if ( $propertyId === null ) {
+			return [];
+		}
+		$ids = [];
+		foreach ( $item->getStatements()->getByPropertyId( new NumericPropertyId( $propertyId ) ) as $statement ) {
+			$snak = $statement->getMainSnak();
+			if ( !$snak instanceof PropertyValueSnak ) {
+				continue;
+			}
+			$value = $snak->getDataValue();
+			if ( $value instanceof \Wikibase\DataModel\Entity\EntityIdValue ) {
+				$id = $value->getEntityId()->getSerialization();
+				if ( preg_match( '/^Q[1-9]\d*$/i', $id ) === 1 ) {
+					$ids[] = $id;
+				}
+			}
+		}
+		return $ids;
 	}
 
 	/**

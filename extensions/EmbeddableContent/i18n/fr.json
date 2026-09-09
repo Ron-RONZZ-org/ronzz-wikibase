@@ -379,5 +379,22 @@
 	"embeddablecontent-quotationsof-badid": "Identifiant d’élément non valide.",
 	"embeddablecontent-quotationsof-notfound": "Élément  introuvable.",
 	"embeddablecontent-quotationsof-none": "Cette source n’a pas encore de citation sur le wiki.",
-	"embeddablecontent-quotationsof-unavailable": "La liste des citations n’a pas pu être chargée (le service de requêtes est indisponible). Veuillez réessayer plus tard."
+	"embeddablecontent-quotationsof-unavailable": "La liste des citations n’a pas pu être chargée (le service de requêtes est indisponible). Veuillez réessayer plus tard.",
+	"embeddablecontent-gadget-embed-option-internal": "Interne (sur le wiki)",
+	"embeddablecontent-gadget-embed-option-external": "Externe (iframe)",
+	"embeddablecontent-gadget-embed-option-internal-hint": "Copie {{#content:Q42}} — collez-le sur une page du wiki pour afficher ce contenu en ligne",
+	"embeddablecontent-gadget-embed-option-external-hint": "Copie une <iframe> de Special:Embed — collez-la sur n’importe quel site",
+	"embeddablecontent-addsource-label-preview": "Libellé final",
+	"embeddablecontent-addsource-label-preview-hint": "Le libellé de l’élément est créé comme « {title} ({class label}) » — cet aperçu montre le libellé final avant l’envoi.",
+	"embeddablecontent-childitemsof-badid": "Identifiant d’élément non valide.",
+	"embeddablecontent-childitemsof-notfound": "L’élément $1 est introuvable.",
+	"embeddablecontent-childitemsof-title": "Éléments enfants de $1",
+	"embeddablecontent-childitemsof-intro": "Les éléments qui font partie de cet élément.",
+	"embeddablecontent-childitemsof-none": "Cet élément n’a pas encore d’éléments enfants sur le wiki.",
+	"embeddablecontent-childitemsof-unavailable": "La liste des éléments enfants n’a pas pu être chargée (le service de requêtes est indisponible). Veuillez réessayer plus tard.",
+	"embeddablecontent-childitemsof-back": "Voir la page source : $1",
+	"embeddablecontent-childitems-label-bookExcerpt": "Extraits de livre",
+	"embeddablecontent-childitems-label-youtubeVideo": "Vidéos YouTube",
+	"embeddablecontent-childitems-label-webpage": "Pages web",
+	"special-childitemsof": "Éléments enfants d’une source"
 }

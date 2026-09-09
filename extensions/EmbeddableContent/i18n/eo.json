@@ -379,5 +379,22 @@
 	"embeddablecontent-quotationsof-badid": "Nevalida identigilo de ero.",
 	"embeddablecontent-quotationsof-notfound": "Ero  ne trovita.",
 	"embeddablecontent-quotationsof-none": "Tiu fonto ankoraŭ havas neniun citaĵon en la vikio.",
-	"embeddablecontent-quotationsof-unavailable": "La listo de citaĵoj ne povis esti ŝargita (la pridemanda servo ne disponeblas). Bonvolu reprovi poste."
+	"embeddablecontent-quotationsof-unavailable": "La listo de citaĵoj ne povis esti ŝargita (la pridemanda servo ne disponeblas). Bonvolu reprovi poste.",
+	"embeddablecontent-gadget-embed-option-internal": "Interna (en-vikia)",
+	"embeddablecontent-gadget-embed-option-external": "Ekstera (iframe)",
+	"embeddablecontent-gadget-embed-option-internal-hint": "Kopias {{#content:Q42}} — algluu ĝin en vikian paĝon por montri ĉi tiun enhavon",
+	"embeddablecontent-gadget-embed-option-external-hint": "Kopias <iframe> de Special:Embed — algluu ĝin en ajnan retejon",
+	"embeddablecontent-addsource-label-preview": "Fina etikedo",
+	"embeddablecontent-addsource-label-preview-hint": "La etikedo de la ero estas kreata kiel \"{title} ({class label})\" — ĉi tiu antaŭvido montras la finan etikedon antaŭ sendado.",
+	"embeddablecontent-childitemsof-badid": "Ne valida identigilo de ero.",
+	"embeddablecontent-childitemsof-notfound": "Ero $1 ne troviĝis.",
+	"embeddablecontent-childitemsof-title": "Infanaj eroj de $1",
+	"embeddablecontent-childitemsof-intro": "Eroj, kiuj estas parto de ĉi tiu ero.",
+	"embeddablecontent-childitemsof-none": "Ĉi tiu ero ankoraŭ havas neniujn infanajn erojn en la vikio.",
+	"embeddablecontent-childitemsof-unavailable": "La listo de infanaj eroj ne povis esti ŝargita (la pridemanda servo ne disponeblas). Bonvolu reprovi poste.",
+	"embeddablecontent-childitemsof-back": "Vidu la fontan paĝon: $1",
+	"embeddablecontent-childitems-label-bookExcerpt": "Libroelsteraĵoj",
+	"embeddablecontent-childitems-label-youtubeVideo": "Jutubaj filmetoj",
+	"embeddablecontent-childitems-label-webpage": "Retpaĝoj",
+	"special-childitemsof": "Infanaj eroj de fonto"
 }

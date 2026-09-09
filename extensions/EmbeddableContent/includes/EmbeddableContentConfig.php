@@ -174,6 +174,7 @@ class EmbeddableContentConfig {
 		return $this->requireStringMap( 'personProperties', [
 			'dateOfBirth', 'placeOfBirth', 'dateOfDeath', 'placeOfDeath',
 			'placeOfBirthOsm', 'placeOfDeathOsm',
+			'placeOfBirthLabel', 'placeOfDeathLabel',
 			'officialWebsite',
 			'image', 'license', 'imageAuthor', 'imageLicenseInfo',
 		] );
