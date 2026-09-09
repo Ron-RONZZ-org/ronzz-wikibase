@@ -64,8 +64,9 @@ class SpecialUpdateSource extends SpecialAddSource {
 	 * @param \Wikibase\DataModel\Entity\Item $item the just-updated item
 	 * @param array<string,mixed> $record the update record
 	 * @param string[] $oldParents the item's part-of parents BEFORE the update
+	 * @param array<string,string> $oldOsmPlaces unused for sources (person-only)
 	 */
-	protected function afterUpdate( \Wikibase\DataModel\Entity\Item $item, array $record, array $oldParents ): void {
+	protected function afterUpdate( \Wikibase\DataModel\Entity\Item $item, array $record, array $oldParents, array $oldOsmPlaces ): void {
 		$parents = $oldParents;
 		// NEW parent: the no-clobber contract only replaces part-of when the
 		// record provides one — a blank parent keeps the existing statement.
