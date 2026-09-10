@@ -3560,7 +3560,7 @@ def main() -> int:
             "wpcourt": court_qid,
             "wpterritorialJurisdiction": "relation/12345",
             "wpterritorialJurisdictionLabel": "United States",
-            "wpcasenumber": "410 U.S. 113",
+            "wpcaseNumber": "410 U.S. 113",
         }))
         claims, _ = entity_claims(op, api, legal_case)
         court_prop = resolve("court", "property")
