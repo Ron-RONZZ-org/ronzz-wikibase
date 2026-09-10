@@ -50,4 +50,6 @@ curated entities + native RDF), `cite-by-qid.md` (citations as a derived view),
 `static-llm-translation.md` (static LLM-maintained copies, no translation markup),
 `owui-wiki-writer.md` (Open WebUI as the LLM writer studio — MCP endpoint +
 least-privilege writer bot), `reuse-file-subdomain-sourcecite.md` (reuse-file
-CONTAINS search, subdomain parent inference, Source-page internal citation).
+CONTAINS search, subdomain parent inference, Source-page internal citation),
+`zotero-source-classes.md` (Zotero/CSL-aligned source classes + class-scoped
+entity comboboxes).
