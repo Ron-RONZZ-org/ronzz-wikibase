@@ -50,6 +50,8 @@ final class SourceFieldMap {
 		'map',
 		'presentation',
 		'dataset',
+		// Catch-all (historical texts, inscriptions, …).
+		'text',
 	];
 
 	/** Every field the entity-mode vocabulary knows. */
@@ -83,6 +85,9 @@ final class SourceFieldMap {
 		'patentNumber',
 		'reportNumber',
 		'legislationNumber',
+		// International legal texts (a boolean marker replacing territorial
+		// jurisdiction).
+		'international',
 	];
 
 	/** The parent class key each child class requires. */
@@ -142,14 +147,17 @@ final class SourceFieldMap {
 		'thesis' => [ 'title', 'description', 'authors', 'publisher', 'year', 'url', 'accessUrl', 'wikidataId' ],
 		'manuscript' => [ 'title', 'description', 'authors', 'year', 'url', 'accessUrl', 'wikidataId' ],
 		'patent' => [ 'title', 'description', 'authors', 'patentNumber', 'year', 'url', 'wikidataId' ],
-		'legal-case' => [ 'title', 'description', 'court', 'territorialJurisdiction', 'territorialJurisdictionLabel', 'caseNumber', 'year', 'url', 'wikidataId' ],
-		'legislation' => [ 'title', 'description', 'territorialJurisdiction', 'territorialJurisdictionLabel', 'legislationNumber', 'year', 'url', 'wikidataId' ],
-		'bill' => [ 'title', 'description', 'territorialJurisdiction', 'territorialJurisdictionLabel', 'legislationNumber', 'year', 'url', 'wikidataId' ],
-		'treaty' => [ 'title', 'description', 'territorialJurisdiction', 'territorialJurisdictionLabel', 'year', 'url', 'wikidataId' ],
+		'legal-case' => [ 'title', 'description', 'court', 'territorialJurisdiction', 'territorialJurisdictionLabel', 'caseNumber', 'international', 'year', 'url', 'wikidataId' ],
+		'legislation' => [ 'title', 'description', 'territorialJurisdiction', 'territorialJurisdictionLabel', 'legislationNumber', 'international', 'year', 'url', 'wikidataId' ],
+		'bill' => [ 'title', 'description', 'territorialJurisdiction', 'territorialJurisdictionLabel', 'legislationNumber', 'international', 'year', 'url', 'wikidataId' ],
+		'treaty' => [ 'title', 'description', 'territorialJurisdiction', 'territorialJurisdictionLabel', 'international', 'year', 'url', 'wikidataId' ],
 		'interview' => [ 'title', 'description', 'authors', 'publisher', 'year', 'url', 'wikidataId' ],
 		'map' => [ 'title', 'description', 'authors', 'publisher', 'year', 'url', 'accessUrl', 'wikidataId' ],
 		'presentation' => [ 'title', 'description', 'authors', 'year', 'url', 'wikidataId' ],
 		'dataset' => [ 'title', 'description', 'authors', 'publisher', 'year', 'url', 'accessUrl', 'wikidataId' ],
+		// Catch-all: any text — historical texts, inscriptions, documents of
+		// uncertain nature.
+		'text' => [ 'title', 'description', 'authors', 'year', 'url', 'accessUrl', 'wikidataId' ],
 	];
 
 	/** @return string[] */
@@ -173,15 +181,15 @@ final class SourceFieldMap {
 	 * Fields that must be present when creating (never on update — update
 	 * replaces only the statements for provided fields).
 	 *
+	 * Title is the ONLY universally required field: every other fact
+	 * (authors, year, publisher, …) can genuinely be unknown (e.g. a text
+	 * of unknown authorship). Child classes additionally require their
+	 * parent — a part-of relation is structural, not bibliographic metadata.
+	 *
 	 * @return string[]
 	 */
 	public static function requiredOnCreate( string $classKey ): array {
 		$required = [ 'title' ];
-		$fields = self::CLASS_FIELDS[$classKey] ?? [];
-		if ( in_array( 'authors', $fields, true ) && $classKey !== 'book-excerpt' ) {
-			// book-excerpt may copy the parent book's authors when blank.
-			$required[] = 'authors';
-		}
 		if ( self::isChildClass( $classKey ) ) {
 			$required[] = 'parent';
 		}

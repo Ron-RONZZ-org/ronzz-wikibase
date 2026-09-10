@@ -496,9 +496,9 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 * The create-gate "No, create it anyway" submit: re-runs the pending
 	 * creation with forceCreate (skips the gate AND the silent label reuse).
 	 *
-	 * @return bool
+	 * @return bool|string
 	 */
-	protected function onDuplicateCreateSubmit( string $dupToken, string $qid ): bool {
+	protected function onDuplicateCreateSubmit( string $dupToken, string $qid ): bool|string {
 		// Write action — CSRF-gated like every other step of the flow.
 		if ( !$this->getContext()->getCsrfTokenSet()
 			->matchToken( (string)$this->getRequest()->getVal( 'wpEditToken' ) )
@@ -697,7 +697,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 *        duplicate gate AND the silent exact-label reuse
 	 * @return bool|string
 	 */
-	private function createItemAndRedirect( array $record, string $classItemId, string $token, bool $forceCreate = false ): bool {
+	private function createItemAndRedirect( array $record, string $classItemId, string $token, bool $forceCreate = false ): bool|string {
 		if ( trim( $this->primaryLabel( $record ) ) === '' ) {
 			return $this->msg( 'embeddablecontent-add-error-required' )->text();
 		}

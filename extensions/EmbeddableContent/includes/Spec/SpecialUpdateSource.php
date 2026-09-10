@@ -154,10 +154,20 @@ class SpecialUpdateSource extends SpecialAddSource {
 
 		$record['parent'] = $this->firstEntityForProperty( $item, $source['partOf'] ?? null );
 
-		// Zotero-aligned batch: legal/official-document facts.
+		// Zotero-aligned batch: legal/official-document facts. The
+		// territorial jurisdiction is MULTI-value: all ids join into the
+		// comma-separated field, the stored JSON label map (or the legacy
+		// plain label) prefills unchanged, and the international marker
+		// prefills the checkbox.
 		$record['court'] = $this->firstEntityForProperty( $item, $source['court'] ?? null );
-		$record['territorialJurisdiction'] = $this->firstStringForProperty( $item, $source['territorialJurisdictionOsm'] ?? null );
+		$record['territorialJurisdiction'] = implode(
+			', ',
+			$this->stringValuesForProperty( $item, $source['territorialJurisdictionOsm'] ?? null )
+		);
 		$record['territorialJurisdictionLabel'] = $this->firstStringForProperty( $item, $source['territorialJurisdictionLabel'] ?? null );
+		// The international marker is a string statement (value "yes");
+		// its PRESENCE prefills the checkbox.
+		$record['international'] = $this->firstStringForProperty( $item, $source['international'] ?? null ) !== '';
 		$record['caseNumber'] = $this->firstStringForProperty( $item, $source['caseNumber'] ?? null );
 		$record['patentNumber'] = $this->firstStringForProperty( $item, $source['patentNumber'] ?? null );
 		$record['reportNumber'] = $this->firstStringForProperty( $item, $source['reportNumber'] ?? null );

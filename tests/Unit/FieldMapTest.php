@@ -29,10 +29,11 @@ class FieldMapTest extends TestCase {
 
 	public function testSourceAuthorsExposureMatchesTheContract(): void {
 		// Regression: the "webpage rejects authors yet demands one" bug of
-		// 2026-08-30 was a drifted field table. Every class that exposes
-		// authors requires one on create (except book-excerpt, parent-filled);
-		// the legal texts expose no authors — the court / jurisdiction carry
-		// the attribution.
+		// 2026-08-30 was a drifted field table. The legal texts expose no
+		// authors — the court / jurisdiction carry the attribution; every
+		// other class exposes them. Authors are OPTIONAL on create: title is
+		// the only universally required field (a text of unknown authorship
+		// is legitimate).
 		$legal = [ 'legal-case', 'legislation', 'bill', 'treaty' ];
 		foreach ( SourceFieldMap::CLASS_KEYS as $classKey ) {
 			$exposes = SourceFieldMap::acceptsField( $classKey, 'authors' );
@@ -41,9 +42,47 @@ class FieldMapTest extends TestCase {
 				$exposes,
 				"class $classKey authors exposure drifted"
 			);
-			if ( $exposes && $classKey !== 'book-excerpt' ) {
-				$this->assertContains( 'authors', SourceFieldMap::requiredOnCreate( $classKey ) );
-			}
+			$this->assertNotContains(
+				'authors',
+				SourceFieldMap::requiredOnCreate( $classKey ),
+				"class $classKey must not require authors"
+			);
+		}
+	}
+
+	public function testSourceRequiredOnCreateIsTitlePlusParentOnly(): void {
+		foreach ( SourceFieldMap::CLASS_KEYS as $classKey ) {
+			$required = SourceFieldMap::requiredOnCreate( $classKey );
+			$this->assertContains( 'title', $required, "class $classKey must require a title" );
+			$this->assertSame(
+				SourceFieldMap::isChildClass( $classKey ),
+				in_array( 'parent', $required, true ),
+				"class $classKey parent requirement drifted"
+			);
+		}
+	}
+
+	public function testSourceTextCatchAllClass(): void {
+		$this->assertContains( 'text', SourceFieldMap::CLASS_KEYS );
+		$fields = SourceFieldMap::fieldsForClass( 'text' );
+		$this->assertContains( 'title', $fields );
+		$this->assertContains( 'authors', $fields );
+		$this->assertNotContains( 'publisher', $fields );
+		$this->assertSame( [ 'title' ], SourceFieldMap::requiredOnCreate( 'text' ) );
+	}
+
+	public function testSourceInternationalFieldIsLegalOnly(): void {
+		foreach ( [ 'legal-case', 'legislation', 'bill', 'treaty' ] as $classKey ) {
+			$this->assertTrue(
+				SourceFieldMap::acceptsField( $classKey, 'international' ),
+				"class $classKey must expose the international marker"
+			);
+		}
+		foreach ( [ 'book', 'text', 'website', 'dataset' ] as $classKey ) {
+			$this->assertFalse(
+				SourceFieldMap::acceptsField( $classKey, 'international' ),
+				"class $classKey must not expose the international marker"
+			);
 		}
 	}
 

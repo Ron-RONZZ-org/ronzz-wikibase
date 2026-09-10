@@ -32,8 +32,9 @@ use Wikibase\Repo\WikibaseRepo;
  * (Special:AddSource/<classKey>), selection and review — each class carrying
  * its own adapted search and verification fields. Child classes additionally
  * require an existing parent-class item, picked via an entity combobox and
- * linked automatically with a `part of` statement. Every class requires at
- * least one author (entity) at record creation.
+ * linked automatically with a `part of` statement. Title is the only
+ * required field — every other fact (authors, year, publisher, …) can
+ * genuinely be unknown.
  *
  * @license GPL-2.0-or-later
  */
@@ -48,6 +49,8 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		// Zotero-aligned batch without a usable authority provider.
 		'document', 'manuscript', 'patent', 'legalCase', 'legislation',
 		'bill', 'treaty', 'interview', 'map', 'presentation', 'dataset',
+		// Catch-all: no authority covers an arbitrary historical text.
+		'text',
 	];
 
 	/**
@@ -1200,6 +1203,13 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				$fields += $this->urlFieldSpec( $record );
 				$fields += $this->accessFieldSpec( $record );
 				break;
+			case 'text':
+				// Catch-all: a free-form text — only the facts the editor
+				// actually knows (title is the sole required field).
+				$fields += $this->issuedYearFieldSpec( $record );
+				$fields += $this->urlFieldSpec( $record );
+				$fields += $this->accessFieldSpec( $record );
+				break;
 		}
 
 		$fields += $this->externalIdFieldSpecs( $record );
@@ -1230,7 +1240,9 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			[
 				'default' => (string)( $record['authors'] ?? '' ),
 				'help' => $help,
-				'required' => true,
+				// Authors are optional: a text of unknown authorship is
+				// legitimate (title is the only required field).
+				'required' => false,
 			]
 		);
 	}
@@ -1278,30 +1290,43 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	}
 
 	/**
-	 * Territorial-jurisdiction field (the legal texts): the OSM
-	 * place-of-birth pattern — a Nominatim search combobox
-	 * (osmsuggest.js, cssclass wb-osm-combobox) whose value is a
-	 * `node|way|relation/<id>` external-id, plus the parallel hidden
-	 * human-readable label the JS fills on pick (rendered by
-	 * {{#osm-place:jurisdiction}}).
+	 * Territorial-jurisdiction fields (the legal texts): the OSM
+	 * place-of-birth pattern, extended to MULTIPLE jurisdictions — a
+	 * Nominatim search combobox (osmsuggest.js, cssclass wb-osm-combobox)
+	 * whose value is a comma-separated list of `node|way|relation/<id>`
+	 * external-ids, plus the parallel hidden JSON label map the JS fills on
+	 * pick (id => display name; rendered by {{#osm-place:jurisdiction}}).
+	 *
+	 * The `international` checkbox REPLACES the jurisdiction: an
+	 * international treaty/legislation/bill/legal case has no single
+	 * territorial jurisdiction. Checking it hides (and server-side clears)
+	 * the jurisdiction fields and writes the boolean marker instead.
 	 *
 	 * @param array<string,mixed> $record
 	 * @return array<string,mixed>
 	 */
 	private function jurisdictionFieldSpec( array $record ): array {
 		return [
+			'international' => [
+				'type' => 'check',
+				// Per-class wording ("This is an international treaty", …).
+				'label-message' => 'embeddablecontent-source-field-international-' . $this->currentClassKey,
+				'default' => !empty( $record['international'] ),
+				'help-message' => 'embeddablecontent-source-field-international-help',
+			],
 			'territorialJurisdiction' => [
 				'type' => 'combobox',
 				'options' => [],
 				'label-message' => 'embeddablecontent-source-field-jurisdiction',
-				'cssclass' => 'wb-osm-combobox',
+				'cssclass' => 'wb-osm-combobox wb-osm-combobox-multi',
 				'default' => (string)( $record['territorialJurisdiction'] ?? '' ),
 				'help-message' => 'embeddablecontent-source-field-jurisdiction-help',
+				'hide-if' => [ '===', 'international', '1' ],
 			],
 			'territorialJurisdictionLabel' => [
 				'type' => 'hidden',
 				'default' => (string)( $record['territorialJurisdictionLabel'] ?? '' ),
-				'maxlength' => 250,
+				'maxlength' => 2000,
 			],
 		];
 	}
@@ -1602,6 +1627,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		'map' => 'Map',
 		'presentation' => 'Presentation',
 		'dataset' => 'Dataset',
+		'text' => 'Text',
 	];
 
 	protected function pageNamespace(): ?int {
@@ -1721,16 +1747,31 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			$record['durationSeconds'] = $seconds;
 		}
 
-		// Territorial jurisdiction (legal texts): the OSM combobox stores a
-		// node|way|relation/<id>; a raw place name must not pass (the user
-		// must confirm a suggestion). An emptied field clears the label.
-		$jurisdiction = trim( (string)( $record['territorialJurisdiction'] ?? '' ) );
-		if ( $jurisdiction !== '' ) {
-			if ( !OsmPlace::isValidId( $jurisdiction ) ) {
+		// Legal texts: the international checkbox REPLACES the territorial
+		// jurisdiction — an international text has no single jurisdiction, so
+		// the fields are cleared (the boolean marker is written by the flow
+		// service).
+		$international = !empty( $record['international'] );
+		$record['international'] = $international ? '1' : '';
+		if ( $international ) {
+			$record['territorialJurisdiction'] = '';
+			$record['territorialJurisdictionLabel'] = '';
+		} else {
+			// Territorial jurisdiction: the multi combobox stores a
+			// comma-separated list of node|way|relation/<id>; a raw place
+			// name must not pass (the user must confirm suggestions). The
+			// label map is pruned to the ids actually present.
+			$rawJurisdiction = trim( (string)( $record['territorialJurisdiction'] ?? '' ) );
+			if ( $rawJurisdiction !== '' && !JurisdictionList::allValid( $rawJurisdiction ) ) {
 				return $this->msg( 'embeddablecontent-source-error-jurisdiction' )->text();
 			}
-		} else {
-			$record['territorialJurisdictionLabel'] = '';
+			$jurisdictionIds = JurisdictionList::split( $rawJurisdiction );
+			$record['territorialJurisdiction'] = implode( ', ', $jurisdictionIds );
+			$labels = JurisdictionList::labels(
+				(string)( $record['territorialJurisdictionLabel'] ?? '' ),
+				$jurisdictionIds
+			);
+			$record['territorialJurisdictionLabel'] = JurisdictionList::encodeLabels( $labels );
 		}
 
 		// Access field (issue #35): license + upload for the download/file
@@ -2112,10 +2153,9 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		if ( !$this->classExposesAuthors() ) {
 			return null; // legal texts: the court / jurisdiction carry attribution
 		}
+		// Authors are optional (title is the only required field) — validate
+		// only the ids actually provided; an empty list is legitimate.
 		$ids = ItemIdList::split( (string)( $record['authors'] ?? '' ) );
-		if ( $ids === [] ) {
-			return $this->msg( 'embeddablecontent-source-error-noauthor' )->text();
-		}
 		$agentIds = array_values( $this->config->agentClasses() );
 		foreach ( $ids as $id ) {
 			if ( preg_match( '/^Q[1-9]\d*$/', $id ) !== 1 ) {
@@ -2300,6 +2340,14 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				if ( $year !== '' ) {
 					$out['year'] = $year;
 				}
+				continue;
+			}
+			if ( $field === 'international' ) {
+				// A checkbox: '' (unchecked) is a MEANINGFUL value, not
+				// "absent" — always carry it so an update can clear a
+				// previously-set marker (the no-clobber rule applies to
+				// facts the user did not touch, not to a boolean).
+				$out['international'] = !empty( $record['international'] ) ? '1' : '';
 				continue;
 			}
 			$value = $record[$field] ?? null;

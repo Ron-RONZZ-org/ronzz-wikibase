@@ -22,8 +22,8 @@ use Wikibase\Repo\WikibaseRepo;
  * and classic Source: page + sitelink as Special:AddSource, driven by
  * SourceFieldMap so the accepted fields can never drift from the form.
  *
- * Create (no qid): class + title (+ required authors/parent for the classes
- * that demand them) → new item, classic page when the class has one.
+ * Create (no qid): class + title (+ the parent for child classes) → new
+ * item, classic page when the class has one. Authors are optional.
  * Update (qid): replaces the statements for the fields provided, keeps
  * everything else (no-clobber), never changes the class.
  *
