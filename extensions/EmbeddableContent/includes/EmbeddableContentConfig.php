@@ -371,6 +371,53 @@ class EmbeddableContentConfig {
 	}
 
 	/**
+	 * Domain classes used to SCOPE entity-combobox searches (the class
+	 * filter passed to action=entitysearch): the license, operating-system,
+	 * user-interface and programming-language classes, plus the publisher /
+	 * scholarly-journal classes for the AddSource publisher/journal
+	 * comboboxes. Absent keys are omitted (instances seeded before this map
+	 * existed fall back to an unscoped search).
+	 *
+	 * @return array<string,string> canonical key => item id
+	 */
+	public function domainClasses(): array {
+		return $this->requireStringMap( 'domainClasses', [
+			'softwareLicense', 'operatingSystem', 'userInterface',
+			'programmingLanguage', 'publisher', 'scholarlyJournal',
+		] );
+	}
+
+	/** The `software license` class id, or null when not configured. */
+	public function softwareLicenseClass(): ?string {
+		return $this->domainClasses()['softwareLicense'] ?? null;
+	}
+
+	/** The `operating system` class id, or null when not configured. */
+	public function operatingSystemClass(): ?string {
+		return $this->domainClasses()['operatingSystem'] ?? null;
+	}
+
+	/** The `user interface` class id, or null when not configured. */
+	public function userInterfaceClass(): ?string {
+		return $this->domainClasses()['userInterface'] ?? null;
+	}
+
+	/** The `programming language` class id, or null when not configured. */
+	public function programmingLanguageClass(): ?string {
+		return $this->domainClasses()['programmingLanguage'] ?? null;
+	}
+
+	/** The `publisher` class id, or null when not configured. */
+	public function publisherClass(): ?string {
+		return $this->domainClasses()['publisher'] ?? null;
+	}
+
+	/** The `scholarly journal` class id, or null when not configured. */
+	public function scholarlyJournalClass(): ?string {
+		return $this->domainClasses()['scholarlyJournal'] ?? null;
+	}
+
+	/**
 	 * Issue follow-up: fictional-character class ids
 	 * (Special:AddFictionalCharacter).
 	 *

@@ -178,6 +178,23 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		return 'embeddablecontent-software-logo-include';
 	}
 
+	/**
+	 * Class scope for a FOSS entity combobox: developer → the agent classes,
+	 * license / operating system / user interface → their domain class,
+	 * hasUse → any item.
+	 *
+	 * @return string[]
+	 */
+	private function fossFieldScope( string $field ): array {
+		return match ( $field ) {
+			'developer' => $this->agentClassIds(),
+			'license' => $this->classScope( $this->config->softwareLicenseClass() ),
+			'operatingSystem' => $this->classScope( $this->config->operatingSystemClass() ),
+			'userInterface' => $this->classScope( $this->config->userInterfaceClass() ),
+			default => [],
+		};
+	}
+
 	protected function reviewFieldSpecs( array $record ): array {
 		$fields = $this->labelFieldSpec( 'label', 'embeddablecontent-extsearch-name', (string)( $record['label'] ?? '' ) )
 			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
@@ -199,15 +216,16 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 
 		foreach ( self::FOSS_ENTITY_FIELDS as $field ) {
 			$harvested = (string)( $record[$field] ?? '' );
-			// Multi-value entity combobox: comma-separated item ids
-			// (entitysuggest.js `wb-entity-combobox-multi` mode). The
-			// userInterface field additionally explains what the fact means.
-			$fields[$field] = [
-				'type' => 'combobox',
-				'options' => [],
-				'label-message' => 'embeddablecontent-field-' . $field,
-				'cssclass' => 'wb-entity-combobox wb-entity-combobox-multi',
-			];
+			// Multi-value class-scoped entity combobox (the shared builder):
+			// developer → agent classes, license/OS/UI → their domain class,
+			// hasUse → any item. The userInterface field additionally
+			// explains what the fact means.
+			$fields += $this->entityComboboxField(
+				$field,
+				'embeddablecontent-field-' . $field,
+				$this->fossFieldScope( $field ),
+				true
+			);
 			if ( $harvested !== '' && preg_match( '/^Q[1-9]\d*$/i', $harvested ) !== 1 ) {
 				// Autofill-confirm: a harvested label resolves to an existing
 				// item (exact or fuzzy) → prefill the combobox + confirmation

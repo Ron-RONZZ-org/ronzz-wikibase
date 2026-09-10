@@ -5,6 +5,7 @@ declare( strict_types = 1 );
 namespace EmbeddableContent\Spec;
 
 use EmbeddableContent\Fetch\ProviderResult;
+use EmbeddableContent\Fields\EntityCombobox;
 
 /**
  * Special:AddCollective — create a non-person agent item (organization,
@@ -115,18 +116,19 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 		$fields = $this->labelFieldSpec( 'label', 'embeddablecontent-add-label', (string)( $record['label'] ?? '' ) )
 			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
 			+ [
-				// Optional parent organization (issue follow-up): an entity
-				// combobox over existing items, writing the P749-aligned
-				// statement. Filled but invalid ids are skipped (the same
-				// lenient contract as the AddPerson place fields).
-				'parentOrganization' => [
-					'type' => 'combobox',
-					'options' => [],
-					'label-message' => 'embeddablecontent-field-parentorganization',
-					'cssclass' => 'wb-entity-combobox',
-					'default' => (string)( $record['parentOrganization'] ?? '' ),
-					'help' => $this->msg( 'embeddablecontent-field-parentorganization-help' )->parse(),
-				],
+				// Optional parent organization (issue follow-up): a
+				// class-scoped entity combobox over agent items, writing the
+				// P749-aligned statement. Filled but invalid ids are skipped
+				// (the same lenient contract as the AddPerson place fields).
+				'parentOrganization' => EntityCombobox::spec(
+					'embeddablecontent-field-parentorganization',
+					$this->agentClassIds(),
+					false,
+					[
+						'default' => (string)( $record['parentOrganization'] ?? '' ),
+						'help' => $this->msg( 'embeddablecontent-field-parentorganization-help' )->parse(),
+					]
+				),
 			]
 			// Official website (optional URL field, shared with AddSoftware/
 			// AddPerson — the P856-aligned property).

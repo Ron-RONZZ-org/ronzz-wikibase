@@ -9,9 +9,11 @@ use DataValues\StringValue;
 use DataValues\TimeValue;
 use EmbeddableContent\Content\FragmentSanitizer;
 use EmbeddableContent\Duration;
+use EmbeddableContent\EntityClassFilter;
 use EmbeddableContent\Fetch\ProviderResult;
 use EmbeddableContent\Fetch\WorkRecord;
 use EmbeddableContent\Fetch\YouTubeProvider;
+use EmbeddableContent\Fields\EntityCombobox;
 use MediaWiki\Title\Title;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
@@ -1072,15 +1074,17 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				(string)( $confirm['id'] ?? '' )
 			);
 		}
-		return [ 'authors' => [
-			'type' => 'combobox',
-			'options' => [],
-			'label-message' => 'embeddablecontent-source-field-authors',
-			'cssclass' => 'wb-entity-combobox wb-entity-combobox-multi',
-			'default' => (string)( $record['authors'] ?? '' ),
-			'help' => $help,
-			'required' => true,
-		] ];
+		return $this->entityComboboxField(
+			'authors',
+			'embeddablecontent-source-field-authors',
+			$this->agentClassIds(),
+			true,
+			[
+				'default' => (string)( $record['authors'] ?? '' ),
+				'help' => $help,
+				'required' => true,
+			]
+		);
 	}
 
 	/** @return array<string,mixed> */
@@ -1153,14 +1157,15 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		} elseif ( $harvested !== '' ) {
 			$default = $harvested;
 		}
-		$field = [
-			'type' => 'combobox',
-			'options' => [],
-			'label-message' => 'embeddablecontent-source-field-journal',
-			'cssclass' => 'wb-entity-combobox',
-			'default' => $default,
-			'help' => $this->msg( 'embeddablecontent-source-field-journal-help' )->parse(),
-		];
+		$field = EntityCombobox::spec(
+			'embeddablecontent-source-field-journal',
+			$this->classScope( $this->config->scholarlyJournalClass() ),
+			false,
+			[
+				'default' => $default,
+				'help' => $this->msg( 'embeddablecontent-source-field-journal-help' )->parse(),
+			]
+		);
 		if ( $help !== '' ) {
 			$field['help'] .= ' ' . $help;
 		}
@@ -1203,14 +1208,15 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		} elseif ( $harvested !== '' ) {
 			$default = $harvested;
 		}
-		$field = [
-			'type' => 'combobox',
-			'options' => [],
-			'label-message' => 'embeddablecontent-field-publisher',
-			'cssclass' => 'wb-entity-combobox',
-			'default' => $default,
-			'help' => $this->msg( 'embeddablecontent-source-field-publisher-help' )->parse(),
-		];
+		$field = EntityCombobox::spec(
+			'embeddablecontent-field-publisher',
+			$this->classScope( $this->config->publisherClass() ),
+			false,
+			[
+				'default' => $default,
+				'help' => $this->msg( 'embeddablecontent-source-field-publisher-help' )->parse(),
+			]
+		);
 		if ( $help !== '' ) {
 			$field['help'] .= ' ' . $help;
 		}
@@ -1270,19 +1276,19 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			// download/file modes, and HTMLForm validates required fields
 			// even when hide-if hides them client-side — the requirement is
 			// enforced in beforeCreate (validateAccessField) instead.
-			'license' => [
-				'type' => 'combobox',
-				'options' => $this->config->licenseItems(),
-				'label-message' => 'embeddablecontent-source-field-license',
-				'cssclass' => 'wb-entity-combobox',
-				'default' => (string)( $record['license'] ?? '' ),
-				'help' => $this->msg( 'embeddablecontent-source-field-license-help' )->parse(),
-				'hide-if' => [
-					'OR',
-					[ '===', 'accessMode', 'url' ],
-					[ '===', 'accessMode', 'na' ],
-				],
-			],
+			'license' => EntityCombobox::licenseSpec(
+				'embeddablecontent-source-field-license',
+				'embeddablecontent-source-field-license-help',
+				$this->config,
+				[
+					'default' => (string)( $record['license'] ?? '' ),
+					'hide-if' => [
+						'OR',
+						[ '===', 'accessMode', 'url' ],
+						[ '===', 'accessMode', 'na' ],
+					],
+				]
+			),
 		];
 	}
 
@@ -1324,15 +1330,17 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			)->parse();
 		}
 
-		return [ 'parent' => [
-			'type' => 'combobox',
-			'options' => [],
-			'label-message' => 'embeddablecontent-source-field-parent',
-			'cssclass' => 'wb-entity-combobox',
-			'default' => (string)( $record['parent'] ?? '' ),
-			'help' => $help,
-			'required' => true,
-		] ];
+		return $this->entityComboboxField(
+			'parent',
+			'embeddablecontent-source-field-parent',
+			$this->classScope( $this->config->sourceClasses()[$parentKey] ?? null ),
+			false,
+			[
+				'default' => (string)( $record['parent'] ?? '' ),
+				'help' => $help,
+				'required' => true,
+			]
+		);
 	}
 
 	protected function classOptions(): array {
@@ -1905,16 +1913,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 
 	/** @param string[] $classItemIds */
 	private function itemHasClass( Item $item, array $classItemIds ): bool {
-		$propertyId = new NumericPropertyId( $this->config->instanceOfPropertyId() );
-		foreach ( $item->getStatements()->getByPropertyId( $propertyId ) as $statement ) {
-			$value = $statement->getMainSnak()->getDataValue();
-			if ( $value instanceof EntityIdValue
-				&& in_array( $value->getEntityId()->getSerialization(), $classItemIds, true )
-			) {
-				return true;
-			}
-		}
-		return false;
+		return EntityClassFilter::hasAnyClass( $item, $classItemIds, $this->config->instanceOfPropertyId() );
 	}
 
 	// ------------------------------------------------------------- creation

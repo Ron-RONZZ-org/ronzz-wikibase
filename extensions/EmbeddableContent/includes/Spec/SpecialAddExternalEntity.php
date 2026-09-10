@@ -11,6 +11,7 @@ use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\EntityLabelMatcher;
 use EmbeddableContent\Fetch\ProviderClient;
 use EmbeddableContent\Fetch\ProviderResult;
+use EmbeddableContent\Fields\EntityCombobox;
 use MediaWiki\HTMLForm\HTMLForm;
 use MediaWiki\SpecialPage\SpecialPage;
 use MediaWiki\Title\Title;
@@ -1552,14 +1553,41 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	}
 
 	/**
+	 * Shared class-scoped entity combobox (single or multi-value) — the one
+	 * builder every Add* entity field goes through (Fields\EntityCombobox).
+	 * The search is restricted to items `instance of` one of $classIds;
+	 * [] = all items.
+	 *
+	 * @param string[] $classIds
+	 * @param array<string,mixed> $extra merged over the defaults (default, help,
+	 *  hide-if, required, …)
+	 * @return array<string,mixed> fieldname => descriptor
+	 */
+	protected function entityComboboxField( string $fieldName, string $messageKey, array $classIds = [], bool $multi = false, array $extra = [] ): array {
+		return EntityCombobox::field( $fieldName, $messageKey, $classIds, $multi, $extra );
+	}
+
+	/**
+	 * @return string[] item ids of the agent classes — the scope of the
+	 *  author/developer/parent-organization comboboxes.
+	 */
+	protected function agentClassIds(): array {
+		return array_values( $this->config->agentClasses() );
+	}
+
+	/** @return string[] a single-class scope, or [] when the class is unset */
+	protected function classScope( ?string $classId ): array {
+		return $classId === null || $classId === '' ? [] : [ $classId ];
+	}
+
+	/**
 	 * Class field for the review/manual steps: a select when there is more
 	 * than one class option, otherwise a hidden field (a single-option
 	 * dropdown is noise — e.g. AddPerson is always a person).
 	 *
 	 * @return array<string,mixed> fieldname => descriptor
 	 */
-	protected function classFieldSpec( ?array $record = null ): array {
-		$options = $this->classOptions();
+	protected function classFieldSpec( ?array $record = null ): array {		$options = $this->classOptions();
 		if ( count( $options ) === 1 ) {
 			return [ 'class' => [ 'type' => 'hidden', 'default' => (string)reset( $options ) ] ];
 		}

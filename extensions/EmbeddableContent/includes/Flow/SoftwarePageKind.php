@@ -5,10 +5,9 @@ declare( strict_types = 1 );
 namespace EmbeddableContent\Flow;
 
 use EmbeddableContent\EmbeddableContentConfig;
-use Wikibase\DataModel\Entity\EntityIdValue;
+use EmbeddableContent\EntityClassFilter;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
-use Wikibase\DataModel\Snak\PropertyValueSnak;
 use Wikibase\Repo\WikibaseRepo;
 
 /**
@@ -80,23 +79,6 @@ final class SoftwarePageKind {
 	}
 
 	private static function itemHasClass( Item $item, EmbeddableContentConfig $config, string $classId ): bool {
-		$instanceOf = $config->instanceOfPropertyId();
-		foreach ( $item->getStatements() as $statement ) {
-			$snak = $statement->getMainSnak();
-			if ( !$snak instanceof PropertyValueSnak ) {
-				continue;
-			}
-			if ( $snak->getPropertyId()->getSerialization() !== $instanceOf ) {
-				continue;
-			}
-			$value = $snak->getDataValue();
-			if ( $value instanceof EntityIdValue ) {
-				$value = $value->getEntityId();
-			}
-			if ( $value instanceof ItemId && $value->getSerialization() === $classId ) {
-				return true;
-			}
-		}
-		return false;
+		return EntityClassFilter::hasClass( $item, $classId, $config->instanceOfPropertyId() );
 	}
 }

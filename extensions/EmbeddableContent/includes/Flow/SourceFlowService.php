@@ -9,6 +9,7 @@ use DataValues\StringValue;
 use DataValues\TimeValue;
 use EmbeddableContent\Duration;
 use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\EntityClassFilter;
 use EmbeddableContent\Fetch\YouTubeProvider;
 use EmbeddableContent\Spec\ItemIdList;
 use EmbeddableContent\Spec\LabelSanitizer;
@@ -574,16 +575,7 @@ final class SourceFlowService {
 	}
 
 	private function itemHasClass( Item $item, array $classItemIds ): bool {
-		$propertyId = $this->config->instanceOfPropertyId();
-		foreach ( $item->getStatements()->getByPropertyId( $this->propertyId( $propertyId ) ) as $statement ) {
-			$value = $statement->getMainSnak()->getDataValue();
-			if ( $value instanceof EntityIdValue
-				&& in_array( $value->getEntityId()->getSerialization(), $classItemIds, true )
-			) {
-				return true;
-			}
-		}
-		return false;
+		return EntityClassFilter::hasAnyClass( $item, $classItemIds, $this->config->instanceOfPropertyId() );
 	}
 
 	private function yearOf( Item $item, ?string $dateProperty ): ?int {

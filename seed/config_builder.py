@@ -240,6 +240,20 @@ IMAGE_PROPERTY_KINDS = {
     "additional license information": "imageLicenseInfo",
 }
 
+# Domain classes used to SCOPE entity-combobox searches (the class filter
+# passed to action=entitysearch): the license / operating-system /
+# user-interface / programming-language classes plus the publisher and
+# scholarly-journal classes. Emitted so the extension can restrict a
+# combobox to the right class instead of searching the whole instance.
+DOMAIN_CLASS_KINDS = {
+    "software license": "softwareLicense",
+    "operating system": "operatingSystem",
+    "user interface": "userInterface",
+    "programming language": "programmingLanguage",
+    "publisher": "publisher",
+    "scholarly journal": "scholarlyJournal",
+}
+
 
 def build_config(
     property_ids: dict[str, str],
@@ -315,6 +329,11 @@ def build_config(
     for label, kind in FOSS_LICENSE_CLASS_KINDS.items():
         if label in class_ids:
             foss_license_classes[kind] = class_ids[label]
+
+    domain_classes: dict[str, str] = {}
+    for label, kind in DOMAIN_CLASS_KINDS.items():
+        if label in class_ids:
+            domain_classes[kind] = class_ids[label]
 
     image_classes: dict[str, str] = {}
     for label, kind in IMAGE_CLASS_KINDS.items():
@@ -410,6 +429,7 @@ def build_config(
         "fossClasses": foss_classes,
         "fossProperties": foss_props,
         "fossLicenseClasses": foss_license_classes,
+        "domainClasses": domain_classes,
         "softwareClasses": software_classes,
         "imageClasses": image_classes,
         "imageProperties": image_props,

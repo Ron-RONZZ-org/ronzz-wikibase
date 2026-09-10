@@ -5,6 +5,7 @@ declare( strict_types = 1 );
 namespace EmbeddableContent\Api;
 
 use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\EntityClassFilter;
 use MediaWiki\Api\ApiBase;
 use MediaWiki\MediaWikiServices;
 use Wikimedia\Rdbms\IExpression;
@@ -31,6 +32,16 @@ use Wikibase\Repo\WikibaseRepo;
  * `search[].id/label/description`): a label/description is resolved for
  * each hit in the requested language with the configured fallback order.
  *
+ * CLASS SCOPING (the `classes` param): a combobox may restrict the search
+ * to items that are `instance of` one of a set of classes (pipe-separated
+ * item ids, e.g. `classes=Q302` for the license combobox). The term match
+ * runs first (it cannot join `instance of` — the claim value is a blob, not
+ * a queryable column), then candidates are over-fetched and filtered in
+ * PHP. The over-fetch factor is bounded (see CLASS_FILTER_FACTOR /
+ * MAX_SCAN); it is the accepted trade-off for a class filter that needs no
+ * schema-level index. Scoped searches therefore load more items than
+ * unscoped ones — acceptable at this instance's size and documented.
+ *
  * The wbt_* schema is Wikibase-internal (stable across 1.4x; the upstream
  * ADR 0027 dropped the wbt_type table, so the label/alias type ids are
  * hardcoded from Wikibase\Lib\Store\Sql\Terms\TermTypeIds rather than
@@ -45,6 +56,17 @@ class ApiEntitySearch extends ApiBase {
 	private const TERM_TYPE_IDS = [ 1, 3 ];
 
 	private const MAX_LIMIT = 50;
+
+	/**
+	 * Candidate over-fetch multiplier for a class-scoped search: the term
+	 * match runs first, then the class filter drops non-members, so more
+	 * candidates are fetched to still fill the caller's limit. Bounded by
+	 * MAX_SCAN so a rare class cannot scan unbounded rows.
+	 */
+	private const CLASS_FILTER_FACTOR = 5;
+
+	/** Hard cap on candidate rows scanned for a class-scoped search. */
+	private const MAX_SCAN = 200;
 
 	private EmbeddableContentConfig $config;
 
@@ -66,8 +88,13 @@ class ApiEntitySearch extends ApiBase {
 		}
 		$limit = (int)min( $params['limit'], self::MAX_LIMIT );
 
-		$rows = $this->containsRows( $search, $limit );
-		$entries = $this->displayEntries( $rows, (string)$params['language'], $limit );
+		$classIds = EntityClassFilter::parseItemIds( (string)$params['classes'] );
+		$fetchLimit = $classIds === []
+			? $limit * 2 + 1
+			: min( $limit * self::CLASS_FILTER_FACTOR, self::MAX_SCAN ) + 1;
+
+		$rows = $this->containsRows( $search, $fetchLimit );
+		$entries = $this->displayEntries( $rows, (string)$params['language'], $limit, $classIds );
 
 		$this->getResult()->addValue( null, 'searchinfo', [ 'search' => $search ] );
 		$this->getResult()->addValue( null, 'search', $entries );
@@ -82,7 +109,7 @@ class ApiEntitySearch extends ApiBase {
 	 *
 	 * @return array<string,string> item id => first matched text
 	 */
-	private function containsRows( string $search, int $limit ): array {
+	private function containsRows( string $search, int $fetchLimit ): array {
 		$services = MediaWikiServices::getInstance();
 		$source = WikibaseRepo::getLocalEntitySource();
 		// getDatabaseName() is string|false — false = the wiki database
@@ -111,7 +138,7 @@ class ApiEntitySearch extends ApiBase {
 		$rows = [];
 		foreach ( $variants as $variant ) {
 			// Per-variant query cap: the merged, deduped result is capped
-			// again at $limit by the caller, so each variant may overshoot.
+			// again at $fetchLimit by the caller, so each variant may overshoot.
 			$queryBuilder = $dbr->newSelectQueryBuilder()
 				->select( [ 'wbit_item_id', 'wbx_text' ] )
 				->from( 'wbt_item_terms' )
@@ -124,7 +151,7 @@ class ApiEntitySearch extends ApiBase {
 					new LikeValue( $dbr->anyString(), $variant, $dbr->anyString() )
 				) )
 				->where( [ 'wbtl_type_id' => self::TERM_TYPE_IDS ] )
-				->limit( $limit * 2 + 1 );
+				->limit( $fetchLimit );
 			foreach ( $queryBuilder->caller( __METHOD__ )->fetchResultSet() as $row ) {
 				if ( !isset( $rows[$row->wbit_item_id] ) ) {
 					$rows[$row->wbit_item_id] = $row->wbx_text;
@@ -141,15 +168,24 @@ class ApiEntitySearch extends ApiBase {
 	 * label). Missing items (deleted between query and load) are skipped.
 	 *
 	 * @param array<string,string> $rows item id => matched text
+	 * @param string[] $classIds restrict to items instance-of one of these; [] = no filter
 	 * @return array<int,array<string,string>>
 	 */
-	private function displayEntries( array $rows, string $language, int $limit ): array {
+	private function displayEntries( array $rows, string $language, int $limit, array $classIds = [] ): array {
 		$lookup = WikibaseRepo::getEntityLookup();
 		$fallback = $this->config->fallbackLanguages();
 		$entries = [];
-		foreach ( array_slice( array_keys( $rows ), 0, $limit, true ) as $numericId ) {
+		foreach ( array_keys( $rows ) as $numericId ) {
+			if ( count( $entries ) >= $limit ) {
+				break;
+			}
 			$item = $lookup->getEntity( new ItemId( 'Q' . $numericId ) );
 			if ( !$item instanceof Item ) {
+				continue;
+			}
+			if ( $classIds !== []
+				&& !EntityClassFilter::hasAnyClass( $item, $classIds, $this->config->instanceOfPropertyId() )
+			) {
 				continue;
 			}
 			$entry = [ 'id' => $item->getId()->getSerialization() ];
@@ -199,6 +235,15 @@ class ApiEntitySearch extends ApiBase {
 				self::PARAM_TYPE => 'string',
 				self::PARAM_REQUIRED => true,
 				self::PARAM_MAX_BYTES => 20,
+			],
+			// Pipe-separated item ids: restrict results to items that are
+			// `instance of` one of these classes (the combobox scope).
+			// Empty/absent = unscoped (the historical behaviour).
+			'classes' => [
+				self::PARAM_TYPE => 'string',
+				self::PARAM_REQUIRED => false,
+				self::PARAM_DFLT => '',
+				self::PARAM_MAX_BYTES => 2000,
 			],
 			'limit' => [
 				self::PARAM_TYPE => 'limit',
