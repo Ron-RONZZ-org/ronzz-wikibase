@@ -23,7 +23,6 @@ ALLOWED_DATATYPES = {
     "time",
     "quantity",
     "external-id",
-    "boolean",
 }
 
 

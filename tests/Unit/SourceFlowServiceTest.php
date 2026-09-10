@@ -272,21 +272,23 @@ class SourceFlowServiceTest extends TestCase {
 
 		$specs = $service->statementSpecs( 'treaty', $record );
 
-		$this->assertTrue( $specs['P67']->getValue() );
+		$this->assertSame( 'yes', $specs['P67']->getValue() );
 		// The jurisdiction properties are present but EMPTY: an update
 		// removes their stale statements; a create adds nothing.
 		$this->assertSame( [], $specs['P61'] );
 		$this->assertSame( [], $specs['P62'] );
 	}
 
-	public function testUncheckedInternationalWritesFalse(): void {
+	public function testUncheckedInternationalClearsMarker(): void {
 		$service = $this->makeService();
 		$record = [ 'title' => 'A Treaty', 'international' => '' ];
 
 		$specs = $service->statementSpecs( 'treaty', $record );
 
+		// An unchecked submit emits an EMPTY spec: an update removes the
+		// stale marker, a create adds nothing.
 		$this->assertArrayHasKey( 'P67', $specs );
-		$this->assertFalse( $specs['P67']->getValue() );
+		$this->assertSame( [], $specs['P67'] );
 	}
 
 	public function testTextCatchAllClassBuilds(): void {

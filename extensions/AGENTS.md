@@ -244,13 +244,15 @@ PR #66) — drop the patch on re-vendor once upstream merges it.
   `beforeCreate`, `SourceFlowService::statementSpecs`, the
   `{{#osm-place:jurisdiction}}` renderer and the Update prefill; one
   `territorial jurisdiction (OSM)` statement per id + one JSON `(label)`
-  statement. (c) **International marker**: new **boolean** property
-  `international` (the property manifest now accepts `boolean`) + a
-  per-class checkbox on legalCase/legislation/bill/treaty that REPLACES the
+  statement. (c) **International marker**: new **string** property
+  `international` (marker value `yes`; Wikibase 1.46 has NO boolean
+  datatype — a boolean claim stores but fails to serialize) + a per-class
+  checkbox on legalCase/legislation/bill/treaty that REPLACES the
   jurisdiction (hidden + cleared server-side, localized "International" in
-  the rendered cell); the form always manages the checkbox (unchecked writes
-  `false`; switching on update removes stale jurisdiction statements via
-  empty-array specs). (d) **`text` catch-all class** (Q234460-aligned,
+  the rendered cell); the form always manages the checkbox (an unchecked
+  submit emits an empty spec — an update removes the stale marker; switching
+  on update removes stale jurisdiction statements via empty-array specs).
+  (d) **`text` catch-all class** (Q234460-aligned,
   manual-only, `Source:` page → `Template:Text`, CSL `document`). (e) The
   **`Special:AddSource/treaty/manual` `TypeError` 500 fix**:
   `SpecialAddExternalEntity::createItemAndRedirect()` and

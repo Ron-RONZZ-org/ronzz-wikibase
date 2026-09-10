@@ -32,7 +32,6 @@ class ManifestReader {
 		'time',
 		'quantity',
 		'external-id',
-		'boolean',
 	];
 
 	/**

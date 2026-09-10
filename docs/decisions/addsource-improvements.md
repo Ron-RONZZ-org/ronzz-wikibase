@@ -67,20 +67,23 @@ bibliographic metadata). Authors are optional everywhere:
 
 ### 4. International marker
 
-- New **boolean** property `international` (property manifest +
-  `sourceProperties` config key; the property manifest now accepts the
-  `boolean` datatype).
+- New **string** property `international` (property manifest +
+  `sourceProperties` config key) holding the marker value `yes`. A `boolean`
+  datatype would be more natural, but **Wikibase does not support it** — the
+  claim is stored but its value fails to serialize
+  (`Type "boolean" is unsupported`), so the API returns an empty value.
 - The four legal classes (legalCase / legislation / bill / treaty) carry a
   per-class checkbox ("This is an international treaty", …). Checking it
   **replaces** the jurisdiction field: the jurisdiction is hidden (OOUI
-  `hide-if`) and cleared server-side, and the boolean marker is written.
+  `hide-if`) and cleared server-side, and the `international = yes` marker is
+  written.
 - The renderer (`{{#osm-place:jurisdiction}}`) shows the localized
   "International" label in the Jurisdiction cell when no OSM id exists and
-  the marker is true.
-- The checkbox is always managed by the form: unchecked writes `false` (an
-  explicit, queryable marker), and switching to international on update
-  emits the jurisdiction property keys with no values so stale jurisdiction
-  statements are removed (the reverse switch writes `false` + the new ids).
+  the marker statement is present.
+- The checkbox is always managed by the form: an unchecked submit emits an
+  EMPTY `international` spec (removing a previously-set marker on update; a
+  create adds nothing), and switching to international emits the jurisdiction
+  property keys with no values so stale jurisdiction statements are removed.
 
 ### 5. `text` catch-all class
 
@@ -98,17 +101,15 @@ year, url, accessUrl, wikidataId` and a `Source:` page (skeleton transcludes
   instance only through a full seed re-emission (never `--only=config`).
   Before that, the extension degrades gracefully — absent config keys mean
   the class and the field are simply absent.
-- **`boolean` datatype** is now accepted by the property manifest
-  (`ManifestReader` + `seed/manifest_loader.py`).
 - **On-wiki template**: `Template:Text` must be created (content-creation
   task) for the `Source:` skeleton to render a styled infobox.
 - **API contract change** (documented by `action=addsource-fields`):
   `authors` is no longer required on create; `territorialJurisdiction` is a
   comma-separated id list with a JSON label map; `international` is a new
   boolean field.
-- **Every legal item carries an explicit `international` true/false
-  statement** (the form always manages the checkbox) — queryable and
-  unambiguous.
+- **The `international` marker is a string statement (value `yes`)**, not a
+  boolean — Wikibase 1.46 has no boolean datatype. Its presence is the
+  marker; the form always manages the checkbox.
 - **Multi-jurisdiction labels are a JSON string** in the `… (label)` property;
   a hand-edit that replaces it with a plain string still renders (attached to
   the first id).

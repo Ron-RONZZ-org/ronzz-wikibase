@@ -3607,8 +3607,8 @@ def main() -> int:
         }))
         claims, _ = entity_claims(op, api, intl_treaty)
         international_prop = resolve("international", "property")
-        assert first_value(claims, international_prop) is True, \
-            f"{intl_treaty} international marker missing ({first_value(claims, international_prop)})"
+        assert first_value(claims, international_prop) == "yes", \
+            f"{intl_treaty} international marker missing ({first_value(claims, international_prop)!r})"
         assert claims.get(jurisdiction_prop) is None, \
             f"{intl_treaty} unexpectedly carries a jurisdiction statement"
         print(f"[ok] AddSource/treaty manual -> {intl_treaty}: international marker, no jurisdiction")

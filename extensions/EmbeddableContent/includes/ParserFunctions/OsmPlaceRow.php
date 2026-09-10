@@ -4,7 +4,6 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\ParserFunctions;
 
-use DataValues\BooleanValue;
 use DataValues\StringValue;
 use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\Spec\JurisdictionList;
@@ -78,7 +77,7 @@ final class OsmPlaceRow {
 		// The source-class territorial jurisdiction lives in sourceProperties
 		// (same OSM external-id + parallel label shape) and is MULTI-value
 		// since the Zotero follow-up: several ids + a JSON label map, or the
-		// international boolean marker instead.
+		// international string marker instead.
 		if ( $which === 'jurisdiction' ) {
 			$props = $config->sourcePropertyIds();
 			$ids = [];
@@ -91,8 +90,9 @@ final class OsmPlaceRow {
 			}
 			if ( $ids === [] ) {
 				// An international legal text has no territorial jurisdiction —
-				// render the localized marker rather than an empty cell.
-				if ( !self::hasBoolean( $entity, $props['international'] ?? null ) ) {
+				// render the localized marker rather than an empty cell (the
+				// string marker statement is present).
+				if ( self::firstString( $entity, $props['international'] ?? null ) === '' ) {
 					return [ 'text' => '', 'noparse' => false, 'isHTML' => false ];
 				}
 				self::registerCacheDependency( $parser, $itemId );
@@ -213,24 +213,6 @@ final class OsmPlaceRow {
 			}
 		}
 		return $out;
-	}
-
-	/** Whether a boolean statement is present and true. */
-	private static function hasBoolean( Item $item, ?string $propId ): bool {
-		if ( $propId === null ) {
-			return false;
-		}
-		$propertyId = new NumericPropertyId( $propId );
-		foreach ( $item->getStatements()->getByPropertyId( $propertyId ) as $statement ) {
-			$snak = $statement->getMainSnak();
-			if ( $snak instanceof PropertyValueSnak ) {
-				$value = $snak->getDataValue();
-				if ( $value instanceof BooleanValue && $value->getValue() ) {
-					return true;
-				}
-			}
-		}
-		return false;
 	}
 
 	/**

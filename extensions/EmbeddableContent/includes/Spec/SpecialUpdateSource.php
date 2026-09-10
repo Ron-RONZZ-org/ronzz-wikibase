@@ -165,7 +165,9 @@ class SpecialUpdateSource extends SpecialAddSource {
 			$this->stringValuesForProperty( $item, $source['territorialJurisdictionOsm'] ?? null )
 		);
 		$record['territorialJurisdictionLabel'] = $this->firstStringForProperty( $item, $source['territorialJurisdictionLabel'] ?? null );
-		$record['international'] = $this->booleanForProperty( $item, $source['international'] ?? null );
+		// The international marker is a string statement (value "yes");
+		// its PRESENCE prefills the checkbox.
+		$record['international'] = $this->firstStringForProperty( $item, $source['international'] ?? null ) !== '';
 		$record['caseNumber'] = $this->firstStringForProperty( $item, $source['caseNumber'] ?? null );
 		$record['patentNumber'] = $this->firstStringForProperty( $item, $source['patentNumber'] ?? null );
 		$record['reportNumber'] = $this->firstStringForProperty( $item, $source['reportNumber'] ?? null );

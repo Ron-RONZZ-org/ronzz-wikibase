@@ -4,7 +4,6 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\Flow;
 
-use DataValues\BooleanValue;
 use DataValues\QuantityValue;
 use DataValues\StringValue;
 use DataValues\TimeValue;
@@ -194,13 +193,17 @@ final class SourceFlowService {
 		if ( $courtItem !== null && isset( $props['court'] ) ) {
 			$specs[$props['court']] = new EntityIdValue( $courtItem );
 		}
-		// International legal texts: the boolean marker REPLACES the
-		// territorial jurisdiction (no jurisdiction statement is written
+		// International legal texts: a string marker (value "yes") REPLACES
+		// the territorial jurisdiction (no jurisdiction statement is written
 		// while it is set). The key's PRESENCE (even empty) means the form
-		// managed the checkbox — an unchecked submit writes false and clears
-		// a previously-set marker.
+		// managed the checkbox — an unchecked submit emits an EMPTY spec,
+		// which removes a previously-set marker on update (buildItem adds
+		// nothing). A `boolean` datatype would be cleaner, but Wikibase does
+		// not support it (the value fails to serialize).
 		if ( array_key_exists( 'international', $record ) && isset( $props['international'] ) ) {
-			$specs[$props['international']] = new BooleanValue( !empty( $record['international'] ) );
+			$specs[$props['international']] = !empty( $record['international'] )
+				? new StringValue( 'yes' )
+				: [];
 		}
 		if ( empty( $record['international'] ) ) {
 			// Territorial jurisdiction mirrors the OSM place-of-birth
