@@ -13,6 +13,7 @@ use EmbeddableContent\EntityClassFilter;
 use EmbeddableContent\Fetch\YouTubeProvider;
 use EmbeddableContent\Spec\ItemIdList;
 use EmbeddableContent\Spec\LabelSanitizer;
+use EmbeddableContent\Spec\OsmPlace;
 use Wikibase\DataModel\DataValue;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
@@ -187,6 +188,36 @@ final class SourceFlowService {
 			$specs[$props['chapters']] = new StringValue( (string)$record['chapters'] );
 		}
 
+		// Legal/official-document facts (Zotero-aligned batch).
+		$courtItem = $this->parseItemId( (string)( $record['court'] ?? '' ) );
+		if ( $courtItem !== null && isset( $props['court'] ) ) {
+			$specs[$props['court']] = new EntityIdValue( $courtItem );
+		}
+		// Territorial jurisdiction mirrors the OSM place-of-birth pattern:
+		// the external-id statement carries the node|way|relation id, and
+		// the parallel label statement is written only alongside its id.
+		$jurisdictionOsm = trim( (string)( $record['territorialJurisdiction'] ?? '' ) );
+		if ( $jurisdictionOsm !== '' && isset( $props['territorialJurisdictionOsm'] )
+			&& OsmPlace::isValidId( $jurisdictionOsm )
+		) {
+			$specs[$props['territorialJurisdictionOsm']] = new StringValue( $jurisdictionOsm );
+			$jurisdictionLabel = trim( (string)( $record['territorialJurisdictionLabel'] ?? '' ) );
+			if ( $jurisdictionLabel !== '' && isset( $props['territorialJurisdictionLabel'] ) ) {
+				$specs[$props['territorialJurisdictionLabel']] = new StringValue( $jurisdictionLabel );
+			}
+		}
+		foreach ( [
+			'caseNumber' => 'caseNumber',
+			'patentNumber' => 'patentNumber',
+			'reportNumber' => 'reportNumber',
+			'legislationNumber' => 'legislationNumber',
+		] as $field => $propKey ) {
+			$value = trim( (string)( $record[$field] ?? '' ) );
+			if ( $value !== '' && isset( $props[$propKey] ) ) {
+				$specs[$props[$propKey]] = new StringValue( $value );
+			}
+		}
+
 		$year = (int)( $record['year'] ?? 0 );
 		if ( $year > 0 ) {
 			$dateProp = $this->config->provenancePropertyIds()['date'] ?? null;
@@ -282,6 +313,23 @@ final class SourceFlowService {
 			'youtubeChannel' => 'YouTubeChannel',
 			'youtubeVideo' => 'YouTubeVideo',
 			'webpage' => 'Webpage',
+			// Zotero-aligned batch.
+			'newspaperArticle' => 'NewspaperArticle',
+			'magazineArticle' => 'MagazineArticle',
+			'conferencePaper' => 'ConferencePaper',
+			'report' => 'Report',
+			'document' => 'Document',
+			'thesis' => 'Thesis',
+			'manuscript' => 'Manuscript',
+			'patent' => 'Patent',
+			'legalCase' => 'LegalCase',
+			'legislation' => 'Legislation',
+			'bill' => 'Bill',
+			'treaty' => 'Treaty',
+			'interview' => 'Interview',
+			'map' => 'Map',
+			'presentation' => 'Presentation',
+			'dataset' => 'Dataset',
 		];
 		$template = $templates[$formKey] ?? '';
 		if ( $template === '' ) {
@@ -388,6 +436,11 @@ final class SourceFlowService {
 	 */
 	private function validateAuthors( string $classKey, array &$record, bool $creating ): ?string {
 		$formKey = SourceFieldMap::formKey( $classKey );
+		// Classes that do not expose authors (the legal texts: the court /
+		// jurisdiction carry the attribution) never require one.
+		if ( !SourceFieldMap::acceptsField( $classKey, 'authors' ) ) {
+			return null;
+		}
 		if ( $formKey === 'bookExcerpt' && empty( $record['authors'] ) ) {
 			return null; // parent-filled (or absent — validateParent reports)
 		}

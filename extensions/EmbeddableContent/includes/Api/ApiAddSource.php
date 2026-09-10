@@ -217,11 +217,10 @@ class ApiAddSource extends ApiBase {
 
 	/** @return string[] the entity-mode record fields */
 	private function fieldParams(): array {
-		return [
-			'title', 'description', 'authors', 'publisher', 'journal', 'volume', 'issue',
-			'pages', 'chapters', 'year', 'isbn', 'doi', 'wikidataId', 'openalexWorkId',
-			'pubmedId', 'url', 'duration', 'youtubeChannelId', 'youtubeVideoId', 'accessUrl', 'parent',
-		];
+		// The single source of truth (the field-map contract) — a hardcoded
+		// copy here is exactly how the "webpage rejects authors yet demands
+		// one" drift happened.
+		return \EmbeddableContent\Flow\SourceFieldMap::ALL_FIELDS;
 	}
 
 	/**

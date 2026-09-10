@@ -4,5 +4,21 @@
 	"website": "webpage",
 	"song": "song",
 	"film": "motion_picture",
-	"video": "motion_picture"
+	"video": "motion_picture",
+	"newspaper article": "article-newspaper",
+	"magazine article": "article-magazine",
+	"conference paper": "paper-conference",
+	"report": "report",
+	"document": "document",
+	"thesis": "thesis",
+	"manuscript": "manuscript",
+	"patent": "patent",
+	"legal case": "legal_case",
+	"legislation": "legislation",
+	"bill": "bill",
+	"treaty": "treaty",
+	"interview": "interview",
+	"map": "map",
+	"presentation": "speech",
+	"dataset": "dataset"
 }
