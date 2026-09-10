@@ -6,6 +6,7 @@ namespace EmbeddableContent\Upload;
 
 use EmbeddableContent\Content\FragmentSanitizer;
 use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\Fields\EntityCombobox;
 use MediaWiki\Context\IContextSource;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\Title;
@@ -159,23 +160,17 @@ final class ImageUploadHelper {
 	}
 
 	/**
-	 * Semantic license combobox (config licenseItems + entity search). The
-	 * license is only asked for a NEW upload (file/url): when the image is
-	 * REUSED from an existing File: page, the license (and the author /
-	 * license-info) were already recorded on the file itself — the fields
-	 * hide in existing mode.
+	 * Semantic license combobox (config licenseItems + class-scoped entity
+	 * search — the shared Fields\EntityCombobox builder). The license is
+	 * only asked for a NEW upload (file/url): when the image is REUSED from
+	 * an existing File: page, the license (and the author / license-info)
+	 * were already recorded on the file itself — the fields hide in
+	 * existing mode.
 	 */
 	public static function licenseField( string $prefix, string $msgKey, string $helpMsg, EmbeddableContentConfig $config ): array {
-		return [
-			'type' => 'combobox',
-			'options' => $config->licenseItems(),
-			'label-message' => $msgKey,
-			'cssclass' => 'wb-entity-combobox',
-			// MW 1.46: 'help' is raw HTML (deprecated); 'help-message' is the
-			// key form — the bare key string rendered verbatim before.
-			'help-message' => $helpMsg,
+		return EntityCombobox::licenseSpec( $msgKey, $helpMsg, $config, [
 			'hide-if' => [ 'OR', [ '===', $prefix . 'Include', '' ], [ '===', $prefix . 'Mode', 'existing' ] ],
-		];
+		] );
 	}
 
 	public static function authorField( string $prefix, string $msgKey ): array {

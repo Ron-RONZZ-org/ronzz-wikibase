@@ -9,9 +9,12 @@ use DataValues\StringValue;
 use DataValues\TimeValue;
 use EmbeddableContent\Content\FragmentSanitizer;
 use EmbeddableContent\Duration;
+use EmbeddableContent\EntityClassFilter;
 use EmbeddableContent\Fetch\ProviderResult;
 use EmbeddableContent\Fetch\WorkRecord;
 use EmbeddableContent\Fetch\YouTubeProvider;
+use EmbeddableContent\Fields\EntityCombobox;
+use EmbeddableContent\Flow\SourceFieldMap;
 use MediaWiki\Title\Title;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
@@ -40,7 +43,12 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 * Classes with no external authority: the picker sends them straight to
 	 * the adapted manual form (no search step).
 	 */
-	private const MANUAL_ONLY_CLASSES = [ 'website', 'webpage', 'bookExcerpt' ];
+	private const MANUAL_ONLY_CLASSES = [
+		'website', 'webpage', 'bookExcerpt',
+		// Zotero-aligned batch without a usable authority provider.
+		'document', 'manuscript', 'patent', 'legalCase', 'legislation',
+		'bill', 'treaty', 'interview', 'map', 'presentation', 'dataset',
+	];
 
 	/**
 	 * Classes whose FIRST page is a URL entry (website/webpage): the
@@ -603,6 +611,19 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			case 'song':
 			case 'video':
 				return $this->titleAuthorFields();
+			case 'newspaperArticle':
+			case 'magazineArticle':
+			case 'report':
+			case 'thesis':
+				return $this->titleAuthorFields();
+			case 'conferencePaper':
+				return $this->titleAuthorFields() + [ 'doi' => [
+					'type' => 'text',
+					'label-message' => 'embeddablecontent-extsearch-doi',
+					'required' => false,
+					'maxlength' => 250,
+					'placeholder' => '10.1000/xxxx',
+				] ];
 			case 'youtubeChannel':
 			case 'youtubeVideo':
 				return [ 'query' => [
@@ -662,6 +683,17 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			case 'film':
 			case 'song':
 			case 'video':
+				return $this->searchByTitleAuthor( $data );
+			case 'newspaperArticle':
+			case 'magazineArticle':
+			case 'report':
+			case 'thesis':
+				return $this->searchByTitleAuthor( $data );
+			case 'conferencePaper':
+				$doi = trim( (string)( $data['doi'] ?? '' ) );
+				if ( $doi !== '' ) {
+					return $this->client->byDoi( $doi );
+				}
 				return $this->searchByTitleAuthor( $data );
 			case 'youtubeChannel':
 			case 'youtubeVideo':
@@ -952,6 +984,24 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			case 'song':
 			case 'video':
 				return [ 'wikidata' => 'wikidataId' ];
+			case 'conferencePaper':
+				return [ 'wikidata' => 'wikidataId', 'doi' => 'doi', 'openalex' => 'openalexId' ];
+			case 'newspaperArticle':
+			case 'magazineArticle':
+			case 'report':
+			case 'document':
+			case 'thesis':
+			case 'manuscript':
+			case 'patent':
+			case 'legalCase':
+			case 'legislation':
+			case 'bill':
+			case 'treaty':
+			case 'interview':
+			case 'map':
+			case 'presentation':
+			case 'dataset':
+				return [ 'wikidata' => 'wikidataId' ];
 			default:
 				return [];
 		}
@@ -968,8 +1018,12 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			'embeddablecontent-extsearch-title',
 			$this->applyLabelSuffix() ? $this->disambiguatedTitle( $title ) : $title
 		)
-			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
-			+ $this->authorsFieldSpec( $record );
+			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) );
+		// Legal texts (legalCase/legislation/bill/treaty) do not expose
+		// authors — the court / jurisdiction carry the attribution.
+		if ( $this->classExposesAuthors() ) {
+			$fields += $this->authorsFieldSpec( $record );
+		}
 
 		switch ( $this->currentClassKey ) {
 			case 'book':
@@ -1050,6 +1104,102 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				// HTMLForm required flag must not block the submit.
 				$fields['authors']['required'] = false;
 				break;
+			// ------------------------------------------------ Zotero-aligned
+			case 'newspaperArticle':
+			case 'magazineArticle':
+				$fields['publisher'] = $this->publisherFieldSpec( $record );
+				if ( $this->currentClassKey === 'magazineArticle' ) {
+					$fields['volume'] = $this->plainTextField( 'embeddablecontent-field-volume', (string)( $record['volume'] ?? '' ) );
+					$fields['issue'] = $this->plainTextField( 'embeddablecontent-field-issue', (string)( $record['issue'] ?? '' ) );
+				}
+				$fields['pages'] = $this->plainTextField( 'embeddablecontent-field-pages', (string)( $record['pages'] ?? '' ) );
+				$fields += $this->issuedYearFieldSpec( $record );
+				$fields += $this->urlFieldSpec( $record );
+				$fields += $this->accessFieldSpec( $record );
+				break;
+			case 'conferencePaper':
+				$fields['publisher'] = $this->publisherFieldSpec( $record );
+				$fields['pages'] = $this->plainTextField( 'embeddablecontent-field-pages', (string)( $record['pages'] ?? '' ) );
+				$fields += $this->issuedYearFieldSpec( $record );
+				$fields += $this->urlFieldSpec( $record );
+				$fields += $this->accessFieldSpec( $record );
+				break;
+			case 'report':
+			case 'document':
+				$fields['publisher'] = $this->publisherFieldSpec( $record );
+				$fields['reportNumber'] = $this->plainTextField(
+					'embeddablecontent-source-field-reportnumber',
+					(string)( $record['reportNumber'] ?? '' )
+				);
+				$fields += $this->issuedYearFieldSpec( $record );
+				$fields += $this->urlFieldSpec( $record );
+				$fields += $this->accessFieldSpec( $record );
+				break;
+			case 'thesis':
+				$fields['publisher'] = $this->publisherFieldSpec( $record );
+				$fields += $this->issuedYearFieldSpec( $record );
+				$fields += $this->urlFieldSpec( $record );
+				$fields += $this->accessFieldSpec( $record );
+				break;
+			case 'manuscript':
+				$fields += $this->issuedYearFieldSpec( $record );
+				$fields += $this->urlFieldSpec( $record );
+				$fields += $this->accessFieldSpec( $record );
+				break;
+			case 'patent':
+				$fields['patentNumber'] = $this->plainTextField(
+					'embeddablecontent-source-field-patentnumber',
+					(string)( $record['patentNumber'] ?? '' )
+				);
+				$fields += $this->issuedYearFieldSpec( $record );
+				$fields += $this->urlFieldSpec( $record );
+				break;
+			case 'legalCase':
+				$fields += $this->courtFieldSpec( $record );
+				$fields += $this->jurisdictionFieldSpec( $record );
+				$fields['caseNumber'] = $this->plainTextField(
+					'embeddablecontent-source-field-casenumber',
+					(string)( $record['caseNumber'] ?? '' )
+				);
+				$fields += $this->issuedYearFieldSpec( $record );
+				$fields += $this->urlFieldSpec( $record );
+				break;
+			case 'legislation':
+			case 'bill':
+				$fields += $this->jurisdictionFieldSpec( $record );
+				$fields['legislationNumber'] = $this->plainTextField(
+					'embeddablecontent-source-field-legislationnumber',
+					(string)( $record['legislationNumber'] ?? '' )
+				);
+				$fields += $this->issuedYearFieldSpec( $record );
+				$fields += $this->urlFieldSpec( $record );
+				break;
+			case 'treaty':
+				$fields += $this->jurisdictionFieldSpec( $record );
+				$fields += $this->issuedYearFieldSpec( $record );
+				$fields += $this->urlFieldSpec( $record );
+				break;
+			case 'interview':
+				$fields['publisher'] = $this->publisherFieldSpec( $record );
+				$fields += $this->issuedYearFieldSpec( $record );
+				$fields += $this->urlFieldSpec( $record );
+				break;
+			case 'map':
+				$fields['publisher'] = $this->publisherFieldSpec( $record );
+				$fields += $this->issuedYearFieldSpec( $record );
+				$fields += $this->urlFieldSpec( $record );
+				$fields += $this->accessFieldSpec( $record );
+				break;
+			case 'presentation':
+				$fields += $this->issuedYearFieldSpec( $record );
+				$fields += $this->urlFieldSpec( $record );
+				break;
+			case 'dataset':
+				$fields['publisher'] = $this->publisherFieldSpec( $record );
+				$fields += $this->issuedYearFieldSpec( $record );
+				$fields += $this->urlFieldSpec( $record );
+				$fields += $this->accessFieldSpec( $record );
+				break;
 		}
 
 		$fields += $this->externalIdFieldSpecs( $record );
@@ -1072,15 +1222,17 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				(string)( $confirm['id'] ?? '' )
 			);
 		}
-		return [ 'authors' => [
-			'type' => 'combobox',
-			'options' => [],
-			'label-message' => 'embeddablecontent-source-field-authors',
-			'cssclass' => 'wb-entity-combobox wb-entity-combobox-multi',
-			'default' => (string)( $record['authors'] ?? '' ),
-			'help' => $help,
-			'required' => true,
-		] ];
+		return $this->entityComboboxField(
+			'authors',
+			'embeddablecontent-source-field-authors',
+			$this->agentClassIds(),
+			true,
+			[
+				'default' => (string)( $record['authors'] ?? '' ),
+				'help' => $help,
+				'required' => true,
+			]
+		);
 	}
 
 	/** @return array<string,mixed> */
@@ -1091,6 +1243,67 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			'default' => (string)( $record['issuedYear'] ?? '' ),
 			'maxlength' => 4,
 		] ];
+	}
+
+	/**
+	 * Whether the current class exposes the authors field (the API contract
+	 * in SourceFieldMap is the single source of truth). The legal texts do
+	 * not — the court / jurisdiction carry the attribution.
+	 */
+	private function classExposesAuthors(): bool {
+		return SourceFieldMap::acceptsField(
+			SourceFieldMap::apiKey( (string)$this->currentClassKey ),
+			'authors'
+		);
+	}
+
+	/**
+	 * Court combobox (legalCase): an entity combobox over agent-class items
+	 * (courts are organizations).
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,mixed>
+	 */
+	private function courtFieldSpec( array $record ): array {
+		return $this->entityComboboxField(
+			'court',
+			'embeddablecontent-source-field-court',
+			$this->agentClassIds(),
+			false,
+			[
+				'default' => (string)( $record['court'] ?? '' ),
+				'help-message' => 'embeddablecontent-source-field-court-help',
+			]
+		);
+	}
+
+	/**
+	 * Territorial-jurisdiction field (the legal texts): the OSM
+	 * place-of-birth pattern — a Nominatim search combobox
+	 * (osmsuggest.js, cssclass wb-osm-combobox) whose value is a
+	 * `node|way|relation/<id>` external-id, plus the parallel hidden
+	 * human-readable label the JS fills on pick (rendered by
+	 * {{#osm-place:jurisdiction}}).
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,mixed>
+	 */
+	private function jurisdictionFieldSpec( array $record ): array {
+		return [
+			'territorialJurisdiction' => [
+				'type' => 'combobox',
+				'options' => [],
+				'label-message' => 'embeddablecontent-source-field-jurisdiction',
+				'cssclass' => 'wb-osm-combobox',
+				'default' => (string)( $record['territorialJurisdiction'] ?? '' ),
+				'help-message' => 'embeddablecontent-source-field-jurisdiction-help',
+			],
+			'territorialJurisdictionLabel' => [
+				'type' => 'hidden',
+				'default' => (string)( $record['territorialJurisdictionLabel'] ?? '' ),
+				'maxlength' => 250,
+			],
+		];
 	}
 
 	/** @return array<string,mixed> */
@@ -1153,14 +1366,15 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		} elseif ( $harvested !== '' ) {
 			$default = $harvested;
 		}
-		$field = [
-			'type' => 'combobox',
-			'options' => [],
-			'label-message' => 'embeddablecontent-source-field-journal',
-			'cssclass' => 'wb-entity-combobox',
-			'default' => $default,
-			'help' => $this->msg( 'embeddablecontent-source-field-journal-help' )->parse(),
-		];
+		$field = EntityCombobox::spec(
+			'embeddablecontent-source-field-journal',
+			$this->classScope( $this->config->scholarlyJournalClass() ),
+			false,
+			[
+				'default' => $default,
+				'help' => $this->msg( 'embeddablecontent-source-field-journal-help' )->parse(),
+			]
+		);
 		if ( $help !== '' ) {
 			$field['help'] .= ' ' . $help;
 		}
@@ -1203,14 +1417,15 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		} elseif ( $harvested !== '' ) {
 			$default = $harvested;
 		}
-		$field = [
-			'type' => 'combobox',
-			'options' => [],
-			'label-message' => 'embeddablecontent-field-publisher',
-			'cssclass' => 'wb-entity-combobox',
-			'default' => $default,
-			'help' => $this->msg( 'embeddablecontent-source-field-publisher-help' )->parse(),
-		];
+		$field = EntityCombobox::spec(
+			'embeddablecontent-field-publisher',
+			$this->classScope( $this->config->publisherClass() ),
+			false,
+			[
+				'default' => $default,
+				'help' => $this->msg( 'embeddablecontent-source-field-publisher-help' )->parse(),
+			]
+		);
 		if ( $help !== '' ) {
 			$field['help'] .= ' ' . $help;
 		}
@@ -1270,19 +1485,19 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			// download/file modes, and HTMLForm validates required fields
 			// even when hide-if hides them client-side — the requirement is
 			// enforced in beforeCreate (validateAccessField) instead.
-			'license' => [
-				'type' => 'combobox',
-				'options' => $this->config->licenseItems(),
-				'label-message' => 'embeddablecontent-source-field-license',
-				'cssclass' => 'wb-entity-combobox',
-				'default' => (string)( $record['license'] ?? '' ),
-				'help' => $this->msg( 'embeddablecontent-source-field-license-help' )->parse(),
-				'hide-if' => [
-					'OR',
-					[ '===', 'accessMode', 'url' ],
-					[ '===', 'accessMode', 'na' ],
-				],
-			],
+			'license' => EntityCombobox::licenseSpec(
+				'embeddablecontent-source-field-license',
+				'embeddablecontent-source-field-license-help',
+				$this->config,
+				[
+					'default' => (string)( $record['license'] ?? '' ),
+					'hide-if' => [
+						'OR',
+						[ '===', 'accessMode', 'url' ],
+						[ '===', 'accessMode', 'na' ],
+					],
+				]
+			),
 		];
 	}
 
@@ -1324,15 +1539,17 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			)->parse();
 		}
 
-		return [ 'parent' => [
-			'type' => 'combobox',
-			'options' => [],
-			'label-message' => 'embeddablecontent-source-field-parent',
-			'cssclass' => 'wb-entity-combobox',
-			'default' => (string)( $record['parent'] ?? '' ),
-			'help' => $help,
-			'required' => true,
-		] ];
+		return $this->entityComboboxField(
+			'parent',
+			'embeddablecontent-source-field-parent',
+			$this->classScope( $this->config->sourceClasses()[$parentKey] ?? null ),
+			false,
+			[
+				'default' => (string)( $record['parent'] ?? '' ),
+				'help' => $help,
+				'required' => true,
+			]
+		);
 	}
 
 	protected function classOptions(): array {
@@ -1368,6 +1585,23 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		'youtubeChannel' => 'YouTubeChannel',
 		'youtubeVideo' => 'YouTubeVideo',
 		'webpage' => 'Webpage',
+		// Zotero-aligned batch.
+		'newspaperArticle' => 'NewspaperArticle',
+		'magazineArticle' => 'MagazineArticle',
+		'conferencePaper' => 'ConferencePaper',
+		'report' => 'Report',
+		'document' => 'Document',
+		'thesis' => 'Thesis',
+		'manuscript' => 'Manuscript',
+		'patent' => 'Patent',
+		'legalCase' => 'LegalCase',
+		'legislation' => 'Legislation',
+		'bill' => 'Bill',
+		'treaty' => 'Treaty',
+		'interview' => 'Interview',
+		'map' => 'Map',
+		'presentation' => 'Presentation',
+		'dataset' => 'Dataset',
 	];
 
 	protected function pageNamespace(): ?int {
@@ -1485,6 +1719,18 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				return $this->msg( 'embeddablecontent-source-error-duration' )->text();
 			}
 			$record['durationSeconds'] = $seconds;
+		}
+
+		// Territorial jurisdiction (legal texts): the OSM combobox stores a
+		// node|way|relation/<id>; a raw place name must not pass (the user
+		// must confirm a suggestion). An emptied field clears the label.
+		$jurisdiction = trim( (string)( $record['territorialJurisdiction'] ?? '' ) );
+		if ( $jurisdiction !== '' ) {
+			if ( !OsmPlace::isValidId( $jurisdiction ) ) {
+				return $this->msg( 'embeddablecontent-source-error-jurisdiction' )->text();
+			}
+		} else {
+			$record['territorialJurisdictionLabel'] = '';
 		}
 
 		// Access field (issue #35): license + upload for the download/file
@@ -1863,6 +2109,9 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 * @param array<string,mixed> $record
 	 */
 	protected function validateAuthors( array $record ): ?string {
+		if ( !$this->classExposesAuthors() ) {
+			return null; // legal texts: the court / jurisdiction carry attribution
+		}
 		$ids = ItemIdList::split( (string)( $record['authors'] ?? '' ) );
 		if ( $ids === [] ) {
 			return $this->msg( 'embeddablecontent-source-error-noauthor' )->text();
@@ -1905,16 +2154,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 
 	/** @param string[] $classItemIds */
 	private function itemHasClass( Item $item, array $classItemIds ): bool {
-		$propertyId = new NumericPropertyId( $this->config->instanceOfPropertyId() );
-		foreach ( $item->getStatements()->getByPropertyId( $propertyId ) as $statement ) {
-			$value = $statement->getMainSnak()->getDataValue();
-			if ( $value instanceof EntityIdValue
-				&& in_array( $value->getEntityId()->getSerialization(), $classItemIds, true )
-			) {
-				return true;
-			}
-		}
-		return false;
+		return EntityClassFilter::hasAnyClass( $item, $classItemIds, $this->config->instanceOfPropertyId() );
 	}
 
 	// ------------------------------------------------------------- creation

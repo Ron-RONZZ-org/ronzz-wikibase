@@ -1093,6 +1093,13 @@ def flow_source_picker_route(op, base: str) -> str:
     url, body = page_get(op, base, "/wiki/Special:AddSource")
     if "wpmanual" in body:
         raise FlowError("class picker still renders the removed manual checkbox")
+    # The Zotero-aligned class set must appear in the picker.
+    for label in ("Newspaper article", "Magazine article", "Conference paper",
+                  "Report", "Document", "Thesis", "Patent", "Legal case",
+                  "Legislation", "Treaty", "Interview", "Map", "Presentation",
+                  "Dataset"):
+        if label not in body:
+            raise FlowError(f"class picker missing the {label!r} class")
     token = edit_token(body)
     url, body = page_post(op, url, {"wpclass": "book", "wpEditToken": token, "wpSubmit": "1"})
     if "/wiki/Special:AddSource/book" not in url:
@@ -3540,6 +3547,39 @@ def main() -> int:
             f"{book_pub} unexpectedly carries a string publisher statement"
         print(f"[ok] AddSource/book publisher -> {book_pub}: entity publisher {publisher_qid}, "
               f"no string statement")
+
+        # 2g2. AddSource legal-case manual — the Zotero-aligned class set: a
+        #      legal case carries the court (entity), the territorial
+        #      jurisdiction (OSM external-id + parallel label) and the case
+        #      number, and NO author statement (the legal classes expose no
+        #      authors — the court / jurisdiction carry the attribution).
+        court_qid = create_api_item(op, api, f"Page-flow E2E court {int(time.time())}")
+        legal_label = f"Page-flow E2E legal case {int(time.time())}"
+        legal_case = track(flow_source_class_manual(op, base, api, "legalCase", {
+            "wptitle": legal_label,
+            "wpcourt": court_qid,
+            "wpterritorialJurisdiction": "relation/12345",
+            "wpterritorialJurisdictionLabel": "United States",
+            "wpcaseNumber": "410 U.S. 113",
+        }))
+        claims, _ = entity_claims(op, api, legal_case)
+        court_prop = resolve("court", "property")
+        jurisdiction_prop = resolve("territorial jurisdiction (OSM)", "property")
+        jurisdiction_label_prop = resolve("territorial jurisdiction (label)", "property")
+        case_number_prop = resolve("case number", "property")
+        attributed_to_prop = resolve("attributed to", "property")
+        assert first_value(claims, court_prop) == court_qid, \
+            f"{legal_case} court statement missing ({first_value(claims, court_prop)})"
+        assert first_value(claims, jurisdiction_prop) == "relation/12345", \
+            f"{legal_case} jurisdiction statement missing ({first_value(claims, jurisdiction_prop)})"
+        assert first_value(claims, jurisdiction_label_prop) == "United States", \
+            f"{legal_case} jurisdiction label missing ({first_value(claims, jurisdiction_label_prop)})"
+        assert first_value(claims, case_number_prop) == "410 U.S. 113", \
+            f"{legal_case} case number missing ({first_value(claims, case_number_prop)})"
+        assert claims.get(attributed_to_prop) is None, \
+            f"{legal_case} unexpectedly carries an author statement"
+        print(f"[ok] AddSource/legalCase manual -> {legal_case}: court + OSM jurisdiction "
+              f"+ case number, no authors")
 
         # 2h. AddSource/book access field, local-file mode (issue #35): the
         #     upload lands as File:<label>.png (auto-named from the item

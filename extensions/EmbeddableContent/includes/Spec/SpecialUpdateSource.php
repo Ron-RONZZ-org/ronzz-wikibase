@@ -154,6 +154,15 @@ class SpecialUpdateSource extends SpecialAddSource {
 
 		$record['parent'] = $this->firstEntityForProperty( $item, $source['partOf'] ?? null );
 
+		// Zotero-aligned batch: legal/official-document facts.
+		$record['court'] = $this->firstEntityForProperty( $item, $source['court'] ?? null );
+		$record['territorialJurisdiction'] = $this->firstStringForProperty( $item, $source['territorialJurisdictionOsm'] ?? null );
+		$record['territorialJurisdictionLabel'] = $this->firstStringForProperty( $item, $source['territorialJurisdictionLabel'] ?? null );
+		$record['caseNumber'] = $this->firstStringForProperty( $item, $source['caseNumber'] ?? null );
+		$record['patentNumber'] = $this->firstStringForProperty( $item, $source['patentNumber'] ?? null );
+		$record['reportNumber'] = $this->firstStringForProperty( $item, $source['reportNumber'] ?? null );
+		$record['legislationNumber'] = $this->firstStringForProperty( $item, $source['legislationNumber'] ?? null );
+
 		foreach ( $this->externalIdRecordMap() as $key => $field ) {
 			$record[$field] = $this->firstStringForProperty(
 				$item,

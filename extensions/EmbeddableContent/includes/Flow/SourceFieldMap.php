@@ -33,6 +33,23 @@ final class SourceFieldMap {
 		'youtube-channel',
 		'youtube-video',
 		'book-excerpt',
+		// Zotero/CSL-aligned batch.
+		'newspaper-article',
+		'magazine-article',
+		'conference-paper',
+		'report',
+		'document',
+		'thesis',
+		'manuscript',
+		'patent',
+		'legal-case',
+		'legislation',
+		'bill',
+		'treaty',
+		'interview',
+		'map',
+		'presentation',
+		'dataset',
 	];
 
 	/** Every field the entity-mode vocabulary knows. */
@@ -58,6 +75,14 @@ final class SourceFieldMap {
 		'youtubeVideoId',
 		'accessUrl',
 		'parent',
+		// Zotero/CSL-aligned batch: legal/official-document facts.
+		'court',
+		'territorialJurisdiction',
+		'territorialJurisdictionLabel',
+		'caseNumber',
+		'patentNumber',
+		'reportNumber',
+		'legislationNumber',
 	];
 
 	/** The parent class key each child class requires. */
@@ -73,6 +98,10 @@ final class SourceFieldMap {
 		'youtube-channel' => 'youtubeChannel',
 		'youtube-video' => 'youtubeVideo',
 		'book-excerpt' => 'bookExcerpt',
+		'newspaper-article' => 'newspaperArticle',
+		'magazine-article' => 'magazineArticle',
+		'conference-paper' => 'conferencePaper',
+		'legal-case' => 'legalCase',
 	];
 
 	/** The API class key for a form class key (identity for the plain ones). */
@@ -87,7 +116,7 @@ final class SourceFieldMap {
 	}
 
 	/** Fields whose value is an entity id (Q-number), never a bare string. */
-	private const ENTITY_FIELDS = [ 'authors', 'publisher', 'journal', 'parent' ];
+	private const ENTITY_FIELDS = [ 'authors', 'publisher', 'journal', 'parent', 'court' ];
 
 	/** The fields each class exposes. Kept in step with the Special:AddSource
 	 *  review form: every class has an authors field (required except for
@@ -103,6 +132,24 @@ final class SourceFieldMap {
 		'youtube-channel' => [ 'title', 'description', 'authors', 'year', 'url', 'youtubeChannelId' ],
 		'youtube-video' => [ 'title', 'description', 'authors', 'year', 'duration', 'url', 'youtubeVideoId', 'parent' ],
 		'book-excerpt' => [ 'title', 'description', 'authors', 'pages', 'volume', 'chapters', 'year', 'accessUrl', 'parent' ],
+		// Zotero/CSL-aligned batch. authors is omitted where it is not
+		// meaningful (legal texts) — requiredOnCreate follows the exposure.
+		'newspaper-article' => [ 'title', 'description', 'authors', 'publisher', 'pages', 'year', 'url', 'accessUrl', 'wikidataId' ],
+		'magazine-article' => [ 'title', 'description', 'authors', 'publisher', 'volume', 'issue', 'pages', 'year', 'url', 'accessUrl', 'wikidataId' ],
+		'conference-paper' => [ 'title', 'description', 'authors', 'publisher', 'pages', 'year', 'doi', 'url', 'accessUrl', 'wikidataId', 'openalexWorkId' ],
+		'report' => [ 'title', 'description', 'authors', 'publisher', 'reportNumber', 'year', 'url', 'accessUrl', 'wikidataId' ],
+		'document' => [ 'title', 'description', 'authors', 'publisher', 'reportNumber', 'year', 'url', 'accessUrl', 'wikidataId' ],
+		'thesis' => [ 'title', 'description', 'authors', 'publisher', 'year', 'url', 'accessUrl', 'wikidataId' ],
+		'manuscript' => [ 'title', 'description', 'authors', 'year', 'url', 'accessUrl', 'wikidataId' ],
+		'patent' => [ 'title', 'description', 'authors', 'patentNumber', 'year', 'url', 'wikidataId' ],
+		'legal-case' => [ 'title', 'description', 'court', 'territorialJurisdiction', 'territorialJurisdictionLabel', 'caseNumber', 'year', 'url', 'wikidataId' ],
+		'legislation' => [ 'title', 'description', 'territorialJurisdiction', 'territorialJurisdictionLabel', 'legislationNumber', 'year', 'url', 'wikidataId' ],
+		'bill' => [ 'title', 'description', 'territorialJurisdiction', 'territorialJurisdictionLabel', 'legislationNumber', 'year', 'url', 'wikidataId' ],
+		'treaty' => [ 'title', 'description', 'territorialJurisdiction', 'territorialJurisdictionLabel', 'year', 'url', 'wikidataId' ],
+		'interview' => [ 'title', 'description', 'authors', 'publisher', 'year', 'url', 'wikidataId' ],
+		'map' => [ 'title', 'description', 'authors', 'publisher', 'year', 'url', 'accessUrl', 'wikidataId' ],
+		'presentation' => [ 'title', 'description', 'authors', 'year', 'url', 'wikidataId' ],
+		'dataset' => [ 'title', 'description', 'authors', 'publisher', 'year', 'url', 'accessUrl', 'wikidataId' ],
 	];
 
 	/** @return string[] */

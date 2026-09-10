@@ -41,6 +41,9 @@ class SourceFlowServiceTest extends TestCase {
 			'partOf' => 'P45', 'duration' => 'P46', 'url' => 'P49',
 			'youtubeChannelId' => 'P47', 'youtubeVideoId' => 'P48',
 			'chapters' => 'P50', 'accessUrl' => 'P57',
+			'court' => 'P60', 'territorialJurisdictionOsm' => 'P61',
+			'territorialJurisdictionLabel' => 'P62', 'caseNumber' => 'P63',
+			'patentNumber' => 'P64', 'reportNumber' => 'P65', 'legislationNumber' => 'P66',
 		],
 		'provenance' => [ 'attributedTo' => 'P6', 'date' => 'P8' ],
 		'citationMetadata' => [
@@ -199,6 +202,32 @@ class SourceFlowServiceTest extends TestCase {
 		$this->assertSame( '+1937-00-00T00:00:00Z', $specs['P8']->getTime() );
 		$this->assertInstanceOf( StringValue::class, $specs['P24'] );
 		$this->assertInstanceOf( StringValue::class, $specs['P17'] );
+	}
+
+	public function testStatementSpecsForLegalCase(): void {
+		$service = $this->makeService();
+		$record = [
+			'title' => 'Roe v. Wade',
+			'court' => 'Q42',
+			'territorialJurisdiction' => 'relation/12345',
+			'territorialJurisdictionLabel' => 'United States',
+			'caseNumber' => '410 U.S. 113',
+			'year' => '1973',
+		];
+
+		$specs = $service->statementSpecs( 'legal-case', $record );
+
+		$this->assertSame( 'Q42', $specs['P60']->getEntityId()->getSerialization() );
+		$this->assertSame( 'relation/12345', $specs['P61']->getValue() );
+		$this->assertSame( 'United States', $specs['P62']->getValue() );
+		$this->assertSame( '410 U.S. 113', $specs['P63']->getValue() );
+		$this->assertSame( '+1973-00-00T00:00:00Z', $specs['P8']->getTime() );
+	}
+
+	public function testLegalCaseDoesNotRequireAuthors(): void {
+		$service = $this->makeService();
+		$record = [ 'title' => 'Roe v. Wade' ];
+		$this->assertNull( $service->prepare( 'legal-case', $record, true ) );
 	}
 
 	public function testBuildItemCarriesSuffixedLabelClassAndStatements(): void {

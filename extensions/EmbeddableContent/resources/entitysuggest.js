@@ -36,6 +36,12 @@
 		$( '.wb-entity-combobox.oo-ui-comboBoxInputWidget' ).each( function () {
 			var $el = $( this );
 			var multi = $el.hasClass( 'wb-entity-combobox-multi' );
+			// Class scope: a pipe-separated list of item ids (set by
+			// OOUIComboboxField from the field's `wbClasses` param). The
+			// server restricts the search to items `instance of` one of
+			// them (e.g. the license combobox searches only license items);
+			// '' = unscoped.
+			var scope = String( $el.attr( 'data-wb-classes' ) || '' );
 			var combo = OO.ui.ComboBoxInputWidget.static.infuse( $el );
 			var api = new mw.Api();
 			var pending = null;
@@ -77,6 +83,7 @@
 					search: q,
 					language: mw.config.get( 'wgUserLanguage' ) || 'en',
 					limit: 10,
+					classes: scope,
 					format: 'json'
 				} );
 				Promise.resolve( pending ).then( function ( data ) {

@@ -10,6 +10,7 @@ use EmbeddableContent\Content\FragmentSanitizer;
 use EmbeddableContent\Content\MathRenderer;
 use EmbeddableContent\Content\PayloadCodec;
 use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\Fields\EntityCombobox;
 use EmbeddableContent\Spec\ItemIdList;
 use MediaWiki\HTMLForm\HTMLForm;
 use MediaWiki\SpecialPage\SpecialPage;
@@ -151,20 +152,16 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		}
 
 		// Uniform provenance block (issue #6 §4.1). Issue #7: the plain
-		// item-id fields are entity search+autofill comboboxes backed by
-		// wbsearchentities (ext.embeddableContent.entitysuggest); the
-		// submitted value stays an item id (parseOptionalItemId unchanged).
+		// item-id fields are class-scoped entity search+autofill comboboxes
+		// (the shared Fields\EntityCombobox builder); the submitted value
+		// stays an item id (parseOptionalItemId unchanged).
 		$entityCombobox = static function ( string $messageKey, bool $required, bool $multi = false ): array {
-			return [
-				'type' => 'combobox',
-				'options' => [],
-				'label-message' => $messageKey,
+			return EntityCombobox::spec( $messageKey, [], $multi, [
 				'required' => $required,
-				'cssclass' => $multi ? 'wb-entity-combobox wb-entity-combobox-multi' : 'wb-entity-combobox',
 				'help-message' => $multi
 					? 'embeddablecontent-entityid-multiple-hint'
 					: 'embeddablecontent-add-entityid-help',
-			];
+			] );
 		};
 		$fields += [
 			'attributedTo' => $entityCombobox( 'embeddablecontent-add-attributedto', $this->getKind() === 'quotation' ),

@@ -5,6 +5,7 @@ declare( strict_types = 1 );
 namespace EmbeddableContent\Upload;
 
 use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\Fields\EntityCombobox;
 use MediaWiki\Context\RequestContext;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Upload\UploadBase;
@@ -45,18 +46,17 @@ final class UploadHooks {
 	public static function onUploadFormInitDescriptor( array &$descriptor ): void {
 		// The UploadForm is a php-mode HTMLForm — a plain `combobox` type
 		// would render as an <input>+<datalist> with no entity autocomplete.
-		// OOUIComboboxField forces the OOUI ComboBoxInputWidget (infusable)
-		// so the entity-suggest module wires it exactly like the Add* pages'.
-		$descriptor['License'] = [
-			'class' => \EmbeddableContent\Upload\OOUIComboboxField::class,
-			'options' => self::config()->licenseItems(),
+		// The shared Fields\EntityCombobox builder sets OOUIComboboxField
+		// (forces the OOUI ComboBoxInputWidget, infusable) so the
+		// entity-suggest module wires it exactly like the Add* pages', and
+		// scopes the search to the license class.
+		$descriptor['License'] = EntityCombobox::licenseSpec(
+			'embeddablecontent-upload-license',
+			'embeddablecontent-upload-license-help',
+			self::config()
+		) + [
 			'section' => 'description',
 			'id' => 'wpLicense',
-			'label-message' => 'embeddablecontent-upload-license',
-			'cssclass' => 'wb-entity-combobox',
-			// MW 1.46: 'help' is raw HTML (deprecated); 'help-message' is the
-			// key form — the bare key string rendered verbatim before.
-			'help-message' => 'embeddablecontent-upload-license-help',
 		];
 		$descriptor['UploadAuthor'] = [
 			'type' => 'text',

@@ -286,18 +286,7 @@ final class EntityLabelMatcher {
 
 	/** @param string[] $classItemIds */
 	private function itemHasClass( Item $item, array $classItemIds ): bool {
-		// The instance-of property id is passed in from the caller's config
-		// (the instance's P31-aligned property is instance-specific).
-		$propertyId = new \Wikibase\DataModel\Entity\NumericPropertyId( $this->instanceOfPropertyId );
-		foreach ( $item->getStatements()->getByPropertyId( $propertyId ) as $statement ) {
-			$value = $statement->getMainSnak()->getDataValue();
-			if ( $value instanceof \Wikibase\DataModel\Entity\EntityIdValue
-				&& in_array( $value->getEntityId()->getSerialization(), $classItemIds, true )
-			) {
-				return true;
-			}
-		}
-		return false;
+		return EntityClassFilter::hasAnyClass( $item, $classItemIds, $this->instanceOfPropertyId );
 	}
 
 	/**

@@ -203,12 +203,30 @@ PR #66) — drop the patch on re-vendor once upstream merges it.
   child classes (`bookExcerpt→book`, `webpage→website`,
   `youtubeVideo→youtubeChannel`) require an existing parent-class item
   (entity combobox + "import it yourself" link, server-side validated) and
-  auto-write a `part of` statement. Every class requires ≥1 author entity
-  (agent-class validated → `attributed to` statements). `website`/`webpage`/
+  auto-write a `part of` statement. Every class that exposes authors requires
+  ≥1 author entity (agent-class validated → `attributed to` statements); the
+  legal texts (legalCase/legislation/bill/treaty) expose none — the
+  court/jurisdiction carry the attribution. `website`/`webpage`/
   `bookExcerpt` are manual-only classes. Duration is entered as
   `(HH):MM:SS` and stored as seconds in the `quantity`-datatype property.
   YouTube import (Data API v3, key deploy-injected + IP-restricted, never
   in the repo): name search capped at 10, URL lookups exact-only.
+- **Zotero/CSL-aligned source classes + class-scoped comboboxes (ADR
+  `docs/decisions/zotero-source-classes.md`)**: sixteen new source classes
+  (newspaper/magazine article, conference paper, report, document, thesis,
+  manuscript, patent, legal case, legislation, bill, treaty, interview, map,
+  presentation, dataset) plus the `publisher` / `scholarly journal` domain
+  classes. New properties: `court` (P4884), `territorial jurisdiction (OSM)`
+  + `(label)` (the place-of-birth OSM shape — Nominatim combobox + hidden
+  label, `{{#osm-place:jurisdiction}}`), `case number`, `patent number`
+  (P1246), `report number`, `legislation number`. The seed emits a
+  `domainClasses` map, and every entity combobox is now **class-scoped**:
+  `action=entitysearch` takes a `classes=Q…|Q…` filter (over-fetch + PHP
+  `instance-of` filter, bounded), the shared `Fields\OOUIComboboxField` emits
+  `data-wb-classes`, `Fields\EntityCombobox` is the one builder (the four
+  license implementations collapse into `licenseSpec()`), and
+  `EntityClassFilter` is the one `instance-of` helper. Legal classes omit
+  authors; the citation source-type map gains the CSL types.
 - **AddSource publisher is entity-only (issue #35)**: book/scholarlyArticle
   take the publisher as an entity combobox (item-typed `publisher (entity)`
   property, P123-aligned) — no free-text mode. A harvested STRING publisher

@@ -27,15 +27,23 @@ class FieldMapTest extends TestCase {
 		}
 	}
 
-	public function testSourceEveryClassExposesAuthors(): void {
+	public function testSourceAuthorsExposureMatchesTheContract(): void {
 		// Regression: the "webpage rejects authors yet demands one" bug of
-		// 2026-08-30 was a drifted field table. Every AddSource class exposes
-		// an authors field (the form's authorsFieldSpec is unconditional).
+		// 2026-08-30 was a drifted field table. Every class that exposes
+		// authors requires one on create (except book-excerpt, parent-filled);
+		// the legal texts expose no authors — the court / jurisdiction carry
+		// the attribution.
+		$legal = [ 'legal-case', 'legislation', 'bill', 'treaty' ];
 		foreach ( SourceFieldMap::CLASS_KEYS as $classKey ) {
-			$this->assertTrue(
-				SourceFieldMap::acceptsField( $classKey, 'authors' ),
-				"class $classKey must expose authors"
+			$exposes = SourceFieldMap::acceptsField( $classKey, 'authors' );
+			$this->assertSame(
+				!in_array( $classKey, $legal, true ),
+				$exposes,
+				"class $classKey authors exposure drifted"
 			);
+			if ( $exposes && $classKey !== 'book-excerpt' ) {
+				$this->assertContains( 'authors', SourceFieldMap::requiredOnCreate( $classKey ) );
+			}
 		}
 	}
 
@@ -74,7 +82,7 @@ class FieldMapTest extends TestCase {
 	}
 
 	public function testSourceEntityTypedFieldsAreInTheVocabulary(): void {
-		foreach ( [ 'authors', 'publisher', 'journal', 'parent' ] as $field ) {
+		foreach ( [ 'authors', 'publisher', 'journal', 'parent', 'court' ] as $field ) {
 			$this->assertContains( $field, SourceFieldMap::ALL_FIELDS );
 			$this->assertTrue( SourceFieldMap::isEntityTyped( $field ) );
 		}

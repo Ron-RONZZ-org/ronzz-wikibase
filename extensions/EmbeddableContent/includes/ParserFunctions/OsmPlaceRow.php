@@ -15,19 +15,21 @@ use Wikibase\DataModel\Snak\PropertyValueSnak;
 use Wikibase\Repo\WikibaseRepo;
 
 /**
- * `{{#osm-place:birth}}` / `{{#osm-place:death}}` parser function — the
- * "Place of birth"/"Place of death" infobox cell of a Person: page
- * (osm-places follow-up).
+ * `{{#osm-place:birth}}` / `{{#osm-place:death}}` / `{{#osm-place:jurisdiction}}`
+ * parser function — the "Place of birth"/"Place of death" infobox cell of a
+ * Person: page (osm-places follow-up), and the "Jurisdiction" cell of a
+ * legal Source: page (the Zotero-aligned batch; territorial jurisdiction
+ * mirrors the OSM place-of-birth shape).
  *
  * Resolves the CURRENT page's sitelinked item (or, with a second argument,
  * an explicit item id — `{{#osm-place:birth|Q42}}`) and renders the OSM
  * place cell from its statements:
  *
- *   * the `place of birth (OSM)` / `place of death (OSM)` external-id
- *     statement (node|way|relation/<id>) → the human-readable display
- *     label (the parallel `place of birth (label)` / `place of death
- *     (label)` string statement, captured at creation) linked to
- *     https://www.openstreetmap.org/<id>;
+ *   * the `place of birth (OSM)` / `place of death (OSM)` /
+ *     `territorial jurisdiction (OSM)` external-id statement
+ *     (node|way|relation/<id>) → the human-readable display label (the
+ *     parallel `… (label)` string statement, captured at creation) linked
+ *     to https://www.openstreetmap.org/<id>;
  *   * when the label statement is absent (older items, ids typed by hand)
  *     → the raw id as the link text — the reader still reaches the OSM map;
  *   * when the item has no OSM place statement → '' (the cell stays empty,
@@ -57,7 +59,7 @@ final class OsmPlaceRow {
 	 */
 	public static function onOsmPlaceRow( EmbeddableContentConfig $config, Parser $parser, array $args ): array {
 		$which = strtolower( trim( (string)( $args[0] ?? '' ) ) );
-		if ( !in_array( $which, [ 'birth', 'death' ], true ) ) {
+		if ( !in_array( $which, [ 'birth', 'death', 'jurisdiction' ], true ) ) {
 			return [ 'text' => '', 'noparse' => false, 'isHTML' => false ];
 		}
 
@@ -71,9 +73,18 @@ final class OsmPlaceRow {
 			return [ 'text' => '', 'noparse' => false, 'isHTML' => false ];
 		}
 
-		$props = $config->personPropertyIds();
-		$osmKey = $which === 'birth' ? 'placeOfBirthOsm' : 'placeOfDeathOsm';
-		$labelKey = $which === 'birth' ? 'placeOfBirthLabel' : 'placeOfDeathLabel';
+		// The person places live in personProperties; the source-class
+		// territorial jurisdiction lives in sourceProperties (same OSM
+		// external-id + parallel label shape).
+		if ( $which === 'jurisdiction' ) {
+			$props = $config->sourcePropertyIds();
+			$osmKey = 'territorialJurisdictionOsm';
+			$labelKey = 'territorialJurisdictionLabel';
+		} else {
+			$props = $config->personPropertyIds();
+			$osmKey = $which === 'birth' ? 'placeOfBirthOsm' : 'placeOfDeathOsm';
+			$labelKey = $which === 'birth' ? 'placeOfBirthLabel' : 'placeOfDeathLabel';
+		}
 		$osmId = self::firstString( $entity, $props[$osmKey] ?? null );
 		if ( $osmId === '' || preg_match( '/^(node|way|relation)\/[1-9]\d*$/', $osmId ) !== 1 ) {
 			return [ 'text' => '', 'noparse' => false, 'isHTML' => false ];

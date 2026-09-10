@@ -109,9 +109,13 @@ class Hooks {
 
 		// AddPerson/UpdatePerson — the place-of-birth/death fields are OSM
 		// search comboboxes (osm-places): osmsuggest.js wires them to
-		// Nominatim (browser-first). isSpecial() covers the class-scoped
-		// subpages too (Special:AddPerson/<token>/review/0).
-		if ( $title->isSpecial( 'AddPerson' ) || $title->isSpecial( 'UpdatePerson' ) ) {
+		// Nominatim (browser-first). The AddSource/UpdateSource legal classes
+		// reuse the same combobox for the territorial-jurisdiction field.
+		// isSpecial() covers the class-scoped subpages too
+		// (Special:AddSource/legalCase/manual).
+		if ( $title->isSpecial( 'AddPerson' ) || $title->isSpecial( 'UpdatePerson' )
+			|| $title->isSpecial( 'AddSource' ) || $title->isSpecial( 'UpdateSource' )
+		) {
 			$out->addModules( 'ext.embeddableContent.osmsuggest' );
 		}
 

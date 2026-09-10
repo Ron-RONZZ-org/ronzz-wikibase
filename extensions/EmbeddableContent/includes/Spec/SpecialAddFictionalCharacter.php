@@ -5,6 +5,7 @@ declare( strict_types = 1 );
 namespace EmbeddableContent\Spec;
 
 use EmbeddableContent\Fetch\ProviderResult;
+use EmbeddableContent\Fields\EntityCombobox;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
@@ -122,14 +123,15 @@ class SpecialAddFictionalCharacter extends SpecialAddExternalEntity {
 			+ [
 				'givenName' => $this->plainTextField( 'embeddablecontent-field-givenname', (string)( $record['givenName'] ?? '' ) ),
 				'familyName' => $this->plainTextField( 'embeddablecontent-field-familyname', (string)( $record['familyName'] ?? '' ) ),
-				'appearsIn' => [
-					'type' => 'combobox',
-					'options' => [],
-					'label-message' => 'embeddablecontent-fictionalcharacter-field-appearsin',
-					'cssclass' => 'wb-entity-combobox wb-entity-combobox-multi',
-					'default' => $default,
-					'help' => $this->msg( 'embeddablecontent-fictionalcharacter-field-appearsin-help' )->parse(),
-				],
+				'appearsIn' => EntityCombobox::spec(
+					'embeddablecontent-fictionalcharacter-field-appearsin',
+					array_values( $this->config->sourceClasses() ),
+					true,
+					[
+						'default' => $default,
+						'help' => $this->msg( 'embeddablecontent-fictionalcharacter-field-appearsin-help' )->parse(),
+					]
+				),
 			]
 			+ $this->externalIdFieldSpecs( $record );
 	}

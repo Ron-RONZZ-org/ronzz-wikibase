@@ -160,6 +160,25 @@ SOURCE_CLASS_KINDS = {
     "YouTube video": "youtubeVideo",
     "web page": "webpage",
     "book excerpt": "bookExcerpt",
+    # Zotero/CSL-aligned set: newspaper/magazine articles, conference papers,
+    # reports and official documents, theses, legal texts (case / legislation
+    # / bill / treaty), interviews, maps, presentations and datasets.
+    "newspaper article": "newspaperArticle",
+    "magazine article": "magazineArticle",
+    "conference paper": "conferencePaper",
+    "report": "report",
+    "document": "document",
+    "thesis": "thesis",
+    "manuscript": "manuscript",
+    "patent": "patent",
+    "legal case": "legalCase",
+    "legislation": "legislation",
+    "bill": "bill",
+    "treaty": "treaty",
+    "interview": "interview",
+    "map": "map",
+    "presentation": "presentation",
+    "dataset": "dataset",
 }
 
 # Issue #7: source-class parent/child relations (child kind => parent kind).
@@ -184,6 +203,16 @@ SOURCE_PROPERTY_KINDS = {
     "license": "license",
     "access URL": "accessUrl",
     "file": "file",
+    # Zotero-aligned batch: legal/official-document facts. Territorial
+    # jurisdiction mirrors the OSM place-of-birth pattern (external-id +
+    # parallel human-readable label).
+    "court": "court",
+    "territorial jurisdiction (OSM)": "territorialJurisdictionOsm",
+    "territorial jurisdiction (label)": "territorialJurisdictionLabel",
+    "case number": "caseNumber",
+    "patent number": "patentNumber",
+    "report number": "reportNumber",
+    "legislation number": "legislationNumber",
 }
 
 # Issue #26: FOSS software properties (Special:AddSoftware statements).
@@ -238,6 +267,20 @@ IMAGE_PROPERTY_KINDS = {
     "license": "license",
     "image author": "imageAuthor",
     "additional license information": "imageLicenseInfo",
+}
+
+# Domain classes used to SCOPE entity-combobox searches (the class filter
+# passed to action=entitysearch): the license / operating-system /
+# user-interface / programming-language classes plus the publisher and
+# scholarly-journal classes. Emitted so the extension can restrict a
+# combobox to the right class instead of searching the whole instance.
+DOMAIN_CLASS_KINDS = {
+    "software license": "softwareLicense",
+    "operating system": "operatingSystem",
+    "user interface": "userInterface",
+    "programming language": "programmingLanguage",
+    "publisher": "publisher",
+    "scholarly journal": "scholarlyJournal",
 }
 
 
@@ -315,6 +358,11 @@ def build_config(
     for label, kind in FOSS_LICENSE_CLASS_KINDS.items():
         if label in class_ids:
             foss_license_classes[kind] = class_ids[label]
+
+    domain_classes: dict[str, str] = {}
+    for label, kind in DOMAIN_CLASS_KINDS.items():
+        if label in class_ids:
+            domain_classes[kind] = class_ids[label]
 
     image_classes: dict[str, str] = {}
     for label, kind in IMAGE_CLASS_KINDS.items():
@@ -410,6 +458,7 @@ def build_config(
         "fossClasses": foss_classes,
         "fossProperties": foss_props,
         "fossLicenseClasses": foss_license_classes,
+        "domainClasses": domain_classes,
         "softwareClasses": software_classes,
         "imageClasses": image_classes,
         "imageProperties": image_props,
