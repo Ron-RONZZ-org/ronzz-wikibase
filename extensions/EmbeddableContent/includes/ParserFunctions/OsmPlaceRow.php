@@ -4,8 +4,10 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\ParserFunctions;
 
+use DataValues\BooleanValue;
 use DataValues\StringValue;
 use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\Spec\JurisdictionList;
 use MediaWiki\Parser\Parser;
 use Wikibase\DataModel\Entity\EntityId;
 use Wikibase\DataModel\Entity\Item;
@@ -73,18 +75,51 @@ final class OsmPlaceRow {
 			return [ 'text' => '', 'noparse' => false, 'isHTML' => false ];
 		}
 
-		// The person places live in personProperties; the source-class
-		// territorial jurisdiction lives in sourceProperties (same OSM
-		// external-id + parallel label shape).
+		// The source-class territorial jurisdiction lives in sourceProperties
+		// (same OSM external-id + parallel label shape) and is MULTI-value
+		// since the Zotero follow-up: several ids + a JSON label map, or the
+		// international boolean marker instead.
 		if ( $which === 'jurisdiction' ) {
 			$props = $config->sourcePropertyIds();
-			$osmKey = 'territorialJurisdictionOsm';
-			$labelKey = 'territorialJurisdictionLabel';
-		} else {
-			$props = $config->personPropertyIds();
-			$osmKey = $which === 'birth' ? 'placeOfBirthOsm' : 'placeOfDeathOsm';
-			$labelKey = $which === 'birth' ? 'placeOfBirthLabel' : 'placeOfDeathLabel';
+			$ids = [];
+			foreach ( self::allStrings( $entity, $props['territorialJurisdictionOsm'] ?? null ) as $value ) {
+				foreach ( JurisdictionList::split( $value ) as $id ) {
+					if ( !in_array( $id, $ids, true ) ) {
+						$ids[] = $id;
+					}
+				}
+			}
+			if ( $ids === [] ) {
+				// An international legal text has no territorial jurisdiction —
+				// render the localized marker rather than an empty cell.
+				if ( !self::hasBoolean( $entity, $props['international'] ?? null ) ) {
+					return [ 'text' => '', 'noparse' => false, 'isHTML' => false ];
+				}
+				self::registerCacheDependency( $parser, $itemId );
+				return [
+					'text' => wfMessage( 'embeddablecontent-source-international-label' )
+						->inContentLanguage()->text(),
+					'noparse' => false,
+					'isHTML' => false,
+				];
+			}
+			// Editing the item must re-render every page showing this cell.
+			self::registerCacheDependency( $parser, $itemId );
+			$labels = JurisdictionList::labels(
+				self::firstString( $entity, $props['territorialJurisdictionLabel'] ?? null ),
+				$ids
+			);
+			return [
+				'text' => JurisdictionList::links( $ids, $labels ),
+				'noparse' => false,
+				'isHTML' => false,
+			];
 		}
+
+		// Person place of birth/death (single value).
+		$props = $config->personPropertyIds();
+		$osmKey = $which === 'birth' ? 'placeOfBirthOsm' : 'placeOfDeathOsm';
+		$labelKey = $which === 'birth' ? 'placeOfBirthLabel' : 'placeOfDeathLabel';
 		$osmId = self::firstString( $entity, $props[$osmKey] ?? null );
 		if ( $osmId === '' || preg_match( '/^(node|way|relation)\/[1-9]\d*$/', $osmId ) !== 1 ) {
 			return [ 'text' => '', 'noparse' => false, 'isHTML' => false ];
@@ -154,6 +189,48 @@ final class OsmPlaceRow {
 			}
 		}
 		return '';
+	}
+
+	/**
+	 * Every string statement value of a property ([] when none). The
+	 * multi-value territorial jurisdiction writes one statement per id.
+	 *
+	 * @return string[]
+	 */
+	private static function allStrings( Item $item, ?string $propId ): array {
+		if ( $propId === null ) {
+			return [];
+		}
+		$propertyId = new NumericPropertyId( $propId );
+		$out = [];
+		foreach ( $item->getStatements()->getByPropertyId( $propertyId ) as $statement ) {
+			$snak = $statement->getMainSnak();
+			if ( $snak instanceof PropertyValueSnak ) {
+				$value = $snak->getDataValue();
+				if ( $value instanceof StringValue && trim( $value->getValue() ) !== '' ) {
+					$out[] = trim( $value->getValue() );
+				}
+			}
+		}
+		return $out;
+	}
+
+	/** Whether a boolean statement is present and true. */
+	private static function hasBoolean( Item $item, ?string $propId ): bool {
+		if ( $propId === null ) {
+			return false;
+		}
+		$propertyId = new NumericPropertyId( $propId );
+		foreach ( $item->getStatements()->getByPropertyId( $propertyId ) as $statement ) {
+			$snak = $statement->getMainSnak();
+			if ( $snak instanceof PropertyValueSnak ) {
+				$value = $snak->getDataValue();
+				if ( $value instanceof BooleanValue && $value->getValue() ) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	/**

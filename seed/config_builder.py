@@ -179,6 +179,8 @@ SOURCE_CLASS_KINDS = {
     "map": "map",
     "presentation": "presentation",
     "dataset": "dataset",
+    # Catch-all (historical texts, inscriptions, …).
+    "text": "text",
 }
 
 # Issue #7: source-class parent/child relations (child kind => parent kind).
@@ -213,6 +215,9 @@ SOURCE_PROPERTY_KINDS = {
     "patent number": "patentNumber",
     "report number": "reportNumber",
     "legislation number": "legislationNumber",
+    # International legal texts: a boolean marker replacing territorial
+    # jurisdiction.
+    "international": "international",
 }
 
 # Issue #26: FOSS software properties (Special:AddSoftware statements).

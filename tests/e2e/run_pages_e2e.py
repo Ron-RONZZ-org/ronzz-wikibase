@@ -246,6 +246,18 @@ def first_value(claims: dict, prop_id: str):
     return None
 
 
+def claim_values(claims: dict, prop_id: str) -> list:
+    """Every statement value of a property (the multi-value assertion —
+    first_value() only returns the first)."""
+    out = []
+    for stmt in claims.get(prop_id, []):
+        dv = stmt.get("mainsnak", {}).get("datavalue", {}).get("value")
+        if isinstance(dv, dict):
+            dv = dv.get("id", dv)
+        out.append(dv)
+    return out
+
+
 def first_reference_url(claims: dict, prop_id: str) -> str | None:
     for stmt in claims.get(prop_id, []):
         for ref in stmt.get("references", []):
@@ -3517,18 +3529,18 @@ def main() -> int:
         print(f"[ok] AddSource (youtubeVideo) -> {video}: child class + part-of -> {channel}, "
               f"duration 1:02:30 = 3750s")
 
-        # 2f. Author requirement: creation without an author is rejected with
-        #     a form error (a source needs at least one author).
+        # 2f. Authors are OPTIONAL (title is the only required field): a book
+        #     created with only a title succeeds and carries NO author
+        #     statement (a text of unknown authorship is legitimate).
         noauthor_label = f"Page-flow E2E noauthor {int(time.time())}"
-        url, body = page_get(op, base, "/wiki/Special:AddSource/youtubeVideo/manual")
-        token = edit_token(body)
-        url2, body2 = page_post(op, url, {
-            "wptitle": noauthor_label, "wpEditToken": token, "wpSubmit": "1"})
-        if "/wiki/Item:Q" in url2:
-            raise FlowError("AddSource/youtubeVideo/manual created an item WITHOUT authors (must fail)")
-        if "at least one author" not in body2:
-            raise FlowError("AddSource/youtubeVideo/manual without authors produced no author error")
-        print("[ok] AddSource author requirement: creation without authors rejected")
+        noauthor_book = track(flow_source_class_manual(op, base, api, "book", {
+            "wptitle": noauthor_label,
+        }))
+        claims, _ = entity_claims(op, api, noauthor_book)
+        attributed_to_prop = resolve("attributed to", "property")
+        assert claims.get(attributed_to_prop) is None, \
+            f"{noauthor_book} unexpectedly carries an author statement"
+        print("[ok] AddSource author optional: title-only creation, no author statement")
 
         # 2g. AddSource/book publisher — entity-only (issue #35): the manual
         #     form takes a publisher ITEM; the created item carries the entity
@@ -3549,17 +3561,19 @@ def main() -> int:
               f"no string statement")
 
         # 2g2. AddSource legal-case manual — the Zotero-aligned class set: a
-        #      legal case carries the court (entity), the territorial
-        #      jurisdiction (OSM external-id + parallel label) and the case
-        #      number, and NO author statement (the legal classes expose no
-        #      authors — the court / jurisdiction carry the attribution).
+        #      legal case carries the court (entity), the MULTI-value
+        #      territorial jurisdiction (one OSM external-id statement per id
+        #      + a JSON label map) and the case number, and NO author
+        #      statement (the legal classes expose no authors — the court /
+        #      jurisdiction carry the attribution).
         court_qid = create_api_item(op, api, f"Page-flow E2E court {int(time.time())}")
         legal_label = f"Page-flow E2E legal case {int(time.time())}"
         legal_case = track(flow_source_class_manual(op, base, api, "legalCase", {
             "wptitle": legal_label,
             "wpcourt": court_qid,
-            "wpterritorialJurisdiction": "relation/12345",
-            "wpterritorialJurisdictionLabel": "United States",
+            "wpterritorialJurisdiction": "relation/12345, relation/67890",
+            "wpterritorialJurisdictionLabel":
+                '{"relation/12345": "United States", "relation/67890": "Canada"}',
             "wpcaseNumber": "410 U.S. 113",
         }))
         claims, _ = entity_claims(op, api, legal_case)
@@ -3570,16 +3584,69 @@ def main() -> int:
         attributed_to_prop = resolve("attributed to", "property")
         assert first_value(claims, court_prop) == court_qid, \
             f"{legal_case} court statement missing ({first_value(claims, court_prop)})"
-        assert first_value(claims, jurisdiction_prop) == "relation/12345", \
-            f"{legal_case} jurisdiction statement missing ({first_value(claims, jurisdiction_prop)})"
-        assert first_value(claims, jurisdiction_label_prop) == "United States", \
-            f"{legal_case} jurisdiction label missing ({first_value(claims, jurisdiction_label_prop)})"
+        jurisdiction_ids = sorted(claim_values(claims, jurisdiction_prop))
+        assert jurisdiction_ids == ["relation/12345", "relation/67890"], \
+            f"{legal_case} multi-jurisdiction statements wrong ({jurisdiction_ids})"
+        assert json.loads(first_value(claims, jurisdiction_label_prop)) == {
+            "relation/12345": "United States", "relation/67890": "Canada",
+        }, f"{legal_case} jurisdiction label map wrong ({first_value(claims, jurisdiction_label_prop)})"
         assert first_value(claims, case_number_prop) == "410 U.S. 113", \
             f"{legal_case} case number missing ({first_value(claims, case_number_prop)})"
         assert claims.get(attributed_to_prop) is None, \
             f"{legal_case} unexpectedly carries an author statement"
-        print(f"[ok] AddSource/legalCase manual -> {legal_case}: court + OSM jurisdiction "
+        print(f"[ok] AddSource/legalCase manual -> {legal_case}: court + multi OSM jurisdiction "
               f"+ case number, no authors")
+
+        # 2g3. AddSource international treaty: the international checkbox
+        #      REPLACES the territorial jurisdiction — the boolean marker is
+        #      written and no jurisdiction statement exists.
+        intl_label = f"Page-flow E2E international treaty {int(time.time())}"
+        intl_treaty = track(flow_source_class_manual(op, base, api, "treaty", {
+            "wptitle": intl_label,
+            "wpinternational": "1",
+        }))
+        claims, _ = entity_claims(op, api, intl_treaty)
+        international_prop = resolve("international", "property")
+        assert first_value(claims, international_prop) is True, \
+            f"{intl_treaty} international marker missing ({first_value(claims, international_prop)})"
+        assert claims.get(jurisdiction_prop) is None, \
+            f"{intl_treaty} unexpectedly carries a jurisdiction statement"
+        print(f"[ok] AddSource/treaty manual -> {intl_treaty}: international marker, no jurisdiction")
+
+        # 2g4. Regression (the Special:AddSource/treaty/manual TypeError): a
+        #      creation error raised inside createItemAndRedirect must render
+        #      the form-error page, never a raw TypeError 500. A 5-digit year
+        #      passes beforeCreate (the maxlength is client-side only) and is
+        #      rejected by the flow service — the old `: bool` return type
+        #      turned that string into an uncaught TypeError.
+        bad_year_title = f"Page-flow E2E bad year {int(time.time())}"
+        reg_url, reg_body = page_get(op, base, "/wiki/Special:AddSource/book/manual")
+        reg_token = edit_token(reg_body)
+        try:
+            reg_url, reg_body = page_post(op, reg_url, {
+                "wptitle": bad_year_title,
+                "wpissuedYear": "99999",
+                "wpEditToken": reg_token,
+                "wpSubmit": "1",
+            })
+        except urllib.error.HTTPError as e:
+            raise FlowError(
+                f"AddSource/book/manual creation error returned HTTP {e.code} "
+                f"(expected the form-error page, not a 500)")
+        assert "Creating the item failed" in reg_body, \
+            f"AddSource/book/manual bad year did not render the flow error ({find_error(reg_body)})"
+        print("[ok] AddSource/book/manual creation error renders as a form error (no 500)")
+
+        # 2g5. AddSource text catch-all class: title is the only required
+        #      field — a historical text of unknown authorship creates.
+        text_label = f"Page-flow E2E text {int(time.time())}"
+        text_item = track(flow_source_class_manual(op, base, api, "text", {
+            "wptitle": text_label,
+        }))
+        claims, _ = entity_claims(op, api, text_item)
+        assert claims.get(attributed_to_prop) is None, \
+            f"{text_item} unexpectedly carries an author statement"
+        print(f"[ok] AddSource/text manual -> {text_item}: title-only creation, no authors")
 
         # 2h. AddSource/book access field, local-file mode (issue #35): the
         #     upload lands as File:<label>.png (auto-named from the item

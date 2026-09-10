@@ -20,5 +20,6 @@
 	"interview": "interview",
 	"map": "map",
 	"presentation": "speech",
-	"dataset": "dataset"
+	"dataset": "dataset",
+	"text": "document"
 }

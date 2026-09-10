@@ -629,6 +629,20 @@ trait UpdateExternalEntityFlow {
 		return null;
 	}
 
+	/** Boolean statement value (false when none). */
+	protected function booleanForProperty( Item $item, ?string $propertyId ): bool {
+		if ( $propertyId === null ) {
+			return false;
+		}
+		foreach ( $item->getStatements()->getByPropertyId( new NumericPropertyId( $propertyId ) ) as $statement ) {
+			$value = $statement->getMainSnak()->getDataValue();
+			if ( $value instanceof \DataValues\BooleanValue ) {
+				return $value->getValue();
+			}
+		}
+		return false;
+	}
+
 	// ------------------------------------------------------------- shared plumbing
 
 	/** Item id from the subpage (Special:UpdatePerson/Q42) or ?item=Q42. */

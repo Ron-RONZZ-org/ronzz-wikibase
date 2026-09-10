@@ -7,6 +7,7 @@ namespace Tests\Unit;
 use DataValues\StringValue;
 use DataValues\TimeValue;
 use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\Flow\SourceFieldMap;
 use EmbeddableContent\Flow\SourceFlowService;
 use PHPUnit\Framework\TestCase;
 use Wikibase\DataModel\Entity\EntityId;
@@ -44,6 +45,7 @@ class SourceFlowServiceTest extends TestCase {
 			'court' => 'P60', 'territorialJurisdictionOsm' => 'P61',
 			'territorialJurisdictionLabel' => 'P62', 'caseNumber' => 'P63',
 			'patentNumber' => 'P64', 'reportNumber' => 'P65', 'legislationNumber' => 'P66',
+			'international' => 'P67',
 		],
 		'provenance' => [ 'attributedTo' => 'P6', 'date' => 'P8' ],
 		'citationMetadata' => [
@@ -98,6 +100,8 @@ class SourceFlowServiceTest extends TestCase {
 			'webpage' => 'Web page', 'song' => 'Song', 'film' => 'Film', 'video' => 'Video',
 			'youtubeChannel' => 'YouTube channel', 'youtubeVideo' => 'YouTube video',
 			'bookExcerpt' => 'Book excerpt',
+			'text' => 'Text', 'legalCase' => 'Legal case', 'treaty' => 'Treaty',
+			'legislation' => 'Legislation', 'bill' => 'Bill',
 		];
 		$message = static function ( string $key, array $params ) use ( $classLabels ): string {
 			if ( str_starts_with( $key, 'embeddablecontent-source-class-' ) ) {
@@ -117,16 +121,20 @@ class SourceFlowServiceTest extends TestCase {
 
 	// ------------------------------------------------------------- validation
 
-	public function testWebpageRequiresAuthorsAndParent(): void {
+	public function testWebpageRequiresParentButNotAuthors(): void {
 		$service = $this->makeService();
+		// Title + parent only: authors are OPTIONAL on create (a text of
+		// unknown authorship is legitimate). The parent error fires.
 		$record = [ 'title' => 'A Page', 'url' => 'https://example.org/page' ];
-
-		$this->assertSame( SourceFlowService::ERROR_NO_AUTHOR, $service->prepare( 'webpage', $record, true ) );
-
-		$record = [ 'title' => 'A Page', 'authors' => 'Q6', 'url' => 'https://example.org/page' ];
 		$error = $service->prepare( 'webpage', $record, true );
 		$this->assertIsString( $error );
 		$this->assertStringContainsString( 'requires parent', $error );
+	}
+
+	public function testAuthorsAreOptionalOnCreate(): void {
+		$service = $this->makeService();
+		$record = [ 'title' => 'The Hobbit' ];
+		$this->assertNull( $service->prepare( 'book', $record, true ) );
 	}
 
 	public function testWebpageAcceptsAuthorsAndValidWebsiteParent(): void {
@@ -218,10 +226,76 @@ class SourceFlowServiceTest extends TestCase {
 		$specs = $service->statementSpecs( 'legal-case', $record );
 
 		$this->assertSame( 'Q42', $specs['P60']->getEntityId()->getSerialization() );
-		$this->assertSame( 'relation/12345', $specs['P61']->getValue() );
-		$this->assertSame( 'United States', $specs['P62']->getValue() );
+		// Multi-value: one external-id statement per jurisdiction.
+		$this->assertSame(
+			[ 'relation/12345' ],
+			array_map( static fn ( $v ) => $v->getValue(), $specs['P61'] )
+		);
+		// The parallel label map is JSON (id => display name); the legacy
+		// plain label attaches to the single id.
+		$this->assertSame(
+			[ 'relation/12345' => 'United States' ],
+			json_decode( $specs['P62']->getValue(), true )
+		);
 		$this->assertSame( '410 U.S. 113', $specs['P63']->getValue() );
 		$this->assertSame( '+1973-00-00T00:00:00Z', $specs['P8']->getTime() );
+	}
+
+	public function testMultiJurisdictionWritesOneStatementPerIdAndPrunesLabels(): void {
+		$service = $this->makeService();
+		$record = [
+			'title' => 'A Treaty',
+			'territorialJurisdiction' => 'relation/123, relation/456',
+			'territorialJurisdictionLabel' => '{"relation/123":"France","relation/456":"Germany","relation/999":"Stale"}',
+		];
+
+		$specs = $service->statementSpecs( 'treaty', $record );
+
+		$this->assertSame(
+			[ 'relation/123', 'relation/456' ],
+			array_map( static fn ( $v ) => $v->getValue(), $specs['P61'] )
+		);
+		$this->assertSame(
+			[ 'relation/123' => 'France', 'relation/456' => 'Germany' ],
+			json_decode( $specs['P62']->getValue(), true )
+		);
+	}
+
+	public function testInternationalMarkerReplacesJurisdiction(): void {
+		$service = $this->makeService();
+		$record = [
+			'title' => 'A Treaty',
+			'international' => '1',
+			'territorialJurisdiction' => 'relation/123',
+			'territorialJurisdictionLabel' => '{"relation/123":"France"}',
+		];
+
+		$specs = $service->statementSpecs( 'treaty', $record );
+
+		$this->assertTrue( $specs['P67']->getValue() );
+		// The jurisdiction properties are present but EMPTY: an update
+		// removes their stale statements; a create adds nothing.
+		$this->assertSame( [], $specs['P61'] );
+		$this->assertSame( [], $specs['P62'] );
+	}
+
+	public function testUncheckedInternationalWritesFalse(): void {
+		$service = $this->makeService();
+		$record = [ 'title' => 'A Treaty', 'international' => '' ];
+
+		$specs = $service->statementSpecs( 'treaty', $record );
+
+		$this->assertArrayHasKey( 'P67', $specs );
+		$this->assertFalse( $specs['P67']->getValue() );
+	}
+
+	public function testTextCatchAllClassBuilds(): void {
+		$service = $this->makeService();
+		$record = [ 'title' => 'Codex Sinaiticus' ];
+
+		$this->assertNull( $service->prepare( 'text', $record, true ) );
+		$this->assertSame( [ 'title' ], SourceFieldMap::requiredOnCreate( 'text' ) );
+		$this->assertSame( 'Codex Sinaiticus (Text)', $service->labelFor( 'text', $record ) );
 	}
 
 	public function testLegalCaseDoesNotRequireAuthors(): void {

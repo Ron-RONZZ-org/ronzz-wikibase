@@ -218,6 +218,8 @@ class EmbeddableContentConfig {
 			'report', 'document', 'thesis', 'manuscript', 'patent',
 			'legalCase', 'legislation', 'bill', 'treaty',
 			'interview', 'map', 'presentation', 'dataset',
+			// Catch-all (historical texts, inscriptions, …).
+			'text',
 		] );
 	}
 
@@ -256,6 +258,9 @@ class EmbeddableContentConfig {
 			// Zotero-aligned batch: legal/official-document facts.
 			'court', 'territorialJurisdictionOsm', 'territorialJurisdictionLabel',
 			'caseNumber', 'patentNumber', 'reportNumber', 'legislationNumber',
+			// International legal texts (a marker replacing territorial
+			// jurisdiction).
+			'international',
 		] );
 	}
 

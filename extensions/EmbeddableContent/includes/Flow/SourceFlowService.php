@@ -4,6 +4,7 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\Flow;
 
+use DataValues\BooleanValue;
 use DataValues\QuantityValue;
 use DataValues\StringValue;
 use DataValues\TimeValue;
@@ -12,8 +13,8 @@ use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\EntityClassFilter;
 use EmbeddableContent\Fetch\YouTubeProvider;
 use EmbeddableContent\Spec\ItemIdList;
+use EmbeddableContent\Spec\JurisdictionList;
 use EmbeddableContent\Spec\LabelSanitizer;
-use EmbeddableContent\Spec\OsmPlace;
 use Wikibase\DataModel\DataValue;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
@@ -193,17 +194,46 @@ final class SourceFlowService {
 		if ( $courtItem !== null && isset( $props['court'] ) ) {
 			$specs[$props['court']] = new EntityIdValue( $courtItem );
 		}
-		// Territorial jurisdiction mirrors the OSM place-of-birth pattern:
-		// the external-id statement carries the node|way|relation id, and
-		// the parallel label statement is written only alongside its id.
-		$jurisdictionOsm = trim( (string)( $record['territorialJurisdiction'] ?? '' ) );
-		if ( $jurisdictionOsm !== '' && isset( $props['territorialJurisdictionOsm'] )
-			&& OsmPlace::isValidId( $jurisdictionOsm )
-		) {
-			$specs[$props['territorialJurisdictionOsm']] = new StringValue( $jurisdictionOsm );
-			$jurisdictionLabel = trim( (string)( $record['territorialJurisdictionLabel'] ?? '' ) );
-			if ( $jurisdictionLabel !== '' && isset( $props['territorialJurisdictionLabel'] ) ) {
-				$specs[$props['territorialJurisdictionLabel']] = new StringValue( $jurisdictionLabel );
+		// International legal texts: the boolean marker REPLACES the
+		// territorial jurisdiction (no jurisdiction statement is written
+		// while it is set). The key's PRESENCE (even empty) means the form
+		// managed the checkbox — an unchecked submit writes false and clears
+		// a previously-set marker.
+		if ( array_key_exists( 'international', $record ) && isset( $props['international'] ) ) {
+			$specs[$props['international']] = new BooleanValue( !empty( $record['international'] ) );
+		}
+		if ( empty( $record['international'] ) ) {
+			// Territorial jurisdiction mirrors the OSM place-of-birth
+			// pattern, extended to MULTIPLE jurisdictions: one external-id
+			// statement per id, plus the parallel JSON label map
+			// (id => display name) written only alongside its ids.
+			$jurisdictionIds = JurisdictionList::split(
+				(string)( $record['territorialJurisdiction'] ?? '' )
+			);
+			if ( $jurisdictionIds !== [] && isset( $props['territorialJurisdictionOsm'] ) ) {
+				$specs[$props['territorialJurisdictionOsm']] = array_map(
+					static fn ( string $id ): StringValue => new StringValue( $id ),
+					$jurisdictionIds
+				);
+				$labels = JurisdictionList::labels(
+					(string)( $record['territorialJurisdictionLabel'] ?? '' ),
+					$jurisdictionIds
+				);
+				if ( $labels !== [] && isset( $props['territorialJurisdictionLabel'] ) ) {
+					$specs[$props['territorialJurisdictionLabel']] = new StringValue(
+						JurisdictionList::encodeLabels( $labels )
+					);
+				}
+			}
+		} else {
+			// The marker REPLACES the jurisdiction: emit the property keys
+			// with no values so an UPDATE removes stale jurisdiction
+			// statements (buildItem simply adds nothing).
+			if ( isset( $props['territorialJurisdictionOsm'] ) ) {
+				$specs[$props['territorialJurisdictionOsm']] = [];
+			}
+			if ( isset( $props['territorialJurisdictionLabel'] ) ) {
+				$specs[$props['territorialJurisdictionLabel']] = [];
 			}
 		}
 		foreach ( [
@@ -435,20 +465,16 @@ final class SourceFlowService {
 	 * @param array<string,mixed> $record
 	 */
 	private function validateAuthors( string $classKey, array &$record, bool $creating ): ?string {
-		$formKey = SourceFieldMap::formKey( $classKey );
 		// Classes that do not expose authors (the legal texts: the court /
-		// jurisdiction carry the attribution) never require one.
+		// jurisdiction carry the attribution) never validate one.
 		if ( !SourceFieldMap::acceptsField( $classKey, 'authors' ) ) {
 			return null;
 		}
-		if ( $formKey === 'bookExcerpt' && empty( $record['authors'] ) ) {
-			return null; // parent-filled (or absent — validateParent reports)
-		}
-		if ( $creating && empty( $record['authors'] ) ) {
-			return self::ERROR_NO_AUTHOR;
-		}
+		// Authors are optional (title is the only required field): an empty
+		// list is legitimate, and a blank update keeps the existing
+		// statements. Only the ids actually provided are validated.
 		if ( empty( $record['authors'] ) ) {
-			return null; // update: blank authors keep the existing statements
+			return null;
 		}
 		$agentIds = array_values( $this->config->agentClasses() );
 		foreach ( ItemIdList::split( (string)$record['authors'] ) as $authorId ) {
