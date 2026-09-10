@@ -56,4 +56,6 @@ content pages),
 least-privilege writer bot), `reuse-file-subdomain-sourcecite.md` (reuse-file
 CONTAINS search, subdomain parent inference, Source-page internal citation),
 `zotero-source-classes.md` (Zotero/CSL-aligned source classes + class-scoped
-entity comboboxes).
+entity comboboxes), `addsource-improvements.md` (title-only required fields,
+multi-value territorial jurisdiction + international marker, the `text`
+catch-all class, and the `bool|string` return-type fix).

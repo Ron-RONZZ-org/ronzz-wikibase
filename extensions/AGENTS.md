@@ -228,6 +228,37 @@ PR #66) — drop the patch on re-vendor once upstream merges it.
   license implementations collapse into `licenseSpec()`), and
   `EntityClassFilter` is the one `instance-of` helper. Legal classes omit
   authors; the citation source-type map gains the CSL types.
+- **AddSource round 4 — optional fields, multi-value jurisdiction,
+  international marker, `text` class (ADR
+  `docs/decisions/addsource-improvements.md`)**: (a) **title is the ONLY
+  required field** — `SourceFieldMap::requiredOnCreate()` drops `authors`
+  (kept: `parent` for the child classes); the form's `authors` `required`
+  flag, `SpecialAddSource::validateAuthors` and
+  `SourceFlowService::validateAuthors` validate only supplied ids, so a text
+  of unknown authorship creates. (b) **Territorial jurisdiction is
+  MULTI-value**: the legal texts' combobox takes a comma-separated list of
+  OSM ids, the hidden label sibling stores a JSON map `{id: display name}`
+  (legacy plain labels still render, attached to the first id), and
+  `Spec/JurisdictionList` (pure, unit-tested: `segments`/`allValid`/`split`/
+  `labels`/`encodeLabels`/`links`) is the one helper shared by the form's
+  `beforeCreate`, `SourceFlowService::statementSpecs`, the
+  `{{#osm-place:jurisdiction}}` renderer and the Update prefill; one
+  `territorial jurisdiction (OSM)` statement per id + one JSON `(label)`
+  statement. (c) **International marker**: new **boolean** property
+  `international` (the property manifest now accepts `boolean`) + a
+  per-class checkbox on legalCase/legislation/bill/treaty that REPLACES the
+  jurisdiction (hidden + cleared server-side, localized "International" in
+  the rendered cell); the form always manages the checkbox (unchecked writes
+  `false`; switching on update removes stale jurisdiction statements via
+  empty-array specs). (d) **`text` catch-all class** (Q234460-aligned,
+  manual-only, `Source:` page → `Template:Text`, CSL `document`). (e) The
+  **`Special:AddSource/treaty/manual` `TypeError` 500 fix**:
+  `SpecialAddExternalEntity::createItemAndRedirect()` and
+  `onDuplicateCreateSubmit()` now return `bool|string` (a form-error string
+  is a valid HTMLForm callback result); a regression E2E posts a 5-digit
+  `wpissuedYear` and asserts the form-error page. **Re-seed required** (new
+  class + property + config map); `Template:Text` is a content-creation
+  deploy task.
 - **AddSource publisher is entity-only (issue #35)**: book/scholarlyArticle
   take the publisher as an entity combobox (item-typed `publisher (entity)`
   property, P123-aligned) — no free-text mode. A harvested STRING publisher
