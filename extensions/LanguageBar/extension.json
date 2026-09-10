@@ -1,0 +1,41 @@
+{
+	"name": "LanguageBar",
+	"version": "1.0.0",
+	"author": [
+		"ronzz.org"
+	],
+	"url": "https://github.com/Ron-RONZZ-org/ronzz-wikibase",
+	"descriptionmsg": "languagebar-desc",
+	"license-name": "GPL-2.0-or-later",
+	"type": "other",
+	"requires": {
+		"MediaWiki": ">= 1.46.0"
+	},
+	"AutoloadNamespaces": {
+		"LanguageBar\\": "includes/"
+	},
+	"MessagesDirs": {
+		"LanguageBar": [
+			"i18n"
+		]
+	},
+	"ExtensionMessagesFiles": {
+		"LanguageBarMagic": "i18n/LanguageBar.i18n.magic.php"
+	},
+	"config": {
+		"LanguageBarNamespaces": {
+			"value": null,
+			"description": "Namespace IDs on which the languages bar is injected automatically. null = $wgContentNamespaces plus the Help namespace."
+		}
+	},
+	"HookHandlers": {
+		"main": {
+			"class": "LanguageBar\\Hooks"
+		}
+	},
+	"Hooks": {
+		"OutputPageBeforeHTML": "main",
+		"ParserFirstCallInit": "main"
+	},
+	"manifest_version": 2
+}

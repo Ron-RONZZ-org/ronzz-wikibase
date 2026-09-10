@@ -34,7 +34,9 @@ clean wikitext**, with browser machine translation as the reader-side complement
   `<!--T:n-->`, no `Special:MyLanguage` links.
 - A translated copy lives at a `/lang` subpage, opens with a
   `{{Translation|lang=fr|based-on=<revid>|date=YYYY-MM-DD}}` banner, and is linked from the
-  source page via a `{{Languages}}` bar.
+  source page via a `{{Languages}}` bar. **Updated 2026-09-10**: the bar is no
+  longer added by hand — the `LanguageBar` extension injects it on every content page (see
+  `automatic-languages-bar.md`); `Template:Languages` is the manual form of the same builder.
 - **Drift signaling** (the one real function the markup provided — "outdated" flags on changed
   units) is replaced by: the `based-on` revision on every copy + the convention that **an EN
   edit regenerates the fr/eo copies in the same session** (see

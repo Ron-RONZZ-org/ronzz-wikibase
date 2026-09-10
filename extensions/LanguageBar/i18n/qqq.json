@@ -1,0 +1,9 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		]
+	},
+	"languagebar-desc": "{{desc|name=LanguageBar|url=https://github.com/Ron-RONZZ-org/ronzz-wikibase}}",
+	"languagebar-label": "Label introducing the languages bar, followed by a colon. The language names beside it are autonyms (English, français, Esperanto) and are not translated."
+}

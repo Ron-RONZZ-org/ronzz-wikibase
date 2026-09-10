@@ -2,11 +2,12 @@
 
 ## Summary
 
-The two custom MediaWiki extensions of ronzz-wikibase: **EmbeddableContent**
+The custom MediaWiki extensions of ronzz-wikibase: **EmbeddableContent**
 (D3 + issue #7: embeddable quotation/code/math content, external-authority
-entity creation, embed skin, toolbar gadget) and **WikibaseCitation** (D4:
-citation formatting from Wikibase statements). Both are standalone
-extensions — never forks of Wikibase.
+entity creation, embed skin, toolbar gadget), **WikibaseCitation** (D4:
+citation formatting from Wikibase statements) and **LanguageBar** (the
+automatic `{{Languages}}` static-translation bar on content pages). All are
+standalone extensions — never forks of Wikibase.
 
 Plus **vendored third-party** extensions: **DPLforum** (the forum — see
 `DPLforum/VENDORED.md` for provenance and `../docs/decisions/forum-dplforum.md`
@@ -891,6 +892,23 @@ PR #66) — drop the patch on re-vendor once upstream merges it.
   to contradict it); string-valued authors keep the legacy split (no class
   information); the single-word string fallback is family-only too (a literal
   would render an empty author).
+
+### LanguageBar
+
+- **Automatic languages bar** (`extensions/LanguageBar/`): the
+  static-translation switcher (`{{Languages}}`) is included by default on
+  every content page — `Hooks::onOutputPageBeforeHTML` prepends it at render
+  time on article views in `$wgLanguageBarNamespaces` (the instance sets
+  Main/Help/Cheatsheets/HowItWorks/FOSS/Person/Source/Collective/Software;
+  entity, Template, Category, MediaWiki, Special, talk, Forum and the gated
+  RonzzIT:/RonzzInt: namespaces are excluded). It skips a page already
+  rendering a bar (an explicit `{{Languages}}`), a `/fr`/`/eo` translation
+  copy (the `{{Translation}}` banner) and diffs, so no page is double-barred.
+  `Template:Languages` wraps the same builder (`{{#languagebar:}}`), so the
+  automatic bar and an explicit call render identically. The language names
+  are autonyms; the `Languages` label follows the reader's interface language
+  (en/fr/eo). No DB/seed/manifest/config-map surface — see
+  `LanguageBar/AGENTS.md` + `../docs/decisions/automatic-languages-bar.md`.
 
 ## Constraints and Invariants
 

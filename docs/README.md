@@ -12,7 +12,8 @@ Self-hosted **Wikibase** (structured-data wiki, the software behind Wikidata) on
 
 ## What stays public (this repo)
 
-- Extension code: EmbeddableContent, WikibaseCitation (+ the shared entity model);
+- Extension code: EmbeddableContent, WikibaseCitation, LanguageBar (+ the
+  shared entity model);
   **DPLforum** (third-party forum, vendored at `extensions/DPLforum/`) +
   **InputBox** (third-party thread-creation field, `extensions/InputBox/`) —
   see their `VENDORED.md` + `docs/decisions/forum-dplforum.md`); **Diagrams**
@@ -24,8 +25,9 @@ Self-hosted **Wikibase** (structured-data wiki, the software behind Wikidata) on
   `docs/decisions/inline-latex-math.md`)
 - seed/ (bootstrap orchestrator), tools/, tests/, dev/ (CI stack)
 - `docs/decisions/` — ADR-style design rationale (opaque IDs, ontology alignment,
-  raw RDF in Blazegraph, cite-by-QID, static LLM translation, forum via DPLforum,
-  diagrams via Extension:Diagrams, inline LaTeX math via SimpleMathJax)
+  raw RDF in Blazegraph, cite-by-QID, static LLM translation, automatic
+  languages bar, forum via DPLforum, diagrams via Extension:Diagrams, inline
+  LaTeX math via SimpleMathJax)
 - `docs/contribution-guide.md` — pointer to the on-wiki `Help:Contributing` family
 - Editor-facing rules live on-wiki at `Help:Contributing` (public)
 
@@ -48,6 +50,8 @@ Architecture/design choices (ADR-style) live in `docs/decisions/`:
 properties + equivalence mappings), `raw-rdf-in-blazegraph.md` (two-worlds:
 curated entities + native RDF), `cite-by-qid.md` (citations as a derived view),
 `static-llm-translation.md` (static LLM-maintained copies, no translation markup),
+`automatic-languages-bar.md` (the languages bar is injected by default on
+content pages),
 `owui-wiki-writer.md` (Open WebUI as the LLM writer studio — MCP endpoint +
 least-privilege writer bot), `reuse-file-subdomain-sourcecite.md` (reuse-file
 CONTAINS search, subdomain parent inference, Source-page internal citation),

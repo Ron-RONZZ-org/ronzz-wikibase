@@ -1,0 +1,9 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		]
+	},
+	"languagebar-desc": "Barre de langues automatique sur les pages de contenu",
+	"languagebar-label": "Langues"
+}
