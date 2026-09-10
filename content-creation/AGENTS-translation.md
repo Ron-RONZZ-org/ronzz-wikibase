@@ -10,7 +10,8 @@ Since the ADR [`docs/decisions/static-llm-translation.md`](../docs/decisions/sta
 - **Never add translation markup** — no `<languages/>`, `<translate>`, `<tvar>`,
   `<!--T:n-->`, no `Special:MyLanguage` links. Pages are plain wikitext.
 - **fr/eo copies are static subpages** (`Help:Contributing/code/fr`), linked from the source
-  page with a `{{Languages}}` bar, each opening with
+  page with a `{{Languages}}` bar (now injected automatically on every content page — see
+  `docs/decisions/automatic-languages-bar.md`), each opening with
   `{{Translation|lang=fr|based-on=<revid>|date=YYYY-MM-DD}}` (the drift signal: which EN
   revision it mirrors).
 - **Translate on demand, not en masse.** Only pages that have settled editorially, or pages
@@ -31,8 +32,9 @@ Since the ADR [`docs/decisions/static-llm-translation.md`](../docs/decisions/sta
    `{{Translation|lang=…|based-on=<revid>|date=…}}` banner as the first line.
 4. The EN page's `{{Languages}}` bar already lists the `fr`/`eo` slots unconditionally
    (ParserFunctions is not installed, so the bar cannot probe page existence) — creating the
-   copy fills its slot; no bar edit is needed. Add the bar to a page that has copies but no
-   bar yet.
+   copy fills its slot; no bar edit is needed. The bar is injected automatically on every
+   content page since 2026-09-10 (`docs/decisions/automatic-languages-bar.md`) — **do not add
+   it by hand**; a manual `{{Languages}}` is simply not duplicated.
 5. Verify: page size via `prop=revisions` (a size collapse means truncation) + rendered HTML
    via `action=parse`.
 

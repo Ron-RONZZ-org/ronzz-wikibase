@@ -140,6 +140,18 @@ $wgNamespacesWithSubpages[NS_FORUM] = true;
 $wgContentNamespaces[] = NS_FORUM;
 $wgNamespacesToBeSearchedDefault[NS_FORUM] = true;
 
+// ---- LanguageBar (automatic languages bar on content pages) ----
+// The bar is injected server-side on article views in these namespaces
+// (extensions/LanguageBar). Entity (Item:/Property:), Template:, Category:,
+// MediaWiki:, Special:, talk, Forum (threads are not translated), and the
+// gated RonzzIT:/RonzzInt: namespaces are deliberately excluded. The list
+// uses raw namespace ids because the Cheatsheets (2000) / HowItWorks (2002)
+// namespaces are a production LocalSettings-only change and are not defined
+// in this dev/CI config; the ids are inert here. Mirrors the production
+// LocalSettings.php block (see RonzzIT:Deployment/Wikibase on the instance).
+wfLoadExtension( 'LanguageBar' );
+$wgLanguageBarNamespaces = [ 0, 12, 2000, 2002, 2008, 2010, 2012, 2014, 2016 ];
+
 // ---- Wikibase client (same-wiki) — mirrors production LocalSettings ----
 // Without this the client hooks never run: {{#statements:}} renders nothing
 // and the wikibase_item page property is never set (issue #30 discovered

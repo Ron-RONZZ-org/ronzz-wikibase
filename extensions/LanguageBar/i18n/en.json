@@ -1,0 +1,11 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		],
+		"description": "Automatic languages bar (static-translation switcher) on content pages.",
+		"license-name": "GPL-2.0-or-later"
+	},
+	"languagebar-desc": "Automatic languages bar on content pages",
+	"languagebar-label": "Languages"
+}

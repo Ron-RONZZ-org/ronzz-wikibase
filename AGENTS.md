@@ -22,8 +22,9 @@ ronzz-wikibase is the customization and maintenance project for the
 self-hosted Wikibase (structured-data wiki) at **wikibase.ronzz.org**. This
 repo tracks the v1 plan and follow-up issues, holds the instance
 documentation (`docs/`), and hosts the custom extension code
-(EmbeddableContent, WikibaseCitation) plus the vendored third-party DPLforum
-forum extension, and the seed tooling that bootstrapped the instance.
+(EmbeddableContent, WikibaseCitation, LanguageBar) plus the vendored
+third-party DPLforum forum extension, and the seed tooling that bootstrapped
+the instance.
 
 ---
 
@@ -88,7 +89,7 @@ forum extension, and the seed tooling that bootstrapped the instance.
 | Wiki platform | MediaWiki 1.46 + Wikibase (repo), self-hosted at wikibase.ronzz.org |
 | Query service | WDQS (Blazegraph SPARQL 0.3.156) |
 | Database | MySQL / MariaDB |
-| Custom extensions | EmbeddableContent (D3 + issue #7), WikibaseCitation (D4) — standalone, never forks of Wikibase; DPLforum (vendored third-party forum, `extensions/DPLforum/`) + InputBox (vendored, thread-creation field, `extensions/InputBox/`); Diagrams (vendored third-party diagram extension — PlantUML/GraphViz/Mscgen server-side + Mermaid client-side, `extensions/Diagrams/`); SimpleMathJax (vendored third-party inline-LaTeX math — `$…$`/`$$…$$`/`<math>` typeset client-side by MathJax 3, `extensions/SimpleMathJax/`) — see their `VENDORED.md` |
+| Custom extensions | EmbeddableContent (D3 + issue #7), WikibaseCitation (D4), LanguageBar (automatic `{{Languages}}` bar on content pages) — standalone, never forks of Wikibase; DPLforum (vendored third-party forum, `extensions/DPLforum/`) + InputBox (vendored, thread-creation field, `extensions/InputBox/`); Diagrams (vendored third-party diagram extension — PlantUML/GraphViz/Mscgen server-side + Mermaid client-side, `extensions/Diagrams/`); SimpleMathJax (vendored third-party inline-LaTeX math — `$…$`/`$$…$$`/`<math>` typeset client-side by MathJax 3, `extensions/SimpleMathJax/`) — see their `VENDORED.md` |
 | Seed/tooling | Python 3 (stdlib only) |
 | Unit tests | PHPUnit 10 (pure-PHP) + Python `unittest` |
 | E2E | Python suites in `tests/e2e/` (curl the live endpoints) |
@@ -321,7 +322,7 @@ Root AGENTS.md (global rules)
     ├── content-creation/AGENTS.md  (wiki content via MCP — live pages, never local files)
     ├── dev/AGENTS.md               (dev/CI wikibase-docker stack)
     ├── docs/AGENTS.md              (instance documentation)
-    ├── extensions/AGENTS.md        (EmbeddableContent + WikibaseCitation + vendored DPLforum + Diagrams)
+    ├── extensions/AGENTS.md        (EmbeddableContent + WikibaseCitation + LanguageBar + vendored DPLforum + Diagrams)
     ├── seed/AGENTS.md              (instance bootstrap orchestrator)
     ├── tests/AGENTS.md             (PHPUnit unit + E2E/XSS/page-flow suites)
     └── tools/AGENTS.md             (manifest generators + fetch smoke test)

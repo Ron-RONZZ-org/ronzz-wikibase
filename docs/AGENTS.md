@@ -34,7 +34,8 @@ deployed, how to operate it, and why it is designed the way it is.
   (two-worlds: curated entities + native RDF under its own URI namespace),
   `cite-by-qid.md` (citations as a derived view over items — `{{#cite}}`/
   `{{#citations}}` parser functions, issues #24/#25; accepted but not yet
-  implemented).
+  implemented), `automatic-languages-bar.md` (the `{{Languages}}` bar is
+  injected by default on content pages).
 
 ## Constraints and Invariants
 

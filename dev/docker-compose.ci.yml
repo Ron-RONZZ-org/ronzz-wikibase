@@ -47,6 +47,7 @@ services:
       - ../extensions/InputBox:/var/www/html/extensions/InputBox:ro
       - ../extensions/Diagrams:/var/www/html/extensions/Diagrams:ro
       - ../extensions/SimpleMathJax:/var/www/html/extensions/SimpleMathJax:ro
+      - ../extensions/LanguageBar:/var/www/html/extensions/LanguageBar:ro
     depends_on:
       mysql:
         condition: service_healthy

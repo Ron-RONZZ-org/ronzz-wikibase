@@ -15,7 +15,8 @@
 	"autoload": {
 		"psr-4": {
 			"EmbeddableContent\\": "extensions/EmbeddableContent/includes/",
-			"WikibaseCitation\\": "extensions/WikibaseCitation/includes/"
+			"WikibaseCitation\\": "extensions/WikibaseCitation/includes/",
+			"LanguageBar\\": "extensions/LanguageBar/includes/"
 		}
 	},
 	"autoload-dev": {
