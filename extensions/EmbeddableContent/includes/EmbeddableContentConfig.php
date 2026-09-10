@@ -213,6 +213,11 @@ class EmbeddableContentConfig {
 		return $this->requireStringMap( 'sourceClasses', [
 			'book', 'scholarlyArticle', 'website', 'song', 'film', 'video',
 			'youtubeChannel', 'youtubeVideo', 'webpage', 'bookExcerpt',
+			// Zotero/CSL-aligned batch.
+			'newspaperArticle', 'magazineArticle', 'conferencePaper',
+			'report', 'document', 'thesis', 'manuscript', 'patent',
+			'legalCase', 'legislation', 'bill', 'treaty',
+			'interview', 'map', 'presentation', 'dataset',
 		] );
 	}
 
@@ -248,6 +253,9 @@ class EmbeddableContentConfig {
 		return $this->requireStringMap( 'sourceProperties', [
 			'partOf', 'duration', 'url', 'youtubeChannelId', 'youtubeVideoId', 'chapters',
 			'license', 'accessUrl', 'file',
+			// Zotero-aligned batch: legal/official-document facts.
+			'court', 'territorialJurisdictionOsm', 'territorialJurisdictionLabel',
+			'caseNumber', 'patentNumber', 'reportNumber', 'legislationNumber',
 		] );
 	}
 

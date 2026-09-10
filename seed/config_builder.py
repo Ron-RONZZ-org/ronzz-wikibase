@@ -160,6 +160,25 @@ SOURCE_CLASS_KINDS = {
     "YouTube video": "youtubeVideo",
     "web page": "webpage",
     "book excerpt": "bookExcerpt",
+    # Zotero/CSL-aligned set: newspaper/magazine articles, conference papers,
+    # reports and official documents, theses, legal texts (case / legislation
+    # / bill / treaty), interviews, maps, presentations and datasets.
+    "newspaper article": "newspaperArticle",
+    "magazine article": "magazineArticle",
+    "conference paper": "conferencePaper",
+    "report": "report",
+    "document": "document",
+    "thesis": "thesis",
+    "manuscript": "manuscript",
+    "patent": "patent",
+    "legal case": "legalCase",
+    "legislation": "legislation",
+    "bill": "bill",
+    "treaty": "treaty",
+    "interview": "interview",
+    "map": "map",
+    "presentation": "presentation",
+    "dataset": "dataset",
 }
 
 # Issue #7: source-class parent/child relations (child kind => parent kind).
@@ -184,6 +203,16 @@ SOURCE_PROPERTY_KINDS = {
     "license": "license",
     "access URL": "accessUrl",
     "file": "file",
+    # Zotero-aligned batch: legal/official-document facts. Territorial
+    # jurisdiction mirrors the OSM place-of-birth pattern (external-id +
+    # parallel human-readable label).
+    "court": "court",
+    "territorial jurisdiction (OSM)": "territorialJurisdictionOsm",
+    "territorial jurisdiction (label)": "territorialJurisdictionLabel",
+    "case number": "caseNumber",
+    "patent number": "patentNumber",
+    "report number": "reportNumber",
+    "legislation number": "legislationNumber",
 }
 
 # Issue #26: FOSS software properties (Special:AddSoftware statements).
