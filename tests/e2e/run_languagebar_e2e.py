@@ -48,16 +48,20 @@ UA = "ronzz-wikibase-languagebar-e2e/1.0"
 BAR_MARKER = 'class="languages-bar"'
 BAR_DIV_RE = re.compile( r'<div class="languages-bar".*?</div>', re.S )
 
-# A scratch template wrapping the parser function — the same content the
-# on-wiki Template:Languages carries after the 2026-09 refactor.
-TEMPLATE_FIXTURE = "{{#languagebar:}}\n"
-
 # A manual copy of the bar markup (tests the hook's already-present skip
 # without depending on the on-wiki template existing).
 MANUAL_BAR = (
     '<div class="languages-bar" '
     'style="border:1px solid #a2a9b1;background:#f8f9fa;padding:0.3em 1em;margin:0 0 1em;">'
     '<p><b>Languages:</b> manual</p></div>\n'
+)
+
+# A manual copy of the {{Translation}} banner (tests the hook's
+# translation-copy skip without depending on the on-wiki template existing).
+TRANSLATION_BANNER = (
+    '<div class="translation-banner" '
+    'style="border:1px solid #a2a9b1;background:#f8f9fa;padding:0.5em 1em;margin:0 0 1em;">'
+    'This page is a translation.</div>\n'
 )
 
 
@@ -176,9 +180,12 @@ def assert_bar(body: str, page: str, *, fr_red: bool, eo_red: bool) -> None:
     eo = re.search(r'<a[^>]*href="([^"]*)"[^>]*>Esperanto</a>', bar)
     if fr is None or eo is None:
         raise FlowError(f"{page}: /fr or /eo link missing: {bar[:300]!r}")
-    if not fr.group(1).endswith("/fr"):
+    # The href is a pretty URL (/wiki/Page/fr) on production but an
+    # index.php one (/w/index.php?title=Page/fr&action=edit&redlink=1) on
+    # the dev stack's default config — assert the /fr, /eo target suffix.
+    if "/fr" not in fr.group(1):
         raise FlowError(f"{page}: français link does not target /fr: {fr.group(1)!r}")
-    if not eo.group(1).endswith("/eo"):
+    if "/eo" not in eo.group(1):
         raise FlowError(f"{page}: Esperanto link does not target /eo: {eo.group(1)!r}")
     fr_is_red = 'class="new"' in fr.group(0)
     eo_is_red = 'class="new"' in eo.group(0)
@@ -193,8 +200,10 @@ def languagebar_flow(op, api: str, base: str, keep: bool) -> None:
     stamp = int(time.time())
     main_page = f"LanguageBar E2E {stamp}"
     help_page = f"Help:LanguageBar E2E {stamp}"
+    parser_fn_page = f"LanguageBar parserfn E2E {stamp}"
+    explicit_page = f"LanguageBar explicit E2E {stamp}"
+    banner_page = f"LanguageBar banner E2E {stamp}"
     template_page = f"Template:LanguageBar E2E {stamp}"
-    transcluding_page = f"LanguageBar transclusion E2E {stamp}"
     source_page = f"LanguageBar source E2E {stamp}"
     fr_copy = source_page + "/fr"
     created: list[str] = []
@@ -214,21 +223,16 @@ def languagebar_flow(op, api: str, base: str, keep: bool) -> None:
         assert_bar(page_get(op, base, rendered_path(help_page)), help_page,
                    fr_red=True, eo_red=True)
 
-        # 3a. A page already rendering a bar (the parser function, via a
-        #     transcluded template) keeps exactly one bar.
-        create_page(op, api, template_page, TEMPLATE_FIXTURE,
-                    "LanguageBar E2E template fixture (run_languagebar_e2e.py)")
-        created.append(template_page)
-        create_page(op, api, transcluding_page,
-                    f"{{{{{template_page.removeprefix('Template:')}}}}}\n\nBody.\n",
+        # 3a. The {{#languagebar:}} parser function renders the bar itself;
+        #     the hook must not add a second one.
+        create_page(op, api, parser_fn_page, "{{#languagebar:}}\n\nBody.\n",
                     "LanguageBar E2E scratch (run_languagebar_e2e.py)")
-        created.append(transcluding_page)
-        assert_bar(page_get(op, base, rendered_path(transcluding_page)), transcluding_page,
+        created.append(parser_fn_page)
+        assert_bar(page_get(op, base, rendered_path(parser_fn_page)), parser_fn_page,
                    fr_red=True, eo_red=True)
 
         # 3b. A page carrying the raw bar markup (an explicit {{Languages}}
         #     render) also keeps exactly one bar.
-        explicit_page = f"LanguageBar explicit E2E {stamp}"
         create_page(op, api, explicit_page, MANUAL_BAR + "\nBody.\n",
                     "LanguageBar E2E scratch (run_languagebar_e2e.py)")
         created.append(explicit_page)
@@ -250,13 +254,24 @@ def languagebar_flow(op, api: str, base: str, keep: bool) -> None:
         copy_body = page_get(op, base, rendered_path(fr_copy))
         if count_bars(copy_body) != 0:
             raise FlowError(f"{fr_copy}: a translation copy must not get a languages bar")
-        if "translation-banner" not in copy_body:
-            raise FlowError(f"{fr_copy}: translation banner missing (fixture problem)")
-        print(f"[ok] {fr_copy}: no bar on a translation copy (banner present)")
+        print(f"[ok] {fr_copy}: no bar on a /fr translation copy")
         assert_bar(page_get(op, base, rendered_path(source_page)), source_page,
                    fr_red=False, eo_red=True)
 
-        # 5. Out-of-scope namespaces get NO bar.
+        # 5. A page carrying the {{Translation}} banner marker gets NO bar
+        #    (the banner skip, independent of the title suffix).
+        create_page(op, api, banner_page, TRANSLATION_BANNER + "\nBody.\n",
+                    "LanguageBar E2E scratch (run_languagebar_e2e.py)")
+        created.append(banner_page)
+        banner_body = page_get(op, base, rendered_path(banner_page))
+        if count_bars(banner_body) != 0:
+            raise FlowError(f"{banner_page}: a page with the translation banner must not get a bar")
+        print(f"[ok] {banner_page}: no bar on a page carrying the translation banner")
+
+        # 6. Out-of-scope namespaces get NO bar.
+        create_page(op, api, template_page, "Plain template scratch.\n",
+                    "LanguageBar E2E scratch (run_languagebar_e2e.py)")
+        created.append(template_page)
         template_body = page_get(op, base, rendered_path(template_page))
         if count_bars(template_body) != 0:
             raise FlowError(f"{template_page}: template pages must not get a languages bar")
