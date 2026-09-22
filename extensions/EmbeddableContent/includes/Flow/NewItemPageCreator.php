@@ -55,7 +55,6 @@ final class NewItemPageCreator {
 		int $flags,
 		?Title $requestTitle
 	): void {
-		error_log( 'NewItemPageCreator handle: page=' . ( $wikiPage->getTitle() ? $wikiPage->getTitle()->getPrefixedText() : 'NULL' ) . ' ns=' . ( $wikiPage->getTitle() ? $wikiPage->getTitle()->getNamespace() : -1 ) . ' flags=' . $flags . ' reqTitle=' . ( $requestTitle ? $requestTitle->getPrefixedText() : 'NULL' ) );
 		if ( $requestTitle === null || !$requestTitle->isSpecial( 'NewItem' ) ) {
 			return;
 		}
@@ -110,13 +109,19 @@ final class NewItemPageCreator {
 		if ( $title === null || $title->getNamespace() !== NS_MAIN || !$title->isValid() ) {
 			return;
 		}
-		// Never steal an existing page's sitelink / overwrite a real page.
-		if ( $title->exists() ) {
-			error_log( 'NewItemPageCreator page exists, skip: ' . $title->getPrefixedText() );
+		// The page may already exist (hand-created, or from a previous run):
+		// sitelink the item to it rather than skipping (the hook has no UI to
+		// confirm, so it links best-effort; the Sitelink tab lets the user
+		// correct it). NEVER steal a page already sitelinked to ANOTHER item
+		// — the sitelink is unique per page and setting it would throw a
+		// StorageException. ClassicPageCreator sitelinks first and skips
+		// creation when the page already exists.
+		$linkOwner = WikibaseRepo::getStore()->newSiteLinkStore()
+			->getItemIdForLink( 'wikibase', $title->getPrefixedText() );
+		if ( $linkOwner !== null && $linkOwner->getSerialization() !== $itemId->getSerialization() ) {
 			return;
 		}
 
-		error_log( 'NewItemPageCreator creating Main page: ' . $title->getPrefixedText() );
 		( new ClassicPageCreator() )->createFor(
 			new ClassicPageSpec( NS_MAIN, '' ),
 			$label,

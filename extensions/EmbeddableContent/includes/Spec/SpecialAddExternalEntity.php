@@ -1354,21 +1354,34 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		if ( $linkOwner !== null && $linkOwner->getSerialization() !== $itemId ) {
 			return null;
 		}
+
+		if ( $title->exists() ) {
+			if ( $linkOwner !== null ) {
+				// Already sitelinked to THIS item (idempotent create-or-skip
+				// reuse) — nothing to confirm.
+				return $title->getFullURL();
+			}
+			// The page exists but is not sitelinked: never link silently —
+			// ask the user to confirm it is the same thing. The confirmation
+			// is rendered/handled by executeComplete() (the routable
+			// complete/<id> step, shared by every kind).
+			$this->getRequest()->getSession()->set(
+				self::SESSION_PREFIX . $itemId . ':link',
+				[ 'title' => $title->getPrefixedText(), 'label' => $label ]
+			);
+			return $this->stepTitle( 'complete/' . $itemId )->getFullURL();
+		}
+
 		$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
 		if ( $item instanceof Item ) {
 			$this->linkPageToItem( $item, $title, $label );
 		}
-
-		if ( !$title->exists() ) {
-			if ( !$this->createClassicPage( $title, $record, $label ) ) {
-				// Page creation failed (e.g. protected namespace): the item
-				// still exists — surface the item instead of erroring.
-				return null;
-			}
-			return $this->stepTitle( 'complete/' . $itemId )->getFullURL();
+		if ( !$this->createClassicPage( $title, $record, $label ) ) {
+			// Page creation failed (e.g. protected namespace): the item
+			// still exists — surface the item instead of erroring.
+			return null;
 		}
-
-		return $title->getFullURL();
+		return $this->stepTitle( 'complete/' . $itemId )->getFullURL();
 	}
 
 	/**
@@ -1438,6 +1451,12 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// every other step of the flow (the legitimate flow redirects here
 		// from the review/manual submit, so the user is already logged in).
 		$this->requireLogin();
+		// The page already existed at the target title: afterCreate stored a
+		// pending link and routed here — confirm before sitelinking (never
+		// link silently), then finish. Returns true when it handled the step.
+		if ( $this->handlePendingLinkConfirm( $itemId ) ) {
+			return;
+		}
 		try {
 			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
 		} catch ( \Throwable $e ) {
@@ -1474,6 +1493,71 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			}
 		}
 		$this->getOutput()->redirect( $target ?? $this->stepTitle()->getFullURL() );
+	}
+
+	/**
+	 * The "the classic page already exists — is this the same thing?"
+	 * confirmation, stored by afterCreate() and handled here (the routable
+	 * complete/<id> step). A GET renders the panel; the POST (CSRF-gated)
+	 * either sitelinks the item to the existing page ([Yes]) or leaves it
+	 * unlinked ([No]). Returns true when a pending link was handled.
+	 *
+	 * Never overwrites a page sitelinked to ANOTHER item — afterCreate
+	 * already bailed out in that case.
+	 */
+	private function handlePendingLinkConfirm( string $itemId ): bool {
+		$session = $this->getRequest()->getSession();
+		$key = self::SESSION_PREFIX . $itemId . ':link';
+		$pending = $session->get( $key );
+		if ( !is_array( $pending ) || !isset( $pending['title'] ) ) {
+			return false;
+		}
+		$title = Title::newFromText( (string)$pending['title'] );
+		if ( $title === null ) {
+			$session->remove( $key );
+			return false;
+		}
+		$confirmUrl = $this->stepTitle( 'complete/' . $itemId )->getFullURL();
+
+		if ( $this->getRequest()->wasPosted() ) {
+			if ( !$this->getContext()->getCsrfTokenSet()
+				->matchToken( (string)$this->getRequest()->getVal( 'wpEditToken' ) )
+			) {
+				$this->showExpired();
+				return true;
+			}
+			$session->remove( $key );
+			if ( $this->getRequest()->getCheck( 'yes' ) ) {
+				try {
+					$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
+				} catch ( \Throwable $e ) {
+					$item = null;
+				}
+				if ( $item instanceof Item ) {
+					$this->linkPageToItem( $item, $title, (string)( $pending['label'] ?? '' ) );
+				}
+				$this->getOutput()->redirect( $title->getFullURL() );
+				return true;
+			}
+			$this->redirectToItem( $itemId );
+			return true;
+		}
+
+		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-link-confirm-title' )->text() );
+		$csrf = $this->getContext()->getCsrfTokenSet()->getToken()->toString();
+		$this->getOutput()->addHTML(
+			\MediaWiki\Html\Html::warningBox(
+				'<p>' . $this->msg( 'embeddablecontent-link-confirm-body', $title->getPrefixedText() )->parse() . '</p>'
+				. '<form method="post" action="' . htmlspecialchars( $confirmUrl ) . '">'
+				. '<input type="hidden" name="wpEditToken" value="' . htmlspecialchars( $csrf ) . '">'
+				. '<button type="submit" name="yes" value="1" class="mw-ui-button mw-ui-progressive">'
+				. $this->msg( 'embeddablecontent-link-confirm-yes' )->escaped() . '</button> '
+				. '<button type="submit" class="mw-ui-button">'
+				. $this->msg( 'embeddablecontent-link-confirm-no' )->escaped() . '</button>'
+				. '</form>'
+			)
+		);
+		return true;
 	}
 
 	// ------------------------------------------------------------- shared
