@@ -53,6 +53,15 @@ docker compose -f dev/docker-compose.ci.yml exec -T -u root wikibase bash -c '
 docker compose -f dev/docker-compose.ci.yml cp tools/install-plantuml.sh wikibase:/tmp/install-plantuml.sh
 docker compose -f dev/docker-compose.ci.yml exec -T -u root wikibase bash /tmp/install-plantuml.sh
 
+# 0c. Register the local repo site in the `sites` table. Production has it;
+#     the WBS image does not. Without it the RDF dump
+#     (Special:EntityData/<id>.ttl) emits PHP warnings for every sitelink,
+#     which corrupt the Turtle and make the WDQS updater SKIP the entity —
+#     any WDQS-dependent check on a sitelinked item then fails.
+docker compose -f dev/docker-compose.ci.yml exec -T mysql \
+  mysql -u wikiuser -psqlpass my_wiki -e \
+  "INSERT IGNORE INTO sites (site_id, site_global_key, site_type, site_group, site_source, site_language, site_protocol, site_domain, site_data, site_forward, site_config) VALUES (1, 'wikibase', 'mediawiki', 'ronzz', 'local', 'en', 'http', 'wikibase', 'a:0:{}', 1, 'a:0:{}');"
+
 # 1. D1 importers (vocabulary via maintenance scripts)
 docker compose -f dev/docker-compose.ci.yml exec -T wikibase \
   php maintenance/run.php extensions/EmbeddableContent/maintenance/importVocabulary.php --type=property

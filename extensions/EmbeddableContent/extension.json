@@ -221,7 +221,8 @@
 		"UploadFormInitDescriptor": "upload",
 		"UploadFormSourceDescriptors": "upload",
 		"UploadForm:getInitialPageText": "upload",
-		"UploadComplete": "upload"
+		"UploadComplete": "upload",
+		"PageSaveComplete": "main"
 	},
 	"ResourceModules": {
 		"ext.embeddableContent.embed": {

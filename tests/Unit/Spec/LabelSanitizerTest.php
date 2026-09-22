@@ -68,4 +68,43 @@ class LabelSanitizerTest extends TestCase {
 		);
 	}
 
+	// ---------------------------------------------------- normalizeForTitle
+
+	public function testNormalizeForTitleKeepsPlainLabels(): void {
+		$this->assertSame( 'Albert Einstein', LabelSanitizer::normalizeForTitle( 'Albert Einstein' ) );
+		// "/" is accepted by MediaWiki (it only makes the title a subpage).
+		$this->assertSame( 'AC/DC', LabelSanitizer::normalizeForTitle( 'AC/DC' ) );
+		$this->assertSame( 'Café', LabelSanitizer::normalizeForTitle( 'Café' ) );
+	}
+
+	public function testNormalizeForTitleReplacesForbiddenCharacters(): void {
+		// MediaWiki forbids # < > [ ] { } | in titles (Title::isValid).
+		$this->assertSame( 'A-B', LabelSanitizer::normalizeForTitle( 'A|B' ) );
+		$this->assertSame( 'A-B', LabelSanitizer::normalizeForTitle( 'A<B' ) );
+		$this->assertSame( 'A-B', LabelSanitizer::normalizeForTitle( 'A{B}' ) );
+		$this->assertSame( 'A-B', LabelSanitizer::normalizeForTitle( 'A[B]' ) );
+		$this->assertSame(
+			'C- programming language',
+			LabelSanitizer::normalizeForTitle( 'C# programming language' )
+		);
+	}
+
+	public function testNormalizeForTitleStripsMarkupFirst(): void {
+		$this->assertSame(
+			'Foo baz',
+			LabelSanitizer::normalizeForTitle( 'Foo <bar> baz' )
+		);
+	}
+
+	public function testNormalizeForTitleCollapsesAndTrims(): void {
+		$this->assertSame( 'Foo', LabelSanitizer::normalizeForTitle( '  ---Foo---  ' ) );
+		$this->assertSame( 'A - B', LabelSanitizer::normalizeForTitle( 'A  |  B' ) );
+	}
+
+	public function testNormalizeForTitleOfAllForbiddenIsEmpty(): void {
+		// Nothing usable remains — the caller keeps the item-only fallback.
+		$this->assertSame( '', LabelSanitizer::normalizeForTitle( '###' ) );
+		$this->assertSame( '', LabelSanitizer::normalizeForTitle( '<i></i>' ) );
+	}
+
 }

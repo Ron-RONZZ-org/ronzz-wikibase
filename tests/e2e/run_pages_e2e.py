@@ -1028,6 +1028,174 @@ def flow_update_source(op, base: str, api: str, qid: str, new_description: str) 
     return url
 
 
+def flow_entitysearch_case_insensitive(op, api: str, label: str, qid: str) -> None:
+    """action=entitysearch matches labels case-insensitively anywhere in the
+    term. The old raw/title/upper variant probing missed uppercase and
+    mixed-case queries ("APACHE" never found "Apache License 2.0")."""
+    queries = [label.upper(), label.lower(), label.title()]
+    for query in queries:
+        r = api_call(op, api, {"action": "entitysearch", "search": query,
+                               "language": "en", "limit": 50, "format": "json"})
+        ids = [row.get("id") for row in r.get("search", [])]
+        if qid not in ids:
+            raise FlowError(
+                f"entitysearch {query!r} did not find {qid} ({label!r}); got {ids}")
+    print(f"[ok] entitysearch case-insensitive: {qid} found via "
+          f"{', '.join(repr(q) for q in queries)}")
+
+
+def flow_combobox_scope_data(op, base: str, field: str, class_id: str) -> None:
+    """The entity-combobox class scope must ride the OOUI widget DATA
+    (serialized into data-ooui), not only a server-rendered attribute: the
+    HTMLForm auto-infusion re-creates the widget from data-ooui and drops
+    DOM attributes, so an attribute-only scope never reached entitysuggest.js
+    (the OS field suggested "The Linux Foundation")."""
+    _, body = page_get(op, base, "/wiki/Special:AddSoftware/manual")
+    m = re.search(r"id='mw-input-wp" + re.escape(field)
+                  + r"'[^>]*data-ooui='([^']*)'", body)
+    if not m:
+        raise FlowError(f"AddSoftware/manual: no infusable widget for {field}")
+    if f'"wbClasses":"{class_id}"' not in m.group(1):
+        raise FlowError(
+            f"{field} widget data-ooui lacks wbClasses={class_id}: {m.group(1)[:200]!r}")
+    print(f"[ok] combobox scope rides widget data: {field} -> {class_id}")
+
+
+def flow_update_software_prefill(op, base: str, qid: str, developer_qid: str,
+                                 lexer: str) -> None:
+    """Special:UpdateSoftware/<qid> prefills the entity comboboxes + the
+    programming-language lexer from the item's statements (they rendered
+    empty before: the entity fields had no default and the lexer read the
+    wrong config map)."""
+    url, body = page_get(op, base, f"/wiki/Special:UpdateSoftware/{qid}")
+    if "Update software" not in body:
+        raise FlowError(f"Special:UpdateSoftware/{qid} did not render: {find_error(body)}")
+    developer = input_value(body, "wpdeveloper")
+    if developer_qid not in developer:
+        raise FlowError(
+            f"UpdateSoftware/{qid} did not prefill the developer field "
+            f"(want {developer_qid}, got {developer!r})")
+    language = input_value(body, "wpprogrammingLanguage")
+    if language != lexer:
+        raise FlowError(
+            f"UpdateSoftware/{qid} did not prefill the programming language "
+            f"(want {lexer!r}, got {language!r})")
+    print(f"[ok] UpdateSoftware/{qid} prefills developer={developer_qid} "
+          f"+ programming language={lexer}")
+
+
+def flow_newitem_main_page(op, base: str, api: str, label: str) -> tuple[str, str]:
+    """Special:NewItem auto-creates a Main-namespace page titled with the
+    item's label (normalized: title-forbidden chars become dashes) and
+    sitelinks it. Returns (qid, page title)."""
+    url, body = page_get(op, base, "/wiki/Special:NewItem")
+    if "wb-newentity-submit" not in body:
+        # The form only renders for users with the createpage right.
+        raise FlowError(f"Special:NewItem did not render the form: {find_error(body)}")
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "lang": "en", "label": label,
+        "description": "Page-flow E2E NewItem",
+        "aliases": "",
+        "wpEditToken": token, "submit": "1", "wpSubmit": "1",
+    })
+    m = re.search(r"/wiki/Item:(Q\d+)", url)
+    if not m:
+        raise FlowError(f"Special:NewItem did not redirect to the item: {url} {find_error(body)}")
+    qid = m.group(1)
+    # The same normalization the extension applies (LabelSanitizer).
+    expected = re.sub(r"[#<>\[\]{}|]", "-", label)
+    expected = re.sub(r"\s+", " ", expected)
+    expected = re.sub(r"-{2,}", "-", expected).strip(" -")
+    r = api_call(op, api, {"action": "query", "titles": expected, "format": "json"})
+    if not any("missing" not in p for p in r["query"]["pages"].values()):
+        raise FlowError(f"NewItem {qid} did not create the Main page {expected!r}")
+    r = api_call(op, api, {"action": "wbgetentities", "ids": qid,
+                           "props": "sitelinks", "format": "json"})
+    sitelinks = r["entities"][qid].get("sitelinks", {})
+    if not any(sl.get("site") == "wikibase" and sl.get("title") == expected
+               for sl in sitelinks.values()):
+        raise FlowError(
+            f"{qid} not sitelinked to the Main page {expected!r}: {json.dumps(sitelinks)}")
+    print(f"[ok] Special:NewItem -> {qid}: Main page {expected!r} created + sitelinked")
+    return qid, expected
+
+
+def flow_newitem_existing_page(op, base: str, api: str, label: str) -> str:
+    """Special:NewItem when the Main-namespace page already exists: the item
+    is SITELINKED to the existing page (never overwritten) instead of being
+    left page-less. Returns the item qid."""
+    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = csrf["query"]["tokens"]["csrftoken"]
+    r = api_call(op, api, {"action": "edit", "title": label, "text": "pre-existing page (E2E)",
+                           "token": token, "format": "json"}, post=True)
+    if r.get("edit", {}).get("result") != "Success":
+        raise FlowError(f"could not pre-create the Main page {label!r}: {r!r}")
+
+    url, body = page_get(op, base, "/wiki/Special:NewItem")
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "lang": "en", "label": label, "description": "Page-flow E2E NewItem existing",
+        "aliases": "", "wpEditToken": token, "submit": "1", "wpSubmit": "1",
+    })
+    m = re.search(r"/wiki/Item:(Q\d+)", url)
+    if not m:
+        raise FlowError(f"Special:NewItem did not redirect to the item: {url} {find_error(body)}")
+    qid = m.group(1)
+    r = api_call(op, api, {"action": "wbgetentities", "ids": qid,
+                           "props": "sitelinks", "format": "json"})
+    sitelinks = r["entities"][qid].get("sitelinks", {})
+    if not any(sl.get("site") == "wikibase" and sl.get("title") == label
+               for sl in sitelinks.values()):
+        raise FlowError(
+            f"NewItem {qid} did not sitelink to the EXISTING Main page {label!r}: "
+            f"{json.dumps(sitelinks)}")
+    print(f"[ok] Special:NewItem -> {qid}: linked to the existing Main page {label!r}")
+    return qid
+
+
+def flow_existing_page_link_confirm(op, base: str, api: str, person_class: str) -> tuple[str, str]:
+    """AddPerson when the Person: page already exists: the flow routes to the
+    confirmation panel (never sitelinks silently); [Yes] links the item.
+    Returns the item qid."""
+    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = csrf["query"]["tokens"]["csrftoken"]
+    name = f"PageFlowConfirm{int(time.time())}"
+    page = f"Person:{name}"
+    r = api_call(op, api, {"action": "edit", "title": page, "text": "pre-existing person page (E2E)",
+                           "token": token, "format": "json"}, post=True)
+    if r.get("edit", {}).get("result") != "Success":
+        raise FlowError(f"could not pre-create {page!r}: {r!r}")
+
+    url, body = page_get(op, base, "/wiki/Special:AddPerson/manual")
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "wpgivenName": name, "wpfamilyName": "", "wpclass": person_class,
+        "wpEditToken": token, "wpSubmit": "1",
+    })
+    m = re.search(r"/complete/(Q\d+)", url)
+    if not m:
+        raise FlowError(f"AddPerson did not route to the link confirm for {page!r}: "
+                        f"{url} {find_error(body)}")
+    qid = m.group(1)
+    if "already exists" not in body:
+        raise FlowError(f"AddPerson confirm panel missing the 'already exists' wording: {body[:400]!r}")
+    # [Yes, link the item to this page].
+    token = edit_token(body)
+    url2, body2 = page_post(op, url, {"wpEditToken": token, "yes": "1"})
+    if page.replace(" ", "_") not in urllib.parse.unquote(url2):
+        raise FlowError(f"link confirm [Yes] did not redirect to {page!r}: {url2}")
+    r = api_call(op, api, {"action": "wbgetentities", "ids": qid,
+                           "props": "sitelinks", "format": "json"})
+    sitelinks = r["entities"][qid].get("sitelinks", {})
+    if not any(sl.get("site") == "wikibase" and sl.get("title") == page
+               for sl in sitelinks.values()):
+        raise FlowError(f"{qid} not sitelinked to {page!r} after the confirm: "
+                        f"{json.dumps(sitelinks)}")
+    print(f"[ok] AddPerson existing Person: page -> confirm panel -> linked {qid} to {page!r}")
+    return qid, page
+
+
 def flow_update_content_button(op, base: str, qid: str) -> None:
     """'Edit content' toolbar target (issue #80): an Item page whose item
     is of a CONTENT class (quotation/math/code-snippet) carries the
@@ -3182,6 +3350,19 @@ def main() -> int:
     print(f"[ok] vocabulary resolved (instance-of={instance_of}, person={person_class}, "
           f"scholarly article={scholarly_class})")
 
+    # 0a. Entity-combobox search is case-insensitive and partial ANYWHERE in
+    #     the label (the old raw/title/upper probing missed "APACHE" for
+    #     "Apache License 2.0").
+    apache_license = resolve("Apache License 2.0", "item")
+    flow_entitysearch_case_insensitive(op, api, "Apache License 2.0", apache_license)
+
+    # 0b. The entity-combobox class scope must survive the OOUI HTMLForm
+    #     auto-infusion: it rides the widget DATA (data-ooui), not only a
+    #     server-rendered DOM attribute (which infusion drops — the OS field
+    #     then suggested "The Linux Foundation").
+    os_class = resolve("operating system", "item")
+    flow_combobox_scope_data(op, base, "operatingSystem", os_class)
+
     created: list[str] = []
     created_pages: list[str] = []
     # Monotonic id counter: only items created ABOVE this id were made by
@@ -4179,6 +4360,42 @@ def main() -> int:
               f"({len(has_use_statements)} statements)")
         if software_manual in created:
             created_pages.append(foss_manual_page)
+
+        # 3d2. UpdateSoftware prefill (issue report): the entity comboboxes
+        #      (developer/…) and the programming-language lexer must be
+        #      prefilled from the item's statements. They rendered EMPTY
+        #      before — the entity fields had no default and the lexer read
+        #      the wrong config map.
+        prefill_label = f"Page-flow E2E prefill software {int(time.time())}"
+        software_prefill, software_prefill_page = flow_software_manual(
+            op, base, api, prefill_label, foss_class,
+            extra_fields={"wpdeveloper": person, "wpprogrammingLanguage": "python"})
+        software_prefill = track(software_prefill)
+        if software_prefill in created:
+            created_pages.append(software_prefill_page)
+        flow_update_software_prefill(op, base, software_prefill, person, "python")
+
+        # 3d3. Special:NewItem auto-creates a Main-namespace sitelinked page
+        #      (label as title, normalized: "|" becomes "-"). Exercises both
+        #      the NewItem hook and the page-title normalization.
+        newitem_label = f"Page-flow E2E NewItem | {int(time.time())}"
+        newitem_qid, newitem_page = flow_newitem_main_page(op, base, api, newitem_label)
+        track(newitem_qid)
+        if newitem_qid in created:
+            created_pages.append(newitem_page)
+
+        # 3d4. Existing-page behaviour (issue report): when the classic page
+        #      already exists, Special:NewItem SITELINKS the item to it, and
+        #      the Add* browser flows route through a confirmation panel
+        #      (never link silently).
+        existing_label = f"Page-flow E2E existing {int(time.time())}"
+        existing_qid = track(flow_newitem_existing_page(op, base, api, existing_label))
+        if existing_qid in created:
+            created_pages.append(existing_label)
+        confirm_qid, confirm_page = flow_existing_page_link_confirm(op, base, api, person_class)
+        track(confirm_qid)
+        if confirm_qid in created:
+            created_pages.append(confirm_page)
 
         # 3e. AddSoftware/manual + logo upload (issue follow-up + upload
         #     enhancements): a local PNG is uploaded as File:<label>-logo.png

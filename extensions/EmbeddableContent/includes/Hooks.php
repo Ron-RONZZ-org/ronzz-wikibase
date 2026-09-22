@@ -88,6 +88,33 @@ class Hooks {
 		$skin->getOutput()->addModules( 'ext.embeddableContent.sitelinktab' );
 	}
 
+	/**
+	 * Special:NewItem auto-creates a Main-namespace sitelinked classic page
+	 * for the item it just created (Flow/NewItemPageCreator). Gated to the
+	 * Special:NewItem request, so the Add* flows (which create their own
+	 * per-kind pages) and API/script item creation are untouched.
+	 */
+	public static function onPageSaveComplete(
+		$wikiPage,
+		$user,
+		$summary,
+		$flags,
+		$revisionRecord,
+		$editResult
+	): void {
+		// The params are deliberately UNTYPED: MW 1.46's PageSaveCompleteHook
+		// interface declares them untyped, and entity saves call the hook with
+		// null for $summary/$revisionRecord/$editResult (only $wikiPage, $user
+		// and $flags are populated) — typed hints throw a TypeError and the
+		// handler never runs.
+		\EmbeddableContent\Flow\NewItemPageCreator::handle(
+			$wikiPage,
+			$user,
+			$flags,
+			\MediaWiki\Context\RequestContext::getMain()->getTitle()
+		);
+	}
+
 	public static function onBeforePageDisplay( OutputPage $out, $skin ): void {
 		$title = $out->getTitle();
 		if ( $title === null ) {

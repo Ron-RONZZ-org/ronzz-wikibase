@@ -58,4 +58,7 @@ CONTAINS search, subdomain parent inference, Source-page internal citation),
 `zotero-source-classes.md` (Zotero/CSL-aligned source classes + class-scoped
 entity comboboxes), `addsource-improvements.md` (title-only required fields,
 multi-value territorial jurisdiction + international marker, the `text`
-catch-all class, and the `bool|string` return-type fix).
+catch-all class, and the `bool|string` return-type fix),
+`add-forms-fixes-2026-09.md` (case-insensitive entity search, infusion-safe
+combobox class scope, `Special:UpdateSoftware` prefill, page-title
+normalization, `Special:NewItem` Main-namespace pages).

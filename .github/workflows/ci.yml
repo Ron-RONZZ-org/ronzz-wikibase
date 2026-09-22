@@ -127,6 +127,18 @@ jobs:
           $COMPOSE exec -T mysql mysql -u wikiuser -psqlpass my_wiki -e \
             "ALTER TABLE wbt_text MODIFY wbx_text VARBINARY(2000) NOT NULL;"
 
+      # Register the local repo site in the `sites` table. Production has it;
+      # the WBS image does not. Without it the RDF dump
+      # (Special:EntityData/<id>.ttl) emits PHP warnings for EVERY sitelink
+      # ("Undefined array key 'wikibase'" from SiteList.php) which corrupt the
+      # Turtle, so the WDQS updater SKIPS the entity ("Giving up on Qxxx") and
+      # any WDQS-dependent check on a sitelinked item fails. site_data /
+      # site_config are PHP-serialized empty arrays.
+      - name: Register the local Wikibase site (sites table)
+        run: |
+          $COMPOSE exec -T mysql mysql -u wikiuser -psqlpass my_wiki -e \
+            "INSERT IGNORE INTO sites (site_id, site_global_key, site_type, site_group, site_source, site_language, site_protocol, site_domain, site_data, site_forward, site_config) VALUES (1, 'wikibase', 'mediawiki', 'ronzz', 'local', 'en', 'http', 'wikibase', 'a:0:{}', 1, 'a:0:{}');"
+
       # WikibaseCitation ships a composer dep (seboettg/citeproc-php) that is
       # installed in the extension dir (gitignored; not merged into the wiki
       # root composer). The extension is bind-mounted read-only, so install

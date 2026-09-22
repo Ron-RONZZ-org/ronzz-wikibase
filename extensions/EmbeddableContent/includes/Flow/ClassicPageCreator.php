@@ -4,6 +4,7 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\Flow;
 
+use EmbeddableContent\Spec\LabelSanitizer;
 use MediaWiki\Content\WikitextContent;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\Title;
@@ -57,10 +58,12 @@ final class ClassicPageCreator {
 
 	/**
 	 * The page title for a label, or null when the label is unusable (empty
-	 * or title-forbidden characters) or the namespace is unknown.
+	 * after normalization) or the namespace is unknown. Title-forbidden
+	 * characters are normalized away (LabelSanitizer::normalizeForTitle) so
+	 * a "C#" / "A|B" label still gets a page.
 	 */
 	private function pageTitleFor( ClassicPageSpec $spec, string $label ): ?Title {
-		$label = trim( $label );
+		$label = LabelSanitizer::normalizeForTitle( $label );
 		if ( $label === '' ) {
 			return null;
 		}
@@ -110,12 +113,13 @@ final class ClassicPageCreator {
 	/**
 	 * The page skeleton: the template + the item description as an
 	 * == Overview == placeholder. Only sections with content are rendered —
-	 * no blank scaffolds.
+	 * no blank scaffolds. An EMPTY template (the Main-namespace page for a
+	 * plain item, no per-kind template) renders no transclusion at all.
 	 *
 	 * @param array<string,mixed> $record
 	 */
 	private function pageSkeleton( ClassicPageSpec $spec, array $record ): string {
-		$body = '{{' . $spec->template . "}}\n\n";
+		$body = $spec->template !== '' ? '{{' . $spec->template . "}}\n\n" : '';
 		$overview = trim( (string)( $record['description'] ?? '' ) );
 		if ( $overview !== '' ) {
 			$body .= "== Overview ==\n\n{$overview}\n\n";

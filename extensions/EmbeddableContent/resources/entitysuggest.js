@@ -36,13 +36,17 @@
 		$( '.wb-entity-combobox.oo-ui-comboBoxInputWidget' ).each( function () {
 			var $el = $( this );
 			var multi = $el.hasClass( 'wb-entity-combobox-multi' );
-			// Class scope: a pipe-separated list of item ids (set by
-			// OOUIComboboxField from the field's `wbClasses` param). The
-			// server restricts the search to items `instance of` one of
-			// them (e.g. the license combobox searches only license items);
-			// '' = unscoped.
-			var scope = String( $el.attr( 'data-wb-classes' ) || '' );
+			// Infuse FIRST: the OOUI HTMLForm auto-infusion re-creates the
+			// widget from its `data-ooui` JSON and DROPS server-rendered DOM
+			// attributes, so the old `data-wb-classes` attribute read here
+			// was always '' at runtime (every scoped combobox searched the
+			// whole instance). The scope now rides the widget DATA
+			// (OOUIComboboxField::getInputOOUI -> setData), which is part of
+			// the serialized config and survives infusion; the attribute is
+			// kept only as a fallback for non-infused rendering.
 			var combo = OO.ui.ComboBoxInputWidget.static.infuse( $el );
+			var comboData = combo.getData() || {};
+			var scope = String( comboData.wbClasses || $el.attr( 'data-wb-classes' ) || '' );
 			var api = new mw.Api();
 			var pending = null;
 
@@ -74,10 +78,10 @@
 				if ( pending ) {
 					Array.isArray( pending ) ? pending.forEach( function ( r ) { r.abort(); } ) : pending.abort();
 				}
-				// One FULLTEXT query: the server module runs the raw +
-				// title-cased + uppercase variants itself (the instance's
-				// term store is case-sensitive, upstream T242644) and merges
-				// the deduped hits.
+				// One FULLTEXT query: the server module matches labels and
+				// aliases case-insensitively and anywhere in the term (the
+				// term store is a case-sensitive VARBINARY, upstream
+				// T242644; the module CONVERTs to utf8mb4 for the LIKE).
 				pending = api.get( {
 					action: 'entitysearch',
 					search: q,
