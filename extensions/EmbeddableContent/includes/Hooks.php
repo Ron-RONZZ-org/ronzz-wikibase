@@ -88,6 +88,28 @@ class Hooks {
 		$skin->getOutput()->addModules( 'ext.embeddableContent.sitelinktab' );
 	}
 
+	/**
+	 * Special:NewItem auto-creates a Main-namespace sitelinked classic page
+	 * for the item it just created (Flow/NewItemPageCreator). Gated to the
+	 * Special:NewItem request, so the Add* flows (which create their own
+	 * per-kind pages) and API/script item creation are untouched.
+	 */
+	public static function onPageSaveComplete(
+		\MediaWiki\Page\WikiPage $wikiPage,
+		\MediaWiki\User\UserIdentity $user,
+		string $summary,
+		int $flags,
+		\MediaWiki\Revision\RevisionRecord $revisionRecord,
+		\MediaWiki\Edit\EditResult $editResult
+	): void {
+		\EmbeddableContent\Flow\NewItemPageCreator::handle(
+			$wikiPage,
+			$user,
+			$flags,
+			\MediaWiki\Context\RequestContext::getMain()->getTitle()
+		);
+	}
+
 	public static function onBeforePageDisplay( OutputPage $out, $skin ): void {
 		$title = $out->getTitle();
 		if ( $title === null ) {
