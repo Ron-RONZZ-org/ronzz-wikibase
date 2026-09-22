@@ -215,7 +215,8 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 			+ $this->websiteFieldSpec( $record );
 
 		foreach ( self::FOSS_ENTITY_FIELDS as $field ) {
-			$harvested = (string)( $record[$field] ?? '' );
+			$value = (string)( $record[$field] ?? '' );
+			$scope = $this->fossFieldScope( $field );
 			// Multi-value class-scoped entity combobox (the shared builder):
 			// developer → agent classes, license/OS/UI → their domain class,
 			// hasUse → any item. The userInterface field additionally
@@ -223,29 +224,39 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 			$fields += $this->entityComboboxField(
 				$field,
 				'embeddablecontent-field-' . $field,
-				$this->fossFieldScope( $field ),
+				$scope,
 				true
 			);
-			if ( $harvested !== '' && preg_match( '/^Q[1-9]\d*$/i', $harvested ) !== 1 ) {
-				// Autofill-confirm: a harvested label resolves to an existing
-				// item (exact or fuzzy) → prefill the combobox + confirmation
-				// banner; no good match → the plain harvested-fact hint.
-				$resolved = $this->resolveEntityField( $harvested );
-				if ( $resolved !== null ) {
-					$fields[$field]['default'] = $resolved['id'];
-					$fields[$field]['help'] = $this->entityConfirmHtml(
-						'wp' . $field,
-						$this->msg( 'embeddablecontent-field-' . $field )->text(),
-						$harvested,
-						$resolved['label'],
-						$resolved['id']
-					);
+			if ( $value !== '' ) {
+				if ( $this->isItemIdList( $value ) ) {
+					// Prefilled from an EXISTING item (Special:UpdateSoftware's
+					// recordFromItem): the value is already the item-id list, so
+					// it becomes the field default directly. Without this branch
+					// the guard below skipped item ids and every entity
+					// combobox rendered empty on update.
+					$fields[$field]['default'] = $value;
 				} else {
-					// Plain text, HTML-escaped: the label comes from an
-					// external API and must never inject markup.
-					$fields[$field]['help'] = htmlspecialchars(
-						$this->msg( 'embeddablecontent-software-field-harvested', $harvested )->text()
-					);
+					// Autofill-confirm: a harvested label resolves to an
+					// existing item (exact or fuzzy, CLASS-SCOPED) → prefill
+					// the combobox + confirmation banner; no good match → the
+					// plain harvested-fact hint.
+					$resolved = $this->resolveEntityField( $value, $scope );
+					if ( $resolved !== null ) {
+						$fields[$field]['default'] = $resolved['id'];
+						$fields[$field]['help'] = $this->entityConfirmHtml(
+							'wp' . $field,
+							$this->msg( 'embeddablecontent-field-' . $field )->text(),
+							$value,
+							$resolved['label'],
+							$resolved['id']
+						);
+					} else {
+						// Plain text, HTML-escaped: the label comes from an
+						// external API and must never inject markup.
+						$fields[$field]['help'] = htmlspecialchars(
+							$this->msg( 'embeddablecontent-software-field-harvested', $value )->text()
+						);
+					}
 				}
 			}
 			$fields[$field]['help'] = ( $fields[$field]['help'] ?? '' )
@@ -257,12 +268,15 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 
 		// Classic-page kind: FOSS: page or Software: page — asked PER CREATE
 		// (the license facts drive the default, the user overrides here).
-		// The radio defaults to 'auto' ("follow the license") because the
-		// render-time form cannot know the license the user will submit —
-		// HTMLForm fills a MISSING radio with its render-time default, so a
-		// license-derived default would silently override the posted license
-		// (a scripted POST without wppageKind). beforeCreate resolves 'auto'
-		// against the SUBMITTED license; 'foss'/'software' are explicit.
+		// On CREATE the radio defaults to 'auto' ("follow the license")
+		// because the render-time form cannot know the license the user will
+		// submit — HTMLForm fills a MISSING radio with its render-time
+		// default, so a license-derived default would silently override the
+		// posted license (a scripted POST without wppageKind). On UPDATE the
+		// stored kind (recordFromItem) is the default, so an untouched update
+		// keeps the existing FOSS:/Software: split. beforeCreate resolves
+		// 'auto' against the SUBMITTED license; 'foss'/'software' are
+		// explicit.
 		$fields['pageKind'] = [
 			'type' => 'radio',
 			'label-message' => 'embeddablecontent-software-pagekind',
@@ -271,7 +285,9 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 				'embeddablecontent-software-pagekind-foss' => 'foss',
 				'embeddablecontent-software-pagekind-software' => 'software',
 			],
-			'default' => 'auto',
+			// 'auto' on create (the submitted license decides); the stored
+			// kind on update (recordFromItem sets it, the user may override).
+			'default' => (string)( $record['pageKind'] ?? 'auto' ),
 			'help-message' => 'embeddablecontent-software-pagekind-help',
 		];
 
@@ -509,5 +525,23 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 			}
 		}
 		return $out;
+	}
+
+	/**
+	 * Whether a record value is already a list of item ids ("Q5, Q179") —
+	 * the Special:UpdateSoftware recordFromItem shape — rather than a
+	 * harvested label that needs resolving against the term store.
+	 */
+	private function isItemIdList( string $value ): bool {
+		$parts = ItemIdList::split( $value );
+		if ( $parts === [] ) {
+			return false;
+		}
+		foreach ( $parts as $part ) {
+			if ( preg_match( '/^Q[1-9]\d*$/', $part ) !== 1 ) {
+				return false;
+			}
+		}
+		return true;
 	}
 }

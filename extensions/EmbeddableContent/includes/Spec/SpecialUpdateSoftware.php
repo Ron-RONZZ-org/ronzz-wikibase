@@ -54,6 +54,14 @@ class SpecialUpdateSoftware extends SpecialAddSoftware {
 	}
 
 	protected function updateClassItemId( Item $item ): ?string {
+		// The item's ACTUAL class (foss vs software) — the hidden class
+		// field follows the stored page kind rather than always assuming
+		// the FOSS class.
+		$classIds = $this->itemClassIds( $item );
+		$software = $this->config->softwareClasses()['software'] ?? null;
+		if ( $software !== null && in_array( $software, $classIds, true ) ) {
+			return $software;
+		}
 		return $this->config->fossClasses()['foss'] ?? null;
 	}
 
@@ -71,9 +79,23 @@ class SpecialUpdateSoftware extends SpecialAddSoftware {
 			$record[$field] = implode( ', ', $this->entityIdsForProperty( $item, $props[$field] ?? null ) );
 		}
 
+		// The classic-page kind, prefilled from the item's class so an
+		// untouched update keeps the stored FOSS:/Software: split (the
+		// review radio still lets the user override it).
+		$softwareClass = $this->config->softwareClasses()['software'] ?? null;
+		$record['pageKind'] = $softwareClass !== null
+			&& in_array( $softwareClass, $this->itemClassIds( $item ), true )
+			? 'software'
+			: 'foss';
+
 		// Programming language: the statement value is a language ITEM id —
 		// map it back to its lexer key (the combobox options are lexer keys).
-		$languageItemId = $this->firstEntityForProperty( $item, $props['programmingLanguage'] ?? null );
+		// The property lives in the GLOBAL config map, not fossProperties
+		// (reading it from $props silently yielded an empty field).
+		$languageItemId = $this->firstEntityForProperty(
+			$item,
+			$this->config->programmingLanguagePropertyId()
+		);
 		$record['programmingLanguage'] = $languageItemId !== ''
 			? ( $this->config->lexerForItemId( $languageItemId ) ?? '' )
 			: '';
