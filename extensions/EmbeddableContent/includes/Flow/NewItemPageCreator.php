@@ -55,6 +55,7 @@ final class NewItemPageCreator {
 		int $flags,
 		?Title $requestTitle
 	): void {
+		error_log( 'NewItemPageCreator handle: page=' . ( $wikiPage->getTitle() ? $wikiPage->getTitle()->getPrefixedText() : 'NULL' ) . ' ns=' . ( $wikiPage->getTitle() ? $wikiPage->getTitle()->getNamespace() : -1 ) . ' flags=' . $flags . ' reqTitle=' . ( $requestTitle ? $requestTitle->getPrefixedText() : 'NULL' ) );
 		if ( $requestTitle === null || !$requestTitle->isSpecial( 'NewItem' ) ) {
 			return;
 		}
@@ -111,9 +112,11 @@ final class NewItemPageCreator {
 		}
 		// Never steal an existing page's sitelink / overwrite a real page.
 		if ( $title->exists() ) {
+			error_log( 'NewItemPageCreator page exists, skip: ' . $title->getPrefixedText() );
 			return;
 		}
 
+		error_log( 'NewItemPageCreator creating Main page: ' . $title->getPrefixedText() );
 		( new ClassicPageCreator() )->createFor(
 			new ClassicPageSpec( NS_MAIN, '' ),
 			$label,
