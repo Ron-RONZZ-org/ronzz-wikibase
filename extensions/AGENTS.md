@@ -402,8 +402,15 @@ PR #66) — drop the patch on re-vendor once upstream merges it.
   **`Special:NewItem` auto-creates a Main-namespace sitelinked page** titled
   with the label (`Flow/NewItemPageCreator` + a `PageSaveComplete` hook,
   gated to the `Special:NewItem` request; the Add* flows, API-created items
-  and items with an explicit sitelink are skipped). No vocabulary/config-map
-  change.
+  and items with an explicit sitelink are skipped). The hook's params are
+  UNTYPED (MW 1.46's `PageSaveCompleteHook` is untyped; entity saves pass
+  null for summary/revision/editResult — typed hints throw). **Existing
+  target page → link, never clobber**: the NewItem hook sitelinks to the
+  existing Main page (no UI to ask; never steals a page linked to another
+  item); the Add* browser flows store a pending link and route to the
+  routable `complete/<id>` step, which renders a confirmation panel
+  ("A page named X already exists …?" — [Yes] links, [No] leaves it
+  unlinked). No vocabulary/config-map change.
 - **Instance data rights are CC BY-SA 4.0** (seed `dataRightsUrl` /
   `rdfDataRightsUrl`), matching the CC BY-SA sourced page content and
   contributor licensing.

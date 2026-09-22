@@ -97,9 +97,24 @@ description as an `== Overview ==` lead). Scope is deliberately narrow:
   excluded by the request-title gate;
 - API/script item creation is out of scope;
 - an item created with an explicit sitelink (the anonymous Sitelink-tab
-  fallback passes `site=wikibase&page=…`) already has a page and is skipped;
-- an existing Main page at the target title is never overwritten or stolen
-  (the item keeps no page rather than clobbering a real one).
+  fallback passes `site=wikibase&page=…`) already has a page and is skipped.
+
+**Existing page at the target title.** The classic page may already exist
+(hand-created by an editor, or from a previous run). The behaviour is
+"link, never clobber":
+
+- **`Special:NewItem` (the hook, no UI):** the item is **sitelinked to the
+  existing Main page** (the hook has no surface to ask); a page already
+  sitelinked to ANOTHER item is never stolen (the sitelink is unique per
+  page — setting it would throw a `StorageException`).
+- **Add\* browser flows (UI):** the flow **never links silently** — when the
+  target page exists and is unlinked, `afterCreate()` stores a pending link
+  and routes to the routable `complete/<id>` step, which renders a
+  confirmation panel ("A page named X already exists. Is it the same thing
+  …?"). [Yes] sitelinks the item to the existing page; [No] leaves the item
+  unlinked (the item redirect). The page itself is never modified. A page
+  already sitelinked to another item is left alone (the item redirect), as
+  before.
 
 `ClassicPageCreator::pageSkeleton()` now renders no transclusion when the
 template is empty (the Main page has no per-kind template). As with the API
