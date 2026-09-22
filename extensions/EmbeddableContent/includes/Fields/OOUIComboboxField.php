@@ -23,10 +23,20 @@ use MediaWiki\HTMLForm\Field\HTMLComboboxField;
  * JS can infuse it).
  *
  * CLASS SCOPE: the optional `wbClasses` param (a list of item ids) is
- * emitted as `data-wb-classes` on the widget; entitysuggest.js reads it and
- * passes it to action=entitysearch, so the search is restricted to items
- * that are `instance of` one of those classes (e.g. the license combobox
- * searches only license items). An empty list = unscoped.
+ * carried on the widget; entitysuggest.js reads it and passes it to
+ * action=entitysearch, so the search is restricted to items that are
+ * `instance of` one of those classes (e.g. the license combobox searches
+ * only license items). An empty list = unscoped.
+ *
+ * The scope must ride the OOUI WIDGET DATA, not only a DOM attribute: the
+ * OOUI HTMLForm is auto-infused client-side, which re-creates the widget
+ * from its `data-ooui` JSON and DROPS server-rendered attributes (the
+ * original `data-wb-classes` attribute never reached entitysuggest.js —
+ * every scoped combobox searched the whole instance, e.g. the operating-
+ * system field suggested "The Linux Foundation"). `setData()` is serialized
+ * into `data-ooui` (OOUI\Element::getConfig adds `data`) and restored on
+ * infusion; the JS reads `widget.getData().wbClasses`. The attribute is
+ * still emitted for non-infused (php-mode) consumers.
  *
  * @license GPL-2.0-or-later
  */
@@ -70,7 +80,9 @@ class OOUIComboboxField extends HTMLComboboxField {
 	}
 
 	/**
-	 * Carries the class scope on the widget root as `data-wb-classes`.
+	 * Carries the class scope on the widget: a `data-wb-classes` attribute
+	 * (for non-infused rendering) AND the OOUI widget data (serialized into
+	 * `data-ooui`, so the auto-infusion preserves it — see the class doc).
 	 *
 	 * @param string $value
 	 * @return \OOUI\Widget
@@ -78,7 +90,12 @@ class OOUIComboboxField extends HTMLComboboxField {
 	public function getInputOOUI( $value ) {
 		$widget = parent::getInputOOUI( $value );
 		if ( $widget instanceof \OOUI\Widget && $this->wbClasses !== [] ) {
-			$widget->setAttributes( [ 'data-wb-classes' => implode( '|', $this->wbClasses ) ] );
+			$scope = implode( '|', $this->wbClasses );
+			$widget->setAttributes( [ 'data-wb-classes' => $scope ] );
+			$data = $widget->getData();
+			$data = is_array( $data ) ? $data : [];
+			$data['wbClasses'] = $scope;
+			$widget->setData( $data );
 		}
 		return $widget;
 	}

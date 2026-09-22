@@ -8,8 +8,6 @@ use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\EntityClassFilter;
 use MediaWiki\Api\ApiBase;
 use MediaWiki\MediaWikiServices;
-use Wikimedia\Rdbms\IExpression;
-use Wikimedia\Rdbms\LikeValue;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\Repo\WikibaseRepo;
@@ -22,11 +20,15 @@ use Wikibase\Repo\WikibaseRepo;
  * Why not wbsearchentities: this instance's term store (no CirrusSearch)
  * matches labels/aliases EXACT-then-PREFIX — searching "AGPL" never finds
  * "GNU AGPL-3.0" and "Einstein" never finds "Albert Einstein". This module
- * runs a CONTAINS match (LIKE %term%) over the same wbt_* term tables
+ * runs a case-INSENSITIVE CONTAINS match (LIKE %term% over
+ * CONVERT(wbx_text USING utf8mb4)) over the same wbt_* term tables
  * Wikibase's own DatabaseMatchingTermsLookup reads, in-process and
- * read-only. It queries the raw + title-cased + uppercase variants of the
- * typed text because the instance's term store is case-sensitive
- * (VARBINARY wbx_text — upstream T242644), then merges the deduped hits.
+ * read-only. The term store stores wbx_text as VARBINARY (case-sensitive,
+ * upstream T242644); the CONVERT to utf8mb4 gives a case-insensitive
+ * collation so "apache"/"APACHE"/"aPaChE" all find "Apache License 2.0"
+ * (the old raw/title/upper variant probing only covered a few cases and
+ * failed on uppercase and mixed-case input). The same idiom backs
+ * ApiFileSearch's page-title CONTAINS match.
  *
  * Result shape mirrors wbsearchentities (the combobox consumers only read
  * `search[].id/label/description`): a label/description is resolved for
@@ -102,10 +104,17 @@ class ApiEntitySearch extends ApiBase {
 	}
 
 	/**
-	 * Contains-match rows (item id => matched text) for the case variants
-	 * of $search, deduped by item id. Each variant runs the same
-	 * LIKE %term% query Wikibase's DatabaseMatchingTermsLookup would build
-	 * for a prefix — only the term is wrapped in leading wildcards.
+	 * Contains-match rows (item id => matched text) for $search, deduped by
+	 * item id. One LIKE %term% query over label + alias terms, matched
+	 * case-insensitively against the utf8mb4 projection of the VARBINARY
+	 * term column — the same idiom as ApiFileSearch's page-title CONTAINS
+	 * match.
+	 *
+	 * Raw SQL is used (not IExpression::LIKE/LikeValue) because the
+	 * expression builder escapes a plain string as a literal and cannot
+	 * express the CONVERT; MySQL/MariaDB is assumed (the instance + the
+	 * dev/CI stack). The typed term is escaped (!% / !_ / !!) so a literal
+	 * '%' or '_' does not become a wildcard.
 	 *
 	 * @return array<string,string> item id => first matched text
 	 */
@@ -121,41 +130,24 @@ class ApiEntitySearch extends ApiBase {
 			$source->getDatabaseName()
 		);
 
-		$variants = [ $search ];
-		$tc = preg_replace_callback(
-			'/(^|\s)(\S)/u',
-			static fn ( array $m ) => $m[1] . mb_strtoupper( $m[2] ),
-			$search
-		);
-		$up = mb_strtoupper( $search );
-		if ( $tc !== $search && $tc !== $up ) {
-			$variants[] = $tc;
-		}
-		if ( $up !== $search && !in_array( $up, $variants, true ) ) {
-			$variants[] = $up;
-		}
+		$escape = static fn ( string $term ): string =>
+			strtr( $term, [ '!' => '!!', '%' => '!%', '_' => '!_' ] );
+		$pattern = '%' . $escape( $search ) . '%';
 
 		$rows = [];
-		foreach ( $variants as $variant ) {
-			// Per-variant query cap: the merged, deduped result is capped
-			// again at $fetchLimit by the caller, so each variant may overshoot.
-			$queryBuilder = $dbr->newSelectQueryBuilder()
-				->select( [ 'wbit_item_id', 'wbx_text' ] )
-				->from( 'wbt_item_terms' )
-				->join( 'wbt_term_in_lang', null, 'wbit_term_in_lang_id=wbtl_id' )
-				->join( 'wbt_text_in_lang', null, 'wbtl_text_in_lang_id=wbxl_id' )
-				->join( 'wbt_text', null, 'wbxl_text_id=wbx_id' )
-				->where( $dbr->expr(
-					'wbx_text',
-					IExpression::LIKE,
-					new LikeValue( $dbr->anyString(), $variant, $dbr->anyString() )
-				) )
-				->where( [ 'wbtl_type_id' => self::TERM_TYPE_IDS ] )
-				->limit( $fetchLimit );
-			foreach ( $queryBuilder->caller( __METHOD__ )->fetchResultSet() as $row ) {
-				if ( !isset( $rows[$row->wbit_item_id] ) ) {
-					$rows[$row->wbit_item_id] = $row->wbx_text;
-				}
+		$queryBuilder = $dbr->newSelectQueryBuilder()
+			->select( [ 'wbit_item_id', 'wbx_text' ] )
+			->from( 'wbt_item_terms' )
+			->join( 'wbt_term_in_lang', null, 'wbit_term_in_lang_id=wbtl_id' )
+			->join( 'wbt_text_in_lang', null, 'wbtl_text_in_lang_id=wbxl_id' )
+			->join( 'wbt_text', null, 'wbxl_text_id=wbx_id' )
+			->where( 'CONVERT(wbx_text USING utf8mb4) LIKE '
+				. $dbr->addQuotes( $pattern ) . " ESCAPE '!'" )
+			->where( [ 'wbtl_type_id' => self::TERM_TYPE_IDS ] )
+			->limit( $fetchLimit );
+		foreach ( $queryBuilder->caller( __METHOD__ )->fetchResultSet() as $row ) {
+			if ( !isset( $rows[$row->wbit_item_id] ) ) {
+				$rows[$row->wbit_item_id] = $row->wbx_text;
 			}
 		}
 		return $rows;
