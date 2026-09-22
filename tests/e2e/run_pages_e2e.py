@@ -1121,6 +1121,81 @@ def flow_newitem_main_page(op, base: str, api: str, label: str) -> tuple[str, st
     return qid, expected
 
 
+def flow_newitem_existing_page(op, base: str, api: str, label: str) -> str:
+    """Special:NewItem when the Main-namespace page already exists: the item
+    is SITELINKED to the existing page (never overwritten) instead of being
+    left page-less. Returns the item qid."""
+    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = csrf["query"]["tokens"]["csrftoken"]
+    r = api_call(op, api, {"action": "edit", "title": label, "text": "pre-existing page (E2E)",
+                           "token": token, "format": "json"}, post=True)
+    if r.get("edit", {}).get("result") != "Success":
+        raise FlowError(f"could not pre-create the Main page {label!r}: {r!r}")
+
+    url, body = page_get(op, base, "/wiki/Special:NewItem")
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "lang": "en", "label": label, "description": "Page-flow E2E NewItem existing",
+        "aliases": "", "wpEditToken": token, "submit": "1", "wpSubmit": "1",
+    })
+    m = re.search(r"/wiki/Item:(Q\d+)", url)
+    if not m:
+        raise FlowError(f"Special:NewItem did not redirect to the item: {url} {find_error(body)}")
+    qid = m.group(1)
+    r = api_call(op, api, {"action": "wbgetentities", "ids": qid,
+                           "props": "sitelinks", "format": "json"})
+    sitelinks = r["entities"][qid].get("sitelinks", {})
+    if not any(sl.get("site") == "wikibase" and sl.get("title") == label
+               for sl in sitelinks.values()):
+        raise FlowError(
+            f"NewItem {qid} did not sitelink to the EXISTING Main page {label!r}: "
+            f"{json.dumps(sitelinks)}")
+    print(f"[ok] Special:NewItem -> {qid}: linked to the existing Main page {label!r}")
+    return qid
+
+
+def flow_existing_page_link_confirm(op, base: str, api: str, person_class: str) -> tuple[str, str]:
+    """AddPerson when the Person: page already exists: the flow routes to the
+    confirmation panel (never sitelinks silently); [Yes] links the item.
+    Returns the item qid."""
+    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = csrf["query"]["tokens"]["csrftoken"]
+    name = f"PageFlowConfirm{int(time.time())}"
+    page = f"Person:{name}"
+    r = api_call(op, api, {"action": "edit", "title": page, "text": "pre-existing person page (E2E)",
+                           "token": token, "format": "json"}, post=True)
+    if r.get("edit", {}).get("result") != "Success":
+        raise FlowError(f"could not pre-create {page!r}: {r!r}")
+
+    url, body = page_get(op, base, "/wiki/Special:AddPerson/manual")
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "wpgivenName": name, "wpfamilyName": "", "wpclass": person_class,
+        "wpEditToken": token, "wpSubmit": "1",
+    })
+    m = re.search(r"/complete/(Q\d+)", url)
+    if not m:
+        raise FlowError(f"AddPerson did not route to the link confirm for {page!r}: "
+                        f"{url} {find_error(body)}")
+    qid = m.group(1)
+    if "already exists" not in body:
+        raise FlowError(f"AddPerson confirm panel missing the 'already exists' wording: {body[:400]!r}")
+    # [Yes, link the item to this page].
+    token = edit_token(body)
+    url2, body2 = page_post(op, url, {"wpEditToken": token, "yes": "1"})
+    if page.replace(" ", "_") not in urllib.parse.unquote(url2):
+        raise FlowError(f"link confirm [Yes] did not redirect to {page!r}: {url2}")
+    r = api_call(op, api, {"action": "wbgetentities", "ids": qid,
+                           "props": "sitelinks", "format": "json"})
+    sitelinks = r["entities"][qid].get("sitelinks", {})
+    if not any(sl.get("site") == "wikibase" and sl.get("title") == page
+               for sl in sitelinks.values()):
+        raise FlowError(f"{qid} not sitelinked to {page!r} after the confirm: "
+                        f"{json.dumps(sitelinks)}")
+    print(f"[ok] AddPerson existing Person: page -> confirm panel -> linked {qid} to {page!r}")
+    return qid, page
+
+
 def flow_update_content_button(op, base: str, qid: str) -> None:
     """'Edit content' toolbar target (issue #80): an Item page whose item
     is of a CONTENT class (quotation/math/code-snippet) carries the
@@ -4308,6 +4383,19 @@ def main() -> int:
         track(newitem_qid)
         if newitem_qid in created:
             created_pages.append(newitem_page)
+
+        # 3d4. Existing-page behaviour (issue report): when the classic page
+        #      already exists, Special:NewItem SITELINKS the item to it, and
+        #      the Add* browser flows route through a confirmation panel
+        #      (never link silently).
+        existing_label = f"Page-flow E2E existing {int(time.time())}"
+        existing_qid = track(flow_newitem_existing_page(op, base, api, existing_label))
+        if existing_qid in created:
+            created_pages.append(existing_label)
+        confirm_qid, confirm_page = flow_existing_page_link_confirm(op, base, api, person_class)
+        track(confirm_qid)
+        if confirm_qid in created:
+            created_pages.append(confirm_page)
 
         # 3e. AddSoftware/manual + logo upload (issue follow-up + upload
         #     enhancements): a local PNG is uploaded as File:<label>-logo.png
