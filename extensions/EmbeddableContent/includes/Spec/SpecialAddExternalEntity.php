@@ -1244,8 +1244,11 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 
 	/**
 	 * Classic page title for a created item, or null when the kind creates
-	 * no page (pageNamespace() null) or the label is unusable as a title
-	 * (empty, or containing title-forbidden characters like #).
+	 * no page (pageNamespace() null) or the label is unusable as a title.
+	 * The label is normalized first (LabelSanitizer::normalizeForTitle):
+	 * markup and title-forbidden characters (# < > [ ] { } |) are removed /
+	 * replaced so a "C#" or "A|B" label still yields a page; only a label
+	 * that normalizes to empty (or an unconstructable title) returns null.
 	 *
 	 * @param array<string,mixed> $record
 	 */
@@ -1254,7 +1257,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		if ( $ns === null ) {
 			return null;
 		}
-		$label = trim( LabelSanitizer::stripMarkup( $this->primaryLabel( $record ) ) );
+		$label = LabelSanitizer::normalizeForTitle( $this->primaryLabel( $record ) );
 		if ( $label === '' ) {
 			return null;
 		}

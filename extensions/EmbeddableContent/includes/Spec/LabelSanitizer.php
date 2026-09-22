@@ -37,4 +37,31 @@ final class LabelSanitizer {
 		return trim( $text );
 	}
 
+	/**
+	 * Normalizes a label into a usable MediaWiki page title. In addition to
+	 * stripMarkup, the characters MediaWiki forbids in titles
+	 * (`# < > [ ] { } |` — Title::isValid()) are replaced with a dash, so a
+	 * label like "C# programming language" or "A|B" still yields a page
+	 * instead of the "label cannot be used as a page title" warning.
+	 *
+	 * The item LABEL is never changed — only the derived page title — so
+	 * the entity keeps its exact term and the classic page is sitelinked to
+	 * it. A label that normalizes to an empty string is still unusable (the
+	 * caller keeps the item-only fallback).
+	 *
+	 * `/` is left alone: MediaWiki accepts it (it only makes the title a
+	 * subpage). Repeated dashes and surrounding whitespace collapse; leading
+	 * and trailing dashes are trimmed.
+	 *
+	 * @param string $text a label/title candidate (harvested or hand-typed)
+	 * @return string a title-safe form of the text
+	 */
+	public static function normalizeForTitle( string $text ): string {
+		$text = self::stripMarkup( $text );
+		$text = preg_replace( '/[#<>\[\]{}|]/', '-', $text ) ?? $text;
+		$text = preg_replace( '/\s+/u', ' ', $text ) ?? $text;
+		$text = preg_replace( '/-{2,}/', '-', $text ) ?? $text;
+		return trim( $text, " -\t\n\r\0\x0B" );
+	}
+
 }
