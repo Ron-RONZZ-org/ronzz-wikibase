@@ -371,15 +371,39 @@ PR #66) — drop the patch on re-vendor once upstream merges it.
   "Einstein" never "Albert Einstein". The module runs a CONTAINS match
   (`LIKE %term%`) over the same `wbt_*` term tables Wikibase's
   `DatabaseMatchingTermsLookup` reads (label + alias, term-type ids
-  hardcoded per upstream `TermTypeIds`), querying the raw + title-cased +
-  uppercase variants (case-sensitive VARBINARY `wbx_text`), merging deduped
-  hits, and resolving display labels/descriptions with the configured
-  fallback order; result shape mirrors `wbsearchentities`
-  (`search[].id/label/description`). The direct `wbt_*` SQL is a documented
-  deviation from the stable-API rule (read-only, in-process, schema stable
-  across 1.4x); CirrusSearch + WikibaseCirrusSearch (real token fulltext,
-  needs Elasticsearch ~1–1.5 GB) is the documented upgrade path for a
-  larger instance.
+  hardcoded per upstream `TermTypeIds`), matching **case-insensitively**
+  via `CONVERT(wbx_text USING utf8mb4)` (the VARBINARY term column is
+  case-sensitive, upstream T242644 — the earlier raw/title/upper variant
+  probing missed uppercase/mixed-case input), and resolving display
+  labels/descriptions with the configured fallback order; result shape
+  mirrors `wbsearchentities` (`search[].id/label/description`). The direct
+  `wbt_*` SQL is a documented deviation from the stable-API rule
+  (read-only, in-process, schema stable across 1.4x); CirrusSearch +
+  WikibaseCirrusSearch (real token fulltext, needs Elasticsearch ~1–1.5 GB)
+  is the documented upgrade path for a larger instance.
+- **Add* form fixes batch (ADR `docs/decisions/add-forms-fixes-2026-09.md`)**:
+  (a) **Combobox search is case-insensitive** (above) — `action=entitysearch`
+  now `CONVERT`s the term column, so `APACHE`/`aPaChE` find "Apache License
+  2.0". (b) **The class scope rides the OOUI widget DATA**, not a DOM
+  attribute: the HTMLForm auto-infusion re-creates widgets from `data-ooui`
+  and drops server-rendered attributes, so the old `data-wb-classes`
+  attribute never reached `entitysuggest.js` and every scoped combobox
+  searched the whole instance (the OS field suggested "The Linux
+  Foundation"). `OOUIComboboxField::getInputOOUI` now `setData()`s the
+  scope (serialized into `data-ooui`) and the JS reads
+  `combo.getData().wbClasses` after infusing. (c) **`Special:UpdateSoftware`
+  prefills the entity comboboxes + programming language** (the entity fields
+  had no `default`; the lexer read `fossProperties` instead of the global
+  `programmingLanguagePropertyId()`) and the `pageKind` radio follows the
+  stored class. (d) **Page-title auto-normalization**:
+  `LabelSanitizer::normalizeForTitle` maps `# < > [ ] { } |` to `-` (label
+  unchanged, `/` kept), used by both `SpecialAddExternalEntity::pageTitleForRecord`
+  and `ClassicPageCreator`, so "C#"/"A|B" labels get a page. (e)
+  **`Special:NewItem` auto-creates a Main-namespace sitelinked page** titled
+  with the label (`Flow/NewItemPageCreator` + a `PageSaveComplete` hook,
+  gated to the `Special:NewItem` request; the Add* flows, API-created items
+  and items with an explicit sitelink are skipped). No vocabulary/config-map
+  change.
 - **Instance data rights are CC BY-SA 4.0** (seed `dataRightsUrl` /
   `rdfDataRightsUrl`), matching the CC BY-SA sourced page content and
   contributor licensing.
