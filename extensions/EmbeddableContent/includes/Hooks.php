@@ -95,13 +95,18 @@ class Hooks {
 	 * per-kind pages) and API/script item creation are untouched.
 	 */
 	public static function onPageSaveComplete(
-		\MediaWiki\Page\WikiPage $wikiPage,
-		\MediaWiki\User\UserIdentity $user,
-		string $summary,
-		int $flags,
-		\MediaWiki\Revision\RevisionRecord $revisionRecord,
-		\MediaWiki\Edit\EditResult $editResult
+		$wikiPage,
+		$user,
+		$summary,
+		$flags,
+		$revisionRecord,
+		$editResult
 	): void {
+		// The params are deliberately UNTYPED: MW 1.46's PageSaveCompleteHook
+		// interface declares them untyped, and entity saves call the hook with
+		// null for $summary/$revisionRecord/$editResult (only $wikiPage, $user
+		// and $flags are populated) — typed hints throw a TypeError and the
+		// handler never runs.
 		\EmbeddableContent\Flow\NewItemPageCreator::handle(
 			$wikiPage,
 			$user,
