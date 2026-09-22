@@ -305,7 +305,9 @@ jobs:
       - name: Dump wiki logs (diagnostic)
         if: always()
         run: |
-          $COMPOSE logs --tail 120 wikibase 2>&1 | tail -120 || true
+          $COMPOSE logs --since 8m wikibase 2>&1 | grep -iE "NewItemPageCreator|PageSaveComplete|SparqlRunner" | tail -40 || true
+          echo "--- registered PageSaveComplete handlers ---"
+          printf '%s\n' '$hc=\MediaWiki\MediaWikiServices::getInstance()->getHookContainer(); foreach($hc->getHandlerCallbacks("PageSaveComplete") as $cb){ if(is_array($cb)){ echo get_class($cb[0])."::".$cb[1]."\n"; } }' | $COMPOSE exec -T wikibase php maintenance/run.php eval.php 2>&1 | tail -10 || true
 
       - name: Forum E2E (DPLforum — Forum namespace + forum listing tag)
         run: |
