@@ -1,0 +1,11 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		]
+	},
+	"geogebra-desc": "Feuilles de travail GeoGebra interactives : téléversez un .ggb et intégrez-le avec [[File:nom.ggb]]",
+	"geogebra-open-file": "Ouvrir le fichier GeoGebra",
+	"geogebra-short-desc": "Feuille de travail GeoGebra $1",
+	"geogebra-long-desc": "Feuille de travail interactive GeoGebra"
+}

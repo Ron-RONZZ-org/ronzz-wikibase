@@ -20,6 +20,11 @@ seed/generated/
 # extensions/SimpleMathJax/VENDORED.md)
 /extensions/SimpleMathJax/resources/MathJax/
 
+# GeoGebra app bundle — installed by tools/install-geogebra.sh
+# (pinned official bundle, sha256-checked; never committed — see
+# extensions/GeoGebra/ASSETS.md)
+/extensions/GeoGebra/resources/player/GeoGebra/
+
 # IDE / OS
 .idea/
 .vscode/

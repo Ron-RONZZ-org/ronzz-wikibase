@@ -1,0 +1,11 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		]
+	},
+	"geogebra-desc": "Interactive GeoGebra worksheets: upload a .ggb and embed it with [[File:name.ggb]]",
+	"geogebra-open-file": "Open the GeoGebra file",
+	"geogebra-short-desc": "GeoGebra worksheet $1",
+	"geogebra-long-desc": "GeoGebra interactive worksheet"
+}

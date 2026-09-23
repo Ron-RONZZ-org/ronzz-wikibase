@@ -1,0 +1,11 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		]
+	},
+	"geogebra-desc": "{{desc|name=GeoGebra|url=https://www.mediawiki.org/wiki/Extension:GeoGebra}}",
+	"geogebra-open-file": "Link text for the fallback shown when no player URL is configured.",
+	"geogebra-short-desc": "Short description of a GeoGebra file. Parameters:\n* $1 — the file name",
+	"geogebra-long-desc": "Long description of a GeoGebra file."
+}
