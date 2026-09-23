@@ -55,7 +55,6 @@ final class GeoGebraEmbedTest extends TestCase {
 		$this->assertSame( '600', $attribs['height'] );
 		$this->assertSame( 'allow-scripts allow-same-origin', $attribs['sandbox'] );
 		$this->assertSame( 'fullscreen', $attribs['allow'] );
-		$this->assertArrayHasKey( 'allowfullscreen', $attribs );
 		$this->assertSame( 'lazy', $attribs['loading'] );
 		$this->assertSame( 'no-referrer', $attribs['referrerpolicy'] );
 		$this->assertStringContainsString( self::PLAYER, $attribs['src'] );

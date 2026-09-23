@@ -59,7 +59,6 @@ final class GeoGebraEmbed {
 			'height' => (string)$height,
 			'sandbox' => $sandbox,
 			'allow' => 'fullscreen',
-			'allowfullscreen' => '',
 			'loading' => 'lazy',
 			'referrerpolicy' => 'no-referrer',
 			'frameborder' => '0',
