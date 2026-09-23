@@ -62,6 +62,20 @@ docker compose -f dev/docker-compose.ci.yml exec -T mysql \
   mysql -u wikiuser -psqlpass my_wiki -e \
   "INSERT IGNORE INTO sites (site_id, site_global_key, site_type, site_group, site_source, site_language, site_protocol, site_domain, site_data, site_forward, site_config) VALUES (1, 'wikibase', 'mediawiki', 'ronzz', 'local', 'en', 'http', 'wikibase', 'a:0:{}', 1, 'a:0:{}');"
 
+# 0d. GeoGebra app bundle + CORS (the [[File:x.ggb]] sandboxed player). The
+#     ~48 MB app is NOT in git — install it on the HOST (the nginx `ggb`
+#     service bind-mounts the checkout's player dir). The wiki must serve
+#     .ggb with CORS for the player origin (http://127.0.0.1:8083); the WBS
+#     image's Apache needs mod_headers + a conf snippet (production does this
+#     in nginx).
+tools/install-geogebra.sh
+docker compose -f dev/docker-compose.ci.yml exec -T -u root wikibase bash -c '
+  set -e
+  a2enmod headers >/dev/null
+  printf "<FilesMatch \"\\.ggb$\">\n\tHeader set Access-Control-Allow-Origin \"*\"\n\tHeader set Cross-Origin-Resource-Policy \"cross-origin\"\n</FilesMatch>\n" > /etc/apache2/conf-enabled/zz-geogebra-cors.conf'
+docker compose -f dev/docker-compose.ci.yml restart wikibase
+for i in $(seq 1 300); do curl -sf -o /dev/null http://127.0.0.1:8082/api.php && break; sleep 2; done
+
 # 1. D1 importers (vocabulary via maintenance scripts)
 docker compose -f dev/docker-compose.ci.yml exec -T wikibase \
   php maintenance/run.php extensions/EmbeddableContent/maintenance/importVocabulary.php --type=property
@@ -115,6 +129,13 @@ python3 tests/e2e/run_pages_e2e.py --base-url http://127.0.0.1:8082 \
 python3 tests/e2e/run_diagrams_e2e.py --base-url http://127.0.0.1:8082 \
   --api-url http://127.0.0.1:8082/api.php \
   --user CIAdmin --password-file <(echo -n ci-admin-pass-2026)
+
+# 5c. GeoGebra E2E ([[File:x.ggb]] sandboxed embed + cross-origin player;
+#     needs step 0d's bundle + CORS)
+python3 tests/e2e/run_geogebra_e2e.py --base-url http://127.0.0.1:8082 \
+  --api-url http://127.0.0.1:8082/api.php \
+  --user CIAdmin --password-file <(echo -n ci-admin-pass-2026) \
+  --player-url http://127.0.0.1:8083/player.html
 
 # Clean reset (keeps nothing):
 docker compose -f dev/docker-compose.ci.yml down -v

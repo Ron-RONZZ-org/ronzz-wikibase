@@ -34,6 +34,15 @@ wire the wiki into the LLM writing studio, or keep the wiki content conformant.
   least-privilege bot password (`RonzzWikiCowriterAI@Writer`). See
   [`owui-writer/README.md`](owui-writer/README.md) + ADR
   `docs/decisions/owui-wiki-writer.md`. Contains templates only — **no credentials**.
+- **`tools/install-geogebra.sh`** — installs the pinned GeoGebra Math Apps
+  Bundle for the GeoGebra extension (the `.ggb` applet), idempotently:
+  downloads the sha256-checked official bundle and extracts `deployggb.js` +
+  `HTML5/5.0/web3d/` into the player directory (`--dest`, default the repo's
+  `extensions/GeoGebra/resources/player`). The app is non-commercial-licensed
+  and never committed (see `extensions/GeoGebra/ASSETS.md`) — same pattern as
+  `install-mathjax.sh` / `install-plantuml.sh`. Run it on the host of a
+  dev/CI checkout before the stack boots, and on the server
+  (`--dest /var/www/ggb`) after the extension rsync.
 - **`tools/add-copy-to-syntaxhighlight.py`** — enforces the wiki content
   standard that every *block-mode* `<syntaxhighlight lang="...">` carries the
   `copy` attribute (copy button; `Help:Contributing/code` house rule). `inline`
