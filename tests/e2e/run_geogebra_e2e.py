@@ -176,7 +176,8 @@ def check_siteinfo(op, api: str) -> None:
     extensions = [ext.get("name") for ext in r["query"]["extensions"]]
     if "GeoGebra" not in extensions:
         raise FlowError(f"GeoGebra extension not loaded (siteinfo extensions: {extensions})")
-    exts = r["query"]["fileextensions"]
+    # siteinfo fileextensions is a list of dicts ({"ext": "ggb"}).
+    exts = [e.get("ext") if isinstance(e, dict) else e for e in r["query"]["fileextensions"]]
     if "ggb" not in exts:
         raise FlowError(f"ggb is not an allowed upload extension (fileextensions: {exts})")
     print("[ok] GeoGebra loaded, ggb uploadable")
