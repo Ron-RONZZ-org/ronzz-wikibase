@@ -28,7 +28,7 @@ class GeoGebraOutput extends MediaTransformOutput {
 		string $app
 	) {
 		$this->file = $file;
-		$this->url = $file->getUrl();
+		$this->url = $file->getFullUrl();
 		$this->width = $width;
 		$this->height = $height;
 		$this->playerUrl = $playerUrl;
@@ -42,13 +42,16 @@ class GeoGebraOutput extends MediaTransformOutput {
 			// No player configured — degrade to a plain file link.
 			return Html::element(
 				'a',
-				[ 'href' => $this->file->getUrl(), 'class' => 'ggb-embed ggb-embed-fallback' ],
+				[ 'href' => $this->file->getFullUrl(), 'class' => 'ggb-embed ggb-embed-fallback' ],
 				wfMessage( 'geogebra-open-file' )->text()
 			);
 		}
+		// getFullUrl(), not getUrl(): the player origin fetches the file
+		// cross-origin, so the URL must be absolute (getUrl() is relative when
+		// $wgUploadPath is — e.g. /w/images on the WBS stack).
 		return Html::element( 'iframe', GeoGebraEmbed::iframeAttributes(
 			$this->playerUrl,
-			$this->file->getUrl(),
+			$this->file->getFullUrl(),
 			$this->width,
 			$this->height,
 			$this->sandbox,
