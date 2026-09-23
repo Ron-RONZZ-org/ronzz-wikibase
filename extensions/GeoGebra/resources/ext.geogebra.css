@@ -1,0 +1,16 @@
+/* GeoGebra embeds ([[File:x.ggb]]) — the sandboxed player iframe. */
+.ggb-embed {
+	display: block;
+	max-width: 100%;
+	border: 1px solid #c8ccd1;
+	border-radius: 2px;
+	background: #fff;
+}
+
+.ggb-embed-fallback {
+	display: inline-block;
+	padding: 0.4em 0.8em;
+	border: 1px solid #c8ccd1;
+	border-radius: 2px;
+	background: #f8f9fa;
+}

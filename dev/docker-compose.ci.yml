@@ -48,6 +48,7 @@ services:
       - ../extensions/Diagrams:/var/www/html/extensions/Diagrams:ro
       - ../extensions/SimpleMathJax:/var/www/html/extensions/SimpleMathJax:ro
       - ../extensions/LanguageBar:/var/www/html/extensions/LanguageBar:ro
+      - ../extensions/GeoGebra:/var/www/html/extensions/GeoGebra:ro
     depends_on:
       mysql:
         condition: service_healthy
@@ -66,6 +67,18 @@ services:
     depends_on:
       wikibase:
         condition: service_healthy
+
+  # GeoGebra player origin (dev/CI parity with the production cookie-less
+  # ggb.ronzz.org vhost). Serves the player page + the self-hosted GeoGebra
+  # app installed by tools/install-geogebra.sh (run on the runner host before
+  # the E2E). The wiki embeds it in a sandboxed iframe; the applet fetches the
+  # .ggb cross-origin from the wiki (CORS enabled in the CI steps).
+  ggb:
+    image: nginx:1.27-alpine
+    ports:
+      - "127.0.0.1:8083:80"
+    volumes:
+      - ../extensions/GeoGebra/resources/player:/usr/share/nginx/html:ro
 
   mysql:
     image: mariadb:10.11

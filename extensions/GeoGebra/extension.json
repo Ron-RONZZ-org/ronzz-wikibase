@@ -1,0 +1,64 @@
+{
+	"name": "GeoGebra",
+	"version": "1.0.0",
+	"author": [
+		"ronzz.org"
+	],
+	"url": "https://github.com/Ron-RONZZ-org/ronzz-wikibase",
+	"descriptionmsg": "geogebra-desc",
+	"license-name": "GPL-2.0-or-later",
+	"type": "media",
+	"requires": {
+		"MediaWiki": ">= 1.46.0"
+	},
+	"AutoloadNamespaces": {
+		"MediaWiki\\Extension\\GeoGebra\\": "src/"
+	},
+	"MessagesDirs": {
+		"GeoGebra": [
+			"i18n"
+		]
+	},
+	"MediaHandlers": {
+		"application/geogebra": "MediaWiki\\Extension\\GeoGebra\\GeoGebraHandler"
+	},
+	"HookHandlers": {
+		"main": {
+			"class": "MediaWiki\\Extension\\GeoGebra\\Hooks"
+		}
+	},
+	"Hooks": {
+		"MimeMagicInit": "main",
+		"MimeMagicImproveFromExtension": "main"
+	},
+	"ResourceModules": {
+		"ext.geogebra.styles": {
+			"styles": [
+				"resources/ext.geogebra.css"
+			]
+		}
+	},
+	"config": {
+		"GeoGebraPlayerUrl": {
+			"value": "",
+			"description": "Absolute URL of the sandboxed GeoGebra player page served from a cookie-less origin (e.g. https://ggb.ronzz.org/player.html). Empty = embedding disabled; [[File:x.ggb]] then renders a plain link to the file."
+		},
+		"GeoGebraDefaultApp": {
+			"value": "classic",
+			"description": "GeoGebra app name used when an embed does not request one (classic/graphing/geometry/3d/suite/evaluator/scientific/notes)."
+		},
+		"GeoGebraDefaultWidth": {
+			"value": 800,
+			"description": "Default applet width in pixels when the embed does not specify one."
+		},
+		"GeoGebraDefaultHeight": {
+			"value": 600,
+			"description": "Default applet height in pixels (also the aspect ratio used when only a width is given)."
+		},
+		"GeoGebraIframeSandbox": {
+			"value": "allow-scripts allow-same-origin allow-popups allow-downloads allow-modals",
+			"description": "sandbox attribute for the player iframe. allow-same-origin is safe here because the player origin differs from the wiki origin — the applet cannot reach the wiki DOM, cookies or session."
+		}
+	},
+	"manifest_version": 2
+}

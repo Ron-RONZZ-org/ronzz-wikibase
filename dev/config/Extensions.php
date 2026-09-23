@@ -67,6 +67,19 @@ if ( is_dir( '/var/www/html/extensions/Cite' ) ) {
 	wfLoadExtension( 'Cite' );
 }
 
+// ---- GeoGebra (interactive [[File:x.ggb]] embeds, extensions/GeoGebra) ----
+// A .ggb is a renamed ZIP; the extension registers the application/geogebra
+// MIME + a media handler that emits a SANDBOXED <iframe> pointing at the
+// cookie-less player origin (ggb.ronzz.org in production). The GeoGebra app
+// assets are installed by tools/install-geogebra.sh (gitignored, like the
+// MathJax tree). In the dev/CI stack the player is a second static server
+// (the `ggb` service, 127.0.0.1:8083) so the cross-origin path is exercised;
+// production sets $wgGeoGebraPlayerUrl to https://ggb.ronzz.org/player.html.
+wfLoadExtension( 'GeoGebra' );
+$wgGeoGebraPlayerUrl = 'http://127.0.0.1:8083/player.html';
+$wgFileExtensions[] = 'ggb';
+$wgTrustedMediaFormats[] = 'application/geogebra';
+
 // Dev-only: surface exception details instead of a bare 500.
 $wgShowExceptionDetails = true;
 

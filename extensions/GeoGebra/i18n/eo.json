@@ -1,0 +1,11 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		]
+	},
+	"geogebra-desc": "Interagaj GeoGebra-folioj: alŝutu .ggb kaj enigu ĝin per [[File:nomo.ggb]]",
+	"geogebra-open-file": "Malfermi la GeoGebra-dosieron",
+	"geogebra-short-desc": "GeoGebra-folio $1",
+	"geogebra-long-desc": "Interaga GeoGebra-folio"
+}

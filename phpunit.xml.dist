@@ -15,6 +15,7 @@
 			<directory>extensions/EmbeddableContent/includes</directory>
 			<directory>extensions/WikibaseCitation/includes</directory>
 			<directory>extensions/LanguageBar/includes</directory>
+			<directory>extensions/GeoGebra/src</directory>
 		</include>
 	</source>
 </phpunit>

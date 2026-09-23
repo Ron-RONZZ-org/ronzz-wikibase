@@ -89,7 +89,7 @@ the instance.
 | Wiki platform | MediaWiki 1.46 + Wikibase (repo), self-hosted at wikibase.ronzz.org |
 | Query service | WDQS (Blazegraph SPARQL 0.3.156) |
 | Database | MySQL / MariaDB |
-| Custom extensions | EmbeddableContent (D3 + issue #7), WikibaseCitation (D4), LanguageBar (automatic `{{Languages}}` bar on content pages) — standalone, never forks of Wikibase; DPLforum (vendored third-party forum, `extensions/DPLforum/`) + InputBox (vendored, thread-creation field, `extensions/InputBox/`); Diagrams (vendored third-party diagram extension — PlantUML/GraphViz/Mscgen server-side + Mermaid client-side, `extensions/Diagrams/`); SimpleMathJax (vendored third-party inline-LaTeX math — `$…$`/`$$…$$`/`<math>` typeset client-side by MathJax 3, `extensions/SimpleMathJax/`) — see their `VENDORED.md` |
+| Custom extensions | EmbeddableContent (D3 + issue #7), WikibaseCitation (D4), LanguageBar (automatic `{{Languages}}` bar on content pages) — standalone, never forks of Wikibase; DPLforum (vendored third-party forum, `extensions/DPLforum/`) + InputBox (vendored, thread-creation field, `extensions/InputBox/`); Diagrams (vendored third-party diagram extension — PlantUML/GraphViz/Mscgen server-side + Mermaid client-side, `extensions/Diagrams/`); SimpleMathJax (vendored third-party inline-LaTeX math — `$…$`/`$$…$$`/`<math>` typeset client-side by MathJax 3, `extensions/SimpleMathJax/`) — see their `VENDORED.md`; GeoGebra (interactive `[[File:x.ggb]]` worksheets — a house media handler rendering a sandboxed cross-origin player iframe, `extensions/GeoGebra/`) |
 | Seed/tooling | Python 3 (stdlib only) |
 | Unit tests | PHPUnit 10 (pure-PHP) + Python `unittest` |
 | E2E | Python suites in `tests/e2e/` (curl the live endpoints) |
@@ -117,7 +117,10 @@ the instance.
   never re-fetch from CDNs at runtime. SimpleMathJax's MathJax 3 assets
   (~24 MB) are NOT committed — installed per environment by
   `tools/install-mathjax.sh` (pinned sha256-checked tarball; also never a
-  runtime CDN — `$wgSmjUseCdn = false`).
+  runtime CDN — `$wgSmjUseCdn = false`). The **GeoGebra app bundle**
+  (`tools/install-geogebra.sh`, pinned official bundle, ~48 MB) is likewise
+  not committed — the app is non-commercial-licensed and served from the
+  cookie-less player origin (`extensions/GeoGebra/ASSETS.md`).
 
 ## Coding Guidelines
 

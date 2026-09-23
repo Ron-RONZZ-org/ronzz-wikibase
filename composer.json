@@ -16,7 +16,8 @@
 		"psr-4": {
 			"EmbeddableContent\\": "extensions/EmbeddableContent/includes/",
 			"WikibaseCitation\\": "extensions/WikibaseCitation/includes/",
-			"LanguageBar\\": "extensions/LanguageBar/includes/"
+			"LanguageBar\\": "extensions/LanguageBar/includes/",
+			"MediaWiki\\Extension\\GeoGebra\\": "extensions/GeoGebra/src/"
 		}
 	},
 	"autoload-dev": {

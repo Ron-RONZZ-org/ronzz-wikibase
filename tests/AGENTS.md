@@ -34,6 +34,17 @@ plus the Playwright browser UX suite for the query GUI (query.ronzz.org).
   **self-cleaning**. Needs the diagram renderers in the wiki container (apt
   `graphviz`/`mscgen` + the pinned PlantUML jar via
   `tools/install-plantuml.sh` — see `dev/README.md` step 0b / ci.yml).
+- **`tests/e2e/run_geogebra_e2e.py`** — the GeoGebra extension: `ggb` is an
+  allowed upload extension, a `.ggb` uploads as `application/geogebra` (the
+  MIME hooks), `[[File:name.ggb|600px]]` renders the sandboxed player iframe
+  (class + player URL + file/size params + `sandbox`/`allow`/`loading`), the
+  player origin serves the player page + the installed GeoGebra app
+  (`GeoGebra/deployggb.js`), the wiki serves the `.ggb` with a CORS header for
+  the player origin, and injections do not survive; **self-cleaning**. Needs
+  the app bundle (`tools/install-geogebra.sh`) and the CORS step on the wiki
+  (see ci.yml / `dev/README.md`). The browser render is verified by
+  `tests/e2e/run_geogebra_ux_e2e.mjs` (Playwright, manual/production like the
+  math UX suite).
 - **`tests/e2e/run_query_gui_e2e.py`** — HTTP-level acceptance for the
   query.ronzz.org frontend stack (read-only): bare `wd:`/`wdt:` prefixes
   (the store's `prefixes.conf`) and explicit `PREFIX` clauses both return

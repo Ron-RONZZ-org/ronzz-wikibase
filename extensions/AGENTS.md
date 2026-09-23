@@ -9,6 +9,14 @@ citation formatting from Wikibase statements) and **LanguageBar** (the
 automatic `{{Languages}}` static-translation bar on content pages). All are
 standalone extensions — never forks of Wikibase.
 
+Plus **GeoGebra** (a standalone house extension, not vendored): interactive
+GeoGebra worksheets — upload a `.ggb` and embed it with
+`[[File:name.ggb|600px]]`. A `ggb` media handler emits a **sandboxed,
+cross-origin `<iframe>`** served from the cookie-less `ggb.ronzz.org` player
+origin; the GeoGebra app is installed per environment by
+`tools/install-geogebra.sh` (non-commercial-licensed, never committed). See
+`GeoGebra/AGENTS.md` + `../docs/decisions/geogebra.md`.
+
 Plus **vendored third-party** extensions: **DPLforum** (the forum — see
 `DPLforum/VENDORED.md` for provenance and `../docs/decisions/forum-dplforum.md`
 for the choice rationale) and **InputBox** (the `<inputbox type=create>`
@@ -974,6 +982,29 @@ PR #66) — drop the patch on re-vendor once upstream merges it.
   (en/fr/eo). No DB/seed/manifest/config-map surface — see
   `LanguageBar/AGENTS.md` + `../docs/decisions/automatic-languages-bar.md`.
 
+### GeoGebra
+
+- **Interactive `[[File:x.ggb]]` worksheets** (`extensions/GeoGebra/`, a
+  standalone house extension — NOT vendored): a `.ggb` is a renamed ZIP, so
+  the extension registers the `application/geogebra` MIME
+  (`MimeMagicInit` + `MimeMagicImproveFromExtension` — the ZIP sniffer reports
+  `application/zip`, the extension hook corrects it) + a media handler
+  (`GeoGebraHandler extends ImageHandler`) so `[[File:name.ggb|600px]]` embeds
+  an applet. `GeoGebraOutput` (a `MediaTransformOutput`) emits a **sandboxed
+  cross-origin `<iframe>`** pointing at `$wgGeoGebraPlayerUrl` — the
+  cookie-less `ggb.ronzz.org` player origin in production — carrying the file
+  URL + size + app. Rendering is CLIENT-SIDE: the player loads the
+  self-hosted GeoGebra app and the file. **Security**: origin isolation via
+  the cross-origin iframe (`sandbox="allow-scripts allow-same-origin …"` is a
+  real sandbox only across origins) + Layer-1 app flags
+  `disableJavaScript: true` + `useBrowserForJS: true` (no JS from material
+  files). **Assets**: the GeoGebra Math Apps Bundle (non-commercial licence)
+  is installed by `tools/install-geogebra.sh` (pinned, sha256-checked,
+  gitignored) — never committed; see `GeoGebra/ASSETS.md`. The wiki serves
+  `.ggb` with `Access-Control-Allow-Origin` for the player origin (production
+  nginx rule; a CI step). No DB/seed/manifest/config-map surface — see
+  `GeoGebra/AGENTS.md` + `../docs/decisions/geogebra.md`.
+
 ## Constraints and Invariants
 
 - **Standalone extensions, never forks of Wikibase** — deep integration via
@@ -987,7 +1018,9 @@ PR #66) — drop the patch on re-vendor once upstream merges it.
 - **No number-mirroring of Wikidata P-numbers** — ontology alignment as data
   (mirror properties + equivalent-property statements).
 - Vendored third-party assets (`resources/katex/`, `resources/highlight/`,
-  `styles/*.csl`) — never re-fetch from CDNs at runtime.
+  `styles/*.csl`) — never re-fetch from CDNs at runtime. The GeoGebra app
+  bundle is likewise never a runtime CDN: it is installed per environment by
+  `tools/install-geogebra.sh` and served from the cookie-less player origin.
 - The fetch providers must stay **SSRF-allowlisted** (no arbitrary URLs).
 - The XSS suite is mandatory for EmbeddableContent — injections must not
   survive rendering on any embed surface.
