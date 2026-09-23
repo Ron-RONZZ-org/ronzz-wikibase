@@ -51,6 +51,9 @@
 			useBrowserForJS: true,
 			disableJavaScript: true
 		}, true );
+		// Load the app from the SELF-HOSTED bundle, never the geogebra.org CDN
+		// (deployggb.js defaults its codebase to the CDN; the CSP blocks it).
+		applet.setHTML5Codebase( 'GeoGebra/HTML5/5.0/web3d/' );
 		applet.inject( 'ggb-element' );
 	};
 	script.onerror = function () {
