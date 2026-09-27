@@ -216,6 +216,7 @@
 	},
 	"Hooks": {
 		"BeforePageDisplay": "main",
+		"BeforePageRedirect": "main",
 		"SkinTemplateNavigation::Universal": "main",
 		"ParserFirstCallInit": "main",
 		"UploadFormInitDescriptor": "upload",
@@ -496,6 +497,23 @@
 				"embeddablecontent-file-copylink",
 				"embeddablecontent-file-copylink-hint",
 				"embeddablecontent-gadget-copied"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.uploadform": {
+			"scripts": [
+				"uploadform.js"
+			],
+			"dependencies": [
+				"mediawiki.notification"
+			],
+			"messages": [
+				"embeddablecontent-upload-author",
+				"embeddablecontent-upload-license",
+				"embeddablecontent-upload-missing-confirm"
 			],
 			"targets": [
 				"desktop",

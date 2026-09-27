@@ -115,6 +115,49 @@ class Hooks {
 		);
 	}
 
+	/**
+	 * Special:Upload success hand-off (2026-09 UX batch). The form's two
+	 * extra controls ride the File: page redirect as one-shot query params,
+	 * because the destination File: page is where the FINAL file name is
+	 * known:
+	 *  - the "Copy internal embed code" checkbox → ?wbuploadcopy=1 (the
+	 *    File page copies [[File:xxx]]);
+	 *  - the "Submit and upload another image from same author" button
+	 *    (wpUpload=another) → ?wbanother=1 + the license/author/license-info
+	 *    values, so the File page (opened in a new tab by uploadform.js)
+	 *    sends the opener back to a fresh, prefilled upload form.
+	 *
+	 * Fires for every redirect; acts only on a Special:Upload request.
+	 *
+	 * @param OutputPage $out
+	 * @param string &$redirect
+	 * @param string &$code
+	 */
+	public static function onBeforePageRedirect( $out, &$redirect, &$code ): void {
+		if ( !$out instanceof OutputPage ) {
+			return;
+		}
+		$title = $out->getTitle();
+		if ( $title === null || !$title->isSpecial( 'Upload' ) ) {
+			return;
+		}
+		$request = \MediaWiki\Context\RequestContext::getMain()->getRequest();
+		$params = [];
+		if ( $request->getCheck( 'wpUploadCopyEmbed' ) ) {
+			$params['wbuploadcopy'] = '1';
+		}
+		if ( $request->getVal( 'wpUpload' ) === 'another' ) {
+			$params['wbanother'] = '1';
+			$params['wblicense'] = (string)$request->getVal( 'wpLicense', '' );
+			$params['wbauthor'] = (string)$request->getVal( 'wpUploadAuthor', '' );
+			$params['wblicenseinfo'] = (string)$request->getVal( 'wpUploadLicenseInfo', '' );
+		}
+		if ( $params === [] ) {
+			return;
+		}
+		$redirect = wfAppendQuery( $redirect, $params );
+	}
+
 	public static function onBeforePageDisplay( OutputPage $out, $skin ): void {
 		$title = $out->getTitle();
 		if ( $title === null ) {
@@ -131,6 +174,9 @@ class Hooks {
 			$out->addModules( 'ext.embeddableContent.entitysuggest' );
 			$out->addModules( 'ext.embeddableContent.uploadmeta' );
 			$out->addModules( 'ext.embeddableContent.entityconfirm' );
+			// Source-field gating, the empty author/license warning and the
+			// "upload another" new-tab behaviour (2026-09 UX batch).
+			$out->addModules( 'ext.embeddableContent.uploadform' );
 			return;
 		}
 

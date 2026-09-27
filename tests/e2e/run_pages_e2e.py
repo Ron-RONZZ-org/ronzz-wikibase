@@ -2139,6 +2139,22 @@ def flow_upload_special_form(op, base: str) -> None:
         raise FlowError("Special:Upload does not default to the Url source radio")
     if _radio_checked("wpSourceTypeFile"):
         raise FlowError("Special:Upload defaults to the File radio instead of Url")
+    # 2026-09 UX batch: the "Copy internal embed code" checkbox (options
+    # section, checked by default), the "Submit and upload another image from
+    # same author" second submit button (name=wpUpload so core processes the
+    # upload; value 'another' is the marker), and the uploadform module.
+    m = re.search(r"<input[^>]*id=\"wpUploadCopyEmbed\"[^>]*>", body)
+    if not m or "checked" not in m.group(0):
+        raise FlowError("Special:Upload 'Copy internal embed code' checkbox missing or not checked by default")
+    if "embeddablecontent-upload-copyembed" in body:
+        raise FlowError("Special:Upload renders the raw copy-embed message key")
+    m = re.search(r"<button[^>]*id=\"wpUploadAnother\"[^>]*>", body)
+    if not m:
+        raise FlowError("Special:Upload missing the 'upload another' submit button")
+    if 'name="wpUpload"' not in m.group(0) or 'value="another"' not in m.group(0):
+        raise FlowError(f"Special:Upload 'upload another' button must carry name=wpUpload value=another: {m.group(0)}")
+    if "ext.embeddableContent.uploadform" not in body:
+        raise FlowError("Special:Upload does not load ext.embeddableContent.uploadform")
 
 
 def flow_uploadmeta_module_source(op, base: str) -> None:
@@ -2208,6 +2224,20 @@ def flow_filepage_module_source(op, base: str) -> None:
         raise FlowError("filepage module: upload hand-off params missing")
     if "window.opener.location.href" not in body:
         raise FlowError("filepage module: upload-another opener reload missing")
+
+
+def flow_uploadform_module_source(op, base: str) -> None:
+    """Special:Upload form behaviour (2026-09 UX batch) is JS-side (source
+    gating, the cancellable empty author/license warning, the upload-another
+    new tab) — assert the served module source."""
+    _, body = page_get(op, base,
+        "/load.php?modules=ext.embeddableContent.uploadform&lang=en&skin=vector&debug=true")
+    if "wpUploadFile" not in body or "wpSourceTypeFile" not in body:
+        raise FlowError("uploadform module: file-source disable sync missing")
+    if "window.confirm" not in body:
+        raise FlowError("uploadform module: empty author/license warning missing")
+    if "wpUploadAnother" not in body or "window.open" not in body:
+        raise FlowError("uploadform module: upload-another new-tab wiring missing")
 
 
 def flow_osmsuggest_module_source(op, base: str) -> None:
@@ -4646,6 +4676,9 @@ def main() -> int:
         flow_filepage_module_source(op, base)
         print("[ok] filepage module source: inline copy buttons + upload hand-off "
               "(copy-on-upload, upload-another opener reload)")
+        flow_uploadform_module_source(op, base)
+        print("[ok] uploadform module source: file-source gating + empty-field warning "
+              "+ upload-another new tab")
         flow_osmsuggest_module_source(op, base)
         print("[ok] osmsuggest module source: Nominatim search + node|way|relation value form")
         flow_entityconfirm_module_source(op, base)
