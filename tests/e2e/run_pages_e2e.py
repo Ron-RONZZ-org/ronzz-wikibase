@@ -2462,8 +2462,9 @@ def flow_upload_special_item(op, base: str, api: str, license_qid: str) -> str:
         raise FlowError(f"File:{dest}.png does not load ext.embeddableContent.filepage")
     if '"wbFileName":"' + dest + '.png"' not in file_html:
         raise FlowError(f"File:{dest}.png missing the wbFileName config var")
-    if '"wbFileUrl":"' not in file_html or "/images/" not in file_html:
-        raise FlowError(f"File:{dest}.png missing the wbFileUrl config var")
+    m = re.search(r'"wbFileUrl":"([^"]+)"', file_html)
+    if not m or "/images/" not in m.group(1):
+        raise FlowError(f"File:{dest}.png missing/incorrect the wbFileUrl config var")
     return qid
 
 def create_api_item(op, api: str, label: str) -> str:
