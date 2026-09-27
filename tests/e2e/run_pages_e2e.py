@@ -3199,6 +3199,9 @@ A multi-entity ref, book + quotation in one footnote.<ref>{{{{#cite:{book_qid}|{
 Duplicate unnamed refs to the same source (regression: must render ONE
 footnote with N backlinks, not one footnote per use).<ref>{{{{#cite:{book_qid}}}}}</ref><ref>{{{{#cite:{book_qid}}}}}</ref><ref>{{{{#cite:{book_qid}}}}}</ref>
 
+A directly-cited source item that has a classic Source: page (2026-09 UX
+batch: the footnote links to it).<ref>{{{{#cite:{extra_source_qid}}}}}</ref>
+
 An embedded source item (v2 auto-collect): {base}/wiki/Special:Embed/{extra_source_qid}
 
 == References ==
@@ -3233,6 +3236,24 @@ Explicit bibliography (v2): {{{{#citations:{book_qid}|{quote_qid}}}}}
         if not any("10.1000/notes" in ref for ref in refs):
             raise FlowError("footnote missing the source DOI (self-cite fix broken)")
 
+        # 1b. Footnote → Source: page hyperlink (2026-09 UX batch): the
+        #     directly-cited source item (extra_source_qid) has a classic
+        #     Source: page (created by the class-first flow); its citation
+        #     footnote is wrapped in a link to that page.
+        r = api_call(op, api, {"action": "wbgetentities", "ids": extra_source_qid,
+                               "props": "sitelinks", "format": "json"})
+        source_page = (r.get("entities", {}).get(extra_source_qid, {})
+                       .get("sitelinks", {}).get("wikibase", {}).get("title"))
+        if not source_page:
+            raise FlowError(f"cite-by-QID: {extra_source_qid} has no classic page to link")
+        m = re.search(r'<a class="wikibasecitation-source-link" href="([^"]+)"', body)
+        if not m:
+            raise FlowError("cite-by-QID: footnote is not wrapped in a Source: page link")
+        href = m.group(1)
+        db_key = source_page.replace(" ", "_")
+        if db_key not in href and db_key.replace(":", "%3A") not in href:
+            raise FlowError(f"cite-by-QID: footnote link {href!r} does not point at {source_page!r}")
+
         # 2. v2 multi-entity ref: ONE footnote holds BOTH citations
         #    (book DOI + quotation author).
         if not any("10.1000/notes" in ref and "Lovelace" in ref for ref in refs):
@@ -3255,7 +3276,7 @@ Explicit bibliography (v2): {{{{#citations:{book_qid}|{quote_qid}}}}}
         for ref_id, note_id in numeric_sups:
             if note_id not in numeric_notes:
                 raise FlowError(f"dangling sup cite_ref-{ref_id} -> cite_note-{note_id}")
-        if len(numeric_sups) != 5:
+        if len(numeric_sups) != 6:
             raise FlowError(
                 f"all in-text superscripts must survive the merge (backlink targets), "
                 f"got {len(numeric_sups)}")
