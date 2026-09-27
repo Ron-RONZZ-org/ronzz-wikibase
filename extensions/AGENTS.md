@@ -63,9 +63,15 @@ quote-guard (`SimpleMathJaxQuotes` + `onInternalParseBeforeLinks`) that
 protects `''`/`'''` (TeX primes: `y''`, `f'''(x)`) inside `$…$`/`$$…$$` math
 from MediaWiki's wikitext italics/bold parsing (which otherwise inserts
 `<i>`/`<b>` inside the delimited text and breaks MathJax's closing-delimiter
-search). Prose `''italic''` is untouched. See `SimpleMathJax/VENDORED.md`
-§Local patch; the same change is proposed upstream (jmnote/SimpleMathJax
-PR #66) — drop the patch on re-vendor once upstream merges it.
+search). Prose `''italic''` is untouched. **Paragraph-break stop
+(2026-09-27):** the guard's delimiter search now stops at a blank line —
+MathJax scans each DOM text node, so a delimiter never pairs across a
+paragraph break; without it an *unbalanced* delimiter (`$$1 amu=…$` on the
+`Atom` page) swallowed whole paragraphs and protected their prose
+`'''bold'''` (rendered literally, the `Atom#Elements` regression). See
+`SimpleMathJax/VENDORED.md` §Local patch; the same change is proposed
+upstream (jmnote/SimpleMathJax PR #66) — drop the patch on re-vendor once
+upstream merges it.
 
 ## Purpose and Expected Behavior
 
@@ -918,6 +924,32 @@ PR #66) — drop the patch on re-vendor once upstream merges it.
   existing OSM statements lacking labels (Nominatim reverse, 1 req/s,
   idempotent, `--verify`).
 
+- **Sep-2026 UX batch B (ADR `docs/decisions/ux-batch-2026-09b.md`)**:
+  (a) **File: page copy toolbar** — `Hooks::onBeforePageDisplay`'s `NS_FILE`
+  branch resolves the file name + media URL into `wbFileName`/`wbFileUrl`
+  and loads `ext.embeddableContent.filepage`, which renders two buttons
+  inline right of the file-name title: "Copy internal embed code"
+  (`[[File:xxx]]`) and "Copy direct link" (the media URL). The same module
+  completes the `Special:Upload` hand-off (below).
+  (b) **Alphabetical pickers** — `Spec/LabelSorter` (ICU `Collator`,
+  locale-aware) sorts Special:AddSource's source-type radio picker and
+  Special:AddCollective's class select; the latter also gains localized
+  human labels (`embeddablecontent-agent-class-*`, en/fr/eo) instead of the
+  raw camelCase config keys (the field VALUE stays the class item id, so the
+  harvest inference / duplicate guard / statement building are unchanged).
+  (c) **Special:Upload** — a second submit button ("Submit and upload
+  another image from same author"; `name=wpUpload value=another`, the only
+  name core processes) plus the "Copy internal embed code" checkbox (options
+  section, default on) and an empty Author/License warning (cancellable —
+  attached to the buttons' click so a cancel also stops uploadmeta's async
+  resubmit); `Hooks::onBeforePageRedirect` hands off
+  `wbuploadcopy`/`wbanother` + the preserved fields to the destination File
+  page, `resources/uploadform.js` gates the file picker on the "Source
+  filename" (File) radio and opens the upload in a new tab for "another",
+  and `resources/filepage.js` signals the opener back to a fresh, prefilled
+  upload form. See `SimpleMathJax/VENDORED.md` for the companion quote-guard
+  paragraph-break fix (the `Atom#Elements` bold regression).
+
 ### WikibaseCitation
 
 
@@ -982,6 +1014,16 @@ PR #66) — drop the patch on re-vendor once upstream merges it.
   to contradict it); string-valued authors keep the legacy split (no class
   information); the single-word string fallback is family-only too (a literal
   would render an empty author).
+- **Footnote → Source: page link (2026-09 UX batch B, ADR
+  `docs/decisions/ux-batch-2026-09b.md`)**: a single-entity `{{#cite}}`
+  whose source item has a classic page (a `wikibase` sitelink —
+  Source:/Book:…) is wrapped in an anchor to it — `SourcePageResolver`
+  resolves the sitelink over the Wikibase `SiteLinkLookup` and
+  `SourceLink::wrap()` wraps the citation, applied AFTER the engine's
+  sanitizer so the cached and `action=citation` outputs stay link-free and
+  the href follows the current sitelink (a page rename is never stale).
+  Multi-entity refs and source items without a page render unchanged;
+  `{{#citations:}}` (the aggregated bibliography) is untouched.
 
 ### LanguageBar
 

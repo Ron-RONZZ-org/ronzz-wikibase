@@ -42,9 +42,10 @@ class Hooks {
 		$services = MediaWikiServices::getInstance();
 		$engine = $services->get( 'WikibaseCitation.CitationEngine' );
 		$dependencies = $services->get( 'WikibaseCitation.CitationDependencies' );
+		$sourcePages = $services->get( 'WikibaseCitation.SourcePageResolver' );
 
-		$parser->setFunctionHook( 'cite', static function ( Parser $parser, ...$args ) use ( $engine, $dependencies ): array {
-			return CiteQ::onCite( $engine, $dependencies, $parser, $args );
+		$parser->setFunctionHook( 'cite', static function ( Parser $parser, ...$args ) use ( $engine, $dependencies, $sourcePages ): array {
+			return CiteQ::onCite( $engine, $dependencies, $sourcePages, $parser, $args );
 		} );
 
 		$parser->setFunctionHook( 'citations', static function ( Parser $parser, ...$args ) use ( $engine, $dependencies ): array {

@@ -10,6 +10,7 @@ use WikibaseCitation\CitationFormatter;
 use WikibaseCitation\CitationPropertyMap;
 use WikibaseCitation\CitationSanitizer;
 use WikibaseCitation\CslTypeMapper;
+use WikibaseCitation\SourcePageResolver;
 use WikibaseCitation\StatementToCslConverter;
 
 /**
@@ -106,6 +107,15 @@ return [
 		return new CitationDependencies(
 			WikibaseRepo::getEntityTitleLookup( $services ),
 			WikibaseRepo::getEntityRevisionLookup( $services )
+		);
+	},
+
+	'WikibaseCitation.SourcePageResolver' => static function ( MediaWikiServices $services ): SourcePageResolver {
+		// The footnote → Source: page hyperlink (2026-09 UX batch): the item
+		// → classic-page URL lookup over the Wikibase sitelink store.
+		return new SourcePageResolver(
+			WikibaseRepo::getStore( $services )->newSiteLinkStore(),
+			$services->getTitleFactory()
 		);
 	},
 ];

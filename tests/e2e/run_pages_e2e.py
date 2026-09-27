@@ -804,6 +804,22 @@ def textarea_value(body: str, field: str) -> str:
     return ""
 
 
+def oo_select_option_labels(body: str, widget_id: str) -> list:
+    """Ordered option labels of an OOUI DropdownInputWidget/RadioSelect widget
+    (identified by its 'mw-input-<field>' id) from the widget's data-ooui
+    JSON. Used to assert picker ORDER (alphabetical) — the rendered <select>
+    options are not reliable to parse."""
+    m = re.search(
+        r"id='" + re.escape(widget_id) + r"'[^>]*data-ooui='([^']*)'", body, re.S)
+    if not m:
+        m = re.search(
+            r'id="' + re.escape(widget_id) + r'"[^>]*data-ooui="([^"]*)"', body, re.S)
+    if not m:
+        raise FlowError(f"{widget_id}: OOUI widget data-ooui not found")
+    raw = m.group(1).replace("&quot;", '"').replace("&#39;", "'")
+    return re.findall(r'"data":"[^"]*","label":(?:\{"html":)?"([^"]*)"', raw)
+
+
 def flow_manual_link_from(op, base: str, body: str, special: str) -> str:
     """The tokenised 'create manually' href in a search-result page (zero-hit
     AND selection pages both carry it since issue #35).
@@ -1269,7 +1285,8 @@ def flow_update_content(op, base: str, api: str, qid: str, new_label: str,
 def flow_source_picker_route(op, base: str) -> str:
     """Class picker (issue follow-up): the manual-entry checkbox is GONE (the
     user decides on the next page); picking a class routes to its class-scoped
-    first step (book → the /book search page)."""
+    first step (book → the /book search page). The options are alphabetical
+    (2026-09 UX batch)."""
     url, body = page_get(op, base, "/wiki/Special:AddSource")
     if "wpmanual" in body:
         raise FlowError("class picker still renders the removed manual checkbox")
@@ -1280,6 +1297,13 @@ def flow_source_picker_route(op, base: str) -> str:
                   "Dataset"):
         if label not in body:
             raise FlowError(f"class picker missing the {label!r} class")
+    # Alphabetical order (the requested sort): the OOUI radio options are
+    # serialized in order in data-ooui.
+    picker_labels = oo_select_option_labels(body, "mw-input-wpclass")
+    if not picker_labels:
+        raise FlowError("class picker: no OOUI radio options found")
+    if picker_labels != sorted(picker_labels, key=str.casefold):
+        raise FlowError(f"class picker not alphabetical: {picker_labels}")
     token = edit_token(body)
     url, body = page_post(op, url, {"wpclass": "book", "wpEditToken": token, "wpSubmit": "1"})
     if "/wiki/Special:AddSource/book" not in url:
@@ -2115,6 +2139,22 @@ def flow_upload_special_form(op, base: str) -> None:
         raise FlowError("Special:Upload does not default to the Url source radio")
     if _radio_checked("wpSourceTypeFile"):
         raise FlowError("Special:Upload defaults to the File radio instead of Url")
+    # 2026-09 UX batch: the "Copy internal embed code" checkbox (options
+    # section, checked by default), the "Submit and upload another image from
+    # same author" second submit button (name=wpUpload so core processes the
+    # upload; value 'another' is the marker), and the uploadform module.
+    m = re.search(r"<input[^>]*id=\"wpUploadCopyEmbed\"[^>]*>", body)
+    if not m or "checked" not in m.group(0):
+        raise FlowError("Special:Upload 'Copy internal embed code' checkbox missing or not checked by default")
+    if "embeddablecontent-upload-copyembed" in body:
+        raise FlowError("Special:Upload renders the raw copy-embed message key")
+    m = re.search(r"<button[^>]*id=\"wpUploadAnother\"[^>]*>", body)
+    if not m:
+        raise FlowError("Special:Upload missing the 'upload another' submit button")
+    if 'name="wpUpload"' not in m.group(0) or 'value="another"' not in m.group(0):
+        raise FlowError(f"Special:Upload 'upload another' button must carry name=wpUpload value=another: {m.group(0)}")
+    if "ext.embeddableContent.uploadform" not in body:
+        raise FlowError("Special:Upload does not load ext.embeddableContent.uploadform")
 
 
 def flow_uploadmeta_module_source(op, base: str) -> None:
@@ -2164,6 +2204,40 @@ def flow_uploadmeta_module_source(op, base: str) -> None:
     if ".wb-entity-confirm[data-field=" not in body:
         raise FlowError("uploadmeta module: license-confirm banner dedupe missing "
                         "(multiple logo-license dialogs regression)")
+
+
+def flow_filepage_module_source(op, base: str) -> None:
+    """File: page copy toolbar (2026-09 UX batch). The two copy buttons and
+    the upload hand-off are JS-side (clipboard + window.opener), so a curl
+    E2E cannot execute them — assert the served module source: the inline
+    toolbar, the `[[File:…]]` snippet, and the wbuploadcopy / wbanother
+    hand-off (the copy-on-upload + the upload-another opener reload)."""
+    _, body = page_get(op, base,
+        "/load.php?modules=ext.embeddableContent.filepage&lang=en&skin=vector&debug=true")
+    if "ca-wb-file-copyembed" not in body or "ca-wb-file-copylink" not in body:
+        raise FlowError("filepage module: copy buttons missing")
+    if "wb-file-toolbar" not in body:
+        raise FlowError("filepage module: inline toolbar container missing")
+    if "[[File:' + name + ']]" not in body:
+        raise FlowError("filepage module: internal embed snippet construction missing")
+    if "wbuploadcopy" not in body or "wbanother" not in body:
+        raise FlowError("filepage module: upload hand-off params missing")
+    if "window.opener.location.href" not in body:
+        raise FlowError("filepage module: upload-another opener reload missing")
+
+
+def flow_uploadform_module_source(op, base: str) -> None:
+    """Special:Upload form behaviour (2026-09 UX batch) is JS-side (source
+    gating, the cancellable empty author/license warning, the upload-another
+    new tab) — assert the served module source."""
+    _, body = page_get(op, base,
+        "/load.php?modules=ext.embeddableContent.uploadform&lang=en&skin=vector&debug=true")
+    if "wpUploadFile" not in body or "wpSourceTypeFile" not in body:
+        raise FlowError("uploadform module: file-source disable sync missing")
+    if "window.confirm" not in body:
+        raise FlowError("uploadform module: empty author/license warning missing")
+    if "wpUploadAnother" not in body or "window.open" not in body:
+        raise FlowError("uploadform module: upload-another new-tab wiring missing")
 
 
 def flow_osmsuggest_module_source(op, base: str) -> None:
@@ -2378,6 +2452,19 @@ def flow_upload_special_item(op, base: str, api: str, license_qid: str) -> str:
         f"File:{dest}.png missing the attribution block; raw: {raw[:400]!r}"
     assert "{{" + license_qid + "}}" not in raw, \
         f"File:{dest}.png renders the license item id as a template call"
+
+    # File: page copy toolbar (2026-09 UX batch): the served File page loads
+    # the filepage module and carries the file name + direct media URL as JS
+    # config vars (the buttons + the upload hand-off need them server-side).
+    _, file_html = page_get(op, base,
+        "/wiki/" + urllib.parse.quote(("File:" + dest + ".png").replace(" ", "_")))
+    if "ext.embeddableContent.filepage" not in file_html:
+        raise FlowError(f"File:{dest}.png does not load ext.embeddableContent.filepage")
+    if '"wbFileName":"' + dest + '.png"' not in file_html:
+        raise FlowError(f"File:{dest}.png missing the wbFileName config var")
+    m = re.search(r'"wbFileUrl":"([^"]+)"', file_html)
+    if not m or "/images/" not in m.group(1):
+        raise FlowError(f"File:{dest}.png missing/incorrect the wbFileUrl config var")
     return qid
 
 def create_api_item(op, api: str, label: str) -> str:
@@ -3113,6 +3200,9 @@ A multi-entity ref, book + quotation in one footnote.<ref>{{{{#cite:{book_qid}|{
 Duplicate unnamed refs to the same source (regression: must render ONE
 footnote with N backlinks, not one footnote per use).<ref>{{{{#cite:{book_qid}}}}}</ref><ref>{{{{#cite:{book_qid}}}}}</ref><ref>{{{{#cite:{book_qid}}}}}</ref>
 
+A directly-cited source item that has a classic Source: page (2026-09 UX
+batch: the footnote links to it).<ref>{{{{#cite:{extra_source_qid}}}}}</ref>
+
 An embedded source item (v2 auto-collect): {base}/wiki/Special:Embed/{extra_source_qid}
 
 == References ==
@@ -3147,6 +3237,24 @@ Explicit bibliography (v2): {{{{#citations:{book_qid}|{quote_qid}}}}}
         if not any("10.1000/notes" in ref for ref in refs):
             raise FlowError("footnote missing the source DOI (self-cite fix broken)")
 
+        # 1b. Footnote → Source: page hyperlink (2026-09 UX batch): the
+        #     directly-cited source item (extra_source_qid) has a classic
+        #     Source: page (created by the class-first flow); its citation
+        #     footnote is wrapped in a link to that page.
+        r = api_call(op, api, {"action": "wbgetentities", "ids": extra_source_qid,
+                               "props": "sitelinks", "format": "json"})
+        source_page = (r.get("entities", {}).get(extra_source_qid, {})
+                       .get("sitelinks", {}).get("wikibase", {}).get("title"))
+        if not source_page:
+            raise FlowError(f"cite-by-QID: {extra_source_qid} has no classic page to link")
+        m = re.search(r'<a class="wikibasecitation-source-link" href="([^"]+)"', body)
+        if not m:
+            raise FlowError("cite-by-QID: footnote is not wrapped in a Source: page link")
+        href = m.group(1)
+        db_key = source_page.replace(" ", "_")
+        if db_key not in href and db_key.replace(":", "%3A") not in href:
+            raise FlowError(f"cite-by-QID: footnote link {href!r} does not point at {source_page!r}")
+
         # 2. v2 multi-entity ref: ONE footnote holds BOTH citations
         #    (book DOI + quotation author).
         if not any("10.1000/notes" in ref and "Lovelace" in ref for ref in refs):
@@ -3169,7 +3277,7 @@ Explicit bibliography (v2): {{{{#citations:{book_qid}|{quote_qid}}}}}
         for ref_id, note_id in numeric_sups:
             if note_id not in numeric_notes:
                 raise FlowError(f"dangling sup cite_ref-{ref_id} -> cite_note-{note_id}")
-        if len(numeric_sups) != 5:
+        if len(numeric_sups) != 6:
             raise FlowError(
                 f"all in-text superscripts must survive the merge (backlink targets), "
                 f"got {len(numeric_sups)}")
@@ -4223,20 +4331,25 @@ def main() -> int:
         print(f"[ok] AddCollective -> {collective} ({label}): agent class + Wikidata ID, "
               f"description placeholder on the page")
 
-        # 3a0. The AddCollective class picker offers the intergovernmental
-        #     organization class (issue report): UN/WHO-type collectives can
-        #     be classified directly. The class select on the manual form
-        #     carries the seeded class item (raw-key label, the picker's
-        #     existing pattern).
+        # 3a0. The AddCollective class select (2026-09 UX batch): human
+        #     labels (not raw camelCase keys) sorted alphabetically, with the
+        #     intergovernmental organization class available (issue report).
         intergov_class = resolve("intergovernmental organization", "item")
         _, body = page_get(op, base, "/wiki/Special:AddCollective/manual")
         if intergov_class not in body:
-            raise FlowError(f"AddCollective class picker lacks the intergovernmental "
+            raise FlowError(f"AddCollective class select lacks the intergovernmental "
                             f"organization class ({intergov_class!r})")
-        if "intergovernmentalOrganization" not in body:
-            raise FlowError("AddCollective class picker lacks the intergovernmentalOrganization option key")
-        print(f"[ok] AddCollective class picker: intergovernmental organization "
-              f"({intergov_class}) available")
+        if "intergovernmentalOrganization" in body:
+            raise FlowError("AddCollective class select still shows the raw option key "
+                            "(human-label regression)")
+        class_labels = oo_select_option_labels(body, "mw-input-wpclass")
+        if "Intergovernmental organization" not in class_labels:
+            raise FlowError(f"AddCollective class select lacks the human label "
+                            f"'Intergovernmental organization': {class_labels}")
+        if class_labels != sorted(class_labels, key=str.casefold):
+            raise FlowError(f"AddCollective class select not alphabetical: {class_labels}")
+        print(f"[ok] AddCollective class select: {len(class_labels)} human labels, "
+              f"alphabetical (intergovernmental organization available)")
 
         # 3a. AddCollective manual — the optional "Parent organization"
         #     entity field (issue follow-up): a referenced item lands as a
@@ -4582,6 +4695,12 @@ def main() -> int:
         flow_uploadmeta_module_source(op, base)
         print("[ok] uploadmeta module source: hostname parse (429 fix), 2000-char cap, "
               "dest-name normalization, validate latest-wins + banner dedupe")
+        flow_filepage_module_source(op, base)
+        print("[ok] filepage module source: inline copy buttons + upload hand-off "
+              "(copy-on-upload, upload-another opener reload)")
+        flow_uploadform_module_source(op, base)
+        print("[ok] uploadform module source: file-source gating + empty-field warning "
+              "+ upload-another new tab")
         flow_osmsuggest_module_source(op, base)
         print("[ok] osmsuggest module source: Nominatim search + node|way|relation value form")
         flow_entityconfirm_module_source(op, base)

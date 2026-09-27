@@ -115,6 +115,50 @@ class Hooks {
 		);
 	}
 
+	/**
+	 * Special:Upload success hand-off (2026-09 UX batch). The form's two
+	 * extra controls ride the File: page redirect as one-shot query params,
+	 * because the destination File: page is where the FINAL file name is
+	 * known:
+	 *  - the "Copy internal embed code" checkbox → ?wbuploadcopy=1 (the
+	 *    File page copies [[File:xxx]]);
+	 *  - the "Submit and upload another image from same author" button
+	 *    (wpUpload=another) → ?wbanother=1 + the license/author/license-info
+	 *    values, so the File page (opened in a new tab by uploadform.js)
+	 *    sends the opener back to a fresh, prefilled upload form.
+	 *
+	 * Fires for every redirect; acts only on a Special:Upload form submission
+	 * (identified by the wpUpload marker, present only on that form — the
+	 * context title is not guaranteed during output()).
+	 *
+	 * @param OutputPage $out
+	 * @param string &$redirect
+	 * @param string &$code
+	 */
+	public static function onBeforePageRedirect( $out, &$redirect, &$code ): void {
+		if ( !$out instanceof OutputPage ) {
+			return;
+		}
+		$request = \MediaWiki\Context\RequestContext::getMain()->getRequest();
+		if ( !$request->getCheck( 'wpUpload' ) ) {
+			return;
+		}
+		$params = [];
+		if ( $request->getCheck( 'wpUploadCopyEmbed' ) ) {
+			$params['wbuploadcopy'] = '1';
+		}
+		if ( $request->getVal( 'wpUpload' ) === 'another' ) {
+			$params['wbanother'] = '1';
+			$params['wblicense'] = (string)$request->getVal( 'wpLicense', '' );
+			$params['wbauthor'] = (string)$request->getVal( 'wpUploadAuthor', '' );
+			$params['wblicenseinfo'] = (string)$request->getVal( 'wpUploadLicenseInfo', '' );
+		}
+		if ( $params === [] ) {
+			return;
+		}
+		$redirect = wfAppendQuery( $redirect, $params );
+	}
+
 	public static function onBeforePageDisplay( OutputPage $out, $skin ): void {
 		$title = $out->getTitle();
 		if ( $title === null ) {
@@ -131,6 +175,9 @@ class Hooks {
 			$out->addModules( 'ext.embeddableContent.entitysuggest' );
 			$out->addModules( 'ext.embeddableContent.uploadmeta' );
 			$out->addModules( 'ext.embeddableContent.entityconfirm' );
+			// Source-field gating, the empty author/license warning and the
+			// "upload another" new-tab behaviour (2026-09 UX batch).
+			$out->addModules( 'ext.embeddableContent.uploadform' );
 			return;
 		}
 
@@ -144,6 +191,22 @@ class Hooks {
 			|| $title->isSpecial( 'AddSource' ) || $title->isSpecial( 'UpdateSource' )
 		) {
 			$out->addModules( 'ext.embeddableContent.osmsuggest' );
+		}
+
+		// File: pages — the "Copy internal embed code" / "Copy direct link"
+		// buttons rendered inline to the right of the file-name title, plus
+		// the upload hand-off (a File: page that is a Special:Upload
+		// destination carries ?wbuploadcopy=1 / ?wbanother=1). The media URL
+		// and the page name ride JS config vars, so the module needs no API
+		// roundtrip. Non-files (redlinks) render nothing.
+		if ( $title->getNamespace() === NS_FILE ) {
+			$file = MediaWikiServices::getInstance()->getRepoGroup()->findFile( $title );
+			if ( $file !== false ) {
+				$out->addJsConfigVars( 'wbFileName', $title->getText() );
+				$out->addJsConfigVars( 'wbFileUrl', $file->getFullUrl() );
+				$out->addModules( 'ext.embeddableContent.filepage' );
+			}
+			return;
 		}
 
 		// Classic per-kind pages (Source: / FOSS: / Person: / Collective: /

@@ -10,6 +10,8 @@ use WikibaseCitation\CitationEngine;
 use WikibaseCitation\CitationEntityNotFoundException;
 use WikibaseCitation\CitationException;
 use WikibaseCitation\InvalidCitationIdException;
+use WikibaseCitation\SourceLink;
+use WikibaseCitation\SourcePageResolver;
 
 /**
  * `{{#cite:Q42|Q7|style=apa|output=html}}` parser function (issue #24 v1,
@@ -26,6 +28,12 @@ use WikibaseCitation\InvalidCitationIdException;
  *
  * Error output is a localized `<span class="error">` — visible inline but
  * never fatal (the ADR's "missing fields are omitted, never fatal" spirit).
+ *
+ * 2026-09 UX batch: a single-entity citation whose source item has a classic
+ * wiki page (a `wikibase` sitelink — Source:/Book:…) is wrapped in an anchor
+ * to that page, so a `<references/>` footnote links back to its source. The
+ * wrap happens AFTER the engine's sanitizer, so the cached and API outputs
+ * stay link-free and the href follows the current sitelink.
  *
  * @license GPL-2.0-or-later
  */
@@ -47,6 +55,7 @@ class CiteQ {
 	public static function onCite(
 		CitationEngine $engine,
 		CitationDependencies $dependencies,
+		SourcePageResolver $sourcePages,
 		Parser $parser,
 		array $args
 	): array {
@@ -71,6 +80,16 @@ class CiteQ {
 			if ( count( $entities ) === 1 ) {
 				[ $html, $sourceId ] = $engine->renderWithSourceId( $entities[0], $style, $format, $language );
 				$sourceIds = $sourceId !== null ? [ $sourceId->getSerialization() ] : [];
+				// Footnote → Source: page hyperlink (2026-09 UX batch): the
+				// citation for a source item that has a classic page is
+				// wrapped in a link to it. Only the single-entity form gets
+				// the wrapper (a multi-entity footnote has several sources).
+				// Wrapped AFTER the engine's sanitizer, so the cached/API
+				// output stays link-free and the link follows the CURRENT
+				// sitelink (a page rename never serves a stale href).
+				if ( $sourceId !== null ) {
+					$html = SourceLink::wrap( $html, $sourcePages->pageUrl( $sourceId ) );
+				}
 			} else {
 				[ $html, $sourceIds ] = $engine->renderList( $entities, $style, $format, $language );
 			}

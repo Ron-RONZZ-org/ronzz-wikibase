@@ -79,6 +79,32 @@ final class UploadHooks {
 			'id' => 'wpUploadmetaItemize',
 			'default' => '1',
 		];
+		// "Copy internal embed code" (2026-09 UX batch): checked by default;
+		// on a successful upload the destination File: page copies
+		// [[File:xxx]] to the clipboard (BeforePageRedirect appends
+		// ?wbuploadcopy=1; resources/filepage.js performs the copy with the
+		// FINAL file name).
+		$descriptor['UploadCopyEmbed'] = [
+			'type' => 'check',
+			'section' => 'options',
+			'id' => 'wpUploadCopyEmbed',
+			'label-message' => 'embeddablecontent-upload-copyembed',
+			'default' => true,
+		];
+		// "Submit and upload another image from same author": a SECOND submit
+		// button. Core only processes an upload when wpUpload is checked
+		// (SpecialUpload::loadRequest), so it must carry name=wpUpload; the
+		// value 'another' distinguishes the click. BeforePageRedirect reads
+		// it and appends ?wbanother=1 + the preserved fields; the new-tab +
+		// prefilled-reload behaviour is wired by resources/uploadform.js.
+		$descriptor['UploadAnother'] = [
+			'type' => 'submit',
+			'name' => 'wpUpload',
+			'default' => 'another',
+			'buttonlabel-message' => 'embeddablecontent-upload-another',
+			'id' => 'wpUploadAnother',
+			'flags' => [],
+		];
 	}
 
 	/**

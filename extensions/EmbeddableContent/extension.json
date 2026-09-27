@@ -216,6 +216,7 @@
 	},
 	"Hooks": {
 		"BeforePageDisplay": "main",
+		"BeforePageRedirect": "main",
 		"SkinTemplateNavigation::Universal": "main",
 		"ParserFirstCallInit": "main",
 		"UploadFormInitDescriptor": "upload",
@@ -473,6 +474,46 @@
 			"messages": [
 				"embeddablecontent-addsource-label-preview",
 				"embeddablecontent-addsource-label-preview-hint"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.filepage": {
+			"scripts": [
+				"filepage.js"
+			],
+			"styles": [
+				"gadget.css"
+			],
+			"dependencies": [
+				"mediawiki.notification",
+				"mediawiki.util"
+			],
+			"messages": [
+				"embeddablecontent-file-copyembed",
+				"embeddablecontent-file-copyembed-hint",
+				"embeddablecontent-file-copylink",
+				"embeddablecontent-file-copylink-hint",
+				"embeddablecontent-gadget-copied"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.uploadform": {
+			"scripts": [
+				"uploadform.js"
+			],
+			"dependencies": [
+				"mediawiki.notification"
+			],
+			"messages": [
+				"embeddablecontent-upload-author",
+				"embeddablecontent-upload-license",
+				"embeddablecontent-upload-missing-confirm"
 			],
 			"targets": [
 				"desktop",

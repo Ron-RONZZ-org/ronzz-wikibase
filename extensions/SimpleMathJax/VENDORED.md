@@ -90,6 +90,21 @@ into the final HTML for MathJax to parse as primes. Prose `''italic''` is
 untouched. Gated to `$wgSmjDirectMathJax !== 'none'` and to the configured
 `$wgSmjExtraInlineMath`/`$wgSmjDisplayMath` delimiter pairs.
 
+**Paragraph-break stop (2026-09-27, `fix/math-quote-guard` follow-up)**: the
+delimiter search now stops at a blank line (a wikitext paragraph break).
+MathJax scans each rendered **DOM text node** independently, so a delimiter
+can never pair across a paragraph break — and neither may the scanner.
+Without the stop, an **unbalanced** delimiter (`$$1\ amu=…$` on the
+`Atom` page, missing its second `$`) paired with a much later delimiter and
+the resulting ~1900-char "span" swallowed several paragraphs; their prose
+`'''element'''` was protected as if it were a TeX prime and rendered
+literally instead of bold (the `Atom#Elements` report). The scanner's
+`findClose()` returns "unbalanced" at the first blank line, so the stray
+delimiter is ignored and the following prose parses normally. Regression
+tests: `tests/Unit/SimpleMathJaxQuotesTest.php` (unbalanced `$$…$` + prose
+bold, single-newline math still paired, blank-line pair rejected) and the
+`assert_apostrophe_guard` case in `tests/e2e/run_math_e2e.py`.
+
 **Testing**: pure-PHP unit tests `tests/Unit/SimpleMathJaxQuotesTest.php`
 (scanner against a fake protector) + server-side E2E assertions in
 `tests/e2e/run_math_e2e.py` (`''` survives inside `$…$`/`$$…$$`, prose

@@ -45,6 +45,14 @@ plus the Playwright browser UX suite for the query GUI (query.ronzz.org).
   (see ci.yml / `dev/README.md`). The browser render is verified by
   `tests/e2e/run_geogebra_ux_e2e.mjs` (Playwright, manual/production like the
   math UX suite).
+- **`tests/e2e/run_wiki_ux_e2e.mjs`** — Playwright browser UX suite for the
+  Sep-2026 UX batch B (manual/production, needs `--user` + `--password-file`
+  for Special:Upload): the File: page copy buttons write `[[File:xxx]]` /
+  the media URL to the clipboard; the AddSource picker and the AddCollective
+  class select are alphabetical (the latter with human labels); the
+  Special:Upload file picker is gated on the File radio, an empty
+  Author/License warns (cancellable), and "upload another" opens the upload
+  in a new tab. Zero tolerance for page/console errors.
 - **`tests/e2e/run_query_gui_e2e.py`** — HTTP-level acceptance for the
   query.ronzz.org frontend stack (read-only): bare `wd:`/`wdt:` prefixes
   (the store's `prefixes.conf`) and explicit `PREFIX` clauses both return
