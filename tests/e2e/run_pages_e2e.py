@@ -2923,6 +2923,20 @@ def flow_content_label_defaults(op, base: str) -> None:
         print(f"[ok] Special:{page} label default {expected!r}")
 
 
+def flow_addmath_preview_wiring(op, base: str) -> None:
+    """Special:AddMath renders the KaTeX live-preview box and loads the
+    addmath module (delimiter auto-strip + the renderer's error message).
+    The client-side rendering itself is covered by
+    tests/e2e/run_addmath_ux_e2e.mjs (Playwright, manual/production)."""
+    url, body = page_get(op, base, "/wiki/Special:AddMath")
+    for needle in ("wb-math-preview-box", "wb-math-preview-content"):
+        if needle not in body:
+            raise FlowError(f"Special:AddMath does not render {needle}: " + find_error(body))
+    if "ext.embeddableContent.addmath" not in body:
+        raise FlowError("Special:AddMath does not load the addmath module: " + find_error(body))
+    print("[ok] Special:AddMath renders the KaTeX preview box + addmath module")
+
+
 def flow_add_more(op, base: str, api: str, person_qid: str, source_url: str) -> tuple[str, str]:
     """"Add more" on the content pages (the second submit button): the
     submit CREATES the item and reopens the page with every provenance input
@@ -4593,6 +4607,7 @@ def main() -> int:
         # Unique label per run: create-or-skip would otherwise reuse a stale
         # quotation from an earlier (failed) run and fail the assertions.
         flow_content_label_defaults(op, base)
+        flow_addmath_preview_wiring(op, base)
         quote_label = f"Page-flow E2E quotation {args.person} {int(time.time())}"
         quotation = track(flow_quotation(op, base, api, quote_label, "An E2E test quotation.", person))
         claims, label = entity_claims(op, api, quotation)
@@ -4649,8 +4664,12 @@ def main() -> int:
         # 5. Special:AddMath with the 'describes' subject field (issue
         #    follow-up) + delimiter stripping: a $$…$$-wrapped payload must be
         #    stored as bare TeX (the stored content is what KaTeX renders).
+        #    Surrounding whitespace is trimmed first — a pasted payload
+        #    commonly carries a leading/trailing blank line (the live-preview
+        #    regression: the preview kept the delimiters, the server stripped
+        #    them).
         math_label = f"Page-flow E2E math {int(time.time())}"
-        math_item = track(flow_math(op, base, api, math_label, "$$E = mc^2$$", person))
+        math_item = track(flow_math(op, base, api, math_label, "\n$$E = mc^2$$\n", person))
         claims, label = entity_claims(op, api, math_item)
         assert first_value(claims, instance_of) == math_class, \
             f"{math_item} instance-of != mathematical expression"

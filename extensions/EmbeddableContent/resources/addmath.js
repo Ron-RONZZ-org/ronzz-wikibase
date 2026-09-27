@@ -10,7 +10,11 @@
 	'use strict';
 
 	function stripDelimiters( input ) {
-		var s = String( input || '' );
+		// Trim surrounding whitespace FIRST — the server
+		// (MathRenderer::stripDelimiters) trims too, so a payload pasted with
+		// a leading/trailing blank line is stripped identically here and at
+		// submit time.
+		var s = String( input || '' ).trim();
 		var pairs = [
 			[ /^\$\$([\s\S]*)\$\$$/, '$1' ],
 			[ /^\$([\s\S]*)\$$/, '$1' ],
@@ -45,17 +49,23 @@
 		} );
 		btn.on( 'click', function () {
 			var latex = stripDelimiters( $input.val() );
+			$box.removeClass( 'wb-math-preview-error' );
 			try {
 				if ( !window.katex ) {
-					throw new Error( 'KaTeX not loaded' );
+					throw new Error( 'KaTeX is not available on this page.' );
 				}
+				// throwOnError:true so a malformed expression raises here
+				// instead of rendering KaTeX's inline red span — the catch
+				// shows the renderer's own precise message as text.
 				window.katex.render( latex, $content[ 0 ], {
-					throwOnError: false,
+					throwOnError: true,
 					displayMode: true
 				} );
 			} catch ( e ) {
-				// KaTeX absent or the TeX is invalid — show the stripped source.
-				$content.text( latex );
+				// Show the TeX renderer's error message (e.g. "KaTeX parse
+				// error: Undefined control sequence: \foo").
+				$content.text( e.message );
+				$box.addClass( 'wb-math-preview-error' );
 			}
 			$box.prop( 'hidden', false );
 		} );

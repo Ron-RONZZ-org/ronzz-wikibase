@@ -102,7 +102,13 @@ PR #66) — drop the patch on re-vendor once upstream merges it.
   (`Special:AddQuotation` / `AddCodeSnippet` / `AddMath` — all-language
   quotation input, `describes`/`implementation of` subject fields,
   code language combobox, math KaTeX preview + delimiter auto-strip,
-  redirect-to-created-item).
+  redirect-to-created-item). The AddMath preview strips delimiters
+  IDENTICALLY to the submit path: `MathRenderer::stripDelimiters` (and the
+  `addmath.js` mirror) trim surrounding whitespace before the whole-string
+  wrapper match, and the preview renders with `throwOnError: true` so a
+  malformed expression shows the TeX renderer's error message
+  (`.wb-math-preview-error`) instead of a red span whose message is only a
+  tooltip.
 - **Issue #7 external authorities** (`includes/Fetch/`): provider layer
   (Wikidata hub + dblp SPARQL, OpenAlex, Crossref, Open Library, ORCID —
   SSRF-allowlisted) driving `Special:AddPerson` / `AddSource` /

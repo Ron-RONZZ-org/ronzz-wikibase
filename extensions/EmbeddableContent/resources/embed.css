@@ -116,6 +116,14 @@ body.skin-embedskin .printfooter {
 	overflow-x: auto;
 }
 
+/* A malformed expression: the preview box shows the TeX renderer's error
+   message instead of a rendered formula. */
+.wb-math-preview-error .wb-math-preview-content {
+	color: #b32424;
+	font-family: monospace, monospace;
+	white-space: pre-wrap;
+}
+
 /* The injected Preview button sits above the form's submit button. */
 .wb-math-preview-btn {
 	margin-inline-end: 0.5em;

@@ -26,8 +26,15 @@ class MathRenderer {
 	 * (pasted from Markdown/MediaWiki); the stored payload — and what KaTeX
 	 * renders — must be the bare TeX. Unbalanced or unwrapped input is
 	 * returned unchanged.
+	 *
+	 * Surrounding whitespace is trimmed FIRST: a pasted payload commonly
+	 * carries a leading/trailing blank line ("\n$$x$$\n"), which would
+	 * defeat the whole-string wrapper match. The submit path trims before
+	 * calling this, and the live preview (`addmath.js`) mirrors it, so both
+	 * normalizations stay identical.
 	 */
 	public static function stripDelimiters( string $input ): string {
+		$input = trim( $input );
 		$pairs = [
 			'/^\$\$([\s\S]*)\$\$$/',
 			'/^\$([\s\S]*)\$$/',
@@ -45,11 +52,12 @@ class MathRenderer {
 	public function render( string $latex ): string {
 		// Strip one layer of $$…$$ / $…$ delimiters: the client-side KaTeX
 		// renderer expects bare TeX (the fallback text should match).
-		$clean = self::stripDelimiters( $latex );
+		$trimmed = trim( $latex );
+		$clean = self::stripDelimiters( $trimmed );
 		// Legacy edge-strip for unbalanced historical payloads: drop a lone
 		// leading/trailing $ when the strict wrapper did not match.
-		if ( $clean === $latex ) {
-			$clean = preg_replace( '/^\$\$?/', '', $latex ) ?? $latex;
+		if ( $clean === $trimmed ) {
+			$clean = preg_replace( '/^\$\$?/', '', $trimmed ) ?? $trimmed;
 			$clean = preg_replace( '/\$\$?$/', '', $clean ) ?? $clean;
 		}
 		return '<span class="wb-embed wb-embed-math" data-latex="'
