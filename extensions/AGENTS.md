@@ -170,7 +170,14 @@ PR #66) — drop the patch on re-vendor once upstream merges it.
   YouTubeVideo/Webpage). **bookExcerpt creates NO page** (part of a book).
   Namespaces Person (2010/2011), Source (2012/2013), Collective (2014/2015),
   Software (2016/2017 — the non-FOSS software pages, see the FOSS:/Software:
-  split bullet) in dev config + production LocalSettings.
+  split bullet) in dev config + production LocalSettings. **Classic-page
+  toolbar parity (ADR `docs/decisions/classic-page-toolbar.md`)**: a classic
+  page sitelinked to an item renders the SAME action toolbar as the item's
+  Item: page — `Hooks::wireItemToolbar` (reached via the site-link store)
+  loads the embed/citation gadget (the item id rides `wbEmbedItem`, because
+  on a classic page `wgTitle` is the page title, not the Q-id), the "Update
+  basic information" / "Edit content" button (class → `Special:Update*`) and
+  — for source classes — the "Copy internal citation" button.
 - **AddPerson lifecycle fields**: VIAF/ISNI search (Wikidata-hub-only),
   day-precision date of birth/death + a "This person is deceased" toggle
   revealing the death fields; `personProperties` config section (P569/P19/

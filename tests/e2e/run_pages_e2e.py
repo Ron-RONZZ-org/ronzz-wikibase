@@ -3252,6 +3252,35 @@ def flow_item_source_cite_button(op, base: str, source_qid: str) -> None:
     print(f"[ok] Item: page copy-citation wiring on Item:{source_qid}")
 
 
+def flow_classic_page_toolbar(op, base: str, page_title: str, qid: str,
+                              update_special: str, expect_source_cite: bool) -> None:
+    """The classic per-kind pages (Source:/FOSS:/Person:/Collective:/
+    Software:) carry the SAME action toolbar as the item's Item: page
+    (feature parity): the embed/citation gadget (wbEmbedItem), the "Update
+    basic information" button (wbUpdateBasicInfoUrl -> the class's
+    Special:Update* page) and — for source classes — the "Copy internal
+    citation" button (wbInternalCiteItem). The buttons are JS-rendered; this
+    flow asserts the SERVER-side wiring on a real created page."""
+    _, body = page_get(op, base, "/wiki/" + urllib.parse.quote(page_title.replace(" ", "_")))
+    if "wbEmbedItem" not in body or qid not in body:
+        raise FlowError(
+            f"{page_title}: missing wbEmbedItem={qid} (classic toolbar): {find_error(body)}")
+    if "ext.embeddableContent.gadget" not in body:
+        raise FlowError(f"{page_title}: does not load ext.embeddableContent.gadget")
+    m = re.search(r'"wbUpdateBasicInfoUrl"\s*:\s*"([^"]*Special:' + re.escape(update_special)
+                  + r"/" + re.escape(qid) + r')"', body)
+    if not m:
+        raise FlowError(
+            f"{page_title}: no update-button URL for {update_special}: {find_error(body)}")
+    if "ext.embeddableContent.updatebutton" not in body:
+        raise FlowError(f"{page_title}: does not load ext.embeddableContent.updatebutton")
+    if expect_source_cite:
+        if "wbInternalCiteItem" not in body or "ext.embeddableContent.sourcecite" not in body:
+            raise FlowError(f"{page_title}: missing the sourcecite wiring (source class)")
+    print(f"[ok] classic page toolbar on {page_title} -> {m.group(1)}"
+          + (" + copy internal citation" if expect_source_cite else ""))
+
+
 def flow_child_items_listing(op, base: str, api: str, book_qid: str,
                              excerpt_qid: str, excerpt_label: str) -> None:
     """The child-items listing (Special:ChildItemsOf), the source-children
@@ -4107,6 +4136,8 @@ def main() -> int:
             raise FlowError(f"{subdomain_child} has no wikibase sitelink — "
                             f"cannot check the Source: page cite wiring")
         flow_source_cite_button(op, base, webpage_page, subdomain_child)
+        flow_classic_page_toolbar(op, base, webpage_page, subdomain_child,
+                                  "UpdateSource", expect_source_cite=True)
 
         # 2j1c. The Item: page of a source-class item ALSO carries the
         #     "Copy internal citation" wiring (not only its Source: classic
@@ -4555,6 +4586,8 @@ def main() -> int:
         # 3f. Sitelink tab (issue follow-up): red (needs-set) on a page
         #     without a sitelink, blue (is-set) on the sitelinked FOSS page.
         flow_sitelink_tab(op, base, api, foss_page, software)
+        flow_classic_page_toolbar(op, base, foss_page, software,
+                                  "UpdateSoftware", expect_source_cite=False)
 
         # 4. v1 content form — Special:AddQuotation with provenance.
         # Unique label per run: create-or-skip would otherwise reuse a stale

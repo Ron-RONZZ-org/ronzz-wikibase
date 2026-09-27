@@ -1,10 +1,15 @@
 /* eslint-disable no-jquery/no-global-selector */
 /*
- * Entity-page toolbar: "update basic information" (updatebutton.js),
- * "copy embed" + "copy citation" buttons, prominently displayed under the
- * page title in ONE row (issue #6 §4.4 — follow-up: visible buttons instead
- * of portlet links hidden in the ⋯ "More options" menu; the update button
- * and the embed/citation buttons share the same .wb-embed-toolbar flex row).
+ * Item toolbar: "update basic information" (updatebutton.js), "copy embed" +
+ * "copy citation" buttons, prominently displayed under the page title in ONE
+ * row (issue #6 §4.4 — follow-up: visible buttons instead of portlet links
+ * hidden in the ⋯ "More options" menu; the update button and the
+ * embed/citation buttons share the same .wb-embed-toolbar flex row).
+ *
+ * Rendered on the Item: pages AND on the classic per-kind pages
+ * (Source:/FOSS:/Person:/Collective:/Software:) sitelinked to an item —
+ * feature parity. The item id comes from the wbEmbedItem config var (set by
+ * Hooks::wireItemToolbar); wgTitle is only a fallback for an entity page.
  *
  * The copy-embed action offers TWO snippet flavours (Sep-2026 UX batch):
  * internal ({{#content:Q42}} — the on-wiki wikitext) and external (the
@@ -28,6 +33,7 @@
 
 	var ID_PATTERN = /^Q[1-9]\d*$/;
 	var entityId = null;
+	var configItem = mw.config.get( 'wbEmbedItem' );
 	var titleText = mw.config.get( 'wgTitle' ) || '';
 	var embedLang = ''; // '' = auto, 'all' = all languages, else a language code
 
@@ -42,7 +48,13 @@
 	var citationText = {}; // style key => formatted text (fetched lazily)
 	var citationStyle = 'apa';
 
-	if ( ID_PATTERN.test( titleText ) ) {
+	// The server sets wbEmbedItem for BOTH entity pages and the classic
+	// per-kind pages (Source:/FOSS:/Person:/Collective:/Software:), where
+	// wgTitle is the page title, not the Q-id — prefer it. The wgTitle
+	// fallback covers an entity page rendered without the config var.
+	if ( typeof configItem === 'string' && ID_PATTERN.test( configItem ) ) {
+		entityId = configItem;
+	} else if ( ID_PATTERN.test( titleText ) ) {
 		entityId = titleText;
 	}
 
