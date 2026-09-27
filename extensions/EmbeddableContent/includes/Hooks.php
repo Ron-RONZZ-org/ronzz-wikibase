@@ -146,6 +146,22 @@ class Hooks {
 			$out->addModules( 'ext.embeddableContent.osmsuggest' );
 		}
 
+		// File: pages — the "Copy internal embed code" / "Copy direct link"
+		// buttons rendered inline to the right of the file-name title, plus
+		// the upload hand-off (a File: page that is a Special:Upload
+		// destination carries ?wbuploadcopy=1 / ?wbanother=1). The media URL
+		// and the page name ride JS config vars, so the module needs no API
+		// roundtrip. Non-files (redlinks) render nothing.
+		if ( $title->getNamespace() === NS_FILE ) {
+			$file = MediaWikiServices::getInstance()->getRepoGroup()->findFile( $title );
+			if ( $file !== false ) {
+				$out->addJsConfigVars( 'wbFileName', $title->getText() );
+				$out->addJsConfigVars( 'wbFileUrl', $file->getFullUrl() );
+				$out->addModules( 'ext.embeddableContent.filepage' );
+			}
+			return;
+		}
+
 		// Classic per-kind pages (Source: / FOSS: / Person: / Collective: /
 		// Software:) carry the SAME action toolbar as their item's Item:
 		// page — the "Update basic information" / "Edit content" button,

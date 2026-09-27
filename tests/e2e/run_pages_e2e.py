@@ -2166,6 +2166,26 @@ def flow_uploadmeta_module_source(op, base: str) -> None:
                         "(multiple logo-license dialogs regression)")
 
 
+def flow_filepage_module_source(op, base: str) -> None:
+    """File: page copy toolbar (2026-09 UX batch). The two copy buttons and
+    the upload hand-off are JS-side (clipboard + window.opener), so a curl
+    E2E cannot execute them — assert the served module source: the inline
+    toolbar, the `[[File:…]]` snippet, and the wbuploadcopy / wbanother
+    hand-off (the copy-on-upload + the upload-another opener reload)."""
+    _, body = page_get(op, base,
+        "/load.php?modules=ext.embeddableContent.filepage&lang=en&skin=vector&debug=true")
+    if "ca-wb-file-copyembed" not in body or "ca-wb-file-copylink" not in body:
+        raise FlowError("filepage module: copy buttons missing")
+    if "wb-file-toolbar" not in body:
+        raise FlowError("filepage module: inline toolbar container missing")
+    if "[[File:' + name + ']]" not in body:
+        raise FlowError("filepage module: internal embed snippet construction missing")
+    if "wbuploadcopy" not in body or "wbanother" not in body:
+        raise FlowError("filepage module: upload hand-off params missing")
+    if "window.opener.location.href" not in body:
+        raise FlowError("filepage module: upload-another opener reload missing")
+
+
 def flow_osmsuggest_module_source(op, base: str) -> None:
     """The AddPerson/UpdatePerson place fields are OSM search comboboxes
     (osm-places): the served osmsuggest module must wire them to Nominatim
@@ -2378,6 +2398,18 @@ def flow_upload_special_item(op, base: str, api: str, license_qid: str) -> str:
         f"File:{dest}.png missing the attribution block; raw: {raw[:400]!r}"
     assert "{{" + license_qid + "}}" not in raw, \
         f"File:{dest}.png renders the license item id as a template call"
+
+    # File: page copy toolbar (2026-09 UX batch): the served File page loads
+    # the filepage module and carries the file name + direct media URL as JS
+    # config vars (the buttons + the upload hand-off need them server-side).
+    _, file_html = page_get(op, base,
+        "/wiki/" + urllib.parse.quote(("File:" + dest + ".png").replace(" ", "_")))
+    if "ext.embeddableContent.filepage" not in file_html:
+        raise FlowError(f"File:{dest}.png does not load ext.embeddableContent.filepage")
+    if '"wbFileName":"' + dest + '.png"' not in file_html:
+        raise FlowError(f"File:{dest}.png missing the wbFileName config var")
+    if '"wbFileUrl":"' not in file_html or "/images/" not in file_html:
+        raise FlowError(f"File:{dest}.png missing the wbFileUrl config var")
     return qid
 
 def create_api_item(op, api: str, label: str) -> str:
@@ -4582,6 +4614,9 @@ def main() -> int:
         flow_uploadmeta_module_source(op, base)
         print("[ok] uploadmeta module source: hostname parse (429 fix), 2000-char cap, "
               "dest-name normalization, validate latest-wins + banner dedupe")
+        flow_filepage_module_source(op, base)
+        print("[ok] filepage module source: inline copy buttons + upload hand-off "
+              "(copy-on-upload, upload-another opener reload)")
         flow_osmsuggest_module_source(op, base)
         print("[ok] osmsuggest module source: Nominatim search + node|way|relation value form")
         flow_entityconfirm_module_source(op, base)
