@@ -121,7 +121,10 @@ async function main() {
 
 		// --- Special:AddSource picker order -----------------------------
 		await page.goto(`${BASE_URL}/wiki/Special:AddSource`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-		await page.waitForSelector('#mw-input-wpclass', { timeout: 15000 });
+		// The radio options are rendered CLIENT-SIDE by the OOUI auto-infusion
+		// (the server HTML only carries data-ooui) — wait for an infused
+		// option, not the pre-infusion wrapper.
+		await page.waitForSelector('#mw-input-wpclass .oo-ui-radioOptionWidget', { timeout: 15000 });
 		const sourceLabels = await page.locator('#mw-input-wpclass .oo-ui-radioOptionWidget .oo-ui-labelElement-label')
 			.allInnerTexts();
 		const sourceLabelsTrimmed = sourceLabels.map((s) => s.trim()).filter(Boolean);
@@ -135,7 +138,7 @@ async function main() {
 
 		// --- Special:AddCollective class select -------------------------
 		await page.goto(`${BASE_URL}/wiki/Special:AddCollective/manual`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-		await page.waitForSelector('#mw-input-wpclass', { timeout: 15000 });
+		await page.waitForSelector('#mw-input-wpclass option', { timeout: 15000 });
 		const classLabels = (await page.locator('#mw-input-wpclass option').allInnerTexts())
 			.map((s) => s.trim()).filter(Boolean);
 		if (classLabels.includes('groupOfHumans')) {
