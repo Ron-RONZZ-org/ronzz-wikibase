@@ -12,12 +12,14 @@
  *
  * This scanner locates the SAME math spans MathJax will typeset (mirroring
  * MathJax v3's FindTeX: longest-first start delimiters, closing delimiter
- * search that skips braced groups and control sequences, and the
- * processEscapes \\ and \$ skip) and hands every run of 2+ apostrophes
- * inside them to a caller-supplied protector — in MediaWiki, a strip
- * marker via Parser::insertStripItem(), so the emphasis pass skips the
- * quotes and the literal '' is re-inserted into the final HTML for MathJax
- * to parse as primes.
+ * search that skips braced groups and control sequences, the
+ * processEscapes \\ and \$ skip, and a stop at paragraph breaks — MathJax
+ * scans each DOM text node independently, so a delimiter can never pair
+ * across a blank line) and hands every run of 2+ apostrophes inside them to
+ * a caller-supplied protector — in MediaWiki, a strip marker via
+ * Parser::insertStripItem(), so the emphasis pass skips the quotes and the
+ * literal '' is re-inserted into the final HTML for MathJax to parse as
+ * primes.
  *
  * Pure PHP — no MediaWiki dependency; unit-testable standalone.
  *
@@ -142,7 +144,9 @@ class SimpleMathJaxQuotes {
 	/**
 	 * Find the closing delimiter starting at $from, skipping braced groups
 	 * ({…}) and control sequences (backslash + one char) — the MathJax
-	 * FindTeX::findEnd behaviour.
+	 * FindTeX::findEnd behaviour — and stopping at a paragraph break (a
+	 * blank line), because MathJax scans each DOM text node independently
+	 * and can never pair delimiters across one.
 	 *
 	 * @param string $text
 	 * @param int $from
@@ -164,6 +168,16 @@ class SimpleMathJaxQuotes {
 				$i += $cL;
 				continue;
 			}
+			// A blank line is a paragraph break. MathJax scans each rendered
+			// DOM text node independently, so it can never pair delimiters
+			// across one — neither may this scanner. Without the stop, an
+			// UNBALANCED delimiter (`$$a=b$`, the Atom#Elements page) pairs
+			// with a later delimiter and the "span" swallows whole
+			// paragraphs, protecting their prose apostrophes and breaking
+			// `'''bold'''` (2026-09-27 regression).
+			if ( $text[$i] === "\n" && self::isParagraphBreak( $text, $i ) ) {
+				return -1;
+			}
 			$ch = $text[$i];
 			if ( $ch === '\\' ) {
 				$i += 2; // control sequence or escape: backslash + one char
@@ -180,6 +194,19 @@ class SimpleMathJaxQuotes {
 			}
 		}
 		return -1;
+	}
+
+	/**
+	 * Whether the newline at $i starts a blank line (only spaces/tabs/CR
+	 * between it and the next newline) — i.e. a wikitext paragraph break.
+	 */
+	private static function isParagraphBreak( string $text, int $i ): bool {
+		$len = strlen( $text );
+		$j = $i + 1;
+		while ( $j < $len && ( $text[$j] === ' ' || $text[$j] === "\t" || $text[$j] === "\r" ) ) {
+			$j++;
+		}
+		return $j < $len && $text[$j] === "\n";
 	}
 
 	/**

@@ -199,7 +199,18 @@ def assert_apostrophe_guard(op, api: str) -> None:
     if "<i>italic</i>" not in prose:
         raise FlowError(f"prose ''italic'' no longer renders as emphasis: {prose[:300]!r}")
 
-    print("[ok] '' / ''' inside $…$ math survive; prose italics untouched")
+    # Regression (2026-09-27, Atom#Elements): an UNBALANCED display
+    # delimiter must not let the guard pair it across a paragraph break and
+    # swallow prose bold. `'''element'''` after `$$a=b$` + blank line must
+    # still parse as <b>bold</b>.
+    unbalanced = api_parse_wikitext(
+        op, api, "$$a=b$\n\nprose '''element''' here $x$ end")
+    if "<b>element</b>" not in unbalanced:
+        raise FlowError(
+            f"prose '''bold''' after an unbalanced $$ was not parsed as bold "
+            f"(quote guard crossed a paragraph break): {unbalanced[:300]!r}")
+
+    print("[ok] '' / ''' inside $…$ math survive; prose italics/bold untouched")
 
 
 def assert_server_markers(body: str, title: str) -> None:

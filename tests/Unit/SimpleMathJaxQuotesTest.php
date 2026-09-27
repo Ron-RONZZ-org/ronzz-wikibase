@@ -61,6 +61,16 @@ final class SimpleMathJaxQuotesTest extends TestCase {
 			[ "\\begin{align} y'' &= x \\end{align} then ''it''", "\\begin{align} y«''» &= x \\end{align} then ''it''" ],
 			// Unbalanced $ is ignored — prose italics intact.
 			[ "price \$5 then ''em'' text", "price \$5 then ''em'' text" ],
+			// Regression (2026-09-27, Atom#Elements): an UNBALANCED display
+			// delimiter must not pair across a paragraph break. Without the
+			// blank-line stop the stray $$ swallowed whole paragraphs and
+			// protected prose '''bold''' (rendered literally, never bold).
+			[ "\$\$a=b\$\n\nprose '''element''' here \$x\$ end", "\$\$a=b\$\n\nprose '''element''' here \$x\$ end" ],
+			// A single newline is NOT a paragraph break: inline math spans it.
+			[ "\$a\nb''\$", "\$a\nb«''»\$" ],
+			// A delimiter pair across a blank line is never math (MathJax
+			// scans each DOM text node independently).
+			[ "\$a''\n\nb\$", "\$a''\n\nb\$" ],
 		];
 	}
 
