@@ -56,8 +56,11 @@ Options evaluated:
 2. **Self-hosted GeoGebra app, never a runtime CDN** (repo rule).
    `tools/install-geogebra.sh` fetches the **pinned** official *GeoGebra Math
    Apps Bundle* (`5.4.930.2`, sha256-checked, ~48 MB trimmed to
-   `deployggb.js` + `HTML5/5.0/web3d/`) into the player directory (gitignored,
-   like the MathJax tree / the PlantUML jar).
+   `deployggb.js` + `HTML5/5.0/web3d/` + `HTML5/5.0/css/`) into the player
+   directory (gitignored, like the MathJax tree / the PlantUML jar). The
+   `css/` sibling is required — the applet loads its stylesheet bundles from
+   it and renders blank without them (fixed 2026-09-24; the install script
+   checks the css marker so old installs self-heal).
 3. **Cookie-less player origin — `ggb.ronzz.org`** (option 2′). The applet
    runs inside a **sandboxed cross-origin `<iframe>`**; Same-Origin Policy
    isolates it from the wiki's DOM, cookies and session. The wiki serves the

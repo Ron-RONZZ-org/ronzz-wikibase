@@ -33,6 +33,12 @@ licence: [`ASSETS.md`](ASSETS.md).
    applet with `disableJavaScript: true` + `useBrowserForJS: true` (Layer 1
    hardening).
 
+   The app bundle must include `GeoGebra/HTML5/5.0/css/` — the applet loads
+   its stylesheet bundles from that sibling directory. `install-geogebra.sh`
+   extracts it and its idempotency check requires the css marker, so a
+   pre-2026-09-24 web3d-only install self-heals (without the css the applet
+   never renders — blank iframe).
+
 ## Constraints and Invariants
 
 - **Never commit the GeoGebra app bundle** — it is non-commercial-licensed and

@@ -37,12 +37,16 @@ wire the wiki into the LLM writing studio, or keep the wiki content conformant.
 - **`tools/install-geogebra.sh`** — installs the pinned GeoGebra Math Apps
   Bundle for the GeoGebra extension (the `.ggb` applet), idempotently:
   downloads the sha256-checked official bundle and extracts `deployggb.js` +
-  `HTML5/5.0/web3d/` into the player directory (`--dest`, default the repo's
-  `extensions/GeoGebra/resources/player`). The app is non-commercial-licensed
-  and never committed (see `extensions/GeoGebra/ASSETS.md`) — same pattern as
-  `install-mathjax.sh` / `install-plantuml.sh`. Run it on the host of a
-  dev/CI checkout before the stack boots, and on the server
-  (`--dest /var/www/ggb`) after the extension rsync.
+  `HTML5/5.0/web3d/` + `HTML5/5.0/css/` into the player directory (`--dest`,
+  default the repo's `extensions/GeoGebra/resources/player`). The `css/`
+  sibling carries the applet's stylesheets — without it the applet never
+  renders (blank iframe, 2026-09-24); the idempotency check requires the css
+  marker, so an old web3d-only install self-heals on the next run. The app is
+  non-commercial-licensed and never committed (see
+  `extensions/GeoGebra/ASSETS.md`) — same pattern as `install-mathjax.sh` /
+  `install-plantuml.sh`. Run it on the host of a dev/CI checkout before the
+  stack boots, and on the server (`--dest /var/www/ggb`) after the extension
+  rsync.
 - **`tools/add-copy-to-syntaxhighlight.py`** — enforces the wiki content
   standard that every *block-mode* `<syntaxhighlight lang="...">` carries the
   `copy` attribute (copy button; `Help:Contributing/code` house rule). `inline`

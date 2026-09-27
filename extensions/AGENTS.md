@@ -1018,7 +1018,11 @@ PR #66) — drop the patch on re-vendor once upstream merges it.
   `disableJavaScript: true` + `useBrowserForJS: true` (no JS from material
   files). **Assets**: the GeoGebra Math Apps Bundle (non-commercial licence)
   is installed by `tools/install-geogebra.sh` (pinned, sha256-checked,
-  gitignored) — never committed; see `GeoGebra/ASSETS.md`. The wiki serves
+  gitignored) — never committed; see `GeoGebra/ASSETS.md`. The install
+  extracts `deployggb.js` + `HTML5/5.0/web3d/` + `HTML5/5.0/css/` — the
+  stylesheets live in that sibling dir and the applet renders blank without
+  them (fixed 2026-09-24; the idempotency check requires the css marker, so
+  an old web3d-only install self-heals). The wiki serves
   `.ggb` with `Access-Control-Allow-Origin` for the player origin (production
   nginx rule; a CI step). No DB/seed/manifest/config-map surface — see
   `GeoGebra/AGENTS.md` + `../docs/decisions/geogebra.md`.
