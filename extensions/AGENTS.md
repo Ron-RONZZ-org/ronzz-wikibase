@@ -112,7 +112,12 @@ PR #66) — drop the patch on re-vendor once upstream merges it.
   author — free-text name or Wikidata Q-ids via a mode toggle). Page LOADS
   are not login-gated (bot-password sessions are API-only by MW design) —
   the search/manual SUBMIT handlers enforce login (the external-fetch /
-  item-creation abuse surface).
+  item-creation abuse surface). **A 404/410 on an identifier/hub lookup is a
+  "not found", not a warning** (`ProviderClient::isNotFound`): a missing
+  ISBN/DOI/VIAF yields an empty result (the cascade falls through to the next
+  provider; the caller's own no-results message stands) instead of surfacing
+  the raw "OpenLibraryProvider: HTTP 404 from …" text on the search page
+  (the AddSource report).
 - **Special:AddSoftware (issue #26)**: FOSS item + `FOSS:` page + sitelink;
   entity-combobox facts (developer/license/OS/user-interface/has-use,
   multi-value), programming language via the shared lexer combobox,

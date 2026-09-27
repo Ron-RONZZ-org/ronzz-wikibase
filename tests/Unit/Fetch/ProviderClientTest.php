@@ -98,6 +98,43 @@ final class ProviderClientTest extends TestCase {
 		$this->assertCount( 1, $result->warnings );
 	}
 
+	public function testIdentifierNotFoundIsNotAWarning(): void {
+		// A missing ISBN is a normal miss, not a provider error: Open
+		// Library answers 404, the cascade falls through to Crossref, and
+		// no warning is recorded (the raw "OpenLibraryProvider: HTTP 404
+		// from …" used to be shown to the user for a simple missing ISBN).
+		$http = new FakeHttpClient();
+		$http->onHttpError( '/isbn/9780000000000.json', 404 );
+		$http->onJson( 'filter=isbn', [ 'message' => [ 'items' => [] ] ] );
+		$client = new ProviderClient( [], [], [], [], [
+			new OpenLibraryProvider( $http ),
+			new CrossrefProvider( $http ),
+		] );
+
+		$result = $client->byIsbn( '9780000000000' );
+
+		$this->assertSame( [], $result->records );
+		$this->assertSame( [], $result->warnings );
+	}
+
+	public function testIdentifierNotFoundFallsThroughToTheNextProvider(): void {
+		$http = new FakeHttpClient();
+		$http->onHttpError( '/isbn/9780000000000.json', 404 );
+		$http->onJson( 'filter=isbn', [ 'message' => [ 'items' => [
+			[ 'title' => [ 'Via Crossref' ], 'ISBN' => '9780000000000' ],
+		] ] ] );
+		$client = new ProviderClient( [], [], [], [], [
+			new OpenLibraryProvider( $http ),
+			new CrossrefProvider( $http ),
+		] );
+
+		$result = $client->byIsbn( '9780000000000' );
+
+		$this->assertCount( 1, $result->records );
+		$this->assertSame( 'Via Crossref', $result->records[0]->title );
+		$this->assertSame( [], $result->warnings );
+	}
+
 	public function testWorkAbstractByDoiPrefersOpenAlex(): void {
 		$http = new FakeHttpClient();
 		// Both Crossref and OpenAlex answer; OpenAlex (the higher-coverage

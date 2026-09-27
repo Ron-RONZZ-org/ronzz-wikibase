@@ -25,7 +25,9 @@ use Wikimedia\ObjectCache\BagOStuff;
  * providers, dedupe by authority ID (wikidataId > orcid/doi/isbn >
  * normalized label), and cap results. Every per-provider failure is caught
  * and surfaced as a warning on ProviderResult — never silently swallowed,
- * never fatal to the cascade. The Wikidata-hub harvest (wbgetentities pick
+ * never fatal to the cascade. The ONE exception is a 404/410 "not found"
+ * on an identifier/hub lookup (a missing ISBN/DOI/VIAF is a normal miss,
+ * not a provider error): it is treated as an empty result, not a warning. The Wikidata-hub harvest (wbgetentities pick
  * step) is exposed via harvestPerson()/harvestWork()/harvestEntity()/
  * harvestSoftware().
  *
@@ -259,6 +261,9 @@ class ProviderClient {
 		try {
 			$record = $this->wikidataSoftware->byWikidataId( $qid );
 		} catch ( ProviderException $e ) {
+			if ( $this->isNotFound( $e ) ) {
+				return new ProviderResult( [] );
+			}
 			return new ProviderResult( [], [ 'wikidata: ' . $e->getMessage() ] );
 		}
 		return new ProviderResult( $record === null ? [] : [ $record ] );
@@ -299,6 +304,9 @@ class ProviderClient {
 				? $this->wikidataPerson->byViaf( $id )
 				: $this->wikidataPerson->byIsni( $id );
 		} catch ( ProviderException $e ) {
+			if ( $this->isNotFound( $e ) ) {
+				return new ProviderResult( [] );
+			}
 			return new ProviderResult( [], [ 'wikidata: ' . $e->getMessage() ] );
 		}
 		return new ProviderResult( $record === null ? [] : [ $record ] );
@@ -327,6 +335,9 @@ class ProviderClient {
 		try {
 			$record = $this->wikidataPerson->byWikidataId( $qid );
 		} catch ( ProviderException $e ) {
+			if ( $this->isNotFound( $e ) ) {
+				return new ProviderResult( [] );
+			}
 			return new ProviderResult( [], [ 'wikidata: ' . $e->getMessage() ] );
 		}
 		return new ProviderResult( $record === null ? [] : [ $record ] );
@@ -339,6 +350,9 @@ class ProviderClient {
 		try {
 			$record = $this->wikidataWork->byWikidataId( $qid );
 		} catch ( ProviderException $e ) {
+			if ( $this->isNotFound( $e ) ) {
+				return new ProviderResult( [] );
+			}
 			return new ProviderResult( [], [ 'wikidata: ' . $e->getMessage() ] );
 		}
 		return new ProviderResult( $record === null ? [] : [ $record ] );
@@ -351,6 +365,9 @@ class ProviderClient {
 		try {
 			$record = $this->wikidataEntity->byWikidataId( $qid );
 		} catch ( ProviderException $e ) {
+			if ( $this->isNotFound( $e ) ) {
+				return new ProviderResult( [] );
+			}
 			return new ProviderResult( [], [ 'wikidata: ' . $e->getMessage() ] );
 		}
 		return new ProviderResult( $record === null ? [] : [ $record ] );
@@ -441,10 +458,26 @@ class ProviderClient {
 					return new ProviderResult( [ $record ], $warnings );
 				}
 			} catch ( ProviderException $e ) {
-				$warnings[] = $this->providerName( $provider ) . ': ' . $e->getMessage();
+				if ( !$this->isNotFound( $e ) ) {
+					$warnings[] = $this->providerName( $provider ) . ': ' . $e->getMessage();
+				}
 			}
 		}
 		return new ProviderResult( [], $warnings );
+	}
+
+	/**
+	 * Whether a provider failure means "no such record" rather than an
+	 * error. A 404 (or 410 Gone) on an identifier/hub lookup is the
+	 * authority's normal "not found" answer: the cascade moves on silently
+	 * and, when every provider misses, the caller shows its own no-results
+	 * message. Recording it as a warning surfaced raw provider text
+	 * ("OpenLibraryProvider: HTTP 404 from …") for a simple missing
+	 * ISBN/DOI/VIAF.
+	 */
+	private function isNotFound( ProviderException $e ): bool {
+		$status = $e->getStatusCode();
+		return $status === 404 || $status === 410;
 	}
 
 	/**
