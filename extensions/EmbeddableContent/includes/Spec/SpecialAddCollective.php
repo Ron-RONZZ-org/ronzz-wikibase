@@ -253,14 +253,23 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 		return $body . $marker;
 	}
 
+	/**
+	 * Class options for the review/manual form: localized human labels
+	 * (embeddablecontent-agent-class-*) keyed to the class item ids, sorted
+	 * alphabetically in the reader's language (2026-09 UX batch — before,
+	 * the raw camelCase keys rendered as the option labels).
+	 *
+	 * @return array<string,string> label => class item id
+	 */
 	protected function classOptions(): array {
 		$options = [];
 		foreach ( $this->config->agentClasses() as $key => $id ) {
-			if ( $key !== 'person' ) {
-				$options[$key] = $id;
+			if ( $key === 'person' ) {
+				continue;
 			}
+			$options[$this->msg( 'embeddablecontent-agent-class-' . $key )->text()] = $id;
 		}
-		return $options;
+		return LabelSorter::sortByLabel( $options, $this->getLanguage()->getCode() );
 	}
 
 	protected function defaultClassItemId( array $record ): ?string {

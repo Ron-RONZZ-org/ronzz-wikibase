@@ -550,11 +550,13 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 
 		// Plain class options — no "(part of …)" suffix (the parent relation
 		// is picked on the child-class form itself), no redundant field
-		// label: the legend already asks the question.
+		// label: the legend already asks the question. Sorted alphabetically
+		// in the reader's language (2026-09 UX batch).
 		$options = [];
 		foreach ( $this->config->sourceClasses() as $key => $_ ) {
 			$options[$this->msg( 'embeddablecontent-source-class-' . $key )->text()] = $key;
 		}
+		$options = LabelSorter::sortByLabel( $options, $this->getLanguage()->getCode() );
 
 		$form = \MediaWiki\HTMLForm\HTMLForm::factory( 'ooui', [
 			'class' => [

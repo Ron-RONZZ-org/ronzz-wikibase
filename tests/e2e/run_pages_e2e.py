@@ -804,6 +804,22 @@ def textarea_value(body: str, field: str) -> str:
     return ""
 
 
+def oo_select_option_labels(body: str, widget_id: str) -> list:
+    """Ordered option labels of an OOUI DropdownInputWidget/RadioSelect widget
+    (identified by its 'mw-input-<field>' id) from the widget's data-ooui
+    JSON. Used to assert picker ORDER (alphabetical) — the rendered <select>
+    options are not reliable to parse."""
+    m = re.search(
+        r"id='" + re.escape(widget_id) + r"'[^>]*data-ooui='([^']*)'", body, re.S)
+    if not m:
+        m = re.search(
+            r'id="' + re.escape(widget_id) + r'"[^>]*data-ooui="([^"]*)"', body, re.S)
+    if not m:
+        raise FlowError(f"{widget_id}: OOUI widget data-ooui not found")
+    raw = m.group(1).replace("&quot;", '"').replace("&#39;", "'")
+    return re.findall(r'"data":"[^"]*","label":(?:\{"html":)?"([^"]*)"', raw)
+
+
 def flow_manual_link_from(op, base: str, body: str, special: str) -> str:
     """The tokenised 'create manually' href in a search-result page (zero-hit
     AND selection pages both carry it since issue #35).
@@ -1269,7 +1285,8 @@ def flow_update_content(op, base: str, api: str, qid: str, new_label: str,
 def flow_source_picker_route(op, base: str) -> str:
     """Class picker (issue follow-up): the manual-entry checkbox is GONE (the
     user decides on the next page); picking a class routes to its class-scoped
-    first step (book → the /book search page)."""
+    first step (book → the /book search page). The options are alphabetical
+    (2026-09 UX batch)."""
     url, body = page_get(op, base, "/wiki/Special:AddSource")
     if "wpmanual" in body:
         raise FlowError("class picker still renders the removed manual checkbox")
@@ -1280,6 +1297,13 @@ def flow_source_picker_route(op, base: str) -> str:
                   "Dataset"):
         if label not in body:
             raise FlowError(f"class picker missing the {label!r} class")
+    # Alphabetical order (the requested sort): the OOUI radio options are
+    # serialized in order in data-ooui.
+    picker_labels = oo_select_option_labels(body, "mw-input-wpclass")
+    if not picker_labels:
+        raise FlowError("class picker: no OOUI radio options found")
+    if picker_labels != sorted(picker_labels, key=str.casefold):
+        raise FlowError(f"class picker not alphabetical: {picker_labels}")
     token = edit_token(body)
     url, body = page_post(op, url, {"wpclass": "book", "wpEditToken": token, "wpSubmit": "1"})
     if "/wiki/Special:AddSource/book" not in url:
@@ -4255,20 +4279,25 @@ def main() -> int:
         print(f"[ok] AddCollective -> {collective} ({label}): agent class + Wikidata ID, "
               f"description placeholder on the page")
 
-        # 3a0. The AddCollective class picker offers the intergovernmental
-        #     organization class (issue report): UN/WHO-type collectives can
-        #     be classified directly. The class select on the manual form
-        #     carries the seeded class item (raw-key label, the picker's
-        #     existing pattern).
+        # 3a0. The AddCollective class select (2026-09 UX batch): human
+        #     labels (not raw camelCase keys) sorted alphabetically, with the
+        #     intergovernmental organization class available (issue report).
         intergov_class = resolve("intergovernmental organization", "item")
         _, body = page_get(op, base, "/wiki/Special:AddCollective/manual")
         if intergov_class not in body:
-            raise FlowError(f"AddCollective class picker lacks the intergovernmental "
+            raise FlowError(f"AddCollective class select lacks the intergovernmental "
                             f"organization class ({intergov_class!r})")
-        if "intergovernmentalOrganization" not in body:
-            raise FlowError("AddCollective class picker lacks the intergovernmentalOrganization option key")
-        print(f"[ok] AddCollective class picker: intergovernmental organization "
-              f"({intergov_class}) available")
+        if "intergovernmentalOrganization" in body:
+            raise FlowError("AddCollective class select still shows the raw option key "
+                            "(human-label regression)")
+        class_labels = oo_select_option_labels(body, "mw-input-wpclass")
+        if "Intergovernmental organization" not in class_labels:
+            raise FlowError(f"AddCollective class select lacks the human label "
+                            f"'Intergovernmental organization': {class_labels}")
+        if class_labels != sorted(class_labels, key=str.casefold):
+            raise FlowError(f"AddCollective class select not alphabetical: {class_labels}")
+        print(f"[ok] AddCollective class select: {len(class_labels)} human labels, "
+              f"alphabetical (intergovernmental organization available)")
 
         # 3a. AddCollective manual — the optional "Parent organization"
         #     entity field (issue follow-up): a referenced item lands as a
