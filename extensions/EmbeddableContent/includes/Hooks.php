@@ -127,7 +127,9 @@ class Hooks {
 	 *    values, so the File page (opened in a new tab by uploadform.js)
 	 *    sends the opener back to a fresh, prefilled upload form.
 	 *
-	 * Fires for every redirect; acts only on a Special:Upload request.
+	 * Fires for every redirect; acts only on a Special:Upload form submission
+	 * (identified by the wpUpload marker, present only on that form — the
+	 * context title is not guaranteed during output()).
 	 *
 	 * @param OutputPage $out
 	 * @param string &$redirect
@@ -137,11 +139,10 @@ class Hooks {
 		if ( !$out instanceof OutputPage ) {
 			return;
 		}
-		$title = $out->getTitle();
-		if ( $title === null || !$title->isSpecial( 'Upload' ) ) {
+		$request = \MediaWiki\Context\RequestContext::getMain()->getRequest();
+		if ( !$request->getCheck( 'wpUpload' ) ) {
 			return;
 		}
-		$request = \MediaWiki\Context\RequestContext::getMain()->getRequest();
 		$params = [];
 		if ( $request->getCheck( 'wpUploadCopyEmbed' ) ) {
 			$params['wbuploadcopy'] = '1';
