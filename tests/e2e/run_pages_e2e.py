@@ -2923,6 +2923,20 @@ def flow_content_label_defaults(op, base: str) -> None:
         print(f"[ok] Special:{page} label default {expected!r}")
 
 
+def flow_addmath_preview_wiring(op, base: str) -> None:
+    """Special:AddMath renders the KaTeX live-preview box and loads the
+    addmath module (delimiter auto-strip + the renderer's error message).
+    The client-side rendering itself is covered by
+    tests/e2e/run_addmath_ux_e2e.mjs (Playwright, manual/production)."""
+    url, body = page_get(op, base, "/wiki/Special:AddMath")
+    for needle in ("wb-math-preview-box", "wb-math-preview-content"):
+        if needle not in body:
+            raise FlowError(f"Special:AddMath does not render {needle}: " + find_error(body))
+    if "ext.embeddableContent.addmath" not in body:
+        raise FlowError("Special:AddMath does not load the addmath module: " + find_error(body))
+    print("[ok] Special:AddMath renders the KaTeX preview box + addmath module")
+
+
 def flow_add_more(op, base: str, api: str, person_qid: str, source_url: str) -> tuple[str, str]:
     """"Add more" on the content pages (the second submit button): the
     submit CREATES the item and reopens the page with every provenance input
@@ -3250,6 +3264,35 @@ def flow_item_source_cite_button(op, base: str, source_qid: str) -> None:
     if "ext.embeddableContent.sourcecite" not in body:
         raise FlowError(f"Item:{source_qid} does not load ext.embeddableContent.sourcecite")
     print(f"[ok] Item: page copy-citation wiring on Item:{source_qid}")
+
+
+def flow_classic_page_toolbar(op, base: str, page_title: str, qid: str,
+                              update_special: str, expect_source_cite: bool) -> None:
+    """The classic per-kind pages (Source:/FOSS:/Person:/Collective:/
+    Software:) carry the SAME action toolbar as the item's Item: page
+    (feature parity): the embed/citation gadget (wbEmbedItem), the "Update
+    basic information" button (wbUpdateBasicInfoUrl -> the class's
+    Special:Update* page) and — for source classes — the "Copy internal
+    citation" button (wbInternalCiteItem). The buttons are JS-rendered; this
+    flow asserts the SERVER-side wiring on a real created page."""
+    _, body = page_get(op, base, "/wiki/" + urllib.parse.quote(page_title.replace(" ", "_")))
+    if "wbEmbedItem" not in body or qid not in body:
+        raise FlowError(
+            f"{page_title}: missing wbEmbedItem={qid} (classic toolbar): {find_error(body)}")
+    if "ext.embeddableContent.gadget" not in body:
+        raise FlowError(f"{page_title}: does not load ext.embeddableContent.gadget")
+    m = re.search(r'"wbUpdateBasicInfoUrl"\s*:\s*"([^"]*Special:' + re.escape(update_special)
+                  + r"/" + re.escape(qid) + r')"', body)
+    if not m:
+        raise FlowError(
+            f"{page_title}: no update-button URL for {update_special}: {find_error(body)}")
+    if "ext.embeddableContent.updatebutton" not in body:
+        raise FlowError(f"{page_title}: does not load ext.embeddableContent.updatebutton")
+    if expect_source_cite:
+        if "wbInternalCiteItem" not in body or "ext.embeddableContent.sourcecite" not in body:
+            raise FlowError(f"{page_title}: missing the sourcecite wiring (source class)")
+    print(f"[ok] classic page toolbar on {page_title} -> {m.group(1)}"
+          + (" + copy internal citation" if expect_source_cite else ""))
 
 
 def flow_child_items_listing(op, base: str, api: str, book_qid: str,
@@ -4107,6 +4150,8 @@ def main() -> int:
             raise FlowError(f"{subdomain_child} has no wikibase sitelink — "
                             f"cannot check the Source: page cite wiring")
         flow_source_cite_button(op, base, webpage_page, subdomain_child)
+        flow_classic_page_toolbar(op, base, webpage_page, subdomain_child,
+                                  "UpdateSource", expect_source_cite=True)
 
         # 2j1c. The Item: page of a source-class item ALSO carries the
         #     "Copy internal citation" wiring (not only its Source: classic
@@ -4555,11 +4600,14 @@ def main() -> int:
         # 3f. Sitelink tab (issue follow-up): red (needs-set) on a page
         #     without a sitelink, blue (is-set) on the sitelinked FOSS page.
         flow_sitelink_tab(op, base, api, foss_page, software)
+        flow_classic_page_toolbar(op, base, foss_page, software,
+                                  "UpdateSoftware", expect_source_cite=False)
 
         # 4. v1 content form — Special:AddQuotation with provenance.
         # Unique label per run: create-or-skip would otherwise reuse a stale
         # quotation from an earlier (failed) run and fail the assertions.
         flow_content_label_defaults(op, base)
+        flow_addmath_preview_wiring(op, base)
         quote_label = f"Page-flow E2E quotation {args.person} {int(time.time())}"
         quotation = track(flow_quotation(op, base, api, quote_label, "An E2E test quotation.", person))
         claims, label = entity_claims(op, api, quotation)
@@ -4616,8 +4664,12 @@ def main() -> int:
         # 5. Special:AddMath with the 'describes' subject field (issue
         #    follow-up) + delimiter stripping: a $$…$$-wrapped payload must be
         #    stored as bare TeX (the stored content is what KaTeX renders).
+        #    Surrounding whitespace is trimmed first — a pasted payload
+        #    commonly carries a leading/trailing blank line (the live-preview
+        #    regression: the preview kept the delimiters, the server stripped
+        #    them).
         math_label = f"Page-flow E2E math {int(time.time())}"
-        math_item = track(flow_math(op, base, api, math_label, "$$E = mc^2$$", person))
+        math_item = track(flow_math(op, base, api, math_label, "\n$$E = mc^2$$\n", person))
         claims, label = entity_claims(op, api, math_item)
         assert first_value(claims, instance_of) == math_class, \
             f"{math_item} instance-of != mathematical expression"

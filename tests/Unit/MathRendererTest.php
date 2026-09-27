@@ -41,6 +41,10 @@ final class MathRendererTest extends TestCase {
 			'empty input' => [ '', '' ],
 			'content with inner dollars' => [ '$$a $ b$$', 'a $ b' ],
 			'environment not stripped' => [ '\\begin{equation}x\\end{equation}', '\\begin{equation}x\\end{equation}' ],
+			'leading newline' => [ "\n\$\$E = mc^2\$\$", 'E = mc^2' ],
+			'trailing newline' => [ "\$\$E = mc^2\$\$\n", 'E = mc^2' ],
+			'surrounding spaces' => [ '  $E = mc^2$  ', 'E = mc^2' ],
+			'bracket with whitespace' => [ "  \\[E = mc^2\\]\n", 'E = mc^2' ],
 		];
 	}
 
@@ -48,6 +52,13 @@ final class MathRendererTest extends TestCase {
 		$html = $this->renderer()->render( '$$E = mc^2$$' );
 		$this->assertStringContainsString( 'data-latex="E = mc^2"', $html );
 		$this->assertStringContainsString( '>E = mc^2</span>', $html );
+	}
+
+	public function testRenderStripsDelimitersAfterTrimmingWhitespace(): void {
+		// A pasted payload with a leading/trailing blank line must render
+		// bare TeX (the live preview trims too — the regression this fixes).
+		$html = $this->renderer()->render( "\n\$\$E = mc^2\$\$\n" );
+		$this->assertStringContainsString( 'data-latex="E = mc^2"', $html );
 	}
 
 	public function testRenderKeepsLegacyEdgeStripForUnbalancedInput(): void {

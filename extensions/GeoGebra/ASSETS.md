@@ -16,13 +16,18 @@ tools/install-geogebra.sh [--force] [--dest DIR]
 | Bundle sha256 | `7e0b7b1dc51cebe1675de15fd296d8ebe7f49e407567656351af42e29f55c871` |
 | `deployggb.js` sha256 | `7894ce225cfccf81940c8b35a6b6c4960db5169cb842c20cf99d5877997a335a` |
 | `web3d.nocache.js` sha256 | `bdb5e15da87efbc5c39f40a16eec708fa0f085b0211ee601668bfc6625b00d4b` |
-| Installed | `GeoGebra/deployggb.js` + `GeoGebra/HTML5/5.0/web3d/` (~48 MB) |
+| Installed | `GeoGebra/deployggb.js` + `GeoGebra/HTML5/5.0/web3d/` + `GeoGebra/HTML5/5.0/css/` (~48 MB) |
 | Licence | **Non-commercial** — https://www.geogebra.org/license (see below) |
 
-Scope of the install: `deployggb.js` and the `web3d` codebase (the
-graphing / geometry / 3d / classic app). The other codebases in the bundle
-(`web/`, `webSimple/`, `css/`) are not extracted — add them if an embed ever
-requests another `appName`.
+Scope of the install: `deployggb.js`, the `web3d` codebase (the graphing /
+geometry / 3d / classic app) and the **shared stylesheets** at
+`GeoGebra/HTML5/5.0/css/`. The stylesheets are NOT web3d-only: `web3d` loads
+its CSS bundles / fonts / keyboard styles from that SIBLING directory — an
+install without `css/` leaves the applet blank (the 2026-09-24 blank-iframe
+report; the install script now also checks the css marker, so an old
+web3d-only install self-heals). The other codebases in the bundle (`web/`,
+`webSimple/`) are not extracted — add them if an embed ever requests another
+`appName`.
 
 ## Licence — read before deploying
 

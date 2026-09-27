@@ -146,20 +146,19 @@ class Hooks {
 			$out->addModules( 'ext.embeddableContent.osmsuggest' );
 		}
 
-		// Source: classic pages — the "Copy internal citation" button
-		// (sourcecite.js): a sitelinked source page gets a toolbar button
-		// that copies the wikitext snippet `<ref>{{#cite:Q42}}</ref>` for
-		// citing the item on a wiki page. The page → item id resolution is
-		// server-side (the same site-link store the parser functions and
-		// the Sitelink tab use) — no client API roundtrip. Only pages that
-		// ARE linked to an item render the button (a /fr translation
-		// subpage has no sitelink of its own).
-		if ( defined( 'NS_SOURCE' ) && $title->getNamespace() === NS_SOURCE && $title->exists() ) {
+		// Classic per-kind pages (Source: / FOSS: / Person: / Collective: /
+		// Software:) carry the SAME action toolbar as their item's Item:
+		// page — the "Update basic information" / "Edit content" button,
+		// the "Copy internal citation" button (source classes) and the
+		// embed/citation gadget. The page → item id comes from the
+		// site-link store (the same resolution the parser functions and the
+		// Sitelink tab use) — no client API roundtrip. A page without a
+		// sitelink (a /fr translation subpage) renders no toolbar.
+		if ( $title->exists() && self::isClassicEntityNamespace( $title->getNamespace() ) ) {
 			$itemId = WikibaseRepo::getStore()->newSiteLinkStore()
 				->getItemIdForLink( 'wikibase', $title->getPrefixedText() );
 			if ( $itemId !== null ) {
-				$out->addJsConfigVars( 'wbInternalCiteItem', $itemId->getSerialization() );
-				$out->addModules( 'ext.embeddableContent.sourcecite' );
+				self::wireItemToolbar( $out, $itemId->getSerialization() );
 			}
 			return;
 		}
@@ -175,31 +174,7 @@ class Hooks {
 			return;
 		}
 
-		$out->addModules( 'ext.embeddableContent.gadget' );
-
-		// "Update basic information" / "Edit content" button (the
-		// autofill-confirm-update batch + issue #80): items whose class has
-		// a Special:Update* counterpart link to it — server-side class
-		// detection, no client API roundtrip. The button LABEL follows the
-		// item kind (content items: "Edit content").
-		$updateTarget = self::updateTargetForItem( $entityId->getSerialization() );
-		if ( $updateTarget !== null ) {
-			$out->addJsConfigVars( 'wbUpdateBasicInfoUrl', $updateTarget['url'] );
-			$out->addJsConfigVars( 'wbUpdateBasicInfoLabel', $updateTarget['messageKey'] );
-			$out->addModules( 'ext.embeddableContent.updatebutton' );
-		}
-
-		// Item pages of SOURCE-class items get the same "Copy internal
-		// citation" toolbar button as the Source: classic pages (sourcecite):
-		// the item IS the source entity, and a book excerpt or any source
-		// item without a classic page (bookExcerpt creates none) still needs
-		// the one-click `<ref>{{#cite:Q42}}</ref>` snippet. Class detection
-		// is server-side (the same instance-of scan updateTargetForItem
-		// runs); sourcecite.js appends into the shared .wb-embed-toolbar row.
-		if ( self::isSourceClassItem( $entityId->getSerialization() ) ) {
-			$out->addJsConfigVars( 'wbInternalCiteItem', $entityId->getSerialization() );
-			$out->addModules( 'ext.embeddableContent.sourcecite' );
-		}
+		self::wireItemToolbar( $out, $entityId->getSerialization() );
 
 		$oembedUrl = SpecialPage::getTitleFor( 'Embed', 'oembed' )
 			->getFullURL( [ 'url' => $title->getFullURL() ] );
@@ -208,6 +183,49 @@ class Hooks {
 			'type' => 'application/json+oembed',
 			'href' => $oembedUrl,
 		] );
+	}
+
+	/**
+	 * The classic-page namespaces that carry an item's action toolbar —
+	 * the Add* flows' per-kind pages: FOSS / Person / Source / Collective /
+	 * Software. The constants are defined by the instance LocalSettings
+	 * (dev config + production); the defined() guards keep the hook safe on
+	 * a wiki that loads the extension without them.
+	 */
+	private static function isClassicEntityNamespace( int $namespace ): bool {
+		foreach ( [ 'NS_FOSS', 'NS_PERSON', 'NS_SOURCE', 'NS_COLLECTIVE', 'NS_SOFTWARE' ] as $constant ) {
+			if ( defined( $constant ) && $namespace === constant( $constant ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * The item action toolbar shared by the Item: pages and the classic
+	 * per-kind pages (feature parity):
+	 *  - the embed/citation gadget (the item id rides wbEmbedItem, because
+	 *    on a classic page wgTitle is the page title, not the Q-id);
+	 *  - the "Update basic information" / "Edit content" button when the
+	 *    item's class has a Special:Update* counterpart (server-side class
+	 *    detection, no client API roundtrip);
+	 *  - the "Copy internal citation" button for source-class items.
+	 */
+	private static function wireItemToolbar( OutputPage $out, string $itemId ): void {
+		$out->addJsConfigVars( 'wbEmbedItem', $itemId );
+		$out->addModules( 'ext.embeddableContent.gadget' );
+
+		$updateTarget = self::updateTargetForItem( $itemId );
+		if ( $updateTarget !== null ) {
+			$out->addJsConfigVars( 'wbUpdateBasicInfoUrl', $updateTarget['url'] );
+			$out->addJsConfigVars( 'wbUpdateBasicInfoLabel', $updateTarget['messageKey'] );
+			$out->addModules( 'ext.embeddableContent.updatebutton' );
+		}
+
+		if ( self::isSourceClassItem( $itemId ) ) {
+			$out->addJsConfigVars( 'wbInternalCiteItem', $itemId );
+			$out->addModules( 'ext.embeddableContent.sourcecite' );
+		}
 	}
 
 	/**

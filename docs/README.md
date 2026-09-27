@@ -61,4 +61,6 @@ multi-value territorial jurisdiction + international marker, the `text`
 catch-all class, and the `bool|string` return-type fix),
 `add-forms-fixes-2026-09.md` (case-insensitive entity search, infusion-safe
 combobox class scope, `Special:UpdateSoftware` prefill, page-title
-normalization, `Special:NewItem` Main-namespace pages).
+normalization, `Special:NewItem` Main-namespace pages),
+`classic-page-toolbar.md` (the classic per-kind pages render the same action
+toolbar as the Item: page).

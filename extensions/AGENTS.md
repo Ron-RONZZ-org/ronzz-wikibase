@@ -102,7 +102,13 @@ PR #66) — drop the patch on re-vendor once upstream merges it.
   (`Special:AddQuotation` / `AddCodeSnippet` / `AddMath` — all-language
   quotation input, `describes`/`implementation of` subject fields,
   code language combobox, math KaTeX preview + delimiter auto-strip,
-  redirect-to-created-item).
+  redirect-to-created-item). The AddMath preview strips delimiters
+  IDENTICALLY to the submit path: `MathRenderer::stripDelimiters` (and the
+  `addmath.js` mirror) trim surrounding whitespace before the whole-string
+  wrapper match, and the preview renders with `throwOnError: true` so a
+  malformed expression shows the TeX renderer's error message
+  (`.wb-math-preview-error`) instead of a red span whose message is only a
+  tooltip.
 - **Issue #7 external authorities** (`includes/Fetch/`): provider layer
   (Wikidata hub + dblp SPARQL, OpenAlex, Crossref, Open Library, ORCID —
   SSRF-allowlisted) driving `Special:AddPerson` / `AddSource` /
@@ -112,7 +118,12 @@ PR #66) — drop the patch on re-vendor once upstream merges it.
   author — free-text name or Wikidata Q-ids via a mode toggle). Page LOADS
   are not login-gated (bot-password sessions are API-only by MW design) —
   the search/manual SUBMIT handlers enforce login (the external-fetch /
-  item-creation abuse surface).
+  item-creation abuse surface). **A 404/410 on an identifier/hub lookup is a
+  "not found", not a warning** (`ProviderClient::isNotFound`): a missing
+  ISBN/DOI/VIAF yields an empty result (the cascade falls through to the next
+  provider; the caller's own no-results message stands) instead of surfacing
+  the raw "OpenLibraryProvider: HTTP 404 from …" text on the search page
+  (the AddSource report).
 - **Special:AddSoftware (issue #26)**: FOSS item + `FOSS:` page + sitelink;
   entity-combobox facts (developer/license/OS/user-interface/has-use,
   multi-value), programming language via the shared lexer combobox,
@@ -165,7 +176,14 @@ PR #66) — drop the patch on re-vendor once upstream merges it.
   YouTubeVideo/Webpage). **bookExcerpt creates NO page** (part of a book).
   Namespaces Person (2010/2011), Source (2012/2013), Collective (2014/2015),
   Software (2016/2017 — the non-FOSS software pages, see the FOSS:/Software:
-  split bullet) in dev config + production LocalSettings.
+  split bullet) in dev config + production LocalSettings. **Classic-page
+  toolbar parity (ADR `docs/decisions/classic-page-toolbar.md`)**: a classic
+  page sitelinked to an item renders the SAME action toolbar as the item's
+  Item: page — `Hooks::wireItemToolbar` (reached via the site-link store)
+  loads the embed/citation gadget (the item id rides `wbEmbedItem`, because
+  on a classic page `wgTitle` is the page title, not the Q-id), the "Update
+  basic information" / "Edit content" button (class → `Special:Update*`) and
+  — for source classes — the "Copy internal citation" button.
 - **AddPerson lifecycle fields**: VIAF/ISNI search (Wikidata-hub-only),
   day-precision date of birth/death + a "This person is deceased" toggle
   revealing the death fields; `personProperties` config section (P569/P19/
@@ -1000,7 +1018,11 @@ PR #66) — drop the patch on re-vendor once upstream merges it.
   `disableJavaScript: true` + `useBrowserForJS: true` (no JS from material
   files). **Assets**: the GeoGebra Math Apps Bundle (non-commercial licence)
   is installed by `tools/install-geogebra.sh` (pinned, sha256-checked,
-  gitignored) — never committed; see `GeoGebra/ASSETS.md`. The wiki serves
+  gitignored) — never committed; see `GeoGebra/ASSETS.md`. The install
+  extracts `deployggb.js` + `HTML5/5.0/web3d/` + `HTML5/5.0/css/` — the
+  stylesheets live in that sibling dir and the applet renders blank without
+  them (fixed 2026-09-24; the idempotency check requires the css marker, so
+  an old web3d-only install self-heals). The wiki serves
   `.ggb` with `Access-Control-Allow-Origin` for the player origin (production
   nginx rule; a CI step). No DB/seed/manifest/config-map surface — see
   `GeoGebra/AGENTS.md` + `../docs/decisions/geogebra.md`.

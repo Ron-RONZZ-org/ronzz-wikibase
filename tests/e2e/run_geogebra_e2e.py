@@ -252,7 +252,16 @@ def check_player(op, player_url: str) -> None:
     if status != 200:
         raise FlowError(f"GeoGebra app {base}/GeoGebra/deployggb.js returned HTTP {status} "
                         "(run tools/install-geogebra.sh)")
-    print(f"[ok] player origin serves the player + the GeoGebra app")
+    # The app also loads its stylesheets from the HTML5/5.0/css/ SIBLING dir;
+    # when the install script extracted only web3d/, those 404 and the applet
+    # never renders (blank iframe, 2026-09-24). Assert one representative
+    # bundle so the regression is caught.
+    status, _, _ = fetch_status(op, base + "/GeoGebra/HTML5/5.0/css/bundles/bundle.css")
+    if status != 200:
+        raise FlowError(f"GeoGebra app stylesheet {base}/GeoGebra/HTML5/5.0/css/bundles/bundle.css "
+                        f"returned HTTP {status} — the applet will not render "
+                        "(re-run tools/install-geogebra.sh)")
+    print(f"[ok] player origin serves the player + the GeoGebra app + its stylesheets")
 
 
 def check_cors(op, base: str, file_url: str, player_url: str) -> None:

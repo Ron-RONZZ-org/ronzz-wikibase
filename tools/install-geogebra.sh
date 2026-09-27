@@ -10,6 +10,10 @@
 #
 #   <dest>/GeoGebra/deployggb.js
 #   <dest>/GeoGebra/HTML5/5.0/web3d/…      (the graphing/geometry/3d/classic app)
+#   <dest>/GeoGebra/HTML5/5.0/css/…        (the app's stylesheets — web3d loads
+#                                           them from this SIBLING directory;
+#                                           without them the applet never
+#                                           renders — blank iframe, 2026-09-24)
 #
 # `dest` defaults to the repo's player directory
 # (extensions/GeoGebra/resources/player), so a local dev/CI run — and the
@@ -52,8 +56,12 @@ while [ $# -gt 0 ]; do
 done
 
 marker="${dest}/GeoGebra/HTML5/5.0/web3d/web3d.nocache.js"
+css_marker="${dest}/GeoGebra/HTML5/5.0/css/bundles/bundle.css"
 
-if [ -f "$marker" ] && [ "$force" = 0 ]; then
+# The css marker makes an install from BEFORE 2026-09-24 (web3d only, the
+# applet rendered blank) self-heal: the web3d checksum still matches, but the
+# missing stylesheets force a re-extract.
+if [ -f "$marker" ] && [ -f "$css_marker" ] && [ "$force" = 0 ]; then
 	actual="$(sha256sum "$marker" 2>/dev/null | awk '{print $1}')"
 	if [ "$actual" = "$WEB3D_NOCACHE_SHA256" ]; then
 		echo "install-geogebra.sh: GeoGebra ${GEOGEBRA_VERSION} already installed at ${dest}/GeoGebra (checksum ok)"
@@ -76,7 +84,8 @@ if [ "$actual" != "$BUNDLE_SHA256" ]; then
 	exit 1
 fi
 
-# Extract only the runtime files we serve: deployggb.js + the web3d codebase.
+# Extract only the runtime files we serve: deployggb.js + the web3d codebase
+# and the shared stylesheets it loads from HTML5/5.0/css/.
 install -d -m 0755 "$dest"
 python3 - "$tmp" "$dest" <<'PY'
 import sys
@@ -84,10 +93,11 @@ import zipfile
 
 archive, dest = sys.argv[1], sys.argv[2]
 web3d_prefix = "GeoGebra/HTML5/5.0/web3d/"
+css_prefix = "GeoGebra/HTML5/5.0/css/"
 with zipfile.ZipFile(archive) as zf:
     for info in zf.infolist():
         name = info.filename
-        if name == "GeoGebra/deployggb.js" or name.startswith(web3d_prefix):
+        if name == "GeoGebra/deployggb.js" or name.startswith(web3d_prefix) or name.startswith(css_prefix):
             zf.extract(info, dest)
 PY
 
