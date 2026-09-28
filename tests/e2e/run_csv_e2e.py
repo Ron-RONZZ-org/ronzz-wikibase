@@ -41,13 +41,17 @@ import urllib.request
 
 UA = "ronzz-wikibase-csv-e2e/1.0"
 
-XSS_PAYLOAD = "<script>alert(1)</script>"
+# A cell carrying HTML markup: it must be escaped in the table. (A
+# `<script>` payload cannot be used here — MediaWiki's own upload filter
+# rejects scripted content with `uploadscripted` before the handler sees it;
+# the parser's escaping is the defense-in-depth boundary.)
+MARKUP_PAYLOAD = "<b>bold</b>"
 
-# name,note — a quoted field with an embedded comma + an injection cell.
+# name,note — a quoted field with an embedded comma + a markup cell.
 CSV_CONTENT = (
     "name,note\n"
     'Alice,"a, b"\n'
-    f"Bob,{XSS_PAYLOAD}\n"
+    f"Bob,{MARKUP_PAYLOAD}\n"
 )
 
 
@@ -194,12 +198,12 @@ def assert_table(body: str, page: str) -> None:
     # Data rows, including the quoted field with an embedded comma.
     if "<td>Alice</td>" not in body or "<td>a, b</td>" not in body:
         raise FlowError(f"{page}: data row / quoted field not rendered: {body[:400]!r}")
-    # Injection cell must be escaped, never live markup.
-    if XSS_PAYLOAD in body:
-        raise FlowError(f"{page}: XSS payload survived as live markup: {body[:400]!r}")
-    if "&lt;script&gt;alert(1)&lt;/script&gt;" not in body:
-        raise FlowError(f"{page}: XSS payload was not escaped into the table cell: {body[:400]!r}")
-    print(f"[ok] {page}: csv-table rendered, injection escaped")
+    # A markup cell must be escaped, never emitted as live HTML.
+    if MARKUP_PAYLOAD in body:
+        raise FlowError(f"{page}: markup cell survived as live HTML: {body[:400]!r}")
+    if "&lt;b&gt;bold&lt;/b&gt;" not in body:
+        raise FlowError(f"{page}: markup cell was not escaped into the table cell: {body[:400]!r}")
+    print(f"[ok] {page}: csv-table rendered, markup escaped")
 
 
 def csv_flow(op, api: str, base: str, keep: bool) -> None:
