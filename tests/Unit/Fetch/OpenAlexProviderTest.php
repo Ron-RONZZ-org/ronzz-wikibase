@@ -32,10 +32,45 @@ final class OpenAlexProviderTest extends TestCase {
 		$this->assertCount( 1, $records );
 		$this->assertInstanceOf( PersonRecord::class, $records[0] );
 		$this->assertSame( 'Jason Priem', $records[0]->label );
+		$this->assertSame( 'Jason', $records[0]->givenName );
+		$this->assertSame( 'Priem', $records[0]->familyName );
 		$this->assertSame( '0000-0001-6187-6610', $records[0]->orcid );
 		$this->assertSame( 'A5023888391', $records[0]->openalexId );
 		$this->assertSame( 'Q58065621', $records[0]->wikidataId );
 		$this->assertSame( 'openalex', $records[0]->provider );
+	}
+
+	public function testAuthorSearchSplitsDisplayNameWithoutAuthorityIds(): void {
+		// A5083194223 (Stephen K. Lower): no ORCID and no Wikidata Q-id, so
+		// the record is never enriched by the Wikidata-hub harvest — the
+		// display_name split is the only autofetch source for the review
+		// form's given/family fields (the blank-form report).
+		$http = ( new FakeHttpClient() )->onJson( '/authors', [
+			'results' => [
+				[
+					'id' => 'https://openalex.org/A5083194223',
+					'display_name' => 'Stephen K. Lower',
+					'orcid' => null,
+					'ids' => [ 'wikidata' => null ],
+				],
+				[
+					'id' => 'https://openalex.org/A1',
+					'display_name' => 'Aristotle',
+					'ids' => [],
+				],
+			],
+		] );
+		$provider = new OpenAlexProvider( $http );
+
+		$records = $provider->searchByName( 'stephen lower' );
+
+		$this->assertSame( 'Stephen K.', $records[0]->givenName );
+		$this->assertSame( 'Lower', $records[0]->familyName );
+		$this->assertNull( $records[0]->orcid );
+		$this->assertNull( $records[0]->wikidataId );
+		// A mononym has no given name — the whole label is the family name.
+		$this->assertNull( $records[1]->givenName );
+		$this->assertSame( 'Aristotle', $records[1]->familyName );
 	}
 
 	public function testByOrcidDirect(): void {
