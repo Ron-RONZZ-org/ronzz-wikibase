@@ -78,6 +78,8 @@ Inline: $e^{i\\pi}+1=0$
 
 Display: $$\\int_0^1 x^2 \\, dx$$
 
+Multiline: $$a = b \\\\ c = d$$
+
 Code stays literal:
 <syntaxhighlight lang="bash">
 price=\$5.00
@@ -160,6 +162,24 @@ async function main() {
 			failures.push(`expected >= 2 MathJax containers ($...$ inline + $$...$$ display), found ${containers}`);
 		} else {
 			console.log(`[ok] MathJax rendered ${containers} mjx-container elements`);
+		}
+
+		// Multiline display math: a top-level `\\` must render as TWO rows
+		// (the server wraps it in \begin{gathered}); MathJax 3 renders a
+		// bare top-level `\\` as a space, so an unwrapped block is one row.
+		const multilineRows = await page.evaluate(() => {
+			for (const c of document.querySelectorAll('mjx-container')) {
+				const t = c.textContent.replace(/\s+/g, '');
+				if (t.includes('a=b') && t.includes('c=d')) {
+					return c.querySelectorAll('mjx-mtr').length;
+				}
+			}
+			return -1;
+		});
+		if (multilineRows < 2) {
+			failures.push(`multiline display math rendered ${multilineRows} table row(s), expected >= 2 — the top-level \\\\ was not wrapped in gathered`);
+		} else {
+			console.log(`[ok] multiline display math rendered ${multilineRows} rows`);
 		}
 
 		// The code block must NOT have been typeset (MathJax skips pre/code).

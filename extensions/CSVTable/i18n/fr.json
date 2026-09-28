@@ -1,0 +1,13 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		]
+	},
+	"csvtable-desc": "Affiche les fichiers CSV téléversés sous forme de tableaux wiki lorsqu'ils sont intégrés avec <code><nowiki>[[File:…]]</nowiki></code>",
+	"csvtable-download": "Télécharger le fichier CSV",
+	"csvtable-error-unreadable": "Ce fichier CSV n'a pas pu être lu.",
+	"csvtable-error-too-large": "Ce fichier CSV est trop volumineux pour être intégré (limite : $1 octets).",
+	"csvtable-error-too-many-rows": "Ce fichier CSV comporte trop de lignes pour être intégré (limite : $1).",
+	"csvtable-error-too-many-columns": "Ce fichier CSV comporte trop de colonnes pour être intégré (limite : $1)."
+}

@@ -131,6 +131,12 @@ class SimpleMathJaxHooks {
 	 * Runs only when direct $…$/$$…$$ parsing is enabled (mode 'full'/'env');
 	 * in 'none' mode MathJax handles only <math>/<chem> tags, whose content
 	 * is already protected from wikitext parsing.
+	 *
+	 * The same pass also normalizes multiline DISPLAY math: MathJax 3 renders
+	 * a top-level `\\` as a space (not a line break), so a `$$a \\ b$$` span
+	 * whose content carries a top-level `\\` is wrapped in
+	 * `\begin{gathered}…\end{gathered}` (SimpleMathJaxMultiline) — the
+	 * standard LaTeX multiline form then renders as authored.
 	 */
 	public static function onInternalParseBeforeLinks( $parser, &$text, $stripState ) {
 		global $wgSmjDirectMathJax, $wgSmjDisplayMath, $wgSmjExtraInlineMath;
@@ -138,6 +144,8 @@ class SimpleMathJaxHooks {
 		if ( $wgSmjDirectMathJax === 'none' ) {
 			return;
 		}
+
+		$text = SimpleMathJaxMultiline::wrapMultilineDisplayMath( $text, $wgSmjDisplayMath );
 
 		$text = SimpleMathJaxQuotes::protectQuotesInMath(
 			$text,

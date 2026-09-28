@@ -1,0 +1,55 @@
+{
+	"name": "CSVTable",
+	"version": "1.0.0",
+	"author": [
+		"ronzz.org"
+	],
+	"url": "https://github.com/Ron-RONZZ-org/ronzz-wikibase",
+	"descriptionmsg": "csvtable-desc",
+	"license-name": "GPL-2.0-or-later",
+	"type": "media",
+	"requires": {
+		"MediaWiki": ">= 1.46.0"
+	},
+	"AutoloadNamespaces": {
+		"MediaWiki\\Extension\\CSVTable\\": "src/"
+	},
+	"MessagesDirs": {
+		"CSVTable": [
+			"i18n"
+		]
+	},
+	"MediaHandlers": {
+		"text/csv": "MediaWiki\\Extension\\CSVTable\\CSVTableHandler"
+	},
+	"ResourceModules": {
+		"ext.csvTable.styles": {
+			"styles": [
+				"resources/ext.csvTable.css"
+			]
+		}
+	},
+	"config": {
+		"CSVTableDelimiter": {
+			"value": "auto",
+			"description": "Field delimiter for embedded CSV tables: a literal (e.g. ',') or 'auto' to detect one from the first line."
+		},
+		"CSVTableFirstRowHeader": {
+			"value": true,
+			"description": "Render the first CSV row as a table header (<th>) rather than a data row."
+		},
+		"CSVTableMaxBytes": {
+			"value": 262144,
+			"description": "Maximum embedded CSV size in bytes; larger files render an error notice instead of a table."
+		},
+		"CSVTableMaxRows": {
+			"value": 500,
+			"description": "Maximum number of CSV rows rendered; more rows render an error notice."
+		},
+		"CSVTableMaxCols": {
+			"value": 50,
+			"description": "Maximum number of CSV columns rendered; more columns render an error notice."
+		}
+	},
+	"manifest_version": 2
+}

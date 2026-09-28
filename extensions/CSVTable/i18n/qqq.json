@@ -1,0 +1,13 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		]
+	},
+	"csvtable-desc": "{{desc|name=CSVTable|url=https://github.com/Ron-RONZZ-org/ronzz-wikibase}}",
+	"csvtable-download": "Fallback link label shown when a CSV file cannot be read or rendered.",
+	"csvtable-error-unreadable": "Shown when an embedded CSV file cannot be read.",
+	"csvtable-error-too-large": "Shown when an embedded CSV file exceeds the size cap. Parameters:\n* $1 — the limit in bytes.",
+	"csvtable-error-too-many-rows": "Shown when an embedded CSV file exceeds the row cap. Parameters:\n* $1 — the row limit.",
+	"csvtable-error-too-many-columns": "Shown when an embedded CSV file exceeds the column cap. Parameters:\n* $1 — the column limit."
+}

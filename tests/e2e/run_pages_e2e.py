@@ -2224,6 +2224,11 @@ def flow_filepage_module_source(op, base: str) -> None:
         raise FlowError("filepage module: upload hand-off params missing")
     if "window.opener.location.href" not in body:
         raise FlowError("filepage module: upload-another opener reload missing")
+    # The clipboard write on page load is blocked without a user gesture
+    # (Firefox rejects it outright; Chromium needs the tab focused) — the
+    # hand-off must fall back to a visible one-click copy notice.
+    if "wb-uploadcopy-notice" not in body or "showCopyNotice" not in body:
+        raise FlowError("filepage module: clipboard-blocked copy fallback notice missing")
 
 
 def flow_uploadform_module_source(op, base: str) -> None:

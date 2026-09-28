@@ -148,12 +148,17 @@ class SimpleMathJaxQuotes {
 	 * blank line), because MathJax scans each DOM text node independently
 	 * and can never pair delimiters across one.
 	 *
+	 * Public so the companion multiline-display scanner
+	 * (`SimpleMathJaxMultiline`) shares ONE delimiter search — the same
+	 * MathJax FindTeX semantics (braced groups, control sequences, blank-line
+	 * stop) apply to both patches.
+	 *
 	 * @param string $text
 	 * @param int $from
 	 * @param string $close
 	 * @return int index just past the closing delimiter, or -1
 	 */
-	private static function findClose( string $text, int $from, string $close ): int {
+	public static function findClose( string $text, int $from, string $close ): int {
 		$len = strlen( $text );
 		$cL = strlen( $close );
 		$braces = 0;

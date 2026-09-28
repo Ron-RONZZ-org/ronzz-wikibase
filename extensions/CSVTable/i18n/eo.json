@@ -1,0 +1,13 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		]
+	},
+	"csvtable-desc": "Montras alŝutitajn CSV-dosierojn kiel vikitabelojn kiam enigitaj per <code><nowiki>[[File:…]]</nowiki></code>",
+	"csvtable-download": "Elŝuti la CSV-dosieron",
+	"csvtable-error-unreadable": "Ĉi tiu CSV-dosiero ne povis esti legita.",
+	"csvtable-error-too-large": "Ĉi tiu CSV-dosiero estas tro granda por enigi (limo: $1 bajtoj).",
+	"csvtable-error-too-many-rows": "Ĉi tiu CSV-dosiero havas tro da vicoj por enigi (limo: $1).",
+	"csvtable-error-too-many-columns": "Ĉi tiu CSV-dosiero havas tro da kolumnoj por enigi (limo: $1)."
+}

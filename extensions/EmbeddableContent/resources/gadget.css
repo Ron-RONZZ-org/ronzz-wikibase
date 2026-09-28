@@ -61,3 +61,22 @@
 	font-size: 1em;
 	padding: 2px 8px;
 }
+
+/* Upload hand-off fallback: a page-load clipboard write is blocked without a
+ * user gesture, so when the automatic copy fails the File: page shows a
+ * persistent one-click notice with the snippet. */
+.wb-uploadcopy-notice {
+	border: 1px solid #a2a9b1;
+	border-left: 4px solid #36c;
+	background: #f8f9fa;
+	padding: 8px 12px;
+	margin: 0 0 12px;
+}
+
+.wb-uploadcopy-notice p {
+	margin: 0 0 4px;
+}
+
+.wb-uploadcopy-notice code {
+	font-size: 0.95em;
+}

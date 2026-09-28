@@ -11,7 +11,8 @@
 	},
 	"AutoloadClasses": {
 		"SimpleMathJaxHooks": "SimpleMathJaxHooks.php",
-		"SimpleMathJaxQuotes": "SimpleMathJaxQuotes.php"
+		"SimpleMathJaxQuotes": "SimpleMathJaxQuotes.php",
+		"SimpleMathJaxMultiline": "SimpleMathJaxMultiline.php"
 	},
 	"config": {
 		"SmjUseCdn": {"value":true, "description":"Whether to load MathJax from CDN"},

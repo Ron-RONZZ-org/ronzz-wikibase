@@ -68,10 +68,11 @@ MathJax pin only if the new upstream requires it. Do not modify the vendored
 ## Local patch — quote guard for `''`/`'''` inside `$…$` math
 
 **Modified files** (vs upstream tag `v0.9.0`, `6fe10e18`): `extension.json`
-(+`InternalParseBeforeLinks` hook, +`SimpleMathJaxQuotes` autoload),
-`SimpleMathJaxHooks.php` (+`onInternalParseBeforeLinks`), plus the new file
-`SimpleMathJaxQuotes.php`. Regenerate the diff against the upstream tag with
-`git diff 6fe10e1836d5377577e679b99ca6cc02f17598c3 -- extensions/SimpleMathJax/`.
+(+`InternalParseBeforeLinks` hook, +`SimpleMathJaxQuotes`/
+`SimpleMathJaxMultiline` autoload), `SimpleMathJaxHooks.php`
+(+`onInternalParseBeforeLinks`), plus the new files `SimpleMathJaxQuotes.php`
+and `SimpleMathJaxMultiline.php`. Regenerate the diff against the upstream tag
+with `git diff 6fe10e1836d5377577e679b99ca6cc02f17598c3 -- extensions/SimpleMathJax/`.
 
 **Why**: MediaWiki parses `''`/`'''` in wikitext as italics/bold markup. Inside
 MathJax-delimited math they are TeX **primes** (`y''`, `f'''(x)`): the parser
@@ -113,3 +114,39 @@ italics still renders).
 **Status**: proposed upstream as PR to `jmnote/SimpleMathJax` (this is the
 same change). On re-vendor, re-apply the patch or drop it once upstream
 merges a version containing it.
+
+## Local patch — multiline display math (`\\` line breaks)
+
+**Modified files**: the same `InternalParseBeforeLinks` handler (it now runs
+this pass first, then the quote guard) + the new file
+`SimpleMathJaxMultiline.php` (+ its `extension.json` autoload entry).
+
+**Why**: MathJax 3 does **not** break a line at a top-level `\\` — at the top
+level of a math expression the `\\` control sequence produces an empty
+`<mspace>` (a space), so `$$a \\ b$$` renders on ONE line. This is
+MathJax's documented design (multiline display math must use an environment
+such as `gather`/`aligned`/`array`), not a KaTeX/SimpleMathJax bug — but
+authors naturally write the standard-LaTeX top-level `\\` form (hit on the
+`Logical_proof` page, 2026-09-28).
+
+**Fix**: before MathJax sees the text, wrap a **display** span whose content
+carries a **top-level** `\\` in `\begin{gathered}…\end{gathered}` (the
+centered multiline environment, part of the always-loaded `ams` package).
+"Top-level" means outside every `\begin{env}…\end{env}` environment and
+outside every braced group, so content that already breaks lines
+(`\begin{cases}…\\…\end{cases}`, `aligned`, …) is left untouched. The
+delimiter search is shared with the quote guard
+(`SimpleMathJaxQuotes::findClose`, now public) — same MathJax `FindTeX`
+semantics (braced groups, control sequences, blank-line stop). The pass is
+idempotent (a wrapped span's `\\` is inside `gathered`, so a second run does
+not re-wrap).
+
+**Testing**: pure-PHP unit tests `tests/Unit/SimpleMathJaxMultilineTest.php`
+(the reported block, `cases`/`aligned` untouched, braced-group `\\`
+untouched, inline untouched, idempotency), a server-side assertion in
+`tests/e2e/run_math_e2e.py` (the wrapped `\begin{gathered}` appears in the
+rendered HTML) and a browser assertion in `tests/e2e/run_math_ux_e2e.mjs`
+(a `\\` block renders two MathJax rows, not one).
+
+**Status**: house patch (not (yet) proposed upstream — the upstream quote
+guard PR covers the companion change only). On re-vendor, re-apply or drop.

@@ -4,6 +4,8 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\Fetch;
 
+use EmbeddableContent\Spec\NameSplitter;
+
 /**
  * OpenAlex provider (scholarly works + authors, all disciplines) — REST only.
  * OpenAlex does not index ISBN and has no verified Wikidata-Q lookup filter,
@@ -84,8 +86,17 @@ class OpenAlexProvider implements PersonProvider, WorkProvider {
 			if ( !is_array( $author ) || empty( $author['display_name'] ) ) {
 				continue;
 			}
+			// OpenAlex author records carry no structured given/family fields,
+			// only display_name. Split it (last word = family) so the AddPerson
+			// review form prefills the name — without it an OpenAlex author
+			// with no Wikidata Q-id (e.g. A5083194223) yielded a blank form
+			// (the record was never enriched by the Wikidata-hub harvest).
+			$label = (string)$author['display_name'];
+			$names = NameSplitter::splitFullName( $label );
 			$out[] = new PersonRecord(
-				label: (string)$author['display_name'],
+				label: $label,
+				givenName: $names['givenName'] !== '' ? $names['givenName'] : null,
+				familyName: $names['familyName'] !== '' ? $names['familyName'] : null,
 				orcid: $this->extractOrcid( $author['orcid'] ?? null ),
 				openalexId: $this->extractOpenAlexId( $author['id'] ?? null ),
 				wikidataId: $this->extractQid( $author['ids']['wikidata'] ?? null ),

@@ -119,6 +119,30 @@ async function main() {
 			console.log('[ok] File: copy-link button copies the direct media URL');
 		}
 
+		// --- File: page upload hand-off fallback -------------------------
+		// Without clipboard-write permission the page-load auto-copy is
+		// blocked, so the hand-off must render a persistent one-click copy
+		// notice instead of silently doing nothing. This context grants NO
+		// clipboard permission (the granted context above would mask it).
+		const plainContext = await browser.newContext();
+		const plainPage = await plainContext.newPage();
+		plainPage.on('pageerror', (err) => pageErrors.push(String(err)));
+		try {
+			await plainPage.goto(
+				`${BASE_URL}/wiki/File:${encodeURIComponent(fileName.replace(/ /g, '_'))}?wbuploadcopy=1`,
+				{ waitUntil: 'domcontentloaded', timeout: 60000 });
+			await plainPage.waitForSelector('#wb-uploadcopy-notice', { timeout: 15000 });
+			if (await plainPage.locator('#wb-uploadcopy-copy').count() !== 1) {
+				failures.push('upload hand-off fallback notice missing its copy button');
+			} else {
+				console.log('[ok] upload hand-off renders the one-click copy fallback when the clipboard is blocked');
+			}
+		} catch (e) {
+			failures.push('upload hand-off did not render the clipboard-blocked copy fallback notice');
+		} finally {
+			await plainContext.close();
+		}
+
 		// --- Special:AddSource picker order -----------------------------
 		await page.goto(`${BASE_URL}/wiki/Special:AddSource`, { waitUntil: 'domcontentloaded', timeout: 60000 });
 		// The radio options are rendered CLIENT-SIDE by the OOUI auto-infusion
