@@ -213,6 +213,26 @@ def assert_apostrophe_guard(op, api: str) -> None:
     print("[ok] '' / ''' inside $…$ math survive; prose italics/bold untouched")
 
 
+def assert_multiline_display(op, api: str) -> None:
+    """A top-level `\\\\` in display math is wrapped in `gathered` (MathJax 3
+    renders a top-level `\\\\` as a space, not a line break); an environment
+    that already breaks lines (`cases`) is left untouched."""
+    wrapped = api_parse_wikitext(op, api, "$$a = b \\\\ c = d$$")
+    if "\\begin{gathered}" not in wrapped or "\\end{gathered}" not in wrapped:
+        raise FlowError(
+            "top-level `\\\\` in display math was not wrapped in "
+            f"\\begin{{gathered}}: {wrapped[:300]!r}")
+    if "a = b \\\\ c = d" not in wrapped:
+        raise FlowError(f"wrapped display math lost its content: {wrapped[:300]!r}")
+
+    cases = api_parse_wikitext(op, api, "$$\\begin{cases}1 \\\\ 0\\end{cases}$$")
+    if "\\begin{gathered}" in cases:
+        raise FlowError(
+            f"a cases environment that already breaks lines was re-wrapped: {cases[:300]!r}")
+
+    print("[ok] multiline display math: top-level \\\\ wrapped in gathered, cases untouched")
+
+
 def assert_server_markers(body: str, title: str) -> None:
     """<math> tags -> escaped smj-container markers; display=block -> displaymjx."""
     if 'class="smj-container"' not in body:
@@ -298,6 +318,7 @@ def math_flow(op, api: str, base: str, keep: bool) -> None:
 
     try:
         assert_apostrophe_guard(op, api)
+        assert_multiline_display(op, api)
         body = page_get(op, base, rendered_path(page))
         assert_server_markers(body, page)
         assert_no_xss(body, page)
