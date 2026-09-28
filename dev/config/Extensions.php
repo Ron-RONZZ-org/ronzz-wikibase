@@ -80,6 +80,14 @@ $wgGeoGebraPlayerUrl = 'http://127.0.0.1:8083/player.html';
 $wgFileExtensions[] = 'ggb';
 $wgTrustedMediaFormats[] = 'application/geogebra';
 
+// ---- CSVTable (uploaded CSV rendered as a wikitable via [[File:x.csv]],
+// extensions/CSVTable) ----
+// text/csv is a core MIME type; the extension registers the media handler,
+// and this instance allows csv uploads. Mirrors the production LocalSettings
+// block (RonzzIT:Deployment/Wikibase).
+wfLoadExtension( 'CSVTable' );
+$wgFileExtensions[] = 'csv';
+
 // Dev-only: surface exception details instead of a bare 500.
 $wgShowExceptionDetails = true;
 

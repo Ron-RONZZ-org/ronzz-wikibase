@@ -16,6 +16,7 @@
 			<directory>extensions/WikibaseCitation/includes</directory>
 			<directory>extensions/LanguageBar/includes</directory>
 			<directory>extensions/GeoGebra/src</directory>
+			<directory>extensions/CSVTable/src</directory>
 		</include>
 	</source>
 </phpunit>

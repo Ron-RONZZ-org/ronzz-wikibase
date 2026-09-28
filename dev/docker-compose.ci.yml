@@ -49,6 +49,7 @@ services:
       - ../extensions/SimpleMathJax:/var/www/html/extensions/SimpleMathJax:ro
       - ../extensions/LanguageBar:/var/www/html/extensions/LanguageBar:ro
       - ../extensions/GeoGebra:/var/www/html/extensions/GeoGebra:ro
+      - ../extensions/CSVTable:/var/www/html/extensions/CSVTable:ro
     depends_on:
       mysql:
         condition: service_healthy

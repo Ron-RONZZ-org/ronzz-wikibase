@@ -1,0 +1,20 @@
+/*
+ * CSVTable — embedded [[File:x.csv]] tables.
+ *
+ * A wide table scrolls inside its own box instead of overflowing the content
+ * column. The `wikitable` class supplies the theme's table styling.
+ */
+.csv-table {
+	display: block;
+	overflow-x: auto;
+	max-width: 100%;
+}
+
+.csv-table-error {
+	color: #b32424;
+	font-style: italic;
+}
+
+.csv-table-fallback {
+	font-style: italic;
+}

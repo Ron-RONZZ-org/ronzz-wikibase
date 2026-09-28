@@ -1,0 +1,13 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		]
+	},
+	"csvtable-desc": "Renders uploaded CSV files as wiki tables when embedded with <code><nowiki>[[File:…]]</nowiki></code>",
+	"csvtable-download": "Download the CSV file",
+	"csvtable-error-unreadable": "This CSV file could not be read.",
+	"csvtable-error-too-large": "This CSV file is too large to embed (limit: $1 bytes).",
+	"csvtable-error-too-many-rows": "This CSV file has too many rows to embed (limit: $1).",
+	"csvtable-error-too-many-columns": "This CSV file has too many columns to embed (limit: $1)."
+}
