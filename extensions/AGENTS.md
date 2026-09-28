@@ -17,6 +17,13 @@ origin; the GeoGebra app is installed per environment by
 `tools/install-geogebra.sh` (non-commercial-licensed, never committed). See
 `GeoGebra/AGENTS.md` + `../docs/decisions/geogebra.md`.
 
+Plus **CSVTable** (a standalone house extension): upload a `.csv` and embed
+it with `[[File:data.csv]]` — a `text/csv` media handler renders the parsed
+file as a `<table class="wikitable csv-table">` (the GeoGebra pattern, but
+server-side HTML with no assets). Every cell is escaped; size/row/column
+caps degrade to an error notice. See `CSVTable/AGENTS.md` +
+`../docs/decisions/csv-table-embed.md`.
+
 Plus **vendored third-party** extensions: **DPLforum** (the forum — see
 `DPLforum/VENDORED.md` for provenance and `../docs/decisions/forum-dplforum.md`
 for the choice rationale) and **InputBox** (the `<inputbox type=create>`
@@ -72,6 +79,13 @@ paragraph break; without it an *unbalanced* delimiter (`$$1 amu=…$` on the
 `SimpleMathJax/VENDORED.md` §Local patch; the same change is proposed
 upstream (jmnote/SimpleMathJax PR #66) — drop the patch on re-vendor once
 upstream merges it.
+**Multiline display math (2026-09-28):** a second documented patch
+(`SimpleMathJaxMultiline`, same `InternalParseBeforeLinks` handler, runs
+first) wraps a DISPLAY span whose content carries a **top-level `\\`** in
+`\begin{gathered}…\end{gathered}` — MathJax 3 renders a top-level `\\` as a
+space, not a line break, so `$$a \\ b$$` collapsed to one line (the
+`Logical_proof` report). A `\\` inside an environment or braced group is
+left alone (those already break lines). See `SimpleMathJax/VENDORED.md`.
 
 ## Purpose and Expected Behavior
 
@@ -198,6 +212,11 @@ upstream merges it.
   (`primaryLabel`); a harvested label-only candidate keeps its label. The
   search `name` box autofills the manual form as given/family (every word
   except the last = given, last word = family — pure `NameSplitter`).
+  **OpenAlex author names** (`OpenAlexProvider::mapAuthors`) are split the
+  same way from `display_name`: OpenAlex author objects carry no structured
+  given/family, and an author with no Wikidata Q-id is never hub-harvested,
+  so without the split the review form's name fields were blank (the
+  `A5083194223` report).
 - **AddPerson places live in OpenStreetMap (osm-places, ADR
   `docs/decisions/osm-places.md`)**: the place-of-birth/death fields are OOUI
   comboboxes (cssclass `wb-osm-combobox`) wired by `resources/osmsuggest.js`
@@ -947,7 +966,13 @@ upstream merges it.
   page, `resources/uploadform.js` gates the file picker on the "Source
   filename" (File) radio and opens the upload in a new tab for "another",
   and `resources/filepage.js` signals the opener back to a fresh, prefilled
-  upload form. See `SimpleMathJax/VENDORED.md` for the companion quote-guard
+  upload form. **Clipboard-blocked copy fallback (2026-09-28):** a page-load
+  clipboard write is not allowed without a user gesture (Firefox rejects it,
+  Chromium only auto-grants a focused tab), so `filepage.js` attempts the
+  copy best-effort and, on failure, renders a persistent one-click
+  `[[File:xxx]]` notice (`wb-uploadcopy-notice` + `embeddablecontent-upload-copyembed-notice`,
+  en/fr/eo) — the copy can never be silently forced on page load. See
+  `SimpleMathJax/VENDORED.md` for the companion quote-guard
   paragraph-break fix (the `Atom#Elements` bold regression).
 
 ### WikibaseCitation
@@ -1068,6 +1093,27 @@ upstream merges it.
   `.ggb` with `Access-Control-Allow-Origin` for the player origin (production
   nginx rule; a CI step). No DB/seed/manifest/config-map surface — see
   `GeoGebra/AGENTS.md` + `../docs/decisions/geogebra.md`.
+
+### CSVTable
+
+- **Uploaded CSV → wiki table** (`extensions/CSVTable/`, a standalone house
+  extension): `[[File:data.csv]]` renders a
+  `<table class="wikitable csv-table">`. `text/csv` is a core MimeMagic type
+  (a `.csv` detected as `text/plain` is improved to `text/csv` by core's
+  textual-type rule), so no MIME hook is needed; the instance sets
+  `$wgFileExtensions[] = 'csv'`. `CSVTableHandler` (an `ImageHandler`)
+  reports `canRender() = true` — the parser's inline-display gate — and a
+  nominal size (a CSV has no pixel size) and returns `CSVTableOutput`, which
+  reads the file's local path at render time, parses it with the pure
+  `CSVTableParser` (RFC-4180 quoting, UTF-8 BOM strip, delimiter
+  auto-detection over `,` `;` tab `|`) and renders the table. **Every cell
+  is `htmlspecialchars`-escaped — the XSS boundary**; size/row/column caps
+  (`CSVTableMaxBytes`/`Rows`/`Cols`) degrade to an error notice. No
+  thumbnail file is written; the `[[File:…]]` usage is the parser-cache
+  dependency. No maintained upstream extension renders an uploaded CSV as a
+  table (survey in the ADR). Config: `CSVTableDelimiter` (`auto`),
+  `CSVTableFirstRowHeader` (`true`) + the caps. See `CSVTable/AGENTS.md` +
+  `../docs/decisions/csv-table-embed.md`.
 
 ## Constraints and Invariants
 

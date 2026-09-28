@@ -22,7 +22,9 @@ Self-hosted **Wikibase** (structured-data wiki, the software behind Wikidata) on
   `VENDORED.md` + `docs/decisions/diagrams.md`); **SimpleMathJax** (third-party
   inline-LaTeX-math extension, `$…$`/`$$…$$` via client-side MathJax 3 —
   vendored at `extensions/SimpleMathJax/` — see `VENDORED.md` +
-  `docs/decisions/inline-latex-math.md`)
+  `docs/decisions/inline-latex-math.md`); **CSVTable** (house media handler,
+  `[[File:data.csv]]` rendered as a wikitable — `extensions/CSVTable/` —
+  see `docs/decisions/csv-table-embed.md`)
 - seed/ (bootstrap orchestrator), tools/, tests/, dev/ (CI stack)
 - `docs/decisions/` — ADR-style design rationale (opaque IDs, ontology alignment,
   raw RDF in Blazegraph, cite-by-QID, static LLM translation, automatic
@@ -63,4 +65,7 @@ catch-all class, and the `bool|string` return-type fix),
 combobox class scope, `Special:UpdateSoftware` prefill, page-title
 normalization, `Special:NewItem` Main-namespace pages),
 `classic-page-toolbar.md` (the classic per-kind pages render the same action
-toolbar as the Item: page).
+toolbar as the Item: page), `csv-table-embed.md` (uploaded CSV rendered as a
+wikitable via `[[File:data.csv]]` + the existing-extension survey),
+`wiki-bug-fixes-2026-09c.md` (OpenAlex author name split, the clipboard-blocked
+upload-copy fallback, and the multiline-display-math `gathered` wrap).
