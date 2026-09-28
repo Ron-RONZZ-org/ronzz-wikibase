@@ -496,7 +496,8 @@
 				"embeddablecontent-file-copyembed-hint",
 				"embeddablecontent-file-copylink",
 				"embeddablecontent-file-copylink-hint",
-				"embeddablecontent-gadget-copied"
+				"embeddablecontent-gadget-copied",
+				"embeddablecontent-upload-copyembed-notice"
 			],
 			"targets": [
 				"desktop",

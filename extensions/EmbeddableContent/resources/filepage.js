@@ -17,24 +17,38 @@
  *    form) back to a fresh form with the license/author/license-info fields
  *    preserved (they ride wblicense/wbauthor/wblicenseinfo).
  * Both params are one-shot and stripped from the URL afterwards.
+ *
+ * BROWSER CLIPBOARD LIMIT: a page-load clipboard write is not allowed without
+ * a user gesture — Firefox rejects it outright ("lack of user activation")
+ * and Chromium only auto-grants it to a focused tab (so the "upload another"
+ * NEW-TAB destination is blocked too). The auto-copy is therefore
+ * best-effort; when it fails (or is not permitted) a persistent one-click
+ * "copy" notice is rendered instead, so the code is always one gesture away.
  */
 ( function () {
 	'use strict';
 
+	/** Copy `text`, resolving true on success and false on failure. */
 	function copyText( text ) {
-		var done = function () {
-			mw.notify( mw.msg( 'embeddablecontent-gadget-copied' ) );
-		};
-		if ( navigator.clipboard && navigator.clipboard.writeText ) {
-			return navigator.clipboard.writeText( text ).then( done, function () {
-				fallbackCopy( text );
-				done();
-			} );
-		}
-		fallbackCopy( text );
-		done();
+		return new Promise( function ( resolve ) {
+			var done = function ( ok ) {
+				if ( ok ) {
+					mw.notify( mw.msg( 'embeddablecontent-gadget-copied' ) );
+				}
+				resolve( ok );
+			};
+			if ( navigator.clipboard && navigator.clipboard.writeText ) {
+				navigator.clipboard.writeText( text ).then(
+					function () { done( true ); },
+					function () { done( fallbackCopy( text ) ); }
+				);
+				return;
+			}
+			done( fallbackCopy( text ) );
+		} );
 	}
 
+	/** @return {boolean} whether the legacy copy command reported success */
 	function fallbackCopy( text ) {
 		var ta = document.createElement( 'textarea' );
 		ta.value = text;
@@ -42,11 +56,15 @@
 		ta.style.opacity = '0';
 		document.body.appendChild( ta );
 		ta.select();
+		var ok = false;
 		try {
-			document.execCommand( 'copy' );
+			ok = document.execCommand( 'copy' );
+		} catch ( e ) {
+			ok = false;
 		} finally {
 			document.body.removeChild( ta );
 		}
+		return ok;
 	}
 
 	function makeButton( id, messageKey, hintKey, handler ) {
@@ -57,6 +75,29 @@
 			.attr( 'title', hintKey ? mw.msg( hintKey ) : '' )
 			.text( mw.msg( messageKey ) )
 			.on( 'click', handler );
+	}
+
+	/**
+	 * Persistent fallback shown when the automatic clipboard write is blocked:
+	 * the snippet plus a copy button that works on the user's click.
+	 */
+	function showCopyNotice( snippet ) {
+		if ( $( '#wb-uploadcopy-notice' ).length > 0 ) {
+			return;
+		}
+		var $notice = $( '<div>' )
+			.attr( 'id', 'wb-uploadcopy-notice' )
+			.addClass( 'wb-uploadcopy-notice' )
+			.append( $( '<p>' ).text( mw.msg( 'embeddablecontent-upload-copyembed-notice' ) ) )
+			.append( $( '<code>' ).text( snippet ) )
+			.append( ' ' )
+			.append( makeButton(
+				'wb-uploadcopy-copy',
+				'embeddablecontent-file-copyembed',
+				null,
+				function () { copyText( snippet ); }
+			) );
+		$( '#mw-content-text' ).first().prepend( $notice );
 	}
 
 	mw.loader.using( [ 'mediawiki.notification', 'mediawiki.util' ] ).then( function () {
@@ -90,7 +131,13 @@
 		// Upload hand-off (one-shot params appended by BeforePageRedirect).
 		var params = new URLSearchParams( window.location.search );
 		if ( params.get( 'wbuploadcopy' ) === '1' ) {
-			copyText( snippet );
+			// Best-effort automatic copy; a blocked write falls back to a
+			// visible one-click notice (no gesture on a fresh page load).
+			copyText( snippet ).then( function ( ok ) {
+				if ( !ok ) {
+					showCopyNotice( snippet );
+				}
+			} );
 		}
 		if ( params.get( 'wbanother' ) === '1' && window.opener && !window.opener.closed ) {
 			var query = {};

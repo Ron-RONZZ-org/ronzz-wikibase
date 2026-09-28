@@ -367,6 +367,7 @@
 	"embeddablecontent-upload-licenseinfo": "Additional license information",
 	"embeddablecontent-upload-another": "Submit and upload another image from same author",
 	"embeddablecontent-upload-copyembed": "Copy internal embed code",
+	"embeddablecontent-upload-copyembed-notice": "Upload complete. Your embed code is ready — copy it:",
 	"embeddablecontent-upload-missing-confirm": "The following field(s) are empty: $1. Upload anyway?",
 	"embeddablecontent-upload-attribution-header": "Attribution",
 	"embeddablecontent-upload-attribution-author": "Author",
