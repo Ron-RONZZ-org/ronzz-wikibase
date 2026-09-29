@@ -162,24 +162,20 @@ $wgContentNamespaces[] = NS_FORUM;
 $wgNamespacesToBeSearchedDefault[NS_FORUM] = true;
 
 // ---- Subpages in EVERY namespace except Main (2026-09-29) ----
-// The breadcrumb hierarchy is namespace-gated, and core's breadcrumb only
-// renders ancestors that EXIST (Skin::subPageSubtitleInternal) — so a
+// The breadcrumb is namespace-gated, and core's breadcrumb only renders
+// ancestors that EXIST (Skin::subPageSubtitleInternal) — a
 // `Cheatsheets:LinuxCLI/ssh` page shows no "< Cheatsheets:LinuxCLI" link
-// until the parent page exists. Enable the flag for every canonical
-// namespace (core + extension.json + $wgExtraNamespaces) via the
-// CanonicalNamespaces hook, which receives the fully merged list, so
-// extension namespaces (Forum, …) are covered too; NS_MAIN stays flat.
-// Mirrors the production LocalSettings block (RonzzIT:Deployment/Wikibase);
-// the explicit per-namespace lines above are kept for readability.
-$wgHooks['CanonicalNamespaces'][] = static function ( array &$namespaces ) {
-	global $wgNamespacesWithSubpages;
-	foreach ( array_keys( $namespaces ) as $ns ) {
-		if ( $ns !== NS_MAIN ) {
-			$wgNamespacesWithSubpages[$ns] = true;
-		}
-	}
-	return true;
-};
+// until the parent page exists. NamespaceInfo SNAPSHOTS this config when its
+// service is constructed (ServiceOptions copies the value at construction),
+// so a late hook (e.g. CanonicalNamespaces) cannot change hasSubpages() —
+// the values must be set here, before the service exists. The range covers
+// the instance's namespaces: core 0-15, Forum 110, Item/Property 120-123,
+// TimedText 710-711, Translations 1198-1199, Cheatsheets…Software
+// 2000-2017; extend it when a namespace is registered. Mirrors the
+// production LocalSettings block (RonzzIT:Deployment/Wikibase); the explicit
+// per-namespace lines above are kept for readability.
+$wgNamespacesWithSubpages += array_fill_keys( range( 0, 2017 ), true );
+$wgNamespacesWithSubpages[NS_MAIN] = false;
 
 // ---- LanguageBar (automatic languages bar on content pages) ----
 // The bar is injected server-side on article views in these namespaces

@@ -22,12 +22,20 @@ namespaces stayed flat. This is easy to forget when a namespace is added.
 
 ## Decision
 
-1. **Enable subpages in every canonical namespace except Main.** The
-   `CanonicalNamespaces` hook receives the fully merged namespace list
-   (core + `extension.json` + `$wgExtraNamespaces`), so extension namespaces
-   (`Forum`, …) are covered without naming each one; `NS_MAIN` stays flat.
-   Mirrored in the dev/CI config (`dev/config/Extensions.php`) and the
-   production `LocalSettings.php` (gated wiki `RonzzIT:Deployment/Wikibase`).
+1. **Enable subpages in every namespace except Main by setting
+   `$wgNamespacesWithSubpages` directly in `LocalSettings.php`** (mirrored in
+   the dev/CI config `dev/config/Extensions.php`): `array_fill_keys( range( 0,
+   2017 ), true )`, then `NS_MAIN = false`.
+   ⚠️ **A late hook cannot do this.** `NamespaceInfo` snapshots the config
+   when its service is constructed — `ServiceOptions` copies the option
+   values into a private array at construction — so a `CanonicalNamespaces`
+   or `SetupAfterCache` hook that mutates `$wgNamespacesWithSubpages` is
+   invisible to `hasSubpages()` (verified live 2026-09-29: the hook set the
+   global, `hasSubpages(6)` still returned false). The values must exist
+   before the service is built. The numeric range covers this instance's
+   namespaces (core 0-15, Forum 110, Item/Property 120-123, TimedText
+   710-711, Translations 1198-1199, Cheatsheets…Software 2000-2017) and is
+   extended when a namespace is registered.
 2. **The hierarchy is derived from the title, not stored** — enabling the
    flag does not move pages. The "backfill" for an existing
    `Ns:Parent/Child` page is therefore **creating the missing parent page**
@@ -46,6 +54,8 @@ namespaces stayed flat. This is easy to forget when a namespace is added.
 
 ## References
 
-- `dev/config/Extensions.php` — the `CanonicalNamespaces` hook
+- `dev/config/Extensions.php` — the `$wgNamespacesWithSubpages` assignment
+- core `includes/Config/ServiceOptions.php` — the config snapshot that
+  defeats a late hook
 - gated wiki `RonzzIT:Deployment/Wikibase` — the production LocalSettings block
 - core `includes/Skin/Skin.php` → `subPageSubtitleInternal()`
