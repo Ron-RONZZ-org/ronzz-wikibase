@@ -5,9 +5,10 @@
 Developer tooling for ronzz-wikibase: the language-manifest generator
 (Pygments-derived language items), the live fetch-layer smoke test, the
 `owui-writer/` deploy kit (Open WebUI wiki writer — MCP endpoint + least-privilege
-bot), and the syntaxhighlight `copy` standardizer/auditor. Small, stdlib-only
-helpers that feed the D1 manifests, prove the integration layer end-to-end,
-wire the wiki into the LLM writing studio, or keep the wiki content conformant.
+bot), the syntaxhighlight `copy` standardizer/auditor, and the LibreTexts →
+wikitext draft converter. Small helpers that feed the D1 manifests, prove the
+integration layer end-to-end, wire the wiki into the LLM writing studio, keep
+the wiki content conformant, or bootstrap draft pages from external sources.
 
 ## Purpose and Expected Behavior
 
@@ -99,11 +100,30 @@ wire the wiki into the LLM writing studio, or keep the wiki content conformant.
   `--verify` re-checks the sitelinks. **Review the dry-run list before
   applying.** Python stdlib only (reuses `seed/wikibase_api.py`). Unit tests:
   `python3 -m unittest discover -s tools/tests`.
+- **`tools/libretexts2wikitext.py`** — converts a LibreTexts page into a
+  `.wiki` draft for this wiki. LibreTexts runs MindTouch, not MediaWiki (no
+  `action=raw`; the `@api/deki` REST API is token-gated), so it fetches the
+  rendered HTML, extracts the `mt-content-container` section, runs
+  `pandoc -f html -t mediawiki`, normalises LaTeX to the SimpleMathJax
+  contract (inline `$…$`, display `$$…$$`; `equation*`/`align*`/… collapse to
+  `aligned`/`gathered`/…), expands the page's own `\newcommand` macros inline,
+  and strips non-portable LibreTexts numbering/cross-reference macros
+  (`\PageIndex`, `\ref`, `\label`, …). Images become `[[File:…]]` plus an
+  upload manifest; provenance + the source attribution are prepended.
+  **Verify the source licence before republishing.** Usage:
+  `python3 tools/libretexts2wikitext.py <url> -o draft.wiki`. Requires the
+  external **`pandoc`** binary (3.x) on PATH — the only tool here with a
+  non-stdlib runtime dependency; its unit tests are pandoc-free. Unit tests:
+  `python3 -m unittest discover -s tools/tests`.
 
 ## Constraints and Invariants
 
 - **Python stdlib only** for the generator (argparse, csv, re, subprocess,
-  sys) — no pip dependencies.
+  sys) — no pip dependencies. The one exception is
+  `tools/libretexts2wikitext.py`, which shells out to the external `pandoc`
+  binary; its unit tests cover the pure helpers and skip the pandoc path when
+  the binary is absent, so the stdlib-only `unit` CI job stays green without
+  pandoc.
 - The generated CSV is a **human-reviewed artifact**: after generation, edit
   `label.fr` / `label.eo` (labels default to the English human name in every
   language), adjust descriptions where "programming language" is not
