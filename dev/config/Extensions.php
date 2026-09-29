@@ -173,6 +173,16 @@ $wgNamespacesToBeSearchedDefault[NS_FORUM] = true;
 wfLoadExtension( 'LanguageBar' );
 $wgLanguageBarNamespaces = [ 0, 12, 2000, 2002, 2008, 2010, 2012, 2014, 2016 ];
 
+// ---- CodeBlockSpaces (literal spaces in <pre>/<code>, extensions/CodeBlockSpaces) ----
+// MediaWiki core's French-space armoring rewrites the space before
+// ! ? : ; % into &#160; (NBSP) across the whole parse output — code included.
+// The NBSP then leaks into copied code (the SyntaxHighlight copy button
+// copies textContent) and silently breaks pasted commands. This extension
+// un-arms only <pre>/<code> content via ParserAfterTidy; prose typography is
+// untouched. Mirrors the production LocalSettings block (see
+// RonzzIT:Deployment/Wikibase on the instance).
+wfLoadExtension( 'CodeBlockSpaces' );
+
 // ---- Wikibase client (same-wiki) — mirrors production LocalSettings ----
 // Without this the client hooks never run: {{#statements:}} renders nothing
 // and the wikibase_item page property is never set (issue #30 discovered

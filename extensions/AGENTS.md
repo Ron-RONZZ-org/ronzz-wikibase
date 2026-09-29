@@ -1088,6 +1088,25 @@ left alone (those already break lines). See `SimpleMathJax/VENDORED.md`.
   (en/fr/eo). No DB/seed/manifest/config-map surface — see
   `LanguageBar/AGENTS.md` + `../docs/decisions/automatic-languages-bar.md`.
 
+### CodeBlockSpaces
+
+- **Literal spaces inside `<pre>`/`<code>`** (`extensions/CodeBlockSpaces/`,
+  a standalone house extension): MediaWiki core's French-space armoring
+  (`Sanitizer::armorFrenchSpaces()`, applied unconditionally by
+  `Parser::internalParse()`) rewrites the space before `! ? : ; % » ›` into
+  `&#160;` (U+00A0) across the whole parse output — code included. The NBSP
+  then leaks into copied code (the SyntaxHighlight copy button copies
+  `textContent`) and silently corrupts pasted commands: a Vim `\=`
+  replacement expression aborts with `E488: Trailing characters` and the
+  match is replaced with an empty string (the katex-content bug on
+  `User:Rongzhou/Nvim_Regex`). `SpaceRestorer::restore()` (pure) replaces
+  `&#160;`/`&nbsp;` with a plain space **inside `<pre>`/`<code>` only**, run
+  from `Hooks::onParserAfterTidy()` — after core's armoring, so the restored
+  text is what lands in the parser cache. Prose keeps its French typography.
+  No DB/seed/manifest/config-map surface; a deploy is a file rsync +
+  `wfLoadExtension` + a parser-cache purge (parser output changed) — see
+  `CodeBlockSpaces/AGENTS.md` + `../docs/decisions/code-block-spaces.md`.
+
 ### GeoGebra
 
 - **Interactive `[[File:x.ggb]]` worksheets** (`extensions/GeoGebra/`, a

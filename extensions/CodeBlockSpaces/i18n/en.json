@@ -1,0 +1,8 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		]
+	},
+	"codeblockspaces-desc": "Restores literal spaces inside <code>&lt;pre&gt;</code> and <code>&lt;code&gt;</code> blocks. MediaWiki's French-space armoring turns the space before <code>! ? : ; %</code> into a non-breaking space everywhere, including code; the NBSP then leaks into copied code and breaks pasted commands."
+}

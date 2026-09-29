@@ -17,6 +17,7 @@
 			"EmbeddableContent\\": "extensions/EmbeddableContent/includes/",
 			"WikibaseCitation\\": "extensions/WikibaseCitation/includes/",
 			"LanguageBar\\": "extensions/LanguageBar/includes/",
+			"CodeBlockSpaces\\": "extensions/CodeBlockSpaces/includes/",
 			"MediaWiki\\Extension\\GeoGebra\\": "extensions/GeoGebra/src/",
 			"MediaWiki\\Extension\\CSVTable\\": "extensions/CSVTable/src/"
 		}
