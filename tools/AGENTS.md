@@ -87,13 +87,18 @@ wire the wiki into the LLM writing studio, or keep the wiki content conformant.
   `backfill_classic_pages.py`: heals Main-namespace pages that predate the
   `Flow/PageItemCreator` hook (a page written directly by an editor had no
   item — the "gaps on prod"). Lists the Main-namespace non-redirect pages
-  not sitelinked to an item (a `--exclude` regex filters housekeeping/pseudo
-  pages — default `Main Page`/`Sandbox*`), applies the hook's reuse-or-create
-  rule (an existing same-label item is sitelinked, never duplicated), and
-  creates the item (label = the page title, content language) + sitelink
-  otherwise. **Dry-run by default** (`--apply` writes); `--verify` re-checks
-  the sitelinks. **Review the dry-run list before applying.** Python stdlib
-  only (reuses `seed/wikibase_api.py`).
+  not sitelinked to an item, always drops namespace-collision ghosts (a page
+  created before its namespace existed keeps an `Ns:Sub` title in ns-0 that
+  MediaWiki now resolves into the namespace — unreachable, never content),
+  then applies a `--exclude` regex for housekeeping/pseudo pages (default:
+  `Main Page`, `Sandbox*`, `SPARQL examples`, the `/en|/fr|/eo` static
+  translation copies and the `tests/e2e/*` scratch pages). Applies the hook's
+  reuse-or-create rule (an existing same-label item is sitelinked, never
+  duplicated), and creates the item (label = the page title, content
+  language) + sitelink otherwise. **Dry-run by default** (`--apply` writes);
+  `--verify` re-checks the sitelinks. **Review the dry-run list before
+  applying.** Python stdlib only (reuses `seed/wikibase_api.py`). Unit tests:
+  `python3 -m unittest discover -s tools/tests`.
 
 ## Constraints and Invariants
 

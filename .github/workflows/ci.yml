@@ -45,6 +45,9 @@ jobs:
       - name: Seed unit tests
         run: python3 -m unittest discover -s seed/tests
 
+      - name: Tools unit tests
+        run: python3 -m unittest discover -s tools/tests
+
       - name: Seed dry-run (offline plan)
         run: python3 -m seed.seed_instance --dry-run
 

@@ -97,9 +97,14 @@ The hook only covers NEW pages; the pages created before it need a one-off
 backfill. `tools/backfill_page_items.py` (stdlib only, `seed/wikibase_api.py`)
 lists the Main-namespace non-redirect pages that are not sitelinked, applies
 the same reuse-or-create rule, and is **dry-run by default** (`--apply`
-writes, `--verify` re-checks). A `--exclude` regex (default: `Main Page`,
-`Sandbox*`) filters the housekeeping/pseudo pages that also live in the Main
-namespace — REVIEW the dry-run list before applying.
+writes, `--verify` re-checks). Two filters keep the run to content pages:
+namespace-collision ghosts are always dropped (a page created before its
+namespace existed keeps an `Ns:Sub` title in ns-0 that MediaWiki now resolves
+into the namespace — unreachable, never content), and a `--exclude` regex
+(default: `Main Page`, `Sandbox*`, `SPARQL examples`, the `/en|/fr|/eo`
+static translation copies, and the `tests/e2e/*` scratch pages) removes the
+housekeeping/pseudo pages that also live in the Main namespace — REVIEW the
+dry-run list before applying.
 
 ## Consequences
 

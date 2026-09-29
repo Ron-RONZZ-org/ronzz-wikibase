@@ -25,10 +25,15 @@ Usage:
       --user SeedBot --password-file seed/.seedbot.pass
   (pass --apply to write; dry-run is the default)
 
-Only "content pages" are considered by default: redirects are skipped, and
-a --exclude regex (repeatable; default: the housekeeping/pseudo pages) filters
-the rest. REVIEW the dry-run list before --apply — the wiki's Main namespace
-also holds project/sandbox pages that should not become items.
+Only "content pages" are considered by default: redirects are skipped,
+namespace-collision ghosts are always dropped (a page created before its
+namespace existed keeps an "Ns:Sub" title in the Main namespace that
+MediaWiki now resolves into the namespace — unreachable, never content), and
+a --exclude regex (single; replaces the default) filters the rest. The
+default excludes the housekeeping/pseudo pages: Main Page, Sandbox*, the
+SPARQL examples doc page, the /en|/fr|/eo static translation copies
+(content-creation/AGENTS-translation.md) and the tests/e2e/* scratch pages.
+REVIEW the dry-run list before --apply.
 
 Python stdlib only (AGENTS.md: no pip dependencies).
 """
@@ -44,8 +49,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "seed"))
 from wikibase_api import WikibaseApi, WikibaseApiError  # noqa: E402
 
 # Housekeeping/pseudo pages that live in the Main namespace but are not
-# content (the default --exclude; --exclude replaces it).
-DEFAULT_EXCLUDE = r"^(Main Page|Sandbox(?::|$))"
+# content (the default --exclude; --exclude replaces it): the front page,
+# the sandboxes, the Query Service examples doc page, the static translation
+# copies (content-creation/AGENTS-translation.md — a /fr or /eo subpage
+# mirrors a source page, it is not a separate entity) and the E2E scratch
+# pages (tests/e2e/*). Namespace-collision ghosts are dropped separately, see
+# collision_titles().
+DEFAULT_EXCLUDE = (
+    r"^(Main Page|Sandbox(?::|$)|SPARQL examples$)"
+    r"|/(en|fr|eo)$"
+    r"|\bE2E\b"
+)
 
 SUMMARY_CREATE = "backfill: create the item for the wiki page (backfill_page_items.py)"
 SUMMARY_LINK = "backfill: link the wiki page to its item (backfill_page_items.py)"
@@ -65,6 +79,29 @@ def list_main_pages(api: WikibaseApi) -> list[str]:
         cont = r.get("continue", {}).get("apcontinue", "")
         if not cont:
             return titles
+
+
+def namespace_names(api: WikibaseApi) -> set[str]:
+    """The wiki's namespace names + aliases, case-folded (collision check)."""
+    query = api._get(
+        "action=query&meta=siteinfo&siprop=namespaces|namespacealiases"
+    ).get("query", {})
+    names = {ns["*"].casefold() for ns in query.get("namespaces", {}).values()
+             if ns.get("*")}
+    names.update(alias["*"].casefold() for alias in query.get("namespacealiases", []))
+    return names
+
+
+def collision_titles(titles: list[str], namespaces: set[str]) -> set[str]:
+    """Main-namespace titles that collide with a registered namespace.
+
+    A page created before its namespace existed keeps its full "Ns:Sub"
+    title in namespace 0; MediaWiki now resolves that title into the
+    namespace (usually a missing page), so the ns-0 page is unreachable.
+    These are namespace-collision ghosts, never content pages.
+    """
+    return {t for t in titles
+            if ":" in t and t.split(":", 1)[0].strip().casefold() in namespaces}
 
 
 def linked_titles(api: WikibaseApi, titles: list[str], site_id: str) -> set[str]:
@@ -162,6 +199,11 @@ def main() -> int:
         return 1
 
     pages = list_main_pages(api)
+    ghosts = collision_titles(pages, namespace_names(api))
+    if ghosts:
+        print(f"skipping {len(ghosts)} namespace-collision ghost(s): "
+              + ", ".join(sorted(ghosts)))
+    pages = [t for t in pages if t not in ghosts]
     if exclude:
         pages = [t for t in pages if not exclude.search(t)]
     linked = linked_titles(api, pages, args.site_id)
