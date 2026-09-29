@@ -4,7 +4,7 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\Flow;
 
-use EmbeddableContent\Spec\LabelSanitizer;
+use EmbeddableContent\Spec\PageTitle;
 use MediaWiki\Content\WikitextContent;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\Title;
@@ -58,23 +58,14 @@ final class ClassicPageCreator {
 
 	/**
 	 * The page title for a label, or null when the label is unusable (empty
-	 * after normalization) or the namespace is unknown. Title-forbidden
-	 * characters are normalized away (LabelSanitizer::normalizeForTitle) so
-	 * a "C#" / "A|B" label still gets a page.
+	 * after normalization) or the namespace is unknown. The shared
+	 * Spec/PageTitle contract: markup stripped, title-forbidden characters
+	 * normalized away, and the first letter capitalized per namespace — a
+	 * lowercase-initial label like "vector space" is otherwise rejected by
+	 * Title::isValid() (the Q1862 bug).
 	 */
 	private function pageTitleFor( ClassicPageSpec $spec, string $label ): ?Title {
-		$label = LabelSanitizer::normalizeForTitle( $label );
-		if ( $label === '' ) {
-			return null;
-		}
-		try {
-			$title = Title::makeTitle( $spec->namespace, $label );
-		} catch ( \Throwable $e ) {
-			return null;
-		}
-		return ( $title !== null && $title->getNamespace() === $spec->namespace && $title->isValid() )
-			? $title
-			: null;
+		return PageTitle::fromLabel( $label, $spec->namespace );
 	}
 
 	private function linkPageToItem( Item $item, Title $title, string $label, UserIdentity $user ): void {

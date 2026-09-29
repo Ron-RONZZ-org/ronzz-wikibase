@@ -5,6 +5,7 @@ declare( strict_types = 1 );
 namespace EmbeddableContent\Flow;
 
 use EmbeddableContent\Spec\LabelSanitizer;
+use EmbeddableContent\Spec\PageTitle;
 use MediaWiki\Title\Title;
 use MediaWiki\User\UserIdentity;
 use Wikibase\DataModel\Entity\Item;
@@ -98,15 +99,11 @@ final class NewItemPageCreator {
 
 		[ $label, $description ] = self::labelAndDescription( $item );
 		$label = LabelSanitizer::normalizeForTitle( $label );
-		if ( $label === '' ) {
-			return;
-		}
-		try {
-			$title = Title::makeTitle( NS_MAIN, $label );
-		} catch ( \Throwable $e ) {
-			return;
-		}
-		if ( $title === null || $title->getNamespace() !== NS_MAIN || !$title->isValid() ) {
+		// The shared Spec/PageTitle contract capitalizes the first letter per
+		// namespace — a lowercase-initial label like "vector space" would
+		// otherwise yield an invalid title (the Q1862 report).
+		$title = PageTitle::fromLabel( $label, NS_MAIN );
+		if ( $title === null ) {
 			return;
 		}
 		// The page may already exist (hand-created, or from a previous run):

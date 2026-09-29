@@ -1245,10 +1245,12 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	/**
 	 * Classic page title for a created item, or null when the kind creates
 	 * no page (pageNamespace() null) or the label is unusable as a title.
-	 * The label is normalized first (LabelSanitizer::normalizeForTitle):
-	 * markup and title-forbidden characters (# < > [ ] { } |) are removed /
-	 * replaced so a "C#" or "A|B" label still yields a page; only a label
-	 * that normalizes to empty (or an unconstructable title) returns null.
+	 * The shared Spec/PageTitle contract: markup and title-forbidden
+	 * characters (# < > [ ] { } |) are removed / replaced so a "C#" or "A|B"
+	 * label still yields a page, and the first letter is capitalized per
+	 * namespace (a lowercase-initial label is otherwise rejected by
+	 * Title::isValid() — the Q1862 bug). Only a label that normalizes to
+	 * empty (or an unconstructable title) returns null.
 	 *
 	 * @param array<string,mixed> $record
 	 */
@@ -1257,19 +1259,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		if ( $ns === null ) {
 			return null;
 		}
-		$label = LabelSanitizer::normalizeForTitle( $this->primaryLabel( $record ) );
-		if ( $label === '' ) {
-			return null;
-		}
-		try {
-			// makeTitle takes the namespace ID — newFromText('<ns>:<label>')
-			// would need the namespace NAME (the int concatenates into
-			// "2008:Label", a main-namespace title).
-			$title = Title::makeTitle( $ns, $label );
-		} catch ( \Throwable $e ) {
-			return null;
-		}
-		return ( $title !== null && $title->getNamespace() === $ns && $title->isValid() ) ? $title : null;
+		return PageTitle::fromLabel( $this->primaryLabel( $record ), $ns );
 	}
 
 	/**

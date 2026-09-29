@@ -458,11 +458,14 @@ trait UpdateExternalEntityFlow {
 		}
 		try {
 			$oldTitle = Title::newFromText( $sitelinks->getBySiteId( 'wikibase' )->getPageName() );
-			$newTitle = Title::makeTitle( $newNs, $newLabel );
 		} catch ( \Throwable $e ) {
 			return;
 		}
-		if ( $oldTitle === null || $oldTitle->equals( $newTitle ) || !$oldTitle->exists() || $newTitle->exists() ) {
+		// The shared Spec/PageTitle contract (first-letter capitalization
+		// per namespace, title-forbidden characters normalized away).
+		$newTitle = PageTitle::fromLabel( $newLabel, $newNs );
+		if ( $oldTitle === null || $newTitle === null
+			|| $oldTitle->equals( $newTitle ) || !$oldTitle->exists() || $newTitle->exists() ) {
 			return;
 		}
 		try {
