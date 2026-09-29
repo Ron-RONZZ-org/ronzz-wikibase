@@ -48,6 +48,7 @@ services:
       - ../extensions/Diagrams:/var/www/html/extensions/Diagrams:ro
       - ../extensions/SimpleMathJax:/var/www/html/extensions/SimpleMathJax:ro
       - ../extensions/LanguageBar:/var/www/html/extensions/LanguageBar:ro
+      - ../extensions/CodeBlockSpaces:/var/www/html/extensions/CodeBlockSpaces:ro
       - ../extensions/GeoGebra:/var/www/html/extensions/GeoGebra:ro
       - ../extensions/CSVTable:/var/www/html/extensions/CSVTable:ro
     depends_on:
