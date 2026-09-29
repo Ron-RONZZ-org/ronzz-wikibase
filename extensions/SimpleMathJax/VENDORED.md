@@ -141,6 +141,14 @@ semantics (braced groups, control sequences, blank-line stop). The pass is
 idempotent (a wrapped span's `\\` is inside `gathered`, so a second run does
 not re-wrap).
 
+**Leading-blank strip (2026-09-29)**: the same pass removes per-line leading
+blanks from every display span. A wikitext line that begins with a space is
+MediaWiki's preformatted-text marker (`<pre>`); when it sits inside a
+`$$…$$` span, the block-level pass splits the span across a `<p>` and a
+`<pre>`, so MathJax never finds the closing delimiter and the raw LaTeX is
+shown (the `Sandbox:Temp` report — an indented continuation line under a
+`\\`). TeX ignores leading whitespace in math, so stripping it is safe.
+
 **Testing**: pure-PHP unit tests `tests/Unit/SimpleMathJaxMultilineTest.php`
 (the reported block, `cases`/`aligned` untouched, braced-group `\\`
 untouched, inline untouched, idempotency), a server-side assertion in

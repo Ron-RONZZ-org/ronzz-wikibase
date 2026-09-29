@@ -19,6 +19,13 @@
  * search is the quote guard's (`SimpleMathJaxQuotes::findClose`), so braced
  * groups, control sequences and the blank-line stop behave identically.
  *
+ * The pass ALSO strips per-line leading blanks from every display span: a
+ * wikitext line that begins with a space is MediaWiki's preformatted-text
+ * marker (`<pre>`), which splits the `$$…$$` span across block elements so
+ * MathJax never sees a balanced pair (the `Sandbox:Temp` report — a
+ * continuation line indented under a `\\`). TeX ignores leading whitespace
+ * in math, so removing it is safe.
+ *
  * Pure PHP — no MediaWiki dependency; unit-testable standalone.
  *
  * @license GPL-2.0-or-later
@@ -64,6 +71,7 @@ class SimpleMathJaxMultiline {
 				$out .= $open;
 				if ( $end !== -1 ) {
 					$content = substr( $text, $i + $oL, $end - $i - $oL - strlen( $close ) );
+					$content = self::stripLineIndent( $content );
 					$out .= self::hasTopLevelLineBreak( $content )
 						? '\begin{gathered}' . $content . '\end{gathered}'
 						: $content;
@@ -84,6 +92,18 @@ class SimpleMathJaxMultiline {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * Remove per-line leading blanks from display content.
+	 *
+	 * A line that begins with a space is MediaWiki's preformatted-text
+	 * marker; without this the parser splits the `$$…$$` span across a `<p>`
+	 * and a `<pre>`, and MathJax never finds the closing delimiter. TeX
+	 * ignores leading whitespace in math, so stripping it is safe.
+	 */
+	private static function stripLineIndent( string $content ): string {
+		return preg_replace( '/^[ \t]+/m', '', $content ) ?? $content;
 	}
 
 	/**

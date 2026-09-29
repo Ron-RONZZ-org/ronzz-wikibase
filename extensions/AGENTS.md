@@ -85,7 +85,11 @@ first) wraps a DISPLAY span whose content carries a **top-level `\\`** in
 `\begin{gathered}…\end{gathered}` — MathJax 3 renders a top-level `\\` as a
 space, not a line break, so `$$a \\ b$$` collapsed to one line (the
 `Logical_proof` report). A `\\` inside an environment or braced group is
-left alone (those already break lines). See `SimpleMathJax/VENDORED.md`.
+left alone (those already break lines). The same pass strips **per-line
+leading blanks** from display spans: a wikitext line starting with a space
+is core's preformatted-text marker (`<pre>`), which splits the `$$…$$` span
+across block elements and stops MathJax rendering (the `Sandbox:Temp`
+report). See `SimpleMathJax/VENDORED.md`.
 
 ## Purpose and Expected Behavior
 
