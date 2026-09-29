@@ -1119,10 +1119,14 @@ def flow_newitem_main_page(op, base: str, api: str, label: str) -> tuple[str, st
     if not m:
         raise FlowError(f"Special:NewItem did not redirect to the item: {url} {find_error(body)}")
     qid = m.group(1)
-    # The same normalization the extension applies (LabelSanitizer).
+    # The same normalization the extension applies: LabelSanitizer (markup +
+    # title-forbidden chars) then Title::capitalize — the first letter is
+    # capitalized per namespace, so a lowercase-initial label still yields a
+    # page (the Q1862 fix).
     expected = re.sub(r"[#<>\[\]{}|]", "-", label)
     expected = re.sub(r"\s+", " ", expected)
     expected = re.sub(r"-{2,}", "-", expected).strip(" -")
+    expected = expected[:1].upper() + expected[1:]
     r = api_call(op, api, {"action": "query", "titles": expected, "format": "json"})
     if not any("missing" not in p for p in r["query"]["pages"].values()):
         raise FlowError(f"NewItem {qid} did not create the Main page {expected!r}")
@@ -1133,6 +1137,15 @@ def flow_newitem_main_page(op, base: str, api: str, label: str) -> tuple[str, st
                for sl in sitelinks.values()):
         raise FlowError(
             f"{qid} not sitelinked to the Main page {expected!r}: {json.dumps(sitelinks)}")
+    # The page→item hook must NOT create a SECOND item for the page the
+    # NewItem hook just made (its sitelink is written first, so the reverse
+    # hook skips it): the page links to exactly the created item.
+    r = api_call(op, api, {"action": "wbgetentities", "sites": "wikibase",
+                           "titles": expected, "props": "sitelinks", "format": "json"})
+    linked = [eid for eid in r.get("entities", {}) if eid.startswith("Q")]
+    if linked != [qid]:
+        raise FlowError(
+            f"page {expected!r} should link exactly {qid}, got {linked}: {json.dumps(r)}")
     print(f"[ok] Special:NewItem -> {qid}: Main page {expected!r} created + sitelinked")
     return qid, expected
 
@@ -1147,6 +1160,10 @@ def flow_newitem_existing_page(op, base: str, api: str, label: str) -> str:
                            "token": token, "format": "json"}, post=True)
     if r.get("edit", {}).get("result") != "Success":
         raise FlowError(f"could not pre-create the Main page {label!r}: {r!r}")
+    # The page→item hook auto-links the new Main page; delete that item so
+    # the page is UNLINKED and the NewItem hook links the NEW item to it (the
+    # existing-page case).
+    delete_linked_item(op, api, label)
 
     url, body = page_get(op, base, "/wiki/Special:NewItem")
     token = edit_token(body)
@@ -1168,6 +1185,41 @@ def flow_newitem_existing_page(op, base: str, api: str, label: str) -> str:
             f"{json.dumps(sitelinks)}")
     print(f"[ok] Special:NewItem -> {qid}: linked to the existing Main page {label!r}")
     return qid
+
+
+def flow_main_page_item(op, base: str, api: str) -> tuple[str, str]:
+    """A NEW Main-namespace page auto-creates its sitelinked item — the
+    reverse of flow_newitem_main_page (the Q1862 follow-up). Returns
+    (qid, page title)."""
+    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = csrf["query"]["tokens"]["csrftoken"]
+    title = f"Page-flow E2E pageitem {int(time.time())}"
+    r = api_call(op, api, {"action": "edit", "title": title,
+                           "text": "Page→item E2E scratch (run_pages_e2e.py)",
+                           "token": token, "format": "json"}, post=True)
+    if r.get("edit", {}).get("result") != "Success":
+        raise FlowError(f"could not create the Main page {title!r}: {r!r}")
+
+    # The hook creates the item + sitelink at save time (a PRESEND deferred
+    # update) — retry briefly for the write to land.
+    qid = None
+    for _ in range(20):
+        r = api_call(op, api, {"action": "wbgetentities", "sites": "wikibase",
+                               "titles": title, "props": "labels|sitelinks",
+                               "format": "json"})
+        qid = next((eid for eid in r.get("entities", {}) if eid.startswith("Q")), None)
+        if qid is not None:
+            break
+        time.sleep(0.5)
+    if qid is None:
+        raise FlowError(
+            f"the Main page {title!r} did not get a sitelinked item: {json.dumps(r)}")
+    label = r["entities"][qid].get("labels", {}).get("en", {}).get("value")
+    if label != title:
+        raise FlowError(f"item {qid} label {label!r} != page title {title!r}")
+    print(f"[ok] Main page {title!r} -> item {qid} "
+          f"(auto-created + sitelinked, label = title)")
+    return qid, title
 
 
 def flow_existing_page_link_confirm(op, base: str, api: str, person_class: str) -> tuple[str, str]:
@@ -2781,18 +2833,17 @@ def flow_sitelink_tab(op, base: str, api: str, linked_page: str, linked_qid: str
     test_title = f"Page-flow E2E sitelink {int(time.time())}"
     api_call(op, api, {"action": "edit", "title": test_title, "text": "temporary page",
                        "token": token, "format": "json"}, post=True)
+    # The page→item hook auto-links a new Main-namespace page; delete that
+    # item so the page is UNLINKED (the red-tab case — the hook leaves no
+    # unlinked Main page otherwise).
+    delete_linked_item(op, api, test_title)
     try:
         _, body = page_get(op, base, "/wiki/" + urllib.parse.quote(test_title.replace(" ", "_")))
         if "ca-sitelink needs-set" not in body:
             raise FlowError(f"{test_title} missing the red Sitelink tab (needs-set)")
         print(f"[ok] Sitelink tab: red (needs-set) on unlinked page {test_title}")
     finally:
-        try:
-            api_call(op, api, {"action": "delete", "title": test_title, "token": token,
-                               "reason": "page-flow E2E cleanup (run_pages_e2e.py)",
-                               "format": "json"}, post=True)
-        except Exception as exc:  # noqa: BLE001 — best-effort cleanup
-            print(f"  ! cleanup failed for {test_title}: {exc}")
+        delete_page_and_item(op, api, test_title)
 
     _, body = page_get(op, base, "/wiki/" + urllib.parse.quote(linked_page.replace(" ", "_")))
     if "ca-sitelink is-set" not in body:
@@ -2902,10 +2953,7 @@ def flow_item_image_renders(op, base: str, api: str, qid: str, expect: str) -> N
                 f"parser-output region: {region[:1200]!r}"
                 f"{' | markers: ' + ' || '.join(markers[:5]) if markers else ''}")
     finally:
-        csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
-        token = csrf["query"]["tokens"]["csrftoken"]
-        api_call(op, api, {"action": "delete", "title": scratch, "token": token,
-                           "reason": "page-flow E2E cleanup (run_pages_e2e.py)", "format": "json"}, post=True)
+        delete_page_and_item(op, api, scratch)
 
 
 def flow_osm_place_renders(op, base: str, api: str, qid: str, osm_id: str, label: str) -> None:
@@ -2940,10 +2988,7 @@ def flow_osm_place_renders(op, base: str, api: str, qid: str, osm_id: str, label
                 f"{{{{#osm-place:birth|{qid}}}}} link text is not the stored label "
                 f"{label!r}: {find_error(rendered)}")
     finally:
-        csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
-        token = csrf["query"]["tokens"]["csrftoken"]
-        api_call(op, api, {"action": "delete", "title": scratch, "token": token,
-                           "reason": "page-flow E2E cleanup (run_pages_e2e.py)", "format": "json"}, post=True)
+        delete_page_and_item(op, api, scratch)
     print(f"[ok] {{{{#osm-place:birth|{qid}}}}}: renders {label!r} linked to OSM {osm_id}")
 
 
@@ -2996,6 +3041,46 @@ def delete_item(op, api: str, qid: str) -> None:
     token = csrf["query"]["tokens"]["csrftoken"]
     api_call(op, api, {"action": "delete", "title": f"Item:{qid}", "token": token,
                        "reason": "page-flow E2E cleanup (run_pages_e2e.py)", "format": "json"}, post=True)
+
+
+def delete_linked_item(op, api: str, title: str) -> None:
+    """Unlinks a Main-namespace scratch page from the item the page→item hook
+    auto-created for it, then deletes that item (best-effort).
+
+    The unlink uses wbsetsitelink with an EMPTY linktitle (synchronous
+    removal); the item delete alone only enqueues an async PurgeEntityData
+    job, so the page would stay "linked" until the cron runs."""
+    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = csrf["query"]["tokens"]["csrftoken"]
+    r = api_call(op, api, {"action": "wbgetentities", "sites": "wikibase",
+                           "titles": title, "props": "sitelinks", "format": "json"})
+    for eid in r.get("entities", {}):
+        if eid.startswith("Q"):
+            api_call(op, api, {"action": "wbsetsitelink", "id": eid,
+                               "linksite": "wikibase", "linktitle": "",
+                               "token": token,
+                               "summary": "page-flow E2E cleanup (page→item unlink)",
+                               "format": "json"}, post=True)
+            api_call(op, api, {"action": "delete", "title": f"Item:{eid}", "token": token,
+                               "reason": "page-flow E2E cleanup (page→item unlink)",
+                               "format": "json"}, post=True)
+
+
+def delete_page_and_item(op, api: str, title: str) -> None:
+    """Self-cleaning scratch-page removal: deletes the item the page→item hook
+    auto-created for `title` (if any) AND the page — best-effort."""
+    try:
+        delete_linked_item(op, api, title)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  ! cleanup failed for the page item of {title}: {exc}")
+    try:
+        csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+        token = csrf["query"]["tokens"]["csrftoken"]
+        api_call(op, api, {"action": "delete", "title": title, "token": token,
+                           "reason": "page-flow E2E cleanup (run_pages_e2e.py)",
+                           "format": "json"}, post=True)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  ! cleanup failed for {title}: {exc}")
 
 
 def flow_content_label_defaults(op, base: str) -> None:
@@ -3319,10 +3404,7 @@ Explicit bibliography (v2): {{{{#citations:{book_qid}|{quote_qid}}}}}
             raise FlowError("explicit bibliography entry missing the source DOI")
         print(f"[ok] cite-by-QID scratch page: footnotes + multi-entity ref + explicit + embed auto-collect")
     finally:
-        csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
-        token = csrf["query"]["tokens"]["csrftoken"]
-        api_call(op, api, {"action": "delete", "title": page_title, "token": token,
-                           "reason": "page-flow E2E cleanup (run_pages_e2e.py)", "format": "json"}, post=True)
+        delete_page_and_item(op, api, page_title)
 
 
 def flow_filesearch_contains(op, api: str, expected_file: str, fragment: str) -> None:
@@ -4539,9 +4621,11 @@ def main() -> int:
         flow_update_software_prefill(op, base, software_prefill, person, "python")
 
         # 3d3. Special:NewItem auto-creates a Main-namespace sitelinked page
-        #      (label as title, normalized: "|" becomes "-"). Exercises both
-        #      the NewItem hook and the page-title normalization.
-        newitem_label = f"Page-flow E2E NewItem | {int(time.time())}"
+        #      (label as title, normalized: "|" becomes "-" and a
+        #      LOWERCASE-initial label is capitalized — the Q1862 fix).
+        #      Exercises the NewItem hook, the title normalization AND the
+        #      reverse hook (which must not create a second item).
+        newitem_label = f"page-flow E2E NewItem | {int(time.time())}"
         newitem_qid, newitem_page = flow_newitem_main_page(op, base, api, newitem_label)
         track(newitem_qid)
         if newitem_qid in created:
@@ -4559,6 +4643,13 @@ def main() -> int:
         track(confirm_qid)
         if confirm_qid in created:
             created_pages.append(confirm_page)
+
+        # 3d5. A NEW Main-namespace page auto-creates its sitelinked item
+        #      (the reverse direction — the Q1862 follow-up).
+        pageitem_qid, pageitem_page = flow_main_page_item(op, base, api)
+        track(pageitem_qid)
+        if pageitem_qid in created:
+            created_pages.append(pageitem_page)
 
         # 3e. AddSoftware/manual + logo upload (issue follow-up + upload
         #     enhancements): a local PNG is uploaded as File:<label>-logo.png
@@ -4857,11 +4948,7 @@ def main() -> int:
                 raise FlowError("{{#content:}} rendered the ESCAPED payload")
             print(f"[ok] {{#content:}} on-wiki decoder -> decoded HTML fragment on {content_page}")
         finally:
-            csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
-            token = csrf["query"]["tokens"]["csrftoken"]
-            api_call(op, api, {"action": "delete", "title": content_page, "token": token,
-                               "reason": "page-flow E2E cleanup (content decoder)", "format": "json"},
-                     post=True)
+            delete_page_and_item(op, api, content_page)
 
         # 6. Cite-by-QID (issue #24 v1 + #25 v2): {{#cite}} inside <ref>,
         #    {{#citations:}} accumulated + explicit, embed auto-collect.

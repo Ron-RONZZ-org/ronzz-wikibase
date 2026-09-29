@@ -154,6 +154,8 @@
 	"embeddablecontent-software-pagekind-help": "La nomspaco de la kreota vikipaĝo. La implicitaĵo devenas de la permesilo: libera/malfermitkoda permesilo enmetas en la nomspacon FOSS:, ĉio alia en la nomspacon Software:. Vi povas ŝanĝi ĝin ĉi tie.",
 	"embeddablecontent-page-edit-summary": "Vikipaĝo kreita por $1",
 	"embeddablecontent-page-sitelink-edit-summary": "Ligis $1 al sia vikipaĝo",
+	"embeddablecontent-page-item-create-summary": "Ero kreita por la vikipaĝo $1",
+	"embeddablecontent-page-item-link-summary": "Ligis la vikipaĝon $1 al sia ero",
 	"embeddablecontent-manual-legend": "Krei la eron permane",
 	"embeddablecontent-manual-link": "Anstataŭe krei la eron permane",
 	"embeddablecontent-person-manual-title": "Aldoni personon permane",

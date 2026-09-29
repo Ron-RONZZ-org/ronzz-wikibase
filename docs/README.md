@@ -68,4 +68,6 @@ normalization, `Special:NewItem` Main-namespace pages),
 toolbar as the Item: page), `csv-table-embed.md` (uploaded CSV rendered as a
 wikitable via `[[File:data.csv]]` + the existing-extension survey),
 `wiki-bug-fixes-2026-09c.md` (OpenAlex author name split, the clipboard-blocked
-upload-copy fallback, and the multiline-display-math `gathered` wrap).
+upload-copy fallback, and the multiline-display-math `gathered` wrap),
+`label-title-and-page-item-linking.md` (the label→title first-letter
+capitalization fix + the Main-page→item reverse hook).

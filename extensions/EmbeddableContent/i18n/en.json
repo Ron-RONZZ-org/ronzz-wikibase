@@ -164,6 +164,8 @@
 	"embeddablecontent-software-pagekind-help": "The namespace of the created wiki page. Defaults from the license: a free/open-source license lands in the FOSS: namespace, anything else in the Software: namespace. You can override it here.",
 	"embeddablecontent-page-edit-summary": "Created the wiki page for $1",
 	"embeddablecontent-page-sitelink-edit-summary": "Linked $1 to its wiki page",
+	"embeddablecontent-page-item-create-summary": "Created the item for the wiki page $1",
+	"embeddablecontent-page-item-link-summary": "Linked the wiki page $1 to its item",
 	"embeddablecontent-manual-legend": "Create the item manually",
 	"embeddablecontent-manual-link": "Create the item manually instead",
 	"embeddablecontent-person-manual-title": "Add a person manually",

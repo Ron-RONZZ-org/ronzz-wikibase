@@ -193,6 +193,22 @@ async function main() {
 		await browser.close();
 
 		if (!KEEP) {
+			// The page→item hook auto-creates an item for a new Main page;
+			// unlink (wbsetsitelink with an empty linktitle — synchronous)
+			// then delete it (the item delete alone only enqueues an async
+			// PurgeEntityData job).
+			const linked = await api({
+				action: 'wbgetentities', sites: 'wikibase', titles: PAGE_TITLE,
+				props: 'sitelinks', format: 'json',
+			});
+			for (const eid of Object.keys(linked.entities || {})) {
+				if (!eid.startsWith('Q')) continue;
+				await api({ action: 'wbsetsitelink', id: eid, linksite: 'wikibase',
+					linktitle: '', token,
+					summary: 'E2E cleanup (page→item unlink)', format: 'json' }, true);
+				await api({ action: 'delete', title: `Item:${eid}`, token,
+					reason: 'math UX E2E cleanup (page→item)', format: 'json' }, true);
+			}
 			const del = await api({
 				action: 'delete', title: PAGE_TITLE, token,
 				reason: 'math UX E2E cleanup (run_math_ux_e2e.mjs)', format: 'json',

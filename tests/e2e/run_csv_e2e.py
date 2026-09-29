@@ -123,8 +123,26 @@ def create_page(op, api: str, title: str, text: str) -> None:
         raise FlowError(f"creation of {title} failed: {r!r}")
 
 
+def delete_linked_item(op, api: str, title: str, token: str) -> None:
+    """Deletes the item the page→item hook auto-created for a new
+    Main-namespace page. The unlink is synchronous (wbsetsitelink with an
+    empty linktitle); the item delete alone only enqueues an async
+    PurgeEntityData job, so the page would stay linked until the cron."""
+    r = api_call(op, api, {"action": "wbgetentities", "sites": "wikibase",
+                           "titles": title, "props": "sitelinks", "format": "json"})
+    for eid in r.get("entities", {}):
+        if eid.startswith("Q"):
+            api_call(op, api, {"action": "wbsetsitelink", "id": eid,
+                               "linksite": "wikibase", "linktitle": "", "token": token,
+                               "summary": "E2E cleanup (page→item unlink)",
+                               "format": "json"}, post=True)
+            api_call(op, api, {"action": "delete", "title": f"Item:{eid}", "token": token,
+                               "reason": "E2E cleanup (page→item)", "format": "json"}, post=True)
+
+
 def delete_page(op, api: str, title: str) -> None:
     token = csrf_token(op, api)
+    delete_linked_item(op, api, title, token)
     api_call(op, api, {
         "action": "delete", "title": title, "token": token,
         "reason": "CSVTable E2E cleanup (run_csv_e2e.py)", "format": "json",

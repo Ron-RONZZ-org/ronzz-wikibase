@@ -154,6 +154,8 @@
 	"embeddablecontent-software-pagekind-help": "L'espace de noms de la page wiki créée. La valeur par défaut découle de la licence : une licence libre/open source aboutit dans l'espace FOSS:, toute autre licence dans l'espace Software:. Vous pouvez la modifier ici.",
 	"embeddablecontent-page-edit-summary": "Page wiki créée pour $1",
 	"embeddablecontent-page-sitelink-edit-summary": "A lié $1 à sa page wiki",
+	"embeddablecontent-page-item-create-summary": "Élément créé pour la page wiki $1",
+	"embeddablecontent-page-item-link-summary": "A lié la page wiki $1 à son élément",
 	"embeddablecontent-manual-legend": "Créer l'élément manuellement",
 	"embeddablecontent-manual-link": "Créer l'élément manuellement à la place",
 	"embeddablecontent-person-manual-title": "Ajouter une personne manuellement",
