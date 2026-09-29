@@ -83,6 +83,17 @@ wire the wiki into the LLM writing studio, or keep the wiki content conformant.
   workaround, not needed here). **Dry-run by default** (`--apply` writes);
   `--verify` re-checks the sitelink + page + wikibase_item afterwards.
   Python stdlib only (reuses `seed/wikibase_api.py`).
+- **`tools/backfill_page_items.py`** — the reverse of
+  `backfill_classic_pages.py`: heals Main-namespace pages that predate the
+  `Flow/PageItemCreator` hook (a page written directly by an editor had no
+  item — the "gaps on prod"). Lists the Main-namespace non-redirect pages
+  not sitelinked to an item (a `--exclude` regex filters housekeeping/pseudo
+  pages — default `Main Page`/`Sandbox*`), applies the hook's reuse-or-create
+  rule (an existing same-label item is sitelinked, never duplicated), and
+  creates the item (label = the page title, content language) + sitelink
+  otherwise. **Dry-run by default** (`--apply` writes); `--verify` re-checks
+  the sitelinks. **Review the dry-run list before applying.** Python stdlib
+  only (reuses `seed/wikibase_api.py`).
 
 ## Constraints and Invariants
 
