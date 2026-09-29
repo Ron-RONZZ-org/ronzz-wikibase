@@ -99,6 +99,18 @@ plus the Playwright browser UX suite for the query GUI (query.ronzz.org).
   suite (`run_query_gui_ux_e2e.mjs`): browser behavior (ctrl+space
   autocomplete, click-to-run rendering) cannot be exercised with curl, so it
   uses the `playwright` npm package — pinned in the CI workflows that run it.
+- **Playwright browser UX suites — local setup**: the `.mjs` suites use
+  `playwright` **1.55.0** (the CI pin, `frontends-deploy.yml`). Playwright
+  pins each release to an exact browser build, so install it once per machine
+  with `npx playwright install chromium` (for 1.55.0 that is `chromium-1187` +
+  `chromium_headless_shell-1187`; the shared `~/.cache/ms-playwright` also
+  holds other revisions from other projects, which is why a bare launch can
+  fail with "Executable doesn't exist … revision N"). ⚠️ Run the installer
+  under a **supported Node (18/20/22)** — on an unsupported Node (e.g. 26)
+  Playwright 1.55.0's streaming unzip **hangs after the download** (writes the
+  first zip entry, then stalls); pointing `CHROME_PATH` at another revision's
+  binary is a workaround, not a fix. Re-run the install if the pinned version
+  ever changes.
 - **Test via the public API wherever possible** — curl the live endpoints
   (`api.php`, embed surfaces, citation API, SPARQL). Mock external services
   (fetch providers) only at system boundaries.
