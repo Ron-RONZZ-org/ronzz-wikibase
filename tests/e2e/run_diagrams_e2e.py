@@ -169,6 +169,23 @@ def csrf_token(op, api: str) -> str:
     return r["query"]["tokens"]["csrftoken"]
 
 
+def delete_linked_item(op, api: str, title: str, token: str) -> None:
+    """Deletes the item the page→item hook auto-created for a new
+    Main-namespace page. The unlink is synchronous (wbsetsitelink with an
+    empty linktitle); the item delete alone only enqueues an async
+    PurgeEntityData job, so the page would stay linked until the cron."""
+    r = api_call(op, api, {"action": "wbgetentities", "sites": "wikibase",
+                           "titles": title, "props": "sitelinks", "format": "json"})
+    for eid in r.get("entities", {}):
+        if eid.startswith("Q"):
+            api_call(op, api, {"action": "wbsetsitelink", "id": eid,
+                               "linksite": "wikibase", "linktitle": "", "token": token,
+                               "summary": "E2E cleanup (page→item unlink)",
+                               "format": "json"}, post=True)
+            api_call(op, api, {"action": "delete", "title": f"Item:{eid}", "token": token,
+                               "reason": "E2E cleanup (page→item)", "format": "json"}, post=True)
+
+
 def page_get(op, base: str, path: str) -> str:
     with op.open(base + path, timeout=90) as resp:
         return resp.read().decode("utf-8", "replace")
@@ -275,6 +292,7 @@ def diagrams_flow(op, api: str, base: str, keep: bool) -> None:
         token = csrf_token(op, api)
         for title in titles:
             try:
+                delete_linked_item(op, api, title, token)
                 api_call(op, api, {"action": "delete", "title": title, "token": token,
                                    "reason": "diagrams E2E cleanup (run_diagrams_e2e.py)",
                                    "format": "json"}, post=True)

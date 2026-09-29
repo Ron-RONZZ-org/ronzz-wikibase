@@ -89,10 +89,14 @@ class Hooks {
 	}
 
 	/**
-	 * Special:NewItem auto-creates a Main-namespace sitelinked classic page
-	 * for the item it just created (Flow/NewItemPageCreator). Gated to the
-	 * Special:NewItem request, so the Add* flows (which create their own
-	 * per-kind pages) and API/script item creation are untouched.
+	 * The item↔page auto-link pair:
+	 *  - Special:NewItem auto-creates a Main-namespace sitelinked classic page
+	 *    for the item it just created (Flow/NewItemPageCreator) — gated to the
+	 *    Special:NewItem request, so the Add* flows (which create their own
+	 *    per-kind pages) and API/script item creation are untouched;
+	 *  - a NEW Main-namespace classic page auto-creates (or reuses) its
+	 *    sitelinked item (Flow/PageItemCreator) — the reverse direction, and
+	 *    the backfill for pages that predate the item.
 	 */
 	public static function onPageSaveComplete(
 		$wikiPage,
@@ -112,6 +116,11 @@ class Hooks {
 			$user,
 			$flags,
 			\MediaWiki\Context\RequestContext::getMain()->getTitle()
+		);
+		\EmbeddableContent\Flow\PageItemCreator::handle(
+			$wikiPage,
+			$user,
+			$flags
 		);
 	}
 
