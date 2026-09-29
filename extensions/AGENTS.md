@@ -462,6 +462,27 @@ left alone (those already break lines). See `SimpleMathJax/VENDORED.md`.
   routable `complete/<id>` step, which renders a confirmation panel
   ("A page named X already exists …?" — [Yes] links, [No] leaves it
   unlinked). No vocabulary/config-map change.
+- **Label→title capitalization + the Main-page→item reverse hook (ADR
+  `docs/decisions/label-title-and-page-item-linking.md`, the Q1862 bug)**:
+  (a) **`Spec/PageTitle::fromLabel`** is the ONE label→title contract
+  (`LabelSanitizer::normalizeForTitle` → `Title::capitalize($label, $ns)` →
+  `Title::makeTitle` + namespace/validity check) — `makeTitle` does NOT
+  capitalize the first letter and `isValid()` rejects a lowercase-initial
+  title, so a "vector space" label silently produced no page and no sitelink
+  (the item label keeps its case; only the derived page title is
+  capitalized). All four sites route through it
+  (`ClassicPageCreator::pageTitleFor`, `NewItemPageCreator::createMainPage`,
+  `SpecialAddExternalEntity::pageTitleForRecord`,
+  `UpdateExternalEntityFlow::renameClassicPage`). (b) **`Flow/PageItemCreator`**
+  — the reverse direction: a NEW Main-namespace page (EDIT_NEW, not a
+  redirect) that is not already sitelinked gets an item (label = the page
+  title in the content language, no description), or is linked to an existing
+  item with the same label. The NewItem hook's own page is already sitelinked
+  (its sitelink is written before the page), so it is skipped; Add* pages
+  (custom namespaces), redirects and Item: saves are skipped; a failure is
+  logged at WARNING and never breaks the page save.
+  `tools/backfill_page_items.py` heals the pages created before the hook
+  (dry-run default, `--exclude` regex, `--verify`).
 - **Instance data rights are CC BY-SA 4.0** (seed `dataRightsUrl` /
   `rdfDataRightsUrl`), matching the CC BY-SA sourced page content and
   contributor licensing.
