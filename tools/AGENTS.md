@@ -105,8 +105,11 @@ the wiki content conformant, or bootstrap draft pages from external sources.
   `action=raw`; the `@api/deki` REST API is token-gated), so it fetches the
   rendered HTML, extracts the `mt-content-container` section, runs
   `pandoc -f html -t mediawiki`, normalises LaTeX to the SimpleMathJax
-  contract (inline `$…$`, display `$$…$$`; `equation*`/`align*`/… collapse to
-  `aligned`/`gathered`/…), expands the page's own `\newcommand` macros inline,
+  contract (inline `$…$`, display `$$…$$` each delimiter on its own line;
+  `equation*`/`align*`/… collapse to `aligned`/`gathered`/…; alignment tabs
+  around a relation are dropped — `x & = & y` → `x = y` — and per-line
+  leading blanks are stripped so a block never hits MediaWiki's `<pre>`
+  marker), expands the page's own `\newcommand` macros inline,
   and strips non-portable LibreTexts numbering/cross-reference macros
   (`\PageIndex`, `\ref`, `\label`, …). Images become `[[File:…]]` plus an
   upload manifest; provenance + the source attribution are prepended.

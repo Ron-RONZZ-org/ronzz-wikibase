@@ -71,6 +71,19 @@ final class SimpleMathJaxMultilineTest extends TestCase {
 				'$$\\text{a \\\\ b}$$',
 				'$$\\text{a \\\\ b}$$',
 			],
+			// A leading space on a continuation line is MediaWiki's
+			// preformatted-text marker: it would split the `$$…$$` span
+			// across a <p> and a <pre> (the Sandbox:Temp report). It is
+			// stripped so the span stays balanced.
+			'leading-space continuation stripped' => [
+				'$$' . "\n" . 'a = b \\\\' . "\n" . ' = c' . "\n" . '$$',
+				'$$\\begin{gathered}' . "\n" . 'a = b \\\\' . "\n" . '= c' . "\n" . '\\end{gathered}$$',
+			],
+			// Same stripping on a single-content-line span (no wrap needed).
+			'leading-space first line stripped' => [
+				'$$' . "\n" . ' a = b' . "\n" . '$$',
+				'$$' . "\n" . 'a = b' . "\n" . '$$',
+			],
 			// Inline delimiters are not passed, so inline math is untouched.
 			'inline math untouched' => [
 				'$a \\\\ b$ and prose',

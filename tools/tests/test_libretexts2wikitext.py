@@ -78,18 +78,53 @@ class StripNoncontentTest(unittest.TestCase):
 class NormalizeMathTest(unittest.TestCase):
     def test_inline_and_display_delimiters(self):
         self.assertEqual(lt.normalize_math(r"\(V \)", {}), "$V$")
-        self.assertEqual(lt.normalize_math(r"\[ x \]", {}), "$$x$$")
+        # Display math gets its own block: `$$` alone on each delimiter line.
+        self.assertEqual(lt.normalize_math(r"\[ x \]", {}), "$$\nx\n$$")
+
+    def test_display_block_delimiters_on_own_lines(self):
+        self.assertEqual(
+            lt.normalize_math(r"\[ E = mc^2 \]", {}), "$$\nE = mc^2\n$$"
+        )
 
     def test_equation_star_becomes_aligned(self):
         src = r"\begin{equation*}\begin{split}a\\b\end{split}\end{equation*}"
         self.assertEqual(
-            lt.normalize_math(src, {}), r"$$\begin{aligned}a\\b\end{aligned}$$"
+            lt.normalize_math(src, {}),
+            "$$\n" r"\begin{aligned}a\\b\end{aligned}" "\n$$",
         )
 
     def test_display_env_nested_in_brackets_not_double_wrapped(self):
         src = r"\[ \begin{eqnarray*} a & = & b \end{eqnarray*} \]"
         self.assertEqual(
-            lt.normalize_math(src, {}), r"$$\begin{aligned}a & = & b\end{aligned}$$"
+            lt.normalize_math(src, {}),
+            "$$\n" r"\begin{aligned}a = b\end{aligned}" "\n$$",
+        )
+
+    def test_display_body_leading_whitespace_stripped(self):
+        # A line starting with a space is MediaWiki preformatted text and
+        # splits the `$$…$$` span; the converter removes the indent.
+        src = "\\[\na = b \\\\\n = c\n\\]"
+        self.assertEqual(
+            lt.normalize_math(src, {}), "$$\na = b \\\\\n= c\n$$"
+        )
+
+    def test_alignment_tabs_around_relation_removed(self):
+        self.assertEqual(
+            lt.normalize_math(r"\[ x & = & y \]", {}), "$$\nx = y\n$$"
+        )
+        self.assertEqual(lt.normalize_math(r"\[ x &= y \]", {}), "$$\nx = y\n$$")
+        self.assertEqual(lt.normalize_math(r"\[ x =& y \]", {}), "$$\nx = y\n$$")
+
+    def test_alignment_in_cases_and_matrices_kept(self):
+        src = r"\[ \begin{cases}1 & x \\ 0 & y\end{cases} \]"
+        self.assertEqual(
+            lt.normalize_math(src, {}),
+            "$$\n" r"\begin{cases}1 & x \\ 0 & y\end{cases}" "\n$$",
+        )
+
+    def test_escaped_ampersand_not_touched(self):
+        self.assertEqual(
+            lt.normalize_math(r"\[ a \& = b \]", {}), "$$\na \\& = b\n$$"
         )
 
     def test_expands_page_macros(self):
@@ -103,7 +138,7 @@ class NormalizeMathTest(unittest.TestCase):
 
     def test_label_inside_display_math_is_stripped(self):
         self.assertEqual(
-            lt.normalize_math(r"\[ \label{eqn:x} a = b \]", {}), "$$a = b$$"
+            lt.normalize_math(r"\[ \label{eqn:x} a = b \]", {}), "$$\na = b\n$$"
         )
 
 

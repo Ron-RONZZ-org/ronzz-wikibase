@@ -56,6 +56,24 @@ _DISPLAY_ENV_RE = re.compile(
     re.S,
 )
 
+# LibreTexts `eqnarray`/`align` writes an `&` alignment tab around the
+# relation (`x & = & y`). The wiki renders a bare display block in a centred
+# `gathered` environment, which has NO alignment column — a leftover `&`
+# makes MathJax fail ("Misplaced &"). Drop the tabs that hug an `=`, on both
+# sides, and keep `&` everywhere else (`cases`, matrices). An escaped `\&` is
+# a literal ampersand and is left alone.
+_ALIGN_PAIR_RE = re.compile(r"(?<!\\)&[ \t]*=[ \t]*(?<!\\)&")
+_ALIGN_LEFT_RE = re.compile(r"(?<!\\)&[ \t]*=")
+_ALIGN_RIGHT_RE = re.compile(r"=[ \t]*(?<!\\)&")
+
+
+def _normalize_alignment(body: str) -> str:
+    """Turn `x & = & y` / `x &= y` / `x =& y` into `x = y`."""
+    body = _ALIGN_PAIR_RE.sub("=", body)
+    body = _ALIGN_LEFT_RE.sub("=", body)
+    return _ALIGN_RIGHT_RE.sub("=", body)
+
+
 # LibreTexts site-wide macros that carry real content (not defined per page).
 # ``xrightleftharpoons`` is a chemistry arrow; this wiki does not load mhchem,
 # so it maps to plain MathJax.
@@ -321,7 +339,8 @@ def pandoc_html_to_mediawiki(fragment: str) -> str:
 
 def _clean_math(body: str, macros: dict[str, tuple[int, str]]) -> str:
     body = re.sub(r"<br\s*/?>", " ", body, flags=re.I)
-    return expand_macros(_html.unescape(body), macros).strip()
+    body = expand_macros(_html.unescape(body), macros)
+    return _normalize_alignment(body).strip()
 
 
 def _inner_env(env: str, body: str) -> str:
@@ -335,9 +354,25 @@ def _inner_env(env: str, body: str) -> str:
     return f"\\begin{{{inner}}}{body}\\end{{{inner}}}"
 
 
+def _strip_line_indent(text: str) -> str:
+    """Drop per-line leading blanks from display-math content.
+
+    MediaWiki treats a line that begins with a space as preformatted text
+    (``<pre>``), which splits a ``$$...$$`` span so MathJax never sees a
+    balanced pair. TeX ignores leading whitespace in math, so removing it is
+    safe and keeps the block renderable.
+    """
+    return "\n".join(line.lstrip(" \t") for line in text.split("\n"))
+
+
+def _display_block(content: str) -> str:
+    """Wrap display content in ``$$...$$``, each delimiter on its own line."""
+    return "$$\n" + _strip_line_indent(content) + "\n$$"
+
+
 def _display_math(raw_body: str, macros: dict[str, tuple[int, str]],
                   env: str | None = None) -> str:
-    """Wrap one display-math region in ``$$...$$`` (empty -> removed).
+    """Wrap one display-math region in a ``$$...$$`` block (empty -> removed).
 
     LibreTexts nests a display environment inside ``\\[...\\]``
     (``\\[ \\begin{eqnarray*}...\\end{eqnarray*} \\]``); ``env`` is None for
@@ -345,14 +380,14 @@ def _display_math(raw_body: str, macros: dict[str, tuple[int, str]],
     """
     body = _clean_math(raw_body, macros)
     if env is not None:
-        return f"$${_inner_env(env, body)}$$" if body else ""
+        return _display_block(_inner_env(env, body)) if body else ""
     if not body:
         return ""
     match = _DISPLAY_ENV_RE.fullmatch(body)
     if match:
         inner = _clean_math(match.group("body"), macros)
-        return f"$${_inner_env(match.group('env'), inner)}$$" if inner else ""
-    return f"$${body}$$"
+        return _display_block(_inner_env(match.group("env"), inner)) if inner else ""
+    return _display_block(body)
 
 
 def normalize_math(text: str, macros: dict[str, tuple[int, str]]) -> str:

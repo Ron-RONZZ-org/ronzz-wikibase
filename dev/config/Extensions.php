@@ -161,6 +161,26 @@ $wgNamespacesWithSubpages[NS_FORUM] = true;
 $wgContentNamespaces[] = NS_FORUM;
 $wgNamespacesToBeSearchedDefault[NS_FORUM] = true;
 
+// ---- Subpages in EVERY namespace except Main (2026-09-29) ----
+// The breadcrumb hierarchy is namespace-gated, and core's breadcrumb only
+// renders ancestors that EXIST (Skin::subPageSubtitleInternal) — so a
+// `Cheatsheets:LinuxCLI/ssh` page shows no "< Cheatsheets:LinuxCLI" link
+// until the parent page exists. Enable the flag for every canonical
+// namespace (core + extension.json + $wgExtraNamespaces) via the
+// CanonicalNamespaces hook, which receives the fully merged list, so
+// extension namespaces (Forum, …) are covered too; NS_MAIN stays flat.
+// Mirrors the production LocalSettings block (RonzzIT:Deployment/Wikibase);
+// the explicit per-namespace lines above are kept for readability.
+$wgHooks['CanonicalNamespaces'][] = static function ( array &$namespaces ) {
+	global $wgNamespacesWithSubpages;
+	foreach ( array_keys( $namespaces ) as $ns ) {
+		if ( $ns !== NS_MAIN ) {
+			$wgNamespacesWithSubpages[$ns] = true;
+		}
+	}
+	return true;
+};
+
 // ---- LanguageBar (automatic languages bar on content pages) ----
 // The bar is injected server-side on article views in these namespaces
 // (extensions/LanguageBar). Entity (Item:/Property:), Template:, Category:,

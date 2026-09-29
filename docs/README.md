@@ -70,4 +70,6 @@ wikitable via `[[File:data.csv]]` + the existing-extension survey),
 `wiki-bug-fixes-2026-09c.md` (OpenAlex author name split, the clipboard-blocked
 upload-copy fallback, and the multiline-display-math `gathered` wrap),
 `label-title-and-page-item-linking.md` (the label→title first-letter
-capitalization fix + the Main-page→item reverse hook).
+capitalization fix + the Main-page→item reverse hook), `subpages.md`
+(subpages in every namespace except Main; the breadcrumb needs an existing
+parent page).

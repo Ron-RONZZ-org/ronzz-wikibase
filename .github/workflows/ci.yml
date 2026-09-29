@@ -1,8 +1,19 @@
 name: CI
 
+# Docs-only changes (markdown + the licence) do not run the pipeline: the
+# `unit` job would pass anyway and the `integration` job (a full 16 GB
+# wikibase-docker stack) is wasted. `paths-ignore` skips the workflow when
+# ONLY these paths changed; any code change still runs it. `main` has no
+# branch protection requiring the check, so a skipped run cannot strand a PR.
 on:
   push:
+    paths-ignore:
+      - '**/*.md'
+      - 'LICENSE'
   pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'LICENSE'
   workflow_dispatch:
 
 # The integration job runs a full wikibase-docker stack (MW 1.46 + WDQS) —
