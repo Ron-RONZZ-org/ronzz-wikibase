@@ -1,0 +1,8 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		]
+	},
+	"codeblockspaces-desc": "Restarigas laŭvortajn spacojn en blokoj <code>&lt;pre&gt;</code> kaj <code>&lt;code&gt;</code>. La franca spaco-ŝirmado de MediaWiki igas la spacon antaŭ <code>! ? : ; %</code> nedisigebla ĉie, ankaŭ en kodo; tiu nedisigebla spaco tiam fuŝas kopiitan kodon kaj rompas algluitajn komandojn."
+}

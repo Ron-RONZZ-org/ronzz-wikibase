@@ -1,0 +1,8 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		]
+	},
+	"codeblockspaces-desc": "Rétablit les espaces littérales dans les blocs <code>&lt;pre&gt;</code> et <code>&lt;code&gt;</code>. Le « blindage » français des espaces de MediaWiki transforme l'espace devant <code>! ? : ; %</code> en espace insécable partout, y compris dans le code ; cette espace insécable se retrouve ensuite dans le code copié et casse les commandes collées."
+}

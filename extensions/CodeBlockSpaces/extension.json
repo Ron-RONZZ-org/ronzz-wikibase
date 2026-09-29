@@ -1,0 +1,31 @@
+{
+	"name": "CodeBlockSpaces",
+	"version": "1.0.0",
+	"author": [
+		"ronzz.org"
+	],
+	"url": "https://github.com/Ron-RONZZ-org/ronzz-wikibase",
+	"descriptionmsg": "codeblockspaces-desc",
+	"license-name": "GPL-2.0-or-later",
+	"type": "other",
+	"requires": {
+		"MediaWiki": ">= 1.46.0"
+	},
+	"AutoloadNamespaces": {
+		"CodeBlockSpaces\\": "includes/"
+	},
+	"MessagesDirs": {
+		"CodeBlockSpaces": [
+			"i18n"
+		]
+	},
+	"HookHandlers": {
+		"main": {
+			"class": "CodeBlockSpaces\\Hooks"
+		}
+	},
+	"Hooks": {
+		"ParserAfterTidy": "main"
+	},
+	"manifest_version": 2
+}

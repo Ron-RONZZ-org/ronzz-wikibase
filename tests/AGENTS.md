@@ -45,6 +45,18 @@ plus the Playwright browser UX suite for the query GUI (query.ronzz.org).
   (see ci.yml / `dev/README.md`). The browser render is verified by
   `tests/e2e/run_geogebra_ux_e2e.mjs` (Playwright, manual/production like the
   math UX suite).
+- **`tests/e2e/run_codeblock_spaces_e2e.py`** — the CodeBlockSpaces
+  extension: read-only (`action=parse` of inline `text=` payloads — no page,
+  no login, safe against production) asserts that `<pre>`/`<code>` and
+  SyntaxHighlight blocks carry plain spaces (no `&#160;`/`&nbsp;`) for
+  `lang="text"`, `lang="vim"`, plain `<pre>`/`<code>` and the katex command,
+  while prose keeps its French-space armoring (the fix is scoped to code).
+  The reported clipboard flow is exercised end to end by
+  `tests/e2e/run_codeblock_spaces_ux_e2e.mjs` (Playwright, manual/production
+  like the wiki UX suite): it creates a scratch page with a
+  `<syntaxhighlight lang="text" copy>` block, clicks the copy button and
+  asserts the clipboard is byte-for-byte the command (no NBSP), then deletes
+  the page.
 - **`tests/e2e/run_wiki_ux_e2e.mjs`** — Playwright browser UX suite for the
   Sep-2026 UX batch B (manual/production, needs `--user` + `--password-file`
   for Special:Upload): the File: page copy buttons write `[[File:xxx]]` /

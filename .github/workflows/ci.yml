@@ -351,6 +351,11 @@ jobs:
             --base-url "$BASE_URL" --api-url "$API_URL" \
             --user "$MW_ADMIN_NAME" --password-file /tmp/e2e-pass
 
+      - name: CodeBlockSpaces E2E (no NBSP inside code blocks)
+        # Read-only: parses inline text= payloads via action=parse, no page
+        # and no credentials needed.
+        run: python3 tests/e2e/run_codeblock_spaces_e2e.py --api-url "$API_URL"
+
       - name: GeoGebra E2E (interactive [[File:x.ggb]] embeds + cross-origin player)
         run: |
           echo -n "$MW_ADMIN_PASS" > /tmp/e2e-pass

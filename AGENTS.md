@@ -89,7 +89,7 @@ the instance.
 | Wiki platform | MediaWiki 1.46 + Wikibase (repo), self-hosted at wikibase.ronzz.org |
 | Query service | WDQS (Blazegraph SPARQL 0.3.156) |
 | Database | MySQL / MariaDB |
-| Custom extensions | EmbeddableContent (D3 + issue #7), WikibaseCitation (D4), LanguageBar (automatic `{{Languages}}` bar on content pages) — standalone, never forks of Wikibase; DPLforum (vendored third-party forum, `extensions/DPLforum/`) + InputBox (vendored, thread-creation field, `extensions/InputBox/`); Diagrams (vendored third-party diagram extension — PlantUML/GraphViz/Mscgen server-side + Mermaid client-side, `extensions/Diagrams/`); SimpleMathJax (vendored third-party inline-LaTeX math — `$…$`/`$$…$$`/`<math>` typeset client-side by MathJax 3, `extensions/SimpleMathJax/`) — see their `VENDORED.md`; GeoGebra (interactive `[[File:x.ggb]]` worksheets — a house media handler rendering a sandboxed cross-origin player iframe, `extensions/GeoGebra/`); CSVTable (uploaded `[[File:x.csv]]` rendered as a wikitable — a house media handler, `extensions/CSVTable/`) |
+| Custom extensions | EmbeddableContent (D3 + issue #7), WikibaseCitation (D4), LanguageBar (automatic `{{Languages}}` bar on content pages), CodeBlockSpaces (restores literal spaces inside `<pre>`/`<code>` — reverts core's French-space armoring for code) — standalone, never forks of Wikibase; DPLforum (vendored third-party forum, `extensions/DPLforum/`) + InputBox (vendored, thread-creation field, `extensions/InputBox/`); Diagrams (vendored third-party diagram extension — PlantUML/GraphViz/Mscgen server-side + Mermaid client-side, `extensions/Diagrams/`); SimpleMathJax (vendored third-party inline-LaTeX math — `$…$`/`$$…$$`/`<math>` typeset client-side by MathJax 3, `extensions/SimpleMathJax/`) — see their `VENDORED.md`; GeoGebra (interactive `[[File:x.ggb]]` worksheets — a house media handler rendering a sandboxed cross-origin player iframe, `extensions/GeoGebra/`); CSVTable (uploaded `[[File:x.csv]]` rendered as a wikitable — a house media handler, `extensions/CSVTable/`) |
 | Seed/tooling | Python 3 (stdlib only) |
 | Unit tests | PHPUnit 10 (pure-PHP) + Python `unittest` |
 | E2E | Python suites in `tests/e2e/` (curl the live endpoints) |
@@ -325,7 +325,7 @@ Root AGENTS.md (global rules)
     ├── content-creation/AGENTS.md  (wiki content via MCP — live pages, never local files)
     ├── dev/AGENTS.md               (dev/CI wikibase-docker stack)
     ├── docs/AGENTS.md              (instance documentation)
-    ├── extensions/AGENTS.md        (EmbeddableContent + WikibaseCitation + LanguageBar + GeoGebra + CSVTable + vendored DPLforum/Diagrams/SimpleMathJax)
+    ├── extensions/AGENTS.md        (EmbeddableContent + WikibaseCitation + LanguageBar + CodeBlockSpaces + GeoGebra + CSVTable + vendored DPLforum/Diagrams/SimpleMathJax)
     ├── seed/AGENTS.md              (instance bootstrap orchestrator)
     ├── tests/AGENTS.md             (PHPUnit unit + E2E/XSS/page-flow suites)
     └── tools/AGENTS.md             (manifest generators + fetch smoke test)
