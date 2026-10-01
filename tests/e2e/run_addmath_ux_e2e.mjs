@@ -94,6 +94,13 @@ async function main() {
 		}
 		console.log('[ok] Preview button + KaTeX present');
 
+		// The accompanying note field (rich wikitext) renders on the form.
+		if (await page.locator('#mw-input-wpnote').count() !== 1) {
+			failures.push('Special:AddMath is missing the accompanying note field (#mw-input-wpnote)');
+		} else {
+			console.log('[ok] accompanying note field present');
+		}
+
 		// (label, payload, forbidden substrings in the rendered text)
 		const cases = [
 			['dollar-inline', '$x^2 + y^2$', ['$']],
