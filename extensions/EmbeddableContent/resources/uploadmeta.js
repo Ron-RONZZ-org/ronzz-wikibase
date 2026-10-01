@@ -83,6 +83,40 @@
 	}
 
 	/**
+	 * Original CDN URL of a Wikimedia SVG THUMBNAIL (…/thumb/<a>/<ab>/Name.svg/
+	 * <n>px-Name.svg.png), or null when the URL is not such a rendition.
+	 * Mirrors the PHP WikimediaFileUrl::originalSvgUrl(). Raster thumbnails,
+	 * already-original URLs and non-Wikimedia hosts return null (the PNG
+	 * rendition is the intended, smaller fetch for those). The canonical
+	 * upload.wikimedia.org host is returned (thumb.wikimedia.org redirects
+	 * originals there).
+	 */
+	function originalSvgUrl( url ) {
+		var u;
+		try {
+			u = new URL( url );
+		} catch ( e ) {
+			return null;
+		}
+		if ( !isWikimediaHost( u.hostname ) ) {
+			return null;
+		}
+		var segments = ( u.pathname || '' ).split( '/' ).filter( function ( s ) { return s !== ''; } );
+		var thumbIndex = segments.indexOf( 'thumb' );
+		if ( thumbIndex < 2 || segments.length < thumbIndex + 4 ||
+			segments[ thumbIndex - 2 ] !== 'wikipedia'
+		) {
+			return null;
+		}
+		if ( !/\.svg$/i.test( segments[ thumbIndex + 3 ] ) ) {
+			return null;
+		}
+		var original = segments.slice( 0, thumbIndex )
+			.concat( segments.slice( thumbIndex + 1, thumbIndex + 4 ) );
+		return 'https://upload.wikimedia.org/' + original.join( '/' );
+	}
+
+	/**
 	 * Percent-decodes one URL path segment and normalizes the title
 	 * (underscores -> spaces, collapsed). `decodeURIComponent` is wrapped:
 	 * a malformed sequence throws URIError and must fall back to the raw
@@ -703,11 +737,12 @@
 			//    silently skipped and the server-side UploadFromUrl drew
 			//    Wikimedia's 403/429 ("unreachable or unsupported URL" on
 			//    the AddCollective logo).
-			var modeVal = String(
+			var originalMode = String(
 				$form.find( 'input[name="' + cfg.modeField + '"]:checked' ).val()
 				|| $form.find( 'input[name="' + cfg.modeField + '"]:not([type="radio"]):not([type="checkbox"])' ).val()
 				|| ''
-			).toLowerCase();
+			);
+			var modeVal = originalMode.toLowerCase();
 			if ( modeVal !== 'url' ) {
 				return true;
 			}
@@ -725,7 +760,11 @@
 			// input, switch the mode radio, resubmit.
 			e.preventDefault();
 			$status.text( mw.msg( 'embeddablecontent-uploadmeta-validating' ) ).show();
-			fetch( url ).then( function ( r ) {
+			// An SVG THUMBNAIL is a raster rendition of the vector original:
+			// uploading the PNG under the ".svg" destination name is a MIME
+			// mismatch (and scales worse). Fetch the original SVG instead.
+			var blobUrl = originalSvgUrl( url ) || url;
+			fetch( blobUrl ).then( function ( r ) {
 				if ( !r.ok ) {
 					throw new Error( 'HTTP ' + r.status );
 				}
@@ -773,8 +812,8 @@
 					// the URL's extension can mismatch the bytes — the server
 					// would reject the upload with filetype-mime-mismatch
 					// ("png" vs "image/webp").
-					var fext = extensionForMime( blob.type ) || extensionFromUrl( url );
-					var name = ( url.split( '/' ).pop().split( '?' )[ 0 ] || 'image' )
+					var fext = extensionForMime( blob.type ) || extensionFromUrl( blobUrl );
+					var name = ( blobUrl.split( '/' ).pop().split( '?' )[ 0 ] || 'image' )
 						.replace( /\.[a-z0-9]+$/i, '' );
 					if ( fext ) {
 						name = name + '.' + fext;
@@ -786,9 +825,18 @@
 					dt.items.add( file );
 					$file.prop( 'disabled', false );
 					$file[ 0 ].files = dt.files;
-					// Provenance: the original URL rides along as a form value.
+					// Provenance: the URL the bytes actually came from (the
+					// original SVG when a thumbnail was resolved) rides along
+					// as a form value.
 					if ( !$form.find( 'input[name="wbUploadmetaSourceUrl"]' ).length ) {
-						$form.append( $( '<input type="hidden" name="wbUploadmetaSourceUrl">' ).val( url ) );
+						$form.append( $( '<input type="hidden" name="wbUploadmetaSourceUrl">' ).val( blobUrl ) );
+					}
+					// The internal conversion to a file upload must not look
+					// like a user source change on an error re-render: record
+					// the user's ORIGINAL source selection so the server can
+					// restore it (UploadHooks / SpecialAddExternalEntity).
+					if ( originalMode && !$form.find( 'input[name="wbUploadmetaSourceType"]' ).length ) {
+						$form.append( $( '<input type="hidden" name="wbUploadmetaSourceType">' ).val( originalMode ) );
 					}
 					// The native submit() drops the submit BUTTON's name/value
 					// (only a real click sends it), and Special:Upload's core

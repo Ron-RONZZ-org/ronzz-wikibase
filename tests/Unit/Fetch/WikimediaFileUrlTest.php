@@ -88,6 +88,59 @@ final class WikimediaFileUrlTest extends TestCase {
 		$this->assertSame( $expected, WikimediaFileUrl::fileTitle( $url ) );
 	}
 
+	/** @return array<string,array{string,?string}> */
+	public static function originalSvgProvider(): array {
+		return [
+			// The reported shape: an SVG thumbnail whose rendered PNG must NOT
+			// be uploaded under the ".svg" destination name.
+			'svg-thumb' => [
+				'https://upload.wikimedia.org/wikipedia/commons/thumb/9/96/Parallelogram_law_squares.svg/960px-Parallelogram_law_squares.svg.png?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=thumbnail',
+				'https://upload.wikimedia.org/wikipedia/commons/9/96/Parallelogram_law_squares.svg',
+			],
+			// thumb.wikimedia.org serves the same renditions; the original is
+			// returned on the canonical upload.wikimedia.org host (it 301s
+			// originals there).
+			'svg-thumb-alias-host' => [
+				'https://thumb.wikimedia.org/wikipedia/commons/thumb/9/96/Parallelogram_law_squares.svg/960px-Parallelogram_law_squares.svg.png',
+				'https://upload.wikimedia.org/wikipedia/commons/9/96/Parallelogram_law_squares.svg',
+			],
+			// A language-wiki (non-Commons) SVG thumbnail.
+			'svg-thumb-language-repo' => [
+				'https://upload.wikimedia.org/wikipedia/en/thumb/a/ab/Local_Logo.svg/220px-Local_Logo.svg.png',
+				'https://upload.wikimedia.org/wikipedia/en/a/ab/Local_Logo.svg',
+			],
+			// Percent-encoded names keep their encoding (this is a FETCH URL,
+			// not an API title).
+			'svg-thumb-encoded-name' => [
+				'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/Foo%20Bar%28baz%29.svg/250px-Foo%20Bar%28baz%29.svg.png',
+				'https://upload.wikimedia.org/wikipedia/commons/c/c0/Foo%20Bar%28baz%29.svg',
+			],
+			// A raster thumbnail is left alone (the PNG rendition is the
+			// intended, smaller fetch).
+			'jpg-thumb' => [
+				'https://upload.wikimedia.org/wikipedia/commons/thumb/8/85/Example.jpg/220px-Example.jpg',
+				null,
+			],
+			// An already-original SVG URL is not a rendition.
+			'svg-original' => [
+				'https://upload.wikimedia.org/wikipedia/commons/9/96/Foo.svg',
+				null,
+			],
+			// A PDF/TIFF rendition is not an SVG.
+			'pdf-thumb' => [
+				'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Doc.pdf/page1-220px-Doc.pdf.jpg',
+				null,
+			],
+			'not-wikimedia' => [ 'https://example.com/thumb/9/96/Foo.svg/220px-Foo.svg.png', null ],
+			'not-a-thumb' => [ 'https://en.wikipedia.org/wiki/File:Foo.svg', null ],
+		];
+	}
+
+	/** @dataProvider originalSvgProvider */
+	public function testOriginalSvgUrl( string $url, ?string $expected ): void {
+		$this->assertSame( $expected, WikimediaFileUrl::originalSvgUrl( $url ) );
+	}
+
 	public function testCommonsQuery(): void {
 		$query = WikimediaFileUrl::commonsQuery( 'https://en.wikipedia.org/wiki/File:Einstein_1947.jpg' );
 		$this->assertSame( 'https://commons.wikimedia.org/w/api.php', $query['api'] );

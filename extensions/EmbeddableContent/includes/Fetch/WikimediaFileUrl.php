@@ -93,6 +93,59 @@ final class WikimediaFileUrl {
 	}
 
 	/**
+	 * Original CDN URL of a Wikimedia THUMBNAIL rendition whose original file
+	 * is an SVG, or null when the URL is not such a rendition.
+	 *
+	 * Wikimedia serves a raster rendition of a vector file under
+	 * `/thumb/…/<Name>.svg/<width>px-<Name>.svg.png`. Fetching that PNG and
+	 * uploading it under the ".svg" destination name derived from the file
+	 * title is a MIME mismatch (`filetype-mime-mismatch`), and the PNG also
+	 * scales worse than the vector original. The original lives at the same
+	 * path without `/thumb/` and the trailing rendition segment:
+	 *
+	 *   https://upload.wikimedia.org/wikipedia/commons/thumb/9/96/Foo.svg/960px-Foo.svg.png
+	 *   → https://upload.wikimedia.org/wikipedia/commons/9/96/Foo.svg
+	 *
+	 * The canonical CDN host is returned (`thumb.wikimedia.org` redirects
+	 * originals to `upload.wikimedia.org`). Raster thumbnails, already-original
+	 * URLs and non-Wikimedia hosts return null — the caller keeps its URL.
+	 *
+	 * Mirrored client-side in resources/uploadmeta.js (`originalSvgUrl`).
+	 */
+	public static function originalSvgUrl( string $url ): ?string {
+		if ( !self::isWikimediaHost( $url ) ) {
+			return null;
+		}
+		$path = (string)( parse_url( $url, PHP_URL_PATH ) ?? '' );
+		$segments = array_values( array_filter(
+			explode( '/', $path ),
+			static fn ( string $segment ): bool => $segment !== ''
+		) );
+		// The CDN shape is /wikipedia/<repo>/thumb/<a>/<ab>/<Name>.<ext>/<rendition>.
+		$thumbIndex = array_search( 'thumb', $segments, true );
+		if (
+			$thumbIndex === false
+			|| $thumbIndex < 2
+			|| ( $segments[ $thumbIndex - 2 ] ?? '' ) !== 'wikipedia'
+			|| count( $segments ) < $thumbIndex + 4
+		) {
+			return null;
+		}
+		$originalName = $segments[ $thumbIndex + 3 ];
+		if ( strtolower( (string)pathinfo( $originalName, PATHINFO_EXTENSION ) ) !== 'svg' ) {
+			return null;
+		}
+		$originalSegments = array_merge(
+			array_slice( $segments, 0, $thumbIndex ),
+			array_slice( $segments, $thumbIndex + 1, 3 )
+		);
+		if ( $originalSegments === [] ) {
+			return null;
+		}
+		return 'https://upload.wikimedia.org/' . implode( '/', $originalSegments );
+	}
+
+	/**
 	 * Percent-decodes one URL path segment. `rawurldecode` is deliberate:
 	 * path segments encode spaces as %20, NOT `+` (a literal plus in a file
 	 * name must survive), and malformed sequences are left untouched rather

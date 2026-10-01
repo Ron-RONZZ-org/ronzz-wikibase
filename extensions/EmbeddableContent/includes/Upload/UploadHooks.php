@@ -118,11 +118,25 @@ final class UploadHooks {
 	 * @param array<string,mixed> $descriptor
 	 */
 	public static function onUploadFormSourceDescriptors( array &$descriptor, &$radio, $selectedSourceType ): void {
-		// The core builds the radios with 'checked' from the posted (or
-		// default 'File') source type BEFORE this hook runs. A fresh GET
-		// carries no wpSourceType — flip the default to Url then; a POST
-		// (including a warning-recovery re-render) is honored as-is.
-		if ( !RequestContext::getMain()->getRequest()->getCheck( 'wpSourceType' ) ) {
+		$request = RequestContext::getMain()->getRequest();
+		// The browser blob fallback converts a Wikimedia URL upload into a
+		// file upload (mode switched to 'File') for the internal resubmit and
+		// records the user's ORIGINAL source selection in
+		// wbUploadmetaSourceType. An error re-render must show that selection,
+		// not the internal conversion — otherwise the MIME-mismatch error
+		// resets the radio to "Source filename".
+		$convertedFrom = trim( (string)$request->getVal( 'wbUploadmetaSourceType', '' ) );
+		if ( $convertedFrom !== '' ) {
+			$isUrl = strtolower( $convertedFrom ) === 'url';
+			$descriptor['UploadFile']['checked'] = !$isUrl;
+			if ( isset( $descriptor['UploadFileURL'] ) ) {
+				$descriptor['UploadFileURL']['checked'] = $isUrl;
+			}
+		} elseif ( !$request->getCheck( 'wpSourceType' ) ) {
+			// The core builds the radios with 'checked' from the posted (or
+			// default 'File') source type BEFORE this hook runs. A fresh GET
+			// carries no wpSourceType — flip the default to Url then; a POST
+			// (including a warning-recovery re-render) is honored as-is.
 			$descriptor['UploadFile']['checked'] = false;
 			if ( isset( $descriptor['UploadFileURL'] ) ) {
 				$descriptor['UploadFileURL']['checked'] = true;

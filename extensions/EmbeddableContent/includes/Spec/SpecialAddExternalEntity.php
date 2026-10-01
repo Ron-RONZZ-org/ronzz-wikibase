@@ -14,6 +14,7 @@ use EmbeddableContent\Fetch\ProviderResult;
 use EmbeddableContent\Fields\EntityCombobox;
 use MediaWiki\HTMLForm\HTMLForm;
 use MediaWiki\SpecialPage\SpecialPage;
+use MediaWiki\Status\Status;
 use MediaWiki\Title\Title;
 use Wikimedia\Rdbms\DBError;
 use Wikibase\DataModel\Entity\EntityIdValue;
@@ -217,6 +218,37 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		return $sub === '' ? $this->getPageTitle( $prefix ) : $this->getPageTitle( $prefix . '/' . $sub );
 	}
 
+	/**
+	 * Render an Add* form, restoring the user's original upload source
+	 * selection after an error re-render.
+	 *
+	 * The shared uploadmeta.js blob fallback converts a Wikimedia URL upload
+	 * into a browser file upload and sets the mode radio to "file" for the
+	 * internal resubmit (the server must see a file upload), recording the
+	 * user's ORIGINAL mode in wbUploadmetaSourceType. HTMLForm reloads the
+	 * submitted "file" on the error re-render, so without this correction the
+	 * form would silently switch the user to the file source. This is
+	 * HTMLForm::show() plus that one field-data correction.
+	 *
+	 * @param HTMLForm $form
+	 */
+	protected function showForm( HTMLForm $form ): void {
+		$form->prepareForm();
+		$result = $form->tryAuthorizedSubmit();
+		if ( $result === true || ( $result instanceof Status && $result->isGood() ) ) {
+			return;
+		}
+		$original = trim( (string)$this->getRequest()->getVal( 'wbUploadmetaSourceType', '' ) );
+		if ( $original !== '' ) {
+			foreach ( $form->mFieldData as $name => $value ) {
+				if ( str_ends_with( (string)$name, 'Mode' ) && strtolower( (string)$value ) === 'file' ) {
+					$form->mFieldData[$name] = $original;
+				}
+			}
+		}
+		$form->displayForm( $result );
+	}
+
 	// ------------------------------------------------------------- step 1
 
 	protected function executeSearch(): void {
@@ -227,7 +259,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			->setSubmitCallback( [ $this, 'onSearchSubmit' ] )
 			->setSubmitID( 'wb-ext-add-search' )
 			->setWrapperLegendMsg( $this->searchStepLegendMessage() );
-		$form->show();
+		$this->showForm( $form );
 		// Manual fallback (issue #12): always offered, also shown on zero hits.
 		$this->getOutput()->addHTML( $this->manualFallbackHtml() );
 	}
@@ -342,7 +374,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			->setSubmitCallback( fn ( array $data ) => $this->onSelectSubmit( $data, $token, $records ) )
 			->setSubmitID( 'wb-ext-add-create' )
 			->setWrapperLegendMsg( 'embeddablecontent-extselect-legend' );
-		$form->show();
+		$this->showForm( $form );
 		// Manual fallback on the SELECTION step too (issue #35): none of the
 		// candidates is a good match — the link carries the token so the
 		// manual form is prefilled with the search inputs.
@@ -540,7 +572,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			->setSubmitCallback( fn ( array $data ) => $this->onReviewSubmit( $data, $token, $index, $records ) )
 			->setSubmitID( 'wb-ext-add-create' )
 			->setWrapperLegendMsg( 'embeddablecontent-review-legend' );
-		$form->show();
+		$this->showForm( $form );
 	}
 
 	/**
@@ -661,7 +693,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			->setSubmitCallback( fn ( array $data ) => $this->onContentSubmit( $data, $token, $index, $records ) )
 			->setSubmitID( 'wb-ext-add-content' )
 			->setWrapperLegendMsg( 'embeddablecontent-content-review-legend' );
-		$form->show();
+		$this->showForm( $form );
 	}
 
 	/**
@@ -769,7 +801,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			->setSubmitCallback( [ $this, 'onManualSubmit' ] )
 			->setSubmitID( 'wb-ext-add-manual' )
 			->setWrapperLegendMsg( $this->manualLegendMessage() );
-		$form->show();
+		$this->showForm( $form );
 	}
 
 	/**
@@ -923,7 +955,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			->setSubmitCallback( [ $this, 'onManualContentSubmit' ] )
 			->setSubmitID( 'wb-ext-add-content' )
 			->setWrapperLegendMsg( 'embeddablecontent-content-review-legend' );
-		$form->show();
+		$this->showForm( $form );
 	}
 
 	/**
