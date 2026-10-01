@@ -752,6 +752,25 @@ report). See `SimpleMathJax/VENDORED.md`.
    (`rawurldecode` / `decodeURIComponent`, `+` stays literal — path segments
    encode spaces as `%20`) in every branch (`/wiki/File:`, `Special:FilePath`,
    upload.wikimedia.org original + thumb).
+- **Wikimedia SVG-thumbnail source + source-radio preservation (fix,
+  round 5 of the upload ADR)**: a pasted SVG THUMBNAIL URL
+  (`…/thumb/…/Name.svg/NNNpx-Name.svg.png`) is a raster rendition of the
+  vector original — fetching it uploaded a PNG under the `.svg` destination
+  name derived from the file title (`filetype-mime-mismatch`) and scaled
+  worse. New pure `Fetch/WikimediaFileUrl::originalSvgUrl()` resolves the
+  original CDN URL (canonical `upload.wikimedia.org`; `thumb.wikimedia.org`
+  301s originals there) and is applied in the browser blob fallback
+  (`resources/uploadmeta.js`, mirrored `originalSvgUrl`), the server-side
+  `ImageUploadHelper::uploadFromUrl` and the `UploadMetadataFetcher` probe
+  (which also fixes `thumb.wikimedia.org` metadata — `fileTitle()` is
+  host-gated). The original SVG URL is recorded as the File-page Source.
+  Separately, the blob fallback's internal file-mode conversion used to leak
+  into the MIME-mismatch error re-render (the source radio reset to "Source
+  filename"); it now records the user's original mode in
+  `wbUploadmetaSourceType`, restored by
+  `UploadHooks::onUploadFormSourceDescriptors` (Special:Upload) and
+  `SpecialAddExternalEntity::showForm()` (the Add\*/Update\* portrait/logo
+  forms). No config/vocabulary change (svg is already allowed).
 - **Add-flow round 3 (ADR `docs/decisions/addflow-round3.md`)**: (a)
   **Official website on AddPerson/AddCollective** — the shared P856-aligned
   `official website` URL property joins the `personProperties`/

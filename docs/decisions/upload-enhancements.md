@@ -232,3 +232,56 @@ Three further bugs from live testing:
   (`extensionForMime`, fallback to the source-URL pathname extension),
   mirrored in `CommonsMetadataParser::extensionForMime`. An explicit
   ObjectName extension still wins.
+
+## Follow-up fixes round 5 (Sep 2026 — SVG-thumbnail source + source-radio preservation)
+
+Two `Special:Upload` / Add\* URL-mode bugs from live testing:
+
+- **A Wikimedia SVG thumbnail fetched the PNG rendition.** A pasted URL like
+  `…/wikipedia/commons/thumb/9/96/Foo.svg/960px-Foo.svg.png` is a raster
+  rendition of a vector original. The validate step reads the Commons
+  metadata by file title (`File:Foo.svg` → `mime=image/svg+xml`) and
+  auto-fills a `.svg` destination name, but the blob fallback fetched the
+  pasted URL — PNG bytes — so the server rejected the upload with
+  `filetype-mime-mismatch` (`.svg` vs `image/png`). New pure
+  `WikimediaFileUrl::originalSvgUrl()` resolves the ORIGINAL CDN URL
+  (`…/Foo.svg`, canonical `upload.wikimedia.org` host — `thumb.wikimedia.org`
+  301s originals there) for an SVG thumbnail, and returns null for rasters,
+  already-original URLs and non-Wikimedia hosts. Applied in:
+  - the browser blob fallback (`resources/uploadmeta.js`, mirrored helper) —
+    the bytes are fetched from the original SVG and the file is named after
+    its MIME (`image/svg+xml` → `.svg`);
+  - the server-side `ImageUploadHelper::uploadFromUrl` (the no-JS Add\* path);
+  - `UploadMetadataFetcher` (the metadata probe / Commons query reads the
+    original — also fixes `thumb.wikimedia.org` thumbnail metadata, which the
+    host-gated `fileTitle()` could not resolve).
+  The **original SVG URL** is recorded as the File-page Source (provenance =
+  the bytes source), not the pasted thumbnail URL. No config change: the
+  instance already allows `svg` uploads (`$wgFileExtensions`, Aug 21 2026)
+  and renders them via `$wgSVGConverter = 'rsvg'`; MediaWiki's
+  `UploadVerification` scans SVG uploads for embedded scripts.
+
+- **A converted-upload error reset the source radio.** The blob fallback
+  switches `wpSourceType` to `File` for the internal resubmit (the server
+  must process a file upload). The MIME-mismatch error re-renders the form
+  from that POST, so core faithfully showed "Source filename" — the user's
+  "Source URL" choice was lost. The blob fallback now records the ORIGINAL
+  mode in a hidden `wbUploadmetaSourceType`; the server restores the radio
+  from it on the re-render:
+  - `UploadHooks::onUploadFormSourceDescriptors` for `Special:Upload`;
+  - `SpecialAddExternalEntity::showForm()` (an `HTMLForm::show()` wrapper
+    that corrects the `…Mode` field data) for the Add\* portrait/logo forms
+    and their `Special:Update*` counterparts.
+  The marker is added only by the Wikimedia blob conversion, so a normal
+  file/url submit is unaffected; the warning-recovery form carries no source
+  radios (a stashed session key), so the restore only touches the error
+  re-render.
+
+Regression coverage: `WikimediaFileUrlTest` (the `originalSvgUrl` provider —
+SVG/raster/original/encoded/alias-host shapes) and an `UploadMetadataFetcher`
+case asserting the Commons query targets the original SVG; the page-flow E2E
+gains a served-module guard (`originalSvgUrl` + `wbUploadmetaSourceType`) and
+two server-side regressions — a `Special:Upload` POST and an
+`AddPerson/manual` POST carrying the marker and a `.svg`-named PNG, asserting
+the error re-render keeps the original source radio. No vocabulary/config-map
+change; the deploy is a file rsync + php-fpm restart + cache purge.
