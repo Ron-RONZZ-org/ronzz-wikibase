@@ -2050,6 +2050,60 @@ def flow_person_portrait(op, base: str, api: str, label: str, license_qid: str) 
     return qid, f"File:{label}-portrait.png"
 
 
+def radio_checked(body: str, name: str, value: str) -> bool:
+    """True when the input named `name` with value `value` carries the
+    `checked` attribute. Robust to attribute order and to single/double
+    quotes (core's php-mode radios and OOUI's rendered radios differ)."""
+    for m in re.finditer(r"<input\b[^>]*>", body):
+        tag = m.group(0)
+        if re.search(r"name=[\"']" + re.escape(name) + r"[\"']", tag) and \
+                re.search(r"value=[\"']" + re.escape(value) + r"[\"']", tag):
+            return "checked" in tag
+    return False
+
+
+def flow_person_portrait_source_restore(op, base: str, license_qid: str) -> None:
+    """Source-radio preservation on an Add* error re-render (upload fix).
+
+    The browser blob fallback converts a Wikimedia URL upload into a file
+    upload and records the user's ORIGINAL mode in wbUploadmetaSourceType.
+    When the converted upload is rejected (a ".svg" name carrying PNG
+    bytes — the reported filetype-mime-mismatch), the re-rendered form must
+    show the ORIGINAL source ("Paste a URL"), not the internal "file"
+    conversion. No item is created (the flow asserts that)."""
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    )
+    label = f"Page-flow E2E source restore {int(time.time())}"
+    given, _, family = label.rpartition(" ")
+    url, body = page_get(op, base, "/wiki/Special:AddPerson/manual")
+    token = edit_token(body)
+    url, body = page_post_multipart(op, url, {
+        "wpgivenName": given,
+        "wpfamilyName": family,
+        "wpportraitInclude": "1",
+        "wpportraitMode": "file",
+        # The blob fallback's marker: the user's original source was URL.
+        "wbUploadmetaSourceType": "url",
+        "wpportraitLicense": license_qid,
+        "wpportraitAuthor": "E2E Portrait Author",
+        "wpportraitLicenseInfo": "E2E portrait license note",
+        "wpEditToken": token,
+        "wpSubmit": "1",
+    }, {
+        # A ".svg" name with PNG bytes — the converted-upload MIME mismatch.
+        "wpportraitFile": ("portrait.svg", png, "image/png"),
+    })
+    if "/wiki/Item:" in url or "/wiki/Person:" in url:
+        raise FlowError("AddPerson portrait upload unexpectedly succeeded for a .svg-named PNG")
+    if not radio_checked(body, "wpportraitMode", "url"):
+        raise FlowError("AddPerson portrait error re-render lost the original 'url' source radio "
+                        f"({find_error(body)})")
+    if radio_checked(body, "wpportraitMode", "file"):
+        raise FlowError("AddPerson portrait error re-render shows the internal 'file' conversion")
+    print("[ok] AddPerson portrait: source radio preserved (url) after a converted-upload error")
+
+
 def dest_file_name(label: str) -> str:
     """The server-side destination-file-name normalization for the Add*
     logo/portrait uploads (ImageUploadHelper::destName — issue report):
@@ -2209,6 +2263,44 @@ def flow_upload_special_form(op, base: str) -> None:
         raise FlowError("Special:Upload does not load ext.embeddableContent.uploadform")
 
 
+def flow_upload_special_source_restore(op, base: str) -> None:
+    """Special:Upload source-radio preservation on a converted-upload error
+    (upload fix). The browser blob fallback switches wpSourceType to File for
+    the internal resubmit and records the user's ORIGINAL mode in
+    wbUploadmetaSourceType. When the converted upload is rejected (a ".svg"
+    name carrying PNG bytes — the reported filetype-mime-mismatch), the
+    re-rendered form must show "Source URL", not "Source filename". No file
+    is created."""
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    )
+    dest = f"E2E source restore {int(time.time())}"
+    url, body = page_get(op, base, "/wiki/Special:Upload")
+    token = edit_token(body)
+    url, body = page_post_multipart(op, url, {
+        "wpDestFile": dest + ".svg",
+        "wpUploadDescription": "Uploaded by the page-flow E2E (source restore).",
+        "wpUploadAuthor": "E2E Upload Author",
+        "wpUploadmetaItemize": "1",
+        # The blob fallback's converted state + the original-source marker.
+        "wpSourceType": "File",
+        "wbUploadmetaSourceType": "url",
+        "wpIgnoreWarning": "1",
+        "wpEditToken": token,
+        "wpUpload": "1",
+    }, {
+        "wpUploadFile": (dest + ".svg", png, "image/png"),
+    })
+    if "does not match the detected MIME type" not in body:
+        raise FlowError("Special:Upload did not surface the MIME mismatch for a "
+                        f".svg-named PNG ({find_error(body)})")
+    if not radio_checked(body, "wpSourceType", "url"):
+        raise FlowError("Special:Upload error re-render lost the original 'url' source radio")
+    if radio_checked(body, "wpSourceType", "File"):
+        raise FlowError("Special:Upload error re-render shows the internal 'File' conversion")
+    print("[ok] Special:Upload: source radio preserved (url) after a converted-upload error")
+
+
 def flow_uploadmeta_module_source(op, base: str) -> None:
     """Regression guards on the SERVED uploadmeta module source. The three
     upload follow-up fixes are JS-side (browser blob fallback, dest-name
@@ -2237,6 +2329,19 @@ def flow_uploadmeta_module_source(op, base: str) -> None:
     if 'input[type="submit"]' not in body or "wbUploadmetaSourceUrl" not in body:
         raise FlowError("uploadmeta module: blob-fallback submit-button replication missing "
                         "(Special:Upload wpUpload gate regression)")
+    # SVG-thumbnail source fix + source-radio preservation (upload fix): the
+    # blob fallback fetches the ORIGINAL SVG for a Wikimedia SVG thumbnail
+    # (never the PNG rendition, which mismatches the ".svg" destination name)
+    # and records the user's original source selection so the server can
+    # restore the radio on the converted-upload error re-render.
+    if "function originalSvgUrl" not in body:
+        raise FlowError("uploadmeta module: SVG-thumbnail original-URL helper missing "
+                        "(PNG rendition uploaded under a .svg destination name)")
+    if "originalSvgUrl( url ) || url" not in body:
+        raise FlowError("uploadmeta module: blob fallback does not resolve SVG thumbnails")
+    if "wbUploadmetaSourceType" not in body:
+        raise FlowError("uploadmeta module: original-source marker missing "
+                        "(source radio reset on the converted-upload error)")
     # The Commons imageinfo request must carry iiprop=mime — without it the
     # payload has no MIME type and the validate preview cannot distinguish
     # images (shown as <img>) from other file types (shown as a file-icon
@@ -4782,6 +4887,11 @@ def main() -> int:
         if portrait_qid in created:
             created_pages.append(portrait_file)
 
+        # 3e2b. Source-radio preservation on an Add* converted-upload error
+        #      (upload fix): the blob fallback's internal file conversion must
+        #      not switch the user's source selection on the error re-render.
+        flow_person_portrait_source_restore(op, base, license_item)
+
         # 3e3. Special:Upload (upload enhancements): the semantic license
         #     combobox + attribution fields + single size note render, and a
         #     real submission creates the sitelinked image item.
@@ -4811,6 +4921,7 @@ def main() -> int:
         upload_qid = track(upload_qid)
         print(f"[ok] Special:Upload -> {upload_qid}: image item + statements + "
               f"File-page attribution (item-per-upload)")
+        flow_upload_special_source_restore(op, base)
 
         # 3f. Sitelink tab (issue follow-up): red (needs-set) on a page
         #     without a sitelink, blue (is-set) on the sitelinked FOSS page.

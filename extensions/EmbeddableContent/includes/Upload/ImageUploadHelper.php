@@ -6,6 +6,7 @@ namespace EmbeddableContent\Upload;
 
 use EmbeddableContent\Content\FragmentSanitizer;
 use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\Fetch\WikimediaFileUrl;
 use EmbeddableContent\Fields\EntityCombobox;
 use MediaWiki\Context\IContextSource;
 use MediaWiki\MediaWikiServices;
@@ -427,6 +428,14 @@ final class ImageUploadHelper {
 		if ( !UploadFromUrl::isAllowed( $user ) ) {
 			return null;
 		}
+		// A Wikimedia SVG THUMBNAIL URL is a raster rendition of the vector
+		// original: fetching it would upload a PNG under the ".svg"
+		// destination name (filetype-mime-mismatch) and scale worse. Fetch
+		// the original SVG instead and record it as the provenance URL (the
+		// bytes source). The helper is mirrored in uploadmeta.js for the
+		// browser-blob path.
+		$url = WikimediaFileUrl::originalSvgUrl( $url ) ?? $url;
+		$record[$prefix . 'Url'] = $url;
 		$path = parse_url( $url, PHP_URL_PATH );
 		$name = $path !== false && $path !== null && $path !== '' ? basename( $path ) : $prefix;
 		$mime = self::mimeFromUrl( $url );

@@ -70,6 +70,10 @@ wikitable via `[[File:data.csv]]` + the existing-extension survey),
 `wiki-bug-fixes-2026-09c.md` (OpenAlex author name split, the clipboard-blocked
 upload-copy fallback, and the multiline-display-math `gathered` wrap),
 `label-title-and-page-item-linking.md` (the label→title first-letter
-capitalization fix + the Main-page→item reverse hook), `subpages.md`
+capitalization fix + the Main-page→item reverse hook), `upload-enhancements.md`
+(`Special:Upload` + Add\* portrait/logo uploads — Wikimedia metadata fetch +
+429 blob fallback, semantic license combobox, item-per-upload; round 5: the
+Wikimedia SVG-thumbnail source fix + the converted-upload source-radio
+preservation), `subpages.md`
 (subpages in every namespace except Main; the breadcrumb needs an existing
 parent page).

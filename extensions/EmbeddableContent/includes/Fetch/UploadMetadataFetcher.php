@@ -58,6 +58,13 @@ final class UploadMetadataFetcher {
 		// license and description directly. Best-effort — the generic probe
 		// is the fallback when no title can be extracted.
 		if ( WikimediaFileUrl::isWikimediaHost( $url ) ) {
+			// An SVG THUMBNAIL is a raster rendition of the vector original:
+			// its metadata reports image/png while the destination name
+			// derived from the file title carries ".svg" (the
+			// filetype-mime-mismatch). Resolve the original SVG and read the
+			// metadata there — the browser blob path fetches the same URL for
+			// the bytes (resources/uploadmeta.js mirrors the helper).
+			$url = WikimediaFileUrl::originalSvgUrl( $url ) ?? $url;
 			$query = WikimediaFileUrl::commonsQuery( $url );
 			if ( $query !== null ) {
 				$meta = $this->commonsImageInfo( $query['api'], $query['title'], $url, $timeout );

@@ -131,7 +131,7 @@ trait UpdateExternalEntityFlow {
 			->setSubmitCallback( fn ( array $data ) => $this->onUpdateSubmit( $data, $itemId ) )
 			->setSubmitID( 'wb-ext-update' )
 			->setWrapperLegendMsg( 'embeddablecontent-update-legend' );
-		$form->show();
+		$this->showForm( $form );
 	}
 
 	/**

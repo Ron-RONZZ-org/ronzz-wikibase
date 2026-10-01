@@ -259,4 +259,43 @@ final class UploadMetadataFetcherTest extends TestCase {
 		$this->assertStringContainsString( 'titles=File%3AMagnus-manske-2024+%28cropped%29.jpg', $captured );
 		$this->assertStringNotContainsString( '%2528', $captured );
 	}
+
+	public function testWikimediaSvgThumbnailResolvesOriginalSvg(): void {
+		// The reported bug: a thumbnail URL of an SVG. The metadata must be
+		// read from the ORIGINAL SVG (image/svg+xml), not the PNG rendition —
+		// otherwise the destination name carries ".svg" while the fetched
+		// bytes are PNG (filetype-mime-mismatch), and the PNG scales worse.
+		$captured = null;
+		$transport = static function ( string $url, float $timeout ) use ( &$captured ): array {
+			$captured = $url;
+			return [
+				'status' => 200,
+				'headers' => [ 'content-type' => [ 'application/json' ] ],
+				'body' => json_encode( [
+					'query' => [ 'pages' => [ [ 'imageinfo' => [ [
+						'width' => 960,
+						'height' => 720,
+						'size' => 526,
+						'mime' => 'image/svg+xml',
+						'thumburl' => 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/96/Parallelogram_law_squares.svg/960px-Parallelogram_law_squares.svg.png',
+						'descriptionurl' => 'https://commons.wikimedia.org/wiki/File:Parallelogram_law_squares.svg',
+						'extmetadata' => [
+							'LicenseShortName' => [ 'value' => 'CC0' ],
+						],
+					] ] ] ] ],
+				] ),
+			];
+		};
+
+		$fetcher = new UploadMetadataFetcher( $transport );
+		$meta = $fetcher->fetch(
+			'https://upload.wikimedia.org/wikipedia/commons/thumb/9/96/Parallelogram_law_squares.svg/960px-Parallelogram_law_squares.svg.png'
+		);
+
+		// The Commons query targets the ORIGINAL SVG title, not the thumbnail.
+		$this->assertStringContainsString( 'titles=File%3AParallelogram+law+squares.svg', $captured );
+		$this->assertSame( 'image/svg+xml', $meta->mime );
+		$this->assertSame( 960, $meta->width );
+		$this->assertSame( 720, $meta->height );
+	}
 }
