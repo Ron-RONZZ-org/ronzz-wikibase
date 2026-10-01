@@ -4,6 +4,7 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\Spec;
 
+use EmbeddableContent\Content\RichTextRenderer;
 use EmbeddableContent\EmbeddableContentConfig;
 use MediaWiki\Html\Html;
 use MediaWiki\SpecialPage\SpecialPage;
@@ -115,24 +116,34 @@ class SpecialQuotationsOf extends SpecialPage {
 	 * @param array<int,array{qid:string,content:string,label:string}> $quotations
 	 */
 	private function listHtml( array $quotations ): string {
+		$richText = new RichTextRenderer();
+		$modules = [];
+		$moduleStyles = [];
 		$items = [];
 		foreach ( $quotations as $row ) {
 			$text = $row['content'] !== '' ? $row['content'] : ( $row['label'] !== '' ? $row['label'] : $row['qid'] );
+			// Rich content: the payload is full wikitext ([[File:…]], links,
+			// emphasis, $…$) parsed by MediaWiki's own sanitizer.
+			$result = $richText->render( $text, $this->getPageTitle() );
+			$modules = array_merge( $modules, $result->getModules() );
+			$moduleStyles = array_merge( $moduleStyles, $result->getModuleStyles() );
 			$itemTitle = WikibaseRepo::getEntityTitleStoreLookup()->getTitleForId( new ItemId( $row['qid'] ) );
 			$link = Html::element( 'a',
 				[ 'href' => $itemTitle ? $itemTitle->getFullURL() : '#', 'title' => $row['qid'] ],
 				'[' . $row['qid'] . ']'
 			);
-			// The quotation text is escaped as text (Html::rawElement would
-			// render stored markup — the payload is decode-at-render, never
-			// raw HTML on this surface).
+			// The parsed fragment is MediaWiki parser output (the XSS
+			// boundary); embed it raw inside the blockquote — the parser
+			// supplies its own <p>, matched by the entry's pre-line style.
 			$items[] = Html::rawElement( 'div', [ 'class' => 'wb-quotations-of-entry' ],
 				Html::rawElement( 'blockquote', [ 'class' => 'wb-embed wb-embed-quotation' ],
-					Html::element( 'p', [], $text )
+					$result->getHtml()
 				)
 				. Html::rawElement( 'p', [ 'class' => 'wb-quotations-of-source' ], $link )
 			);
 		}
+		$this->getOutput()->addModules( array_values( array_unique( $modules ) ) );
+		$this->getOutput()->addModuleStyles( array_values( array_unique( $moduleStyles ) ) );
 		return Html::rawElement( 'div', [ 'class' => 'wb-quotations-of-list' ], implode( "\n", $items ) );
 	}
 

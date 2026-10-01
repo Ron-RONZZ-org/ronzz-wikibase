@@ -108,7 +108,7 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 		$defaults = [ 'label' => $record['label'] ?? '', 'payload' => $record['content'] ?? '' ];
 		foreach ( [
 			'language', 'lexer', 'attributedTo', 'sourceUrl', 'source',
-			'date', 'describes', 'implementationOf',
+			'date', 'describes', 'implementationOf', 'note',
 		] as $name ) {
 			if ( !empty( $record[$name] ) ) {
 				$defaults[$name] = $record[$name];
@@ -165,6 +165,17 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 					$record['lexer'] = $lexer;
 				}
 				break;
+			}
+		}
+
+		// The math accompanying note (rich wikitext, decoded).
+		$notePropertyId = $this->config->notePropertyId();
+		if ( $kind === 'math' && $notePropertyId !== null ) {
+			foreach ( $this->statementValues( $item, $notePropertyId ) as $value ) {
+				if ( isset( $value['text'] ) ) {
+					$record['note'] = PayloadCodec::decode( $value['text'] );
+					break;
+				}
 			}
 		}
 

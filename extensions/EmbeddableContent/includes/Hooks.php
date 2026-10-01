@@ -235,6 +235,20 @@ class Hooks {
 			return;
 		}
 
+		// Ordinary content pages (Main, Help, Cheatsheets, HowItWorks, …) —
+		// the "Copy internal reference" button, rendered inline next to the
+		// title (the File: page copy-button pattern). Entity pages
+		// (Item:/Property:), Special pages, File: pages and the per-kind
+		// classic namespaces are handled above; only real, existing content
+		// pages qualify.
+		if ( $title->exists() && $title->isContentPage()
+			&& !self::isEntityNamespace( $title->getNamespace() )
+		) {
+			$out->addJsConfigVars( 'wbReferencePageName', $title->getPrefixedText() );
+			$out->addModules( 'ext.embeddableContent.contentpagetoolbar' );
+			return;
+		}
+
 		$namespaceLookup = WikibaseRepo::getEntityNamespaceLookup();
 		$itemNamespace = $namespaceLookup->getEntityNamespace( Item::ENTITY_TYPE );
 		if ( $itemNamespace === false || $title->getNamespace() !== $itemNamespace ) {
@@ -267,6 +281,22 @@ class Hooks {
 	private static function isClassicEntityNamespace( int $namespace ): bool {
 		foreach ( [ 'NS_FOSS', 'NS_PERSON', 'NS_SOURCE', 'NS_COLLECTIVE', 'NS_SOFTWARE' ] as $constant ) {
 			if ( defined( $constant ) && $namespace === constant( $constant ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Whether the namespace is a Wikibase entity namespace (Item:/Property:).
+	 * Entity pages have their own toolbar wiring (or none); they must not get
+	 * the classic content-page toolbar.
+	 */
+	private static function isEntityNamespace( int $namespace ): bool {
+		$lookup = WikibaseRepo::getEntityNamespaceLookup();
+		foreach ( [ Item::ENTITY_TYPE, Property::ENTITY_TYPE ] as $entityType ) {
+			$entityNamespace = $lookup->getEntityNamespace( $entityType );
+			if ( $entityNamespace !== false && $namespace === $entityNamespace ) {
 				return true;
 			}
 		}

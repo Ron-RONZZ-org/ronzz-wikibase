@@ -29,8 +29,17 @@ class QuoteRenderer {
 	}
 
 	public function render( string $text, string $lang ): string {
+		return $this->wrapHtml( $this->sanitizer->escapeText( $text ), $lang );
+	}
+
+	/**
+	 * Wraps ALREADY-SAFE inner HTML in the quotation blockquote. Used for the
+	 * rich-content path: the payload is parsed as wikitext (MediaWiki's own
+	 * sanitizer) and the result is embedded verbatim.
+	 */
+	public function wrapHtml( string $innerHtml, string $lang ): string {
 		return '<blockquote class="wb-embed wb-embed-quotation" lang="' . $this->sanitizer->escapeAttribute( $lang ) . '">'
-			. $this->sanitizer->escapeText( $text )
+			. $innerHtml
 			. '</blockquote>';
 	}
 }

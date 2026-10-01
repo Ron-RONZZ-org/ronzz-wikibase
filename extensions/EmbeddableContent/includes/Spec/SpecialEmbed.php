@@ -96,6 +96,10 @@ class SpecialEmbed extends SpecialPage {
 		// all (articleBodyOnly), so client-side rendering could never run.
 		$output->setArticleBodyOnly( false );
 		$output->addModules( 'ext.embeddableContent.embed' );
+		// Rich-content fragments (quotation media, math note) may need extra
+		// modules/styles — e.g. SimpleMathJax for a note's `$…$`.
+		$output->addModules( $result->getModules() );
+		$output->addModuleStyles( $result->getModuleStyles() );
 		try {
 			$skin = \MediaWiki\MediaWikiServices::getInstance()->getSkinFactory()->makeSkin( 'embedskin' );
 			$this->getContext()->setSkin( $skin );

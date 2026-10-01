@@ -88,6 +88,14 @@ final class SpecialContentFlowService {
 			$record['content'] = PayloadCodec::escape( $payload );
 		}
 
+		// The math accompanying note is rich wikitext (links, media, $…$):
+		// stored escaped-at-rest like every multi-line payload, decoded at
+		// render.
+		$note = trim( (string)( $record['note'] ?? '' ) );
+		if ( $note !== '' ) {
+			$record['note'] = PayloadCodec::escape( $note );
+		}
+
 		$language = (string)( $record['language'] ?? 'en' );
 		if ( $kind === 'quotation' && !preg_match( '/^[a-z]{2,8}(?:-[a-z0-9]{2,8})*$/i', $language ) ) {
 			return "language \"{$language}\" is not a valid language code.";
@@ -152,6 +160,14 @@ final class SpecialContentFlowService {
 			$specs[$this->config->programmingLanguagePropertyId()] = new EntityIdValue(
 				new ItemId( strtoupper( (string)$record['programmingLanguage'] ) )
 			);
+		}
+
+		// The math accompanying note (rich wikitext, escaped-at-rest).
+		if ( $kind === 'math' && isset( $record['note'] ) && $record['note'] !== '' ) {
+			$notePropertyId = $this->config->notePropertyId();
+			if ( $notePropertyId !== null ) {
+				$specs[$notePropertyId] = new StringValue( (string)$record['note'] );
+			}
 		}
 
 		$provenance = $this->config->provenancePropertyIds();
