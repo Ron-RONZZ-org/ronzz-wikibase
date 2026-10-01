@@ -378,17 +378,29 @@ def xss(args: argparse.Namespace) -> int:
         )
         print(f"created XSS item {item_id}")
 
-    # Fetch the rendered fragment through both surfaces.
+    # Fetch the rendered fragment through both surfaces. The API surface uses
+    # the module's `output=html` — the `format` API parameter is the RESPONSE
+    # format, and `format=html` is invalid (it returned an error page, making
+    # the injection assertions vacuous).
     failures = []
-    for label, url in [
-        ("api", f"{args.api_url}?action=embed&entity={item_id}&format=html"),
-        ("page", f"{args.base_url}/wiki/Special:Embed/{item_id}"),
-    ]:
-        status, body, _ = http_get(url)
-        if status != 200:
-            failures.append(f"{label}: HTTP {status}")
-            continue
-        html = body.decode("utf-8", "replace")
+    api_params = { "action": "embed", "entity": item_id, "output": "html", "format": "json" }
+    api_status, api_body, _ = http_get(f"{args.api_url}?{urllib.parse.urlencode(api_params)}")
+    surfaces = []
+    if api_status == 200:
+        try:
+            api_payload = json.loads(api_body.decode("utf-8", "replace"))
+        except json.JSONDecodeError:
+            api_payload = {}
+        surfaces.append(("api", api_payload.get("embed", {}).get("html", "")))
+    else:
+        failures.append(f"api: HTTP {api_status}")
+    page_status, page_body, _ = http_get(f"{args.base_url}/wiki/Special:Embed/{item_id}")
+    if page_status == 200:
+        surfaces.append(("page", page_body.decode("utf-8", "replace")))
+    else:
+        failures.append(f"page: HTTP {page_status}")
+
+    for label, html in surfaces:
         for injection in XSS_INJECTIONS:
             # Real XSS semantics: markup-like injections (tags, event
             # handlers) must be escaped away entirely; a bare `javascript:`
@@ -398,7 +410,6 @@ def xss(args: argparse.Namespace) -> int:
                 if injection in html:
                     failures.append(f"{label}: raw injection survived: {injection!r}")
             elif injection.startswith("javascript:"):
-                import re
                 if re.search(r"<[^>]*javascript:", html):
                     failures.append(f"{label}: javascript: survived in an attribute: {injection!r}")
 
@@ -536,9 +547,12 @@ def rich(args: argparse.Namespace) -> int:
                 print(f"  [FAIL] {name}: {exc}")
 
         def embed(entity: str) -> str:
-            status, body, _ = http_get(f"{args.api_url}?action=embed&entity={entity}&format=html")
+            params = { "action": "embed", "entity": entity, "output": "html", "format": "json" }
+            status, body, _ = http_get(f"{args.api_url}?{urllib.parse.urlencode(params)}")
             expect(status == 200, f"embed {entity}: HTTP {status}")
-            return body.decode("utf-8", "replace")
+            payload = json.loads(body.decode("utf-8", "replace"))
+            expect("embed" in payload, f"embed {entity}: API error: {payload.get('error')!r}")
+            return payload["embed"]["html"]
 
         def quotation_is_rich() -> None:
             html = embed(quote_id)
@@ -563,13 +577,17 @@ def rich(args: argparse.Namespace) -> int:
             expect("wb-embed-math" in without, "{{#content:Q|noNote}} dropped the math")
 
         def injections_do_not_survive() -> None:
+            # Check the EXACT injection (the wiki pages carry their own
+            # ResourceLoader <script> tags, so a bare "<script>" substring is
+            # not a leak signal on the full-page surfaces).
+            injection = "<script>alert(1)</script>"
             for label, html in [
                 ("math embed", embed(math_id)),
                 ("math parse", _parse_wikitext(args.api_url, f"{{{{#content:{math_id}}}}}")),
                 ("quotation embed", embed(quote_id)),
                 ("quotation parse", _parse_wikitext(args.api_url, f"{{{{#content:{quote_id}}}}}")),
             ]:
-                expect("<script>" not in html, f"{label}: raw <script> survived")
+                expect(injection not in html, f"{label}: raw injection survived")
 
         def quotation_listing_renders_rich() -> None:
             # Special:QuotationsOf is a live WDQS listing — the updater is
@@ -589,7 +607,7 @@ def rich(args: argparse.Namespace) -> int:
                     )
                 time.sleep(5)
             expect("<i>italic</i>" in html, "QuotationsOf did not render the quotation wikitext")
-            expect("<script>" not in html, "QuotationsOf leaked a raw <script>")
+            expect("<script>alert(1)</script>" not in html, "QuotationsOf leaked the raw injection")
 
         run_check("quotation payload parses as wikitext (embed surface)", quotation_is_rich)
         run_check("quotation payload parses as wikitext ({{#content:}})", quotation_rich_in_parser_function)
