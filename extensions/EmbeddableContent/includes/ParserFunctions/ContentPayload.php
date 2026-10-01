@@ -11,6 +11,7 @@ use EmbeddableContent\Content\FragmentSanitizer;
 use EmbeddableContent\Content\MathRenderer;
 use EmbeddableContent\Content\PayloadCodec;
 use EmbeddableContent\Content\QuoteRenderer;
+use EmbeddableContent\Content\RichTextRenderer;
 use EmbeddableContent\EmbeddableContentConfig;
 use MediaWiki\Parser\Parser;
 use Wikibase\DataModel\Entity\EntityId;
@@ -107,10 +108,14 @@ final class ContentPayload {
 		$parser->getOutput()->addModules( [ self::EMBED_MODULE ] );
 
 		$sanitizer = new FragmentSanitizer();
+		$richText = new RichTextRenderer();
 		switch ( $kind ) {
 			case 'quotation':
-				$html = ( new QuoteRenderer( $sanitizer, $config ) )->render(
-					$payload['text'],
+				// Rich content: the payload is full wikitext ([[File:…]],
+				// links, emphasis, $…$) parsed by MediaWiki's own sanitizer,
+				// then wrapped in the quotation blockquote.
+				$html = ( new QuoteRenderer( $sanitizer, $config ) )->wrapHtml(
+					$richText->renderWithParser( $parser, $payload['text'] ),
 					$payload['lang'] ?? 'en'
 				);
 				break;
@@ -122,6 +127,16 @@ final class ContentPayload {
 				break;
 			case 'math':
 				$html = ( new MathRenderer( $sanitizer ) )->render( $payload['text'] );
+				// The accompanying note (rich wikitext) renders below the
+				// math by default; {{#content:Q42|noNote}} suppresses it.
+				if ( !ContentArgs::noNote( $args ) ) {
+					$note = self::noteFor( $entity, $config );
+					if ( $note !== '' ) {
+						$html .= '<div class="wb-embed wb-embed-note">'
+							. $richText->renderWithParser( $parser, $note )
+							. '</div>';
+					}
+				}
 				break;
 			default:
 				return self::emptyResult();
@@ -223,6 +238,31 @@ final class ContentPayload {
 			return [ 'text' => '' ];
 		}
 		return [ 'text' => $payloads[''] ?? '' ];
+	}
+
+	/**
+	 * The item's accompanying note (math items): the decoded wikitext of the
+	 * `note` property, or '' when the item carries none / the instance has no
+	 * note vocabulary.
+	 */
+	private static function noteFor( Item $item, EmbeddableContentConfig $config ): string {
+		$noteProperty = $config->notePropertyId();
+		if ( $noteProperty === null ) {
+			return '';
+		}
+		foreach ( $item->getStatements() as $statement ) {
+			$snak = $statement->getMainSnak();
+			if ( !$snak instanceof PropertyValueSnak
+				|| $snak->getPropertyId()->getSerialization() !== $noteProperty
+			) {
+				continue;
+			}
+			$value = $snak->getDataValue();
+			if ( $value instanceof StringValue ) {
+				return PayloadCodec::decode( $value->getValue() );
+			}
+		}
+		return '';
 	}
 
 	/** The Pygments lexer for the item's programming-language statement. */

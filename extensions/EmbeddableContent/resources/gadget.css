@@ -46,10 +46,12 @@
 	font-size: 0.85em;
 }
 
-/* File: page copy buttons — inline, immediately right of the file-name
- * title (the h1 is large, so the buttons use a fixed small size rather than
- * inheriting the title's em scale). */
-.wb-file-toolbar {
+/* File: page copy buttons AND the classic content-page action toolbar —
+ * inline, immediately right of the page title (the h1 is large, so the
+ * buttons use a fixed small size rather than inheriting the title's em
+ * scale). */
+.wb-file-toolbar,
+.wb-content-page-toolbar {
 	display: inline-flex;
 	gap: 6px;
 	margin-inline-start: 10px;
@@ -57,7 +59,8 @@
 	font-size: 0.8rem;
 }
 
-.wb-file-toolbar .wb-embed-toolbar-btn {
+.wb-file-toolbar .wb-embed-toolbar-btn,
+.wb-content-page-toolbar .wb-embed-toolbar-btn {
 	font-size: 1em;
 	padding: 2px 8px;
 }

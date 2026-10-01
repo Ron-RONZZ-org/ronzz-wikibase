@@ -35,6 +35,12 @@ class RenderResult {
 	/** @var int|null revision timestamp (unix) for Last-Modified */
 	private $lastModified;
 
+	/** @var string[] ResourceLoader modules the fragment needs */
+	private $modules;
+
+	/** @var string[] ResourceLoader module styles the fragment needs */
+	private $moduleStyles;
+
 	public function __construct(
 		string $kind,
 		string $title,
@@ -42,7 +48,9 @@ class RenderResult {
 		string $lang,
 		array $languages,
 		string $cacheKey,
-		?int $lastModified
+		?int $lastModified,
+		array $modules = [],
+		array $moduleStyles = []
 	) {
 		$this->kind = $kind;
 		$this->title = $title;
@@ -51,6 +59,8 @@ class RenderResult {
 		$this->languages = $languages;
 		$this->cacheKey = $cacheKey;
 		$this->lastModified = $lastModified;
+		$this->modules = $modules;
+		$this->moduleStyles = $moduleStyles;
 	}
 
 	public function getKind(): string {
@@ -84,5 +94,15 @@ class RenderResult {
 
 	public function getLastModified(): ?int {
 		return $this->lastModified;
+	}
+
+	/** @return string[] ResourceLoader modules the fragment needs */
+	public function getModules(): array {
+		return $this->modules;
+	}
+
+	/** @return string[] ResourceLoader module styles the fragment needs */
+	public function getModuleStyles(): array {
+		return $this->moduleStyles;
 	}
 }

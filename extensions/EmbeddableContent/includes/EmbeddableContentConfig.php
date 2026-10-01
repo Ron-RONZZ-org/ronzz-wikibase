@@ -77,6 +77,16 @@ class EmbeddableContentConfig {
 		return $this->optionalString( 'implementationOf' );
 	}
 
+	/**
+	 * Accompanying-note property (the math item's optional wikitext note).
+	 * Nullable: absent on instances seeded before this property existed —
+	 * the math form then renders no note field and `{{#content:}}` renders
+	 * no note.
+	 */
+	public function notePropertyId(): ?string {
+		return $this->optionalString( 'note' );
+	}
+
 	/** @return array<string,string> canonical provenance key => property id */
 	public function provenancePropertyIds(): array {
 		$allowed = [ 'attributedTo', 'sourceUrl', 'source', 'date' ];

@@ -29,6 +29,7 @@ class SpecialContentFlowServiceTest extends TestCase {
 		'provenance' => [ 'attributedTo' => 'P6', 'sourceUrl' => 'P7', 'date' => 'P8', 'source' => 'P28' ],
 		'describes' => 'P29',
 		'implementationOf' => 'P30',
+		'note' => 'P31',
 	];
 
 	private function makeService(): SpecialContentFlowService {
@@ -106,6 +107,50 @@ class SpecialContentFlowServiceTest extends TestCase {
 		) );
 		$this->assertSame( 'https://example.org/x', $specs['P7']->getValue() );
 		$this->assertInstanceOf( TimeValue::class, $specs['P8'] );
+	}
+
+	public function testMathNoteIsEscapedAndWritten(): void {
+		$service = $this->makeService();
+		$record = [ 'label' => 'E', 'content' => 'E=mc^2', 'note' => "see [[File:x.png]]\nand \$x\$" ];
+
+		$this->assertNull( $service->prepare( 'math', $record, true ) );
+		// Stored escaped-at-rest (real newline → \n sequence).
+		$this->assertSame( 'see [[File:x.png]]\\nand $x$', $record['note'] );
+
+		$specs = $service->statementSpecs( 'math', $record );
+		$this->assertInstanceOf( StringValue::class, $specs['P31'] );
+		$this->assertSame( 'see [[File:x.png]]\\nand $x$', $specs['P31']->getValue() );
+	}
+
+	public function testNoteIsRejectedForQuotationAndCode(): void {
+		$service = $this->makeService();
+		$quotation = [ 'label' => 'x', 'content' => 'hi', 'attributedTo' => 'Q6', 'note' => 'n' ];
+		$error = $service->prepare( 'quotation', $quotation, true );
+		$this->assertIsString( $error );
+		$this->assertStringContainsString( 'does not accept the field(s) note', $error );
+
+		$code = [ 'label' => 'x', 'content' => 'print(1)', 'note' => 'n' ];
+		$this->assertIsString( $service->prepare( 'code-snippet', $code, true ) );
+	}
+
+	public function testBlankNoteKeepsTheExistingStatementOnUpdate(): void {
+		$service = $this->makeService();
+		$record = [ 'label' => 'E', 'content' => 'E=mc^2', 'note' => 'first note' ];
+		$this->assertNull( $service->prepare( 'math', $record, true ) );
+		$item = $service->buildItem( 'math', $record );
+		$item->setId( new ItemId( 'Q42' ) );
+
+		// A blank note is NOT provided: the update must not manage (remove)
+		// the note property — the stored note survives (no-clobber).
+		$service->applyUpdate( 'math', $item, [ 'content' => 'E=mc^3' ] );
+
+		$notes = [];
+		foreach ( $item->getStatements() as $statement ) {
+			if ( $statement->getPropertyId()->getSerialization() === 'P31' ) {
+				$notes[] = $statement->getMainSnak()->getDataValue()->getValue();
+			}
+		}
+		$this->assertSame( [ 'first note' ], $notes );
 	}
 
 	public function testApplyUpdateIsNoClobber(): void {

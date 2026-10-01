@@ -28,6 +28,8 @@ PROPERTY_KINDS = {
     # 'implementation of'); both align to Wikidata main subject (P921).
     "describes": ("describes", None),
     "implementation of": ("implementationOf", None),
+    # Math accompanying note (rich wikitext rendered below the expression).
+    "note": ("note", None),
 }
 
 # Issue #7: authority ExternalId properties (Special pages write these).
@@ -399,6 +401,7 @@ def build_config(
     programming_language = None
     describes = None
     implementation_of = None
+    note = None
     for label, (section, key) in PROPERTY_KINDS.items():
         if label not in property_ids:
             continue
@@ -413,6 +416,8 @@ def build_config(
             describes = prop_id
         elif section == "implementationOf":
             implementation_of = prop_id
+        elif section == "note":
+            note = prop_id
 
     external_ids: dict[str, str] = {}
     for label, key in EXTERNAL_ID_KINDS.items():
@@ -473,6 +478,7 @@ def build_config(
         "programmingLanguage": programming_language,
         "describes": describes,
         "implementationOf": implementation_of,
+        "note": note,
         "provenance": provenance,
         "externalIds": external_ids,
         "citationMetadata": citation_metadata,

@@ -1019,6 +1019,31 @@ report). See `SimpleMathJax/VENDORED.md`.
   `SimpleMathJax/VENDORED.md` for the companion quote-guard
   paragraph-break fix (the `Atom#Elements` bold regression).
 
+- **Rich content + math note + content-page reference toolbar (ADR
+  `docs/decisions/rich-content-and-math-note.md` +
+  `docs/decisions/content-page-reference-toolbar.md`)**: (a) **Quotation
+  payloads are full wikitext** — `[[File:…]]` media, links, emphasis and
+  `$…$` render on `{{#content:}}`, `Special:QuotationsOf` and the embed
+  surfaces via the new `Content/RichTextRenderer` (parser-context
+  `recursiveTagParse`; parser-less `ParserFactory` + a `RichTextResult`
+  carrying the parser-output modules). The embed renderer substitutes the
+  parser HTML AFTER its `removeSomeTags` re-pass (a per-render token), and
+  `RenderResult` now carries the extra modules/styles that `Special:Embed`
+  loads (e.g. SimpleMathJax for a note's `$…$`). `video`/`audio`/`svg`
+  remain barred. (b) **The math accompanying note** — new `note` string
+  property (manifest + seed `note` config key, nullable for pre-seed
+  instances), a math-only `note` textarea on Add/Update (prefilled decoded),
+  rendered below the expression in a `.wb-embed-note` block;
+  `{{#content:Q…|noNote}}` (`ParserFunctions/ContentArgs::noNote`,
+  case-insensitive) suppresses it. (c) **Classic content-page toolbar** —
+  `resources/contentpagetoolbar.js` renders a "Copy internal reference"
+  button inline next to the title on ordinary content pages (the
+  `Hooks::onBeforePageDisplay` branch sets `wbReferencePageName`), copying
+  `[[Page name]]`; File:/per-kind/entity pages keep their own toolbars.
+  **Re-seed required** (new property). Tests: `run_e2e.py rich`
+  (self-cleaning), `run_wiki_ux_e2e.mjs`, `run_addmath_ux_e2e.mjs`,
+  `SpecialContentFlowServiceTest`/`FieldMapTest`/`ContentArgsTest`.
+
 ### WikibaseCitation
 
 

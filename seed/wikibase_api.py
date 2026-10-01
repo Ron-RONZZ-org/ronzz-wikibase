@@ -200,6 +200,18 @@ class WikibaseApi:
         if result.get("edit", {}).get("result") != "Success":
             raise WikibaseApiError(f"action=edit failed for {title}: {result}")
 
+    def delete_item(self, entity_id: str, summary: str) -> None:
+        """Deletes an item page (``Item:<id>``) — E2E scratch cleanup."""
+        title = entity_id if entity_id.startswith("Item:") else f"Item:{entity_id}"
+        result = self._post(
+            "action=delete",
+            token=self.require_csrf(),
+            title=title,
+            reason=summary,
+        )
+        if "error" in result:
+            raise WikibaseApiError(f"action=delete failed for {title}: {result['error']}")
+
     # ------------------------------------------------------------- helpers
 
     @staticmethod

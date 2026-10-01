@@ -25,7 +25,7 @@
 	"config": {
 		"EmbeddableContentConfig": {
 			"value": [],
-			"description": "Instance-specific config map emitted by the seed (issue #6 D2 + issue #7): instanceOf, classes, agentClasses, sourceClasses, payloadProperties, programmingLanguage, provenance, externalIds, citationMetadata, formatterUrl, sourceClassByWikidata, agentClassByWikidata, fallbackLanguages, lexers."
+			"description": "Instance-specific config map emitted by the seed (issue #6 D2 + issue #7): instanceOf, classes, agentClasses, sourceClasses, payloadProperties, programmingLanguage, describes, implementationOf, note, provenance, externalIds, citationMetadata, formatterUrl, sourceClassByWikidata, agentClassByWikidata, fallbackLanguages, lexers."
 		}
 	},
 	"ServiceWiringFiles": [
@@ -498,6 +498,27 @@
 				"embeddablecontent-file-copylink-hint",
 				"embeddablecontent-gadget-copied",
 				"embeddablecontent-upload-copyembed-notice"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.contentpagetoolbar": {
+			"scripts": [
+				"contentpagetoolbar.js"
+			],
+			"styles": [
+				"gadget.css"
+			],
+			"dependencies": [
+				"mediawiki.notification",
+				"mediawiki.util"
+			],
+			"messages": [
+				"embeddablecontent-contentpage-copyref",
+				"embeddablecontent-contentpage-copyref-hint",
+				"embeddablecontent-gadget-copied"
 			],
 			"targets": [
 				"desktop",

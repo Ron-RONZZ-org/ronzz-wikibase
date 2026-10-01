@@ -29,7 +29,8 @@ Self-hosted **Wikibase** (structured-data wiki, the software behind Wikidata) on
 - `docs/decisions/` — ADR-style design rationale (opaque IDs, ontology alignment,
   raw RDF in Blazegraph, cite-by-QID, static LLM translation, automatic
   languages bar, forum via DPLforum, diagrams via Extension:Diagrams, inline
-  LaTeX math via SimpleMathJax)
+  LaTeX math via SimpleMathJax, rich content + math note, content-page
+  reference toolbar)
 - `docs/contribution-guide.md` — pointer to the on-wiki `Help:Contributing` family
 - Editor-facing rules live on-wiki at `Help:Contributing` (public)
 

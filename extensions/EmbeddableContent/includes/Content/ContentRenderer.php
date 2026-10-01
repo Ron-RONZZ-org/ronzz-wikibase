@@ -6,12 +6,14 @@ namespace EmbeddableContent\Content;
 
 use EmbeddableContent\EmbeddableContentConfig;
 use MediaWiki\Context\IContextSource;
+use MediaWiki\Title\Title;
 use Wikimedia\ObjectCache\BagOStuff;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\DataModel\Services\Lookup\EntityLookup;
 use Wikibase\Lib\Store\EntityRevisionLookup;
+use Wikibase\Repo\WikibaseRepo;
 
 /**
  * Shared embed renderer: conformance check, payload extraction, language
@@ -58,6 +60,9 @@ class ContentRenderer {
 	/** @var MathRenderer */
 	private $mathRenderer;
 
+	/** @var RichTextRenderer */
+	private $richText;
+
 	public function __construct(
 		EmbeddableContentConfig $config,
 		EntityLookup $entityLookup,
@@ -73,6 +78,7 @@ class ContentRenderer {
 		$this->quoteRenderer = new QuoteRenderer( $this->sanitizer, $config );
 		$this->codeRenderer = new CodeRenderer( $this->sanitizer, $config );
 		$this->mathRenderer = new MathRenderer( $this->sanitizer );
+		$this->richText = new RichTextRenderer();
 	}
 
 	/**
@@ -144,15 +150,30 @@ class ContentRenderer {
 		);
 
 		$html = $this->cache->get( $cacheKey );
-		if ( !is_string( $html ) ) {
+		$modules = [];
+		$moduleStyles = [];
+		if ( is_array( $html ) && isset( $html['html'] ) ) {
+			$cached = $html;
+			$html = (string)$cached['html'];
+			$modules = is_array( $cached['modules'] ?? null ) ? $cached['modules'] : [];
+			$moduleStyles = is_array( $cached['moduleStyles'] ?? null ) ? $cached['moduleStyles'] : [];
+		} elseif ( is_string( $html ) ) {
+			// Legacy cache entry (pre-rich-content): fragment HTML only.
+		} else {
+			// Rich-content fragments (parsed wikitext) are substituted AFTER
+			// the sanitizer re-pass: MediaWiki's parser is their sanitizer,
+			// and the re-pass whitelist would escape the media markup
+			// ([[File:…]] → <figure>/<img>). A per-render token carries the
+			// parsed HTML through the sanitizer untouched.
+			$richParts = [];
 			if ( $multi ) {
 				$fragments = [];
 				foreach ( $payload as $code => $text ) {
-					$fragments[] = $this->renderKind( $kind, $item, [ $code => $text ], (string)$code );
+					$fragments[] = $this->renderKind( $kind, $item, [ $code => $text ], (string)$code, $richParts );
 				}
 				$html = implode( "\n", $fragments );
 			} else {
-				$html = $this->renderKind( $kind, $item, $payload, $negotiated );
+				$html = $this->renderKind( $kind, $item, $payload, $negotiated, $richParts );
 			}
 			$html = $this->attachProvenance( $html, $item, $negotiated );
 			// Re-pass through MediaWiki's tag sanitizer (defense in depth,
@@ -164,7 +185,18 @@ class ContentRenderer {
 				'removeTags' => self::BARRED_TAGS,
 				'extraTags' => [ 'footer', 'a' ],
 			] );
-			$this->cache->set( $cacheKey, $html, self::CACHE_TTL );
+			foreach ( $richParts as $token => $rich ) {
+				$html = str_replace( $token, $rich->getHtml(), $html );
+				$modules = array_merge( $modules, $rich->getModules() );
+				$moduleStyles = array_merge( $moduleStyles, $rich->getModuleStyles() );
+			}
+			$modules = array_values( array_unique( $modules ) );
+			$moduleStyles = array_values( array_unique( $moduleStyles ) );
+			$this->cache->set( $cacheKey, [
+				'html' => $html,
+				'modules' => $modules,
+				'moduleStyles' => $moduleStyles,
+			], self::CACHE_TTL );
 		}
 
 		$languages = [];
@@ -181,7 +213,9 @@ class ContentRenderer {
 			$negotiated,
 			$languages,
 			$cacheKey,
-			$lastModified !== null ? (int)wfTimestamp( TS_UNIX, $lastModified ) : null
+			$lastModified !== null ? (int)wfTimestamp( TS_UNIX, $lastModified ) : null,
+			$modules,
+			$moduleStyles
 		);
 	}
 
@@ -269,17 +303,87 @@ class ContentRenderer {
 		return $payloadLangs === [] ? '' : reset( $payloadLangs );
 	}
 
-	private function renderKind( string $kind, Item $item, array $payload, string $lang ): string {
+	private function renderKind( string $kind, Item $item, array $payload, string $lang, array &$richParts ): string {
 		switch ( $kind ) {
 			case 'quotation':
-				return $this->quoteRenderer->render( $payload[$lang], $lang );
+				// Rich content: the payload is full wikitext ([[File:…]],
+				// links, emphasis, $…$) parsed by MediaWiki's own sanitizer.
+				return $this->quoteRenderer->wrapHtml(
+					$this->richFragment( $payload[$lang], $item, $richParts ),
+					$lang
+				);
 			case 'code':
 				$lexer = $this->languageLexer( $item );
 				return $this->codeRenderer->render( $payload[''] ?? '', $lexer );
 			case 'math':
-				return $this->mathRenderer->render( $payload[''] ?? '' );
+				$html = $this->mathRenderer->render( $payload[''] ?? '' );
+				$note = $this->noteFor( $item );
+				if ( $note !== '' ) {
+					$html .= '<div class="wb-embed wb-embed-note">'
+						. $this->richFragment( $note, $item, $richParts )
+						. '</div>';
+				}
+				return $html;
 		}
 		throw new RenderException( "Unknown kind '$kind'", 'notembeddable', 400 );
+	}
+
+	/**
+	 * Parses a rich wikitext fragment and stores its HTML under a unique
+	 * token; the token survives the sanitizer re-pass and is substituted
+	 * afterwards (see render()).
+	 *
+	 * @param array<string,RichTextResult> &$richParts
+	 */
+	private function richFragment( string $wikitext, Item $item, array &$richParts ): string {
+		$result = $this->richText->render( $wikitext, $this->entityTitle( $item ) );
+		$token = self::richToken();
+		$richParts[$token] = $result;
+		return $token;
+	}
+
+	/** A per-render token unlikely to collide with user content. */
+	private static function richToken(): string {
+		return 'WBRICHTEXT' . bin2hex( random_bytes( 8 ) ) . 'END';
+	}
+
+	/** The item's page title, used as the parse context for rich fragments. */
+	private function entityTitle( Item $item ): ?Title {
+		$id = $item->getId();
+		if ( $id === null ) {
+			return null;
+		}
+		try {
+			$services = \MediaWiki\MediaWikiServices::getInstance();
+			return WikibaseRepo::getEntityTitleStoreLookup( $services )->getTitleForId( $id );
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+	}
+
+	/**
+	 * The item's accompanying note (math items): the decoded wikitext of the
+	 * `note` property, or '' when the item carries none / the instance has no
+	 * note vocabulary.
+	 */
+	private function noteFor( Item $item ): string {
+		$noteProperty = $this->config->notePropertyId();
+		if ( $noteProperty === null ) {
+			return '';
+		}
+		foreach ( $item->getStatements() as $statement ) {
+			$snak = $statement->getMainSnak();
+			if ( !$snak instanceof \Wikibase\DataModel\Snak\PropertyValueSnak
+				|| $snak->getPropertyId()->getSerialization() !== $noteProperty
+			) {
+				continue;
+			}
+			$value = $snak->getDataValue();
+			if ( $value instanceof \DataValues\StringValue ) {
+				return PayloadCodec::decode( $value->getValue() );
+			}
+		}
+		return '';
 	}
 
 	private function languageLexer( Item $item ): string {

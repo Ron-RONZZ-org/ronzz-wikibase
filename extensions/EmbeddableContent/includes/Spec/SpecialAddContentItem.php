@@ -189,6 +189,17 @@ abstract class SpecialAddContentItem extends SpecialPage {
 			$fields['implementationOf'] = $entityCombobox( 'embeddablecontent-add-implementationof', false, true );
 		}
 
+		// The math accompanying note (rich wikitext: [[File:…]], links,
+		// emphasis, $…$). Rendered below the expression by default; optional.
+		if ( $this->getKind() === 'math' && $this->config->notePropertyId() !== null ) {
+			$fields['note'] = [
+				'type' => 'textarea',
+				'label-message' => 'embeddablecontent-add-note',
+				'rows' => 5,
+				'help-message' => 'embeddablecontent-add-note-help',
+			];
+		}
+
 		// Carry-over defaults (Add-more flow): applied AFTER the field
 		// builders so the request values win over the builder defaults
 		// (e.g. the language/lexer combobox defaults).
@@ -387,6 +398,12 @@ abstract class SpecialAddContentItem extends SpecialPage {
 			'content' => trim( (string)( $data['payload'] ?? '' ) ),
 			'labelLanguage' => (string)( $data['labelLanguage'] ?? $this->getLanguage()->getCode() ),
 		];
+		// The math accompanying note (rich wikitext). Passed raw — the flow
+		// service escapes it at rest and writes it only for math items.
+		$note = trim( (string)( $data['note'] ?? '' ) );
+		if ( $note !== '' ) {
+			$record['note'] = $note;
+		}
 		$errors = [];
 
 		// The quotation language combobox accepts any of the 500+ languages;

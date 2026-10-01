@@ -378,17 +378,29 @@ def xss(args: argparse.Namespace) -> int:
         )
         print(f"created XSS item {item_id}")
 
-    # Fetch the rendered fragment through both surfaces.
+    # Fetch the rendered fragment through both surfaces. The API surface uses
+    # the module's `output=html` — the `format` API parameter is the RESPONSE
+    # format, and `format=html` is invalid (it returned an error page, making
+    # the injection assertions vacuous).
     failures = []
-    for label, url in [
-        ("api", f"{args.api_url}?action=embed&entity={item_id}&format=html"),
-        ("page", f"{args.base_url}/wiki/Special:Embed/{item_id}"),
-    ]:
-        status, body, _ = http_get(url)
-        if status != 200:
-            failures.append(f"{label}: HTTP {status}")
-            continue
-        html = body.decode("utf-8", "replace")
+    api_params = { "action": "embed", "entity": item_id, "output": "html", "format": "json" }
+    api_status, api_body, _ = http_get(f"{args.api_url}?{urllib.parse.urlencode(api_params)}")
+    surfaces = []
+    if api_status == 200:
+        try:
+            api_payload = json.loads(api_body.decode("utf-8", "replace"))
+        except json.JSONDecodeError:
+            api_payload = {}
+        surfaces.append(("api", api_payload.get("embed", {}).get("html", "")))
+    else:
+        failures.append(f"api: HTTP {api_status}")
+    page_status, page_body, _ = http_get(f"{args.base_url}/wiki/Special:Embed/{item_id}")
+    if page_status == 200:
+        surfaces.append(("page", page_body.decode("utf-8", "replace")))
+    else:
+        failures.append(f"page: HTTP {page_status}")
+
+    for label, html in surfaces:
         for injection in XSS_INJECTIONS:
             # Real XSS semantics: markup-like injections (tags, event
             # handlers) must be escaped away entirely; a bare `javascript:`
@@ -398,7 +410,6 @@ def xss(args: argparse.Namespace) -> int:
                 if injection in html:
                     failures.append(f"{label}: raw injection survived: {injection!r}")
             elif injection.startswith("javascript:"):
-                import re
                 if re.search(r"<[^>]*javascript:", html):
                     failures.append(f"{label}: javascript: survived in an attribute: {injection!r}")
 
@@ -411,6 +422,215 @@ def xss(args: argparse.Namespace) -> int:
 
     print(f"XSS: all {len(XSS_INJECTIONS)} injections escaped on both surfaces (item {item_id}).")
     return 0
+
+
+RICH_QUOTE_LABEL = "E2E rich-content quotation"
+RICH_MATH_LABEL = "E2E math-note item"
+NOTE_MARKER = "E2E-NOTE-MARKER"
+QUOTE_MARKER = "E2E-QUOTE-MARKER"
+
+
+def _parse_wikitext(api_url: str, text: str) -> str:
+    """Renders wikitext through action=parse (anonymous) and returns the HTML."""
+    params = {
+        "action": "parse",
+        "contentmodel": "wikitext",
+        "prop": "text",
+        "format": "json",
+        "text": text,
+    }
+    status, body, _ = http_get(f"{api_url}?{urllib.parse.urlencode(params)}")
+    expect(status == 200, f"action=parse HTTP {status} for {text!r}")
+    payload = json.loads(body.decode("utf-8", "replace"))
+    if "error" in payload:
+        raise CheckFailed(f"action=parse error for {text!r}: {payload['error']!r}")
+    return payload.get("parse", {}).get("text", {}).get("*", "")
+
+
+def rich(args: argparse.Namespace) -> int:
+    """Rich-content E2E (self-cleaning): the quotation payload and the math
+    note are full wikitext — links/emphasis/$…$ parse on the embed surfaces
+    and via {{#content:}}, and {{#content:Q|noNote}} hides the note. Also
+    asserts an injection in the note never survives."""
+    api = WikibaseApi(args.api_url, args.user, args.password)
+    api.login()
+
+    def property_id(label: str) -> str:
+        hits = api.search_entities(label, "property", "en")
+        expect(bool(hits), f"property {label!r} not found (re-seed required?)")
+        return hits[0]["id"]
+
+    def class_id(label: str) -> str:
+        hits = api.search_entities(label, "item", "en")
+        expect(bool(hits), f"class {label!r} not found (re-seed required?)")
+        return hits[0]["id"]
+
+    quote_id = None
+    math_id = None
+    try:
+        # Purge leftovers from an interrupted run (idempotent re-runs).
+        for label in (RICH_QUOTE_LABEL, RICH_MATH_LABEL):
+            for hit in api.search_entities(label, "item", "en"):
+                if hit.get("label") == label:
+                    try:
+                        api.delete_item(hit["id"], "E2E rich suite: stale cleanup")
+                    except WikibaseApiError:
+                        pass
+
+        instance_of = property_id("instance of")
+        content_text = property_id("content text")
+        latex_source = property_id("LaTeX source")
+        note_property = property_id("note")
+        source_property = property_id("source")
+        quotation_class = class_id("quotation content")
+        math_class = class_id("mathematical expression")
+
+        def item_claim(prop: str, value: dict) -> list[dict]:
+            return [ {
+                "mainsnak": { "snaktype": "value", "property": prop, "datavalue": value },
+                "type": "statement",
+                "rank": "normal",
+            } ]
+
+        def item_value(item_id: str) -> dict:
+            return {
+                "value": {
+                    "entity-type": "item",
+                    "numeric-id": int(item_id[1:]),
+                    "id": item_id,
+                },
+                "type": "wikibase-entityid",
+            }
+
+        quote_id = api.create_item(
+            { "en": RICH_QUOTE_LABEL }, { "en": "E2E rich content" },
+            "E2E rich suite: create quotation",
+        )
+        api.add_claims(quote_id, {
+            instance_of: item_claim(instance_of, item_value(quotation_class)),
+            content_text: item_claim(content_text, {
+                "value": {
+                    "text": f"''italic'' [[Main Page]] {QUOTE_MARKER} <script>alert(1)</script>",
+                    "language": "en",
+                },
+                "type": "monolingualtext",
+            }),
+        }, "E2E rich suite: quotation claims")
+
+        math_id = api.create_item(
+            { "en": RICH_MATH_LABEL }, { "en": "E2E math note" },
+            "E2E rich suite: create math item",
+        )
+        api.add_claims(math_id, {
+            instance_of: item_claim(instance_of, item_value(math_class)),
+            latex_source: item_claim(latex_source, { "value": "x^2", "type": "string" }),
+            note_property: item_claim(note_property, {
+                "value": f"{NOTE_MARKER} $x$ <script>alert(1)</script>",
+                "type": "string",
+            }),
+        }, "E2E rich suite: math claims")
+
+        # The quotation cites the math item as its source, so it shows up on
+        # Special:QuotationsOf/<math_id> (the listing surface).
+        api.add_claims(quote_id, {
+            source_property: item_claim(source_property, item_value(math_id)),
+        }, "E2E rich suite: quotation source")
+
+        failures: list[str] = []
+
+        def run_check(name: str, fn) -> None:
+            try:
+                fn()
+                print(f"  [ok] {name}")
+            except CheckFailed as exc:
+                failures.append(name)
+                print(f"  [FAIL] {name}: {exc}")
+
+        def embed(entity: str) -> str:
+            params = { "action": "embed", "entity": entity, "output": "html", "format": "json" }
+            status, body, _ = http_get(f"{args.api_url}?{urllib.parse.urlencode(params)}")
+            expect(status == 200, f"embed {entity}: HTTP {status}")
+            payload = json.loads(body.decode("utf-8", "replace"))
+            expect("embed" in payload, f"embed {entity}: API error: {payload.get('error')!r}")
+            return payload["embed"]["html"]
+
+        def quotation_is_rich() -> None:
+            html = embed(quote_id)
+            expect(QUOTE_MARKER in html, "quotation marker missing")
+            expect("<i>italic</i>" in html, f"quotation wikitext not parsed: {html[:200]!r}")
+            expect("Main_Page" in html, "quotation [[Main Page]] link missing")
+
+        def quotation_rich_in_parser_function() -> None:
+            html = _parse_wikitext(args.api_url, f"{{{{#content:{quote_id}}}}}")
+            expect("<i>italic</i>" in html, "{{#content:}} quotation wikitext not parsed")
+
+        def math_note_renders() -> None:
+            html = embed(math_id)
+            expect("wb-embed-note" in html, "math note wrapper missing")
+            expect(NOTE_MARKER in html, "math note marker missing")
+
+        def no_note_suppresses_it() -> None:
+            with_note = _parse_wikitext(args.api_url, f"{{{{#content:{math_id}}}}}")
+            expect(NOTE_MARKER in with_note, "{{#content:Q}} did not render the note")
+            without = _parse_wikitext(args.api_url, f"{{{{#content:{math_id}|noNote}}}}")
+            expect(NOTE_MARKER not in without, "{{#content:Q|noNote}} still rendered the note")
+            expect("wb-embed-math" in without, "{{#content:Q|noNote}} dropped the math")
+
+        def injections_do_not_survive() -> None:
+            # Check the EXACT injection (the wiki pages carry their own
+            # ResourceLoader <script> tags, so a bare "<script>" substring is
+            # not a leak signal on the full-page surfaces).
+            injection = "<script>alert(1)</script>"
+            for label, html in [
+                ("math embed", embed(math_id)),
+                ("math parse", _parse_wikitext(args.api_url, f"{{{{#content:{math_id}}}}}")),
+                ("quotation embed", embed(quote_id)),
+                ("quotation parse", _parse_wikitext(args.api_url, f"{{{{#content:{quote_id}}}}}")),
+            ]:
+                expect(injection not in html, f"{label}: raw injection survived")
+
+        def quotation_listing_renders_rich() -> None:
+            # Special:QuotationsOf is a live WDQS listing — the updater is
+            # eventually consistent, so poll for the fresh quotation.
+            url = f"{args.base_url}/wiki/Special:QuotationsOf/{math_id}"
+            deadline = time.time() + 180
+            html = ""
+            while True:
+                status, body, _ = http_get(url)
+                expect(status == 200, f"QuotationsOf HTTP {status}")
+                html = body.decode("utf-8", "replace")
+                if QUOTE_MARKER in html:
+                    break
+                if time.time() >= deadline:
+                    raise CheckFailed(
+                        "quotation did not appear on Special:QuotationsOf within 180s (WDQS sync?)"
+                    )
+                time.sleep(5)
+            expect("<i>italic</i>" in html, "QuotationsOf did not render the quotation wikitext")
+            expect("<script>alert(1)</script>" not in html, "QuotationsOf leaked the raw injection")
+
+        run_check("quotation payload parses as wikitext (embed surface)", quotation_is_rich)
+        run_check("quotation payload parses as wikitext ({{#content:}})", quotation_rich_in_parser_function)
+        run_check("math note renders below the expression (embed surface)", math_note_renders)
+        run_check("{{#content:Q|noNote}} suppresses the note", no_note_suppresses_it)
+        run_check("rich injections do not survive (embed/parse/listing)", injections_do_not_survive)
+        run_check("Special:QuotationsOf renders the rich quotation", quotation_listing_renders_rich)
+
+        if failures:
+            print(f"\nRICH E2E FAILED: {len(failures)} check(s): {', '.join(failures)}")
+            return 1
+        print("\nRICH E2E: all checks passed.")
+        return 0
+    except CheckFailed as exc:
+        print(f"\nRICH E2E FAILED: {exc}")
+        return 1
+    finally:
+        for qid in (quote_id, math_id):
+            if qid:
+                try:
+                    api.delete_item(qid, "E2E rich suite: cleanup")
+                except WikibaseApiError as exc:
+                    print(f"  [warn] cleanup of {qid} failed: {exc}")
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -444,6 +664,15 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     xss_p.add_argument("--user", required=True)
     xss_p.add_argument("--password", required=True)
     xss_p.set_defaults(handler=xss)
+
+    rich_p = sub.add_parser(
+        "rich", help="rich-content E2E (quotation wikitext + math note + noNote)"
+    )
+    rich_p.add_argument("--api-url", required=True)
+    rich_p.add_argument("--base-url", required=True)
+    rich_p.add_argument("--user", required=True)
+    rich_p.add_argument("--password", required=True)
+    rich_p.set_defaults(handler=rich)
 
     return parser.parse_args(argv)
 
