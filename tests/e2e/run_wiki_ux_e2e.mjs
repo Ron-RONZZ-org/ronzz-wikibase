@@ -178,7 +178,11 @@ async function main() {
 
 		// --- Special:AddCollective class select -------------------------
 		await page.goto(`${BASE_URL}/wiki/Special:AddCollective/manual`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-		await page.waitForSelector('#mw-input-wpclass option', { timeout: 15000 });
+		// OOUI DropdownInputWidget = a VISUALLY HIDDEN native <select> (the
+		// visible handle is a <span>), so its <option>s are never "visible"
+		// to Playwright — wait for them ATTACHED (allInnerTexts reads them
+		// regardless of visibility).
+		await page.waitForSelector('#mw-input-wpclass option', { state: 'attached', timeout: 15000 });
 		const classLabels = (await page.locator('#mw-input-wpclass option').allInnerTexts())
 			.map((s) => s.trim()).filter(Boolean);
 		if (classLabels.includes('groupOfHumans')) {
