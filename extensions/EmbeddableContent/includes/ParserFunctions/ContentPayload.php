@@ -6,12 +6,8 @@ namespace EmbeddableContent\ParserFunctions;
 
 use DataValues\MonolingualTextValue;
 use DataValues\StringValue;
-use EmbeddableContent\Content\CodeRenderer;
-use EmbeddableContent\Content\FragmentSanitizer;
-use EmbeddableContent\Content\MathRenderer;
+use EmbeddableContent\Content\ContentWikitext;
 use EmbeddableContent\Content\PayloadCodec;
-use EmbeddableContent\Content\QuoteRenderer;
-use EmbeddableContent\Content\RichTextRenderer;
 use EmbeddableContent\EmbeddableContentConfig;
 use MediaWiki\Parser\Parser;
 use Wikibase\DataModel\Entity\EntityId;
@@ -35,15 +31,19 @@ use Wikibase\Repo\WikibaseRepo;
  *   `{{#content:Q1129}}` — the payload of the named content item
  *   `{{#content:}}`      — the current page's sitelinked item
  *
- * Quotations render as a `<blockquote>`, code as a SyntaxHighlight
- * (Pygments) block with an escaped `<pre>` fallback, math as a KaTeX span
- * (rendered client-side by the embed module, escaped TeX fallback without
- * JS). The result is returned as HTML (`noparse`, `isHTML`), which is why
- * it also works verbatim — the alternative to `{{#statements:P3}}`, whose
- * output is re-parsed as wikitext and shows the raw escaped value.
+ * The function expands the payload into REGULAR WIKITEXT and lets the
+ * consumer page handle formatting — it adds NO embed chrome (the reported
+ * bug: the `.wb-embed` border rendered as a broken left line on an inline
+ * math span). Quotations expand to their wikitext (wrap them in
+ * `<blockquote>` on the page to quote them); math expands to a display
+ * `$$…$$` span rendered by the instance's SimpleMathJax like every other
+ * formula; code expands to a stock `<syntaxhighlight>` block. The parser
+ * therefore parses the result in the page context — `[[File:…]]`, links,
+ * `$…$` and tags all behave exactly as if written on the page.
  *
- * The embed resource module (styles + KaTeX/highlight scripts) is loaded on
- * the page so the fragment looks and renders like the embed surface.
+ * The embed SURFACES (`Special:Embed`, `api.php?action=embed`,
+ * `Special:QuotationsOf`) keep their framed `.wb-embed` rendering; this
+ * function is the on-wiki, unformatted path.
  *
  * The kind is detected from the item's class (quotation / code / math); the
  * payload property id comes from the instance config, so no property ids are
@@ -60,9 +60,6 @@ final class ContentPayload {
 
 	/** Site id of the local sitelink group (also hardcoded in Hooks.php). */
 	private const SITE_ID = 'wikibase';
-
-	/** The embed resource module: wb-embed styles + KaTeX/highlight scripts. */
-	private const EMBED_MODULE = 'ext.embeddableContent.embed';
 
 	/**
 	 * @param EmbeddableContentConfig $config injected via the hook closure
@@ -102,52 +99,40 @@ final class ContentPayload {
 			return self::emptyResult();
 		}
 
-		// Render the fragment like the embed surface, and load the module
-		// that styles it and renders math client-side.
-		$parser->getOutput()->addModuleStyles( [ self::EMBED_MODULE ] );
-		$parser->getOutput()->addModules( [ self::EMBED_MODULE ] );
-
-		$sanitizer = new FragmentSanitizer();
-		$richText = new RichTextRenderer();
+		// Expand to REGULAR WIKITEXT and let the consumer page format it —
+		// no `.wb-embed` chrome (see the class docblock). MediaWiki parses
+		// the result in the page context, so [[File:…]]/links/$…$/tags work
+		// exactly as if written on the page.
 		switch ( $kind ) {
 			case 'quotation':
-				// Rich content: the payload is full wikitext ([[File:…]],
-				// links, emphasis, $…$) parsed by MediaWiki's own sanitizer,
-				// then wrapped in the quotation blockquote.
-				$html = ( new QuoteRenderer( $sanitizer, $config ) )->wrapHtml(
-					$richText->renderWithParser( $parser, $payload['text'] ),
-					$payload['lang'] ?? 'en'
-				);
+				$wikitext = ContentWikitext::quotation( $payload['text'] );
 				break;
 			case 'code':
-				$html = ( new CodeRenderer( $sanitizer, $config ) )->render(
+				$wikitext = ContentWikitext::code(
 					$payload['text'],
 					self::lexerFor( $entity, $config )
 				);
 				break;
 			case 'math':
-				$html = ( new MathRenderer( $sanitizer ) )->render( $payload['text'] );
 				// The accompanying note (rich wikitext) renders below the
-				// math by default; {{#content:Q42|noNote}} suppresses it.
-				if ( !ContentArgs::noNote( $args ) ) {
-					$note = self::noteFor( $entity, $config );
-					if ( $note !== '' ) {
-						$html .= '<div class="wb-embed wb-embed-note">'
-							. $richText->renderWithParser( $parser, $note )
-							. '</div>';
-					}
-				}
+				// expression by default; {{#content:Q42|noNote}} suppresses it.
+				$note = ContentArgs::noNote( $args ) ? '' : self::noteFor( $entity, $config );
+				$wikitext = ContentWikitext::math( $payload['text'], $note );
 				break;
 			default:
 				return self::emptyResult();
 		}
 
-		return [ 'text' => $html, 'noparse' => true, 'isHTML' => true ];
+		// noparse=false + isHTML=false: the parser expands the returned text
+		// as WIKITEXT (the default is noparse=TRUE, which would render links
+		// and [[File:…]] literally). Same contract as the sibling parser
+		// functions ({{#source-access:}}, {{#item-image:}}, …).
+		return [ 'text' => $wikitext, 'noparse' => false, 'isHTML' => false ];
 	}
 
 	/** @return array{text:string,noparse:bool,isHTML:bool} */
 	private static function emptyResult(): array {
-		return [ 'text' => '', 'noparse' => true, 'isHTML' => true ];
+		return [ 'text' => '', 'noparse' => false, 'isHTML' => false ];
 	}
 
 	/**

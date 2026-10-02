@@ -5026,10 +5026,11 @@ def main() -> int:
             f"{math_ml} embed did not decode the stored payload ({rendered!r})"
         print(f"[ok] Special:AddMath multiline -> {math_ml}: stored escaped, rendered decoded")
 
-        # 5c. {{#content:}} renders the decoded payload as HTML (issue #6 §8):
-        #     the on-wiki decoder is HTML-returning (noparse/isHTML), so a
-        #     page shows the decoded fragment — no wikitext re-parse
-        #     mangling, no escape sequences.
+        # 5c. {{#content:}} expands the decoded payload into REGULAR WIKITEXT
+        #     (issue #6 §8): math becomes a plain display-math span ($$…$$)
+        #     with NO .wb-embed chrome — the consumer page decides formatting
+        #     (the reported broken left border on an inline math span). The
+        #     payload is still decoded (real newline, no escape sequences).
         content_page = f"Content decoder E2E {int(time.time())}"
         csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
         token = csrf["query"]["tokens"]["csrftoken"]
@@ -5051,13 +5052,13 @@ def main() -> int:
                     f"content-decoder page render failed: {parsed['error']!r}"
                 )
             body = parsed["parse"]["text"]
-            if 'wb-embed-math' not in body:
-                raise FlowError("{{#content:}} did not render the math fragment (wb-embed-math)")
-            if "a^2 + b^2 = c^2\n(by Pythagoras)" not in body:
+            if "a^2 + b^2 = c^2" not in body or "(by Pythagoras)" not in body:
                 raise FlowError("{{#content:}} did not render the decoded multi-line payload")
             if "a^2 + b^2 = c^2\\n(by Pythagoras)" in body:
                 raise FlowError("{{#content:}} rendered the ESCAPED payload")
-            print(f"[ok] {{#content:}} on-wiki decoder -> decoded HTML fragment on {content_page}")
+            if 'wb-embed' in body:
+                raise FlowError("{{#content:}} still carries the .wb-embed embed chrome")
+            print(f"[ok] {{#content:}} on-wiki decoder -> plain wikitext fragment on {content_page}")
         finally:
             delete_page_and_item(op, api, content_page)
 
