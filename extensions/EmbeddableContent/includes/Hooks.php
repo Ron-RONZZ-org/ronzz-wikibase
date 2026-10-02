@@ -187,6 +187,10 @@ class Hooks {
 			// Source-field gating, the empty author/license warning and the
 			// "upload another" new-tab behaviour (2026-09 UX batch).
 			$out->addModules( 'ext.embeddableContent.uploadform' );
+			// Local-file preview + client-side resize + extension
+			// auto-correction (the same module the Add* portrait/logo
+			// sections load).
+			$out->addModules( 'ext.embeddableContent.uploadimage' );
 			return;
 		}
 

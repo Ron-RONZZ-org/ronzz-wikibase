@@ -216,6 +216,67 @@ async function main() {
 			console.log('[ok] Special:Upload file picker enables with the File source');
 		}
 
+		// --- Image tools: local preview + resize + extension auto-correct ---
+		// Purely client-side (nothing is submitted): the two new option
+		// checkboxes default ON; selecting a large local file renders a
+		// preview, downscales it to <= 2000 px, and rewrites wpDestFile's
+		// extension from the file's real MIME type.
+		const resizeChecked = await page.locator('#wpUploadResize').isChecked();
+		const autoExtChecked = await page.locator('#wpUploadAutoExt').isChecked();
+		if (!resizeChecked || !autoExtChecked) {
+			failures.push(`new upload options not default-checked (resize=${resizeChecked}, autoExt=${autoExtChecked})`);
+		} else {
+			console.log('[ok] resize + auto-correct extension options present, default ON');
+		}
+
+		await page.evaluate(async () => {
+			const canvas = document.createElement('canvas');
+			canvas.width = 3000;
+			canvas.height = 2000;
+			const ctx = canvas.getContext('2d');
+			ctx.fillStyle = '#36c';
+			ctx.fillRect(0, 0, 3000, 2000);
+			const blob = await new Promise((r) => canvas.toBlob(r, 'image/png'));
+			const file = new File([blob], 'Wrong Name.JPG', { type: 'image/png' });
+			const dt = new DataTransfer();
+			dt.items.add(file);
+			const input = document.querySelector('#wpUploadFile');
+			input.files = dt.files;
+			input.dispatchEvent(new Event('change', { bubbles: true }));
+		});
+		await page.waitForTimeout(1200);
+		const imageState = await page.evaluate(() => {
+			const preview = document.querySelector('.wb-image-preview');
+			const input = document.querySelector('#wpUploadFile');
+			const dest = document.querySelector('#wpDestFile');
+			return {
+				hasImg: !!(preview && preview.querySelector('img')),
+				text: preview ? preview.textContent : '',
+				dest: dest ? dest.value : '',
+			};
+		});
+		if (!imageState.hasImg) {
+			failures.push('local-file preview did not render an image');
+		} else if (!imageState.text.includes('2000')) {
+			failures.push(`resize did not downscale to 2000 px (preview: ${JSON.stringify(imageState.text)})`);
+		} else {
+			console.log('[ok] local-file preview + resize to 2000 px');
+		}
+		if (!/\.png$/i.test(imageState.dest)) {
+			failures.push(`auto-correct extension did not set the .png destination (${imageState.dest})`);
+		} else {
+			console.log('[ok] auto-correct extension set the destination name');
+		}
+
+		// Clear the fixture so the later submit-path checks never upload it.
+		await page.evaluate(() => {
+			const input = document.querySelector('#wpUploadFile');
+			if (input) {
+				input.value = '';
+				input.dispatchEvent(new Event('change', { bubbles: true }));
+			}
+		});
+
 		// Empty Author/License warning: cancelling the confirm must keep the
 		// page (no navigation). A persistent dialog handler accepts later
 		// dialogs (the "upload another" click may warn again).

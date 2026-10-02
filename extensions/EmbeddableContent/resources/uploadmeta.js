@@ -210,6 +210,16 @@
 		return ext ? base + '.' + ext.toLowerCase() : base;
 	}
 
+	/** Replace (or append) a file name's trailing extension. */
+	function replaceNameExtension( name, ext ) {
+		if ( !ext ) {
+			return name;
+		}
+		var dot = String( name ).lastIndexOf( '.' );
+		var base = dot > 0 ? String( name ).slice( 0, dot ) : String( name );
+		return base + '.' + ext;
+	}
+
 	/**
 	 * Resolve a form field target to its REAL <input>. The config ids are
 	 * the HTMLForm field NAMES ("wpUploadFileURL", "wpportraitLicense"):
@@ -481,15 +491,22 @@
 			// the fetched ObjectName is Title Case with spaces and usually
 			// has NO extension ("National Geographic Society …"). Append the
 			// canonical extension from the MIME type (fallback: the source
-			// URL's own extension) so the dest-name field is complete.
+			// URL's own extension). With the "auto-correct extension" option
+			// on (Special:Upload), a WRONG extension is replaced too — the
+			// stored name always matches the file's real type.
 			var normalized = normalizeDestName( meta.name );
-			if ( normalized && normalized.indexOf( '.' ) === -1 ) {
-				var ext = extensionForMime( meta.mime ) || extensionFromUrl( meta.sourceUrl );
-				if ( ext ) {
-					normalized = normalized + '.' + ext;
-				}
-			}
 			if ( normalized ) {
+				var ext = extensionForMime( meta.mime ) || extensionFromUrl( meta.sourceUrl );
+				var autoExtField = document.getElementById( 'wpUploadAutoExt' );
+				var autoExt = !!( autoExtField && autoExtField.checked );
+				var currentExt = ( normalized.match( /\.([A-Za-z0-9]+)$/ ) || [] )[ 1 ];
+				if ( !currentExt ) {
+					if ( ext ) {
+						normalized = normalized + '.' + ext;
+					}
+				} else if ( autoExt && ext && currentExt.toLowerCase() !== ext ) {
+					normalized = replaceNameExtension( normalized, ext );
+				}
 				name.set( normalized );
 			}
 		}
@@ -874,6 +891,11 @@
 			wire( $( this ) );
 		} );
 	}
+
+	// Shared with uploadimage.js: the canonical MIME→extension map (one JS
+	// mirror of the PHP CommonsMetadataParser::extensionForMime).
+	mw.embeddableContent = mw.embeddableContent || {};
+	mw.embeddableContent.extensionForMime = extensionForMime;
 
 	mw.loader.using( 'oojs-ui' ).then( function () {
 		wireAll();

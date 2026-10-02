@@ -345,6 +345,9 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		$fields['logoFile'] = \EmbeddableContent\Upload\ImageUploadHelper::fileField(
 			'logo', 'embeddablecontent-software-logo-file'
 		);
+		foreach ( \EmbeddableContent\Upload\ImageUploadHelper::imageToolsFields( 'logo' ) as $key => $spec ) {
+			$fields[$key] = $spec;
+		}
 		$fields['logoUrl'] = \EmbeddableContent\Upload\ImageUploadHelper::urlField(
 			'logo', 'embeddablecontent-software-logo-url',
 			$this->msg( 'embeddablecontent-software-logo-license' )->text()

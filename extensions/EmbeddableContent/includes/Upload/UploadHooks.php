@@ -79,6 +79,25 @@ final class UploadHooks {
 			'id' => 'wpUploadmetaItemize',
 			'default' => '1',
 		];
+		// Image-processing options (resources/uploadimage.js): resize large
+		// images before upload, and auto-correct the file extension from the
+		// file's detected MIME type. Both default ON. The field NAMES match
+		// the module's discovery contract (`wpUploadResize` /
+		// `wpUploadAutoExt`, derived from the file field `wpUploadFile`).
+		$descriptor['UploadResize'] = [
+			'type' => 'check',
+			'section' => 'options',
+			'id' => 'wpUploadResize',
+			'label-message' => 'embeddablecontent-upload-resize',
+			'default' => true,
+		];
+		$descriptor['UploadAutoExt'] = [
+			'type' => 'check',
+			'section' => 'options',
+			'id' => 'wpUploadAutoExt',
+			'label-message' => 'embeddablecontent-upload-autoext',
+			'default' => true,
+		];
 		// "Copy internal embed code" (2026-09 UX batch): checked by default;
 		// on a successful upload the destination File: page copies
 		// [[File:xxx]] to the clipboard (BeforePageRedirect appends
@@ -145,7 +164,10 @@ final class UploadHooks {
 		if ( isset( $descriptor['UploadFile'] ) ) {
 			$descriptor['UploadFile']['help-raw'] = wfMessage( 'upload-maxfilesize' )
 				->sizeParams( UploadBase::getMaxUploadSize( 'file' ) )
-				->parse();
+				->parse()
+				// resources/uploadimage.js fills this with the selected
+				// local file's preview (thumbnail + pixel/byte size).
+				. '<div class="wb-image-preview wb-uploadmeta-preview"></div>';
 		}
 		if ( isset( $descriptor['UploadFileURL'] ) ) {
 			// The size limit is identical for both source types and is shown
@@ -159,6 +181,67 @@ final class UploadHooks {
 					->parse()
 				. '</div>';
 		}
+	}
+
+	/**
+	 * UploadForm:BeforeProcessing: the server-side half of the
+	 * "auto-correct the file extension" option. `wpDestFile` may carry a
+	 * missing or wrong extension (typed by the user, or derived from the
+	 * source filename); when `wpUploadAutoExt` is set, relabel the
+	 * destination to the extension of the file's DETECTED MIME type before
+	 * verification — a PNG saved as ".jpg" then stores as ".png" instead of
+	 * drawing a `filetype-mime-mismatch` error. resources/uploadimage.js
+	 * does the same eagerly in the browser; this net also covers JS-off and
+	 * non-interactive resubmits.
+	 *
+	 * Hook handler name: `UploadForm:BeforeProcessing` →
+	 * onUploadForm_BeforeProcessing (the colon is kept, like the sibling
+	 * getInitialPageText handler).
+	 *
+	 * @param object $specialUpload the SpecialUpload instance (public
+	 *  mUpload / mDesiredDestName are read and the destination is renamed)
+	 */
+	public static function onUploadForm_BeforeProcessing( $specialUpload ): bool {
+		$request = RequestContext::getMain()->getRequest();
+		if ( !$request->getCheck( 'wpUploadAutoExt' ) ) {
+			return true;
+		}
+		if ( !is_object( $specialUpload )
+			|| !isset( $specialUpload->mUpload )
+			|| !$specialUpload->mUpload instanceof UploadBase
+		) {
+			return true;
+		}
+		$upload = $specialUpload->mUpload;
+		$tempPath = (string)$upload->getTempPath();
+		$destName = (string)$upload->getDesiredDestName();
+		if ( $tempPath === '' || $destName === '' || !is_file( $tempPath ) ) {
+			return true;
+		}
+		try {
+			$mime = MediaWikiServices::getInstance()->getMimeAnalyzer()->guessMimeType( $tempPath, false );
+			$ext = \EmbeddableContent\Fetch\CommonsMetadataParser::extensionForMime( (string)$mime );
+		} catch ( \Throwable $e ) {
+			// Non-fatal: keep the submitted name, verification decides.
+			wfLogWarning( 'EmbeddableContent: auto-correct extension probe failed: ' . $e->getMessage() );
+			return true;
+		}
+		if ( $ext === '' ) {
+			return true;
+		}
+		if ( strtolower( (string)pathinfo( $destName, PATHINFO_EXTENSION ) ) === $ext ) {
+			return true;
+		}
+		$dot = strrpos( $destName, '.' );
+		$base = ( $dot !== false && $dot > 0 ) ? substr( $destName, 0, $dot ) : $destName;
+		$newName = $base . '.' . $ext;
+		try {
+			$upload->initializePathInfo( $newName, $tempPath, $upload->getFileSize() );
+			$specialUpload->mDesiredDestName = $newName;
+		} catch ( \Throwable $e ) {
+			wfLogWarning( 'EmbeddableContent: auto-correct extension rename failed: ' . $e->getMessage() );
+		}
+		return true;
 	}
 
 	/**
