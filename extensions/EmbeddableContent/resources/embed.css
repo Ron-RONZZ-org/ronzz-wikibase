@@ -116,6 +116,24 @@ body.skin-embedskin .printfooter {
 	overflow-x: auto;
 }
 
+/* The accompanying note in the preview (wikitext; inline $…$ typeset by the
+   same KaTeX). */
+.wb-math-preview-note-wrap {
+	margin-top: 0.6em;
+	padding-top: 0.5em;
+	border-top: 1px solid #eaecf0;
+}
+
+.wb-math-preview-note-title {
+	margin-bottom: 0.25em;
+	font-size: 0.82em;
+	color: #72777d;
+}
+
+.wb-math-preview-note {
+	white-space: pre-wrap;
+}
+
 /* A malformed expression: the preview box shows the TeX renderer's error
    message instead of a rendered formula. */
 .wb-math-preview-error .wb-math-preview-content {
