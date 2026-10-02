@@ -84,11 +84,19 @@ abstract class SpecialAddContentItem extends SpecialPage {
 	 */
 	protected function addMathPreviewBox(): void {
 		$this->getOutput()->addModules( 'ext.embeddableContent.addmath' );
+		// The preview shows BOTH the rendered Content (KaTeX) and the
+		// accompanying Note (wikitext; inline $…$ typeset with the same
+		// KaTeX). The note block stays hidden until a note is present.
 		$this->getOutput()->addHTML(
 			'<div id="wb-math-preview-box" class="wb-math-preview-box" hidden>'
 			. '<div class="wb-math-preview-title">'
 			. $this->msg( 'embeddablecontent-add-math-preview-label' )->escaped()
-			. '</div><div id="wb-math-preview-content" class="wb-math-preview-content"></div></div>'
+			. '</div><div id="wb-math-preview-content" class="wb-math-preview-content"></div>'
+			. '<div id="wb-math-preview-note-wrap" class="wb-math-preview-note-wrap" hidden>'
+			. '<div class="wb-math-preview-note-title">'
+			. $this->msg( 'embeddablecontent-add-note' )->escaped()
+			. '</div><div id="wb-math-preview-note" class="wb-math-preview-note"></div>'
+			. '</div></div>'
 		);
 	}
 
@@ -120,6 +128,18 @@ abstract class SpecialAddContentItem extends SpecialPage {
 				'rows' => 8,
 			],
 		];
+
+		// The math accompanying note (rich wikitext: [[File:…]], links,
+		// emphasis, $…$). It sits directly BELOW the Content field (it used
+		// to render last, after the provenance block); optional.
+		if ( $this->getKind() === 'math' && $this->config->notePropertyId() !== null ) {
+			$fields['note'] = [
+				'type' => 'textarea',
+				'label-message' => 'embeddablecontent-add-note',
+				'rows' => 5,
+				'help-message' => 'embeddablecontent-add-note-help',
+			];
+		}
 
 		if ( $this->getKind() === 'quotation' ) {
 			// All Wikibase-supported languages (500+), not just the
@@ -187,17 +207,6 @@ abstract class SpecialAddContentItem extends SpecialPage {
 			$fields['describes'] = $entityCombobox( 'embeddablecontent-add-describes', false, true );
 		} elseif ( $this->getKind() === 'code' && $this->config->implementationOfPropertyId() !== null ) {
 			$fields['implementationOf'] = $entityCombobox( 'embeddablecontent-add-implementationof', false, true );
-		}
-
-		// The math accompanying note (rich wikitext: [[File:…]], links,
-		// emphasis, $…$). Rendered below the expression by default; optional.
-		if ( $this->getKind() === 'math' && $this->config->notePropertyId() !== null ) {
-			$fields['note'] = [
-				'type' => 'textarea',
-				'label-message' => 'embeddablecontent-add-note',
-				'rows' => 5,
-				'help-message' => 'embeddablecontent-add-note-help',
-			];
 		}
 
 		// Carry-over defaults (Add-more flow): applied AFTER the field

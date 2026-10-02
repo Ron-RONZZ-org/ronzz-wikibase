@@ -1044,6 +1044,37 @@ report). See `SimpleMathJax/VENDORED.md`.
   (self-cleaning), `run_wiki_ux_e2e.mjs`, `run_addmath_ux_e2e.mjs`,
   `SpecialContentFlowServiceTest`/`FieldMapTest`/`ContentArgsTest`.
 
+- **Upload image tools + plain-wikitext `{{#content:}}` + AddMath note (ADR
+  `docs/decisions/upload-image-tools-and-plain-content.md`)**:
+  (a) **`{{#content:}}` expands to REGULAR WIKITEXT** — `ContentPayload`
+  returns `noparse=false, isHTML=false` (the default `noparse=true` would
+  render links/`[[File:…]]` literally) and no longer loads the embed module:
+  quotation → its wikitext (the consumer wraps it in `<blockquote>`), math →
+  a display `$$…$$` span rendered by SimpleMathJax (the reported broken
+  `.wb-embed` left border on an inline math span), code → a stock
+  `<syntaxhighlight>` block. `Content/ContentWikitext` is the pure assembly
+  (unit-tested). Embed surfaces (`Special:Embed`/`action=embed`/
+  `Special:QuotationsOf`) keep their framed chrome.
+  (b) **AddMath note** — the math-only `note` field now sits directly BELOW
+  the Content field, and the live preview (`addmath.js`) shows both the
+  KaTeX expression and the note (inline `$…$` typeset by the same KaTeX).
+  (c) **Upload image tools** — new shared `resources/uploadimage.js`
+  (Special:Upload + Add\*/Update\* portrait/logo, discovered from the file
+  field's name): a local-file preview (thumbnail + pixel/byte size, the URL
+  mode already had one), a client-side **Canvas resize** (downscale-only to
+  a 2000 px longest edge, JPEG/PNG/WebP, EXIF-aware) and **extension
+  auto-correction** (the file extension follows the MIME). No maintained
+  MediaWiki extension does pre-upload resize (mediawiki.org survey), so the
+  resize is a small Canvas implementation — no new dependency. Options
+  default ON. Server-side auto-correct: Add\* via
+  `ImageUploadHelper::destName(..., preferMime: true)`, Special:Upload via
+  the new `UploadForm:BeforeProcessing` handler
+  (`UploadHooks::onUploadForm_BeforeProcessing`, relabels the destination
+  from the sniffed MIME before verification — covers JS-off). i18n keys
+  `embeddablecontent-upload-resize`/`-autoext`/`-resizing` (en/fr/eo). No
+  vocabulary/seed/config-map change; deploy = extension rsync + php-fpm
+  restart + parser-cache purge.
+
 ### WikibaseCitation
 
 

@@ -122,6 +122,37 @@ final class ImageUploadHelper {
 			'type' => 'file',
 			'label-message' => $msgKey,
 			'hide-if' => [ 'OR', [ '===', $prefix . 'Include', '' ], [ '!==', $prefix . 'Mode', 'file' ] ],
+			// resources/uploadimage.js renders the selected file's preview +
+			// pixel/byte size here (it used to preview only the URL mode).
+			'help' => '<div class="wb-image-preview wb-uploadmeta-preview"></div>',
+		];
+	}
+
+	/**
+	 * The shared image-processing controls for an upload section, keyed on
+	 * the section prefix: "Resize large images before upload" and
+	 * "Automatically correct the file extension". Both default ON and drive
+	 * resources/uploadimage.js client-side; the server reads the same field
+	 * names (auto-correct also enforced in ImageUploadHelper::destName and,
+	 * for Special:Upload, an UploadForm:BeforeProcessing handler). The field
+	 * names must stay `{prefix}Resize` / `{prefix}AutoExt` so the module can
+	 * discover them from the file field's name (`wp{prefix}File`).
+	 */
+	public static function imageToolsFields( string $prefix ): array {
+		$includeToggle = [ '===', $prefix . 'Include', '' ];
+		return [
+			$prefix . 'Resize' => [
+				'type' => 'check',
+				'label-message' => 'embeddablecontent-upload-resize',
+				'default' => true,
+				'hide-if' => $includeToggle,
+			],
+			$prefix . 'AutoExt' => [
+				'type' => 'check',
+				'label-message' => 'embeddablecontent-upload-autoext',
+				'default' => true,
+				'hide-if' => $includeToggle,
+			],
 		];
 	}
 
@@ -405,7 +436,8 @@ final class ImageUploadHelper {
 			$prefix,
 			$upload->getName(),
 			$mimeExtension,
-			self::IMAGE_EXTENSIONS
+			self::IMAGE_EXTENSIONS,
+			$context->getRequest()->getBool( 'wp' . $prefix . 'AutoExt' )
 		);
 		if ( $destName === '' ) {
 			return null;
@@ -446,7 +478,8 @@ final class ImageUploadHelper {
 			$prefix,
 			$name,
 			$mimeExtension,
-			self::IMAGE_EXTENSIONS
+			self::IMAGE_EXTENSIONS,
+			$context->getRequest()->getBool( 'wp' . $prefix . 'AutoExt' )
 		);
 		if ( $destName === '' ) {
 			return null;
@@ -563,17 +596,25 @@ final class ImageUploadHelper {
 	 *
 	 * @param string[] $allowed allowed extensions (lowercase, no dot)
 	 * @param string|null $mimeExtension canonical extension of the MIME type, or null
+	 * @param bool $preferMime when true (the section's auto-correct option),
+	 *  the MIME extension wins over the original name's extension — so a
+	 *  wrongly-named file (a PNG saved as ".jpg") is stored with the
+	 *  extension its bytes actually are, never a filetype-mime-mismatch.
 	 */
 	public static function destName(
 		string $label,
 		string $suffix,
 		string $originalName,
 		?string $mimeExtension,
-		array $allowed
+		array $allowed,
+		bool $preferMime = false
 	): string {
-		$ext = strtolower( (string)pathinfo( $originalName, PATHINFO_EXTENSION ) );
-		if ( !in_array( $ext, $allowed, true ) ) {
-			$ext = strtolower( (string)( $mimeExtension ?? '' ) );
+		$originalExt = strtolower( (string)pathinfo( $originalName, PATHINFO_EXTENSION ) );
+		$mimeExt = strtolower( (string)( $mimeExtension ?? '' ) );
+		if ( $preferMime && in_array( $mimeExt, $allowed, true ) ) {
+			$ext = $mimeExt;
+		} else {
+			$ext = in_array( $originalExt, $allowed, true ) ? $originalExt : $mimeExt;
 		}
 		if ( !in_array( $ext, $allowed, true ) ) {
 			return '';

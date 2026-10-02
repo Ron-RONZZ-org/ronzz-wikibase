@@ -563,6 +563,10 @@ def rich(args: argparse.Namespace) -> int:
         def quotation_rich_in_parser_function() -> None:
             html = _parse_wikitext(args.api_url, f"{{{{#content:{quote_id}}}}}")
             expect("<i>italic</i>" in html, "{{#content:}} quotation wikitext not parsed")
+            # {{#content:}} is the UNFORMATTED path: no .wb-embed chrome
+            # (the reported broken left border on an inline math span) and no
+            # auto blockquote — the consumer page wraps it.
+            expect("wb-embed" not in html, "{{#content:}} quotation still carries the embed chrome")
 
         def math_note_renders() -> None:
             html = embed(math_id)
@@ -574,7 +578,10 @@ def rich(args: argparse.Namespace) -> int:
             expect(NOTE_MARKER in with_note, "{{#content:Q}} did not render the note")
             without = _parse_wikitext(args.api_url, f"{{{{#content:{math_id}|noNote}}}}")
             expect(NOTE_MARKER not in without, "{{#content:Q|noNote}} still rendered the note")
-            expect("wb-embed-math" in without, "{{#content:Q|noNote}} dropped the math")
+            # The math expands to plain display-math wikitext ($$…$$), never
+            # the framed .wb-embed KaTeX span.
+            expect("x^2" in without, "{{#content:Q|noNote}} dropped the math")
+            expect("wb-embed" not in without, "{{#content:}} still carries the .wb-embed embed chrome")
 
         def injections_do_not_survive() -> None:
             # Check the EXACT injection (the wiki pages carry their own

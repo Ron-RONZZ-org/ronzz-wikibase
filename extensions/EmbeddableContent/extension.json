@@ -221,6 +221,7 @@
 		"ParserFirstCallInit": "main",
 		"UploadFormInitDescriptor": "upload",
 		"UploadFormSourceDescriptors": "upload",
+		"UploadForm:BeforeProcessing": "upload",
 		"UploadForm:getInitialPageText": "upload",
 		"UploadComplete": "upload",
 		"PageSaveComplete": "main"
@@ -536,6 +537,22 @@
 				"embeddablecontent-upload-author",
 				"embeddablecontent-upload-license",
 				"embeddablecontent-upload-missing-confirm"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.uploadimage": {
+			"scripts": [
+				"uploadimage.js"
+			],
+			"dependencies": [
+				"ext.embeddableContent.uploadmeta",
+				"mediawiki.util"
+			],
+			"messages": [
+				"embeddablecontent-upload-resizing"
 			],
 			"targets": [
 				"desktop",

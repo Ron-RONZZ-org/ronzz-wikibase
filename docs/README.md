@@ -77,4 +77,7 @@ capitalization fix + the Main-page→item reverse hook), `upload-enhancements.md
 Wikimedia SVG-thumbnail source fix + the converted-upload source-radio
 preservation), `subpages.md`
 (subpages in every namespace except Main; the breadcrumb needs an existing
-parent page).
+parent page), `upload-image-tools-and-plain-content.md` (local-file upload
+preview + client-side resize + extension auto-correction; `{{#content:}}`
+expands to plain wikitext — math via SimpleMathJax, no `.wb-embed` chrome;
+the AddMath note sits below Content and shows in the preview).

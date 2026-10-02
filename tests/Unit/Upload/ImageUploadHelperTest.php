@@ -64,6 +64,60 @@ final class ImageUploadHelperTest extends TestCase {
 		$this->assertSame( 'Flameshot-logo.png', $name );
 	}
 
+	public function testDestNamePrefersMimeExtensionWhenAutoCorrect(): void {
+		// A PNG saved as ".jpg" must store as ".png" when the section's
+		// auto-correct option is on (the filetype-mime-mismatch regression).
+		$name = ImageUploadHelper::destName(
+			'Ada Lovelace',
+			'portrait',
+			'Photo 01.jpg',
+			'png',
+			ImageUploadHelper::IMAGE_EXTENSIONS,
+			true
+		);
+		$this->assertSame( 'Ada-Lovelace-portrait.png', $name );
+	}
+
+	public function testDestNameKeepsOriginalWhenAutoCorrectOff(): void {
+		$name = ImageUploadHelper::destName(
+			'Ada Lovelace',
+			'portrait',
+			'Photo 01.jpg',
+			'png',
+			ImageUploadHelper::IMAGE_EXTENSIONS
+		);
+		$this->assertSame( 'Ada-Lovelace-portrait.jpg', $name );
+	}
+
+	public function testDestNameFallsBackToOriginalWhenMimeUnknown(): void {
+		$name = ImageUploadHelper::destName(
+			'Ada Lovelace',
+			'portrait',
+			'Photo 01.jpg',
+			null,
+			ImageUploadHelper::IMAGE_EXTENSIONS,
+			true
+		);
+		$this->assertSame( 'Ada-Lovelace-portrait.jpg', $name );
+	}
+
+	public function testImageToolsFieldsDefaultOnAndGateOnTheIncludeToggle(): void {
+		$fields = ImageUploadHelper::imageToolsFields( 'portrait' );
+		$this->assertSame( [ 'portraitResize', 'portraitAutoExt' ], array_keys( $fields ) );
+		$this->assertSame( 'check', $fields['portraitResize']['type'] );
+		$this->assertTrue( $fields['portraitResize']['default'] );
+		$this->assertTrue( $fields['portraitAutoExt']['default'] );
+		$this->assertSame(
+			[ '===', 'portraitInclude', '' ],
+			$fields['portraitResize']['hide-if']
+		);
+	}
+
+	public function testFileFieldCarriesThePreviewSlot(): void {
+		$spec = ImageUploadHelper::fileField( 'portrait', 'embeddablecontent-person-portrait-file' );
+		$this->assertStringContainsString( 'wb-image-preview', $spec['help'] );
+	}
+
 	public function testDestNameRejectsUnsupportedExtension(): void {
 		$name = ImageUploadHelper::destName(
 			'Report',

@@ -147,6 +147,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// The "reuse an existing file" File: search combobox (portrait/logo
 		// mode=existing) — a no-op on pages without the wb-file-combobox.
 		$this->getOutput()->addModules( 'ext.embeddableContent.fileselect' );
+		// Local-file preview + client-side resize + extension auto-correction
+		// for the portrait/logo file inputs (the shared Special:Upload
+		// module; a no-op on pages without the wb-image-preview field).
+		$this->getOutput()->addModules( 'ext.embeddableContent.uploadimage' );
 		$parts = explode( '/', trim( (string)$subPage ) );
 		$first = $parts[0] ?? '';
 		if ( $first === '' ) {

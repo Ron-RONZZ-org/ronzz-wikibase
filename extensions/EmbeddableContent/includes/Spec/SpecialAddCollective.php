@@ -150,6 +150,9 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 		$fields['logoFile'] = \EmbeddableContent\Upload\ImageUploadHelper::fileField(
 			'logo', 'embeddablecontent-collective-logo-file'
 		);
+		foreach ( \EmbeddableContent\Upload\ImageUploadHelper::imageToolsFields( 'logo' ) as $key => $spec ) {
+			$fields[$key] = $spec;
+		}
 		$fields['logoUrl'] = \EmbeddableContent\Upload\ImageUploadHelper::urlField(
 			'logo', 'embeddablecontent-collective-logo-url',
 			$this->msg( 'embeddablecontent-collective-logo-license' )->text()

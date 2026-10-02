@@ -276,6 +276,7 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 			'portraitFile' => \EmbeddableContent\Upload\ImageUploadHelper::fileField(
 				'portrait', 'embeddablecontent-person-portrait-file'
 			),
+			...\EmbeddableContent\Upload\ImageUploadHelper::imageToolsFields( 'portrait' ),
 			'portraitUrl' => \EmbeddableContent\Upload\ImageUploadHelper::urlField(
 				'portrait', 'embeddablecontent-person-portrait-url',
 				$this->msg( 'embeddablecontent-person-portrait-license' )->text()

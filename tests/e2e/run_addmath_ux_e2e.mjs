@@ -94,11 +94,25 @@ async function main() {
 		}
 		console.log('[ok] Preview button + KaTeX present');
 
-		// The accompanying note field (rich wikitext) renders on the form.
+		// The accompanying note field (rich wikitext) renders on the form,
+		// directly BELOW the Content field.
 		if (await page.locator('#mw-input-wpnote').count() !== 1) {
 			failures.push('Special:AddMath is missing the accompanying note field (#mw-input-wpnote)');
 		} else {
 			console.log('[ok] accompanying note field present');
+			const noteAfterContent = await page.evaluate(() => {
+				const payload = document.getElementById('mw-input-wppayload');
+				const note = document.getElementById('mw-input-wpnote');
+				if (!payload || !note) {
+					return null;
+				}
+				return (payload.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+			});
+			if (noteAfterContent !== true) {
+				failures.push('the Note field does not sit below the Content field');
+			} else {
+				console.log('[ok] Note field sits below Content');
+			}
 		}
 
 		// (label, payload, forbidden substrings in the rendered text)
@@ -139,6 +153,36 @@ async function main() {
 			failures.push(`malformed TeX: no renderer error message shown (${bad.text.slice(0, 160)})`);
 		}
 		console.log(`[ok] malformed TeX shows the renderer error: ${bad.text.slice(0, 80)}`);
+
+		// The preview shows BOTH the Content and the accompanying Note.
+		await page.evaluate(() => {
+			const note = document.querySelector('#mw-input-wpnote textarea, #mw-input-wpnote input');
+			if (note) {
+				note.value = 'where $a$ is a constant';
+				note.dispatchEvent(new Event('input', { bubbles: true }));
+			}
+		});
+		await page.locator(INPUT).first().fill('$a^2 + b^2 = c^2$');
+		await page.click('#wb-math-preview');
+		await page.waitForTimeout(400);
+		const noteState = await page.evaluate(() => {
+			const wrap = document.getElementById('wb-math-preview-note-wrap');
+			const note = document.getElementById('wb-math-preview-note');
+			return {
+				hidden: wrap ? wrap.hidden : true,
+				text: note ? note.textContent : '',
+				katex: note ? note.querySelectorAll('.katex').length : 0,
+			};
+		});
+		if (noteState.hidden) {
+			failures.push('the note preview block stayed hidden');
+		} else if (!noteState.text.includes('constant')) {
+			failures.push(`the note preview did not show the note (${JSON.stringify(noteState.text)})`);
+		} else if (noteState.katex === 0) {
+			failures.push('the note preview did not typeset the inline $…$ math');
+		} else {
+			console.log('[ok] preview shows both the Content and the Note');
+		}
 	} finally {
 		await browser.close();
 	}

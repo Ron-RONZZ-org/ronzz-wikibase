@@ -5,6 +5,10 @@
  * the vendored KaTeX, after stripping one layer of $…$ / $$…$$ / \(…\) /
  * \[…\] delimiters (same normalization as the server-side submit path,
  * MathRenderer).
+ *
+ * The preview shows BOTH the Content (KaTeX-rendered) and the accompanying
+ * Note (plain wikitext — inline $…$ is typeset with the same KaTeX so the
+ * note's math previews too).
  */
 ( function () {
 	'use strict';
@@ -30,14 +34,54 @@
 		return s;
 	}
 
+	/**
+	 * Renders the note's wikitext into the preview slot: the plain text is
+	 * kept (line breaks included — the slot uses white-space: pre-wrap) and
+	 * inline $…$ segments are typeset with KaTeX. Links/media are not
+	 * previewed (they render on the real page); the math is.
+	 */
+	function renderNote( el, text ) {
+		el.textContent = '';
+		text = String( text || '' );
+		if ( !text.trim() ) {
+			return;
+		}
+		var re = /\$([^$]+)\$/g;
+		var last = 0;
+		var m;
+		while ( ( m = re.exec( text ) ) !== null ) {
+			if ( m.index > last ) {
+				el.appendChild( document.createTextNode( text.slice( last, m.index ) ) );
+			}
+			var span = document.createElement( 'span' );
+			if ( window.katex ) {
+				try {
+					window.katex.render( m[ 1 ], span, { throwOnError: false, displayMode: false } );
+				} catch ( e ) {
+					span.textContent = m[ 1 ];
+				}
+			} else {
+				span.textContent = m[ 1 ];
+			}
+			el.appendChild( span );
+			last = m.index + m[ 0 ].length;
+		}
+		if ( last < text.length ) {
+			el.appendChild( document.createTextNode( text.slice( last ) ) );
+		}
+	}
+
 	$( function () {
 		// The payload is an OOUI textarea; the stable id (mw-input-wppayload)
 		// sits on the WRAPPER widget div, the actual textarea/input inside it
 		// carries a generated id (ooui-php-N) — select the inner control so
 		// .val() reads what the user typed.
 		var $input = $( '#mw-input-wppayload' ).find( 'textarea, input' ).first();
+		var $noteInput = $( '#mw-input-wpnote' ).find( 'textarea, input' ).first();
 		var $box = $( '#wb-math-preview-box' );
 		var $content = $( '#wb-math-preview-content' );
+		var $noteWrap = $( '#wb-math-preview-note-wrap' );
+		var $note = $( '#wb-math-preview-note' );
 		if ( !$input.length || !$box.length || !$content.length ) {
 			return;
 		}
@@ -66,6 +110,11 @@
 				// error: Undefined control sequence: \foo").
 				$content.text( e.message );
 				$box.addClass( 'wb-math-preview-error' );
+			}
+			// The accompanying note, shown below the expression when present.
+			if ( $note.length ) {
+				renderNote( $note[ 0 ], $noteInput.length ? $noteInput.val() : '' );
+				$noteWrap.prop( 'hidden', $note.children().length === 0 );
 			}
 			$box.prop( 'hidden', false );
 		} );
