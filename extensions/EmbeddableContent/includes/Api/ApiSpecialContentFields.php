@@ -47,6 +47,7 @@ class ApiSpecialContentFields extends ApiBase {
 				'programmingLanguage' => $this->config->programmingLanguagePropertyId(),
 				'describes' => $this->config->describesPropertyId(),
 				'implementationOf' => $this->config->implementationOfPropertyId(),
+				'translation' => $this->config->translationPropertyId(),
 				'provenance' => $this->config->provenancePropertyIds(),
 			],
 		] );

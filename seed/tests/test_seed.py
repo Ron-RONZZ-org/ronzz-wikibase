@@ -30,7 +30,7 @@ MANIFESTS = REPO_ROOT / "extensions" / "EmbeddableContent" / "manifests"
 # the contract — not a magic row count.
 REQUIRED_PROPERTY_LABELS = [
     "instance of", "equivalent property", "equivalent class", "formatter URL",
-    "attributed to", "content text", "code source", "LaTeX source",
+    "attributed to", "content text", "code source", "LaTeX source", "translation",
 ]
 REQUIRED_CLASS_LABELS = [
     "quotation content", "code snippet", "mathematical expression", "programming language",
@@ -58,6 +58,9 @@ class ManifestLoaderTest(unittest.TestCase):
         self.assertEqual(instance_of["align_uri"], "http://www.w3.org/1999/02/22-rdf-syntax-ns#type")
         content_text = next(r for r in rows if r["labels"]["en"] == "content text")
         self.assertIsNone(content_text["align_wikidata"])
+        translation = next(r for r in rows if r["labels"]["en"] == "translation")
+        self.assertEqual(translation["datatype"], "monolingualtext")
+        self.assertIsNone(translation["align_wikidata"])
         orcid = next(r for r in rows if r["labels"]["en"] == "ORCID")
         self.assertEqual(orcid["datatype"], "external-id")
         self.assertEqual(orcid["formatter_url"], "https://orcid.org/$1")

@@ -3160,6 +3160,54 @@ def flow_quotation(op, base: str, api: str, label: str, payload: str, person_qid
     raise FlowError(f"Special:AddQuotation did not redirect to an item: {url} {find_error(body)}")
 
 
+def flow_quotation_translation(op, base: str, api: str, person_qid: str) -> str:
+    """Special:AddQuotation "Add translation" (the cloner field): the form
+    renders the create control, a submitted {language, text} row lands as a
+    monolingual `translation` claim, and Special:UpdateQuotation prefills it.
+    Returns the created qid (the caller tracks + deletes it)."""
+    translation_prop = resolve_label(op, api, "translation", "property")
+    if not translation_prop:
+        raise FlowError("the 'translation' property is missing (re-seed required)")
+    ts = int(time.time())
+    label = f"Page-flow E2E translation quotation {ts}"
+    fr_text = f"Traduction E2E {ts}"
+    url, body = page_get(op, base, "/wiki/Special:AddQuotation")
+    if "mw-htmlform-cloner" not in body:
+        raise FlowError(
+            "Special:AddQuotation does not render the Add translation control: " + find_error(body))
+    token = edit_token(body)
+    # The cloner submits array-named fields: wptranslations[i][language|content].
+    url, body = page_post(op, url, {
+        "wplabel": label,
+        "wppayload": "Original E2E text.",
+        "wplanguage": "en",
+        "wpattributedTo": person_qid,
+        "wptranslations[0][language]": "fr",
+        "wptranslations[0][content]": fr_text,
+        "wpEditToken": token,
+        "wpSubmit": "1",
+    })
+    m = re.search(r"/wiki/Item:(Q\d+)$", url)
+    if not m:
+        raise FlowError(
+            f"Special:AddQuotation (translation) did not create an item: {url} {find_error(body)}")
+    qid = m.group(1)
+
+    claims, _ = entity_claims(op, api, qid)
+    values = claim_values(claims, translation_prop)
+    if not any(
+        isinstance(v, dict) and v.get("language") == "fr" and v.get("text") == fr_text
+        for v in values
+    ):
+        raise FlowError(f"{qid}: the fr translation claim is missing/mismatched: {values!r}")
+
+    _, edit_body = page_get(op, base, f"/wiki/Special:UpdateQuotation/{qid}")
+    if fr_text not in edit_body:
+        raise FlowError(f"Special:UpdateQuotation/{qid} did not prefill the translation text")
+    print(f"[ok] AddQuotation translation -> {qid}: fr translation claim + edit prefill")
+    return qid
+
+
 def delete_item(op, api: str, qid: str) -> None:
     csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
     token = csrf["query"]["tokens"]["csrftoken"]
@@ -3611,16 +3659,25 @@ def flow_classic_page_toolbar(op, base: str, page_title: str, qid: str,
         if "wbInternalCiteItem" not in body or "ext.embeddableContent.sourcecite" not in body:
             raise FlowError(f"{page_title}: missing the sourcecite wiring (source class)")
     # "Copy internal mention" (all five classic namespaces): wbMentionLink
-    # carries the page's prefixed title, wbMentionLabel the item label, and
-    # wbMentionItalic the Source-page italic rule. The button itself is
-    # JS-rendered (resources/mention.js).
+    # carries the page's prefixed title, wbMentionLabel the item label (with
+    # any trailing class-disambiguation " (Book)"/" (Webpage)" STRIPPED —
+    # the mention is the bare entity name), and wbMentionItalic the
+    # Source-page italic rule. The button itself is JS-rendered
+    # (resources/mention.js).
     m_link = re.search(r'"wbMentionLink"\s*:\s*"([^"]*)"', body)
     if not m_link or m_link.group(1) != page_title:
         raise FlowError(
             f"{page_title}: wbMentionLink mismatch ("
             f"{m_link.group(1) if m_link else 'missing'}): {find_error(body)}")
-    if "wbMentionLabel" not in body or "ext.embeddableContent.mention" not in body:
+    if "ext.embeddableContent.mention" not in body:
         raise FlowError(f"{page_title}: missing the copy-internal-mention wiring")
+    m_label = re.search(r'"wbMentionLabel"\s*:\s*"([^"]*)"', body)
+    if not m_label or not m_label.group(1).strip():
+        raise FlowError(f"{page_title}: missing/empty wbMentionLabel: {find_error(body)}")
+    if m_label.group(1).rstrip().endswith(")"):
+        raise FlowError(
+            f"{page_title}: wbMentionLabel still carries the parenthetical "
+            f"class suffix: {m_label.group(1)!r}")
     m_italic = re.search(r'"wbMentionItalic"\s*:\s*(true|false)', body)
     if m_italic is None:
         raise FlowError(f"{page_title}: missing wbMentionItalic")
@@ -4982,6 +5039,11 @@ def main() -> int:
         assert first_value(claims, resolve("content text", "property")) is not None, \
             f"{quotation} missing content payload"
         print(f"[ok] Special:AddQuotation -> {quotation}: quotation class + payload + attribution")
+
+        # 4a. "Add translation": the cloner field on Special:AddQuotation
+        #     stores a monolingual `translation` claim (the Add model) and the
+        #     edit form prefills it.
+        track(flow_quotation_translation(op, base, api, person))
 
         # 4b. "Add more" (second submit button): the first submit reopens
         #     the page with the provenance carried over (label reset to the

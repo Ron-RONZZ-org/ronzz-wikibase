@@ -32,4 +32,21 @@ class ContentArgsTest extends TestCase {
 		$this->assertFalse( ContentArgs::noNote( [ 'noNote' ] ) );
 		$this->assertFalse( ContentArgs::noNote( [ 'Q42', 'other' ] ) );
 	}
+
+	public function testLanguagesReadsTheCodesAfterTheItemId(): void {
+		$this->assertSame( [ 'fr', 'en' ], ContentArgs::languages( [ 'Q42', 'fr', 'en' ] ) );
+		// The no-id form: {{#content:|fr|en}}.
+		$this->assertSame( [ 'fr', 'en' ], ContentArgs::languages( [ '', 'fr', 'en' ] ) );
+		// Whitespace/case normalize; duplicates collapse in order.
+		$this->assertSame( [ 'fr' ], ContentArgs::languages( [ 'Q42', ' FR ', 'fr' ] ) );
+	}
+
+	public function testLanguagesSkipsFlagsAndNonCodes(): void {
+		// The noNote math flag and anything that is not a language code are
+		// not treated as translation languages.
+		$this->assertSame( [], ContentArgs::languages( [ 'Q42', 'noNote' ] ) );
+		$this->assertSame( [ 'fr' ], ContentArgs::languages( [ 'Q42', 'noNote', 'fr' ] ) );
+		$this->assertSame( [], ContentArgs::languages( [ 'Q42', 'not a code!' ] ) );
+		$this->assertSame( [], ContentArgs::languages( [ 'fr' ] ) );
+	}
 }

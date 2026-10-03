@@ -244,12 +244,35 @@ class ContentRenderer {
 
 	/**
 	 * Extracts the payload claims for a kind as language => text (quotation)
-	 * or [ '' => text ] (code/math).
+	 * or [ '' => text ] (code/math). For quotations the added `translation`
+	 * claims join as additional available languages (the base wins on a
+	 * language collision), so `lang=fr`/`lang=eo`/`lang=all` keep working
+	 * after the originals move to the dedicated translation property.
 	 *
 	 * @return array<string,string>
 	 */
 	private function extractPayload( Item $item, string $kind ): array {
-		$propertyId = $this->config->payloadPropertyIds()[$kind];
+		$result = $this->collectMonolingual( $item, $this->config->payloadPropertyIds()[$kind] );
+		if ( $kind === 'quotation' ) {
+			$translationPropertyId = $this->config->translationPropertyId();
+			if ( $translationPropertyId !== null ) {
+				foreach ( $this->collectMonolingual( $item, $translationPropertyId ) as $code => $text ) {
+					if ( !array_key_exists( $code, $result ) ) {
+						$result[$code] = $text;
+					}
+				}
+			}
+		}
+		return $result;
+	}
+
+	/**
+	 * The language => decoded-text map of one monolingualtext/string
+	 * property's claims.
+	 *
+	 * @return array<string,string>
+	 */
+	private function collectMonolingual( Item $item, string $propertyId ): array {
 		$result = [];
 		foreach ( $item->getStatements() as $statement ) {
 			$snak = $statement->getMainSnak();

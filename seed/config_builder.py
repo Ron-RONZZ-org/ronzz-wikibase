@@ -30,6 +30,9 @@ PROPERTY_KINDS = {
     "implementation of": ("implementationOf", None),
     # Math accompanying note (rich wikitext rendered below the expression).
     "note": ("note", None),
+    # Quotation translations (one monolingual claim per target language) —
+    # the "Add translation" field on Special:AddQuotation.
+    "translation": ("translation", None),
 }
 
 # Issue #7: authority ExternalId properties (Special pages write these).
@@ -402,6 +405,7 @@ def build_config(
     describes = None
     implementation_of = None
     note = None
+    translation = None
     for label, (section, key) in PROPERTY_KINDS.items():
         if label not in property_ids:
             continue
@@ -418,6 +422,8 @@ def build_config(
             implementation_of = prop_id
         elif section == "note":
             note = prop_id
+        elif section == "translation":
+            translation = prop_id
 
     external_ids: dict[str, str] = {}
     for label, key in EXTERNAL_ID_KINDS.items():
@@ -479,6 +485,7 @@ def build_config(
         "describes": describes,
         "implementationOf": implementation_of,
         "note": note,
+        "translation": translation,
         "provenance": provenance,
         "externalIds": external_ids,
         "citationMetadata": citation_metadata,

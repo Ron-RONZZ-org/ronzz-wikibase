@@ -479,6 +479,7 @@ def rich(args: argparse.Namespace) -> int:
 
         instance_of = property_id("instance of")
         content_text = property_id("content text")
+        translation_property = property_id("translation")
         latex_source = property_id("LaTeX source")
         note_property = property_id("note")
         source_property = property_id("source")
@@ -512,6 +513,15 @@ def rich(args: argparse.Namespace) -> int:
                 "value": {
                     "text": f"''italic'' [[Main Page]] {QUOTE_MARKER} <script>alert(1)</script>",
                     "language": "en",
+                },
+                "type": "monolingualtext",
+            }),
+            # The added translation (the "Add translation" model): a separate
+            # monolingual `translation` claim in French.
+            translation_property: item_claim(translation_property, {
+                "value": {
+                    "text": f"TRADUCTION {QUOTE_MARKER}",
+                    "language": "fr",
                 },
                 "type": "monolingualtext",
             }),
@@ -583,6 +593,20 @@ def rich(args: argparse.Namespace) -> int:
             expect("x^2" in without, "{{#content:Q|noNote}} dropped the math")
             expect("wb-embed" not in without, "{{#content:}} still carries the .wb-embed embed chrome")
 
+        def quotation_translations_render() -> None:
+            # {{#content:Q|fr|eo}}: the original + the fr translation block,
+            # then the "eo translation not found" fallback (no eo claim).
+            html = _parse_wikitext(args.api_url, f"{{{{#content:{quote_id}|fr|eo}}}}")
+            expect("fr translation:" in html, "{{#content:Q|fr}} translation header missing")
+            expect("TRADUCTION" in html, "{{#content:Q|fr}} translated text missing")
+            expect(
+                "eo translation not found" in html,
+                "{{#content:Q|eo}} missing-translation fallback absent",
+            )
+            # No language arguments keeps the original-only rendering.
+            plain = _parse_wikitext(args.api_url, f"{{{{#content:{quote_id}}}}}")
+            expect("TRADUCTION" not in plain, "{{#content:Q}} leaked a translation block")
+
         def injections_do_not_survive() -> None:
             # Check the EXACT injection (the wiki pages carry their own
             # ResourceLoader <script> tags, so a bare "<script>" substring is
@@ -620,6 +644,7 @@ def rich(args: argparse.Namespace) -> int:
         run_check("quotation payload parses as wikitext ({{#content:}})", quotation_rich_in_parser_function)
         run_check("math note renders below the expression (embed surface)", math_note_renders)
         run_check("{{#content:Q|noNote}} suppresses the note", no_note_suppresses_it)
+        run_check("{{#content:Q|fr|eo}} renders translations + not-found", quotation_translations_render)
         run_check("rich injections do not survive (embed/parse/listing)", injections_do_not_survive)
         run_check("Special:QuotationsOf renders the rich quotation", quotation_listing_renders_rich)
 

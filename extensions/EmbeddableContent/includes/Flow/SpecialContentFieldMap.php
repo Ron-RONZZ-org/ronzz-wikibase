@@ -38,6 +38,10 @@ final class SpecialContentFieldMap {
 		'source',
 		'sourceUrl',
 		'date',
+		// Quotation only: the added translations, a list of
+		// { language: string, content: string } rows (the AddQuotation
+		// "Add translation" field).
+		'translations',
 	];
 
 	/** Fields whose value is an item id (Q-number). */
@@ -51,7 +55,7 @@ final class SpecialContentFieldMap {
 
 	/** kind => fields the flow accepts for it. */
 	private const KIND_FIELDS = [
-		'quotation' => [ 'label', 'content', 'labelLanguage', 'language', 'attributedTo', 'source', 'sourceUrl', 'date' ],
+		'quotation' => [ 'label', 'content', 'labelLanguage', 'language', 'translations', 'attributedTo', 'source', 'sourceUrl', 'date' ],
 		'math' => [ 'label', 'content', 'note', 'labelLanguage', 'describes', 'attributedTo', 'source', 'sourceUrl', 'date' ],
 		'code-snippet' => [ 'label', 'content', 'labelLanguage', 'programmingLanguage', 'implementationOf', 'attributedTo', 'source', 'sourceUrl', 'date' ],
 	];

@@ -42,6 +42,33 @@ final class ContentWikitext {
 	}
 
 	/**
+	 * The translation blocks rendered below a quotation's original text, one
+	 * block per requested language:
+	 *
+	 *   '''fr translation:'''
+	 *
+	 *   Le texte traduit.
+	 *
+	 * A block whose `text` is null (no translation claim for that language)
+	 * renders `notFound` in place of the text — the "{code} translation not
+	 * found" fallback. Blocks are separated by a blank line; empty input
+	 * yields an empty string. The header/notFound strings are localized by
+	 * the caller (this class stays MediaWiki-free).
+	 *
+	 * @param array<int,array{header:string,text:?string,notFound:string}> $translations
+	 */
+	public static function quotationTranslations( array $translations ): string {
+		$blocks = [];
+		foreach ( $translations as $translation ) {
+			$body = $translation['text'] !== null
+				? (string)$translation['text']
+				: (string)$translation['notFound'];
+			$blocks[] = "'''" . $translation['header'] . "'''\n\n" . $body;
+		}
+		return implode( "\n\n", $blocks );
+	}
+
+	/**
 	 * The attribution line of a quotation: `-author, ''source''` from the
 	 * already-resolved display strings. Authors render plain, sources carry
 	 * their own italic/link markup (the caller resolves them), so this is a

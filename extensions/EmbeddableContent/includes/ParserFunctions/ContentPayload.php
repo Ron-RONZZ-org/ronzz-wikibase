@@ -44,6 +44,13 @@ use Wikibase\Repo\WikibaseRepo;
  * therefore parses the result in the page context — `[[File:…]]`, links,
  * `$…$` and tags all behave exactly as if written on the page.
  *
+ * `{{#content:Q42|fr|en}}` renders the quotation's ORIGINAL (the base
+ * `content text` claim) followed by one `'''fr translation:'''` block per
+ * requested language from the item's `translation` property, or the
+ * "{code} translation not found" message when that language has none. With
+ * no language arguments the page language is negotiated over the base AND
+ * the translations (the historical behaviour).
+ *
  * The embed SURFACES (`Special:Embed`, `api.php?action=embed`,
  * `Special:QuotationsOf`) keep their framed `.wb-embed` rendering; this
  * function is the on-wiki, unformatted path.
@@ -97,36 +104,68 @@ final class ContentPayload {
 			return self::emptyResult();
 		}
 		$payloadProperty = $config->payloadPropertyIds()[$kind];
-		$payload = self::payloadFor( $entity, $payloadProperty, $kind, $parser );
-		if ( $payload['text'] === '' ) {
-			return self::emptyResult();
-		}
+		$languages = ContentArgs::languages( $args );
 
-		// Expand to REGULAR WIKITEXT and let the consumer page format it —
-		// no `.wb-embed` chrome (see the class docblock). MediaWiki parses
-		// the result in the page context, so [[File:…]]/links/$…$/tags work
-		// exactly as if written on the page.
-		switch ( $kind ) {
-			case 'quotation':
-				$wikitext = ContentWikitext::quotation(
-					$payload['text'],
-					self::quotationAttribution( $entity, $config, $parser )
-				);
-				break;
-			case 'code':
-				$wikitext = ContentWikitext::code(
-					$payload['text'],
-					self::lexerFor( $entity, $config )
-				);
-				break;
-			case 'math':
-				// The accompanying note (rich wikitext) renders below the
-				// expression by default; {{#content:Q42|noNote}} suppresses it.
-				$note = ContentArgs::noNote( $args ) ? '' : self::noteFor( $entity, $config );
-				$wikitext = ContentWikitext::math( $payload['text'], $note );
-				break;
-			default:
+		if ( $kind === 'quotation' ) {
+			// The ORIGINAL is the item's base `content text` claim (the text
+			// entered at creation); each argument names an ADDITIONAL
+			// translation language rendered below it. With no arguments the
+			// page language is negotiated over the base AND the translations
+			// (the pre-translations behaviour).
+			$baseClaims = self::monolingualClaims( $entity, $payloadProperty );
+			$translations = self::translationsFor( $entity, $config );
+			$available = $baseClaims;
+			foreach ( $translations as $code => $text ) {
+				if ( !array_key_exists( $code, $available ) ) {
+					$available[$code] = $text;
+				}
+			}
+			if ( $available === [] ) {
 				return self::emptyResult();
+			}
+			$baseText = reset( $baseClaims );
+			$originalText = ( $languages !== [] && is_string( $baseText ) && $baseText !== '' )
+				? $baseText
+				: self::negotiateText( $available, $parser );
+			if ( $originalText === '' ) {
+				return self::emptyResult();
+			}
+			$wikitext = ContentWikitext::quotation(
+				$originalText,
+				self::quotationAttribution( $entity, $config, $parser )
+			);
+			if ( $languages !== [] ) {
+				$blocks = [];
+				foreach ( $languages as $code ) {
+					$blocks[] = [
+						'header' => $parser->msg( 'embeddablecontent-content-translation-header', $code )->text(),
+						'text' => $translations[$code] ?? null,
+						'notFound' => $parser->msg( 'embeddablecontent-content-translation-notfound', $code )->text(),
+					];
+				}
+				$wikitext .= "\n\n" . ContentWikitext::quotationTranslations( $blocks );
+			}
+		} else {
+			$text = self::stringPayload( $entity, $payloadProperty );
+			if ( $text === '' ) {
+				return self::emptyResult();
+			}
+			switch ( $kind ) {
+				case 'code':
+					$wikitext = ContentWikitext::code(
+						$text,
+						self::lexerFor( $entity, $config )
+					);
+					break;
+				case 'math':
+					// The accompanying note (rich wikitext) renders below the
+					// expression by default; {{#content:Q42|noNote}} suppresses it.
+					$note = ContentArgs::noNote( $args ) ? '' : self::noteFor( $entity, $config );
+					$wikitext = ContentWikitext::math( $text, $note );
+					break;
+				default:
+					return self::emptyResult();
+			}
 		}
 
 		// noparse=false + isHTML=false: the parser expands the returned text
@@ -185,50 +224,77 @@ final class ContentPayload {
 	}
 
 	/**
-	 * The item's decoded payload for the kind, language-aware for
-	 * quotations. Returns the text and, for quotations, the chosen language.
-	 *
-	 * @return array{text:string,lang?:string}
+	 * The plain (language-less) string payload of a code/math item.
 	 */
-	private static function payloadFor(
-		Item $item,
-		string $payloadProperty,
-		string $kind,
-		Parser $parser
-	): array {
-		$payloads = [];
+	private static function stringPayload( Item $item, string $property ): string {
 		foreach ( $item->getStatements() as $statement ) {
 			$snak = $statement->getMainSnak();
 			if ( !$snak instanceof PropertyValueSnak
-				|| $snak->getPropertyId()->getSerialization() !== $payloadProperty
+				|| $snak->getPropertyId()->getSerialization() !== $property
+			) {
+				continue;
+			}
+			$value = $snak->getDataValue();
+			if ( $value instanceof StringValue ) {
+				return PayloadCodec::decode( $value->getValue() );
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * All monolingual claims of a property, language => decoded text, in
+	 * statement order (the quotation base is the first entry).
+	 *
+	 * @return array<string,string>
+	 */
+	private static function monolingualClaims( Item $item, string $property ): array {
+		$out = [];
+		foreach ( $item->getStatements() as $statement ) {
+			$snak = $statement->getMainSnak();
+			if ( !$snak instanceof PropertyValueSnak
+				|| $snak->getPropertyId()->getSerialization() !== $property
 			) {
 				continue;
 			}
 			$value = $snak->getDataValue();
 			if ( $value instanceof MonolingualTextValue ) {
-				$payloads[$value->getLanguageCode()] = PayloadCodec::decode( $value->getText() );
-			} elseif ( $value instanceof StringValue ) {
-				$payloads[''] = PayloadCodec::decode( $value->getValue() );
+				$out[$value->getLanguageCode()] = PayloadCodec::decode( $value->getText() );
 			}
 		}
+		return $out;
+	}
 
-		if ( $kind === 'quotation' ) {
-			$pageLanguage = $parser->getTargetLanguage()?->getCode() ?? 'en';
-			$lang = $pageLanguage;
-			if ( isset( $payloads[$lang] ) ) {
-				return [ 'text' => $payloads[$lang], 'lang' => $lang ];
-			}
-			if ( isset( $payloads['en'] ) ) {
-				return [ 'text' => $payloads['en'], 'lang' => 'en' ];
-			}
-			$first = reset( $payloads );
-			if ( $first !== false ) {
-				$lang = (string)array_key_first( $payloads );
-				return [ 'text' => $first, 'lang' => $lang ];
-			}
-			return [ 'text' => '' ];
+	/**
+	 * The quotation's added translations, language => decoded text, or an
+	 * empty map when the instance has no translation vocabulary.
+	 *
+	 * @return array<string,string>
+	 */
+	private static function translationsFor( Item $item, EmbeddableContentConfig $config ): array {
+		$property = $config->translationPropertyId();
+		return $property === null ? [] : self::monolingualClaims( $item, $property );
+	}
+
+	/**
+	 * Negotiates the display text over an available {language: text} map:
+	 * the page language, then `en`, then the first entry (the historical
+	 * `{{#content:}}` order).
+	 *
+	 * @param array<string,string> $available
+	 */
+	private static function negotiateText( array $available, Parser $parser ): string {
+		if ( $available === [] ) {
+			return '';
 		}
-		return [ 'text' => $payloads[''] ?? '' ];
+		$pageLanguage = $parser->getTargetLanguage()?->getCode() ?? 'en';
+		if ( isset( $available[$pageLanguage] ) ) {
+			return $available[$pageLanguage];
+		}
+		if ( isset( $available['en'] ) ) {
+			return $available['en'];
+		}
+		return (string)reset( $available );
 	}
 
 	/**

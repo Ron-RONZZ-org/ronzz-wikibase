@@ -30,6 +30,7 @@ class SpecialContentFlowServiceTest extends TestCase {
 		'describes' => 'P29',
 		'implementationOf' => 'P30',
 		'note' => 'P31',
+		'translation' => 'P32',
 	];
 
 	private function makeService(): SpecialContentFlowService {
@@ -182,5 +183,117 @@ class SpecialContentFlowServiceTest extends TestCase {
 			}
 		}
 		$this->assertSame( 'goodbye', $payload->getText() );
+	}
+
+	// ------------------------------------------------------ translations
+
+	public function testQuotationTranslationsAreEscapedAndWritten(): void {
+		$service = $this->makeService();
+		$record = [
+			'label' => 'q', 'content' => 'Hello', 'language' => 'en', 'attributedTo' => 'Q6',
+			'translations' => [ [ 'language' => 'fr', 'content' => "Bonjour\nmonde" ] ],
+		];
+
+		$this->assertNull( $service->prepare( 'quotation', $record, true ) );
+		// Stored escaped-at-rest (real newline → \n sequence).
+		$this->assertSame( 'Bonjour\\nmonde', $record['translations'][0]['content'] );
+
+		$specs = $service->statementSpecs( 'quotation', $record );
+		$this->assertInstanceOf( MonolingualTextValue::class, $specs['P2'] );
+		$this->assertSame( 'en', $specs['P2']->getLanguageCode() );
+		$this->assertIsArray( $specs['P32'] );
+		$this->assertInstanceOf( MonolingualTextValue::class, $specs['P32'][0] );
+		$this->assertSame( 'fr', $specs['P32'][0]->getLanguageCode() );
+		$this->assertSame( 'Bonjour\\nmonde', $specs['P32'][0]->getText() );
+	}
+
+	public function testTranslationValidationRejectsBadRows(): void {
+		$service = $this->makeService();
+		$base = [ 'label' => 'q', 'content' => 'Hello', 'language' => 'en', 'attributedTo' => 'Q6' ];
+
+		$badLanguage = $base + [ 'translations' => [ [ 'language' => 'xx!', 'content' => 'x' ] ] ];
+		$this->assertStringContainsString(
+			'not a valid language code',
+			(string)$service->prepare( 'quotation', $badLanguage, true )
+		);
+
+		$sameAsOriginal = $base + [ 'translations' => [ [ 'language' => 'en', 'content' => 'x' ] ] ];
+		$this->assertStringContainsString(
+			'same as the original',
+			(string)$service->prepare( 'quotation', $sameAsOriginal, true )
+		);
+
+		$duplicate = $base + [ 'translations' => [
+			[ 'language' => 'fr', 'content' => 'a' ],
+			[ 'language' => 'FR', 'content' => 'b' ],
+		] ];
+		$this->assertStringContainsString(
+			'duplicate',
+			(string)$service->prepare( 'quotation', $duplicate, true )
+		);
+
+		$blankText = $base + [ 'translations' => [ [ 'language' => 'fr', 'content' => '   ' ] ] ];
+		$this->assertStringContainsString(
+			'has no text',
+			(string)$service->prepare( 'quotation', $blankText, true )
+		);
+	}
+
+	public function testBlankTranslationRowsAreDropped(): void {
+		$service = $this->makeService();
+		$record = [
+			'label' => 'q', 'content' => 'Hello', 'language' => 'en', 'attributedTo' => 'Q6',
+			'translations' => [
+				[ 'language' => '', 'content' => '' ],
+				[ 'language' => 'fr', 'content' => 'Bonjour' ],
+			],
+		];
+		$this->assertNull( $service->prepare( 'quotation', $record, true ) );
+		$this->assertCount( 1, $record['translations'] );
+		$this->assertSame( 'fr', $record['translations'][0]['language'] );
+	}
+
+	public function testApplyUpdateClearsTranslationsWhenTheListIsPresentAndEmpty(): void {
+		$service = $this->makeService();
+		$record = [
+			'label' => 'q', 'content' => 'Hello', 'language' => 'en', 'attributedTo' => 'Q6',
+			'translations' => [ [ 'language' => 'fr', 'content' => 'Bonjour' ] ],
+		];
+		$service->prepare( 'quotation', $record, true );
+		$item = $service->buildItem( 'quotation', $record );
+		$item->setId( new ItemId( 'Q42' ) );
+
+		// A present-but-empty list is authoritative: it clears the translations.
+		$service->applyUpdate( 'quotation', $item, [
+			'content' => 'Hi', 'language' => 'en', 'translations' => [],
+		] );
+
+		$this->assertSame( 0, $this->countProperty( $item, 'P32' ) );
+	}
+
+	public function testApplyUpdatePreservesTranslationsWhenAbsent(): void {
+		$service = $this->makeService();
+		$record = [
+			'label' => 'q', 'content' => 'Hello', 'language' => 'en', 'attributedTo' => 'Q6',
+			'translations' => [ [ 'language' => 'fr', 'content' => 'Bonjour' ] ],
+		];
+		$service->prepare( 'quotation', $record, true );
+		$item = $service->buildItem( 'quotation', $record );
+		$item->setId( new ItemId( 'Q42' ) );
+
+		// No translations key → the property is not managed (no-clobber).
+		$service->applyUpdate( 'quotation', $item, [ 'content' => 'Hi' ] );
+
+		$this->assertSame( 1, $this->countProperty( $item, 'P32' ) );
+	}
+
+	private function countProperty( \Wikibase\DataModel\Entity\Item $item, string $propertyId ): int {
+		$count = 0;
+		foreach ( $item->getStatements() as $statement ) {
+			if ( $statement->getPropertyId()->getSerialization() === $propertyId ) {
+				$count++;
+			}
+		}
+		return $count;
 	}
 }
