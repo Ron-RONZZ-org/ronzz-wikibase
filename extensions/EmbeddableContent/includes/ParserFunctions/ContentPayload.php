@@ -353,7 +353,11 @@ final class ContentPayload {
 			return [ 'label' => null, 'page' => null ];
 		}
 		$term = $item->getLabels()->getByLanguage( 'en' );
-		$sitelink = $item->getSiteLinkList()->getBySiteId( self::SITE_ID );
+		$siteLinks = $item->getSiteLinkList();
+		// getBySiteId() THROWS when the site link is absent — guard it.
+		$sitelink = $siteLinks->hasLinkWithSiteId( self::SITE_ID )
+			? $siteLinks->getBySiteId( self::SITE_ID )
+			: null;
 		return [
 			'label' => $term?->getText(),
 			'page' => $sitelink?->getPageName(),
