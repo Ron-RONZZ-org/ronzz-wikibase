@@ -105,3 +105,24 @@ Four editor-facing gaps:
 - The Item-page toolbar is a single row with a format choice for citations —
   no new CSS primitives (the existing `.wb-embed-toolbar-btn` /
   `.wb-embed-toolbar` styles are reused).
+
+## Follow-up (2026-10): internationalized (IDN) URL hosts
+
+`SsrfGuard::isPublicHost()` validated the parsed host with an ASCII-only
+hostname regex, so a contributor-entered URL whose host carries a non-ASCII
+label (`https://républiquedeslettres.fr/lamartine.php`) was rejected — the
+website/webpage URL-first page showed the generic "invalid URL" error even
+though the site is public.
+
+- `SsrfGuard::hostToAscii()` converts an IDN label to its ASCII/punycode form
+  via ext-intl `idn_to_ascii` (a MediaWiki hard requirement); an ASCII host,
+  an IP literal or a converter failure is returned unchanged. `isPublicHost()`
+  runs the syntax check on that form, so the IDN host is accepted while every
+  private-host rule still applies to its punycode equivalent.
+- `validate()` keeps returning the URL **as entered** (Unicode host) for
+  storage/display; `SsrfGuard::asciiUrl()` rewrites the host to punycode and
+  the fetchers (`PageMetadataFetcher`, `UploadMetadataFetcher`) use it for the
+  network request, since DNS/cURL resolve the ASCII form. The contributor's
+  URL is what the Source page shows.
+- Regression: `tests/Unit/Fetch/SsrfGuardTest.php` (IDN accept + punycode
+  transport conversion; ASCII URLs stay byte-identical).

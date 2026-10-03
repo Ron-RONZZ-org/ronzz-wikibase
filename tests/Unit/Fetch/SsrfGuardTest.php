@@ -38,6 +38,8 @@ final class SsrfGuardTest extends TestCase {
 		yield 'public ipv6' => [ 'http://[2606:4700:4700::1111]/x', true ];
 		yield 'embedded credentials' => [ 'https://user:pass@example.com/x', false ];
 		yield 'bad port' => [ 'https://example.com:99999/x', false ];
+		yield 'idn host' => [ 'https://républiquedeslettres.fr/lamartine.php', true ];
+		yield 'idn subdomain' => [ 'https://münchen.example.org/x', true ];
 		yield 'blank' => [ '', false ];
 	}
 
@@ -53,6 +55,28 @@ final class SsrfGuardTest extends TestCase {
 
 	public function testValidateDropsFragmentAndNormalizesHostCase(): void {
 		$this->assertSame( 'https://Example.COM/Path?q=1', SsrfGuard::validate( 'HTTPS://Example.COM/Path?q=1#frag' ) );
+	}
+
+	public function testValidateAcceptsAndPreservesAnIdnHost(): void {
+		// The contributor's Unicode URL is stored/displayed as entered (the
+		// reported bug: an IDN host was rejected by the ASCII-only host regex).
+		$this->assertSame(
+			'https://républiquedeslettres.fr/lamartine.php',
+			SsrfGuard::validate( 'https://républiquedeslettres.fr/lamartine.php' )
+		);
+	}
+
+	public function testAsciiUrlPunycodesTheIdnHostForTheTransport(): void {
+		$this->assertSame(
+			'https://xn--rpubliquedeslettres-bzb.fr/lamartine.php',
+			SsrfGuard::asciiUrl( 'https://républiquedeslettres.fr/lamartine.php' )
+		);
+		// An already-ASCII URL is returned byte-identical (host case kept).
+		$this->assertSame(
+			'https://Example.COM/Path?q=1',
+			SsrfGuard::asciiUrl( 'https://Example.COM/Path?q=1' )
+		);
+		$this->assertSame( '8.8.8.8', SsrfGuard::hostToAscii( '8.8.8.8' ) );
 	}
 
 	public function testSiteRootCollapsesPathAndQuery(): void {
