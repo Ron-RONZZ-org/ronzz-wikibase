@@ -1075,6 +1075,29 @@ report). See `SimpleMathJax/VENDORED.md`.
   vocabulary/seed/config-map change; deploy = extension rsync + php-fpm
   restart + parser-cache purge.
 
+- **Copy internal mention + quotation attribution + fictional-character
+  aliases (ADR `docs/decisions/mention-and-quotation-attribution.md`,
+  `docs/decisions/fictional-character-alias.md`)**: (a) every classic per-kind
+  page (`Source:`/`Person:`/`Collective:`/`FOSS:`/`Software:`) gains a "Copy
+  internal mention" button — `Hooks::wireMentionButton` sets
+  `wbMentionLink`/`wbMentionLabel`/`wbMentionItalic` and loads
+  `ext.embeddableContent.mention` (`resources/mention.js`), which copies
+  `[[<page>|<item label>]]` (italic on `Source:`) and sits to the right of the
+  "Copy internal citation" button when present. (b) `{{#content:}}` quotations
+  gain an attribution line `-author, ''[[Source:page|label]]''` below the
+  payload — `ContentWikitext::quotationAttribution` (pure) assembled in
+  `ContentPayload` from the `attributed to` / `source` statements (plain
+  italic label when the source has no page; the author/source pages are
+  parser-cache dependencies). (c) `Special:AddFictionalCharacter` gains a
+  comma-separated `alias` field (the fictional-character field-map kind),
+  harvested from Wikidata aliases (`WikidataCore::aliasValues` →
+  `PersonRecord::aliases`) and written as item aliases (create; no-clobber
+  update — `Item::setAliases` takes a `string[]`), prefilled by
+  `Special:UpdateFictionalCharacter`. No vocabulary/seed change (aliases are
+  terms, not statements); deploy = rsync + php-fpm + parser-cache/message
+  purge; the `MediaWiki:Sidebar` semantic-tools entry is an on-wiki deploy
+  step.
+
 ### WikibaseCitation
 
 
