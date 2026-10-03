@@ -165,4 +165,16 @@ class FieldMapTest extends TestCase {
 		$this->assertContains( 'instanceOf', SemanticEntityFieldMap::requiredOnCreate( 'other' ) );
 		$this->assertContains( 'developer', SemanticEntityFieldMap::fieldsForKind( 'software' ) );
 	}
+
+	public function testSemanticEntityFictionalCharacterAliasIsKindScoped(): void {
+		$this->assertTrue( SemanticEntityFieldMap::acceptsField( 'fictional-character', 'alias' ) );
+		$this->assertFalse( SemanticEntityFieldMap::isEntityTyped( 'alias' ) );
+		$this->assertNotContains( 'alias', SemanticEntityFieldMap::requiredOnCreate( 'fictional-character' ) );
+		foreach ( [ 'person', 'software', 'collective', 'other' ] as $kind ) {
+			$this->assertFalse(
+				SemanticEntityFieldMap::acceptsField( $kind, 'alias' ),
+				"kind $kind must not accept the alias field"
+			);
+		}
+	}
 }

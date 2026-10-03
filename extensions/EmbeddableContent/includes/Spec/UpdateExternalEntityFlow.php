@@ -4,6 +4,7 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\Spec;
 
+use EmbeddableContent\Flow\SemanticEntityFlowService;
 use MediaWiki\Html\Html;
 use MediaWiki\HTMLForm\HTMLForm;
 use MediaWiki\MediaWikiServices;
@@ -222,6 +223,12 @@ trait UpdateExternalEntityFlow {
 		$description = trim( (string)( $record['description'] ?? '' ) );
 		if ( $description !== '' ) {
 			$item->setDescription( 'en', $description );
+		}
+		// Aliases (fictional characters): no-clobber — only a NON-empty
+		// field replaces the stored set.
+		$aliases = SemanticEntityFlowService::splitAliases( (string)( $record['alias'] ?? '' ) );
+		if ( $aliases !== [] ) {
+			$item->setAliases( 'en', $aliases );
 		}
 
 		// Statement replacement — NO-CLOBBER contract: only properties with

@@ -200,8 +200,44 @@ class SemanticEntityFlowServiceTest extends TestCase {
 		) );
 	}
 
-	public function testOtherRequiresInstanceOfAndWritesIt(): void {
+	public function testFictionalCharacterAliasesAreWritten(): void {
 		$service = $this->makeService();
+		$record = [
+			'givenName' => 'Sherlock', 'familyName' => 'Holmes',
+			'alias' => 'The Detective, Holmes',
+		];
+		$this->assertNull( $service->prepare( 'fictional-character', $record, true ) );
+		$item = $service->buildItem( 'fictional-character', $record );
+		$this->assertSame(
+			[ 'The Detective', 'Holmes' ],
+			$item->getAliasGroups()->toTextArray()['en'] ?? []
+		);
+	}
+
+	public function testApplyUpdateAliasIsNoClobber(): void {
+		$service = $this->makeService();
+		$item = $service->buildItem( 'fictional-character', [
+			'givenName' => 'Sherlock', 'familyName' => 'Holmes', 'alias' => 'The Detective',
+		] );
+		$item->setId( new ItemId( 'Q42' ) );
+
+		// A blank alias field keeps the stored set.
+		$service->applyUpdate( 'fictional-character', $item, [ 'givenName' => 'Sherlock', 'familyName' => 'Holmes' ] );
+		$this->assertSame( [ 'The Detective' ], $item->getAliasGroups()->toTextArray()['en'] ?? [] );
+
+		// A non-empty field replaces it.
+		$service->applyUpdate( 'fictional-character', $item, [ 'alias' => 'Sherlock Holmes' ] );
+		$this->assertSame( [ 'Sherlock Holmes' ], $item->getAliasGroups()->toTextArray()['en'] ?? [] );
+	}
+
+	public function testSplitAliasesTrimsAndDedupes(): void {
+		$this->assertSame(
+			[ 'The Detective', 'Holmes' ],
+			SemanticEntityFlowService::splitAliases( ' The Detective , Holmes ,, The Detective ' )
+		);
+	}
+
+	public function testOtherRequiresInstanceOfAndWritesIt(): void {		$service = $this->makeService();
 		$noInstance = [ 'label' => 'Anything' ];
 		$this->assertSame(
 			SemanticEntityFlowService::ERROR_INSTANCE_OF_REQUIRED,

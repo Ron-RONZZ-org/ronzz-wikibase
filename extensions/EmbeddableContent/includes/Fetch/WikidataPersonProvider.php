@@ -87,6 +87,7 @@ class WikidataPersonProvider implements PersonProvider {
 			placeOfDeath: $this->core->itemLabel( $harvest['claims'], 'P20', $itemLabels ),
 			wikidataId: $qid,
 			appearsInIds: $this->core->itemValueIds( $harvest['claims'], [ 'P1441' ] ),
+			aliases: $this->core->aliasValues( $harvest['aliases'] ?? [] ),
 			provider: 'wikidata',
 			providerId: $qid,
 			enwikiTitle: $this->core->enwikiTitle( $harvest['sitelinks'] )

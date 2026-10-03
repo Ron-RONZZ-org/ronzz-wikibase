@@ -223,6 +223,15 @@ def entity_descriptions(op, api: str, qid: str) -> str:
         .get("en", {}).get("value", "")
 
 
+def entity_aliases(op, api: str, qid: str) -> list:
+    """en alias strings of an item ([] when none). The fictional-character
+    alias field round-trip assertion reads this."""
+    r = api_call(op, api, {"action": "wbgetentities", "ids": qid,
+                           "props": "aliases", "format": "json"})
+    aliases = r.get("entities", {}).get(qid, {}).get("aliases", {}).get("en", [])
+    return [a.get("value", "") for a in aliases]
+
+
 def page_wikitext(op, api: str, page_title: str) -> str:
     """Current wikitext of a page ('' when missing). Reads via
     action=parse prop=wikitext — on a freshly created page the parse can
@@ -1864,11 +1873,21 @@ def flow_fictional_character(op, base: str, api: str) -> str:
         raise FlowError(f"fictional-character select did not redirect to review: {url} {find_error(body)}")
 
     token3 = edit_token(body)
-    url, body = page_post(op, url, {"wpEditToken": token3, "wpSubmit": "1"})
+    # The alias field (fictional-character follow-up): posted on the review
+    # step and stored as an item alias (English).
+    url, body = page_post(op, url, {
+        "wpalias": "The Detective", "wpEditToken": token3, "wpSubmit": "1",
+    })
     m = re.search(r"/wiki/Item:(Q\d+)$", url)
     if not m:
         raise FlowError(f"fictional-character did not create an item: {url} {find_error(body)}")
-    return m.group(1)
+    qid = m.group(1)
+    aliases = entity_aliases(op, api, qid)
+    if "The Detective" not in aliases:
+        raise FlowError(
+            f"fictional-character alias round-trip failed on {qid}: got {aliases}")
+    print(f"[ok] AddFictionalCharacter alias round-trip on {qid} -> {aliases}")
+    return qid
 
 
 def flow_source_book_access_file(op, base: str, api: str, label: str,
@@ -3591,8 +3610,27 @@ def flow_classic_page_toolbar(op, base: str, page_title: str, qid: str,
     if expect_source_cite:
         if "wbInternalCiteItem" not in body or "ext.embeddableContent.sourcecite" not in body:
             raise FlowError(f"{page_title}: missing the sourcecite wiring (source class)")
+    # "Copy internal mention" (all five classic namespaces): wbMentionLink
+    # carries the page's prefixed title, wbMentionLabel the item label, and
+    # wbMentionItalic the Source-page italic rule. The button itself is
+    # JS-rendered (resources/mention.js).
+    m_link = re.search(r'"wbMentionLink"\s*:\s*"([^"]*)"', body)
+    if not m_link or m_link.group(1) != page_title:
+        raise FlowError(
+            f"{page_title}: wbMentionLink mismatch ("
+            f"{m_link.group(1) if m_link else 'missing'}): {find_error(body)}")
+    if "wbMentionLabel" not in body or "ext.embeddableContent.mention" not in body:
+        raise FlowError(f"{page_title}: missing the copy-internal-mention wiring")
+    m_italic = re.search(r'"wbMentionItalic"\s*:\s*(true|false)', body)
+    if m_italic is None:
+        raise FlowError(f"{page_title}: missing wbMentionItalic")
+    if expect_source_cite and m_italic.group(1) != "true":
+        raise FlowError(f"{page_title}: the source mention snippet must be italic")
+    if not expect_source_cite and m_italic.group(1) != "false":
+        raise FlowError(f"{page_title}: a non-source mention must not be italic")
     print(f"[ok] classic page toolbar on {page_title} -> {m.group(1)}"
-          + (" + copy internal citation" if expect_source_cite else ""))
+          + (" + copy internal citation" if expect_source_cite else "")
+          + " + copy internal mention")
 
 
 def flow_child_items_listing(op, base: str, api: str, book_qid: str,

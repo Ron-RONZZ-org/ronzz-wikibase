@@ -65,7 +65,7 @@ class WikidataCore {
 		$data = $this->http->getJson( self::API, [
 			'action' => 'wbgetentities',
 			'ids' => $qid,
-			'props' => 'labels|descriptions|claims|sitelinks',
+			'props' => 'labels|descriptions|claims|sitelinks|aliases',
 			'format' => 'json',
 		], $this->timeout );
 		$entity = $data['entities'][$qid] ?? null;
@@ -84,6 +84,7 @@ class WikidataCore {
 			'description' => $this->firstDescription( $entity['descriptions'] ?? [] ),
 			'claims' => $entity['claims'] ?? [],
 			'sitelinks' => $entity['sitelinks'] ?? [],
+			'aliases' => $entity['aliases'] ?? [],
 		];
 	}
 
@@ -95,6 +96,39 @@ class WikidataCore {
 	public function enwikiTitle( array $sitelinks ): ?string {
 		$title = $sitelinks['enwiki']['title'] ?? null;
 		return is_string( $title ) && $title !== '' ? $title : null;
+	}
+
+	/**
+	 * The alias VALUES of a harvested aliases map
+	 * (`['en' => [['value' => '…', 'language' => 'en'], …], …]`) for a
+	 * language, falling back to the first language that has any when the
+	 * requested one is absent (Wikidata withholds some languages from
+	 * automated clients — the same fallback as the label).
+	 *
+	 * @param array<string,mixed> $aliases
+	 * @return string[]
+	 */
+	public function aliasValues( array $aliases, string $lang = 'en' ): array {
+		$list = $aliases[$lang] ?? null;
+		if ( !is_array( $list ) || $list === [] ) {
+			foreach ( $aliases as $entries ) {
+				if ( is_array( $entries ) && $entries !== [] ) {
+					$list = $entries;
+					break;
+				}
+			}
+		}
+		if ( !is_array( $list ) ) {
+			return [];
+		}
+		$values = [];
+		foreach ( $list as $entry ) {
+			$value = $entry['value'] ?? null;
+			if ( is_string( $value ) && $value !== '' ) {
+				$values[] = $value;
+			}
+		}
+		return $values;
 	}
 
 	/**

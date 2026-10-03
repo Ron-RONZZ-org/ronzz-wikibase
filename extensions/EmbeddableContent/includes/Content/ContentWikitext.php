@@ -22,9 +22,49 @@ final class ContentWikitext {
 	/** Display-math delimiter (the instance's $wgSmjDisplayMath). */
 	public const MATH_DELIMITER = '$$';
 
-	/** A quotation expands to its own wikitext, unchanged. */
-	public static function quotation( string $wikitext ): string {
-		return $wikitext;
+	/**
+	 * A quotation expands to its own wikitext, optionally followed by the
+	 * attribution line on its own paragraph:
+	 *
+	 *   ''Beloved''
+	 *
+	 *   -Toni Morrison, ''Beloved''
+	 *
+	 * The caller assembles the attribution string (see quotationAttribution)
+	 * — this method only places it below the content.
+	 */
+	public static function quotation( string $wikitext, string $attribution = '' ): string {
+		$attribution = trim( $attribution );
+		if ( $attribution === '' ) {
+			return $wikitext;
+		}
+		return $wikitext . "\n\n" . $attribution;
+	}
+
+	/**
+	 * The attribution line of a quotation: `-author, ''source''` from the
+	 * already-resolved display strings. Authors render plain, sources carry
+	 * their own italic/link markup (the caller resolves them), so this is a
+	 * pure join: the two lists are comma-separated, prefixed with a dash.
+	 * Empty when neither list has an entry; a missing part is omitted.
+	 *
+	 * @param string[] $authors plain author display names
+	 * @param string[] $sources source display strings (may carry markup)
+	 */
+	public static function quotationAttribution( array $authors, array $sources ): string {
+		$parts = [];
+		foreach ( [ $authors, $sources ] as $list ) {
+			foreach ( $list as $value ) {
+				$value = trim( (string)$value );
+				if ( $value !== '' ) {
+					$parts[] = $value;
+				}
+			}
+		}
+		if ( $parts === [] ) {
+			return '';
+		}
+		return '-' . implode( ', ', $parts );
 	}
 
 	/**
