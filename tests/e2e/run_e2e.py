@@ -517,10 +517,13 @@ def rich(args: argparse.Namespace) -> int:
                 "type": "monolingualtext",
             }),
             # The added translation (the "Add translation" model): a separate
-            # monolingual `translation` claim in French.
+            # monolingual `translation` claim in French. It carries the same
+            # rich markers as the original so the embed surface renders them
+            # whichever language the config fallback order negotiates
+            # (fr, en, eo).
             translation_property: item_claim(translation_property, {
                 "value": {
-                    "text": f"TRADUCTION {QUOTE_MARKER}",
+                    "text": f"''italic'' [[Main Page]] TRADUCTION {QUOTE_MARKER}",
                     "language": "fr",
                 },
                 "type": "monolingualtext",
