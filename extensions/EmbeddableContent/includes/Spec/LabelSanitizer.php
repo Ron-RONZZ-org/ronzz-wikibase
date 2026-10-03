@@ -64,4 +64,29 @@ final class LabelSanitizer {
 		return trim( $text, " -\t\n\r\0\x0B" );
 	}
 
+	/**
+	 * Drops a single trailing parenthetical group from a display label, e.g.
+	 * "Méditations poétiques (Book)" → "Méditations poétiques". This is the
+	 * classic-page label disambiguation suffix the AddSource flow appends
+	 * (" ({English class label})"); the mention button shows the bare label
+	 * while the link target keeps the full page title.
+	 *
+	 * Only ONE trailing group is removed and the text before it is kept
+	 * verbatim (a parenthetical in the middle is untouched). A label that is
+	 * nothing but a parenthetical is returned unchanged, so the display label
+	 * can never become empty.
+	 *
+	 * @param string $label a display label (already markup-free)
+	 * @return string the label without its trailing parenthetical group
+	 */
+	public static function stripParentheticalSuffix( string $label ): string {
+		$label = trim( $label );
+		$stripped = preg_replace( '/\s*\([^()]*\)\s*$/u', '', $label );
+		if ( $stripped === null ) {
+			return $label;
+		}
+		$stripped = trim( $stripped );
+		return $stripped === '' ? $label : $stripped;
+	}
+
 }

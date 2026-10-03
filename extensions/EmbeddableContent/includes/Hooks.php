@@ -343,7 +343,9 @@ class Hooks {
 	 * right of the "Copy internal citation" button on source pages.
 	 *
 	 * The label is the item's English label (the page title basis), falling
-	 * back to the page text when the item has none.
+	 * back to the page text when the item has none. Any trailing
+	 * class-disambiguation parenthetical (" (Book)") is dropped from the
+	 * DISPLAY label only — the link target stays the full page title.
 	 */
 	private static function wireMentionButton(
 		OutputPage $out,
@@ -351,9 +353,14 @@ class Hooks {
 		string $itemId
 	): void {
 		$out->addJsConfigVars( 'wbMentionLink', $title->getPrefixedText() );
+		// The display label drops the class-disambiguation suffix the
+		// AddSource flow appends ("Méditations poétiques (Book)" → "Méditations
+		// poétiques"); the LINK still targets the full page title.
 		$out->addJsConfigVars(
 			'wbMentionLabel',
-			self::itemEnglishLabel( $itemId ) ?? $title->getText()
+			\EmbeddableContent\Spec\LabelSanitizer::stripParentheticalSuffix(
+				self::itemEnglishLabel( $itemId ) ?? $title->getText()
+			)
 		);
 		$out->addJsConfigVars(
 			'wbMentionItalic',
