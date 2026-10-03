@@ -37,7 +37,10 @@ use Wikibase\Repo\WikibaseRepo;
  * math span). Quotations expand to their wikitext (wrap them in
  * `<blockquote>` on the page to quote them); math expands to a display
  * `$$…$$` span rendered by the instance's SimpleMathJax like every other
- * formula; code expands to a stock `<syntaxhighlight>` block. The parser
+ * formula; code expands to a stock `<syntaxhighlight>` block. Quotations
+ * expand to their wikitext followed by the attribution line (`-author,
+ * ''[[Source:page|label]]''`, from the `attributed to` / `source`
+ * statements) when they carry one. The parser
  * therefore parses the result in the page context — `[[File:…]]`, links,
  * `$…$` and tags all behave exactly as if written on the page.
  *
@@ -105,7 +108,10 @@ final class ContentPayload {
 		// exactly as if written on the page.
 		switch ( $kind ) {
 			case 'quotation':
-				$wikitext = ContentWikitext::quotation( $payload['text'] );
+				$wikitext = ContentWikitext::quotation(
+					$payload['text'],
+					self::quotationAttribution( $entity, $config, $parser )
+				);
 				break;
 			case 'code':
 				$wikitext = ContentWikitext::code(
@@ -248,6 +254,114 @@ final class ContentPayload {
 			}
 		}
 		return '';
+	}
+
+	/**
+	 * The attribution line for a quotation: `-author, ''source''`. Authors
+	 * are the `attributed to` entities rendered as their plain English
+	 * label; sources are the `source` entities rendered italic and linked
+	 * to their classic page (`''[[Source:Beloved (Book)|Beloved]]''`), or
+	 * the plain italic label when the item has no page. Empty when the item
+	 * carries neither statement.
+	 */
+	private static function quotationAttribution(
+		Item $item,
+		EmbeddableContentConfig $config,
+		Parser $parser
+	): string {
+		$provenance = $config->provenancePropertyIds();
+		$authors = [];
+		foreach ( self::entityIds( $item, $provenance['attributedTo'] ?? null ) as $authorId ) {
+			$authors[] = self::entityInfo( $authorId )['label'] ?? $authorId;
+			self::registerEntityDependency( $parser, $authorId );
+		}
+		$sources = [];
+		foreach ( self::entityIds( $item, $provenance['source'] ?? null ) as $sourceId ) {
+			$sources[] = self::sourceWikitext( $sourceId, $parser );
+		}
+		return ContentWikitext::quotationAttribution( $authors, $sources );
+	}
+
+	/**
+	 * The engine-id values of a wikibase-item property, in statement order.
+	 *
+	 * @return string[]
+	 */
+	private static function entityIds( Item $item, ?string $propertyId ): array {
+		if ( $propertyId === null || $propertyId === '' ) {
+			return [];
+		}
+		$ids = [];
+		foreach ( $item->getStatements() as $statement ) {
+			$snak = $statement->getMainSnak();
+			if ( !$snak instanceof PropertyValueSnak
+				|| $snak->getPropertyId()->getSerialization() !== $propertyId
+			) {
+				continue;
+			}
+			$value = $snak->getDataValue();
+			if ( $value instanceof EntityIdValue ) {
+				$ids[] = $value->getEntityId()->getSerialization();
+			}
+		}
+		return $ids;
+	}
+
+	/**
+	 * The italic wikitext for a source: a link to its classic page when it
+	 * has one (`''[[Source:Beloved (Book)|Beloved]]''`), else the plain
+	 * italic label (`''Beloved''`). Registers the source item as a
+	 * parser-cache dependency. Never throws — a malformed/missing entity
+	 * degrades to the bare id.
+	 */
+	private static function sourceWikitext( string $sourceId, Parser $parser ): string {
+		$info = self::entityInfo( $sourceId );
+		$label = $info['label'] ?? $sourceId;
+		self::registerEntityDependency( $parser, $sourceId );
+		if ( $info['page'] === null || $info['page'] === '' ) {
+			return "''" . $label . "''";
+		}
+		return "''[[" . $info['page'] . '|' . $label . "]]''";
+	}
+
+	/**
+	 * Best-effort parser-cache dependency on an item page (editing the
+	 * author/source re-renders every consumer). A malformed id or a
+	 * registration failure never breaks the parse.
+	 */
+	private static function registerEntityDependency( Parser $parser, string $itemId ): void {
+		try {
+			self::registerCacheDependency( $parser, new ItemId( $itemId ) );
+		} catch ( \Throwable $e ) {
+			// Best-effort: a cache dependency must never break the parse.
+		}
+	}
+
+	/**
+	 * The en label + local classic-page title of an item, or nulls when it
+	 * does not exist.
+	 *
+	 * @return array{label:?string,page:?string}
+	 */
+	private static function entityInfo( string $itemId ): array {
+		try {
+			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
+		} catch ( \Throwable $e ) {
+			return [ 'label' => null, 'page' => null ];
+		}
+		if ( !$item instanceof Item ) {
+			return [ 'label' => null, 'page' => null ];
+		}
+		$term = $item->getLabels()->getByLanguage( 'en' );
+		$siteLinks = $item->getSiteLinkList();
+		// getBySiteId() THROWS when the site link is absent — guard it.
+		$sitelink = $siteLinks->hasLinkWithSiteId( self::SITE_ID )
+			? $siteLinks->getBySiteId( self::SITE_ID )
+			: null;
+		return [
+			'label' => $term?->getText(),
+			'page' => $sitelink?->getPageName(),
+		];
 	}
 
 	/** The Pygments lexer for the item's programming-language statement. */

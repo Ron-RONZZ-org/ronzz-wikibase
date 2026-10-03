@@ -235,6 +235,7 @@ class Hooks {
 				->getItemIdForLink( 'wikibase', $title->getPrefixedText() );
 			if ( $itemId !== null ) {
 				self::wireItemToolbar( $out, $itemId->getSerialization() );
+				self::wireMentionButton( $out, $title, $itemId->getSerialization() );
 			}
 			return;
 		}
@@ -332,6 +333,47 @@ class Hooks {
 			$out->addJsConfigVars( 'wbInternalCiteItem', $itemId );
 			$out->addModules( 'ext.embeddableContent.sourcecite' );
 		}
+	}
+
+	/**
+	 * The "Copy internal mention" button on the classic per-kind pages: it
+	 * copies a piped internal link to the page, `[[<page>|<item label>]]`
+	 * (italic on Source: pages, `''[[Source:Beloved (Book)|Beloved]]''`).
+	 * Rendered in the shared toolbar; resources/mention.js places it to the
+	 * right of the "Copy internal citation" button on source pages.
+	 *
+	 * The label is the item's English label (the page title basis), falling
+	 * back to the page text when the item has none.
+	 */
+	private static function wireMentionButton(
+		OutputPage $out,
+		\MediaWiki\Title\Title $title,
+		string $itemId
+	): void {
+		$out->addJsConfigVars( 'wbMentionLink', $title->getPrefixedText() );
+		$out->addJsConfigVars(
+			'wbMentionLabel',
+			self::itemEnglishLabel( $itemId ) ?? $title->getText()
+		);
+		$out->addJsConfigVars(
+			'wbMentionItalic',
+			defined( 'NS_SOURCE' ) && $title->getNamespace() === NS_SOURCE
+		);
+		$out->addModules( 'ext.embeddableContent.mention' );
+	}
+
+	/** The item's English label, or null when it has none. */
+	private static function itemEnglishLabel( string $itemId ): ?string {
+		try {
+			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+		if ( !$item instanceof Item ) {
+			return null;
+		}
+		$term = $item->getLabels()->getByLanguage( 'en' );
+		return $term?->getText();
 	}
 
 	/**

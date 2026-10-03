@@ -15,6 +15,7 @@ namespace EmbeddableContent\Fetch;
 	/**
 	 * @param string[] $appearsInIds Wikidata Q-ids of the works this
 	 *   character appears in (P1441, harvested for fictional characters)
+	 * @param string[] $aliases Wikidata aliases (fictional characters)
 	 */
 	public function __construct(
 		public readonly string $label,
@@ -31,6 +32,7 @@ namespace EmbeddableContent\Fetch;
 		public readonly ?string $placeOfDeath = null,
 		public readonly ?string $wikidataId = null,
 		public readonly array $appearsInIds = [],
+		public readonly array $aliases = [],
 		public readonly string $provider = '',
 		public readonly ?string $providerId = null,
 		public readonly ?string $enwikiTitle = null

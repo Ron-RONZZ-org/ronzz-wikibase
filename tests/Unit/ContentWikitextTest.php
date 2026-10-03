@@ -40,6 +40,40 @@ final class ContentWikitextTest extends TestCase {
 		);
 	}
 
+	public function testQuotationAppendsAttributionAsOwnParagraph(): void {
+		$this->assertSame(
+			"''Beloved''" . "\n\n" . "-Toni Morrison, ''[[Source:Beloved (Book)|Beloved]]''",
+			ContentWikitext::quotation(
+				"''Beloved''",
+				"-Toni Morrison, ''[[Source:Beloved (Book)|Beloved]]''"
+			)
+		);
+	}
+
+	public function testQuotationIgnoresBlankAttribution(): void {
+		$this->assertSame( 'plain', ContentWikitext::quotation( 'plain', "  \n " ) );
+	}
+
+	public function testQuotationAttributionJoinsAuthorsAndSources(): void {
+		$this->assertSame(
+			"-Toni Morrison, ''[[Source:Beloved (Book)|Beloved]]''",
+			ContentWikitext::quotationAttribution(
+				[ 'Toni Morrison' ],
+				[ "''[[Source:Beloved (Book)|Beloved]]''" ]
+			)
+		);
+	}
+
+	public function testQuotationAttributionOmitsMissingParts(): void {
+		$this->assertSame( "-''Beloved''", ContentWikitext::quotationAttribution( [], [ "''Beloved''" ] ) );
+		$this->assertSame( '-Toni Morrison', ContentWikitext::quotationAttribution( [ 'Toni Morrison' ], [] ) );
+	}
+
+	public function testQuotationAttributionEmptyWhenBothEmpty(): void {
+		$this->assertSame( '', ContentWikitext::quotationAttribution( [], [] ) );
+		$this->assertSame( '', ContentWikitext::quotationAttribution( [ '' ], [ ' ' ] ) );
+	}
+
 	public function testCodeUsesSyntaxHighlightTag(): void {
 		$this->assertSame(
 			'<syntaxhighlight lang="python">print(1)</syntaxhighlight>',

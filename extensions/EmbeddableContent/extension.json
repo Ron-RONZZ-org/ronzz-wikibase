@@ -462,6 +462,26 @@
 				"mobile"
 			]
 		},
+		"ext.embeddableContent.mention": {
+			"scripts": [
+				"mention.js"
+			],
+			"styles": [
+				"gadget.css"
+			],
+			"messages": [
+				"embeddablecontent-mention-button",
+				"embeddablecontent-mention-hint",
+				"embeddablecontent-gadget-copied"
+			],
+			"dependencies": [
+				"mediawiki.notification"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
 		"ext.embeddableContent.addsourcelabelpreview": {
 			"scripts": [
 				"addsource-labelpreview.js"

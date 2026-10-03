@@ -123,6 +123,13 @@ class SpecialAddFictionalCharacter extends SpecialAddExternalEntity {
 			+ [
 				'givenName' => $this->plainTextField( 'embeddablecontent-field-givenname', (string)( $record['givenName'] ?? '' ) ),
 				'familyName' => $this->plainTextField( 'embeddablecontent-field-familyname', (string)( $record['familyName'] ?? '' ) ),
+				'alias' => [
+					'type' => 'text',
+					'label-message' => 'embeddablecontent-fictionalcharacter-field-alias',
+					'default' => $this->aliasesDefault( $record ),
+					'maxlength' => 2000,
+					'help' => $this->msg( 'embeddablecontent-fictionalcharacter-field-alias-help' )->parse(),
+				],
 				'appearsIn' => EntityCombobox::spec(
 					'embeddablecontent-fictionalcharacter-field-appearsin',
 					array_values( $this->config->sourceClasses() ),
@@ -134,6 +141,20 @@ class SpecialAddFictionalCharacter extends SpecialAddExternalEntity {
 				),
 			]
 			+ $this->externalIdFieldSpecs( $record );
+	}
+
+	/**
+	 * The comma-separated default for the alias field: the harvested
+	 * Wikidata aliases (an array in the record), or an already-typed value.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function aliasesDefault( array $record ): string {
+		$aliases = $record['aliases'] ?? $record['alias'] ?? '';
+		if ( is_array( $aliases ) ) {
+			return implode( ', ', $aliases );
+		}
+		return (string)$aliases;
 	}
 
 	/**

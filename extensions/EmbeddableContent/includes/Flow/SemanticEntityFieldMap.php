@@ -22,6 +22,7 @@ final class SemanticEntityFieldMap {
 		'description',
 		'givenName',
 		'familyName',
+		'alias',
 		'dateOfBirth',
 		'placeOfBirth',
 		'dateOfDeath',
@@ -70,7 +71,7 @@ final class SemanticEntityFieldMap {
 		'person' => [ 'givenName', 'familyName', 'description', 'dateOfBirth', 'placeOfBirth', 'dateOfDeath', 'placeOfDeath', 'orcid', 'viafId', 'isni', 'wikidataId', 'openalexAuthorId', 'officialWebsite' ],
 		'software' => [ 'label', 'description', 'developer', 'license', 'programmingLanguage', 'operatingSystem', 'userInterface', 'hasUse', 'officialWebsite', 'sourceCodeRepository', 'documentationUrl', 'wikidataId', 'pageKind' ],
 		'collective' => [ 'label', 'description', 'collectiveClass', 'parentOrganization', 'officialWebsite', 'wikidataId' ],
-		'fictional-character' => [ 'givenName', 'familyName', 'description', 'presentInWork' ],
+		'fictional-character' => [ 'givenName', 'familyName', 'alias', 'description', 'presentInWork' ],
 		'other' => [ 'label', 'description', 'instanceOf', 'statements' ],
 	];
 

@@ -364,6 +364,10 @@ final class SemanticEntityFlowService {
 		if ( $description !== '' ) {
 			$item->setDescription( 'en', $description );
 		}
+		$aliases = self::splitAliases( (string)( $record['alias'] ?? '' ) );
+		if ( $aliases !== [] ) {
+			$item->setAliases( 'en', $aliases );
+		}
 		foreach ( $this->statementSpecs( $kind, $record ) as $propertyId => $value ) {
 			foreach ( is_array( $value ) ? $value : [ $value ] as $single ) {
 				$item->getStatements()->addNewStatement(
@@ -416,6 +420,12 @@ final class SemanticEntityFlowService {
 		if ( $description !== '' ) {
 			$item->setDescription( 'en', $description );
 		}
+		// Aliases: no-clobber — only a NON-empty alias field replaces the
+		// stored set (a blank field keeps the existing aliases).
+		$aliases = self::splitAliases( (string)( $record['alias'] ?? '' ) );
+		if ( $aliases !== [] ) {
+			$item->setAliases( 'en', $aliases );
+		}
 	}
 
 	/** "fictional character in {labels…}" from the present-in-work items. */
@@ -448,6 +458,24 @@ final class SemanticEntityFlowService {
 		foreach ( preg_split( '/[,;]/', $value ) ?: [] as $part ) {
 			$part = trim( $part );
 			if ( $part !== '' ) {
+				$out[] = $part;
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * Split a comma/semicolon-separated alias field into unique, trimmed
+	 * values (order preserved). Pure — shared by the flow service and the
+	 * Update* form path.
+	 *
+	 * @return string[]
+	 */
+	public static function splitAliases( string $value ): array {
+		$out = [];
+		foreach ( preg_split( '/[,;]/', $value ) ?: [] as $part ) {
+			$part = trim( $part );
+			if ( $part !== '' && !in_array( $part, $out, true ) ) {
 				$out[] = $part;
 			}
 		}
