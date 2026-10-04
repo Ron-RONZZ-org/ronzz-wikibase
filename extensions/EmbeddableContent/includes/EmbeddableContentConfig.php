@@ -87,6 +87,17 @@ class EmbeddableContentConfig {
 		return $this->optionalString( 'note' );
 	}
 
+	/**
+	 * Quotation-translation property (the added translations, one monolingual
+	 * claim per language). Nullable: absent on instances seeded before this
+	 * property existed — the AddQuotation form then renders no "Add
+	 * translation" field and `{{#content:Q|fr|en}}` renders no translation
+	 * blocks.
+	 */
+	public function translationPropertyId(): ?string {
+		return $this->optionalString( 'translation' );
+	}
+
 	/** @return array<string,string> canonical provenance key => property id */
 	public function provenancePropertyIds(): array {
 		$allowed = [ 'attributedTo', 'sourceUrl', 'source', 'date' ];

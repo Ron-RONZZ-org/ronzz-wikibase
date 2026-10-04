@@ -74,6 +74,28 @@ final class ContentWikitextTest extends TestCase {
 		$this->assertSame( '', ContentWikitext::quotationAttribution( [ '' ], [ ' ' ] ) );
 	}
 
+	public function testQuotationTranslationsRendersOneBlockPerLanguage(): void {
+		$out = ContentWikitext::quotationTranslations( [
+			[ 'header' => 'fr translation:', 'text' => 'Le texte', 'notFound' => 'fr translation not found' ],
+			[ 'header' => 'en translation:', 'text' => 'The text', 'notFound' => 'en translation not found' ],
+		] );
+		$this->assertSame(
+			"'''fr translation:'''\n\nLe texte\n\n'''en translation:'''\n\nThe text",
+			$out
+		);
+	}
+
+	public function testQuotationTranslationsRendersNotFoundWhenTextIsNull(): void {
+		$out = ContentWikitext::quotationTranslations( [
+			[ 'header' => 'eo translation:', 'text' => null, 'notFound' => 'eo translation not found' ],
+		] );
+		$this->assertSame( "'''eo translation:'''\n\neo translation not found", $out );
+	}
+
+	public function testQuotationTranslationsEmptyInputIsEmpty(): void {
+		$this->assertSame( '', ContentWikitext::quotationTranslations( [] ) );
+	}
+
 	public function testCodeUsesSyntaxHighlightTag(): void {
 		$this->assertSame(
 			'<syntaxhighlight lang="python">print(1)</syntaxhighlight>',

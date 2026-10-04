@@ -107,4 +107,44 @@ class LabelSanitizerTest extends TestCase {
 		$this->assertSame( '', LabelSanitizer::normalizeForTitle( '<i></i>' ) );
 	}
 
+	// ---------------------------------------- stripParentheticalSuffix
+
+	public function testStripParentheticalSuffixDropsTheClassSuffix(): void {
+		$this->assertSame(
+			'Méditations poétiques',
+			LabelSanitizer::stripParentheticalSuffix( 'Méditations poétiques (Book)' )
+		);
+		$this->assertSame(
+			'The Hobbit',
+			LabelSanitizer::stripParentheticalSuffix( 'The Hobbit (Book)' )
+		);
+		$this->assertSame(
+			'Example Domain',
+			LabelSanitizer::stripParentheticalSuffix( 'Example Domain (Website)' )
+		);
+	}
+
+	public function testStripParentheticalSuffixKeepsInnerParentheses(): void {
+		// A parenthetical that is not at the end is part of the label.
+		$this->assertSame(
+			'Poems (Second Series)',
+			LabelSanitizer::stripParentheticalSuffix( 'Poems (Second Series) (Book)' )
+		);
+		$this->assertSame(
+			'A (B) C',
+			LabelSanitizer::stripParentheticalSuffix( 'A (B) C' )
+		);
+	}
+
+	public function testStripParentheticalSuffixLeavesPlainLabelsAlone(): void {
+		$this->assertSame( 'Albert Einstein', LabelSanitizer::stripParentheticalSuffix( 'Albert Einstein' ) );
+		$this->assertSame( '', LabelSanitizer::stripParentheticalSuffix( '' ) );
+		$this->assertSame( 'The Hobbit', LabelSanitizer::stripParentheticalSuffix( '  The Hobbit  ' ) );
+	}
+
+	public function testStripParentheticalSuffixNeverEmptiesTheLabel(): void {
+		// A label that is only a parenthetical is kept as-is.
+		$this->assertSame( '(disambiguation)', LabelSanitizer::stripParentheticalSuffix( '(disambiguation)' ) );
+	}
+
 }

@@ -149,6 +149,14 @@ class FieldMapTest extends TestCase {
 		$this->assertNotContains( 'note', SpecialContentFieldMap::requiredOnCreate( 'math' ) );
 	}
 
+	public function testSpecialContentTranslationsIsQuotationOnly(): void {
+		$this->assertContains( 'translations', SpecialContentFieldMap::ALL_FIELDS );
+		$this->assertTrue( SpecialContentFieldMap::acceptsField( 'quotation', 'translations' ) );
+		$this->assertFalse( SpecialContentFieldMap::acceptsField( 'math', 'translations' ) );
+		$this->assertFalse( SpecialContentFieldMap::acceptsField( 'code-snippet', 'translations' ) );
+		$this->assertNotContains( 'translations', SpecialContentFieldMap::requiredOnCreate( 'quotation' ) );
+	}
+
 	// ----------------------------------------------------- semantic entity
 
 	public function testSemanticEntityKindsAndFields(): void {

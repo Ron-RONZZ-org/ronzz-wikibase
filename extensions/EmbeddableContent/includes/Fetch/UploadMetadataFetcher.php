@@ -53,6 +53,9 @@ final class UploadMetadataFetcher {
 		if ( $url === null ) {
 			return ImageMetadata::failure( $originalUrl, 'URL rejected by the SSRF guard' );
 		}
+		// IDN hosts: probe/query the ASCII (punycode) form (DNS/cURL resolve
+		// it); an already-ASCII host is unchanged.
+		$url = SsrfGuard::asciiUrl( $url );
 
 		// Wikimedia special handling: the Commons API yields the author,
 		// license and description directly. Best-effort — the generic probe

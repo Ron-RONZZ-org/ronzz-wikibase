@@ -334,6 +334,7 @@ class SeedOrchestrator:
         source_id = self.find("source", "property", ANCHOR_LANGUAGE)
         date_id = self.find("date", "property", ANCHOR_LANGUAGE)
         content_text_id = self.find("content text", "property", ANCHOR_LANGUAGE)
+        translation_id = self.find("translation", "property", ANCHOR_LANGUAGE)
         code_source_id = self.find("code source", "property", ANCHOR_LANGUAGE)
         latex_id = self.find("LaTeX source", "property", ANCHOR_LANGUAGE)
         prog_lang_id = self.find("programming language", "property", ANCHOR_LANGUAGE)
@@ -410,10 +411,21 @@ class SeedOrchestrator:
         if instance_of_id and quote_class:
             claims[instance_of_id] = [dogfood.entity_claim(instance_of_id, quote_class)]
         if content_text_id:
+            # The original (creation) text is a `content text` claim; the
+            # other languages are `translation` claims (the AddQuotation
+            # "Add translation" model).
+            original_lang = dogfood.QUOTATION_ORIGINAL_LANGUAGE
             claims[content_text_id] = [
-                dogfood.monolingual_claim(content_text_id, text, lang)
-                for lang, text in dogfood.QUOTATION_TEXT.items()
+                dogfood.monolingual_claim(
+                    content_text_id, dogfood.QUOTATION_TEXT[original_lang], original_lang
+                )
             ]
+            if translation_id:
+                claims[translation_id] = [
+                    dogfood.monolingual_claim(translation_id, text, lang)
+                    for lang, text in dogfood.QUOTATION_TEXT.items()
+                    if lang != original_lang
+                ]
         if attributed_to_id:
             claims.setdefault(attributed_to_id, []).append(
                 dogfood.entity_claim(attributed_to_id, person_id)

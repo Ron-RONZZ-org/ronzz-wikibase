@@ -23,7 +23,13 @@ source.
   `onBeforePageDisplay` (after `wireItemToolbar`) and sets three JS config
   vars: `wbMentionLink` (the page's prefixed title), `wbMentionLabel` (the
   item's English label, falling back to the page text) and `wbMentionItalic`
-  (`true` on `Source:`). It loads `ext.embeddableContent.mention`.
+  (`true` on `Source:`). It loads `ext.embeddableContent.mention`. The
+  `wbMentionLabel` value drops a single trailing parenthetical group
+  (`LabelSanitizer::stripParentheticalSuffix()`) — the AddSource
+  class-disambiguation suffix — so "Méditations poétiques (Book)" displays as
+  `[[Source:Méditations poétiques (Book)|Méditations poétiques]]`; the link
+  target keeps the full page title. A label that is only a parenthetical is
+  kept unchanged.
 - `resources/mention.js` copies `[[<page>|<label>]]`, wrapped in `''…''` on
   Source pages. It renders into the shared `.wb-embed-toolbar` row and, when
   the "Copy internal citation" button is present, inserts itself **to its
@@ -62,4 +68,5 @@ source.
 - `tests/Unit/ContentWikitextTest.php` — the quotation/attribution assembly.
 - `tests/e2e/run_pages_e2e.py` — `flow_classic_page_toolbar` asserts the
   mention wiring (`wbMentionLink` = the page title, `wbMentionItalic` true on
-  Source / false otherwise, the module loaded) on every created classic page.
+  Source / false otherwise, the module loaded, and `wbMentionLabel` free of
+  the trailing parenthetical class suffix) on every created classic page.

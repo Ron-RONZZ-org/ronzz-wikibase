@@ -482,6 +482,21 @@
 				"mobile"
 			]
 		},
+		"ext.embeddableContent.translations": {
+			"scripts": [
+				"translations.js"
+			],
+			"dependencies": [
+				"oojs-ui"
+			],
+			"messages": [
+				"embeddablecontent-add-translation-confirm"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
 		"ext.embeddableContent.addsourcelabelpreview": {
 			"scripts": [
 				"addsource-labelpreview.js"

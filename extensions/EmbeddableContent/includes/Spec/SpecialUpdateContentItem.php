@@ -51,6 +51,10 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 		$this->setHeaders();
 		$this->getOutput()->addModuleStyles( 'ext.embeddableContent.embed' );
 		$this->getOutput()->addModules( 'ext.embeddableContent.entitysuggest' );
+		if ( $this->getKind() === 'quotation' ) {
+			// X + confirmation dialog on the translation rows' delete control.
+			$this->getOutput()->addModules( 'ext.embeddableContent.translations' );
+		}
 
 		$itemId = $this->itemIdFromSubPage( $subPage );
 		if ( $itemId === null ) {
@@ -119,6 +123,11 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 				$fields[$name]['default'] = $value;
 			}
 		}
+		// The translation cloner rows (a list, not a scalar) — set directly so
+		// the edit form carries the item's translations.
+		if ( array_key_exists( 'translations', $record ) && isset( $fields['translations'] ) ) {
+			$fields['translations']['default'] = $record['translations'];
+		}
 		return $fields;
 	}
 
@@ -152,6 +161,24 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 					$record['language'] = $value['language'];
 				}
 				break;
+			}
+		}
+
+		// Quotation translations (the `translation` property), decoded and
+		// ready for the "Add translation" cloner rows.
+		if ( $kind === 'quotation' ) {
+			$translationPropertyId = $this->config->translationPropertyId();
+			if ( $translationPropertyId !== null ) {
+				$translations = [];
+				foreach ( $this->statementValues( $item, $translationPropertyId ) as $value ) {
+					if ( isset( $value['text'], $value['language'] ) ) {
+						$translations[] = [
+							'language' => $value['language'],
+							'content' => PayloadCodec::decode( $value['text'] ),
+						];
+					}
+				}
+				$record['translations'] = $translations;
 			}
 		}
 

@@ -61,7 +61,10 @@ final class SsrfGuard {
 	/**
 	 * Hostname sanity: not localhost/private-label, not a private or
 	 * reserved IP literal, syntactically a real hostname (dot-separated
-	 * labels).
+	 * labels). Internationalized (IDN) hosts are accepted: the syntax check
+	 * runs against their ASCII/punycode form, so `républiquedeslettres.fr`
+	 * is as public as `xn--rpubliquedeslettres-bzb.fr` (the transport uses
+	 * the punycode form, see asciiUrl()).
 	 */
 	public static function isPublicHost( string $host ): bool {
 		$host = strtolower( rtrim( trim( $host ), '.' ) );
@@ -85,13 +88,65 @@ final class SsrfGuard {
 		if ( filter_var( $ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6 ) ) {
 			return self::isPublicIpv6( $ip );
 		}
-		if ( strpos( $host, '.' ) === false ) {
+		// A Unicode label is not matched by the ASCII hostname regex;
+		// convert to punycode first (unchanged for an ASCII host).
+		$ascii = self::hostToAscii( $host );
+		if ( $ascii === '' || strpos( $ascii, '.' ) === false ) {
 			return false; // bare single-label names resolve to intranet hosts
 		}
 		return preg_match(
 			'/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i',
-			$host
+			$ascii
 		) === 1;
+	}
+
+	/**
+	 * ASCII (punycode) form of a hostname, via ext-intl `idn_to_ascii`
+	 * (a MediaWiki hard requirement). An ASCII host, an IP literal or a
+	 * host the converter rejects is returned unchanged, so the result is
+	 * always a safe input to the hostname regex / the network transport.
+	 */
+	public static function hostToAscii( string $host ): string {
+		$host = trim( $host );
+		if ( $host === '' || !function_exists( 'idn_to_ascii' ) ) {
+			return $host;
+		}
+		// ASCII hosts (the common case) are returned verbatim — preserving
+		// host case and avoiding a needless ICU round-trip; only a host with
+		// a non-ASCII label needs punycode.
+		if ( preg_match( '/[^\x00-\x7F]/', $host ) !== 1 ) {
+			return $host;
+		}
+		$ascii = idn_to_ascii( $host, IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46 );
+		return is_string( $ascii ) && $ascii !== '' ? $ascii : $host;
+	}
+
+	/**
+	 * Rebuilds a validated URL with an ASCII (punycode) host, for the
+	 * network transport: DNS/cURL resolve the punycode form, while the URL
+	 * the contributor entered (and that is stored/displayed) keeps its
+	 * Unicode host. An already-ASCII URL is returned byte-identical.
+	 */
+	public static function asciiUrl( string $url ): string {
+		$parts = parse_url( $url );
+		if ( $parts === false || !isset( $parts['host'] ) ) {
+			return $url;
+		}
+		$host = (string)$parts['host'];
+		$asciiHost = self::hostToAscii( $host );
+		if ( $asciiHost === $host ) {
+			return $url;
+		}
+		// validate() already dropped the fragment and rejected credentials.
+		$clean = strtolower( $parts['scheme'] ?? 'https' ) . '://' . $asciiHost;
+		if ( isset( $parts['port'] ) ) {
+			$clean .= ':' . $parts['port'];
+		}
+		$clean .= $parts['path'] ?? '';
+		if ( isset( $parts['query'] ) ) {
+			$clean .= '?' . $parts['query'];
+		}
+		return $clean;
 	}
 
 	/** @param string $ip dotted-quad IPv4 literal */

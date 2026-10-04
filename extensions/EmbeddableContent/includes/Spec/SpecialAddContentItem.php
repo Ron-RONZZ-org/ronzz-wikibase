@@ -52,6 +52,10 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		$this->setHeaders();
 		$this->getOutput()->addModuleStyles( 'ext.embeddableContent.embed' );
 		$this->getOutput()->addModules( 'ext.embeddableContent.entitysuggest' );
+		if ( $this->getKind() === 'quotation' ) {
+			// X + confirmation dialog on the translation rows' delete control.
+			$this->getOutput()->addModules( 'ext.embeddableContent.translations' );
+		}
 		$form = HTMLForm::factory( 'ooui', $this->buildFields(), $this->getContext() );
 		$form->setTitle( $this->getPageTitle() )
 			->setSubmitTextMsg( 'embeddablecontent-add-submit' )
@@ -153,6 +157,30 @@ abstract class SpecialAddContentItem extends SpecialPage {
 				'options' => array_flip( $languageNames ),
 				'default' => $this->getLanguage()->getCode(),
 			];
+			// "Add translation": the ORIGINAL stays the payload above; each
+			// added row is a {language, translated text} pair stored as a
+			// monolingual `translation` claim. The cloner primitive gives the
+			// add/remove controls + array submission; resources/translations.js
+			// turns the delete control into an X with a confirmation dialog.
+			if ( $this->config->translationPropertyId() !== null ) {
+				$fields['translations'] = [
+					'type' => 'cloner',
+					'create-button-message' => 'embeddablecontent-add-translation-add',
+					'delete-button-message' => 'embeddablecontent-add-translation-delete',
+					'fields' => [
+						'language' => [
+							'type' => 'combobox',
+							'label-message' => 'embeddablecontent-add-translation-language',
+							'options' => array_flip( $languageNames ),
+						],
+						'content' => [
+							'type' => 'textarea',
+							'label-message' => 'embeddablecontent-add-translation-text',
+							'rows' => 3,
+						],
+					],
+				];
+			}
 		} elseif ( $this->getKind() === 'code' ) {
 			// Programming-language picker for code snippets: a combobox like
 			// the quotation Language field — type to filter the configured
@@ -424,6 +452,13 @@ abstract class SpecialAddContentItem extends SpecialPage {
 			} else {
 				$record['language'] = $language;
 			}
+			// The cloner always submits the field (possibly empty): the
+			// submitted set is authoritative, so removing every row clears the
+			// item's translations. The rows are validated/normalized by the
+			// flow service (shared with the API).
+			$record['translations'] = is_array( $data['translations'] ?? null )
+				? $data['translations']
+				: [];
 		}
 
 		// The code-snippet lexer combobox accepts free typing (Pygments-style

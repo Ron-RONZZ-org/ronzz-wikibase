@@ -60,6 +60,10 @@ QUOTATION_TEXT = {
         "Ĝi povas fari ĉion, kion ni scias ordoni al ĝi plenumi."
     ),
 }
+# The dogfood quotation is Ada Lovelace's English text: it is the ORIGINAL
+# (`content text` claim), the other QUOTATION_TEXT languages are added as
+# `translation` claims (the Special:AddQuotation "Add translation" model).
+QUOTATION_ORIGINAL_LANGUAGE = "en"
 
 # Host-match fixture (webpage→website parent inference): a website-class item
 # whose URL statement is https://example.org. On production the exact-label

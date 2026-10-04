@@ -1083,7 +1083,10 @@ report). See `SimpleMathJax/VENDORED.md`.
   `wbMentionLink`/`wbMentionLabel`/`wbMentionItalic` and loads
   `ext.embeddableContent.mention` (`resources/mention.js`), which copies
   `[[<page>|<item label>]]` (italic on `Source:`) and sits to the right of the
-  "Copy internal citation" button when present. (b) `{{#content:}}` quotations
+  "Copy internal citation" button when present. The display label drops a
+  trailing parenthetical class suffix (`LabelSanitizer::stripParentheticalSuffix()`,
+  `Beloved (Book)` → `Beloved`); the link target keeps the full page title.
+  (b) `{{#content:}}` quotations
   gain an attribution line `-author, ''[[Source:page|label]]''` below the
   payload — `ContentWikitext::quotationAttribution` (pure) assembled in
   `ContentPayload` from the `attributed to` / `source` statements (plain
@@ -1097,6 +1100,37 @@ report). See `SimpleMathJax/VENDORED.md`.
   terms, not statements); deploy = rsync + php-fpm + parser-cache/message
   purge; the `MediaWiki:Sidebar` semantic-tools entry is an on-wiki deploy
   step.
+
+- **Quotation translations + IDN URLs (ADR
+  `docs/decisions/quotation-translations.md`)**: (a) a NEW monolingualtext
+  **`translation` property** (manifest + config map `translation` +
+  `EmbeddableContentConfig::translationPropertyId()`) holds the ADDED
+  translations of a quotation; the `content text` claim stays the ORIGINAL.
+  `Special:AddQuotation` (quotation only) gains an HTMLForm **`cloner`**
+  "Add translation" field (language combobox + translated-text textarea per
+  row; `resources/translations.js` guards the `✕` delete control with an
+  `OO.ui.confirm()` capture-phase listener). `SpecialContentFieldMap` gains
+  `translations` (quotation only); `SpecialContentFlowService::prepare()`
+  validates each language (blank/duplicate/same-as-original rejected) and
+  escapes the text; `statementSpecs()` writes base → payload property,
+  translations → `translation` (separate properties make the update
+  no-clobber clean: an absent key preserves, a present-empty list clears).
+  `action=addspecialcontent` accepts `translations` as a JSON array string;
+  `Special:UpdateQuotation` prefills the rows (decoded).
+  `{{#content:Q|fr|en}}` renders the original followed by one
+  `'''fr translation:'''` block per requested language, or the localized
+  `{code} translation not found` fallback; `ContentArgs::languages()` parses
+  the codes, `ContentWikitext::quotationTranslations()` assembles the blocks,
+  and `ContentPayload` negotiates over base+translations when no language is
+  given. `ContentRenderer::extractPayload()` unions the translation claims so
+  the embed surfaces' `lang=fr|eo|all` keep working. Seed dogfood = base en +
+  fr/eo translations; `tools/migrate_quotation_translations.py` migrates the
+  existing multi-claim `content text` items (**re-seed required**; no
+  LocalSettings change). (b) **IDN URL hosts** — `SsrfGuard::isPublicHost()`
+  accepted only ASCII hosts, so `Special:AddSource/website|webpage` rejected
+  `https://républiquedeslettres.fr/…`; `SsrfGuard::hostToAscii()` (ext-intl
+  `idn_to_ascii`) now checks the punycode form and `asciiUrl()` punycodes the
+  host for the fetchers while the stored/displayed URL stays Unicode.
 
 ### WikibaseCitation
 

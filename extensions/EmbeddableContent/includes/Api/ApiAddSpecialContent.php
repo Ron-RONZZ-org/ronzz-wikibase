@@ -54,9 +54,25 @@ class ApiAddSpecialContent extends ApiBase {
 
 		$record = [];
 		foreach ( $this->fieldParams() as $field ) {
-			if ( $params[$field] !== null && $params[$field] !== '' ) {
-				$record[$field] = $params[$field];
+			$value = $params[$field];
+			if ( $value === null || $value === '' ) {
+				continue;
 			}
+			if ( $field === 'translations' ) {
+				// The quotation translations ride as a JSON array of
+				// {language, content} rows (the browser form's cloner field
+				// submits the same shape).
+				$decoded = json_decode( $value, true );
+				if ( !is_array( $decoded ) ) {
+					$this->dieWithError(
+						new RawMessage( 'translations must be a JSON array of {language, content} rows.' ),
+						'invalid_input'
+					);
+				}
+				$record[$field] = $decoded;
+				continue;
+			}
+			$record[$field] = $value;
 		}
 
 		$error = $this->flow->prepare( $kind, $record, $creating );
@@ -209,6 +225,8 @@ class ApiAddSpecialContent extends ApiBase {
 		return [
 			'label', 'content', 'labelLanguage', 'language', 'programmingLanguage',
 			'describes', 'implementationOf', 'attributedTo', 'source', 'sourceUrl', 'date',
+			// Quotation only: a JSON array of {language, content} rows.
+			'translations',
 		];
 	}
 }

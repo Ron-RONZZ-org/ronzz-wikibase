@@ -43,7 +43,9 @@ final class PageMetadataFetcher {
 		}
 		try {
 			$transport = $this->transport ?? $this->defaultTransport();
-			$html = $transport( $url, $timeout );
+			// IDN hosts are normalized to punycode for the request (DNS/cURL
+			// resolve the ASCII form); the caller keeps the Unicode URL.
+			$html = $transport( SsrfGuard::asciiUrl( $url ), $timeout );
 		} catch ( \Throwable $e ) {
 			return null;
 		}
