@@ -944,7 +944,7 @@ def flow_update_button(op, base: str, qid: str, update_special: str) -> None:
     the title)."""
     url, body = page_get(op, base, f"/wiki/Item:{qid}")
     m = re.search(r'"wbUpdateBasicInfoUrl"\s*:\s*"([^"]*Special:' + re.escape(update_special)
-                  + r"/" + re.escape(qid) + r')"', body)
+                  + r"/" + re.escape(qid) + r'(?:\?[^"]*)?)"', body)
     if not m:
         raise FlowError(
             f"Item:{qid} page carries no update-button URL for {update_special}: "
@@ -3772,7 +3772,7 @@ def flow_classic_page_toolbar(op, base: str, page_title: str, qid: str,
     if "ext.embeddableContent.gadget" not in body:
         raise FlowError(f"{page_title}: does not load ext.embeddableContent.gadget")
     m = re.search(r'"wbUpdateBasicInfoUrl"\s*:\s*"([^"]*Special:' + re.escape(update_special)
-                  + r"/" + re.escape(qid) + r')"', body)
+                  + r"/" + re.escape(qid) + r'(?:\?[^"]*)?)"', body)
     if not m:
         raise FlowError(
             f"{page_title}: no update-button URL for {update_special}: {find_error(body)}")
