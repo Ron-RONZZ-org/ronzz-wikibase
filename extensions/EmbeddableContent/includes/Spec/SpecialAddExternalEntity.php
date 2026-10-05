@@ -1033,7 +1033,11 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		$record = $this->enrichRecord( $record );
 		$flowKind = $this->semanticFlowKindKey();
 		if ( $flowKind !== null ) {
-			return $this->createViaSemanticFlow( $flowKind, $record, $forceCreate );
+			return $this->createViaSemanticFlow(
+				$flowKind,
+				$this->withChosenClass( $record, $classItemId ),
+				$forceCreate
+			);
 		}
 		return $this->createOrSkipItem(
 			$this->primaryLabel( $record ),
@@ -1042,6 +1046,21 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			$record,
 			$forceCreate
 		);
+	}
+
+	/**
+	 * Injects the class chosen on the review/manual form into a record
+	 * heading for the shared semantic flow. The legacy createOrSkipItem path
+	 * receives $classItemId separately; the semantic-flow path takes the
+	 * class as a record field (kind-specific), so kinds whose class is
+	 * user-selectable (collective) override this. Must preserve $record when
+	 * there is nothing to inject.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,mixed>
+	 */
+	protected function withChosenClass( array $record, string $classItemId ): array {
+		return $record;
 	}
 
 	/**

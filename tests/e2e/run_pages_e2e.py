@@ -4641,22 +4641,31 @@ def main() -> int:
         # 3a. AddCollective manual — the optional "Parent organization"
         #     entity field (issue follow-up): a referenced item lands as a
         #     `parent organization` statement; an empty field writes none.
+        #     The class chosen on the form (a NON-default agent class) must
+        #     be the item's instance-of — the service fell back to
+        #     `organization` because the form's `class` value never reached
+        #     the semantic flow (the Q2019 report).
         parent_org_qid = create_api_item(op, api, f"Page-flow E2E parent org {int(time.time())}")
+        governmental_agency_class = resolve("governmental agency", "item")
         collective_manual_label = f"Page-flow E2E collective {int(time.time())}"
         collective_manual = track(flow_manual(op, base, api, "AddCollective",
                                               collective_manual_label,
-                                              resolve("organization", "item"),
+                                              governmental_agency_class,
                                               {"wpparentOrganization": parent_org_qid,
                                                "wpwebsite": "https://example.org/collective"}))
         claims, _ = entity_claims(op, api, collective_manual)
+        assert first_value(claims, instance_of) == governmental_agency_class, \
+            f"{collective_manual} instance-of is not the chosen class " \
+            f"({first_value(claims, instance_of)} != {governmental_agency_class}) — " \
+            f"the chosen AddCollective class was discarded"
         assert first_value(claims, resolve("parent organization", "property")) == parent_org_qid, \
             f"{collective_manual} parent-organization statement missing or wrong " \
             f"({first_value(claims, resolve('parent organization', 'property'))})"
         assert first_value(claims, official_website_prop) == "https://example.org/collective", \
             f"{collective_manual} official-website statement not written " \
             f"({first_value(claims, official_website_prop)})"
-        print(f"[ok] AddCollective/manual -> {collective_manual}: optional parent "
-              f"organization + official website statements written "
+        print(f"[ok] AddCollective/manual -> {collective_manual}: chosen government-agency "
+              f"class honored + parent organization + official website statements "
               f"({parent_org_qid})")
 
         # 3a2. AddCollective logo (issue follow-up): the optional logo

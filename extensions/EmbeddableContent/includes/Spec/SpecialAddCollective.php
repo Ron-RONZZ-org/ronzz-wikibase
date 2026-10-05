@@ -37,6 +37,23 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 	}
 
 	/**
+	 * The class chosen on the review/manual form rides the record as
+	 * `collectiveClass` (the shared service's field name) — the form's own
+	 * field is the generic `class` select, so without this mapping the
+	 * service fell back to `organization` and every collective created
+	 * through the browser form was misclassified (the Q2019 report).
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,mixed>
+	 */
+	protected function withChosenClass( array $record, string $classItemId ): array {
+		if ( $classItemId !== '' ) {
+			$record['collectiveClass'] = $classItemId;
+		}
+		return $record;
+	}
+
+	/**
 	 * The form record → the shared service vocabulary (the logo file URL).
 	 */
 	protected function semanticFlowRecord( string $kind, array $record ): array {
