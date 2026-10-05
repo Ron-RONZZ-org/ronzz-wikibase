@@ -173,9 +173,9 @@ class SpecialAddFictionalCharacter extends SpecialAddExternalEntity {
 			if ( !$item instanceof Item ) {
 				continue;
 			}
-			$term = $item->getLabels()->getByLanguage( 'en' );
-			if ( $term !== null ) {
-				$labels[] = $term->getText();
+			$label = EntityLabelText::of( $item );
+			if ( $label !== null && $label !== '' ) {
+				$labels[] = $label;
 			}
 		}
 		if ( $labels !== [] ) {

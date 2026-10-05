@@ -9,6 +9,7 @@ use DataValues\StringValue;
 use EmbeddableContent\Content\ContentWikitext;
 use EmbeddableContent\Content\PayloadCodec;
 use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\Spec\EntityLabelText;
 use MediaWiki\Parser\Parser;
 use Wikibase\DataModel\Entity\EntityId;
 use Wikibase\DataModel\Entity\EntityIdValue;
@@ -418,14 +419,14 @@ final class ContentPayload {
 		if ( !$item instanceof Item ) {
 			return [ 'label' => null, 'page' => null ];
 		}
-		$term = $item->getLabels()->getByLanguage( 'en' );
+		$label = EntityLabelText::of( $item );
 		$siteLinks = $item->getSiteLinkList();
 		// getBySiteId() THROWS when the site link is absent — guard it.
 		$sitelink = $siteLinks->hasLinkWithSiteId( self::SITE_ID )
 			? $siteLinks->getBySiteId( self::SITE_ID )
 			: null;
 		return [
-			'label' => $term?->getText(),
+			'label' => $label,
 			'page' => $sitelink?->getPageName(),
 		];
 	}

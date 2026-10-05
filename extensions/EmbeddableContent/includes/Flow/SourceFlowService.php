@@ -11,6 +11,7 @@ use EmbeddableContent\Duration;
 use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\EntityClassFilter;
 use EmbeddableContent\Fetch\YouTubeProvider;
+use EmbeddableContent\Spec\EntityLabelText;
 use EmbeddableContent\Spec\ItemIdList;
 use EmbeddableContent\Spec\JurisdictionList;
 use EmbeddableContent\Spec\LabelSanitizer;
@@ -609,8 +610,7 @@ final class SourceFlowService {
 			if ( $volume !== '' ) {
 				$parts[] = $this->message( 'embeddablecontent-source-bookexcerpt-desc-volume', [ $volume ] );
 			}
-			$labelTerm = $parent->getLabels()->getByLanguage( 'en' );
-			$parentLabel = $labelTerm !== null ? $labelTerm->getText() : '';
+			$parentLabel = EntityLabelText::of( $parent ) ?? '';
 			if ( $parts !== [] && $parentLabel !== '' ) {
 				$record['description'] = $this->message(
 					'embeddablecontent-source-bookexcerpt-desc',
