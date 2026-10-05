@@ -1083,7 +1083,7 @@ def flow_update_source_classic_return(op, base: str, api: str, qid: str,
             f"{url} {find_error(body)}")
 
 
-def flow_source_law(op, base: str, api: str) -> tuple[str, str]:
+def flow_source_law(op, base: str, api: str, resolve) -> tuple[str, str]:
     """AddSource/law (legal provision, child of a legislation): a reference
     code + a monolingual clause text whose language is INHERITED from the
     parent legislation + added translations (the AddQuotation cloner shape).
@@ -1095,6 +1095,7 @@ def flow_source_law(op, base: str, api: str) -> tuple[str, str]:
     law_class = resolve("legal provision", "item")
     if not law_class:
         raise FlowError("the 'legal provision' class is missing (re-seed required)")
+    instance_of = resolve("instance of", "property")
     part_of_prop = resolve("part of", "property")
     reference_prop = resolve("reference code", "property")
     content_prop = resolve("content text", "property")
@@ -4417,7 +4418,7 @@ def main() -> int:
         #      from the parent) + added translations; the Source: page renders
         #      the clause + translations via {{#content:}}, and the classic
         #      "Update basic information" return marker round-trips (task 2).
-        law, law_legislation = flow_source_law(op, base, api)
+        law, law_legislation = flow_source_law(op, base, api, resolve)
         track(law)
         track(law_legislation)
 
