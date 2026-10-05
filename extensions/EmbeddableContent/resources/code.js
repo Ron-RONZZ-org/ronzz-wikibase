@@ -42,6 +42,11 @@
 			return; // highlight.js not loaded — escaped source is shown
 		}
 		Array.prototype.forEach.call( blocks, function ( pre ) {
+			// Idempotent: an element already processed by a previous run
+			// (the initial pass or a hook re-fire) is skipped.
+			if ( pre.classList.contains( 'hljs' ) || pre.classList.contains( 'hljs-plaintext' ) ) {
+				return;
+			}
 			var lexer = ( pre.getAttribute( 'data-lexer' ) || 'text' ).toLowerCase();
 			var alias = LEXER_ALIASES[ lexer ] || lexer;
 			try {
@@ -56,6 +61,12 @@
 			}
 		} );
 	}
+
+	// Re-run when embed HTML is injected after page load (the Item-page
+	// content preview fetches the embed fragment asynchronously and fires
+	// this hook). Already-highlighted elements are skipped so re-firing is
+	// idempotent.
+	mw.hook( 'ext.embeddableContent.embedContentAdded' ).add( highlightCode );
 
 	if ( document.readyState === 'loading' ) {
 		document.addEventListener( 'DOMContentLoaded', highlightCode );

@@ -72,6 +72,24 @@ class QuotationFinderTest extends TestCase {
 		$this->assertStringNotContainsString( '\\', $captured );
 	}
 
+	public function testPredicateQueryUsesTheGivenProperty(): void {
+		$captured = null;
+		$finder = $this->finderWithCapture( $captured, [] );
+		$finder->findForPredicate(
+			'Q100', 'P9', 'Q42', 'P7', 'P1',
+			'https://wikibase.ronzz.org/entity/',
+			'https://wikibase.ronzz.org/prop/direct/'
+		);
+		// The predicate property (P9, the `attributed to` author link) is
+		// what connects the quotation to the listed item — the Person:
+		// "Quotations" row.
+		$this->assertStringContainsString(
+			'?item wdt:P9 wd:Q100 .' . "\n" . '  ?item wdt:P1 wd:Q42 .',
+			$captured
+		);
+		$this->assertStringNotContainsString( '\\', $captured );
+	}
+
 	public function testInvalidSourceOrMissingPropertiesYieldsEmptyNoQuery(): void {
 		$called = false;
 		$finder = new QuotationFinder(

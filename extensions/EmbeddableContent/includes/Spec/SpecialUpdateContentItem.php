@@ -299,9 +299,11 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 			if ( !$fresh instanceof Item ) {
 				return $this->msg( 'embeddablecontent-update-notfound', $itemId )->text();
 			}
-			// The source(s) BEFORE the update — a re-sourced quotation must
-			// refresh the OLD source page's auto-link too.
-			$previousSources = $this->sourceIdsOf( $fresh );
+			// The source(s)/author(s) BEFORE the update — a re-sourced or
+			// re-attributed quotation must refresh the OLD linked page's
+			// auto-link too.
+			$previousSources = $this->provenanceIdsOf( $fresh, 'source' );
+			$previousAuthors = $this->provenanceIdsOf( $fresh, 'attributedTo' );
 			$this->contentFlow()->applyUpdate( $converted['kind'], $fresh, $record );
 			$label = trim( (string)( $record['label'] ?? '' ) );
 			if ( $label === '' ) {
@@ -313,11 +315,13 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 				$this->getUser(),
 				EDIT_UPDATE
 			);
-			$invalidSources = $previousSources;
-			if ( !empty( $record['source'] ) ) {
-				$invalidSources[] = $record['source'];
+			$invalid = array_merge( $previousSources, $previousAuthors );
+			foreach ( [ 'source', 'attributedTo' ] as $field ) {
+				if ( !empty( $record[$field] ) ) {
+					$invalid[] = $record[$field];
+				}
 			}
-			\EmbeddableContent\Spec\QuotationLookup::invalidateSourcePages( $invalidSources );
+			\EmbeddableContent\Spec\QuotationLookup::invalidateClassicPages( $invalid );
 		} catch ( \Throwable $e ) {
 			return $this->msg( 'embeddablecontent-update-error', get_class( $e ), $e->getMessage() )->text();
 		}
@@ -328,13 +332,14 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 	}
 
 	/**
-	 * The source item ids currently on the item (the `source` provenance
-	 * statements), for invalidating the old source's page on re-source.
+	 * The item-id values of one provenance property (source / attributed to)
+	 * currently on the item, for invalidating the old linked page on
+	 * re-source / re-attribution.
 	 *
 	 * @return string[]
 	 */
-	private function sourceIdsOf( Item $item ): array {
-		$propertyId = $this->config->provenancePropertyIds()['source'] ?? null;
+	private function provenanceIdsOf( Item $item, string $key ): array {
+		$propertyId = $this->config->provenancePropertyIds()[$key] ?? null;
 		if ( $propertyId === null ) {
 			return [];
 		}

@@ -1146,6 +1146,47 @@ report). See `SimpleMathJax/VENDORED.md`.
   `idn_to_ascii`) now checks the punycode form and `asciiUrl()` punycodes the
   host for the fetchers while the stored/displayed URL stays Unicode.
 
+- **Content preview + conditional infobox rows + Person quotations (ADR
+  `docs/decisions/content-preview-and-infobox-rows.md`)**:
+  (a) **AddMath Note preview renders wikitext** — `resources/addmath.js`
+  parses the Note through `action=parse` (injecting the HTML) and typesets
+  inline `$…$` over the parsed text nodes; a latest-wins guard + a
+  plain-text fallback keep the preview robust. `mediawiki.api` joined the
+  module deps.
+  (b) **Content-item Item: page preview** — `Hooks::onBeforePageDisplay`'s
+  Item branch detects the content kind (the `updateTargetForItem` scan) and
+  loads `ext.embeddableContent.contentpreview`
+  (`resources/contentpreview.js`, `wbContentPreviewItem`): it fetches
+  `action=embed` and injects the framed fragment into `.wb-content-preview`
+  directly below `.wb-embed-toolbar` (order-independent insertion), then
+  fires `ext.embeddableContent.embedContentAdded` — `math.js`/`code.js` now
+  (re-)render on that hook (`code.js` skips already-highlighted blocks).
+  (c) **`{{#statement-row:Label|property}}`** (magic word `statement-row`,
+  en/fr/eo; `includes/ParserFunctions/StatementRow.php`) — the
+  `{{#quotations-of:}}` pattern for ordinary infobox rows: resolves the
+  sitelinked item (or an explicit id), resolves the property label through
+  the WikibaseClient property-label resolver (or takes a `P…` id, or the OSM
+  keywords `osm-birth`/`osm-death`/`osm-jurisdiction`), and emits a COMPLETE
+  `\n|-\n| Label || {{#statements:P…}}` row only when the item has data —
+  nothing otherwise (ParserFunctions `#if` is not installed). Resolver
+  failures fail OPEN; an unknown label hides. The nested `{{#statements}}`
+  carries `|from=Q…` for an explicit item; the value renders exactly as
+  before. The on-wiki infobox templates are migrated by
+  `tools/rewrite_infobox_templates.py` (dry-run default, `--apply`; pure
+  `rewrite_template`/`add_quotations_by_row` unit-tested) — a POST-deploy
+  step (the function must exist first). The image cell and the Access cell
+  are left untouched.
+  (d) **Person: "Quotations" row** — `QuotationFinder::findForPredicate()`
+  (a thin `findForSource()` wrapper) + `QuotationLookup::findByAuthor()`
+  (the `attributed to` provenance) back the new `{{#quotations-by:}}`
+  (magic word `quotations-by`, en/fr/eo),
+  `Special:QuotationsOf/<Qid>/author`, and
+  `QuotationLookup::invalidateClassicPages()` (the renamed
+  `invalidateSourcePages`, called with source + author ids by the content
+  create/update paths). `Template:Person` gains the row via the migration
+  tool. No vocabulary/seed/config change; the two deploy steps are the
+  extension rsync + parser-cache purge, then the template migration.
+
 ### WikibaseCitation
 
 

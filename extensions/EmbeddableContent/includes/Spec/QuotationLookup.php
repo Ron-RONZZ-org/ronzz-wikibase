@@ -30,24 +30,52 @@ final class QuotationLookup {
 	/**
 	 * All quotations of the given source item, or null when the lookup
 	 * cannot run (no SPARQL endpoint configured, WDQS unreachable, config
-	 * shape). See QuotationFinder::findForSource for the row shape.
+	 * shape). See QuotationFinder::findForPredicate for the row shape.
 	 *
 	 * @return array<int,array{qid:string,content:string,label:string}>|null
 	 */
 	public static function findForSource( EmbeddableContentConfig $config, string $sourceItemId ): ?array {
+		return self::findByPredicate( $config, $sourceItemId, 'source' );
+	}
+
+	/**
+	 * All quotations ATTRIBUTED TO the given item (an author / person),
+	 * through the `attributed to` provenance property. Same row shape and
+	 * contract as findForSource.
+	 *
+	 * @return array<int,array{qid:string,content:string,label:string}>|null
+	 */
+	public static function findByAuthor( EmbeddableContentConfig $config, string $authorItemId ): ?array {
+		return self::findByPredicate( $config, $authorItemId, 'attributedTo' );
+	}
+
+	/**
+	 * Shared facade for the predicate-based quotation lookups: resolves the
+	 * vocabulary + endpoint, runs the QuotationFinder, and degrades to null
+	 * on any failure (never a 500).
+	 *
+	 * @param string $predicateKey provenance config key ('source' |
+	 *   'attributedTo')
+	 * @return array<int,array{qid:string,content:string,label:string}>|null
+	 */
+	private static function findByPredicate(
+		EmbeddableContentConfig $config,
+		string $itemId,
+		string $predicateKey
+	): ?array {
 		try {
 			$contentPropertyId = $config->payloadPropertyIds()['quotation'] ?? null;
-			$sourcePropertyId = $config->provenancePropertyIds()['source'] ?? null;
+			$predicatePropertyId = $config->provenancePropertyIds()[$predicateKey] ?? null;
 			$quotationClassId = $config->classIds()['quotation'] ?? null;
 			$endpoint = $config->sparqlUrl();
-			if ( $contentPropertyId === null || $sourcePropertyId === null
+			if ( $contentPropertyId === null || $predicatePropertyId === null
 				|| $quotationClassId === null || $endpoint === null
 			) {
 				// Diagnosable: name the missing vocabulary piece rather than
 				// degrading silently (the page already shows "unavailable").
-				error_log( 'QuotationLookup: content vocabulary incomplete for source ' . $sourceItemId
+				error_log( 'QuotationLookup: content vocabulary incomplete for ' . $predicateKey . ' ' . $itemId
 					. ' (payload=' . var_export( $contentPropertyId, true )
-					. ' source=' . var_export( $sourcePropertyId, true )
+					. ' ' . $predicateKey . '=' . var_export( $predicatePropertyId, true )
 					. ' class=' . var_export( $quotationClassId, true )
 					. ' sparqlUrl=' . var_export( $endpoint, true ) . ')' );
 				return null;
@@ -61,11 +89,11 @@ final class QuotationLookup {
 			$finder = new QuotationFinder(
 				static fn ( string $query ): ?array => self::runSparql( $endpoint, $query )
 			);
-			return $finder->findForSource(
-				$sourceItemId,
+			return $finder->findForPredicate(
+				$itemId,
+				$predicatePropertyId,
 				$quotationClassId,
 				$contentPropertyId,
-				$sourcePropertyId,
 				$config->instanceOfPropertyId(),
 				$wd,
 				$wdt
@@ -74,7 +102,7 @@ final class QuotationLookup {
 			// A malformed/absent content vocabulary or endpoint degrades to
 			// "no data" — never a 500 (the DuplicateChecker contract). The
 			// failure stays observable (php-fpm stderr → the nginx error log).
-			error_log( 'QuotationLookup: findForSource(' . $sourceItemId . ') failed: '
+			error_log( 'QuotationLookup: findByPredicate(' . $predicateKey . ', ' . $itemId . ') failed: '
 				. get_class( $e ) . ': ' . $e->getMessage() );
 			return null;
 		}
@@ -91,22 +119,23 @@ final class QuotationLookup {
 	}
 
 	/**
-	 * Refreshes the parser cache of the given source items' classic pages
-	 * (the "Quotations" auto-link row on the Source: pages). Adding,
-	 * updating or re-sourcing a quotation does NOT touch the source item's
-	 * revision, so the parser-cache dependency (ParserOutput::addTemplate)
-	 * never fires for that change — the page must be invalidated
-	 * explicitly. Called by the content-creation paths
-	 * (SpecialAddContentItem, SpecialUpdateContentItem,
-	 * ApiAddSpecialContent) when their record carries a `source`.
+	 * Refreshes the parser cache of the given items' classic pages (the
+	 * "Quotations" auto-link row on the Source: pages, and now the Person:
+	 * pages' quotations-by row). Adding, updating or re-sourcing a
+	 * quotation does NOT touch the source's/author's item revision, so the
+	 * parser-cache dependency (ParserOutput::addTemplate) never fires for
+	 * that change — the page must be invalidated explicitly. Called by the
+	 * content-creation paths (SpecialAddContentItem,
+	 * SpecialUpdateContentItem, ApiAddSpecialContent) when their record
+	 * carries a `source` or an `attributedTo`.
 	 *
 	 * Best-effort: a failure (no sitelink, DB hiccup) only delays the row
 	 * refresh until the parser-cache TTL — it never breaks the item save.
 	 *
-	 * @param string[] $sourceItemIds
+	 * @param string[] $itemIds source and/or author item ids
 	 */
-	public static function invalidateSourcePages( array $sourceItemIds ): void {
-		foreach ( array_unique( array_filter( $sourceItemIds, 'is_string' ) ) as $itemId ) {
+	public static function invalidateClassicPages( array $itemIds ): void {
+		foreach ( array_unique( array_filter( $itemIds, 'is_string' ) ) as $itemId ) {
 			if ( preg_match( '/^Q[1-9]\d*$/i', $itemId ) !== 1 ) {
 				continue;
 			}

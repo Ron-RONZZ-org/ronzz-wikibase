@@ -33,8 +33,11 @@ use Wikibase\Repo\WikibaseRepo;
  */
 class SpecialQuotationsOf extends SpecialPage {
 
-	/** @var Item|null the source item (set by execute) */
+	/** @var Item|null the source/author item (set by execute) */
 	private ?Item $sourceItem = null;
+
+	/** Listing mode: 'source' (default) or 'author' (Person: pages). */
+	private string $mode = 'source';
 
 	public function __construct(
 		private readonly EmbeddableContentConfig $config
@@ -46,7 +49,7 @@ class SpecialQuotationsOf extends SpecialPage {
 		$this->setHeaders();
 		$this->getOutput()->addModuleStyles( 'ext.embeddableContent.embed' );
 
-		$itemId = $this->itemIdFromSubPage( $subPage );
+		[ $itemId, $this->mode ] = $this->parseSubPage( $subPage );
 		if ( $itemId === null ) {
 			$this->getOutput()->addHTML(
 				Html::errorBox( $this->msg( 'embeddablecontent-quotationsof-badid' )->escaped() )
@@ -64,13 +67,15 @@ class SpecialQuotationsOf extends SpecialPage {
 
 		$label = $this->itemLabel( $sourceItem, $itemId );
 		$this->getOutput()->setPageTitle(
-			$this->msg( 'embeddablecontent-quotationsof-title', $label )->text()
+			$this->msg( $this->msgKey( 'title' ), $label )->text()
 		);
 		$this->getOutput()->addHTML(
 			$this->introHtml( $itemId, $label )
 		);
 
-		$quotations = QuotationLookup::findForSource( $this->config, $itemId );
+		$quotations = $this->mode === 'author'
+			? QuotationLookup::findByAuthor( $this->config, $itemId )
+			: QuotationLookup::findForSource( $this->config, $itemId );
 		if ( $quotations === null ) {
 			$this->getOutput()->addHTML(
 				Html::warningBox( $this->msg( 'embeddablecontent-quotationsof-unavailable' )->escaped() )
@@ -79,7 +84,7 @@ class SpecialQuotationsOf extends SpecialPage {
 		}
 		if ( $quotations === [] ) {
 			$this->getOutput()->addHTML(
-				Html::rawElement( 'p', [], $this->msg( 'embeddablecontent-quotationsof-none' )->escaped() )
+				Html::rawElement( 'p', [], $this->msg( $this->msgKey( 'none' ) )->escaped() )
 			);
 			return;
 		}
@@ -99,7 +104,7 @@ class SpecialQuotationsOf extends SpecialPage {
 			if ( $title !== null && $title->exists() ) {
 				$back = ' ' . $this->getLinkRenderer()->makeLink(
 					$title,
-					$this->msg( 'embeddablecontent-quotationsof-back', $title->getPrefixedText() )->text()
+					$this->msg( $this->msgKey( 'back' ), $title->getPrefixedText() )->text()
 				);
 			}
 		}
@@ -147,16 +152,41 @@ class SpecialQuotationsOf extends SpecialPage {
 		return Html::rawElement( 'div', [ 'class' => 'wb-quotations-of-list' ], implode( "\n", $items ) );
 	}
 
-	private function itemIdFromSubPage( $subPage ): ?string {
+	/**
+	 * Parses the subpage: `<Qid>` (source mode) or `<Qid>/author` (author
+	 * mode). Returns [itemId|null, mode].
+	 *
+	 * @param mixed $subPage
+	 * @return array{0:?string,1:string}
+	 */
+	private function parseSubPage( $subPage ): array {
 		if ( !is_string( $subPage ) || trim( $subPage ) === '' ) {
-			return null;
+			return [ null, 'source' ];
 		}
+		$parts = explode( '/', trim( $subPage ), 2 );
+		$mode = isset( $parts[1] ) && strtolower( trim( $parts[1] ) ) === 'author'
+			? 'author'
+			: 'source';
+		return [ $this->parseItemId( $parts[0] ), $mode ];
+	}
+
+	private function parseItemId( string $value ): ?string {
 		try {
-			$id = WikibaseRepo::getEntityIdParser()->parse( trim( $subPage ) );
+			$id = WikibaseRepo::getEntityIdParser()->parse( trim( $value ) );
 			return $id instanceof ItemId ? $id->getSerialization() : null;
 		} catch ( \Throwable $e ) {
 			return null;
 		}
+	}
+
+	/**
+	 * The mode-specific message key: `embeddablecontent-quotationsof-<suffix>`
+	 * for a source, `…-<suffix>-by` for an author.
+	 */
+	private function msgKey( string $suffix ): string {
+		return $this->mode === 'author'
+			? 'embeddablecontent-quotationsof-' . $suffix . '-by'
+			: 'embeddablecontent-quotationsof-' . $suffix;
 	}
 
 	private function loadItem( string $itemId ): ?Item {

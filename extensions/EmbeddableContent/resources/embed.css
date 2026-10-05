@@ -10,6 +10,12 @@
 	font-style: italic;
 }
 
+/* Item-page content preview (contentpreview.js): the rendered embed fragment
+   inserted directly below the entity toolbar on quotation/math/code items. */
+.wb-content-preview {
+	margin: 0.75em 0 1.25em;
+}
+
 /* Special:QuotationsOf — each quotation is a blockquote entry; the
  * wrapper margin supplies the extra blank line between quotations. */
 .wb-quotations-of-entry {

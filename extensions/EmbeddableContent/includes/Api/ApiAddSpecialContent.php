@@ -130,9 +130,11 @@ class ApiAddSpecialContent extends ApiBase {
 			if ( !$entity instanceof Item ) {
 				$this->dieWithError( new RawMessage( "Entity \"{$qid}\" not found." ), 'not_found' );
 			}
-			// The source(s) BEFORE the update — a re-sourced quotation must
-			// refresh the OLD source page's auto-link too.
-			$previousSources = self::sourceIdsOf( $entity, $this->config );
+			// The source(s)/author(s) BEFORE the update — a re-sourced or
+			// re-attributed quotation must refresh the OLD linked page's
+			// auto-link too.
+			$previousSources = self::provenanceIdsOf( $entity, $this->config, 'source' );
+			$previousAuthors = self::provenanceIdsOf( $entity, $this->config, 'attributedTo' );
 			$this->flow->applyUpdate( $kind, $entity, $record );
 			$revision = $store->saveEntity(
 				$entity,
@@ -148,30 +150,33 @@ class ApiAddSpecialContent extends ApiBase {
 			];
 		}
 
-		// The Source: page "Quotations" auto-link must refresh when a
-		// content item with a source lands or is re-sourced (the source
-		// item's own revision did not change, so the parser-cache
+		// The Source: / Person: "Quotations" auto-link must refresh when a
+		// content item with a source/author lands or is re-sourced (the
+		// linked item's own revision did not change, so the parser-cache
 		// dependency never fires) — invalidate the affected classic pages,
 		// best-effort.
-		$invalidSources = $creating ? [] : ( $previousSources ?? [] );
-		if ( isset( $record['source'] ) && $record['source'] !== '' ) {
-			$invalidSources[] = $record['source'];
+		$invalid = array_merge( $previousSources ?? [], $previousAuthors ?? [] );
+		foreach ( [ 'source', 'attributedTo' ] as $field ) {
+			if ( isset( $record[$field] ) && $record[$field] !== '' ) {
+				$invalid[] = $record[$field];
+			}
 		}
-		if ( $invalidSources !== [] ) {
-			\EmbeddableContent\Spec\QuotationLookup::invalidateSourcePages( $invalidSources );
+		if ( $invalid !== [] ) {
+			\EmbeddableContent\Spec\QuotationLookup::invalidateClassicPages( $invalid );
 		}
 
 		$this->getResult()->addValue( null, 'content', $result );
 	}
 
 	/**
-	 * The `source` statement values (item ids) of an item, for invalidating
-	 * the old source's page when a content item is re-sourced via the API.
+	 * The item-id values of one provenance property (source / attributed to),
+	 * for invalidating the old linked page when a content item is re-sourced
+	 * or re-attributed via the API.
 	 *
 	 * @return string[]
 	 */
-	private static function sourceIdsOf( Item $item, EmbeddableContentConfig $config ): array {
-		$propertyId = $config->provenancePropertyIds()['source'] ?? null;
+	private static function provenanceIdsOf( Item $item, EmbeddableContentConfig $config, string $key ): array {
+		$propertyId = $config->provenancePropertyIds()[$key] ?? null;
 		if ( $propertyId === null ) {
 			return [];
 		}

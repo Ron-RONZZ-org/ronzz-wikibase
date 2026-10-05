@@ -522,6 +522,9 @@ def rich(args: argparse.Namespace) -> int:
         latex_source = property_id("LaTeX source")
         note_property = property_id("note")
         source_property = property_id("source")
+        attributed_to_property = property_id("attributed to")
+        # A property the math item will NOT have, for the empty-row check.
+        lacks_property_label = "date"
         quotation_class = class_id("quotation content")
         math_class = class_id("mathematical expression")
 
@@ -583,10 +586,14 @@ def rich(args: argparse.Namespace) -> int:
         }, "E2E rich suite: math claims")
 
         # The quotation cites the math item as its source, so it shows up on
-        # Special:QuotationsOf/<math_id> (the listing surface).
+        # Special:QuotationsOf/<math_id> (the listing surface), and is
+        # ATTRIBUTED to it too, so the author listing
+        # (Special:QuotationsOf/<math_id>/author) and {{#quotations-by:}}
+        # have data to find.
         api.add_claims(quote_id, {
             source_property: item_claim(source_property, item_value(math_id)),
-        }, "E2E rich suite: quotation source")
+            attributed_to_property: item_claim(attributed_to_property, item_value(math_id)),
+        }, "E2E rich suite: quotation source + attribution")
 
         failures: list[str] = []
 
@@ -682,6 +689,35 @@ def rich(args: argparse.Namespace) -> int:
             expect("<i>italic</i>" in html, "QuotationsOf did not render the quotation wikitext")
             expect("<script>alert(1)</script>" not in html, "QuotationsOf leaked the raw injection")
 
+        def statement_row_shows_data_and_hides_empty() -> None:
+            # {{#statement-row:Label|property|Qid}} — a complete table row only
+            # when the item carries data for the property (the empty infobox
+            # row bug). `instance of` is present; `date` is not.
+            with_data = _parse_wikitext(
+                args.api_url,
+                '{| class="wikitable"\n{{#statement-row:Instance of|instance of|' + math_id + '}}\n|}',
+            )
+            expect("Instance of" in with_data, "{{#statement-row}} dropped a row that has data")
+            without_data = _parse_wikitext(
+                args.api_url,
+                '{| class="wikitable"\n{{#statement-row:Date|date|' + math_id + '}}\n|}',
+            )
+            expect("Date" not in without_data, "{{#statement-row}} rendered an empty row")
+
+        def quotations_by_row_and_listing() -> None:
+            # WDQS is warm (the source listing check polled until the
+            # quotation appeared), so the author predicate sees it too.
+            row = _parse_wikitext(
+                args.api_url,
+                '{| class="wikitable"\n{{#quotations-by:' + math_id + '}}\n|}',
+            )
+            expect("Quotations" in row, "{{#quotations-by}} did not render the row")
+            url = f"{args.base_url}/wiki/Special:QuotationsOf/{math_id}/author"
+            status, body, _ = http_get(url)
+            expect(status == 200, f"QuotationsOf author-mode HTTP {status}")
+            html = body.decode("utf-8", "replace")
+            expect(QUOTE_MARKER in html, "the author-mode listing did not show the quotation")
+
         run_check("quotation payload parses as wikitext (embed surface)", quotation_is_rich)
         run_check("quotation payload parses as wikitext ({{#content:}})", quotation_rich_in_parser_function)
         run_check("math note renders below the expression (embed surface)", math_note_renders)
@@ -689,6 +725,8 @@ def rich(args: argparse.Namespace) -> int:
         run_check("{{#content:Q|fr|eo}} renders translations + not-found", quotation_translations_render)
         run_check("rich injections do not survive (embed/parse/listing)", injections_do_not_survive)
         run_check("Special:QuotationsOf renders the rich quotation", quotation_listing_renders_rich)
+        run_check("{{#statement-row}} shows data rows and hides empty ones", statement_row_shows_data_and_hides_empty)
+        run_check("{{#quotations-by}} row + author listing", quotations_by_row_and_listing)
 
         if failures:
             print(f"\nRICH E2E FAILED: {len(failures)} check(s): {', '.join(failures)}")
