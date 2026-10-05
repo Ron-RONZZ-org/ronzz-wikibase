@@ -6,6 +6,8 @@
  *
  *   - /File:xxx — the two copy buttons (inline right of the title) copy
  *     `[[File:xxx]]` and the direct media URL to the clipboard;
+ *   - a content item's Item: page renders the fetched embed fragment
+ *     directly below the entity toolbar (the dogfood math item);
  *   - Special:AddSource — the source-type picker is alphabetical;
  *   - Special:AddCollective/manual — the class select shows human labels,
  *     alphabetical;
@@ -133,6 +135,45 @@ async function main() {
 			failures.push(`copy-reference copied ${JSON.stringify(copiedRef)}, expected [[Main Page]]`);
 		} else {
 			console.log('[ok] content-page copy-reference button copies the [[Page]] snippet');
+		}
+
+		// --- Item: content-item rendered preview -------------------------
+		// A content item (quotation/math/code) has no classic page; its
+		// Item page must render the fetched embed fragment directly BELOW
+		// the entity toolbar. The dogfood math item ("Euler's identity") is
+		// the fixture.
+		const found = await api({
+			action: 'wbsearchentities', search: "Euler's identity", language: 'en',
+			type: 'item', format: 'json',
+		});
+		const mathItem = (found.search || []).find((r) => r.label === "Euler's identity");
+		if (!mathItem) {
+			failures.push('content preview: dogfood math item "Euler\'s identity" not found');
+		} else {
+			await page.goto(`${BASE_URL}/wiki/${mathItem.id}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+			try {
+				await page.waitForSelector('.wb-content-preview', { timeout: 20000 });
+				const preview = await page.evaluate(() => {
+					const el = document.querySelector('.wb-content-preview');
+					const toolbar = document.querySelector('.wb-embed-toolbar');
+					const below = toolbar && el
+						? (toolbar.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+						: false;
+					return {
+						embed: el ? el.querySelectorAll('.wb-embed').length : 0,
+						below,
+					};
+				});
+				if (preview.embed === 0) {
+					failures.push('Item: content preview did not render the embed fragment');
+				} else if (!preview.below) {
+					failures.push('Item: content preview is not below the entity toolbar');
+				} else {
+					console.log(`[ok] ${mathItem.id} renders the embed preview below the entity toolbar`);
+				}
+			} catch (e) {
+				failures.push('Item: content preview block never appeared');
+			}
 		}
 
 		// --- File: page upload hand-off fallback -------------------------

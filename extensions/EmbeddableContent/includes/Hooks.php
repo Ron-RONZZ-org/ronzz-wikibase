@@ -267,6 +267,14 @@ class Hooks {
 
 		self::wireItemToolbar( $out, $entityId->getSerialization() );
 
+		// Content items (quotation / math / code-snippet) carry NO classic
+		// page — render their embed fragment directly below the toolbar, so
+		// the Item page shows the actual content next to its statements.
+		if ( self::contentKindForItem( $entityId->getSerialization() ) !== null ) {
+			$out->addJsConfigVars( 'wbContentPreviewItem', $entityId->getSerialization() );
+			$out->addModules( 'ext.embeddableContent.contentpreview' );
+		}
+
 		$oembedUrl = SpecialPage::getTitleFor( 'Embed', 'oembed' )
 			->getFullURL( [ 'url' => $title->getFullURL() ] );
 		$out->addLink( [
@@ -512,6 +520,43 @@ class Hooks {
 	 *
 	 * @return array{url:string,messageKey:string}|null
 	 */
+	/**
+	 * The content kind (quotation | math | code) an item is classified
+	 * under, or null when it is not a content item. Used to decide whether
+	 * the Item page renders the embedded-content preview.
+	 */
+	private static function contentKindForItem( string $itemId ): ?string {
+		try {
+			$config = MediaWikiServices::getInstance()->get( 'EmbeddableContent.Config' );
+			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+		if ( !$item instanceof Item ) {
+			return null;
+		}
+		$classIds = [];
+		$propertyId = new \Wikibase\DataModel\Entity\NumericPropertyId( $config->instanceOfPropertyId() );
+		foreach ( $item->getStatements()->getByPropertyId( $propertyId ) as $statement ) {
+			$value = $statement->getMainSnak()->getDataValue();
+			if ( $value instanceof \Wikibase\DataModel\Entity\EntityIdValue ) {
+				$classIds[] = $value->getEntityId()->getSerialization();
+			}
+		}
+		foreach ( $config->classIds() as $kind => $classId ) {
+			if ( in_array( $classId, $classIds, true ) ) {
+				return $kind;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * The "Edit content" update target for an item whose instance-of
+	 * classes include a content class (quotation / math / code-snippet).
+	 *
+	 * @return array{url:string,messageKey:string}|null
+	 */
 	private static function contentUpdateTarget( string $itemId, $config, array $classIds ): ?array {
 		try {
 			$updatePages = [
@@ -593,6 +638,20 @@ class Hooks {
 		} );
 		$parser->setFunctionHook( 'osmplace', static function ( Parser $parser, ...$args ) use ( $services ): array {
 			return \EmbeddableContent\ParserFunctions\OsmPlaceRow::onOsmPlaceRow(
+				$services->get( 'EmbeddableContent.Config' ),
+				$parser,
+				$args
+			);
+		} );
+		$parser->setFunctionHook( 'statementrow', static function ( Parser $parser, ...$args ) use ( $services ): array {
+			return \EmbeddableContent\ParserFunctions\StatementRow::onStatementRow(
+				$services->get( 'EmbeddableContent.Config' ),
+				$parser,
+				$args
+			);
+		} );
+		$parser->setFunctionHook( 'quotationsby', static function ( Parser $parser, ...$args ) use ( $services ): array {
+			return \EmbeddableContent\ParserFunctions\QuotationsBy::onQuotationsBy(
 				$services->get( 'EmbeddableContent.Config' ),
 				$parser,
 				$args

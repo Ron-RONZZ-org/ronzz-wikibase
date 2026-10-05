@@ -154,17 +154,23 @@ async function main() {
 		}
 		console.log(`[ok] malformed TeX shows the renderer error: ${bad.text.slice(0, 80)}`);
 
-		// The preview shows BOTH the Content and the accompanying Note.
+		// The preview shows BOTH the Content and the accompanying Note, and
+		// the Note is rendered as WIKITEXT (through action=parse): links and
+		// emphasis render, inline $…$ is typeset with KaTeX.
 		await page.evaluate(() => {
 			const note = document.querySelector('#mw-input-wpnote textarea, #mw-input-wpnote input');
 			if (note) {
-				note.value = 'where $a$ is a constant';
+				note.value = "where $a$ is a '''constant''' and a [[Main Page|reference]]";
 				note.dispatchEvent(new Event('input', { bubbles: true }));
 			}
 		});
 		await page.locator(INPUT).first().fill('$a^2 + b^2 = c^2$');
 		await page.click('#wb-math-preview');
-		await page.waitForTimeout(400);
+		// The note HTML arrives asynchronously (action=parse).
+		await page.waitForFunction(() => {
+			const note = document.getElementById('wb-math-preview-note');
+			return note && note.textContent.includes('constant');
+		}, { timeout: 15000 });
 		const noteState = await page.evaluate(() => {
 			const wrap = document.getElementById('wb-math-preview-note-wrap');
 			const note = document.getElementById('wb-math-preview-note');
@@ -172,6 +178,8 @@ async function main() {
 				hidden: wrap ? wrap.hidden : true,
 				text: note ? note.textContent : '',
 				katex: note ? note.querySelectorAll('.katex').length : 0,
+				bold: note ? note.querySelectorAll('b').length : 0,
+				link: note ? note.querySelectorAll('a').length : 0,
 			};
 		});
 		if (noteState.hidden) {
@@ -180,8 +188,12 @@ async function main() {
 			failures.push(`the note preview did not show the note (${JSON.stringify(noteState.text)})`);
 		} else if (noteState.katex === 0) {
 			failures.push('the note preview did not typeset the inline $…$ math');
+		} else if (noteState.bold === 0) {
+			failures.push('the note preview did not render wikitext (no <b> from the bold markup)');
+		} else if (noteState.link === 0) {
+			failures.push('the note preview did not render the [[Main Page|reference]] link');
 		} else {
-			console.log('[ok] preview shows both the Content and the Note');
+			console.log('[ok] preview shows the Content and the wikitext Note');
 		}
 	} finally {
 		await browser.close();

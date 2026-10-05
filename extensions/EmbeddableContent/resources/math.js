@@ -33,6 +33,11 @@
 		} );
 	}
 
+	// Re-run when embed HTML is injected after page load (the Item-page
+	// content preview fetches the embed fragment asynchronously and fires
+	// this hook).
+	mw.hook( 'ext.embeddableContent.embedContentAdded' ).add( renderMath );
+
 	if ( document.readyState === 'loading' ) {
 		document.addEventListener( 'DOMContentLoaded', renderMath );
 	} else {

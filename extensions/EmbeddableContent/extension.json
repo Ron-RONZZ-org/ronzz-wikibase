@@ -266,6 +266,7 @@
 			],
 			"dependencies": [
 				"ext.embeddableContent.katex",
+				"mediawiki.api",
 				"oojs-ui"
 			],
 			"messages": [
@@ -301,6 +302,19 @@
 			],
 			"targets": [
 				"desktop"
+			]
+		},
+		"ext.embeddableContent.contentpreview": {
+			"scripts": [
+				"contentpreview.js"
+			],
+			"dependencies": [
+				"mediawiki.api",
+				"ext.embeddableContent.embed"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
 			]
 		},
 		"ext.embeddableContent.sitelinktab": {

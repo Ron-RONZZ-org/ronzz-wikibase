@@ -41,11 +41,8 @@ final class QuotationFinder {
 	}
 
 	/**
-	 * All quotations of one source item, in item-id order. Every row:
-	 *   qid     — the quotation item id (Q…);
-	 *   content — the payload decoded with PayloadCodec ('' when the item
-	 *             has no payload statement);
-	 *   label   — the en term when present ('' otherwise).
+	 * All quotations whose `source` statement points at the given source
+	 * item. Thin wrapper over findForPredicate (the `source` predicate).
 	 *
 	 * @param string $sourceItemId        the source item (Q…)
 	 * @param string $quotationClassId    the quotation class item (Q…)
@@ -66,12 +63,52 @@ final class QuotationFinder {
 		string $wd,
 		string $wdt
 	): ?array {
-		if ( preg_match( '/^Q[1-9]\d*$/i', $sourceItemId ) !== 1
+		return $this->findForPredicate(
+			$sourceItemId,
+			$sourcePropertyId,
+			$quotationClassId,
+			$contentPropertyId,
+			$instanceOfPropertyId,
+			$wd,
+			$wdt
+		);
+	}
+
+	/**
+	 * All quotations linked to one item through a predicate property — the
+	 * `source` provenance (a Source: page) or the `attributed to` provenance
+	 * (a Person: page) — in item-id order. Every row:
+	 *   qid     — the quotation item id (Q…);
+	 *   content — the payload decoded with PayloadCodec ('' when the item
+	 *             has no payload statement);
+	 *   label   — the en term when present ('' otherwise).
+	 *
+	 * @param string $itemId              the linked item (Q…)
+	 * @param string $predicatePropertyId the linking property (P…: source /
+	 *   attributed to)
+	 * @param string $quotationClassId    the quotation class item (Q…)
+	 * @param string $contentPropertyId   the quotation payload property (P…)
+	 * @param string $instanceOfPropertyId the instance-of property (P…)
+	 * @param string $wd   entity URI base, e.g. https://wikibase.ronzz.org/entity/
+	 * @param string $wdt  prop/direct base
+	 * @return array<int,array{qid:string,content:string,label:string}>|null
+	 *         null when WDQS is unreachable / the query failed
+	 */
+	public function findForPredicate(
+		string $itemId,
+		string $predicatePropertyId,
+		string $quotationClassId,
+		string $contentPropertyId,
+		string $instanceOfPropertyId,
+		string $wd,
+		string $wdt
+	): ?array {
+		if ( preg_match( '/^Q[1-9]\d*$/i', $itemId ) !== 1
 			|| preg_match( '/^Q[1-9]\d*$/i', $quotationClassId ) !== 1
 		) {
 			return [];
 		}
-		foreach ( [ $contentPropertyId, $sourcePropertyId, $instanceOfPropertyId ] as $propertyId ) {
+		foreach ( [ $predicatePropertyId, $contentPropertyId, $instanceOfPropertyId ] as $propertyId ) {
 			if ( preg_match( '/^P[1-9]\d*$/i', $propertyId ) !== 1 ) {
 				return [];
 			}
@@ -79,10 +116,10 @@ final class QuotationFinder {
 
 		$query = 'PREFIX wd: <' . $wd . '> PREFIX wdt: <' . $wdt . ">\n"
 			. 'SELECT ?item ?content ?label WHERE {' . "\n"
-			// The source link, the class, and the (optional) payload.
+			// The predicate link, the class, and the (optional) payload.
 			// Monolingual payload values surface as language-tagged
 			// literals; STR() keeps the text.
-			. '  ?item wdt:' . strtoupper( $sourcePropertyId ) . ' wd:' . strtoupper( $sourceItemId ) . " .\n"
+			. '  ?item wdt:' . strtoupper( $predicatePropertyId ) . ' wd:' . strtoupper( $itemId ) . " .\n"
 			. '  ?item wdt:' . strtoupper( $instanceOfPropertyId ) . ' wd:' . strtoupper( $quotationClassId ) . " .\n"
 			. '  OPTIONAL { ?item wdt:' . strtoupper( $contentPropertyId ) . ' ?content }' . "\n"
 			. '  OPTIONAL { ?item rdfs:label ?label FILTER(LANG(?label) = "en") }' . "\n"

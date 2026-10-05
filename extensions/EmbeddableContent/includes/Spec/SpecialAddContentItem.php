@@ -359,12 +359,18 @@ abstract class SpecialAddContentItem extends SpecialPage {
 			return $this->msg( 'embeddablecontent-add-error-save' )->text();
 		}
 
-		// The Source: page "Quotations" auto-link must refresh when a
-		// quotation with a source lands (the source item's own revision did
-		// not change, so the parser-cache dependency never fires) —
-		// invalidate the source's classic page, best-effort.
-		if ( isset( $flowRecord['source'] ) && $flowRecord['source'] !== '' ) {
-			\EmbeddableContent\Spec\QuotationLookup::invalidateSourcePages( [ $flowRecord['source'] ] );
+		// The Source: / Person: "Quotations" auto-link must refresh when a
+		// quotation with a source/author lands (the linked item's own
+		// revision did not change, so the parser-cache dependency never
+		// fires) — invalidate the linked classic pages, best-effort.
+		$invalid = [];
+		foreach ( [ 'source', 'attributedTo' ] as $field ) {
+			if ( isset( $flowRecord[$field] ) && $flowRecord[$field] !== '' ) {
+				$invalid[] = $flowRecord[$field];
+			}
+		}
+		if ( $invalid !== [] ) {
+			\EmbeddableContent\Spec\QuotationLookup::invalidateClassicPages( $invalid );
 		}
 
 		$this->createdItemId = $item->getId();
