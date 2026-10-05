@@ -114,6 +114,20 @@ report). See `SimpleMathJax/VENDORED.md`.
   browser forms keep their own field vocabulary and browser-only steps (external-authority
   search, URL-first metadata fetch, content review, image/file uploads); delegating the
   forms' statement building to the services is a documented follow-up.
+- **Canonical field contract (`extensions/EmbeddableContent/contract/field-contract.json`)**:
+  `Flow/FieldContract` aggregates the three `Flow/*FieldMap` classes into a versioned
+  JSON document; `maintenance/emitFieldContract.php` writes it (a PURE script — the maps
+  carry no MW dependency), and `tests/Unit/FieldContractTest` fails if the committed file
+  is not the exact projection of the maps. The API modules' `fieldParams()` now derive
+  from the maps (`ApiAddSource`/`ApiAddSpecialContent` return `FieldMap::ALL_FIELDS`;
+  `ApiAddSemanticEntity` returns `SemanticEntityFieldMap::apiParamFields()` = `ALL_FIELDS`
+  minus `API_TYPED_FIELDS`/`pageKind`) — no hardcoded copy, so the `note` (advertised by
+  `addspecialcontent-fields`, dropped by the write module) and `alias` (advertised,
+  dropped) drifts cannot recur; `statements` is no longer a flow field (it was advertised
+  for `other` but never accepted). Downstream clients consume the artifact: the MediaWiki
+  MCP server pins a verbatim copy and generates its embeddable add tools' schemas from it.
+  Web-published field lists (`action=*-fields`) and the JSON share one emitter, so the
+  discovery contract and the write path cannot disagree.
 - **Vocabulary manifests** (`manifests/`: `properties.csv`, `classes.csv`,
   `languages.csv`) + `maintenance/importVocabulary.php` — the D1 importer.
   Includes the issue-#7 ExternalId authority + citation-metadata properties

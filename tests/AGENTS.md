@@ -17,7 +17,11 @@ plus the Playwright browser UX suite for the query GUI (query.ronzz.org).
 - **`tests/e2e/run_e2e.py`** — acceptance checks against a seeded instance:
   3 embed surfaces (quote/code/math), 5 citation styles, SPARQL
   (`--sparql-wait` retry, `--allow-sparql-fail` in CI); and the **XSS
-  suite** (`xss` subcommand) — injections must not survive rendering.
+  suite** (`xss` subcommand) — injections must not survive rendering. It also
+  asserts **field-contract parity**: every field an `action=*-fields` endpoint
+  advertises must be an accepted param of that flow's write module
+  (`action=paraminfo`), so the "advertised but silently dropped" drift cannot
+  recur.
 - **`tests/e2e/run_pages_e2e.py`** — issue-#7 page flows:
   `Special:AddPerson` / `AddSource` / `AddCollective` + the AddQuotation
   form; **self-cleaning** (removes what it creates).
