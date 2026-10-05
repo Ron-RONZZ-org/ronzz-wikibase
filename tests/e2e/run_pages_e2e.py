@@ -3771,11 +3771,13 @@ def flow_classic_page_toolbar(op, base: str, page_title: str, qid: str,
             f"{page_title}: missing wbEmbedItem={qid} (classic toolbar): {find_error(body)}")
     if "ext.embeddableContent.gadget" not in body:
         raise FlowError(f"{page_title}: does not load ext.embeddableContent.gadget")
-    m = re.search(r'"wbUpdateBasicInfoUrl"\s*:\s*"([^"]*Special:' + re.escape(update_special)
-                  + r"/" + re.escape(qid) + r'(?:\?[^"]*)?)"', body)
-    if not m:
+    m = re.search(r'"wbUpdateBasicInfoUrl"\s*:\s*"([^"]*)"', body)
+    update_url = m.group(1) if m else None
+    expected = f"Special:{update_special}/{qid}"
+    if update_url is None or expected not in update_url:
         raise FlowError(
-            f"{page_title}: no update-button URL for {update_special}: {find_error(body)}")
+            f"{page_title}: update-button URL {update_url!r} does not point at "
+            f"{expected}: {find_error(body)}")
     if "ext.embeddableContent.updatebutton" not in body:
         raise FlowError(f"{page_title}: does not load ext.embeddableContent.updatebutton")
     if expect_source_cite:
