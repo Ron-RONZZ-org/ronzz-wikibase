@@ -97,6 +97,44 @@ def check(args: argparse.Namespace) -> int:
                "addsource-fields: webpage must require a website parent")
         expect("propertyIds" in fields and "instanceOf" in fields["propertyIds"],
                "addsource-fields: missing property id map")
+
+    def check_field_contract_parity() -> None:
+        """The canonical-contract guard: every field a `<flow>-fields`
+        discovery endpoint advertises must be an accepted parameter of the
+        flow's WRITE module (action=paraminfo). This is the drift class the
+        field maps and the contract artifact exist to stop — a field
+        advertised but silently dropped by the write module (the math `note`,
+        the fictional-character `alias`). The API modules derive their params
+        from the maps, so the discovery contract and the write path cannot
+        disagree."""
+        flows = [
+            ("addsource-fields", "sourcefields", "classes", "addsource"),
+            ("addspecialcontent-fields", "contentfields", "kinds", "addspecialcontent"),
+            ("addsemanticentity-fields", "semanticfields", "kinds", "addsemanticentity"),
+        ]
+        for discovery, envelope, group_key, module in flows:
+            discovery_params = {"action": discovery, "format": "json", "formatversion": "2"}
+            status, body, _ = http_get(f"{api}?{urllib.parse.urlencode(discovery_params)}")
+            expect(status == 200, f"{discovery}: HTTP {status}")
+            payload = json.loads(body.decode("utf-8", "replace"))
+            group = payload.get(envelope, {}).get(group_key, [])
+            expect(bool(group), f"{discovery}: no {group_key}: {payload.get('error')!r}")
+
+            paraminfo_params = {"action": "paraminfo", "modules": module,
+                                "format": "json", "formatversion": "2"}
+            status, body, _ = http_get(f"{api}?{urllib.parse.urlencode(paraminfo_params)}")
+            expect(status == 200, f"paraminfo({module}): HTTP {status}")
+            modules = json.loads(body.decode("utf-8", "replace")).get("paraminfo", {}).get("modules", [])
+            expect(bool(modules), f"paraminfo({module}): module not found")
+            accepted = {p["name"] for p in modules[0].get("parameters", [])}
+
+            advertised: set[str] = set()
+            for entry in group:
+                advertised.update(entry.get("fields", []))
+            missing = sorted(advertised - accepted)
+            expect(not missing,
+                   f"{module}: discovery advertises field(s) the write module does not accept: {missing}")
+
     def embed_html(entity: str, **extra) -> str:
         params = {"action": "embed", "entity": entity, "output": "html", "format": "json", **extra}
         status, body, _ = http_get(f"{api}?{urllib.parse.urlencode(params)}")
@@ -300,6 +338,7 @@ def check(args: argparse.Namespace) -> int:
     run("special pages listed on Special:SpecialPages + non-empty titles (issue #11)", check_specialpages_listing)
     run("Special:Embed error paths render 200 (issue #11)", check_embed_error_paths)
     run("addsource-fields contract (webpage exposes authors — the drift regression)", lambda: check_addsource_fields(api))
+    run("field-contract parity (-fields ⊆ write-module params)", check_field_contract_parity)
 
     if args.allow_sparql_fail and "sparql instance-of check" in failures:
         print(

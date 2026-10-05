@@ -222,11 +222,10 @@ class ApiAddSpecialContent extends ApiBase {
 
 	/** @return string[] */
 	private function fieldParams(): array {
-		return [
-			'label', 'content', 'labelLanguage', 'language', 'programmingLanguage',
-			'describes', 'implementationOf', 'attributedTo', 'source', 'sourceUrl', 'date',
-			// Quotation only: a JSON array of {language, content} rows.
-			'translations',
-		];
+		// The single source of truth (the field-map contract) — a hardcoded
+		// copy here is exactly how the `note` field drifted: the discovery
+		// endpoint advertised it for math, but this module silently dropped it.
+		// `translations` rides as a JSON array string (decoded in execute()).
+		return SpecialContentFieldMap::ALL_FIELDS;
 	}
 }
