@@ -373,7 +373,26 @@ report). See `SimpleMathJax/VENDORED.md`.
 - **Class selection moved to the review step (follow-up)**: the search
   selection step dropped its "Class" field (it only picks the record); the
   review step's class field (pre-selected by the harvest inference) is where
-  the class is chosen.
+  the class is chosen. **The chosen class is propagated to the semantic flow**
+  (`withChosenClass()` hook on the base class, overridden by
+  `SpecialAddCollective` to set `collectiveClass`) — before, the browser
+  form's generic `class` value never reached the shared service and every
+  collective was saved as `instance of: organization` (the Q2019 report).
+- **AddSource language field (ADR
+  `docs/decisions/source-language-field.md`)**: a `language` combobox on the
+  AddSource review/manual forms (all classes) and `Special:UpdateSource`
+  (prefilled from the item's label language) writes the new string
+  `language` property (manifest + `sourceProperties` config key +
+  `schema:inLanguage`) AND stores the item label/description under the chosen
+  term language — **chosen-language-only** (a French source gets an fr label,
+  no en copy; the class-disambiguation suffix stays English). UpdateSource
+  **moves** the term on a language change. The label reuse
+  (`findItemIdByLabel`) and the duplicate-guard label signal
+  (`EntityLabelMatcher`/`DuplicateFinder`/`DuplicateChecker`) are
+  language-aware so non-English items are still found. The statement surfaces
+  as CSL `language`. Re-seed required.
+
+
 - **AddCollective parent organization + logo (follow-up)**: new P749-aligned
   `parent organization` property (manifest + `collectiveProperties` config
   section); the AddCollective review/manual form has an optional entity

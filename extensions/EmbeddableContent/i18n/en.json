@@ -285,6 +285,8 @@
 	"embeddablecontent-extsearch-youtube-urlnomatch": "No match for the provided URL.",
 	"embeddablecontent-source-field-authors": "Author(s)",
 	"embeddablecontent-source-field-authors-help": "Type a label to search and pick people, organizations or groups, or enter item ids directly (e.g. Q5). Several values are allowed — separate them with a comma. Optional: leave blank if the authorship is unknown.",
+	"embeddablecontent-source-field-language": "Language",
+	"embeddablecontent-source-field-language-help": "The language of this source. The item label and description are stored in this language.",
 	"embeddablecontent-source-field-duration": "Duration",
 	"embeddablecontent-source-field-duration-help": "Formats MM:SS or HH:MM:SS (e.g. 3:45, 1:02:30).",
 	"embeddablecontent-source-field-url": "URL",

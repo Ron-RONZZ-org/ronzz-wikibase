@@ -272,6 +272,8 @@
 	"embeddablecontent-extsearch-youtube-urlnomatch": "Aucune correspondance pour l'URL fournie.",
 	"embeddablecontent-source-field-authors": "Auteur(s)",
 	"embeddablecontent-source-field-authors-help": "Tapez un libellé pour rechercher et choisir des personnes, organisations ou groupes, ou saisissez directement des identifiants d'éléments (p. ex. Q5). Plusieurs valeurs sont autorisées — séparez-les par une virgule. Facultatif : laissez vide si l'auteur est inconnu.",
+	"embeddablecontent-source-field-language": "Langue",
+	"embeddablecontent-source-field-language-help": "La langue de cette source. Le libellé et la description de l'élément sont enregistrés dans cette langue.",
 	"embeddablecontent-source-field-duration": "Durée",
 	"embeddablecontent-source-field-duration-help": "Formats MM:SS ou HH:MM:SS (p. ex. 3:45, 1:02:30).",
 	"embeddablecontent-source-field-url": "URL",

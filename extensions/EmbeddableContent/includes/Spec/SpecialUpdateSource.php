@@ -89,6 +89,18 @@ class SpecialUpdateSource extends SpecialAddSource {
 		return false;
 	}
 
+	/**
+	 * The AddSource language field governs the label/description term
+	 * language on update too: a non-empty submitted language wins; a blank
+	 * one keeps the item's current label language (no-clobber).
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function updateTermLanguage( array $record, Item $item ): string {
+		$language = trim( (string)( $record['language'] ?? '' ) );
+		return $language !== '' ? $language : $this->itemTermLanguage( $item );
+	}
+
 	protected function updateClassItemId( Item $item ): ?string {
 		$classIds = $this->itemClassIds( $item );
 		foreach ( $this->config->sourceClasses() as $key => $id ) {
@@ -111,6 +123,9 @@ class SpecialUpdateSource extends SpecialAddSource {
 		$record = [
 			'title' => $this->itemLabel( $item ),
 			'description' => $this->itemDescription( $item ),
+			// The item's label language prefills the AddSource language
+			// field; a change MOVES the label/description term language.
+			'language' => $this->itemTermLanguage( $item ),
 			'authors' => implode( ', ', $this->entityIdsForProperty(
 				$item,
 				$this->config->provenancePropertyIds()['attributedTo'] ?? null

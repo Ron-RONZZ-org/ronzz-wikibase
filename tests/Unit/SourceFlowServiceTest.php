@@ -46,6 +46,7 @@ class SourceFlowServiceTest extends TestCase {
 			'territorialJurisdictionLabel' => 'P62', 'caseNumber' => 'P63',
 			'patentNumber' => 'P64', 'reportNumber' => 'P65', 'legislationNumber' => 'P66',
 			'international' => 'P67',
+			'language' => 'P68',
 		],
 		'provenance' => [ 'attributedTo' => 'P6', 'date' => 'P8' ],
 		'citationMetadata' => [
@@ -316,6 +317,59 @@ class SourceFlowServiceTest extends TestCase {
 		$this->assertTrue( $this->hasStatement( $item, 'P1', 'Q8' ) );
 		$this->assertTrue( $this->hasStatement( $item, 'P6', 'Q6' ) );
 		$this->assertTrue( $this->hasStatement( $item, 'P8', null ) );
+	}
+
+	public function testLanguageWritesStatementAndLabelTermLanguage(): void {
+		$service = $this->makeService();
+		$record = [ 'title' => 'Le Hobbit', 'language' => 'fr', 'authors' => 'Q6' ];
+
+		$this->assertNull( $service->prepare( 'book', $record, true ) );
+		$item = $service->buildItem( 'book', $record );
+
+		// Chosen-language-only: the label lives in fr, not en.
+		$this->assertTrue( $item->getLabels()->hasTermForLanguage( 'fr' ) );
+		$this->assertFalse( $item->getLabels()->hasTermForLanguage( 'en' ) );
+		$this->assertSame( 'Le Hobbit (Book)', $item->getLabels()->getByLanguage( 'fr' )->getText() );
+		// The language code is written as a string statement.
+		$this->assertSame( 'fr', $this->statementValue( $item, 'P68' ) );
+	}
+
+	public function testLanguageDefaultsToEnglishWhenBlank(): void {
+		$service = $this->makeService();
+		$item = $service->buildItem( 'book', [ 'title' => 'The Hobbit' ] );
+
+		$this->assertSame( 'The Hobbit (Book)', $item->getLabels()->getByLanguage( 'en' )->getText() );
+		// No language statement without a language value.
+		$this->assertNull( $this->statementValue( $item, 'P68' ) );
+	}
+
+	public function testInvalidLanguageRejected(): void {
+		$service = $this->makeService();
+		$record = [ 'title' => 'The Hobbit', 'language' => 'not a code!' ];
+
+		$error = $service->prepare( 'book', $record, true );
+		$this->assertIsString( $error );
+		$this->assertStringContainsString( 'not a valid language code', $error );
+	}
+
+	public function testApplyUpdateMovesLabelAndDescriptionLanguage(): void {
+		$service = $this->makeService();
+		$item = new Item( new ItemId( 'Q777' ) );
+		$item->setLabel( 'en', 'Old Title' );
+		$item->setDescription( 'en', 'Old description' );
+
+		$service->applyUpdate( 'book', $item, [
+			'title' => 'Le Hobbit',
+			'language' => 'fr',
+			'description' => 'Un roman',
+		] );
+
+		// Terms MOVED to fr: the old en label/description are gone.
+		$this->assertSame( 'Le Hobbit', $item->getLabels()->getByLanguage( 'fr' )->getText() );
+		$this->assertFalse( $item->getLabels()->hasTermForLanguage( 'en' ) );
+		$this->assertSame( 'Un roman', $item->getDescriptions()->getByLanguage( 'fr' )->getText() );
+		$this->assertFalse( $item->getDescriptions()->hasTermForLanguage( 'en' ) );
+		$this->assertSame( 'fr', $this->statementValue( $item, 'P68' ) );
 	}
 
 	public function testApplyUpdateIsNoClobber(): void {

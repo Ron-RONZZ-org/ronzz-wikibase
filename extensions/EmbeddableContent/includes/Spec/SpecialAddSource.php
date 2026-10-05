@@ -1023,7 +1023,8 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			'embeddablecontent-extsearch-title',
 			$this->applyLabelSuffix() ? $this->disambiguatedTitle( $title ) : $title
 		)
-			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) );
+			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
+			+ $this->languageFieldSpec( $record );
 		// Legal texts (legalCase/legislation/bill/treaty) do not expose
 		// authors — the court / jurisdiction carry the attribution.
 		if ( $this->classExposesAuthors() ) {
@@ -1247,6 +1248,30 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				'required' => false,
 			]
 		);
+	}
+
+	/**
+	 * Source-language combobox (all MediaWiki-supported languages): the
+	 * chosen BCP-47 code is written as a `language` statement AND is the
+	 * term language the item label/description are stored under — a French
+	 * source gets an `fr` label, not `en`. Defaults to `en` (the historical
+	 * label language); every class exposes it (a source's language is
+	 * optional metadata).
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,mixed>
+	 */
+	protected function languageFieldSpec( array $record ): array {
+		$languageNames = \MediaWiki\MediaWikiServices::getInstance()
+			->getLanguageNameUtils()
+			->getLanguageNames();
+		return [ 'language' => [
+			'type' => 'combobox',
+			'label-message' => 'embeddablecontent-source-field-language',
+			'help-message' => 'embeddablecontent-source-field-language-help',
+			'options' => array_flip( $languageNames ),
+			'default' => (string)( $record['language'] ?? 'en' ),
+		] ];
 	}
 
 	/** @return array<string,mixed> */
@@ -2080,11 +2105,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			if ( $volume !== '' ) {
 				$parts[] = $this->msg( 'embeddablecontent-source-bookexcerpt-desc-volume', $volume )->text();
 			}
-			$parentLabel = '';
-			$labelTerm = $parent->getLabels()->getByLanguage( 'en' );
-			if ( $labelTerm !== null ) {
-				$parentLabel = $labelTerm->getText();
-			}
+			$parentLabel = EntityLabelText::of( $parent ) ?? '';
 			if ( $parts !== [] && $parentLabel !== '' ) {
 				$record['description'] = $this->msg(
 					'embeddablecontent-source-bookexcerpt-desc',
@@ -2274,7 +2295,10 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		$label = $this->sourceFlow()->labelFor( $classKey, $flowRecord );
 
 		if ( !$forceCreate ) {
-			$existing = $this->findItemIdByLabel( $label );
+			$existing = $this->findItemIdByLabel(
+				$label,
+				\EmbeddableContent\Flow\SourceFlowService::termLanguage( $flowRecord )
+			);
 			if ( $existing !== null ) {
 				return $existing;
 			}

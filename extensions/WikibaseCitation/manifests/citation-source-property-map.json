@@ -7,5 +7,6 @@
 	"DOI": "DOI",
 	"ISBN": "ISBN-13",
 	"givenName": "given name",
-	"familyName": "family name"
+	"familyName": "family name",
+	"language": "language"
 }

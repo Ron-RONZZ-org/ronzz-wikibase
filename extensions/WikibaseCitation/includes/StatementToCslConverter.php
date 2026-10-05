@@ -40,6 +40,9 @@ class StatementToCslConverter {
 	/** Source-level CSL fields resolved against the source item. */
 	private const SOURCE_LEVEL_FIELDS = [
 		'container-title', 'publisher', 'page', 'volume', 'issue', 'DOI', 'ISBN',
+		// The source language (the AddSource `language` field, a BCP-47 code)
+		// — a CSL top-level field.
+		'language',
 	];
 
 	/** @var EntityLookup */

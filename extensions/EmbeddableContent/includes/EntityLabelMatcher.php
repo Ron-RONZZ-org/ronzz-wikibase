@@ -67,15 +67,17 @@ final class EntityLabelMatcher {
 	 *
 	 * @param string[] $classItemIds optional instance-of filter — only items
 	 *                               whose class is in this set are considered
+	 * @param string $language term language the term-store search runs in
+	 *                         (the record's own language; `en` default)
 	 * @return array{itemId:string,label:string,score:float}|null
 	 */
-	public function findBestMatch( string $label, array $classItemIds = [], int $maxCandidates = 8 ): ?array {
+	public function findBestMatch( string $label, array $classItemIds = [], int $maxCandidates = 8, string $language = 'en' ): ?array {
 		$label = trim( $label );
 		if ( $label === '' || $maxCandidates < 1 ) {
 			return null;
 		}
 
-		$ids = $this->searchCandidates( $label, $maxCandidates );
+		$ids = $this->searchCandidates( $label, $maxCandidates, $language );
 		if ( $ids === [] ) {
 			return null;
 		}
@@ -193,10 +195,12 @@ final class EntityLabelMatcher {
 	 * instance's term store is case-sensitive) and returns the deduped,
 	 * capped candidate ids, best first.
 	 *
+	 * @param string $language term language the default searcher runs in;
+	 *                         ignored when a searcher was injected
 	 * @return array<int,EntityId>
 	 */
-	private function searchCandidates( string $label, int $maxCandidates ): array {
-		$searcher = $this->searcher ?? self::defaultSearcher();
+	private function searchCandidates( string $label, int $maxCandidates, string $language = 'en' ): array {
+		$searcher = $this->searcher ?? self::defaultSearcher( $language );
 		$variants = [ $label ];
 		$titleCased = (string)preg_replace_callback(
 			'/(^|\s)(\S)/u',
@@ -244,15 +248,15 @@ final class EntityLabelMatcher {
 	}
 
 	/** @return callable(string,int):array<int,EntityId> */
-	private static function defaultSearcher(): callable {
-		return static function ( string $text, int $limit ): array {
+	private static function defaultSearcher( string $language = 'en' ): callable {
+		return static function ( string $text, int $limit ) use ( $language ): array {
 			// The instance's EntitySearchHelper (Wikibase\Repo\Api\...,
 			// REL1_46): getRankedSearchResults returns TermSearchResult[]
 			// keyed by serialized entity id and requires the profile-context
 			// arg (null = default ranking).
 			$results = WikibaseRepo::getEntitySearchHelper()->getRankedSearchResults(
 				$text,
-				'en',
+				$language,
 				Item::ENTITY_TYPE,
 				$limit,
 				false,

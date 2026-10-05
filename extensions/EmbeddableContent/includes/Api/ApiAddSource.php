@@ -92,7 +92,8 @@ class ApiAddSource extends ApiBase {
 					$this->config,
 					$record,
 					$this->flow->labelFor( $classKey, $record ),
-					$classId !== null ? [ $classId ] : []
+					$classId !== null ? [ $classId ] : [],
+					SourceFlowService::termLanguage( $record )
 				);
 				if ( $duplicate !== null ) {
 					$this->getResult()->addValue( null, 'source', [

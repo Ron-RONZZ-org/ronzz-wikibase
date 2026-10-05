@@ -7,6 +7,7 @@ namespace EmbeddableContent\Flow;
 use DataValues\StringValue;
 use DataValues\TimeValue;
 use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\Spec\EntityLabelText;
 use Wikibase\DataModel\DataValue;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
@@ -434,9 +435,9 @@ final class SemanticEntityFlowService {
 		foreach ( $this->splitItemIds( $presentInWork ) as $id ) {
 			$work = $this->lookup->getEntity( new ItemId( $id ) );
 			if ( $work instanceof Item ) {
-				$term = $work->getLabels()->getByLanguage( 'en' );
-				if ( $term !== null ) {
-					$labels[] = $term->getText();
+				$label = EntityLabelText::of( $work );
+				if ( $label !== null && $label !== '' ) {
+					$labels[] = $label;
 				}
 			}
 		}

@@ -9,6 +9,7 @@ use EmbeddableContent\ParserFunctions\ContentPayload;
 use EmbeddableContent\ParserFunctions\ItemImage;
 use EmbeddableContent\ParserFunctions\QuotationsOf;
 use EmbeddableContent\ParserFunctions\SourceAccess;
+use EmbeddableContent\Spec\EntityLabelText;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Output\OutputPage;
 use MediaWiki\Parser\Parser;
@@ -367,7 +368,7 @@ class Hooks {
 		$out->addJsConfigVars(
 			'wbMentionLabel',
 			\EmbeddableContent\Spec\LabelSanitizer::stripParentheticalSuffix(
-				self::itemEnglishLabel( $itemId ) ?? $title->getText()
+				self::itemLabel( $itemId ) ?? $title->getText()
 			)
 		);
 		$out->addJsConfigVars(
@@ -377,18 +378,19 @@ class Hooks {
 		$out->addModules( 'ext.embeddableContent.mention' );
 	}
 
-	/** The item's English label, or null when it has none. */
-	private static function itemEnglishLabel( string $itemId ): ?string {
+	/**
+	 * The item's label (English preferred, then any language), or null when
+	 * it has none. Uses the guarded EntityLabelText — the AddSource language
+	 * field can leave an item with a non-English label only, and an unguarded
+	 * getByLanguage( 'en' ) would 500 the classic-page render.
+	 */
+	private static function itemLabel( string $itemId ): ?string {
 		try {
 			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
 		} catch ( \Throwable $e ) {
 			return null;
 		}
-		if ( !$item instanceof Item ) {
-			return null;
-		}
-		$term = $item->getLabels()->getByLanguage( 'en' );
-		return $term?->getText();
+		return $item instanceof Item ? EntityLabelText::of( $item ) : null;
 	}
 
 	/**

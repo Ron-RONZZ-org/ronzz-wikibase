@@ -4267,6 +4267,29 @@ def main() -> int:
             f"{text_item} unexpectedly carries an author statement"
         print(f"[ok] AddSource/text manual -> {text_item}: title-only creation, no authors")
 
+        # 2g6. AddSource language field: the chosen language is written as a
+        #      `language` statement AND the item label is stored under that
+        #      term language — chosen-language-only, so NO en label.
+        lang_label = f"Page-flow E2E langue {int(time.time())}"
+        lang_item = track(flow_source_class_manual(op, base, api, "text", {
+            "wptitle": lang_label,
+            "wplanguage": "fr",
+        }))
+        claims, en_label = entity_claims(op, api, lang_item)
+        language_prop = resolve("language", "property")
+        assert first_value(claims, language_prop) == "fr", \
+            f"{lang_item} language statement missing/wrong " \
+            f"({first_value(claims, language_prop)})"
+        assert en_label == "", f"{lang_item} unexpectedly stores an en label ({en_label!r})"
+        r = api_call(op, api, {"action": "wbgetentities", "ids": lang_item,
+                               "props": "labels", "format": "json"})
+        labels = r.get("entities", {}).get(lang_item, {}).get("labels", {})
+        assert "fr" in labels and labels["fr"].get("value", "").startswith(lang_label), \
+            f"{lang_item} fr label missing or wrong ({labels})"
+        assert "en" not in labels, f"{lang_item} still carries an en label ({labels})"
+        print(f"[ok] AddSource/text manual (fr) -> {lang_item}: "
+              f"language statement + chosen-language-only fr label")
+
         # 2h. AddSource/book access field, local-file mode (issue #35): the
         #     upload lands as File:<label>.png (auto-named from the item
         #     label, original filename ignored) with the license + file
@@ -4641,22 +4664,31 @@ def main() -> int:
         # 3a. AddCollective manual — the optional "Parent organization"
         #     entity field (issue follow-up): a referenced item lands as a
         #     `parent organization` statement; an empty field writes none.
+        #     The class chosen on the form (a NON-default agent class) must
+        #     be the item's instance-of — the service fell back to
+        #     `organization` because the form's `class` value never reached
+        #     the semantic flow (the Q2019 report).
         parent_org_qid = create_api_item(op, api, f"Page-flow E2E parent org {int(time.time())}")
+        governmental_agency_class = resolve("governmental agency", "item")
         collective_manual_label = f"Page-flow E2E collective {int(time.time())}"
         collective_manual = track(flow_manual(op, base, api, "AddCollective",
                                               collective_manual_label,
-                                              resolve("organization", "item"),
+                                              governmental_agency_class,
                                               {"wpparentOrganization": parent_org_qid,
                                                "wpwebsite": "https://example.org/collective"}))
         claims, _ = entity_claims(op, api, collective_manual)
+        assert first_value(claims, instance_of) == governmental_agency_class, \
+            f"{collective_manual} instance-of is not the chosen class " \
+            f"({first_value(claims, instance_of)} != {governmental_agency_class}) — " \
+            f"the chosen AddCollective class was discarded"
         assert first_value(claims, resolve("parent organization", "property")) == parent_org_qid, \
             f"{collective_manual} parent-organization statement missing or wrong " \
             f"({first_value(claims, resolve('parent organization', 'property'))})"
         assert first_value(claims, official_website_prop) == "https://example.org/collective", \
             f"{collective_manual} official-website statement not written " \
             f"({first_value(claims, official_website_prop)})"
-        print(f"[ok] AddCollective/manual -> {collective_manual}: optional parent "
-              f"organization + official website statements written "
+        print(f"[ok] AddCollective/manual -> {collective_manual}: chosen government-agency "
+              f"class honored + parent organization + official website statements "
               f"({parent_org_qid})")
 
         # 3a2. AddCollective logo (issue follow-up): the optional logo

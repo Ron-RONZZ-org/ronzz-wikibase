@@ -247,16 +247,7 @@ class SpecialSourceFile extends SpecialPage {
 
 	/** Label of an item in the reader's language (fallback: en, then any). */
 	private function itemLabel( Item $item ): ?string {
-		$language = $this->getLanguage()->getCode();
-		$labels = $item->getLabels();
-		$term = $labels->getByLanguage( $language ) ?? $labels->getByLanguage( 'en' );
-		if ( $term === null ) {
-			foreach ( $labels->toTextArray() as $label ) {
-				return $label;
-			}
-			return null;
-		}
-		return $term->getText();
+		return EntityLabelText::of( $item, $this->getLanguage()->getCode() );
 	}
 
 	/**

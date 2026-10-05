@@ -8,6 +8,7 @@ use EmbeddableContent\Content\FragmentSanitizer;
 use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\Fetch\WikimediaFileUrl;
 use EmbeddableContent\Fields\EntityCombobox;
+use EmbeddableContent\Spec\EntityLabelText;
 use MediaWiki\Context\IContextSource;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\Title;
@@ -683,9 +684,9 @@ final class ImageUploadHelper {
 				new \Wikibase\DataModel\Entity\ItemId( $itemId )
 			);
 			if ( $entity instanceof \Wikibase\DataModel\Entity\Item ) {
-				$term = $entity->getLabels()->getByLanguage( 'en' );
-				if ( $term !== null ) {
-					return $term->getText();
+				$label = EntityLabelText::of( $entity );
+				if ( $label !== null && $label !== '' ) {
+					return $label;
 				}
 			}
 		} catch ( \Throwable $e ) {

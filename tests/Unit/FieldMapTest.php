@@ -50,6 +50,19 @@ class FieldMapTest extends TestCase {
 		}
 	}
 
+	public function testSourceEveryClassExposesLanguage(): void {
+		// Every source class carries the optional `language` field (writing a
+		// language statement AND choosing the item label/description term
+		// language).
+		foreach ( SourceFieldMap::CLASS_KEYS as $classKey ) {
+			$this->assertTrue(
+				SourceFieldMap::acceptsField( $classKey, 'language' ),
+				"class $classKey must expose the language field"
+			);
+		}
+		$this->assertContains( 'language', SourceFieldMap::ALL_FIELDS );
+	}
+
 	public function testSourceRequiredOnCreateIsTitlePlusParentOnly(): void {
 		foreach ( SourceFieldMap::CLASS_KEYS as $classKey ) {
 			$required = SourceFieldMap::requiredOnCreate( $classKey );

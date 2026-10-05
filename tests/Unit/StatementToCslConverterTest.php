@@ -47,6 +47,7 @@ class StatementToCslConverterTest extends TestCase {
 					'DOI' => 'P24',
 					'givenName' => 'P25',
 					'familyName' => 'P26',
+					'language' => 'P27',
 				][$field] ?? null;
 			}
 
@@ -110,9 +111,11 @@ class StatementToCslConverterTest extends TestCase {
 					$item->getStatements()->addNewStatement(
 						new PropertyValueSnak( new PropertyId( 'P24' ), new StringValue( '10.1000/notes' ) )
 					);
+					$item->getStatements()->addNewStatement(
+						new PropertyValueSnak( new PropertyId( 'P27' ), new StringValue( 'fr' ) )
+					);
 					return $item;
-				}
-				if ( $entityId->getSerialization() === 'Q30' ) {
+				}				if ( $entityId->getSerialization() === 'Q30' ) {
 					// A book source WITHOUT `published in`: container-title
 					// must fall back to the label.
 					$item = new Item( new ItemId( 'Q30' ) );
@@ -368,6 +371,23 @@ class StatementToCslConverterTest extends TestCase {
 
 		$this->assertArrayNotHasKey( 'publisher', $csl );
 		$this->assertArrayNotHasKey( 'DOI', $csl );
+	}
+
+	public function testSourceLanguageBecomesCslLanguage(): void {
+		// The AddSource `language` field's statement (P27) surfaces as the
+		// CSL top-level `language` field on a self-cited source item.
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31',
+			[ 'Q20' ]
+		);
+		$book = $this->makeEntityLookup()->getEntity( new ItemId( 'Q20' ) );
+
+		$csl = $converter->toCslJson( $book );
+
+		$this->assertSame( 'fr', $csl['language'] );
 	}
 
 	public function testIsSourceClassMatchesConfiguredClasses(): void {

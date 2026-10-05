@@ -75,9 +75,10 @@ final class DuplicateFinder {
 	 * @param array<string,string> $pairs property id (P12) => exact value
 	 * @param string $wd   entity URI base, e.g. https://wikibase.ronzz.org/entity/
 	 * @param string $wdt  prop/direct base (wd with /entity/ → /prop/direct/)
+	 * @param string $language display-label language for the matched row
 	 * @return array{itemId:string,label:string}|null
 	 */
-	public function findByValues( array $pairs, string $wd, string $wdt ): ?array {
+	public function findByValues( array $pairs, string $wd, string $wdt, string $language = 'en' ): ?array {
 		$pairs = array_filter(
 			$pairs,
 			static fn ( $v ) => is_string( $v ) && trim( $v ) !== ''
@@ -107,7 +108,8 @@ final class DuplicateFinder {
 			. "SELECT ?item ?label WHERE {\n"
 			. "  VALUES (?p ?v) { " . implode( ' ', $values ) . " }\n"
 			. "  ?item ?p ?v .\n"
-			. '  OPTIONAL { ?item rdfs:label ?label FILTER(LANG(?label) = "en") }'
+			. '  OPTIONAL { ?item rdfs:label ?label FILTER(LANG(?label) = "'
+			. self::safeLanguage( $language ) . '") }'
 			. "\n} LIMIT 5";
 
 		$rows = $this->runQuery( $query );
@@ -143,17 +145,24 @@ final class DuplicateFinder {
 	 * path (findItemIdByLabel) — here we catch the HIGHLY SIMILAR labels.
 	 *
 	 * @param string[] $classItemIds instance-of filter (the flow's classes)
+	 * @param string $language term language the label search runs in
 	 * @return array{itemId:string,label:string}|null
 	 */
-	public function findByLabel( string $label, array $classItemIds = [] ): ?array {
+	public function findByLabel( string $label, array $classItemIds = [], string $language = 'en' ): ?array {
 		if ( trim( $label ) === '' ) {
 			return null;
 		}
-		$match = $this->labelMatcher()->findBestMatch( $label, $classItemIds );
+		$match = $this->labelMatcher()->findBestMatch( $label, $classItemIds, 8, $language );
 		if ( $match === null ) {
 			return null;
 		}
 		return [ 'itemId' => $match['itemId'], 'label' => $match['label'] ];
+	}
+
+	/** A SPARQL-safe language code (letters/digits/dash only; `en` fallback). */
+	private static function safeLanguage( string $language ): string {
+		$language = preg_replace( '/[^A-Za-z0-9-]/', '', $language ) ?? '';
+		return $language !== '' ? $language : 'en';
 	}
 
 	/** SPARQL string-literal escaping (" and \). */
