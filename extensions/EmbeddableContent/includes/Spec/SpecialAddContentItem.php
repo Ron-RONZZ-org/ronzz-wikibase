@@ -163,23 +163,9 @@ abstract class SpecialAddContentItem extends SpecialPage {
 			// add/remove controls + array submission; resources/translations.js
 			// turns the delete control into an X with a confirmation dialog.
 			if ( $this->config->translationPropertyId() !== null ) {
-				$fields['translations'] = [
-					'type' => 'cloner',
-					'create-button-message' => 'embeddablecontent-add-translation-add',
-					'delete-button-message' => 'embeddablecontent-add-translation-delete',
-					'fields' => [
-						'language' => [
-							'type' => 'combobox',
-							'label-message' => 'embeddablecontent-add-translation-language',
-							'options' => array_flip( $languageNames ),
-						],
-						'content' => [
-							'type' => 'textarea',
-							'label-message' => 'embeddablecontent-add-translation-text',
-							'rows' => 3,
-						],
-					],
-				];
+				$fields['translations'] = \EmbeddableContent\Fields\TranslationCloner::spec(
+					array_flip( $languageNames )
+				);
 			}
 		} elseif ( $this->getKind() === 'code' ) {
 			// Programming-language picker for code snippets: a combobox like

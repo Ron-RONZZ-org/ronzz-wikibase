@@ -4,6 +4,7 @@ declare( strict_types = 1 );
 
 namespace Tests\Unit;
 
+use DataValues\MonolingualTextValue;
 use DataValues\StringValue;
 use DataValues\TimeValue;
 use EmbeddableContent\EmbeddableContentConfig;
@@ -28,7 +29,7 @@ class SourceFlowServiceTest extends TestCase {
 	private const CONFIG = [
 		'instanceOf' => 'P1',
 		'classIds' => [ 'quotation' => 'Q2', 'code' => 'Q3', 'math' => 'Q4' ],
-		'payloadPropertyIds' => [ 'quotation' => 'P2', 'code' => 'P3', 'math' => 'P4' ],
+		'payloadProperties' => [ 'quotation' => 'P2', 'code' => 'P3', 'math' => 'P4' ],
 		'programmingLanguage' => 'P5',
 		'fallbackLanguages' => [ 'en' ],
 		'sourceClasses' => [
@@ -36,8 +37,9 @@ class SourceFlowServiceTest extends TestCase {
 			'song' => 'Q11', 'film' => 'Q12', 'video' => 'Q13',
 			'youtubeChannel' => 'Q18', 'youtubeVideo' => 'Q19',
 			'webpage' => 'Q20', 'bookExcerpt' => 'Q21',
+			'legislation' => 'Q31', 'law' => 'Q30',
 		],
-		'sourceParents' => [ 'bookExcerpt' => 'book', 'youtubeVideo' => 'youtubeChannel', 'webpage' => 'website' ],
+		'sourceParents' => [ 'bookExcerpt' => 'book', 'youtubeVideo' => 'youtubeChannel', 'webpage' => 'website', 'law' => 'legislation' ],
 		'sourceProperties' => [
 			'partOf' => 'P45', 'duration' => 'P46', 'url' => 'P49',
 			'youtubeChannelId' => 'P47', 'youtubeVideoId' => 'P48',
@@ -47,7 +49,9 @@ class SourceFlowServiceTest extends TestCase {
 			'patentNumber' => 'P64', 'reportNumber' => 'P65', 'legislationNumber' => 'P66',
 			'international' => 'P67',
 			'language' => 'P68',
+			'referenceCode' => 'P69',
 		],
+		'translation' => 'P70',
 		'provenance' => [ 'attributedTo' => 'P6', 'date' => 'P8' ],
 		'citationMetadata' => [
 			'publisher' => 'P54', 'journal' => 'P55', 'pages' => 'P24',
@@ -83,6 +87,12 @@ class SourceFlowServiceTest extends TestCase {
 						$add( 'P1', new EntityIdValue( new ItemId( 'Q8' ) ) ); // book
 						$add( 'P8', new TimeValue( '+1937-00-00T00:00:00Z', 0, 0, 0, 9, 'http://www.wikidata.org/entity/Q1985727' ) );
 						$add( 'P6', new EntityIdValue( new ItemId( 'Q6' ) ) );
+						return $item;
+					case 'Q50':
+						// A legislation item: class Q31, language fr.
+						$item->setLabel( 'fr', 'Constitution' );
+						$add( 'P1', new EntityIdValue( new ItemId( 'Q31' ) ) );
+						$add( 'P68', new StringValue( 'fr' ) );
 						return $item;
 					default:
 						return null;
@@ -399,6 +409,79 @@ class SourceFlowServiceTest extends TestCase {
 		$service = $this->makeService();
 		$ids = $service->managedPropertyIds( 'book', [ 'isbn' => 'x', 'year' => '1937' ] );
 		$this->assertSame( [ 'P17', 'P8' ], $ids );
+	}
+
+	// ------------------------------------------------------------- law
+
+	public function testLawPreparesLabelContentLanguageAndStatements(): void {
+		$service = $this->makeService();
+		$record = [
+			'referenceCode' => 'Article 5',
+			'content' => "La loi est la même pour tous.\nSeconde ligne.",
+			'parent' => 'Q50',
+			'translations' => [
+				[ 'language' => 'en', 'content' => 'The law is the same for all.' ],
+			],
+		];
+		$this->assertNull( $service->prepare( 'law', $record, true ) );
+
+		// The language is INHERITED from the parent legislation.
+		$this->assertSame( 'fr', $record['language'] );
+		// The clause text is escaped at rest (newlines as \n).
+		$this->assertStringContainsString( '\\n', $record['content'] );
+		// The label is derived: "{reference code} of {parent label}".
+		$this->assertSame( 'Article 5 of Constitution', $service->labelFor( 'law', $record ) );
+
+		$specs = $service->statementSpecs( 'law', $record );
+		// reference code (string) + part-of parent.
+		$this->assertArrayHasKey( 'P69', $specs );
+		$this->assertArrayHasKey( 'P45', $specs );
+		// The clause payload is a monolingual claim under the quotation
+		// payload property, in the inherited language.
+		$this->assertArrayHasKey( 'P2', $specs );
+		$this->assertInstanceOf( MonolingualTextValue::class, $specs['P2'] );
+		$this->assertSame( 'fr', $specs['P2']->getLanguageCode() );
+		// The added translation is a monolingual claim under `translation`.
+		$this->assertArrayHasKey( 'P70', $specs );
+		$this->assertSame( 'en', $specs['P70'][0]->getLanguageCode() );
+		// A legal provision writes NO `language` statement (inherited only).
+		$this->assertArrayNotHasKey( 'P68', $specs );
+	}
+
+	public function testLawBuildItemCarriesClassAndInheritedLabelLanguage(): void {
+		$service = $this->makeService();
+		$record = [
+			'referenceCode' => 'Article 5',
+			'content' => 'Le texte.',
+			'parent' => 'Q50',
+		];
+		$service->prepare( 'law', $record, true );
+		$item = $service->buildItem( 'law', $record );
+		$this->assertSame( 'Article 5 of Constitution', $item->getLabels()->getByLanguage( 'fr' )->getText() );
+		$this->assertTrue( $this->hasStatement( $item, 'P1', 'Q30' ) );
+	}
+
+	public function testLawRequiredFields(): void {
+		$service = $this->makeService();
+		$empty = [];
+		$this->assertSame( SourceFlowService::ERROR_REFERENCE_REQUIRED, $service->prepare( 'law', $empty, true ) );
+
+		$noContent = [ 'referenceCode' => 'Article 5' ];
+		$this->assertSame( SourceFlowService::ERROR_CONTENT_REQUIRED, $service->prepare( 'law', $noContent, true ) );
+
+		$noParent = [ 'referenceCode' => 'Article 5', 'content' => 'Texte.' ];
+		$this->assertSame( SourceFlowService::ERROR_PARENT_REQUIRED, $service->prepare( 'law', $noParent, true ) );
+	}
+
+	public function testLawTranslationInTheOriginalLanguageIsRejected(): void {
+		$service = $this->makeService();
+		$record = [
+			'referenceCode' => 'Article 5',
+			'content' => 'Le texte.',
+			'parent' => 'Q50',
+			'translations' => [ [ 'language' => 'fr', 'content' => 'Doublon.' ] ],
+		];
+		$this->assertIsString( $service->prepare( 'law', $record, true ) );
 	}
 
 	// ------------------------------------------------------------- helpers

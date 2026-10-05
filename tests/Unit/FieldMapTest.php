@@ -34,7 +34,7 @@ class FieldMapTest extends TestCase {
 		// other class exposes them. Authors are OPTIONAL on create: title is
 		// the only universally required field (a text of unknown authorship
 		// is legitimate).
-		$legal = [ 'legal-case', 'legislation', 'bill', 'treaty' ];
+		$legal = [ 'legal-case', 'legislation', 'bill', 'treaty', 'law' ];
 		foreach ( SourceFieldMap::CLASS_KEYS as $classKey ) {
 			$exposes = SourceFieldMap::acceptsField( $classKey, 'authors' );
 			$this->assertSame(
@@ -53,8 +53,16 @@ class FieldMapTest extends TestCase {
 	public function testSourceEveryClassExposesLanguage(): void {
 		// Every source class carries the optional `language` field (writing a
 		// language statement AND choosing the item label/description term
-		// language).
+		// language) EXCEPT `law`, whose language is INHERITED from the parent
+		// legislation (never a statement, never a form field).
 		foreach ( SourceFieldMap::CLASS_KEYS as $classKey ) {
+			if ( $classKey === 'law' ) {
+				$this->assertFalse(
+					SourceFieldMap::acceptsField( $classKey, 'language' ),
+					'law must NOT expose the language field (it is inherited)'
+				);
+				continue;
+			}
 			$this->assertTrue(
 				SourceFieldMap::acceptsField( $classKey, 'language' ),
 				"class $classKey must expose the language field"
@@ -65,6 +73,15 @@ class FieldMapTest extends TestCase {
 
 	public function testSourceRequiredOnCreateIsTitlePlusParentOnly(): void {
 		foreach ( SourceFieldMap::CLASS_KEYS as $classKey ) {
+			if ( $classKey === 'law' ) {
+				// A legal provision has no title: reference code + content +
+				// parent are required instead.
+				$this->assertSame(
+					[ 'referenceCode', 'content', 'parent' ],
+					SourceFieldMap::requiredOnCreate( $classKey )
+				);
+				continue;
+			}
 			$required = SourceFieldMap::requiredOnCreate( $classKey );
 			$this->assertContains( 'title', $required, "class $classKey must require a title" );
 			$this->assertSame(
@@ -72,6 +89,24 @@ class FieldMapTest extends TestCase {
 				in_array( 'parent', $required, true ),
 				"class $classKey parent requirement drifted"
 			);
+		}
+	}
+
+	public function testSourceLawClassContract(): void {
+		// The law class (a legal provision, child of legislation): a
+		// monolingual clause payload + reference code + added translations,
+		// no title / authors / language.
+		$this->assertContains( 'law', SourceFieldMap::CLASS_KEYS );
+		$fields = SourceFieldMap::fieldsForClass( 'law' );
+		foreach ( [ 'referenceCode', 'content', 'translations', 'parent', 'description' ] as $field ) {
+			$this->assertContains( $field, $fields, "law must expose $field" );
+		}
+		foreach ( [ 'title', 'authors', 'language' ] as $field ) {
+			$this->assertNotContains( $field, $fields, "law must NOT expose $field" );
+		}
+		$this->assertSame( 'legislation', SourceFieldMap::PARENT_CLASS['law'] );
+		foreach ( [ 'referenceCode', 'content', 'translations' ] as $field ) {
+			$this->assertContains( $field, SourceFieldMap::ALL_FIELDS );
 		}
 	}
 

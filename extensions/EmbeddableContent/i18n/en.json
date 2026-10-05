@@ -266,6 +266,7 @@
 	"embeddablecontent-source-class-presentation": "Presentation",
 	"embeddablecontent-source-class-dataset": "Dataset",
 	"embeddablecontent-source-class-text": "Text",
+	"embeddablecontent-source-class-law": "Legal provision",
 	"embeddablecontent-agent-class-organization": "Organization",
 	"embeddablecontent-agent-class-groupOfHumans": "Group of humans",
 	"embeddablecontent-agent-class-privateCompany": "Private company",
@@ -316,6 +317,11 @@
 	"embeddablecontent-source-url-error": "Enter a valid public web address (http:// or https://).",
 	"embeddablecontent-source-website-explanation": "This page adds an entire '''website''' as a source. To cite a specific page of a website, first add the website here, then add the page as a child item: [[Special:AddSource/webpage/manual|add a web page]].",
 	"embeddablecontent-source-field-chapters": "Chapters",
+	"embeddablecontent-source-field-referencecode": "Reference code",
+	"embeddablecontent-source-field-referencecode-help": "The provision's identifier within the legislation (e.g. \"Article 5\", \"§ 3\").",
+	"embeddablecontent-source-field-lawcontent": "Clause text",
+	"embeddablecontent-source-field-lawcontent-help": "The text of this provision. Its language is inherited from the parent legislation; wikitext is accepted.",
+	"embeddablecontent-source-law-desc": "provision of $1",
 	"embeddablecontent-source-bookexcerpt-desc-pages": "Pages $1",
 	"embeddablecontent-source-bookexcerpt-desc-volume": "(Volume $1)",
 	"embeddablecontent-source-bookexcerpt-desc": "$1 of $2",
@@ -481,5 +487,6 @@
 	"embeddablecontent-childitems-label-bookExcerpt": "Book excerpts",
 	"embeddablecontent-childitems-label-youtubeVideo": "YouTube videos",
 	"embeddablecontent-childitems-label-webpage": "Web pages",
+	"embeddablecontent-childitems-label-law": "Legal provisions",
 	"special-childitemsof": "Child items of a source"
 }

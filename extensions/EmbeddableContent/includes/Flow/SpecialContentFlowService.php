@@ -10,6 +10,7 @@ use DataValues\TimeValue;
 use EmbeddableContent\Content\MathRenderer;
 use EmbeddableContent\Content\PayloadCodec;
 use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\Spec\TranslationList;
 use Wikibase\DataModel\DataValue;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
@@ -107,7 +108,7 @@ final class SpecialContentFlowService {
 		// an absent key leaves them untouched (no-clobber).
 		if ( array_key_exists( 'translations', $record ) ) {
 			$baseLanguage = isset( $record['language'] ) ? (string)$record['language'] : null;
-			$normalized = $this->normalizeTranslations( $record['translations'], $baseLanguage );
+			$normalized = TranslationList::normalize( $record['translations'], $baseLanguage );
 			if ( is_string( $normalized ) ) {
 				return $normalized;
 			}
@@ -307,50 +308,6 @@ final class SpecialContentFlowService {
 
 	private function isHttpUrl( string $url ): bool {
 		return preg_match( '#^https?://\S+$#i', $url ) === 1;
-	}
-
-	/**
-	 * Validates and normalizes the quotation `translations` field — a list of
-	 * {language, content} rows — into the escaped-at-rest form. Blank rows
-	 * (both parts empty) are dropped; a partially filled row, an invalid
-	 * language code, a duplicate language or a translation in the original
-	 * language is an error (returned as a user-facing string).
-	 *
-	 * @param mixed $raw the submitted translations value
-	 * @param string|null $baseLanguage the original quotation language when supplied
-	 * @return array<int,array{language:string,content:string}>|string
-	 */
-	private function normalizeTranslations( $raw, ?string $baseLanguage ) {
-		if ( !is_array( $raw ) ) {
-			return 'translations must be a list of {language, content} rows.';
-		}
-		$out = [];
-		$seen = [];
-		foreach ( $raw as $row ) {
-			if ( !is_array( $row ) ) {
-				return 'translations must be a list of {language, content} rows.';
-			}
-			$lang = trim( (string)( $row['language'] ?? '' ) );
-			$text = trim( (string)( $row['content'] ?? '' ) );
-			if ( $lang === '' && $text === '' ) {
-				continue; // an untouched added row
-			}
-			if ( !preg_match( '/^[a-z]{2,8}(?:-[a-z0-9]{2,8})*$/i', $lang ) ) {
-				return "translation language \"{$lang}\" is not a valid language code.";
-			}
-			if ( $text === '' ) {
-				return "translation \"{$lang}\" has no text.";
-			}
-			if ( $baseLanguage !== null && strcasecmp( $lang, $baseLanguage ) === 0 ) {
-				return "translation language \"{$lang}\" is the same as the original language.";
-			}
-			if ( isset( $seen[strtolower( $lang )] ) ) {
-				return "duplicate translation language \"{$lang}\".";
-			}
-			$seen[strtolower( $lang )] = true;
-			$out[] = [ 'language' => $lang, 'content' => PayloadCodec::escape( $text ) ];
-		}
-		return $out;
 	}
 
 	/**

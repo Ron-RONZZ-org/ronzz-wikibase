@@ -104,15 +104,23 @@ final class ContentPayload {
 		if ( $kind === null ) {
 			return self::emptyResult();
 		}
-		$payloadProperty = $config->payloadPropertyIds()[$kind];
+		// A legal provision reuses the quotation payload property (`content
+		// text`): its clause text is the base claim, the item's `translation`
+		// claims are the added translations.
+		$isLaw = ( $kind === 'law' );
+		$payloadProperty = $isLaw
+			? ( $config->payloadPropertyIds()['quotation'] ?? '' )
+			: $config->payloadPropertyIds()[$kind];
 		$languages = ContentArgs::languages( $args );
 
-		if ( $kind === 'quotation' ) {
+		if ( $kind === 'quotation' || $isLaw ) {
 			// The ORIGINAL is the item's base `content text` claim (the text
 			// entered at creation); each argument names an ADDITIONAL
 			// translation language rendered below it. With no arguments the
 			// page language is negotiated over the base AND the translations
-			// (the pre-translations behaviour).
+			// (the pre-translations behaviour). A LAW is the exception: with
+			// no arguments it renders the clause text followed by EVERY
+			// available translation (the Source: page contract).
 			$baseClaims = self::monolingualClaims( $entity, $payloadProperty );
 			$translations = self::translationsFor( $entity, $config );
 			$available = $baseClaims;
@@ -125,7 +133,7 @@ final class ContentPayload {
 				return self::emptyResult();
 			}
 			$baseText = reset( $baseClaims );
-			$originalText = ( $languages !== [] && is_string( $baseText ) && $baseText !== '' )
+			$originalText = ( ( $isLaw || $languages !== [] ) && is_string( $baseText ) && $baseText !== '' )
 				? $baseText
 				: self::negotiateText( $available, $parser );
 			if ( $originalText === '' ) {
@@ -133,11 +141,14 @@ final class ContentPayload {
 			}
 			$wikitext = ContentWikitext::quotation(
 				$originalText,
-				self::quotationAttribution( $entity, $config, $parser )
+				$isLaw ? '' : self::quotationAttribution( $entity, $config, $parser )
 			);
-			if ( $languages !== [] ) {
+			// The requested translation languages: the explicit arguments,
+			// or — for a law with no arguments — every stored translation.
+			$requested = $isLaw && $languages === [] ? array_keys( $translations ) : $languages;
+			if ( $requested !== [] ) {
 				$blocks = [];
-				foreach ( $languages as $code ) {
+				foreach ( $requested as $code ) {
 					$blocks[] = [
 						'header' => $parser->msg( 'embeddablecontent-content-translation-header', $code )->text(),
 						'text' => $translations[$code] ?? null,
@@ -200,10 +211,15 @@ final class ContentPayload {
 		}
 	}
 
-	/** The content kind the item is classified under, or null. */
+	/**
+	 * The content kind the item is classified under, or null. The `law`
+	 * source class is accepted too (its clause text renders through the
+	 * monolingual quotation path) — see onContent().
+	 */
 	private static function kindOf( Item $item, EmbeddableContentConfig $config ): ?string {
 		$instanceOf = $config->instanceOfPropertyId();
 		$classIds = $config->classIds();
+		$lawClass = $config->lawClass();
 		foreach ( $item->getStatements() as $statement ) {
 			$snak = $statement->getMainSnak();
 			if ( !$snak instanceof PropertyValueSnak
@@ -216,6 +232,9 @@ final class ContentPayload {
 				continue;
 			}
 			$classId = $value->getEntityId()->getSerialization();
+			if ( $lawClass !== null && $classId === $lawClass ) {
+				return 'law';
+			}
 			$kind = array_search( $classId, $classIds, true );
 			if ( $kind !== false ) {
 				return $kind;

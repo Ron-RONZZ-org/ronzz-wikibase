@@ -606,7 +606,13 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			if ( !array_key_exists( $name, $data ) ) {
 				continue;
 			}
-			$value = is_array( $data[$name] ) ? '' : (string)$data[$name];
+			// Cloner fields (the law translations) submit an ARRAY; keep it
+			// as-is (the "present-empty clears" contract needs the key).
+			if ( is_array( $data[$name] ) ) {
+				$record[$name] = $data[$name];
+				continue;
+			}
+			$value = (string)$data[$name];
 			$record[$name] = ( $name === 'issuedYear' && $value !== '' ) ? (int)$value : $value;
 		}
 		// Validate now so errors surface on the RECORD form, not on the
@@ -904,7 +910,13 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			if ( !array_key_exists( $name, $data ) ) {
 				continue;
 			}
-			$value = is_array( $data[$name] ) ? '' : trim( (string)$data[$name] );
+			// Cloner fields (the law translations) submit an ARRAY; keep it
+			// as-is (an empty list is meaningful: "no translations").
+			if ( is_array( $data[$name] ) ) {
+				$record[$name] = $data[$name];
+				continue;
+			}
+			$value = trim( (string)$data[$name] );
 			if ( $value === '' ) {
 				continue;
 			}

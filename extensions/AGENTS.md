@@ -391,6 +391,36 @@ report). See `SimpleMathJax/VENDORED.md`.
   (`EntityLabelMatcher`/`DuplicateFinder`/`DuplicateChecker`) are
   language-aware so non-English items are still found. The statement surfaces
   as CSL `language`. Re-seed required.
+- **AddSource `law` class — legal provision (ADR
+  `docs/decisions/addsource-law-class.md`)**: a new manual-only source class
+  `law` (Wikidata Q139959926-aligned "legal provision"), a **child of
+  `legislation`** (a `part of` statement), modelling one clause of an act. The
+  new string property **`reference code`** (P958-aligned) holds the provision's
+  identifier ("Article 5"); the clause text is a **monolingualtext** claim on
+  the existing `content text` property (`PayloadCodec`-escaped at rest) with
+  optional **`translations`** on the existing `translation` property (the
+  AddQuotation cloner shape, now a shared `Fields/TranslationCloner` +
+  `Spec/TranslationList`); the payload + term language are **inherited** from
+  the parent legislation's `language` statement (no `language` statement is
+  written on the provision). No title field — the label is derived as
+  `{reference code} of {parent label}` by the shared service (create, page
+  title and update all use it). `{{#content:}}` recognizes the law class and
+  renders it through the quotation monolingual path; the **no-arg** form has a
+  law-specific behaviour — it renders the clause **and every available
+  translation** (quotations keep language negotiation). The `Source:` page
+  skeleton is `{{Law}}` + a `Text` section with `{{#content:}}`. Required on
+  create: `referenceCode` + `content` + `parent`. **Re-seed required** (class +
+  property + config keys); on-wiki `Template:Law` + the `Template:Legislation`
+  child row are deploy tasks. The MCP server's pinned field contract is
+  re-copied + regenerated.
+- **Classic-page "Update basic information" return (ADR
+  `docs/decisions/classic-page-update-return.md`)**: the toolbar button on a
+  classic per-kind page marks its Update URL `?frompage=1`; the Update form
+  carries the marker as a hidden field and, on success, redirects to the
+  item's **current `wikibase` sitelink page** (the classic page) instead of
+  `Item:`. The target is read from the sitelink after the update (never a
+  supplied URL), so a label-driven rename still lands on the right page; the
+  `Item:` page's own button is unchanged; the missing-page heal still wins.
 
 
 - **AddCollective parent organization + logo (follow-up)**: new P749-aligned

@@ -4,9 +4,11 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\Flow;
 
+use DataValues\MonolingualTextValue;
 use DataValues\QuantityValue;
 use DataValues\StringValue;
 use DataValues\TimeValue;
+use EmbeddableContent\Content\PayloadCodec;
 use EmbeddableContent\Duration;
 use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\EntityClassFilter;
@@ -15,6 +17,7 @@ use EmbeddableContent\Spec\EntityLabelText;
 use EmbeddableContent\Spec\ItemIdList;
 use EmbeddableContent\Spec\JurisdictionList;
 use EmbeddableContent\Spec\LabelSanitizer;
+use EmbeddableContent\Spec\TranslationList;
 use Wikibase\DataModel\DataValue;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
@@ -49,6 +52,8 @@ final class SourceFlowService {
 	public const ERROR_PARENT_CLASS = 'parent "%s" is not an item of class %s.';
 	public const ERROR_PARENT_MISSING = 'parent "%s" does not exist.';
 	public const ERROR_AUTHOR_CLASS = 'author "%s" is not an agent-class item.';
+	public const ERROR_REFERENCE_REQUIRED = 'referenceCode is required when creating a legal provision.';
+	public const ERROR_CONTENT_REQUIRED = 'content is required when creating a legal provision.';
 
 	/**
 	 * Record keys the API contract does not expose but the browser forms'
@@ -108,6 +113,12 @@ final class SourceFlowService {
 					if ( $required === 'authors' ) {
 						return self::ERROR_NO_AUTHOR;
 					}
+					if ( $required === 'referenceCode' ) {
+						return self::ERROR_REFERENCE_REQUIRED;
+					}
+					if ( $required === 'content' ) {
+						return self::ERROR_CONTENT_REQUIRED;
+					}
 					return self::ERROR_PARENT_REQUIRED;
 				}
 			}
@@ -147,6 +158,11 @@ final class SourceFlowService {
 			return $error;
 		}
 
+		$error = $this->prepareLaw( $classKey, $record );
+		if ( $error !== null ) {
+			return $error;
+		}
+
 		$error = $this->validateAuthors( $classKey, $record, $creating );
 		if ( $error !== null ) {
 			return $error;
@@ -177,11 +193,44 @@ final class SourceFlowService {
 		$specs = $this->externalIdStatements( $classKey, $record )
 			+ $this->citationMetadataStatements( $classKey, $record );
 		$props = $this->config->sourcePropertyIds();
+		$formKey = SourceFieldMap::formKey( $classKey );
 
 		// The source language: a string statement holding the BCP-47 code.
+		// A legal provision does NOT carry a `language` statement — its
+		// language is inherited from the parent legislation and is used only
+		// for the payload claim and the term language.
 		$language = trim( (string)( $record['language'] ?? '' ) );
-		if ( $language !== '' && isset( $props['language'] ) ) {
+		if ( $formKey !== 'law' && $language !== '' && isset( $props['language'] ) ) {
 			$specs[$props['language']] = new StringValue( $language );
+		}
+
+		// A legal provision (law): reference code + monolingual clause text
+		// + added translations (the AddQuotation storage shape).
+		if ( $formKey === 'law' ) {
+			$referenceCode = trim( (string)( $record['referenceCode'] ?? '' ) );
+			if ( $referenceCode !== '' && isset( $props['referenceCode'] ) ) {
+				$specs[$props['referenceCode']] = new StringValue( $referenceCode );
+			}
+			$content = trim( (string)( $record['content'] ?? '' ) );
+			$contentProperty = $this->config->payloadPropertyIds()['quotation'] ?? null;
+			if ( $content !== '' && $contentProperty !== null ) {
+				$specs[$contentProperty] = new MonolingualTextValue( $language, $content );
+			}
+			// The key's PRESENCE (even an empty list) manages the property:
+			// a present-but-empty list clears the translations on update, an
+			// absent key preserves them (no-clobber).
+			if ( array_key_exists( 'translations', $record ) ) {
+				$translationProperty = $this->config->translationPropertyId();
+				if ( $translationProperty !== null ) {
+					$specs[$translationProperty] = [];
+					foreach ( (array)$record['translations'] as $row ) {
+						$specs[$translationProperty][] = new MonolingualTextValue(
+							(string)$row['language'],
+							(string)$row['content']
+						);
+					}
+				}
+			}
 		}
 
 		$publisherItem = $this->parseItemId( (string)( $record['publisher'] ?? '' ) );
@@ -329,6 +378,11 @@ final class SourceFlowService {
 	 * @param array<string,mixed> $record
 	 */
 	public function labelFor( string $classKey, array $record, bool $suffixed = true ): string {
+		// A legal provision has no title field — its label is derived from
+		// the reference code + the parent legislation (never suffixed).
+		if ( SourceFieldMap::formKey( $classKey ) === 'law' ) {
+			return $this->lawLabel( $record );
+		}
 		$title = LabelSanitizer::stripMarkup( trim( (string)( $record['title'] ?? '' ) ) );
 		if ( !$suffixed ) {
 			return $title;
@@ -379,6 +433,7 @@ final class SourceFlowService {
 			'map' => 'Map',
 			'presentation' => 'Presentation',
 			'dataset' => 'Dataset',
+			'law' => 'Law',
 		];
 		$template = $templates[$formKey] ?? '';
 		if ( $template === '' ) {
@@ -635,6 +690,90 @@ final class SourceFlowService {
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * law: normalize the clause payload and the added translations, and set
+	 * the content language from the parent legislation (the language is
+	 * INHERITED — never set by the client; it drives the payload claim
+	 * language AND the item label/description term language, per the ADR).
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function prepareLaw( string $classKey, array &$record ): ?string {
+		if ( SourceFieldMap::formKey( $classKey ) !== 'law' ) {
+			return null;
+		}
+		$content = trim( (string)( $record['content'] ?? '' ) );
+		if ( $content !== '' ) {
+			$record['content'] = PayloadCodec::escape( $content );
+		}
+		$language = $this->parentLanguage( (string)( $record['parent'] ?? '' ) );
+		$record['language'] = $language;
+		// A blank description auto-generates as "provision of {parent}".
+		if ( trim( (string)( $record['description'] ?? '' ) ) === '' ) {
+			$parent = $this->itemById( (string)( $record['parent'] ?? '' ) );
+			$parentLabel = $parent !== null ? ( EntityLabelText::of( $parent ) ?? '' ) : '';
+			if ( $parentLabel !== '' ) {
+				$record['description'] = $this->message(
+					'embeddablecontent-source-law-desc',
+					[ $parentLabel ]
+				);
+			}
+		}
+		if ( array_key_exists( 'translations', $record ) ) {
+			$normalized = TranslationList::normalize( $record['translations'], $language );
+			if ( is_string( $normalized ) ) {
+				return $normalized;
+			}
+			$record['translations'] = $normalized;
+		}
+		return null;
+	}
+
+	/**
+	 * The parent legislation's `language` statement value (a BCP-47 code),
+	 * or `en` when the parent is missing / carries no language.
+	 */
+	private function parentLanguage( string $parentId ): string {
+		$parent = $this->itemById( $parentId );
+		$property = $this->config->sourcePropertyIds()['language'] ?? null;
+		if ( $parent === null || $property === null ) {
+			return 'en';
+		}
+		foreach ( $parent->getStatements()->getByPropertyId( $this->propertyId( $property ) ) as $statement ) {
+			$value = $statement->getMainSnak()->getDataValue();
+			if ( $value instanceof StringValue && $value->getValue() !== '' ) {
+				return $value->getValue();
+			}
+		}
+		return 'en';
+	}
+
+	/** The item for an id, or null when the id is malformed / missing. */
+	private function itemById( string $itemId ): ?Item {
+		if ( preg_match( '/^Q[1-9]\d*$/', $itemId ) !== 1 ) {
+			return null;
+		}
+		$item = $this->lookup->getEntity( new ItemId( $itemId ) );
+		return $item instanceof Item ? $item : null;
+	}
+
+	/**
+	 * A law's label: `{reference code} of {parent legislation label}`
+	 * (falling back to whichever part is available). The parent
+	 * disambiguates the provision, so no class suffix is appended.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function lawLabel( array $record ): string {
+		$reference = LabelSanitizer::stripMarkup( trim( (string)( $record['referenceCode'] ?? '' ) ) );
+		$item = $this->itemById( (string)( $record['parent'] ?? '' ) );
+		$parentLabel = $item !== null ? ( EntityLabelText::of( $item ) ?? '' ) : '';
+		if ( $reference === '' ) {
+			return $parentLabel;
+		}
+		return $parentLabel !== '' ? $reference . ' of ' . $parentLabel : $reference;
 	}
 
 	// ------------------------------------------------------------- statement helpers

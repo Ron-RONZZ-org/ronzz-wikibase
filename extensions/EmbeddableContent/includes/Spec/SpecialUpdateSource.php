@@ -34,10 +34,19 @@ class SpecialUpdateSource extends SpecialAddSource {
 	 * per-form copy.
 	 */
 	protected function updateStatementSpecs( array $record ): array {
-		return $this->sourceFlow()->statementSpecs(
-			\EmbeddableContent\Flow\SourceFieldMap::apiKey( $this->currentClassKey ),
-			$this->flowRecord( $record )
-		);
+		$classKey = \EmbeddableContent\Flow\SourceFieldMap::apiKey( $this->currentClassKey );
+		$flowRecord = $this->flowRecord( $record );
+		// A legal provision must run the shared normalizer (escapes the
+		// payload + translations, resolves the inherited language) before
+		// the statements are built — beforeCreate already validated it, so
+		// an error here is a bug; throw (the update path's catch surfaces it).
+		if ( $classKey === 'law' ) {
+			$error = $this->sourceFlow()->prepare( $classKey, $flowRecord, false );
+			if ( $error !== null ) {
+				throw new \RuntimeException( $error );
+			}
+		}
+		return $this->sourceFlow()->statementSpecs( $classKey, $flowRecord );
 	}
 
 
@@ -168,6 +177,20 @@ class SpecialUpdateSource extends SpecialAddSource {
 		}
 
 		$record['parent'] = $this->firstEntityForProperty( $item, $source['partOf'] ?? null );
+
+		// A legal provision: the reference code + the clause payload
+		// (decoded) + the added translation rows (decoded for the form).
+		if ( $this->currentClassKey === 'law' ) {
+			$record['referenceCode'] = $this->firstStringForProperty( $item, $source['referenceCode'] ?? null );
+			$record['content'] = $this->firstMonolingualForProperty(
+				$item,
+				$this->config->payloadPropertyIds()['quotation'] ?? null
+			);
+			$record['translations'] = $this->translationRowsFor(
+				$item,
+				$this->config->translationPropertyId()
+			);
+		}
 
 		// Zotero-aligned batch: legal/official-document facts. The
 		// territorial jurisdiction is MULTI-value: all ids join into the
@@ -314,6 +337,12 @@ class SpecialUpdateSource extends SpecialAddSource {
 	 * @param array<string,mixed> $record
 	 */
 	protected function beforeCreate( array &$record ): ?string {
+		if ( $this->currentClassKey === 'law' ) {
+			$error = $this->validateLawField( $record );
+			if ( $error !== null ) {
+				return $error;
+			}
+		}
 		if ( empty( $record['accessInclude'] ) ) {
 			foreach ( [ 'accessMode', 'accessUrl', 'downloadUrl', 'fileTitle', 'license' ] as $key ) {
 				$record[$key] = '';
