@@ -438,7 +438,8 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 				$this->config,
 				$record,
 				trim( $this->primaryLabel( $record ) ),
-				array_values( $this->classOptions() )
+				array_values( $this->classOptions() ),
+				trim( (string)( $record['language'] ?? '' ) ) !== '' ? (string)$record['language'] : 'en'
 			);
 		} catch ( \Throwable $e ) {
 			return null;
@@ -2106,19 +2107,22 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	}
 
 	/**
-	 * Local item id whose English label matches exactly (case-insensitive),
-	 * or null. Used by create-or-skip and by Special:AddSource's
-	 * publisher-field resolution (harvested publisher string → existing
-	 * publisher item).
+	 * Local item id whose label in $language matches exactly
+	 * (case-insensitive), or null. Used by create-or-skip and by
+	 * Special:AddSource's publisher-field resolution (harvested publisher
+	 * string → existing publisher item). $language defaults to `en`; the
+	 * AddSource flow passes the record's own language so a source labelled
+	 * only in another language is still reused (chosen-language-only
+	 * labels).
 	 */
-	protected function findItemIdByLabel( string $label ): ?string {
+	protected function findItemIdByLabel( string $label, string $language = 'en' ): ?string {
 		try {
 			$entries = WikibaseRepo::getMatchingTermsLookupFactory()
 				->getLookupForSource( WikibaseRepo::getLocalEntitySource() )
 				->getMatchingTerms(
 					$label,
 					Item::ENTITY_TYPE,
-					'en',
+					$language,
 					TermIndexEntry::TYPE_LABEL,
 					[ 'caseSensitive' => false ]
 				);

@@ -282,6 +282,9 @@ class EmbeddableContentConfig {
 			// International legal texts (a marker replacing territorial
 			// jurisdiction).
 			'international',
+			// The language of the source (a BCP-47 code); also the term
+			// language the AddSource label/description are stored under.
+			'language',
 		] );
 	}
 

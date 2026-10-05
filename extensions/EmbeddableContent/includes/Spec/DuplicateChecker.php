@@ -31,10 +31,12 @@ final class DuplicateChecker {
 	 * @param string $label the record's primary label ('' skips the label
 	 *                      signal)
 	 * @param string[] $classItemIds instance-of filter for the label match
+	 * @param string $language term language the label match runs in (the
+	 *                         record's own `language`, `en` default)
 	 * @return array{itemId:string,label:string,match:string}|null match is
 	 *         'id' (identical external id / URL) or 'label' (fuzzy label)
 	 */
-	public static function find( EmbeddableContentConfig $config, array $record, string $label, array $classItemIds = [] ): ?array {
+	public static function find( EmbeddableContentConfig $config, array $record, string $label, array $classItemIds = [], string $language = 'en' ): ?array {
 		$pairs = DuplicateGuard::pairsFor( $config, $record );
 		$endpoint = $config->sparqlUrl();
 
@@ -47,7 +49,7 @@ final class DuplicateChecker {
 					null,
 					$config->instanceOfPropertyId()
 				);
-				$dup = $finder->findByValues( $pairs, $wd, $wdt );
+				$dup = $finder->findByValues( $pairs, $wd, $wdt, $language );
 				if ( $dup !== null ) {
 					return [ 'itemId' => $dup['itemId'], 'label' => $dup['label'], 'match' => 'id' ];
 				}
@@ -56,7 +58,7 @@ final class DuplicateChecker {
 
 		if ( trim( $label ) !== '' ) {
 			$finder = new DuplicateFinder( null, null, $config->instanceOfPropertyId() );
-			$dup = $finder->findByLabel( $label, $classItemIds );
+			$dup = $finder->findByLabel( $label, $classItemIds, $language );
 			if ( $dup !== null ) {
 				return [ 'itemId' => $dup['itemId'], 'label' => $dup['label'], 'match' => 'label' ];
 			}

@@ -25,6 +25,7 @@ use Wikibase\DataModel\Services\Statement\GuidGenerator;
 use Wikibase\DataModel\Snak\PropertyValueSnak;
 use Wikibase\DataModel\Statement\Statement;
 use Wikibase\DataModel\Statement\StatementList;
+use Wikibase\DataModel\Term\TermList;
 
 /**
  * The entity-mode AddSource pipeline — the logic the action=addsource API
@@ -125,6 +126,14 @@ final class SourceFlowService {
 			return "year \"{$year}\" is not a four-digit year.";
 		}
 
+		// The source language (a BCP-47 code): written as a statement and
+		// used as the item label/description term language. Optional — a
+		// blank value defaults to en (the historical behaviour).
+		$language = trim( (string)( $record['language'] ?? '' ) );
+		if ( $language !== '' && preg_match( '/^[a-z]{2,8}(?:-[a-z0-9]{2,8})*$/i', $language ) !== 1 ) {
+			return "language \"{$language}\" is not a valid language code.";
+		}
+
 		foreach ( [ 'url', 'accessUrl' ] as $urlField ) {
 			$url = trim( (string)( $record[$urlField] ?? '' ) );
 			if ( $url !== '' && !$this->isHttpUrl( $url ) ) {
@@ -167,6 +176,12 @@ final class SourceFlowService {
 		$specs = $this->externalIdStatements( $classKey, $record )
 			+ $this->citationMetadataStatements( $classKey, $record );
 		$props = $this->config->sourcePropertyIds();
+
+		// The source language: a string statement holding the BCP-47 code.
+		$language = trim( (string)( $record['language'] ?? '' ) );
+		if ( $language !== '' && isset( $props['language'] ) ) {
+			$specs[$props['language']] = new StringValue( $language );
+		}
 
 		$publisherItem = $this->parseItemId( (string)( $record['publisher'] ?? '' ) );
 		$publisherProp = $this->config->citationMetadataPropertyIds()['publisher'] ?? null;
@@ -376,10 +391,11 @@ final class SourceFlowService {
 	/** Builds a new Item from a prepared record (label + description + specs). */
 	public function buildItem( string $classKey, array $record ): Item {
 		$item = new Item();
-		$item->setLabel( 'en', $this->labelFor( $classKey, $record ) );
+		$language = self::termLanguage( $record );
+		$item->setLabel( $language, $this->labelFor( $classKey, $record ) );
 		$description = trim( (string)( $record['description'] ?? '' ) );
 		if ( $description !== '' ) {
-			$item->setDescription( 'en', $description );
+			$item->setDescription( $language, $description );
 		}
 		foreach ( $this->statementSpecs( $classKey, $record ) as $propertyId => $value ) {
 			foreach ( is_array( $value ) ? $value : [ $value ] as $single ) {
@@ -452,13 +468,48 @@ final class SourceFlowService {
 			// edit-mode row for logged-in users).
 			StatementGuidAssigner::ensureGuids( $item, new GuidGenerator() );
 		}
+		$newLanguage = self::termLanguage( $record );
+		$oldLanguage = self::labelLanguage( $item );
 		$title = trim( (string)( $record['title'] ?? '' ) );
 		if ( $title !== '' ) {
-			$item->setLabel( 'en', $this->labelFor( $classKey, $record, false ) );
+			$item->setLabel( $newLanguage, $this->labelFor( $classKey, $record, false ) );
+			self::moveTerm( $item->getLabels(), $oldLanguage, $newLanguage );
 		}
 		$description = trim( (string)( $record['description'] ?? '' ) );
 		if ( $description !== '' ) {
-			$item->setDescription( 'en', $description );
+			$item->setDescription( $newLanguage, $description );
+			self::moveTerm( $item->getDescriptions(), $oldLanguage, $newLanguage );
+		}
+	}
+
+	/**
+	 * The term language a record's label/description are stored under: the
+	 * record's `language` when set, else `en` (the historical default).
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	public static function termLanguage( array $record ): string {
+		$language = trim( (string)( $record['language'] ?? '' ) );
+		return $language !== '' ? $language : 'en';
+	}
+
+	/** The language of an item's (first) label, or `en` when it has none. */
+	private static function labelLanguage( Item $item ): string {
+		$language = array_key_first( $item->getLabels()->toTextArray() );
+		return is_string( $language ) ? $language : 'en';
+	}
+
+	/**
+	 * Moves a term from `$from` to `$to` (both already written under `$to`):
+	 * removes the old-language term so the label/description lives ONLY in
+	 * the selected language (the "chosen language only" contract). A no-op
+	 * when the language did not change or the old term is absent.
+	 *
+	 * @param TermList $terms
+	 */
+	private static function moveTerm( TermList $terms, string $from, string $to ): void {
+		if ( $from !== $to && $terms->hasTermForLanguage( $from ) ) {
+			$terms->removeByLanguage( $from );
 		}
 	}
 

@@ -4267,6 +4267,29 @@ def main() -> int:
             f"{text_item} unexpectedly carries an author statement"
         print(f"[ok] AddSource/text manual -> {text_item}: title-only creation, no authors")
 
+        # 2g6. AddSource language field: the chosen language is written as a
+        #      `language` statement AND the item label is stored under that
+        #      term language — chosen-language-only, so NO en label.
+        lang_label = f"Page-flow E2E langue {int(time.time())}"
+        lang_item = track(flow_source_class_manual(op, base, api, "text", {
+            "wptitle": lang_label,
+            "wplanguage": "fr",
+        }))
+        claims, en_label = entity_claims(op, api, lang_item)
+        language_prop = resolve("language", "property")
+        assert first_value(claims, language_prop) == "fr", \
+            f"{lang_item} language statement missing/wrong " \
+            f"({first_value(claims, language_prop)})"
+        assert en_label == "", f"{lang_item} unexpectedly stores an en label ({en_label!r})"
+        r = api_call(op, api, {"action": "wbgetentities", "ids": lang_item,
+                               "props": "labels", "format": "json"})
+        labels = r.get("entities", {}).get(lang_item, {}).get("labels", {})
+        assert "fr" in labels and labels["fr"].get("value", "").startswith(lang_label), \
+            f"{lang_item} fr label missing or wrong ({labels})"
+        assert "en" not in labels, f"{lang_item} still carries an en label ({labels})"
+        print(f"[ok] AddSource/text manual (fr) -> {lang_item}: "
+              f"language statement + chosen-language-only fr label")
+
         # 2h. AddSource/book access field, local-file mode (issue #35): the
         #     upload lands as File:<label>.png (auto-named from the item
         #     label, original filename ignored) with the license + file

@@ -223,6 +223,9 @@ SOURCE_PROPERTY_KINDS = {
     # International legal texts: a boolean marker replacing territorial
     # jurisdiction.
     "international": "international",
+    # The language of the source (a BCP-47 code): written as a string
+    # statement and also used as the item label/description term language.
+    "language": "language",
 }
 
 # Issue #26: FOSS software properties (Special:AddSoftware statements).

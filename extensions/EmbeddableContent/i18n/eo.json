@@ -271,6 +271,8 @@
 	"embeddablecontent-extsearch-youtube-urlnomatch": "Neniu rezulto por la donita URL.",
 	"embeddablecontent-source-field-authors": "Aŭtoro(j)",
 	"embeddablecontent-source-field-authors-help": "Tajpu etikedon por serĉi kaj elekti personojn, organizaĵojn aŭ grupojn, aŭ enigu identigilojn rekte (ekz. Q5). Pluraj valoroj permesatas — apartigu ilin per komo. Malnepra: lasu malplena se la aŭtoreco estas nekonata.",
+	"embeddablecontent-source-field-language": "Lingvo",
+	"embeddablecontent-source-field-language-help": "La lingvo de ĉi tiu fonto. La etikedo kaj priskribo de la ero estas konservitaj en ĉi tiu lingvo.",
 	"embeddablecontent-source-field-duration": "Daŭro",
 	"embeddablecontent-source-field-duration-help": "Formatoj MM:SS aŭ HH:MM:SS (ekz. 3:45, 1:02:30).",
 	"embeddablecontent-source-field-url": "URL",

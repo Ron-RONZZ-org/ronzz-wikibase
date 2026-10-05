@@ -217,12 +217,24 @@ trait UpdateExternalEntityFlow {
 		// without the person vocabulary.
 		$oldOsmPlaces = $this->osmPlaceIds( $item );
 
-		// Terms: the en label + description. No-clobber: a BLANK description
-		// keeps the existing one (only a new valid value replaces it).
-		$item->setLabel( 'en', $newLabel );
+		// Terms: the label + description, written in the record's term
+		// language (the AddSource `language` field; `en` for every other
+		// kind). No-clobber: a BLANK description keeps the existing one (only
+		// a new valid value replaces it). A language change MOVES the managed
+		// term — the old-language label/description is removed so the item is
+		// labelled only in the selected language (the AddSource contract).
+		$oldLanguage = $this->itemTermLanguage( $item );
+		$newLanguage = $this->updateTermLanguage( $record, $item );
+		$item->setLabel( $newLanguage, $newLabel );
+		if ( $newLanguage !== $oldLanguage && $item->getLabels()->hasTermForLanguage( $oldLanguage ) ) {
+			$item->getLabels()->removeByLanguage( $oldLanguage );
+		}
 		$description = trim( (string)( $record['description'] ?? '' ) );
 		if ( $description !== '' ) {
-			$item->setDescription( 'en', $description );
+			$item->setDescription( $newLanguage, $description );
+			if ( $newLanguage !== $oldLanguage && $item->getDescriptions()->hasTermForLanguage( $oldLanguage ) ) {
+				$item->getDescriptions()->removeByLanguage( $oldLanguage );
+			}
 		}
 		// Aliases (fictional characters): no-clobber — only a NON-empty
 		// field replaces the stored set.
@@ -505,23 +517,42 @@ trait UpdateExternalEntityFlow {
 
 	// ------------------------------------------------------------- record from item
 
-	/** English label of an item ('' when none). */
-	protected function itemLabel( Item $item ): string {
-		// TermList::getByLanguage THROWS OutOfBoundsException when the term
-		// is missing — check first (the Add* flows always have en labels, so
-		// the unguarded call never surfaced there).
-		if ( !$item->getLabels()->hasTermForLanguage( 'en' ) ) {
-			return '';
-		}
-		return $item->getLabels()->getByLanguage( 'en' )->getText();
+	/**
+	 * The term language this kind's label/description are written under on
+	 * update: the record's `language` when provided (the AddSource language
+	 * field), else `en` (every other kind). Kinds with a language field
+	 * override.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function updateTermLanguage( array $record, Item $item ): string {
+		return 'en';
 	}
 
-	/** English description of an item ('' when none). */
-	protected function itemDescription( Item $item ): string {
-		if ( !$item->getDescriptions()->hasTermForLanguage( 'en' ) ) {
+	/** The language of an item's (first) label, or `en` when it has none. */
+	protected function itemTermLanguage( Item $item ): string {
+		$language = array_key_first( $item->getLabels()->toTextArray() );
+		return is_string( $language ) ? $language : 'en';
+	}
+
+	/** The item's label in its own term language ('' when none). */
+	protected function itemLabel( Item $item ): string {
+		// TermList::getByLanguage THROWS OutOfBoundsException when the term
+		// is missing — check first.
+		$language = $this->itemTermLanguage( $item );
+		if ( !$item->getLabels()->hasTermForLanguage( $language ) ) {
 			return '';
 		}
-		return $item->getDescriptions()->getByLanguage( 'en' )->getText();
+		return $item->getLabels()->getByLanguage( $language )->getText();
+	}
+
+	/** The item's description in its own term language ('' when none). */
+	protected function itemDescription( Item $item ): string {
+		$language = $this->itemTermLanguage( $item );
+		if ( !$item->getDescriptions()->hasTermForLanguage( $language ) ) {
+			return '';
+		}
+		return $item->getDescriptions()->getByLanguage( $language )->getText();
 	}
 
 	/**

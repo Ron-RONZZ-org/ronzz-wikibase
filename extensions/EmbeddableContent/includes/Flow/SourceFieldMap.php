@@ -88,6 +88,9 @@ final class SourceFieldMap {
 		// International legal texts (a boolean marker replacing territorial
 		// jurisdiction).
 		'international',
+		// The language of the source (a BCP-47 code): written as a string
+		// statement AND used as the item label/description term language.
+		'language',
 	];
 
 	/** The parent class key each child class requires. */
@@ -127,37 +130,37 @@ final class SourceFieldMap {
 	 *  review form: every class has an authors field (required except for
 	 *  book-excerpt), child classes carry parent, website carries no year. */
 	private const CLASS_FIELDS = [
-		'book' => [ 'title', 'description', 'authors', 'publisher', 'pages', 'year', 'isbn', 'accessUrl', 'wikidataId' ],
-		'scholarly-article' => [ 'title', 'description', 'authors', 'journal', 'publisher', 'volume', 'issue', 'pages', 'year', 'doi', 'accessUrl', 'wikidataId', 'openalexWorkId', 'pubmedId' ],
-		'website' => [ 'title', 'description', 'authors', 'url', 'wikidataId' ],
-		'webpage' => [ 'title', 'description', 'authors', 'url', 'year', 'parent', 'wikidataId' ],
-		'song' => [ 'title', 'description', 'authors', 'year', 'duration', 'accessUrl' ],
-		'film' => [ 'title', 'description', 'authors', 'year', 'duration', 'accessUrl' ],
-		'video' => [ 'title', 'description', 'authors', 'year', 'duration', 'url' ],
-		'youtube-channel' => [ 'title', 'description', 'authors', 'year', 'url', 'youtubeChannelId' ],
-		'youtube-video' => [ 'title', 'description', 'authors', 'year', 'duration', 'url', 'youtubeVideoId', 'parent' ],
-		'book-excerpt' => [ 'title', 'description', 'authors', 'pages', 'volume', 'chapters', 'year', 'accessUrl', 'parent' ],
+		'book' => [ 'title', 'description', 'language', 'authors', 'publisher', 'pages', 'year', 'isbn', 'accessUrl', 'wikidataId' ],
+		'scholarly-article' => [ 'title', 'description', 'language', 'authors', 'journal', 'publisher', 'volume', 'issue', 'pages', 'year', 'doi', 'accessUrl', 'wikidataId', 'openalexWorkId', 'pubmedId' ],
+		'website' => [ 'title', 'description', 'language', 'authors', 'url', 'wikidataId' ],
+		'webpage' => [ 'title', 'description', 'language', 'authors', 'url', 'year', 'parent', 'wikidataId' ],
+		'song' => [ 'title', 'description', 'language', 'authors', 'year', 'duration', 'accessUrl' ],
+		'film' => [ 'title', 'description', 'language', 'authors', 'year', 'duration', 'accessUrl' ],
+		'video' => [ 'title', 'description', 'language', 'authors', 'year', 'duration', 'url' ],
+		'youtube-channel' => [ 'title', 'description', 'language', 'authors', 'year', 'url', 'youtubeChannelId' ],
+		'youtube-video' => [ 'title', 'description', 'language', 'authors', 'year', 'duration', 'url', 'youtubeVideoId', 'parent' ],
+		'book-excerpt' => [ 'title', 'description', 'language', 'authors', 'pages', 'volume', 'chapters', 'year', 'accessUrl', 'parent' ],
 		// Zotero/CSL-aligned batch. authors is omitted where it is not
 		// meaningful (legal texts) — requiredOnCreate follows the exposure.
-		'newspaper-article' => [ 'title', 'description', 'authors', 'publisher', 'pages', 'year', 'url', 'accessUrl', 'wikidataId' ],
-		'magazine-article' => [ 'title', 'description', 'authors', 'publisher', 'volume', 'issue', 'pages', 'year', 'url', 'accessUrl', 'wikidataId' ],
-		'conference-paper' => [ 'title', 'description', 'authors', 'publisher', 'pages', 'year', 'doi', 'url', 'accessUrl', 'wikidataId', 'openalexWorkId' ],
-		'report' => [ 'title', 'description', 'authors', 'publisher', 'reportNumber', 'year', 'url', 'accessUrl', 'wikidataId' ],
-		'document' => [ 'title', 'description', 'authors', 'publisher', 'reportNumber', 'year', 'url', 'accessUrl', 'wikidataId' ],
-		'thesis' => [ 'title', 'description', 'authors', 'publisher', 'year', 'url', 'accessUrl', 'wikidataId' ],
-		'manuscript' => [ 'title', 'description', 'authors', 'year', 'url', 'accessUrl', 'wikidataId' ],
-		'patent' => [ 'title', 'description', 'authors', 'patentNumber', 'year', 'url', 'wikidataId' ],
-		'legal-case' => [ 'title', 'description', 'court', 'territorialJurisdiction', 'territorialJurisdictionLabel', 'caseNumber', 'international', 'year', 'url', 'wikidataId' ],
-		'legislation' => [ 'title', 'description', 'territorialJurisdiction', 'territorialJurisdictionLabel', 'legislationNumber', 'international', 'year', 'url', 'wikidataId' ],
-		'bill' => [ 'title', 'description', 'territorialJurisdiction', 'territorialJurisdictionLabel', 'legislationNumber', 'international', 'year', 'url', 'wikidataId' ],
-		'treaty' => [ 'title', 'description', 'territorialJurisdiction', 'territorialJurisdictionLabel', 'international', 'year', 'url', 'wikidataId' ],
-		'interview' => [ 'title', 'description', 'authors', 'publisher', 'year', 'url', 'wikidataId' ],
-		'map' => [ 'title', 'description', 'authors', 'publisher', 'year', 'url', 'accessUrl', 'wikidataId' ],
-		'presentation' => [ 'title', 'description', 'authors', 'year', 'url', 'wikidataId' ],
-		'dataset' => [ 'title', 'description', 'authors', 'publisher', 'year', 'url', 'accessUrl', 'wikidataId' ],
+		'newspaper-article' => [ 'title', 'description', 'language', 'authors', 'publisher', 'pages', 'year', 'url', 'accessUrl', 'wikidataId' ],
+		'magazine-article' => [ 'title', 'description', 'language', 'authors', 'publisher', 'volume', 'issue', 'pages', 'year', 'url', 'accessUrl', 'wikidataId' ],
+		'conference-paper' => [ 'title', 'description', 'language', 'authors', 'publisher', 'pages', 'year', 'doi', 'url', 'accessUrl', 'wikidataId', 'openalexWorkId' ],
+		'report' => [ 'title', 'description', 'language', 'authors', 'publisher', 'reportNumber', 'year', 'url', 'accessUrl', 'wikidataId' ],
+		'document' => [ 'title', 'description', 'language', 'authors', 'publisher', 'reportNumber', 'year', 'url', 'accessUrl', 'wikidataId' ],
+		'thesis' => [ 'title', 'description', 'language', 'authors', 'publisher', 'year', 'url', 'accessUrl', 'wikidataId' ],
+		'manuscript' => [ 'title', 'description', 'language', 'authors', 'year', 'url', 'accessUrl', 'wikidataId' ],
+		'patent' => [ 'title', 'description', 'language', 'authors', 'patentNumber', 'year', 'url', 'wikidataId' ],
+		'legal-case' => [ 'title', 'description', 'language', 'court', 'territorialJurisdiction', 'territorialJurisdictionLabel', 'caseNumber', 'international', 'year', 'url', 'wikidataId' ],
+		'legislation' => [ 'title', 'description', 'language', 'territorialJurisdiction', 'territorialJurisdictionLabel', 'legislationNumber', 'international', 'year', 'url', 'wikidataId' ],
+		'bill' => [ 'title', 'description', 'language', 'territorialJurisdiction', 'territorialJurisdictionLabel', 'legislationNumber', 'international', 'year', 'url', 'wikidataId' ],
+		'treaty' => [ 'title', 'description', 'language', 'territorialJurisdiction', 'territorialJurisdictionLabel', 'international', 'year', 'url', 'wikidataId' ],
+		'interview' => [ 'title', 'description', 'language', 'authors', 'publisher', 'year', 'url', 'wikidataId' ],
+		'map' => [ 'title', 'description', 'language', 'authors', 'publisher', 'year', 'url', 'accessUrl', 'wikidataId' ],
+		'presentation' => [ 'title', 'description', 'language', 'authors', 'year', 'url', 'wikidataId' ],
+		'dataset' => [ 'title', 'description', 'language', 'authors', 'publisher', 'year', 'url', 'accessUrl', 'wikidataId' ],
 		// Catch-all: any text — historical texts, inscriptions, documents of
 		// uncertain nature.
-		'text' => [ 'title', 'description', 'authors', 'year', 'url', 'accessUrl', 'wikidataId' ],
+		'text' => [ 'title', 'description', 'language', 'authors', 'year', 'url', 'accessUrl', 'wikidataId' ],
 	];
 
 	/** @return string[] */
