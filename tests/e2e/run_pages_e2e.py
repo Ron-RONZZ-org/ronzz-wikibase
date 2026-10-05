@@ -1104,12 +1104,14 @@ def flow_source_law(op, base: str, api: str) -> tuple[str, str]:
         raise FlowError("law vocabulary missing (part of / reference code / content text / translation)")
 
     ts = int(time.time())
-    # Parent legislation (language fr -> inherited by the provision).
+    # Parent legislation (language fr -> inherited by the provision). The
+    # stored label carries the AddSource class suffix (" (Legislation)").
     legislation_label = f"Page-flow E2E legislation {ts}"
     legislation = flow_source_class_manual(op, base, api, "legislation", {
         "wptitle": legislation_label,
         "wplanguage": "fr",
     })
+    parent_label = f"{legislation_label} (Legislation)"
 
     content = "La loi est la même pour tous.\nNul n'est censé ignorer la loi."
     translation = f"The law is the same for all. E2E {ts}"
@@ -1145,13 +1147,13 @@ def flow_source_law(op, base: str, api: str) -> tuple[str, str]:
     r = api_call(op, api, {"action": "wbgetentities", "ids": law,
                            "props": "labels", "format": "json"})
     labels = r.get("entities", {}).get(law, {}).get("labels", {})
-    assert labels.get("fr", {}).get("value") == f"Article 5 of {legislation_label}", \
+    assert labels.get("fr", {}).get("value") == f"Article 5 of {parent_label}", \
         f"{law} derived label wrong ({labels})"
     assert "en" not in labels, f"{law} unexpectedly stores an en label ({labels})"
 
     # The Source: page renders the clause + every translation via the no-arg
     # {{#content:}}.
-    page_title = f"Source:Article 5 of {legislation_label}"
+    page_title = f"Source:Article 5 of {parent_label}"
     wikitext = page_wikitext(op, api, page_title)
     if "{{#content:}}" not in wikitext:
         raise FlowError(f"{page_title} does not render the clause via {{{{#content:}}}}")
