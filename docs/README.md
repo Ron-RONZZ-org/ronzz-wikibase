@@ -31,7 +31,7 @@ Self-hosted **Wikibase** (structured-data wiki, the software behind Wikidata) on
   languages bar, forum via DPLforum, diagrams via Extension:Diagrams, inline
   LaTeX math via SimpleMathJax, rich content + math note, content-page
   reference toolbar, copy internal mention + quotation attribution,
-  fictional-character aliases)
+  fictional-character aliases, source language field)
 - `docs/contribution-guide.md` — pointer to the on-wiki `Help:Contributing` family
 - Editor-facing rules live on-wiki at `Help:Contributing` (public)
 
