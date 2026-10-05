@@ -1277,9 +1277,15 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			$languageNames = \MediaWiki\MediaWikiServices::getInstance()
 				->getLanguageNameUtils()
 				->getLanguageNames();
-			$fields['translations'] = \EmbeddableContent\Fields\TranslationCloner::spec(
+			$cloner = \EmbeddableContent\Fields\TranslationCloner::spec(
 				array_flip( $languageNames )
 			);
+			// Special:UpdateSource prefills the existing translation rows; a
+			// create has none (reviewFieldSpecs([])).
+			if ( isset( $record['translations'] ) && is_array( $record['translations'] ) ) {
+				$cloner['default'] = $record['translations'];
+			}
+			$fields['translations'] = $cloner;
 		}
 		return $fields;
 	}

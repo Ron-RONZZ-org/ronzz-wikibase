@@ -1053,7 +1053,8 @@ def flow_update_source(op, base: str, api: str, qid: str, new_description: str) 
     return url
 
 
-def flow_update_source_classic_return(op, base: str, api: str, qid: str) -> None:
+def flow_update_source_classic_return(op, base: str, api: str, qid: str,
+                                      expected_translation: str = "") -> None:
     """Task 2 (classic-page return): Special:UpdateSource/<qid>?frompage=1
     carries the hidden frompage marker across the POST, and a successful
     submit redirects back to the item's classic Source: page (not Item:)."""
@@ -1063,6 +1064,9 @@ def flow_update_source_classic_return(op, base: str, api: str, qid: str) -> None
     if 'name="wpfrompage"' not in body and "name='wpfrompage'" not in body:
         raise FlowError(
             f"UpdateSource/{qid}?frompage=1 did not render the classic-return marker")
+    if expected_translation and expected_translation not in body:
+        raise FlowError(
+            f"UpdateSource/{qid} did not prefill the law translation cloner rows")
     token = edit_token(body)
     url, body = page_post(op, url, {
         "wpparent": input_value(body, "wpparent"),
@@ -1163,7 +1167,7 @@ def flow_source_law(op, base: str, api: str) -> tuple[str, str]:
     page_body = page_get(op, base, "/wiki/" + page_title.replace(" ", "_"))[1]
     if "frompage=1" not in page_body:
         raise FlowError(f"{page_title}: Update basic information URL lacks the frompage marker")
-    flow_update_source_classic_return(op, base, api, law)
+    flow_update_source_classic_return(op, base, api, law, translation)
     print(f"[ok] AddSource/law -> {law}: clause in inherited fr + translation, "
           f"part-of legislation, {{#content:}} Source page, update returns to it")
     return law, legislation
