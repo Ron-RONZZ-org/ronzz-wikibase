@@ -45,12 +45,20 @@ final class SemanticEntityFieldMap {
 		'parentOrganization',
 		'presentInWork',
 		'instanceOf',
-		'statements',
 		// Page-kind decision (FOSS: vs Software: classic page) — a PAGE
 		// attribute, not a statement field; it rides the software record so
 		// the flow service can write the matching item class.
 		'pageKind',
 	];
+
+	/**
+	 * Fields the API accepts as a TYPED parameter rather than a generic
+	 * string field: the module declares them explicitly in getAllowedParams.
+	 * pageKind is a foss|software enum. Kept here (next to the contract)
+	 * so fieldParams() can derive from ALL_FIELDS and the two can never
+	 * drift — a field added to the map is accepted unless it is named here.
+	 */
+	public const API_TYPED_FIELDS = [ 'pageKind' ];
 
 	/** Fields whose value is an item id (Q-number). */
 	private const ENTITY_FIELDS = [
@@ -72,8 +80,19 @@ final class SemanticEntityFieldMap {
 		'software' => [ 'label', 'description', 'developer', 'license', 'programmingLanguage', 'operatingSystem', 'userInterface', 'hasUse', 'officialWebsite', 'sourceCodeRepository', 'documentationUrl', 'wikidataId', 'pageKind' ],
 		'collective' => [ 'label', 'description', 'collectiveClass', 'parentOrganization', 'officialWebsite', 'wikidataId' ],
 		'fictional-character' => [ 'givenName', 'familyName', 'alias', 'description', 'presentInWork' ],
-		'other' => [ 'label', 'description', 'instanceOf', 'statements' ],
+		'other' => [ 'label', 'description', 'instanceOf' ],
 	];
+
+	/**
+	 * The generic string fields the action=addsemanticentity module accepts —
+	 * ALL_FIELDS minus the typed params (API_TYPED_FIELDS). The one contract
+	 * the API params derive from.
+	 *
+	 * @return string[]
+	 */
+	public static function apiParamFields(): array {
+		return array_values( array_diff( self::ALL_FIELDS, self::API_TYPED_FIELDS ) );
+	}
 
 	/** @return string[] */
 	public static function fieldsForKind( string $kind ): array {

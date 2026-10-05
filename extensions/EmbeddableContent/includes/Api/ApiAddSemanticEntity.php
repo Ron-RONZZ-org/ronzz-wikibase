@@ -200,15 +200,12 @@ class ApiAddSemanticEntity extends ApiBase {
 
 	/** @return string[] */
 	private function fieldParams(): array {
-		return [
-			'label', 'description', 'givenName', 'familyName',
-			'dateOfBirth', 'placeOfBirth', 'dateOfDeath', 'placeOfDeath',
-			'orcid', 'viafId', 'isni', 'wikidataId', 'openalexAuthorId',
-			'officialWebsite', 'developer', 'license', 'programmingLanguage',
-			'operatingSystem', 'userInterface', 'hasUse', 'sourceCodeRepository',
-			'documentationUrl', 'collectiveClass', 'parentOrganization',
-			'presentInWork', 'instanceOf',
-		];
+		// The single source of truth (the field-map contract) — a hardcoded
+		// copy here is exactly how fields drift apart (alias was advertised by
+		// action=addsemanticentity-fields but silently dropped by this module).
+		// pageKind is a TYPED enum declared explicitly in getAllowedParams, so
+		// the map excludes it from the generic string params.
+		return SemanticEntityFieldMap::apiParamFields();
 	}
 
 	/**
