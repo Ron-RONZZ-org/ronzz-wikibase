@@ -743,6 +743,18 @@ def flow_source_class_first(op, base: str, api: str, class_key: str, search_fiel
             f"AddSource/{class_key} search did not redirect to a selection page: {url} {find_error(body)}")
     token = m.group(1)
 
+    # Regression (Add*-expiry fix): the candidate records live in a long-TTL
+    # object-stash entry keyed by the token, not only the MediaWiki session.
+    # A cookieless request — the session entry having expired, or a different
+    # browser — must still render the candidate list (the reported
+    # "The search results have expired." after a long review edit).
+    _, anon_body = page_get(
+        make_opener(base), base, f"/wiki/Special:AddSource/{class_key}/{token}")
+    if not ooui_options(anon_body, "mw-input-wpcandidates"):
+        raise FlowError(
+            f"AddSource/{class_key} candidates lost without the session cookie "
+            f"(token {token}): {find_error(anon_body)}")
+
     candidates = ooui_options(body, "mw-input-wpcandidates")
     if not candidates:
         raise FlowError(f"AddSource/{class_key} selection page rendered no candidates")

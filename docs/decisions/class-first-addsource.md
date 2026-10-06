@@ -81,3 +81,22 @@ an item" affordance on the page itself.
   hardcoded. The dev-only `composer.json` gained `data-values/number` (where
   `DataValues\QuantityValue` lives — the same package production Wikibase resolves), mirroring
   the production dependency set for the quantity statements.
+
+## Follow-up (2026-10-06): the token store outlives the MediaWiki session
+
+The class-first flow keys each step by an unguessable 16-hex token, and the
+token-bound data (search candidates, the URL-fetched metadata, the pending
+duplicate payload) used to live ONLY in the MediaWiki session. The session's
+server-side entry has a ~1h TTL (`$wgObjectCacheSessionExpiry`), refreshed on
+activity, so a contributor who spent longer than that editing/verifying a
+harvested record was bounced with **"The search results have expired."** on
+submit.
+
+`SpecialAddExternalEntity` now mirrors every token-bound value into the main
+object stash (`getMainObjectStash()`) with a 7-day TTL, keyed by the token
+alone (the token is unguessable; scoping by the writing user id would break
+the read after the session expiry logs the request out). The session copy is
+kept as the same-request fallback (and for instances whose `MainStash` is
+`CACHE_NONE`, where the session remains the only store — the historical
+behaviour). Regression: the page-flow E2E re-fetches the selection page from
+a **cookieless** opener and asserts the candidate list still renders.

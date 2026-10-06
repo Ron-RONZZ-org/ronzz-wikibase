@@ -280,7 +280,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		if ( $this->currentClassKey === 'webpage' ) {
 			$this->inferWebpageParent( $url, $urlMeta );
 		}
-		$this->getRequest()->getSession()->set( self::SESSION_PREFIX . $token . ':urlmeta', $urlMeta );
+		$this->setTokenValue( $token, ':urlmeta', $urlMeta );
 		$this->getOutput()->redirect( $this->stepTitle( 'manual' )->getFullURL( [ 'token' => $token ] ) );
 		return true;
 	}
