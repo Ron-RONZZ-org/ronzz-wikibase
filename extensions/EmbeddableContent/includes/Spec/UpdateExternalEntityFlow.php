@@ -143,12 +143,23 @@ trait UpdateExternalEntityFlow {
 			$fields['frompage'] = [ 'type' => 'hidden', 'default' => '1' ];
 		}
 
+		$itemUrl = WikibaseRepo::getEntityTitleStoreLookup()
+			->getTitleForId( new ItemId( $itemId ) )->getFullURL();
 		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
 		$form->setTitle( $this->getPageTitle( $itemId ) )
 			->setSubmitTextMsg( 'embeddablecontent-update-submit' )
 			->setSubmitCallback( fn ( array $data ) => $this->onUpdateSubmit( $data, $itemId ) )
 			->setSubmitID( 'wb-ext-update' )
-			->setWrapperLegendMsg( 'embeddablecontent-update-legend' );
+			->setWrapperLegendMsg( 'embeddablecontent-update-legend' )
+			// Cancel returns to where the user came from: the item's classic
+			// page when the form was opened from there (frompage), the item
+			// page otherwise. HTMLForm's built-in cancel primitive.
+			->showCancel( true )
+			->setCancelTarget(
+				$this->updateReturnToClassic
+					? ( $this->classicPageUrl( $item ) ?? $itemUrl )
+					: $itemUrl
+			);
 		$this->showForm( $form );
 	}
 

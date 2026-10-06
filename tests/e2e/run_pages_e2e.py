@@ -961,6 +961,10 @@ def flow_update_person(op, base: str, api: str, qid: str, new_description: str) 
     url, body = page_get(op, base, f"/wiki/Special:UpdatePerson/{qid}")
     if "Update a person" not in body:
         raise FlowError(f"Special:UpdatePerson/{qid} did not render: {find_error(body)}")
+    cancel = re.search(r'<a href="([^"]+)"[^>]*>Cancel</a>', body)
+    if not cancel or qid not in cancel.group(1):
+        raise FlowError(
+            f"Special:UpdatePerson/{qid} is missing a Cancel link to the item: {find_error(body)}")
     given = input_value(body, "wpgivenName")
     family = input_value(body, "wpfamilyName")
     if not given or not family:
@@ -1429,6 +1433,10 @@ def flow_update_content(op, base: str, api: str, qid: str, new_label: str,
     url, body = page_get(op, base, f"/wiki/Special:UpdateQuotation/{qid}")
     if "Edit a quotation" not in body:
         raise FlowError(f"Special:UpdateQuotation/{qid} did not render: {find_error(body)}")
+    cancel = re.search(r'<a href="([^"]+)"[^>]*>Cancel</a>', body)
+    if not cancel or qid not in cancel.group(1):
+        raise FlowError(
+            f"Special:UpdateQuotation/{qid} is missing a Cancel link to the item: {find_error(body)}")
     if not input_value(body, "wplabel"):
         raise FlowError(f"UpdateQuotation/{qid} did not prefill the label: {find_error(body)}")
     payload = textarea_value(body, "wppayload")

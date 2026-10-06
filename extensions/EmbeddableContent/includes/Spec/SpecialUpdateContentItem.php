@@ -83,12 +83,18 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 		// Prefill the shared Add* form from the item's statements, then
 		// drop the create-only "Add more" button.
 		$fields = $this->prefilledFields( $this->recordFromItem( $item ) );
+		$itemUrl = WikibaseRepo::getEntityTitleStoreLookup()
+			->getTitleForId( new ItemId( $itemId ) )->getFullURL();
 		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
 		$form->setTitle( $this->getPageTitle( $itemId ) )
 			->setSubmitTextMsg( 'embeddablecontent-update-submit' )
 			->setSubmitCallback( [ $this, 'onUpdateSubmit' ] )
 			->setSubmitID( 'wb-ext-update-content' )
-			->setWrapperLegendMsg( 'embeddablecontent-update-content-legend' );
+			->setWrapperLegendMsg( 'embeddablecontent-update-content-legend' )
+			// Content items carry no classic page: Cancel returns to the
+			// item page. HTMLForm's built-in cancel primitive.
+			->showCancel( true )
+			->setCancelTarget( $itemUrl );
 		$form->show();
 		if ( $this->getKind() === 'math' ) {
 			$this->addMathPreviewBox();
