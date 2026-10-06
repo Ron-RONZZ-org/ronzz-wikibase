@@ -52,6 +52,9 @@ final class SourceFieldMap {
 		'dataset',
 		// Catch-all (historical texts, inscriptions, …).
 		'text',
+		// A particular clause/provision of a legislation (child of
+		// legislation; carries a monolingual payload + translations).
+		'law',
 	];
 
 	/** Every field the entity-mode vocabulary knows. */
@@ -91,6 +94,12 @@ final class SourceFieldMap {
 		// The language of the source (a BCP-47 code): written as a string
 		// statement AND used as the item label/description term language.
 		'language',
+		// A legal provision's identifier within its legislation, plus the
+		// clause text (monolingual, inherited language) and its added
+		// translations (the AddQuotation shape).
+		'referenceCode',
+		'content',
+		'translations',
 	];
 
 	/** The parent class key each child class requires. */
@@ -98,6 +107,8 @@ final class SourceFieldMap {
 		'webpage' => 'website',
 		'youtube-video' => 'youtube-channel',
 		'book-excerpt' => 'book',
+		// A legal provision belongs to its legislation.
+		'law' => 'legislation',
 	];
 
 	/** The API class keys as the Special:AddSource flow spells them. */
@@ -161,6 +172,12 @@ final class SourceFieldMap {
 		// Catch-all: any text — historical texts, inscriptions, documents of
 		// uncertain nature.
 		'text' => [ 'title', 'description', 'language', 'authors', 'year', 'url', 'accessUrl', 'wikidataId' ],
+		// A legal provision: the clause text is the payload (monolingual,
+		// language inherited from the parent legislation — never set by the
+		// client), with optional added translations. It carries NO title
+		// field: the label is derived (reference code + parent label) and
+		// there is no `language` field (inherited).
+		'law' => [ 'referenceCode', 'content', 'translations', 'description', 'parent' ],
 	];
 
 	/** @return string[] */
@@ -192,6 +209,13 @@ final class SourceFieldMap {
 	 * @return string[]
 	 */
 	public static function requiredOnCreate( string $classKey ): array {
+		// A legal provision has no title field: its label is derived from
+		// the reference code + the parent legislation, and the clause text
+		// is the payload. Required: the reference code, the clause content
+		// (a provision with no text is meaningless) and the parent.
+		if ( $classKey === 'law' ) {
+			return [ 'referenceCode', 'content', 'parent' ];
+		}
 		$required = [ 'title' ];
 		if ( self::isChildClass( $classKey ) ) {
 			$required[] = 'parent';

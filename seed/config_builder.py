@@ -186,6 +186,8 @@ SOURCE_CLASS_KINDS = {
     "dataset": "dataset",
     # Catch-all (historical texts, inscriptions, …).
     "text": "text",
+    # A particular clause/provision of a legislation (child of legislation).
+    "legal provision": "law",
 }
 
 # Issue #7: source-class parent/child relations (child kind => parent kind).
@@ -195,6 +197,8 @@ SOURCE_PARENT_KINDS = {
     "book excerpt": ("bookExcerpt", "book"),
     "YouTube video": ("youtubeVideo", "youtubeChannel"),
     "web page": ("webpage", "website"),
+    # A legal provision belongs to its legislation.
+    "legal provision": ("law", "legislation"),
 }
 
 # Issue #7: source-class specific properties (Special:AddSource statements).
@@ -226,6 +230,8 @@ SOURCE_PROPERTY_KINDS = {
     # The language of the source (a BCP-47 code): written as a string
     # statement and also used as the item label/description term language.
     "language": "language",
+    # A legal provision's identifier within its legislation (article/section).
+    "reference code": "referenceCode",
 }
 
 # Issue #26: FOSS software properties (Special:AddSoftware statements).

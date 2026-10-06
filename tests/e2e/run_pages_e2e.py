@@ -944,7 +944,7 @@ def flow_update_button(op, base: str, qid: str, update_special: str) -> None:
     the title)."""
     url, body = page_get(op, base, f"/wiki/Item:{qid}")
     m = re.search(r'"wbUpdateBasicInfoUrl"\s*:\s*"([^"]*Special:' + re.escape(update_special)
-                  + r"/" + re.escape(qid) + r')"', body)
+                  + r"/" + re.escape(qid) + r'(?:\?[^"]*)?)"', body)
     if not m:
         raise FlowError(
             f"Item:{qid} page carries no update-button URL for {update_special}: "
@@ -1051,6 +1051,129 @@ def flow_update_source(op, base: str, api: str, qid: str, new_description: str) 
     if qid not in url:
         raise FlowError(f"UpdateSource/{qid} did not redirect to the item: {url} {find_error(body)}")
     return url
+
+
+def flow_update_source_classic_return(op, base: str, api: str, qid: str,
+                                      expected_translation: str = "") -> None:
+    """Task 2 (classic-page return): Special:UpdateSource/<qid>?frompage=1
+    carries the hidden frompage marker across the POST, and a successful
+    submit redirects back to the item's classic Source: page (not Item:)."""
+    url, body = page_get(op, base, f"/wiki/Special:UpdateSource/{qid}?frompage=1")
+    if "Update a source" not in body:
+        raise FlowError(f"Special:UpdateSource/{qid} did not render: {find_error(body)}")
+    if 'name="wpfrompage"' not in body and "name='wpfrompage'" not in body:
+        raise FlowError(
+            f"UpdateSource/{qid}?frompage=1 did not render the classic-return marker")
+    if expected_translation and expected_translation not in body:
+        raise FlowError(
+            f"UpdateSource/{qid} did not prefill the law translation cloner rows")
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "wpparent": input_value(body, "wpparent"),
+        "wpreferenceCode": input_value(body, "wpreferenceCode"),
+        "wpcontent": textarea_value(body, "wpcontent"),
+        "wpdescription": input_value(body, "wpdescription"),
+        "wpfrompage": "1",
+        "wpclass": input_value(body, "wpclass"),
+        "wpEditToken": token, "wpSubmit": "1",
+    })
+    if "/wiki/Source:" not in urllib.parse.unquote(url):
+        raise FlowError(
+            f"UpdateSource/{qid} (frompage) did not return to the classic page: "
+            f"{url} {find_error(body)}")
+
+
+def flow_source_law(op, base: str, api: str, resolve) -> tuple[str, str]:
+    """AddSource/law (legal provision, child of a legislation): a reference
+    code + a monolingual clause text whose language is INHERITED from the
+    parent legislation + added translations (the AddQuotation cloner shape).
+
+    Also asserts the Source: page renders the clause + every translation via
+    the no-arg {{#content:}} and that the "Update basic information" classic
+    return (frompage) round-trips. Returns (law_qid, legislation_qid) —
+    the caller tracks both."""
+    law_class = resolve("legal provision", "item")
+    if not law_class:
+        raise FlowError("the 'legal provision' class is missing (re-seed required)")
+    instance_of = resolve("instance of", "property")
+    part_of_prop = resolve("part of", "property")
+    reference_prop = resolve("reference code", "property")
+    content_prop = resolve("content text", "property")
+    translation_prop = resolve("translation", "property")
+    language_prop = resolve("language", "property")
+    if not (part_of_prop and reference_prop and content_prop and translation_prop):
+        raise FlowError("law vocabulary missing (part of / reference code / content text / translation)")
+
+    ts = int(time.time())
+    # Parent legislation (language fr -> inherited by the provision). The
+    # stored label carries the AddSource class suffix (" (Legislation)").
+    legislation_label = f"Page-flow E2E legislation {ts}"
+    legislation = flow_source_class_manual(op, base, api, "legislation", {
+        "wptitle": legislation_label,
+        "wplanguage": "fr",
+    })
+    parent_label = f"{legislation_label} (Legislation)"
+
+    content = "La loi est la même pour tous.\nNul n'est censé ignorer la loi."
+    translation = f"The law is the same for all. E2E {ts}"
+    law = flow_source_class_manual(op, base, api, "law", {
+        "wpparent": legislation,
+        "wpreferenceCode": "Article 5",
+        "wpcontent": content,
+        "wptranslations[0][language]": "en",
+        "wptranslations[0][content]": translation,
+    })
+    claims, _ = entity_claims(op, api, law)
+    assert first_value(claims, instance_of) == law_class, \
+        f"{law} instance-of != legal provision ({first_value(claims, instance_of)})"
+    assert first_value(claims, part_of_prop) == legislation, \
+        f"{law} missing the part-of link to the parent legislation"
+    assert first_value(claims, reference_prop) == "Article 5", \
+        f"{law} reference code missing ({first_value(claims, reference_prop)!r})"
+    # The clause text is monolingual, in the INHERITED language (fr), escaped.
+    content_dv = first_value(claims, content_prop)
+    expected = content.replace("\\", "\\\\").replace("\n", "\\n")
+    assert isinstance(content_dv, dict) and content_dv.get("language") == "fr" \
+        and content_dv.get("text") == expected, \
+        f"{law} clause payload wrong ({content_dv!r})"
+    translations = claim_values(claims, translation_prop)
+    assert any(isinstance(v, dict) and v.get("language") == "en"
+               and v.get("text") == translation for v in translations), \
+        f"{law} translation claim missing ({translations!r})"
+    # A legal provision writes NO `language` statement (inherited only).
+    assert claims.get(language_prop) is None, \
+        f"{law} unexpectedly carries a language statement"
+    # The label is derived: "{reference code} of {parent label}" — stored in
+    # the inherited fr term (no en label).
+    r = api_call(op, api, {"action": "wbgetentities", "ids": law,
+                           "props": "labels", "format": "json"})
+    labels = r.get("entities", {}).get(law, {}).get("labels", {})
+    assert labels.get("fr", {}).get("value") == f"Article 5 of {parent_label}", \
+        f"{law} derived label wrong ({labels})"
+    assert "en" not in labels, f"{law} unexpectedly stores an en label ({labels})"
+
+    # The Source: page renders the clause + every translation via the no-arg
+    # {{#content:}}.
+    page_title = f"Source:Article 5 of {parent_label}"
+    wikitext = page_wikitext(op, api, page_title)
+    if "{{#content:}}" not in wikitext:
+        raise FlowError(f"{page_title} does not render the clause via {{{{#content:}}}}")
+    parsed = api_call(op, api, {"action": "parse", "page": page_title,
+                                "prop": "text", "format": "json"})
+    html = parsed.get("parse", {}).get("text", {}).get("*", "")
+    if "La loi est la même pour tous." not in html or "en translation:" not in html \
+            or translation not in html:
+        raise FlowError(f"{page_title} does not render the clause + translation")
+
+    # Task 2: the classic page's Update URL carries the frompage marker and
+    # the update submit returns to the Source: page.
+    page_body = page_get(op, base, "/wiki/" + page_title.replace(" ", "_"))[1]
+    if "frompage=1" not in page_body:
+        raise FlowError(f"{page_title}: Update basic information URL lacks the frompage marker")
+    flow_update_source_classic_return(op, base, api, law, translation)
+    print(f"[ok] AddSource/law -> {law}: clause in inherited fr + translation, "
+          f"part-of legislation, {{#content:}} Source page, update returns to it")
+    return law, legislation
 
 
 def flow_entitysearch_case_insensitive(op, api: str, label: str, qid: str) -> None:
@@ -3648,11 +3771,13 @@ def flow_classic_page_toolbar(op, base: str, page_title: str, qid: str,
             f"{page_title}: missing wbEmbedItem={qid} (classic toolbar): {find_error(body)}")
     if "ext.embeddableContent.gadget" not in body:
         raise FlowError(f"{page_title}: does not load ext.embeddableContent.gadget")
-    m = re.search(r'"wbUpdateBasicInfoUrl"\s*:\s*"([^"]*Special:' + re.escape(update_special)
-                  + r"/" + re.escape(qid) + r')"', body)
-    if not m:
+    m = re.search(r'"wbUpdateBasicInfoUrl"\s*:\s*"([^"]*)"', body)
+    update_url = m.group(1) if m else None
+    expected = f"Special:{update_special}/{qid}"
+    if update_url is None or expected not in update_url:
         raise FlowError(
-            f"{page_title}: no update-button URL for {update_special}: {find_error(body)}")
+            f"{page_title}: update-button URL {update_url!r} does not point at "
+            f"{expected}: {find_error(body)}")
     if "ext.embeddableContent.updatebutton" not in body:
         raise FlowError(f"{page_title}: does not load ext.embeddableContent.updatebutton")
     if expect_source_cite:
@@ -4289,6 +4414,15 @@ def main() -> int:
         assert "en" not in labels, f"{lang_item} still carries an en label ({labels})"
         print(f"[ok] AddSource/text manual (fr) -> {lang_item}: "
               f"language statement + chosen-language-only fr label")
+
+        # 2g7. AddSource/law (legal provision): a child of a legislation with a
+        #      reference code + a monolingual clause text (language inherited
+        #      from the parent) + added translations; the Source: page renders
+        #      the clause + translations via {{#content:}}, and the classic
+        #      "Update basic information" return marker round-trips (task 2).
+        law, law_legislation = flow_source_law(op, base, api, resolve)
+        track(law)
+        track(law_legislation)
 
         # 2h. AddSource/book access field, local-file mode (issue #35): the
         #     upload lands as File:<label>.png (auto-named from the item

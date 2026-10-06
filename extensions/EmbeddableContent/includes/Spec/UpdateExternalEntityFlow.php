@@ -4,6 +4,8 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\Spec;
 
+use DataValues\MonolingualTextValue;
+use EmbeddableContent\Content\PayloadCodec;
 use EmbeddableContent\Flow\SemanticEntityFlowService;
 use MediaWiki\Html\Html;
 use MediaWiki\HTMLForm\HTMLForm;
@@ -52,6 +54,15 @@ trait UpdateExternalEntityFlow {
 
 	/** @var Item|null the item being edited (set by execute) */
 	protected ?Item $updateItem = null;
+
+	/**
+	 * Whether the update was launched from the item's classic page (the
+	 * frompage marker on the "Update basic information" button there) — the
+	 * submit then returns to that page instead of Item:. Resolved from the
+	 * CURRENT sitelink after the update, so a label-driven rename still
+	 * lands on the right page.
+	 */
+	protected bool $updateReturnToClassic = false;
 
 	/** Kind key for the update-page i18n titles (e.g. 'person'). */
 	abstract protected function updateKindKey(): string;
@@ -105,6 +116,7 @@ trait UpdateExternalEntityFlow {
 		}
 		$this->updateItemId = $itemId;
 		$this->updateItem = $item;
+		$this->updateReturnToClassic = $this->getRequest()->getVal( 'frompage' ) === '1';
 
 		$classItemId = $this->updateClassItemId( $item );
 		if ( $classItemId === null ) {
@@ -125,6 +137,11 @@ trait UpdateExternalEntityFlow {
 		$fields = $this->reviewFieldSpecs( $record ) + [
 			'class' => [ 'type' => 'hidden', 'default' => $classItemId ],
 		];
+		if ( $this->updateReturnToClassic ) {
+			// Carries the classic-page return marker across the POST (the
+			// query string is lost by HTMLForm::setTitle's action URL).
+			$fields['frompage'] = [ 'type' => 'hidden', 'default' => '1' ];
+		}
 
 		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
 		$form->setTitle( $this->getPageTitle( $itemId ) )
@@ -144,6 +161,9 @@ trait UpdateExternalEntityFlow {
 		if ( $loginError !== null ) {
 			return $loginError;
 		}
+		// The classic-page return marker rides the hidden field (the query
+		// string is lost on POST).
+		$this->updateReturnToClassic = ( (string)( $data['frompage'] ?? '' ) === '1' );
 		$classItemId = (string)( $data['class'] ?? '' );
 		if ( $classItemId === '' ) {
 			return $this->msg( 'embeddablecontent-extselect-classrequired' )->text();
@@ -158,7 +178,13 @@ trait UpdateExternalEntityFlow {
 			if ( !array_key_exists( $name, $data ) ) {
 				continue;
 			}
-			$value = is_array( $data[$name] ) ? '' : trim( (string)$data[$name] );
+			// Cloner fields (the law translations) submit an ARRAY; keep it
+			// as-is (the "present-empty clears" update contract).
+			if ( is_array( $data[$name] ) ) {
+				$record[$name] = $data[$name];
+				continue;
+			}
+			$value = trim( (string)$data[$name] );
 			$record[$name] = ( $name === 'issuedYear' && $value !== '' ) ? (int)$value : $value;
 		}
 
@@ -306,7 +332,31 @@ trait UpdateExternalEntityFlow {
 		// machinery, or with a then-invalid label — the Q1232 case). The
 		// update is the natural repair surface; creating the page here sends
 		// the user through the complete/<id> finalize round-trip.
-		return $this->healClassicPage( $item, $record, $newLabel );
+		$heal = $this->healClassicPage( $item, $record, $newLabel );
+		if ( $heal !== null ) {
+			return $heal;
+		}
+		// The update was launched from the item's classic page: return
+		// there. The page may have been RENAMED above, so read the CURRENT
+		// sitelink (never a user-supplied title — no open-redirect surface).
+		if ( $this->updateReturnToClassic ) {
+			return $this->classicPageUrl( $item );
+		}
+		return null;
+	}
+
+	/**
+	 * The item's classic-page URL (its `wikibase` sitelink), or null when
+	 * the item has no sitelink. Read AFTER the update/rename, so it reflects
+	 * the page's current title.
+	 */
+	private function classicPageUrl( Item $item ): ?string {
+		$sitelinks = $item->getSiteLinkList();
+		if ( !$sitelinks->hasLinkWithSiteId( 'wikibase' ) ) {
+			return null;
+		}
+		$title = Title::newFromText( $sitelinks->getBySiteId( 'wikibase' )->getPageName() );
+		return $title !== null ? $title->getFullURL() : null;
 	}
 
 	/**
@@ -620,6 +670,49 @@ trait UpdateExternalEntityFlow {
 	protected function firstStringForProperty( Item $item, ?string $propertyId ): string {
 		$values = $this->stringValuesForProperty( $item, $propertyId );
 		return $values[0] ?? '';
+	}
+
+	/**
+	 * Monolingual statements of a property as language => decoded text (the
+	 * law clause payload / its translations), in statement order.
+	 *
+	 * @return array<string,string>
+	 */
+	protected function monolingualValuesForProperty( Item $item, ?string $propertyId ): array {
+		if ( $propertyId === null ) {
+			return [];
+		}
+		$out = [];
+		foreach ( $item->getStatements()->getByPropertyId( new NumericPropertyId( $propertyId ) ) as $statement ) {
+			$value = $statement->getMainSnak()->getDataValue();
+			if ( $value instanceof MonolingualTextValue ) {
+				$out[$value->getLanguageCode()] = PayloadCodec::decode( $value->getText() );
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * The first monolingual statement's decoded text ('' when none) — the
+	 * law clause's original text.
+	 */
+	protected function firstMonolingualForProperty( Item $item, ?string $propertyId ): string {
+		$values = $this->monolingualValuesForProperty( $item, $propertyId );
+		return $values === [] ? '' : (string)reset( $values );
+	}
+
+	/**
+	 * The added-translation rows (the cloner shape) of a monolingual
+	 * property: [{ language, content }], content decoded for the form.
+	 *
+	 * @return array<int,array{language:string,content:string}>
+	 */
+	protected function translationRowsFor( Item $item, ?string $propertyId ): array {
+		$rows = [];
+		foreach ( $this->monolingualValuesForProperty( $item, $propertyId ) as $language => $content ) {
+			$rows[] = [ 'language' => (string)$language, 'content' => $content ];
+		}
+		return $rows;
 	}
 
 	/**

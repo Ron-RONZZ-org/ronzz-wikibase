@@ -253,6 +253,7 @@
 	"embeddablecontent-source-class-presentation": "Présentation",
 	"embeddablecontent-source-class-dataset": "Jeu de données",
 	"embeddablecontent-source-class-text": "Texte",
+	"embeddablecontent-source-class-law": "Disposition légale",
 	"embeddablecontent-agent-class-organization": "Organisation",
 	"embeddablecontent-agent-class-groupOfHumans": "Groupe de personnes",
 	"embeddablecontent-agent-class-privateCompany": "Entreprise privée",
@@ -303,6 +304,11 @@
 	"embeddablecontent-source-url-error": "Saisissez une adresse web publique valide (http:// ou https://).",
 	"embeddablecontent-source-website-explanation": "Cette page ajoute un '''site web''' entier comme source. Pour citer une page précise d'un site, ajoutez d'abord le site ici, puis ajoutez la page comme élément enfant : [[Special:AddSource/webpage/manual|ajouter une page web]].",
 	"embeddablecontent-source-field-chapters": "Chapitres",
+	"embeddablecontent-source-field-referencecode": "Code de référence",
+	"embeddablecontent-source-field-referencecode-help": "L'identifiant de la disposition au sein de la législation (p. ex. « Article 5 », « § 3 »).",
+	"embeddablecontent-source-field-lawcontent": "Texte de la disposition",
+	"embeddablecontent-source-field-lawcontent-help": "Le texte de cette disposition. Sa langue est héritée de la législation parente ; le wikitexte est accepté.",
+	"embeddablecontent-source-law-desc": "disposition de $1",
 	"embeddablecontent-source-bookexcerpt-desc-pages": "Pages $1",
 	"embeddablecontent-source-bookexcerpt-desc-volume": "(Volume $1)",
 	"embeddablecontent-source-bookexcerpt-desc": "$1 de $2",
@@ -480,5 +486,6 @@
 	"embeddablecontent-childitems-label-bookExcerpt": "Extraits de livre",
 	"embeddablecontent-childitems-label-youtubeVideo": "Vidéos YouTube",
 	"embeddablecontent-childitems-label-webpage": "Pages web",
+	"embeddablecontent-childitems-label-law": "Dispositions légales",
 	"special-childitemsof": "Éléments enfants d’une source"
 }

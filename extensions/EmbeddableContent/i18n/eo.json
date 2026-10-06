@@ -252,6 +252,7 @@
 	"embeddablecontent-source-class-presentation": "Prezentado",
 	"embeddablecontent-source-class-dataset": "Datuma aro",
 	"embeddablecontent-source-class-text": "Teksto",
+	"embeddablecontent-source-class-law": "Leĝa provizo",
 	"embeddablecontent-agent-class-organization": "Organizaĵo",
 	"embeddablecontent-agent-class-groupOfHumans": "Grupo de homoj",
 	"embeddablecontent-agent-class-privateCompany": "Privata firmao",
@@ -302,6 +303,11 @@
 	"embeddablecontent-source-url-error": "Enigu validan publikan retadreson (http:// aŭ https://).",
 	"embeddablecontent-source-website-explanation": "Ĉi tiu paĝo aldonas tutan '''retejon''' kiel fonton. Por citi specifan paĝon de retejo, unue aldonu la retejon ĉi tie, poste aldonu la paĝon kiel fila elemento: [[Special:AddSource/webpage/manual|aldoni retpaĝon]].",
 	"embeddablecontent-source-field-chapters": "Ĉapitroj",
+	"embeddablecontent-source-field-referencecode": "Referencokodo",
+	"embeddablecontent-source-field-referencecode-help": "La identigilo de la dispozicio ene de la leĝaro (ekz. „Artikolo 5”, „§ 3”).",
+	"embeddablecontent-source-field-lawcontent": "Dispozicia teksto",
+	"embeddablecontent-source-field-lawcontent-help": "La teksto de ĉi tiu dispozicio. Ĝia lingvo estas heredata de la patra leĝaro; vikiteksto estas akceptata.",
+	"embeddablecontent-source-law-desc": "provizo de $1",
 	"embeddablecontent-source-bookexcerpt-desc-pages": "Paĝoj $1",
 	"embeddablecontent-source-bookexcerpt-desc-volume": "(Volumo $1)",
 	"embeddablecontent-source-bookexcerpt-desc": "$1 el $2",
@@ -480,5 +486,6 @@
 	"embeddablecontent-childitems-label-bookExcerpt": "Libroelsteraĵoj",
 	"embeddablecontent-childitems-label-youtubeVideo": "Jutubaj filmetoj",
 	"embeddablecontent-childitems-label-webpage": "Retpaĝoj",
+	"embeddablecontent-childitems-label-law": "Leĝaj provizoj",
 	"special-childitemsof": "Infanaj eroj de fonto"
 }

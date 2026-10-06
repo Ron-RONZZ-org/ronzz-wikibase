@@ -241,7 +241,20 @@ class EmbeddableContentConfig {
 			'interview', 'map', 'presentation', 'dataset',
 			// Catch-all (historical texts, inscriptions, …).
 			'text',
+			// A particular clause/provision of a legislation.
+			'law',
 		] );
+	}
+
+	/**
+	 * The legal-provision source class id, or null when not configured. The
+	 * law class is a child of `legislation` whose payload is monolingual text
+	 * rendered by `{{#content:}}` alongside quotations — the `{{#content:}}`
+	 * renderer needs the class id to recognize it.
+	 */
+	public function lawClass(): ?string {
+		$classes = $this->sourceClasses();
+		return $classes['law'] ?? null;
 	}
 
 	/**
@@ -285,6 +298,8 @@ class EmbeddableContentConfig {
 			// The language of the source (a BCP-47 code); also the term
 			// language the AddSource label/description are stored under.
 			'language',
+			// A legal provision's identifier within its legislation.
+			'referenceCode',
 		] );
 	}
 

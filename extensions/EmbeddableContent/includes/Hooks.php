@@ -235,7 +235,10 @@ class Hooks {
 			$itemId = WikibaseRepo::getStore()->newSiteLinkStore()
 				->getItemIdForLink( 'wikibase', $title->getPrefixedText() );
 			if ( $itemId !== null ) {
-				self::wireItemToolbar( $out, $itemId->getSerialization() );
+				// On a classic page the "Update basic information" flow must
+				// return the user HERE (the classic page), not to Item: —
+				// the frompage marker rides the Update form.
+				self::wireItemToolbar( $out, $itemId->getSerialization(), true );
 				self::wireMentionButton( $out, $title, $itemId->getSerialization() );
 			}
 			return;
@@ -327,11 +330,11 @@ class Hooks {
 	 *    detection, no client API roundtrip);
 	 *  - the "Copy internal citation" button for source-class items.
 	 */
-	private static function wireItemToolbar( OutputPage $out, string $itemId ): void {
+	private static function wireItemToolbar( OutputPage $out, string $itemId, bool $fromClassicPage = false ): void {
 		$out->addJsConfigVars( 'wbEmbedItem', $itemId );
 		$out->addModules( 'ext.embeddableContent.gadget' );
 
-		$updateTarget = self::updateTargetForItem( $itemId );
+		$updateTarget = self::updateTargetForItem( $itemId, $fromClassicPage );
 		if ( $updateTarget !== null ) {
 			$out->addJsConfigVars( 'wbUpdateBasicInfoUrl', $updateTarget['url'] );
 			$out->addJsConfigVars( 'wbUpdateBasicInfoLabel', $updateTarget['messageKey'] );
@@ -443,7 +446,7 @@ class Hooks {
 	 *
 	 * @return array{url:string,messageKey:string}|null
 	 */
-	private static function updateTargetForItem( string $itemId ): ?array {
+	private static function updateTargetForItem( string $itemId, bool $fromClassicPage = false ): ?array {
 		try {
 			$config = MediaWikiServices::getInstance()->get( 'EmbeddableContent.Config' );
 			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
@@ -465,11 +468,16 @@ class Hooks {
 			return null;
 		}
 
+		// When the button was clicked on a classic page (Person:/Source:/…)
+		// the Update flow returns the user to that page: the frompage marker
+		// rides the Update URL and the form.
+		$query = $fromClassicPage ? [ 'frompage' => '1' ] : [];
+
 		// Content classes (quotation / math / code-snippet) — "Edit
 		// content" pages (issue #80). A config without the content
 		// vocabulary ('classes' map) degrades to no content button — it
 		// must never break the semantic-entity mappings below.
-		$contentTarget = self::contentUpdateTarget( $itemId, $config, $classIds );
+		$contentTarget = self::contentUpdateTarget( $itemId, $config, $classIds, $query );
 		if ( $contentTarget !== null ) {
 			return $contentTarget;
 		}
@@ -477,7 +485,7 @@ class Hooks {
 		foreach ( $config->sourceClasses() as $id ) {
 			if ( in_array( $id, $classIds, true ) ) {
 				return [
-					'url' => SpecialPage::getTitleFor( 'UpdateSource', $itemId )->getFullURL(),
+					'url' => SpecialPage::getTitleFor( 'UpdateSource', $itemId )->getFullURL( $query ),
 					'messageKey' => 'embeddablecontent-update-button',
 				];
 			}
@@ -485,14 +493,14 @@ class Hooks {
 		$agentClasses = $config->agentClasses();
 		if ( isset( $agentClasses['person'] ) && in_array( $agentClasses['person'], $classIds, true ) ) {
 			return [
-				'url' => SpecialPage::getTitleFor( 'UpdatePerson', $itemId )->getFullURL(),
+				'url' => SpecialPage::getTitleFor( 'UpdatePerson', $itemId )->getFullURL( $query ),
 				'messageKey' => 'embeddablecontent-update-button',
 			];
 		}
 		foreach ( $agentClasses as $key => $id ) {
 			if ( $key !== 'person' && in_array( $id, $classIds, true ) ) {
 				return [
-					'url' => SpecialPage::getTitleFor( 'UpdateCollective', $itemId )->getFullURL(),
+					'url' => SpecialPage::getTitleFor( 'UpdateCollective', $itemId )->getFullURL( $query ),
 					'messageKey' => 'embeddablecontent-update-button',
 				];
 			}
@@ -500,7 +508,7 @@ class Hooks {
 		foreach ( $config->fossClasses() as $id ) {
 			if ( in_array( $id, $classIds, true ) ) {
 				return [
-					'url' => SpecialPage::getTitleFor( 'UpdateSoftware', $itemId )->getFullURL(),
+					'url' => SpecialPage::getTitleFor( 'UpdateSoftware', $itemId )->getFullURL( $query ),
 					'messageKey' => 'embeddablecontent-update-button',
 				];
 			}
@@ -508,7 +516,7 @@ class Hooks {
 		foreach ( $config->fictionalCharacterClasses() as $id ) {
 			if ( in_array( $id, $classIds, true ) ) {
 				return [
-					'url' => SpecialPage::getTitleFor( 'UpdateFictionalCharacter', $itemId )->getFullURL(),
+					'url' => SpecialPage::getTitleFor( 'UpdateFictionalCharacter', $itemId )->getFullURL( $query ),
 					'messageKey' => 'embeddablecontent-update-button',
 				];
 			}
@@ -559,7 +567,7 @@ class Hooks {
 	 *
 	 * @return array{url:string,messageKey:string}|null
 	 */
-	private static function contentUpdateTarget( string $itemId, $config, array $classIds ): ?array {
+	private static function contentUpdateTarget( string $itemId, $config, array $classIds, array $query = [] ): ?array {
 		try {
 			$updatePages = [
 				'quotation' => 'UpdateQuotation',
@@ -569,7 +577,7 @@ class Hooks {
 			foreach ( $config->classIds() as $kind => $classId ) {
 				if ( in_array( $classId, $classIds, true ) && isset( $updatePages[$kind] ) ) {
 					return [
-						'url' => SpecialPage::getTitleFor( $updatePages[$kind], $itemId )->getFullURL(),
+						'url' => SpecialPage::getTitleFor( $updatePages[$kind], $itemId )->getFullURL( $query ),
 						'messageKey' => 'embeddablecontent-update-content-button',
 					];
 				}

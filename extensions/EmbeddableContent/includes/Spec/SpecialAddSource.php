@@ -51,6 +51,8 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		'bill', 'treaty', 'interview', 'map', 'presentation', 'dataset',
 		// Catch-all: no authority covers an arbitrary historical text.
 		'text',
+		// A legal provision of a legislation: no external authority.
+		'law',
 	];
 
 	/**
@@ -463,6 +465,10 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		}
 
 		$this->currentClassKey = $first;
+		if ( $first === 'law' ) {
+			// The "Add translation" cloner's delete-confirmation dialog.
+			$this->getOutput()->addModules( 'ext.embeddableContent.translations' );
+		}
 		$second = $parts[1] ?? '';
 		if ( $second === '' ) {
 			if ( in_array( $first, self::URL_ENTRY_CLASSES, true ) ) {
@@ -532,7 +538,10 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 * as-is (applyLabelSuffix() = false), so the preview never loads there.
 	 */
 	private function enableLabelPreview(): void {
-		if ( !$this->applyLabelSuffix() ) {
+		// The live label preview mirrors the Title field; a legal provision
+		// has no title (its label is auto-derived), so there is nothing to
+		// preview.
+		if ( $this->currentClassKey === 'law' || !$this->applyLabelSuffix() ) {
 			return;
 		}
 		$suffix = $this->sourceLabelSuffix();
@@ -756,6 +765,13 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	}
 
 	protected function primaryLabel( array $record ): string {
+		// A legal provision has no title field: its label is derived from
+		// the reference code + the parent legislation by the shared service
+		// (the one label contract).
+		if ( $this->currentClassKey === 'law' ) {
+			$classKey = \EmbeddableContent\Flow\SourceFieldMap::apiKey( $this->currentClassKey );
+			return $this->sourceFlow()->labelFor( $classKey, $record );
+		}
 		$title = (string)( $record['title'] ?? '' );
 		// Disambiguation suffix: the review default carries it, and the
 		// creation-time append covers a title typed from blank (idempotent —
@@ -1017,6 +1033,13 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	}
 
 	protected function reviewFieldSpecs( array $record ): array {
+		// A legal provision has its own field set: parent legislation,
+		// reference code, the clause text (monolingual, language inherited
+		// from the parent) and optional added translations — no title,
+		// authors or language field.
+		if ( $this->currentClassKey === 'law' ) {
+			return $this->lawFieldSpecs( $record );
+		}
 		$title = (string)( $record['title'] ?? '' );
 		$fields = $this->labelFieldSpec(
 			'title',
@@ -1217,6 +1240,53 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 
 		$fields += $this->externalIdFieldSpecs( $record );
 		$fields += $this->parentFieldSpec( $record );
+		return $fields;
+	}
+
+	/**
+	 * The legal-provision field set (Special:AddSource/law): the parent
+	 * legislation (entity combobox, validated), a reference code (e.g.
+	 * "Article 5"), the clause text (monolingual; the language is inherited
+	 * from the parent at create time) and the optional added translations
+	 * (the AddQuotation cloner). No title / authors / language field.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,mixed>
+	 */
+	private function lawFieldSpecs( array $record ): array {
+		$fields = $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
+			+ $this->parentFieldSpec( $record )
+			+ [ 'referenceCode' => [
+				'type' => 'text',
+				'label-message' => 'embeddablecontent-source-field-referencecode',
+				'help-message' => 'embeddablecontent-source-field-referencecode-help',
+				'default' => (string)( $record['referenceCode'] ?? '' ),
+				'maxlength' => 250,
+				'required' => true,
+			] ]
+			+ [ 'content' => [
+				'type' => 'textarea',
+				'label-message' => 'embeddablecontent-source-field-lawcontent',
+				'help-message' => 'embeddablecontent-source-field-lawcontent-help',
+				'default' => (string)( $record['content'] ?? '' ),
+				'rows' => 8,
+				'required' => true,
+			] ];
+
+		if ( $this->config->translationPropertyId() !== null ) {
+			$languageNames = \MediaWiki\MediaWikiServices::getInstance()
+				->getLanguageNameUtils()
+				->getLanguageNames();
+			$cloner = \EmbeddableContent\Fields\TranslationCloner::spec(
+				array_flip( $languageNames )
+			);
+			// Special:UpdateSource prefills the existing translation rows; a
+			// create has none (reviewFieldSpecs([])).
+			if ( isset( $record['translations'] ) && is_array( $record['translations'] ) ) {
+				$cloner['default'] = $record['translations'];
+			}
+			$fields['translations'] = $cloner;
+		}
 		return $fields;
 	}
 
@@ -1655,6 +1725,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		'presentation' => 'Presentation',
 		'dataset' => 'Dataset',
 		'text' => 'Text',
+		'law' => 'Law',
 	];
 
 	protected function pageNamespace(): ?int {
@@ -1692,6 +1763,14 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	protected function pageSkeleton( array $record, bool $withMarker = false ): string {
 		$template = $this->pageTemplate();
 		$marker = $withMarker ? "\n<!-- " . $this->pagePendingMarker() . " -->\n" : "";
+		if ( $this->currentClassKey === 'law' ) {
+			// The clause text lives in the item, not on the page: the page
+			// renders it (and every translation) through the standard
+			// `{{#content:}}` parser function (the no-arg form resolves the
+			// page's sitelinked item).
+			return "{{" . ( $template !== '' ? $template : 'Law' ) . "}}\n\n"
+				. "== Text ==\n\n{{#content:}}\n\n" . $marker;
+		}
 		if ( $template === '' ) {
 			return $marker;
 		}
@@ -1765,6 +1844,15 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 * @param array<string,mixed> $record
 	 */
 	protected function beforeCreate( array &$record ): ?string {
+		// A legal provision: validate the added-translation rows up front so
+		// a bad row surfaces as a form error (the flow service's prepare()
+		// is the single normalizer; this is a read-only probe on a copy).
+		if ( $this->currentClassKey === 'law' ) {
+			$error = $this->validateLawField( $record );
+			if ( $error !== null ) {
+				return $error;
+			}
+		}
 		$rawDuration = trim( (string)( $record['duration'] ?? '' ) );
 		if ( $rawDuration !== '' ) {
 			$seconds = Duration::parseSeconds( $rawDuration );
@@ -2198,6 +2286,22 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	/**
 	 * @param array<string,mixed> $record
 	 */
+	/**
+	 * Validates a legal provision's flow record (reference code, content,
+	 * translations, parent) through the shared SourceFlowService on a COPY —
+	 * the same single normalizer the Add and Update paths run, surfaced here
+	 * as a form error. The copy keeps the caller's record untouched (the
+	 * create path re-runs prepare() on the real record).
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function validateLawField( array $record ): ?string {
+		$classKey = \EmbeddableContent\Flow\SourceFieldMap::apiKey( 'law' );
+		$probe = $this->flowRecord( $record );
+		$error = $this->sourceFlow()->prepare( $classKey, $probe, false );
+		return is_string( $error ) ? $error : null;
+	}
+
 	protected function validateParent( array $record ): ?string {
 		$parentKey = $this->config->sourceParents()[$this->currentClassKey] ?? null;
 		if ( $parentKey === null ) {
@@ -2377,6 +2481,12 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				continue;
 			}
 			$value = $record[$field] ?? null;
+			// A cloner field (the law translations) is an ARRAY — carry it
+			// as-is; only scalars are stringified.
+			if ( is_array( $value ) ) {
+				$out[$field] = $value;
+				continue;
+			}
 			if ( $value !== null && $value !== '' ) {
 				$out[$field] = (string)$value;
 			}
