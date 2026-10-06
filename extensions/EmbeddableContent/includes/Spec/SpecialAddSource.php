@@ -319,6 +319,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		$byHost = $this->websiteItemByRootHost( $websiteClassId, $root );
 		if ( $byHost !== null ) {
 			$urlMeta['parent'] = $byHost['id'];
+			$this->inheritWebpageLanguage( $byHost['id'], $urlMeta );
 			return;
 		}
 
@@ -348,6 +349,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		}
 		if ( $resolved !== null ) {
 			$urlMeta['parent'] = $resolved['id'];
+			$this->inheritWebpageLanguage( $resolved['id'], $urlMeta );
 			$urlMeta['parentConfirm'] = [
 				'fetched' => $siteName,
 				'label' => $resolved['label'],
@@ -358,6 +360,37 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				'root' => $root,
 				'siteName' => $siteName,
 			];
+		}
+	}
+
+	/**
+	 * A webpage inherits its primary language from the resolved parent
+	 * website's `language` statement (the requested default): the value is
+	 * stored in $urlMeta so the manual form prefills it. Best-effort — a
+	 * missing statement, an unavailable item or a lookup failure leaves the
+	 * historical `en` default.
+	 *
+	 * @param array<string,mixed> $urlMeta
+	 */
+	private function inheritWebpageLanguage( string $parentId, array &$urlMeta ): void {
+		$property = $this->config->sourcePropertyIds()['language'] ?? null;
+		if ( $property === null ) {
+			return;
+		}
+		try {
+			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $parentId ) );
+		} catch ( \Throwable $e ) {
+			return;
+		}
+		if ( !$item instanceof Item ) {
+			return;
+		}
+		foreach ( $item->getStatements()->getByPropertyId( new NumericPropertyId( $property ) ) as $statement ) {
+			$value = $statement->getMainSnak()->getDataValue();
+			if ( $value instanceof StringValue && $value->getValue() !== '' ) {
+				$urlMeta['language'] = $value->getValue();
+				return;
+			}
 		}
 	}
 
@@ -1331,17 +1364,89 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 * @param array<string,mixed> $record
 	 * @return array<string,mixed>
 	 */
+	/**
+	 * The language field group (all non-law classes):
+	 *
+	 *  - `language` — the PRIMARY source language, a combobox over the
+	 *    committed ISO 639 catalog (ISO 639-1 + 639-2/B + 639-2/T, labelled
+	 *    "en — English" so it partial-matches the code AND the English name),
+	 *    plus an "Other" option revealing the free-text `otherLanguage`.
+	 *  - `additionalLanguages` — a comma-separated multi-value combobox
+	 *    (`wb-language-combobox-multi` + `resources/languagemulti.js`): one
+	 *    `language` statement per picked code.
+	 *  - `labelLanguage` — the term language the item label/description are
+	 *    stored under, default `en` (a French-language book can carry an
+	 *    English label). Kept SEPARATE from the source language(s).
+	 *
+	 * The `language` fields are citable metadata (CSL `language`); they never
+	 * drive the term language.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,mixed>
+	 */
 	protected function languageFieldSpec( array $record ): array {
-		$languageNames = \MediaWiki\MediaWikiServices::getInstance()
-			->getLanguageNameUtils()
-			->getLanguageNames();
-		return [ 'language' => [
-			'type' => 'combobox',
-			'label-message' => 'embeddablecontent-source-field-language',
-			'help-message' => 'embeddablecontent-source-field-language-help',
-			'options' => array_flip( $languageNames ),
-			'default' => (string)( $record['language'] ?? 'en' ),
-		] ];
+		$catalog = \EmbeddableContent\Spec\LanguageCatalog::options();
+
+		// Primary language: a stored value outside the catalog (a previous
+		// "Other" free text) prefills the Other mode + the free-text box.
+		$primary = trim( (string)( $record['language'] ?? '' ) );
+		$otherDefault = '';
+		if ( $primary === \EmbeddableContent\Flow\SourceFlowService::OTHER_LANGUAGE ) {
+			$otherDefault = trim( (string)( $record['otherLanguage'] ?? '' ) );
+		} elseif ( $primary !== '' && !\EmbeddableContent\Spec\LanguageCatalog::isKnown( $primary ) ) {
+			$otherDefault = $primary;
+			$primary = \EmbeddableContent\Flow\SourceFlowService::OTHER_LANGUAGE;
+		}
+		if ( $primary === '' ) {
+			// The historical default: English.
+			$primary = 'en';
+		}
+
+		$primaryOptions = $catalog;
+		$primaryOptions[ $this->msg( 'embeddablecontent-source-field-language-other' )->text() ]
+			= \EmbeddableContent\Flow\SourceFlowService::OTHER_LANGUAGE;
+
+		// The term language must be a language MediaWiki stores terms under —
+		// the ISO catalog is broader (e.g. 639-2-only codes) and would not
+		// necessarily be a valid term language. Offer MediaWiki's own set
+		// (DEFINED), English names, code-labelled like the source catalog.
+		$labelOptions = [];
+		foreach ( \MediaWiki\MediaWikiServices::getInstance()
+			->getLanguageNameUtils()->getLanguageNames( 'en' ) as $code => $name ) {
+			$labelOptions[ $code . \EmbeddableContent\Spec\LanguageCatalog::LABEL_SEPARATOR . $name ] = $code;
+		}
+
+		return [
+			'language' => [
+				'type' => 'combobox',
+				'label-message' => 'embeddablecontent-source-field-language',
+				'help-message' => 'embeddablecontent-source-field-language-help',
+				'options' => $primaryOptions,
+				'default' => $primary,
+			],
+			'otherLanguage' => [
+				'type' => 'text',
+				'label-message' => 'embeddablecontent-source-field-language-other-value',
+				'default' => $otherDefault,
+				'maxlength' => 100,
+				'hide-if' => [ '!==', 'language', \EmbeddableContent\Flow\SourceFlowService::OTHER_LANGUAGE ],
+			],
+			'additionalLanguages' => [
+				'type' => 'combobox',
+				'label-message' => 'embeddablecontent-source-field-additionallanguages',
+				'help-message' => 'embeddablecontent-source-field-additionallanguages-help',
+				'options' => $catalog,
+				'cssclass' => 'wb-language-combobox-multi',
+				'default' => (string)( $record['additionalLanguages'] ?? '' ),
+			],
+			'labelLanguage' => [
+				'type' => 'combobox',
+				'label-message' => 'embeddablecontent-source-field-labellanguage',
+				'help-message' => 'embeddablecontent-source-field-labellanguage-help',
+				'options' => $labelOptions,
+				'default' => (string)( $record['labelLanguage'] ?? 'en' ),
+			],
+		];
 	}
 
 	/** @return array<string,mixed> */

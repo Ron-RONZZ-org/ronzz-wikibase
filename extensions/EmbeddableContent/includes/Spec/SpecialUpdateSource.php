@@ -99,14 +99,14 @@ class SpecialUpdateSource extends SpecialAddSource {
 	}
 
 	/**
-	 * The AddSource language field governs the label/description term
-	 * language on update too: a non-empty submitted language wins; a blank
-	 * one keeps the item's current label language (no-clobber).
+	 * The term language is the dedicated `labelLanguage` field on update too:
+	 * a non-empty submitted value wins; a blank one keeps the item's current
+	 * label language (no-clobber).
 	 *
 	 * @param array<string,mixed> $record
 	 */
 	protected function updateTermLanguage( array $record, Item $item ): string {
-		$language = trim( (string)( $record['language'] ?? '' ) );
+		$language = trim( (string)( $record['labelLanguage'] ?? '' ) );
 		return $language !== '' ? $language : $this->itemTermLanguage( $item );
 	}
 
@@ -132,9 +132,9 @@ class SpecialUpdateSource extends SpecialAddSource {
 		$record = [
 			'title' => $this->itemLabel( $item ),
 			'description' => $this->itemDescription( $item ),
-			// The item's label language prefills the AddSource language
-			// field; a change MOVES the label/description term language.
-			'language' => $this->itemTermLanguage( $item ),
+			// The term language (label/description) is its OWN field now; the
+			// source `language` field (below) is citable metadata.
+			'labelLanguage' => $this->itemTermLanguage( $item ),
 			'authors' => implode( ', ', $this->entityIdsForProperty(
 				$item,
 				$this->config->provenancePropertyIds()['attributedTo'] ?? null
@@ -153,6 +153,11 @@ class SpecialUpdateSource extends SpecialAddSource {
 		$record['youtubeChannelId'] = $this->firstStringForProperty( $item, $source['youtubeChannelId'] ?? null );
 		$record['youtubeVideoId'] = $this->firstStringForProperty( $item, $source['youtubeVideoId'] ?? null );
 		$record['chapters'] = $this->firstStringForProperty( $item, $source['chapters'] ?? null );
+		// The source language(s): the first stored `language` statement is
+		// the primary, the rest join `additionalLanguages`.
+		$languageValues = $this->stringValuesForProperty( $item, $source['language'] ?? null );
+		$record['language'] = $languageValues[0] ?? '';
+		$record['additionalLanguages'] = implode( ', ', array_slice( $languageValues, 1 ) );
 		$record['accessUrl'] = $this->firstStringForProperty( $item, $source['accessUrl'] ?? null );
 		$record['fileTitle'] = $this->accessFileTitle( $item, $source['file'] ?? null );
 		$record['license'] = $this->firstEntityForProperty( $item, $source['license'] ?? null );

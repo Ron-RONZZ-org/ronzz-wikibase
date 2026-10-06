@@ -378,19 +378,29 @@ report). See `SimpleMathJax/VENDORED.md`.
   `SpecialAddCollective` to set `collectiveClass`) — before, the browser
   form's generic `class` value never reached the shared service and every
   collective was saved as `instance of: organization` (the Q2019 report).
-- **AddSource language field (ADR
-  `docs/decisions/source-language-field.md`)**: a `language` combobox on the
-  AddSource review/manual forms (all classes) and `Special:UpdateSource`
-  (prefilled from the item's label language) writes the new string
-  `language` property (manifest + `sourceProperties` config key +
-  `schema:inLanguage`) AND stores the item label/description under the chosen
-  term language — **chosen-language-only** (a French source gets an fr label,
-  no en copy; the class-disambiguation suffix stays English). UpdateSource
-  **moves** the term on a language change. The label reuse
-  (`findItemIdByLabel`) and the duplicate-guard label signal
-  (`EntityLabelMatcher`/`DuplicateFinder`/`DuplicateChecker`) are
-  language-aware so non-English items are still found. The statement surfaces
-  as CSL `language`. Re-seed required.
+- **AddSource language field group (ADR
+  `docs/decisions/source-language-field.md`, revised 2026-10-06)**: the
+  original single `language` combobox (which also drove the term language) is
+  now a **field group** on the AddSource review/manual forms (all non-law
+  classes) and `Special:UpdateSource`:
+  - **`language`** — the PRIMARY source language, a combobox over the committed
+    **ISO 639 catalog** (`data/iso639.csv`, generated from the ISO 639-2
+    registration authority / LoC list by `tools/generate_iso_language_fields.py`:
+    639-1 + 639-2/B + 639-2/T), labelled `"{code} — {English name}"` so it
+    partial-matches the 2/3-char code AND the English name, plus an **Other**
+    option revealing the free-text `otherLanguage` (statement-only).
+  - **`additionalLanguages`** — a comma-separated multi-value combobox
+    (`resources/languagemulti.js`); one `language` statement per code.
+  - **`labelLanguage`** — the SEPARATE term language the label/description are
+    stored under, default `en` (MediaWiki's own language set — valid term
+    languages); chosen-language-only, moved on change by UpdateSource.
+  The statement(s) still surface as CSL `language`; the source language no
+  longer drives the term language. `law` is unchanged (inherited). The
+  `/webpage` URL-first flow defaults its primary language from the resolved
+  parent website's `language` statement (`inheritWebpageLanguage`). The label
+  reuse and duplicate-guard label signal stay language-aware. No re-seed (no
+  new property/class/config key); the field contract is re-emitted and the MCP
+  server's pinned copy + generated tools refreshed.
 - **AddSource `law` class — legal provision (ADR
   `docs/decisions/addsource-law-class.md`)**: a new manual-only source class
   `law` (Wikidata Q139959926-aligned "legal provision"), a **child of

@@ -56,6 +56,18 @@ final class SourceFlowService {
 	public const ERROR_CONTENT_REQUIRED = 'content is required when creating a legal provision.';
 
 	/**
+	 * The `language` field's sentinel for a language not in the ISO catalog:
+	 * the free-text `otherLanguage` value is then the statement value (the
+	 * term language is the separate `labelLanguage` field). Chosen as the
+	 * (English) word "Other" so the combobox shows a readable value after
+	 * the pick (the OOUI combobox displays the option's data, not its label).
+	 */
+	public const OTHER_LANGUAGE = 'Other';
+
+	/** A BCP-47-ish code: 2-8 letters, optional `-`-separated subtags. */
+	private const LANGUAGE_CODE_PATTERN = '/^[a-z]{2,8}(?:-[a-z0-9]{2,8})*$/i';
+
+	/**
 	 * Record keys the API contract does not expose but the browser forms'
 	 * access flow feeds in (the uploaded file's URL and the license entity).
 	 * Accepted by prepare (no exposure check) and written by statementSpecs.
@@ -138,12 +150,27 @@ final class SourceFlowService {
 			return "year \"{$year}\" is not a four-digit year.";
 		}
 
-		// The source language (a BCP-47 code): written as a statement and
-		// used as the item label/description term language. Optional — a
-		// blank value defaults to en (the historical behaviour).
+		// The source language(s): the primary `language` (a BCP-47 code, or
+		// the "Other" sentinel resolved from `otherLanguage` free text) plus
+		// the comma/semicolon-separated `additionalLanguages` codes. Written
+		// as one `language` statement per code; the item label/description
+		// term language is the SEPARATE `labelLanguage` field (default en).
 		$language = trim( (string)( $record['language'] ?? '' ) );
-		if ( $language !== '' && preg_match( '/^[a-z]{2,8}(?:-[a-z0-9]{2,8})*$/i', $language ) !== 1 ) {
+		if ( $language === self::OTHER_LANGUAGE ) {
+			if ( trim( (string)( $record['otherLanguage'] ?? '' ) ) === '' ) {
+				return 'the "Other" source language needs a value in otherLanguage.';
+			}
+		} elseif ( $language !== '' && preg_match( self::LANGUAGE_CODE_PATTERN, $language ) !== 1 ) {
 			return "language \"{$language}\" is not a valid language code.";
+		}
+		foreach ( self::additionalLanguageList( $record ) as $code ) {
+			if ( preg_match( self::LANGUAGE_CODE_PATTERN, $code ) !== 1 ) {
+				return "additional language \"{$code}\" is not a valid language code.";
+			}
+		}
+		$labelLanguage = trim( (string)( $record['labelLanguage'] ?? '' ) );
+		if ( $labelLanguage !== '' && preg_match( self::LANGUAGE_CODE_PATTERN, $labelLanguage ) !== 1 ) {
+			return "labelLanguage \"{$labelLanguage}\" is not a valid language code.";
 		}
 
 		foreach ( [ 'url', 'accessUrl' ] as $urlField ) {
@@ -195,18 +222,25 @@ final class SourceFlowService {
 		$props = $this->config->sourcePropertyIds();
 		$formKey = SourceFieldMap::formKey( $classKey );
 
-		// The source language: a string statement holding the BCP-47 code.
-		// A legal provision does NOT carry a `language` statement — its
-		// language is inherited from the parent legislation and is used only
-		// for the payload claim and the term language.
-		$language = trim( (string)( $record['language'] ?? '' ) );
-		if ( $formKey !== 'law' && $language !== '' && isset( $props['language'] ) ) {
-			$specs[$props['language']] = new StringValue( $language );
+		// The source language(s): one string statement per code — the primary
+		// `language` (or the "Other" free text) plus every
+		// `additionalLanguages` code. A legal provision does NOT carry a
+		// `language` statement — its language is inherited from the parent
+		// legislation and is used only for the payload claim / term language.
+		$languages = self::languageCodes( $record );
+		if ( $formKey !== 'law' && $languages !== [] && isset( $props['language'] ) ) {
+			$specs[$props['language']] = array_map(
+				static fn ( string $code ): StringValue => new StringValue( $code ),
+				$languages
+			);
 		}
 
 		// A legal provision (law): reference code + monolingual clause text
 		// + added translations (the AddQuotation storage shape).
 		if ( $formKey === 'law' ) {
+			// The clause text language is inherited from the parent
+			// legislation (prepareLaw sets it) — never set by the client.
+			$language = trim( (string)( $record['language'] ?? '' ) );
 			$referenceCode = trim( (string)( $record['referenceCode'] ?? '' ) );
 			if ( $referenceCode !== '' && isset( $props['referenceCode'] ) ) {
 				$specs[$props['referenceCode']] = new StringValue( $referenceCode );
@@ -540,13 +574,63 @@ final class SourceFlowService {
 
 	/**
 	 * The term language a record's label/description are stored under: the
-	 * record's `language` when set, else `en` (the historical default).
+	 * dedicated `labelLanguage` field (default `en`). The source `language`
+	 * field is citable metadata (the work's language), NOT the term language —
+	 * a French-language book can carry an English label.
 	 *
 	 * @param array<string,mixed> $record
 	 */
 	public static function termLanguage( array $record ): string {
-		$language = trim( (string)( $record['language'] ?? '' ) );
+		$language = trim( (string)( $record['labelLanguage'] ?? '' ) );
 		return $language !== '' ? $language : 'en';
+	}
+
+	/**
+	 * Every language code a record declares, in order and de-duplicated: the
+	 * primary `language` (resolving the `OTHER_LANGUAGE` sentinel to its
+	 * free-text `otherLanguage` value) followed by the
+	 * `additionalLanguages` list (comma/semicolon-separated).
+	 *
+	 * @param array<string,mixed> $record
+	 * @return string[]
+	 */
+	public static function languageCodes( array $record ): array {
+		$codes = [];
+		$primary = trim( (string)( $record['language'] ?? '' ) );
+		if ( $primary === self::OTHER_LANGUAGE ) {
+			$primary = trim( (string)( $record['otherLanguage'] ?? '' ) );
+		}
+		if ( $primary !== '' ) {
+			$codes[] = $primary;
+		}
+		foreach ( self::additionalLanguageList( $record ) as $code ) {
+			$codes[] = $code;
+		}
+		return array_values( array_unique( $codes ) );
+	}
+
+	/**
+	 * The `additionalLanguages` field parsed into codes (comma/semicolon
+	 * separated, trimmed, blanks dropped). The primary `language` is NOT
+	 * included.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return string[]
+	 */
+	public static function additionalLanguageList( array $record ): array {
+		$raw = (string)( $record['additionalLanguages'] ?? '' );
+		$segments = preg_split( '/[,;]/', $raw );
+		if ( $segments === false ) {
+			return [];
+		}
+		$codes = [];
+		foreach ( $segments as $segment ) {
+			$segment = trim( $segment );
+			if ( $segment !== '' ) {
+				$codes[] = $segment;
+			}
+		}
+		return array_values( array_unique( $codes ) );
 	}
 
 	/** The language of an item's (first) label, or `en` when it has none. */
@@ -710,6 +794,9 @@ final class SourceFlowService {
 		}
 		$language = $this->parentLanguage( (string)( $record['parent'] ?? '' ) );
 		$record['language'] = $language;
+		// The inherited language is also the term language the label/
+		// description are stored under (the law form has no language fields).
+		$record['labelLanguage'] = $language;
 		// A blank description auto-generates as "provision of {parent}".
 		if ( trim( (string)( $record['description'] ?? '' ) ) === '' ) {
 			$parent = $this->itemById( (string)( $record['parent'] ?? '' ) );

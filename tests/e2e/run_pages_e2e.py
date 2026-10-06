@@ -4412,28 +4412,63 @@ def main() -> int:
             f"{text_item} unexpectedly carries an author statement"
         print(f"[ok] AddSource/text manual -> {text_item}: title-only creation, no authors")
 
-        # 2g6. AddSource language field: the chosen language is written as a
-        #      `language` statement AND the item label is stored under that
-        #      term language — chosen-language-only, so NO en label.
+        # 2g6. AddSource language fields: `language` is the source's CITABLE
+        #      language metadata; the item label/description term language is
+        #      the SEPARATE `labelLanguage` field. A French-language source
+        #      with the default label language keeps the en label and writes a
+        #      `language=fr` statement.
+        language_prop = resolve("language", "property")
         lang_label = f"Page-flow E2E langue {int(time.time())}"
         lang_item = track(flow_source_class_manual(op, base, api, "text", {
             "wptitle": lang_label,
             "wplanguage": "fr",
         }))
         claims, en_label = entity_claims(op, api, lang_item)
-        language_prop = resolve("language", "property")
         assert first_value(claims, language_prop) == "fr", \
             f"{lang_item} language statement missing/wrong " \
             f"({first_value(claims, language_prop)})"
-        assert en_label == "", f"{lang_item} unexpectedly stores an en label ({en_label!r})"
-        r = api_call(op, api, {"action": "wbgetentities", "ids": lang_item,
+        assert en_label.startswith(lang_label), \
+            f"{lang_item} did not keep the en label with the default label language ({en_label!r})"
+        print(f"[ok] AddSource/text manual (language=fr) -> {lang_item}: "
+              f"language statement, en label kept")
+
+        # 2g6b. `labelLanguage` MOVES the term language — chosen-language-only,
+        #       so an fr labelLanguage stores an fr label and NO en label.
+        label_lang_label = f"Page-flow E2E etiquette {int(time.time())}"
+        label_lang_item = track(flow_source_class_manual(op, base, api, "text", {
+            "wptitle": label_lang_label,
+            "wplanguage": "fr",
+            "wplabellanguage": "fr",
+        }))
+        claims, en_label = entity_claims(op, api, label_lang_item)
+        assert first_value(claims, language_prop) == "fr", \
+            f"{label_lang_item} language statement missing/wrong " \
+            f"({first_value(claims, language_prop)})"
+        assert en_label == "", \
+            f"{label_lang_item} unexpectedly stores an en label ({en_label!r})"
+        r = api_call(op, api, {"action": "wbgetentities", "ids": label_lang_item,
                                "props": "labels", "format": "json"})
-        labels = r.get("entities", {}).get(lang_item, {}).get("labels", {})
-        assert "fr" in labels and labels["fr"].get("value", "").startswith(lang_label), \
-            f"{lang_item} fr label missing or wrong ({labels})"
-        assert "en" not in labels, f"{lang_item} still carries an en label ({labels})"
-        print(f"[ok] AddSource/text manual (fr) -> {lang_item}: "
-              f"language statement + chosen-language-only fr label")
+        labels = r.get("entities", {}).get(label_lang_item, {}).get("labels", {})
+        assert "fr" in labels and labels["fr"].get("value", "").startswith(label_lang_label), \
+            f"{label_lang_item} fr label missing or wrong ({labels})"
+        assert "en" not in labels, f"{label_lang_item} still carries an en label ({labels})"
+        print(f"[ok] AddSource/text manual (labelLanguage=fr) -> {label_lang_item}: "
+              f"chosen-language-only fr label")
+
+        # 2g6c. A source available in several languages: `additionalLanguages`
+        #       writes one `language` statement per code.
+        multi_label = f"Page-flow E2E multilingual {int(time.time())}"
+        multi_item = track(flow_source_class_manual(op, base, api, "text", {
+            "wptitle": multi_label,
+            "wplanguage": "en",
+            "wpadditionalLanguages": "fr, eo",
+        }))
+        claims, _ = entity_claims(op, api, multi_item)
+        assert claim_values(claims, language_prop) == ["en", "fr", "eo"], \
+            f"{multi_item} multi-language statements wrong " \
+            f"({claim_values(claims, language_prop)})"
+        print(f"[ok] AddSource/text manual (multi-language) -> {multi_item}: "
+              f"en/fr/eo statements")
 
         # 2g7. AddSource/law (legal provision): a child of a legislation with a
         #      reference code + a monolingual clause text (language inherited

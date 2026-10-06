@@ -64,3 +64,43 @@ and the work's language is itself citable metadata (CSL `language`).
   to CSL `language`.
 - `tests/e2e/run_pages_e2e.py` — creates a `text` source with
   `wplanguage=fr`; asserts the `language` statement and an fr-only label.
+
+## Revision (2026-10-06): multi-language + a separate label language
+
+The original decision overloaded one field with two jobs (the `language`
+statement AND the label/description term language). A source can be available
+**in several languages**, and the term language is an editorial choice
+independent of the work's language(s), so the two are now separate fields:
+
+- **`language`** — the PRIMARY source language. A combobox over the committed
+  **ISO 639 catalog** (`data/iso639.csv`, generated from the ISO 639-2
+  registration authority / Library of Congress list by
+  `tools/generate_iso_language_fields.py`: ISO 639-1 + 639-2/B + 639-2/T),
+  labelled `"{code} — {English name}"` so it partial-matches BOTH the 2/3-char
+  code and the English name. An **Other** option reveals the free-text
+  `otherLanguage`; the free text is written as the statement value.
+- **`additionalLanguages`** — a comma-separated multi-value combobox
+  (`wb-language-combobox-multi` + `resources/languagemulti.js`). One
+  `language` string statement is written per code (primary + additional),
+  de-duplicated.
+- **`labelLanguage`** — the SEPARATE term language the item label/description
+  are stored under, default `en`; offered as MediaWiki's own language set
+  (valid term languages), not the broader ISO catalog. A French-language book
+  can now carry an English label. `Special:UpdateSource` prefills it from the
+  current term language and moves the term on change; the source `language`
+  statements are prefilled from the item (first = primary, rest =
+  `additionalLanguages`).
+- The `law` class is unchanged: its language is inherited from the parent
+  legislation (no `language`/`labelLanguage` fields; `prepareLaw` sets the
+  inherited code as the term language internally).
+- **`/webpage` inheritance** — the URL-first page's primary language defaults
+  from the resolved parent website's `language` statement
+  (`inferWebpageParent` → `inheritWebpageLanguage`).
+
+The `language` field is a `SourceFieldMap` field group, so `action=addsource`,
+`action=addsource-fields` and the pinned MCP field contract gain
+`additionalLanguages`/`otherLanguage`/`labelLanguage` automatically (the
+contract is re-emitted; the MCP server's pinned copy + generated tools are
+refreshed). **No re-seed** — no new property, class or config key; only the
+field vocabulary changed. The picker default stays `en` for both the source
+language and the label language.
