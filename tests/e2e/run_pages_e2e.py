@@ -987,7 +987,13 @@ def flow_update_person(op, base: str, api: str, qid: str, new_description: str) 
     if "Update a person" not in body:
         raise FlowError(f"Special:UpdatePerson/{qid} did not render: {find_error(body)}")
     if not has_cancel_link(body, qid):
-        raise FlowError(f"Special:UpdatePerson/{qid} is missing a Cancel link to the item")
+        idx = body.find('mw-htmlform-submit-buttons')
+        if idx < 0:
+            idx = body.lower().find('cancel')
+        snip = body[idx:idx + 1500] if idx >= 0 else body[-800:]
+        raise FlowError(
+            f"Special:UpdatePerson/{qid} is missing a Cancel link to the item "
+            f"(Cancel in body: {'Cancel' in body}); region: {snip!r}")
     given = input_value(body, "wpgivenName")
     family = input_value(body, "wpfamilyName")
     if not given or not family:
