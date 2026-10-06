@@ -267,6 +267,19 @@ def claim_values(claims: dict, prop_id: str) -> list:
     return out
 
 
+def has_cancel_link(body: str, qid: str) -> bool:
+    """Whether the form renders a cancel button pointing at the item.
+
+    MW 1.46's OOUIHTMLForm wraps the cancel in an OOUI ButtonWidget — an
+    ``<a href>`` whose label is the nested "Cancel" span — so match an anchor
+    whose inner text carries Cancel and whose href names the item."""
+    pattern = re.compile(
+        r'<a\b[^>]*href="([^"]+)"[^>]*>(?:(?!</a>).)*?Cancel(?:(?!</a>).)*?</a>',
+        re.DOTALL,
+    )
+    return any(qid in m.group(1) for m in pattern.finditer(body))
+
+
 def first_reference_url(claims: dict, prop_id: str) -> str | None:
     for stmt in claims.get(prop_id, []):
         for ref in stmt.get("references", []):
@@ -973,10 +986,8 @@ def flow_update_person(op, base: str, api: str, qid: str, new_description: str) 
     url, body = page_get(op, base, f"/wiki/Special:UpdatePerson/{qid}")
     if "Update a person" not in body:
         raise FlowError(f"Special:UpdatePerson/{qid} did not render: {find_error(body)}")
-    cancel = re.search(r'<a href="([^"]+)"[^>]*>Cancel</a>', body)
-    if not cancel or qid not in cancel.group(1):
-        raise FlowError(
-            f"Special:UpdatePerson/{qid} is missing a Cancel link to the item: {find_error(body)}")
+    if not has_cancel_link(body, qid):
+        raise FlowError(f"Special:UpdatePerson/{qid} is missing a Cancel link to the item")
     given = input_value(body, "wpgivenName")
     family = input_value(body, "wpfamilyName")
     if not given or not family:
@@ -1445,10 +1456,8 @@ def flow_update_content(op, base: str, api: str, qid: str, new_label: str,
     url, body = page_get(op, base, f"/wiki/Special:UpdateQuotation/{qid}")
     if "Edit a quotation" not in body:
         raise FlowError(f"Special:UpdateQuotation/{qid} did not render: {find_error(body)}")
-    cancel = re.search(r'<a href="([^"]+)"[^>]*>Cancel</a>', body)
-    if not cancel or qid not in cancel.group(1):
-        raise FlowError(
-            f"Special:UpdateQuotation/{qid} is missing a Cancel link to the item: {find_error(body)}")
+    if not has_cancel_link(body, qid):
+        raise FlowError(f"Special:UpdateQuotation/{qid} is missing a Cancel link to the item")
     if not input_value(body, "wplabel"):
         raise FlowError(f"UpdateQuotation/{qid} did not prefill the label: {find_error(body)}")
     payload = textarea_value(body, "wppayload")
