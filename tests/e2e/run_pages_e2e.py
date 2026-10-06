@@ -4447,7 +4447,7 @@ def main() -> int:
         label_lang_item = track(flow_source_class_manual(op, base, api, "text", {
             "wptitle": label_lang_label,
             "wplanguage": "fr",
-            "wplabellanguage": "fr",
+            "wplabelLanguage": "fr",
         }))
         claims, en_label = entity_claims(op, api, label_lang_item)
         assert first_value(claims, language_prop) == "fr", \
