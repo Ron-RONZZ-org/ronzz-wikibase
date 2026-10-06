@@ -166,3 +166,14 @@ Verified headless against production (logged-in): the exact user flow
 (AddCollective logo from the Natgeologo Wikimedia URL) creates the
 collective WITH the file + image/license/author/license-info statements
 consistently; the full page-flow E2E is green (46/46).
+
+## Follow-up (2026-10-06): Cancel on the Update* forms
+
+The Update* forms had only the submit button — a user who opened "Update
+basic information" (or "Edit content") by mistake had no way back except the
+browser/back link. Both Update bases now render HTMLForm's built-in cancel
+primitive (`showCancel( true )->setCancelTarget( … )`): the semantic-entity
+pages return to the item page (or to the classic page when the form was
+opened from there with `?frompage=1`), and the content-item "Edit content"
+pages return to the item page. The page-flow E2E asserts the link on
+`Special:UpdatePerson` and `Special:UpdateQuotation`.

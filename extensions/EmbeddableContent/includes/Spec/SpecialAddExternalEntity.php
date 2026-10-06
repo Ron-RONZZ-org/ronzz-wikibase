@@ -32,9 +32,10 @@ use Wikibase\Repo\WikibaseRepo;
  * authorities (import-on-reference), review/correct, create-or-skip the local
  * stub item.
  *
- * Flow (token in the session, subpage carries the token; issue #12):
+ * Flow (token in the session AND the main object stash, subpage carries the
+ * token; issues #12 and the Add*-expiry report):
  *   1. search  — kind-specific inputs → ProviderClient → candidates stored
- *                in the session under the token → redirect to /<token>
+ *                under the token → redirect to /<token>
  *   2. select  — detailed candidate table + radio + class picker → the picked
  *                record is enriched (harvest-on-pick) → redirect to
  *                /<token>/review/<index>
@@ -43,6 +44,11 @@ use Wikibase\Repo\WikibaseRepo;
  *                create-or-skip → redirect to the created (or existing) item
  *   manual    — /manual: create from blank by hand when the search has no
  *                good result (no external record, no import reference)
+ *
+ * The token-bound data lives in BOTH the session and the main object stash
+ * (a 7-day TTL, keyed by the unguessable token) — see TOKEN_TTL — so a long
+ * review/manual edit no longer loses the harvested record to the session
+ * expiry ("The search results have expired.").
  *
  * Imported statements carry authority IDs (externalIds), citation metadata
  * (citationMetadata) and an import-provenance reference (source URL + date),
@@ -147,6 +153,9 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// The "reuse an existing file" File: search combobox (portrait/logo
 		// mode=existing) — a no-op on pages without the wb-file-combobox.
 		$this->getOutput()->addModules( 'ext.embeddableContent.fileselect' );
+		// The AddSource/UpdateSource additionalLanguages multi-combobox — a
+		// no-op on pages without the wb-language-combobox-multi widget.
+		$this->getOutput()->addModules( 'ext.embeddableContent.languagemulti' );
 		// Local-file preview + client-side resize + extension auto-correction
 		// for the portrait/logo file inputs (the shared Special:Upload
 		// module; a no-op on pages without the wb-image-preview field).
@@ -331,8 +340,8 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			static fn ( $record ): array => json_decode( json_encode( $record ), true ),
 			$result->records
 		);
-		$this->getRequest()->getSession()->set( self::SESSION_PREFIX . $token, $records );
-		$this->getRequest()->getSession()->set( self::SESSION_PREFIX . $token . ':search', $data );
+		$this->setTokenValue( $token, '', $records );
+		$this->setTokenValue( $token, ':search', $data );
 
 		if ( $result->records === [] ) {
 			$this->getOutput()->addHTML( $this->manualFallbackHtml( [ 'token' => $token ] ) );
@@ -346,7 +355,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	// ------------------------------------------------------------- step 2
 
 	protected function executeSelection( string $token ): void {
-		$records = $this->loadSessionRecords( $token );
+		$records = $this->loadTokenRecords( $token );
 		if ( $records === null ) {
 			$this->showExpired();
 			return;
@@ -404,7 +413,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// Enrich now (harvest-on-pick) so the review step shows the full
 		// record; the user can correct errors before anything is created.
 		$records[$index] = $this->enrichRecord( $record );
-		$this->getRequest()->getSession()->set( self::SESSION_PREFIX . $token, $records );
+		$this->setTokenValue( $token, '', $records );
 
 		// Duplication guard (early warning — the user just picked a record
 		// whose authority id / URL already exists locally). [Yes, that's
@@ -489,7 +498,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 
 	/** /<token>/duplicate/<index>/<Qid> — search-pick early warning. */
 	protected function executeDuplicatePick( string $token, int $index, string $qid ): void {
-		$records = $this->loadSessionRecords( $token );
+		$records = $this->loadTokenRecords( $token );
 		$record = $records[$index] ?? null;
 		if ( $record === null || !is_array( $record ) ) {
 			$this->showExpired();
@@ -508,8 +517,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 
 	/** /<token>/duplicate/<Qid> — create-gate confirm; [No] creates anyway. */
 	protected function executeDuplicateCreate( string $dupToken, string $qid ): void {
-		$pending = $this->getRequest()->getSession()
-			->get( self::SESSION_PREFIX . $dupToken . ':pending' );
+		$pending = $this->getTokenValue( $dupToken, ':pending' );
 		if ( !is_array( $pending ) ) {
 			$this->showExpired();
 			return;
@@ -543,13 +551,12 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			$this->showExpired();
 			return true;
 		}
-		$session = $this->getRequest()->getSession();
-		$pending = $session->get( self::SESSION_PREFIX . $dupToken . ':pending' );
+		$pending = $this->getTokenValue( $dupToken, ':pending' );
 		if ( !is_array( $pending ) || !isset( $pending['record'], $pending['classItemId'] ) ) {
 			$this->showExpired();
 			return true;
 		}
-		$session->remove( self::SESSION_PREFIX . $dupToken . ':pending' );
+		$this->removeTokenValue( $dupToken, ':pending' );
 		return $this->createItemAndRedirect(
 			$pending['record'],
 			(string)$pending['classItemId'],
@@ -561,7 +568,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	// ------------------------------------------------------------- step 3
 
 	protected function executeReview( string $token, int $index ): void {
-		$records = $this->loadSessionRecords( $token );
+		$records = $this->loadTokenRecords( $token );
 		$record = $records[$index] ?? null;
 		if ( $record === null ) {
 			$this->showExpired();
@@ -624,7 +631,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		}
 
 		$records[$index] = $record;
-		$this->getRequest()->getSession()->set( self::SESSION_PREFIX . $token, $records );
+		$this->setTokenValue( $token, '', $records );
 
 		if ( $this->recordHasContent( $record ) ) {
 			$this->getOutput()->redirect(
@@ -689,7 +696,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	}
 
 	protected function executeContent( string $token, int $index ): void {
-		$records = $this->loadSessionRecords( $token );
+		$records = $this->loadTokenRecords( $token );
 		$record = $records[$index] ?? null;
 		if ( $record === null || !is_array( $record ) ) {
 			$this->showExpired();
@@ -753,7 +760,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			$duplicate = $this->findDuplicate( $record );
 			if ( $duplicate !== null ) {
 				$dupToken = \MWCryptRand::generateHex( 16 );
-				$this->getRequest()->getSession()->set( self::SESSION_PREFIX . $dupToken . ':pending', [
+				$this->setTokenValue( $dupToken, ':pending', [
 					'record' => $record,
 					'classItemId' => $classItemId,
 					'duplicate' => $duplicate,
@@ -770,8 +777,8 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			return $this->msg( 'embeddablecontent-extcreate-error', get_class( $e ), $e->getMessage() )->text();
 		}
 
-		$this->getRequest()->getSession()->remove( self::SESSION_PREFIX . $token );
-		$this->getRequest()->getSession()->remove( self::SESSION_PREFIX . $token . ':class' );
+		$this->removeTokenValue( $token );
+		$this->removeTokenValue( $token, ':class' );
 		$target = $this->afterCreate( $itemId, $record );
 		if ( $target !== null ) {
 			$this->getOutput()->redirect( $target );
@@ -842,12 +849,11 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		if ( $token === null || $token === '' ) {
 			return [];
 		}
-		$session = $this->getRequest()->getSession();
-		$search = $session->get( self::SESSION_PREFIX . $token . ':search' );
+		$search = $this->getTokenValue( $token, ':search' );
 		if ( is_array( $search ) ) {
 			return $this->autofillRecord( $search );
 		}
-		$urlMeta = $session->get( self::SESSION_PREFIX . $token . ':urlmeta' );
+		$urlMeta = $this->getTokenValue( $token, ':urlmeta' );
 		return is_array( $urlMeta ) ? $this->autofillRecord( $urlMeta ) : [];
 	}
 
@@ -862,7 +868,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		if ( $token === null || $token === '' ) {
 			return [];
 		}
-		$urlMeta = $this->getRequest()->getSession()->get( self::SESSION_PREFIX . $token . ':urlmeta' );
+		$urlMeta = $this->getTokenValue( $token, ':urlmeta' );
 		return is_array( $urlMeta ) ? $urlMeta : [];
 	}
 
@@ -937,8 +943,8 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		}
 		if ( $this->recordHasContent( $record ) ) {
 			$token = \MWCryptRand::generateHex( 16 );
-			$this->getRequest()->getSession()->set( self::SESSION_PREFIX . $token, [ $record ] );
-			$this->getRequest()->getSession()->set( self::SESSION_PREFIX . $token . ':class', $classItemId );
+			$this->setTokenValue( $token, '', [ $record ] );
+			$this->setTokenValue( $token, ':class', $classItemId );
 			$this->getOutput()->redirect(
 				$this->stepTitle( 'manual/content' )->getFullURL( [ 'token' => $token ] )
 			);
@@ -954,7 +960,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 */
 	protected function executeManualContent(): void {
 		$token = $this->getRequest()->getVal( 'token' );
-		$records = $this->loadSessionRecords( $token );
+		$records = $this->loadTokenRecords( $token );
 		$record = $records[0] ?? null;
 		if ( $record === null || !is_array( $record ) ) {
 			$this->showExpired();
@@ -981,7 +987,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 */
 	public function onManualContentSubmit( array $data ) {
 		$token = $this->getRequest()->getVal( 'token' );
-		$records = $this->loadSessionRecords( $token );
+		$records = $this->loadTokenRecords( $token );
 		$record = $records[0] ?? null;
 		if ( $record === null || !is_array( $record ) ) {
 			return $this->msg( 'embeddablecontent-extselect-expired' )->text();
@@ -989,8 +995,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		$record = $this->applyContentFields( $record, $data );
 		$classItemId = (string)( $data['class'] ?? '' );
 		if ( $classItemId === '' ) {
-			$classItemId = (string)$this->getRequest()->getSession()
-				->get( self::SESSION_PREFIX . $token . ':class' );
+			$classItemId = (string)$this->getTokenValue( $token, ':class' );
 		}
 		if ( $classItemId === '' ) {
 			return $this->msg( 'embeddablecontent-extselect-classrequired' )->text();
@@ -1634,9 +1639,70 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	}
 
 	/** @return array<int,array<string,mixed>>|null */
-	private function loadSessionRecords( string $token ): ?array {
-		$records = $this->getRequest()->getSession()->get( self::SESSION_PREFIX . $token );
+	private function loadTokenRecords( string $token ): ?array {
+		$records = $this->getTokenValue( $token );
 		return is_array( $records ) && $records !== [] ? $records : null;
+	}
+
+	/**
+	 * TTL of the token-bound Add* data (search candidates, the URL-fetched
+	 * metadata, the pending duplicate payload). The MediaWiki session drops
+	 * its server-side entry after ~1h of inactivity, which surfaced as
+	 * "The search results have expired." on the review/manual step (a
+	 * contributor editing a harvested record longer than the session TTL).
+	 * The data is therefore ALSO stored in the main object stash for a week,
+	 * keyed by the unguessable 16-hex token, so reaching the
+	 * manual/verification step survives the session expiry.
+	 */
+	private const TOKEN_TTL = 604800; // 7 days
+
+	/**
+	 * The long-lived, token-keyed data store. The MediaWiki session is kept
+	 * as a same-day fallback (and for instances whose MainStash is
+	 * CACHE_NONE, where the stash silently no-ops and the session is the only
+	 * store — the historical behaviour).
+	 */
+	private function tokenStore(): \Wikimedia\ObjectCache\BagOStuff {
+		return \MediaWiki\MediaWikiServices::getInstance()->getMainObjectStash();
+	}
+
+	/** @return mixed the stored value, or null when absent */
+	protected function getTokenValue( string $token, string $suffix = '' ) {
+		$value = $this->tokenStore()->get( $this->tokenKey( $token, $suffix ) );
+		if ( $value !== false ) {
+			return $value;
+		}
+		$session = $this->getRequest()->getSession()->get( self::SESSION_PREFIX . $token . $suffix );
+		return $session !== null ? $session : null;
+	}
+
+	/** @param mixed $value */
+	protected function setTokenValue( string $token, string $suffix, $value ): void {
+		$this->tokenStore()->set(
+			$this->tokenKey( $token, $suffix ),
+			$value,
+			self::TOKEN_TTL
+		);
+		$this->getRequest()->getSession()->set( self::SESSION_PREFIX . $token . $suffix, $value );
+	}
+
+	protected function removeTokenValue( string $token, string $suffix = '' ): void {
+		$this->tokenStore()->delete( $this->tokenKey( $token, $suffix ) );
+		$this->getRequest()->getSession()->remove( self::SESSION_PREFIX . $token . $suffix );
+	}
+
+	/**
+	 * Stash key for a token (+ optional ':suffix'). The token is a 16-hex
+	 * unguessable nonce; scoping by the token alone (not the user id) is what
+	 * lets the data survive a session expiry — after which the request is
+	 * anonymous and the user id would no longer match the writing user.
+	 */
+	private function tokenKey( string $token, string $suffix = '' ): string {
+		return $this->tokenStore()->makeKey(
+			'EmbeddableContent',
+			'add-token',
+			$token . $suffix
+		);
 	}
 
 	private function showExpired(): void {

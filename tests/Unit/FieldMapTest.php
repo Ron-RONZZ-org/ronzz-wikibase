@@ -51,24 +51,32 @@ class FieldMapTest extends TestCase {
 	}
 
 	public function testSourceEveryClassExposesLanguage(): void {
-		// Every source class carries the optional `language` field (writing a
-		// language statement AND choosing the item label/description term
-		// language) EXCEPT `law`, whose language is INHERITED from the parent
-		// legislation (never a statement, never a form field).
+		// Every non-law source class carries the language field group: the
+		// primary `language`, the `additionalLanguages` list, the
+		// `otherLanguage` free text and the SEPARATE `labelLanguage` term
+		// language. `law`'s language is INHERITED from the parent legislation
+		// (never a statement, never a form field).
+		$group = [ 'language', 'additionalLanguages', 'otherLanguage', 'labelLanguage' ];
 		foreach ( SourceFieldMap::CLASS_KEYS as $classKey ) {
 			if ( $classKey === 'law' ) {
-				$this->assertFalse(
-					SourceFieldMap::acceptsField( $classKey, 'language' ),
-					'law must NOT expose the language field (it is inherited)'
-				);
+				foreach ( $group as $field ) {
+					$this->assertFalse(
+						SourceFieldMap::acceptsField( $classKey, $field ),
+						"law must NOT expose the $field field (it is inherited)"
+					);
+				}
 				continue;
 			}
-			$this->assertTrue(
-				SourceFieldMap::acceptsField( $classKey, 'language' ),
-				"class $classKey must expose the language field"
-			);
+			foreach ( $group as $field ) {
+				$this->assertTrue(
+					SourceFieldMap::acceptsField( $classKey, $field ),
+					"class $classKey must expose the $field field"
+				);
+			}
 		}
-		$this->assertContains( 'language', SourceFieldMap::ALL_FIELDS );
+		foreach ( $group as $field ) {
+			$this->assertContains( $field, SourceFieldMap::ALL_FIELDS );
+		}
 	}
 
 	public function testSourceRequiredOnCreateIsTitlePlusParentOnly(): void {
@@ -101,7 +109,7 @@ class FieldMapTest extends TestCase {
 		foreach ( [ 'referenceCode', 'content', 'translations', 'parent', 'description' ] as $field ) {
 			$this->assertContains( $field, $fields, "law must expose $field" );
 		}
-		foreach ( [ 'title', 'authors', 'language' ] as $field ) {
+		foreach ( [ 'title', 'authors', 'language', 'additionalLanguages', 'labelLanguage' ] as $field ) {
 			$this->assertNotContains( $field, $fields, "law must NOT expose $field" );
 		}
 		$this->assertSame( 'legislation', SourceFieldMap::PARENT_CLASS['law'] );

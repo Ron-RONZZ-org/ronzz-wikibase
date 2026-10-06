@@ -143,9 +143,27 @@ class ContentRenderer {
 		$title = $this->labelFor( $item, $negotiated );
 		$lastModified = $entityRevision ? $entityRevision->getTimestamp() : null;
 
+		// The cache key must be the REVISION the fragment was built from. A
+		// caller that passes no `rev` (action=embed, oEmbed, the Item-page
+		// preview) reads the item at its LATEST revision; keying that render
+		// at revision 0 made it immutable for the 30-day TTL, so an update
+		// was never reflected (the Q2039 stale math snippet preview).
+		// Resolve the latest revision id and key on it — a new revision then
+		// naturally misses the old entry. Wikibase's getLatestRevisionId()
+		// returns a LatestRevisionIdResult monad (a redirect carries the
+		// target's revision id), so map it to the int.
+		$revisionId = $entityRevision ? $entityRevision->getRevisionId() : 0;
+		if ( $revisionId <= 0 ) {
+			$revisionId = $this->revisionLookup->getLatestRevisionId( $id )
+				->onConcreteRevision( static fn ( int $revId ): int => $revId )
+				->onRedirect( static fn ( int $revId ): int => $revId )
+				->onNonexistentEntity( static fn (): int => 0 )
+				->map();
+		}
+
 		$cacheKey = $this->cache->makeKey(
 			'EmbeddableContent', 'embed', $id->getSerialization(),
-			(string)( $entityRevision ? $entityRevision->getRevisionId() : 0 ),
+			(string)$revisionId,
 			$format, $negotiated
 		);
 

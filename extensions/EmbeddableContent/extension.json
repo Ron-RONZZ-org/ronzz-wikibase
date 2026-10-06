@@ -257,6 +257,18 @@
 				"mobile"
 			]
 		},
+		"ext.embeddableContent.languagemulti": {
+			"scripts": [
+				"languagemulti.js"
+			],
+			"dependencies": [
+				"oojs-ui"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
 		"ext.embeddableContent.addmath": {
 			"scripts": [
 				"addmath.js"

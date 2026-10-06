@@ -329,19 +329,84 @@ class SourceFlowServiceTest extends TestCase {
 		$this->assertTrue( $this->hasStatement( $item, 'P8', null ) );
 	}
 
-	public function testLanguageWritesStatementAndLabelTermLanguage(): void {
+	public function testLanguageWritesStatementAndLabelLanguageSetsTerm(): void {
 		$service = $this->makeService();
+		$record = [
+			'title' => 'Le Hobbit',
+			'language' => 'fr',
+			'labelLanguage' => 'fr',
+			'authors' => 'Q6',
+		];
+
+		$this->assertNull( $service->prepare( 'book', $record, true ) );
+		$item = $service->buildItem( 'book', $record );
+
+		// The label lives in the chosen label language, not en.
+		$this->assertTrue( $item->getLabels()->hasTermForLanguage( 'fr' ) );
+		$this->assertFalse( $item->getLabels()->hasTermForLanguage( 'en' ) );
+		$this->assertSame( 'Le Hobbit (Book)', $item->getLabels()->getByLanguage( 'fr' )->getText() );
+		// The source language code is written as a string statement.
+		$this->assertSame( 'fr', $this->statementValue( $item, 'P68' ) );
+	}
+
+	public function testSourceLanguageDoesNotMoveTheTermLanguage(): void {
+		$service = $this->makeService();
+		// A French-language source with the default (English) label language:
+		// the statement is fr but the label stays en.
 		$record = [ 'title' => 'Le Hobbit', 'language' => 'fr', 'authors' => 'Q6' ];
 
 		$this->assertNull( $service->prepare( 'book', $record, true ) );
 		$item = $service->buildItem( 'book', $record );
 
-		// Chosen-language-only: the label lives in fr, not en.
-		$this->assertTrue( $item->getLabels()->hasTermForLanguage( 'fr' ) );
-		$this->assertFalse( $item->getLabels()->hasTermForLanguage( 'en' ) );
-		$this->assertSame( 'Le Hobbit (Book)', $item->getLabels()->getByLanguage( 'fr' )->getText() );
-		// The language code is written as a string statement.
+		$this->assertTrue( $item->getLabels()->hasTermForLanguage( 'en' ) );
+		$this->assertFalse( $item->getLabels()->hasTermForLanguage( 'fr' ) );
 		$this->assertSame( 'fr', $this->statementValue( $item, 'P68' ) );
+	}
+
+	public function testMultiLanguageWritesOneStatementPerCode(): void {
+		$service = $this->makeService();
+		$record = [
+			'title' => 'Multilingual text',
+			'language' => 'en',
+			'additionalLanguages' => 'fr, eo',
+		];
+
+		$this->assertNull( $service->prepare( 'book', $record, true ) );
+		$item = $service->buildItem( 'book', $record );
+
+		$codes = [];
+		foreach ( $item->getStatements()->getByPropertyId( new PropertyId( 'P68' ) ) as $statement ) {
+			$value = $statement->getMainSnak()->getDataValue();
+			$this->assertInstanceOf( StringValue::class, $value );
+			$codes[] = $value->getValue();
+		}
+		$this->assertSame( [ 'en', 'fr', 'eo' ], $codes );
+	}
+
+	public function testOtherLanguageFreeTextWritesStatement(): void {
+		$service = $this->makeService();
+		$record = [
+			'title' => 'Old text',
+			'language' => SourceFlowService::OTHER_LANGUAGE,
+			'otherLanguage' => 'Old Norse',
+		];
+
+		$this->assertNull( $service->prepare( 'book', $record, true ) );
+		$item = $service->buildItem( 'book', $record );
+
+		$this->assertSame( 'Old Norse', $this->statementValue( $item, 'P68' ) );
+	}
+
+	public function testOtherLanguageWithoutValueRejected(): void {
+		$service = $this->makeService();
+		$record = [
+			'title' => 'Old text',
+			'language' => SourceFlowService::OTHER_LANGUAGE,
+		];
+
+		$error = $service->prepare( 'book', $record, true );
+		$this->assertIsString( $error );
+		$this->assertStringContainsString( 'Other', $error );
 	}
 
 	public function testLanguageDefaultsToEnglishWhenBlank(): void {
@@ -371,6 +436,7 @@ class SourceFlowServiceTest extends TestCase {
 		$service->applyUpdate( 'book', $item, [
 			'title' => 'Le Hobbit',
 			'language' => 'fr',
+			'labelLanguage' => 'fr',
 			'description' => 'Un roman',
 		] );
 
