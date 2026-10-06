@@ -1667,7 +1667,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	}
 
 	/** @return mixed the stored value, or null when absent */
-	private function getTokenValue( string $token, string $suffix = '' ) {
+	protected function getTokenValue( string $token, string $suffix = '' ) {
 		$value = $this->tokenStore()->get( $this->tokenKey( $token, $suffix ) );
 		if ( $value !== false ) {
 			return $value;
@@ -1677,7 +1677,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	}
 
 	/** @param mixed $value */
-	private function setTokenValue( string $token, string $suffix, $value ): void {
+	protected function setTokenValue( string $token, string $suffix, $value ): void {
 		$this->tokenStore()->set(
 			$this->tokenKey( $token, $suffix ),
 			$value,
@@ -1686,7 +1686,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		$this->getRequest()->getSession()->set( self::SESSION_PREFIX . $token . $suffix, $value );
 	}
 
-	private function removeTokenValue( string $token, string $suffix = '' ): void {
+	protected function removeTokenValue( string $token, string $suffix = '' ): void {
 		$this->tokenStore()->delete( $this->tokenKey( $token, $suffix ) );
 		$this->getRequest()->getSession()->remove( self::SESSION_PREFIX . $token . $suffix );
 	}
