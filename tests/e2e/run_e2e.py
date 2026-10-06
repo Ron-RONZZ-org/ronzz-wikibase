@@ -465,6 +465,7 @@ def xss(args: argparse.Namespace) -> int:
 
 RICH_QUOTE_LABEL = "E2E rich-content quotation"
 RICH_MATH_LABEL = "E2E math-note item"
+RICH_CACHE_LABEL = "E2E embed-cache refresh item"
 NOTE_MARKER = "E2E-NOTE-MARKER"
 QUOTE_MARKER = "E2E-QUOTE-MARKER"
 
@@ -506,9 +507,10 @@ def rich(args: argparse.Namespace) -> int:
 
     quote_id = None
     math_id = None
+    cache_math_id = None
     try:
         # Purge leftovers from an interrupted run (idempotent re-runs).
-        for label in (RICH_QUOTE_LABEL, RICH_MATH_LABEL):
+        for label in (RICH_QUOTE_LABEL, RICH_MATH_LABEL, RICH_CACHE_LABEL):
             for hit in api.search_entities(label, "item", "en"):
                 if hit.get("label") == label:
                     try:
@@ -594,6 +596,18 @@ def rich(args: argparse.Namespace) -> int:
             source_property: item_claim(source_property, item_value(math_id)),
             attributed_to_property: item_claim(attributed_to_property, item_value(math_id)),
         }, "E2E rich suite: quotation source + attribution")
+
+        # A scratch math item for the embed-cache regression (below): created
+        # WITHOUT a note so a later note-adding edit changes the rendered
+        # fragment.
+        cache_math_id = api.create_item(
+            { "en": RICH_CACHE_LABEL }, { "en": "E2E embed cache refresh" },
+            "E2E rich suite: create embed-cache item",
+        )
+        api.add_claims(cache_math_id, {
+            instance_of: item_claim(instance_of, item_value(math_class)),
+            latex_source: item_claim(latex_source, { "value": "y^3", "type": "string" }),
+        }, "E2E rich suite: embed-cache claims")
 
         failures: list[str] = []
 
@@ -718,6 +732,25 @@ def rich(args: argparse.Namespace) -> int:
             html = body.decode("utf-8", "replace")
             expect(QUOTE_MARKER in html, "the author-mode listing did not show the quotation")
 
+        def embed_reflects_latest_revision() -> None:
+            # Q2039 regression: action=embed with no `rev` rendered the item
+            # at its latest revision but cached the fragment under revision 0
+            # for the 30-day TTL — so the Item-page preview (contentpreview.js)
+            # never changed after an edit. The scratch item starts without a
+            # note; adding one mints a new revision, and the second embed must
+            # show it.
+            before = embed(cache_math_id)
+            expect(NOTE_MARKER not in before, "embed-cache item unexpectedly already carries a note")
+            api.add_claims(cache_math_id, {
+                note_property: item_claim(note_property, { "value": NOTE_MARKER, "type": "string" }),
+            }, "E2E rich suite: embed-cache note update")
+            after = embed(cache_math_id)
+            expect(
+                NOTE_MARKER in after,
+                "action=embed served a stale fragment after the item was updated",
+            )
+
+        run_check("embed reflects the latest revision after an update (Q2039)", embed_reflects_latest_revision)
         run_check("quotation payload parses as wikitext (embed surface)", quotation_is_rich)
         run_check("quotation payload parses as wikitext ({{#content:}})", quotation_rich_in_parser_function)
         run_check("math note renders below the expression (embed surface)", math_note_renders)
@@ -737,7 +770,7 @@ def rich(args: argparse.Namespace) -> int:
         print(f"\nRICH E2E FAILED: {exc}")
         return 1
     finally:
-        for qid in (quote_id, math_id):
+        for qid in (quote_id, math_id, cache_math_id):
             if qid:
                 try:
                     api.delete_item(qid, "E2E rich suite: cleanup")

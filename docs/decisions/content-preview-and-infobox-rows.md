@@ -109,6 +109,22 @@ untouched.
   content create/update paths, so the source's and the author's classic pages
   both refresh (the linked item's own revision does not change).
 
+### 5. The Item-page preview refreshes after an edit (fix, 2026-10-06)
+
+The embed cache key (`ContentRenderer::render`) was
+`… : {revisionId} : …`, but callers that pass **no `rev`** — `action=embed`
+(used by `contentpreview.js` on the Item page), oEmbed and `Special:Embed`
+without `?rev` — built the fragment from the item's *latest* revision while
+keying the cache at revision **`0`**. The entry was therefore never
+invalidated by an edit and was served from the 30-day stash TTL, so the
+Item-page preview kept showing the pre-edit content (the Q2039 math-snippet
+report). `render()` now resolves the latest revision id when no explicit
+`rev` is given and keys the cache on it, so a new revision naturally misses
+the old entry. `{{#content:}}` (which reads statements directly) was already
+unaffected. Regression: the `rich` E2E suite creates a math item without a
+note, embeds it, adds the note (a new revision) and asserts the second embed
+carries the note.
+
 ## Deployment
 
 Two ordered steps:

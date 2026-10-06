@@ -143,9 +143,21 @@ class ContentRenderer {
 		$title = $this->labelFor( $item, $negotiated );
 		$lastModified = $entityRevision ? $entityRevision->getTimestamp() : null;
 
+		// The cache key must be the REVISION the fragment was built from. A
+		// caller that passes no `rev` (action=embed, oEmbed, the Item-page
+		// preview) reads the item at its LATEST revision; keying that render
+		// at revision 0 made it immutable for the 30-day TTL, so an update
+		// was never reflected (the Q2039 stale math snippet preview).
+		// Resolve the latest revision id and key on it — a new revision then
+		// naturally misses the old entry.
+		$revisionId = $entityRevision ? $entityRevision->getRevisionId() : 0;
+		if ( $revisionId <= 0 ) {
+			$revisionId = $this->revisionLookup->getLatestRevisionId( $id ) ?? 0;
+		}
+
 		$cacheKey = $this->cache->makeKey(
 			'EmbeddableContent', 'embed', $id->getSerialization(),
-			(string)( $entityRevision ? $entityRevision->getRevisionId() : 0 ),
+			(string)$revisionId,
 			$format, $negotiated
 		);
 
