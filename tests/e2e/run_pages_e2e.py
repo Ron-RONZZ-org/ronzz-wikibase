@@ -271,10 +271,10 @@ def has_cancel_link(body: str, qid: str) -> bool:
     """Whether the form renders a cancel button pointing at the item.
 
     MW 1.46's OOUIHTMLForm wraps the cancel in an OOUI ButtonWidget — an
-    ``<a href>`` whose label is the nested "Cancel" span — so match an anchor
-    whose inner text carries Cancel and whose href names the item."""
+    ``<a href>`` whose label is the nested "Cancel" span. OOUI renders its
+    attributes single-quoted, so accept either quote style."""
     pattern = re.compile(
-        r'<a\b[^>]*href="([^"]+)"[^>]*>(?:(?!</a>).)*?Cancel(?:(?!</a>).)*?</a>',
+        r"""<a\b[^>]*href=['"]([^'"]+)['"][^>]*>(?:(?!</a>).)*?Cancel(?:(?!</a>).)*?</a>""",
         re.DOTALL,
     )
     return any(qid in m.group(1) for m in pattern.finditer(body))
@@ -987,13 +987,7 @@ def flow_update_person(op, base: str, api: str, qid: str, new_description: str) 
     if "Update a person" not in body:
         raise FlowError(f"Special:UpdatePerson/{qid} did not render: {find_error(body)}")
     if not has_cancel_link(body, qid):
-        idx = body.find('mw-htmlform-submit-buttons')
-        if idx < 0:
-            idx = body.lower().find('cancel')
-        snip = body[idx:idx + 1500] if idx >= 0 else body[-800:]
-        raise FlowError(
-            f"Special:UpdatePerson/{qid} is missing a Cancel link to the item "
-            f"(Cancel in body: {'Cancel' in body}); region: {snip!r}")
+        raise FlowError(f"Special:UpdatePerson/{qid} is missing a Cancel link to the item")
     given = input_value(body, "wpgivenName")
     family = input_value(body, "wpfamilyName")
     if not given or not family:
