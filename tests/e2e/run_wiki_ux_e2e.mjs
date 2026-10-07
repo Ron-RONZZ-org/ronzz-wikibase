@@ -121,20 +121,29 @@ async function main() {
 			console.log('[ok] File: copy-link button copies the direct media URL');
 		}
 
-		// --- classic content page: "Copy internal reference" -------------
+		// --- classic content page: "Copy internal mention" ---------------
 		// The toolbar is inline inside the title (the File: page pattern) and
-		// copies [[Page name]] for linking to the page from anywhere.
-		await page.goto(`${BASE_URL}/wiki/Main_Page`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-		await page.waitForSelector('#ca-wb-content-copyref', { timeout: 15000 });
-		if (await page.locator('#firstHeading #ca-wb-content-copyref').count() !== 1) {
-			failures.push('content-page copy-reference button is not inline inside the title');
-		}
-		await page.locator('#ca-wb-content-copyref').click();
-		const copiedRef = await page.evaluate(() => navigator.clipboard.readText());
-		if (copiedRef !== '[[Main Page]]') {
-			failures.push(`copy-reference copied ${JSON.stringify(copiedRef)}, expected [[Main Page]]`);
-		} else {
-			console.log('[ok] content-page copy-reference button copies the [[Page]] snippet');
+		// copies a [[Page name]] internal link. In the Main namespace the
+		// first letter is lowercased unless the title is a proper name
+		// (every word capitalized): "Main Page" stays as-is, while
+		// "Classical mechanics" becomes [[classical mechanics]].
+		const mentionCases = [
+			[ 'Main_Page', '[[Main Page]]' ],
+			[ 'Classical_mechanics', '[[classical mechanics]]' ],
+		];
+		for ( const [ pageName, expected ] of mentionCases ) {
+			await page.goto(`${BASE_URL}/wiki/${pageName}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+			await page.waitForSelector('#ca-wb-content-copymention', { timeout: 15000 });
+			if (await page.locator('#firstHeading #ca-wb-content-copymention').count() !== 1) {
+				failures.push(`content-page copy-mention button is not inline inside the title (${pageName})`);
+			}
+			await page.locator('#ca-wb-content-copymention').click();
+			const copiedRef = await page.evaluate(() => navigator.clipboard.readText());
+			if (copiedRef !== expected) {
+				failures.push(`copy-mention on ${pageName} copied ${JSON.stringify(copiedRef)}, expected ${expected}`);
+			} else {
+				console.log(`[ok] content-page copy-mention button copies ${expected} (${pageName})`);
+			}
 		}
 
 		// --- Item: content-item rendered preview -------------------------

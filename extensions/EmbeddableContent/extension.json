@@ -578,8 +578,8 @@
 				"mediawiki.util"
 			],
 			"messages": [
-				"embeddablecontent-contentpage-copyref",
-				"embeddablecontent-contentpage-copyref-hint",
+				"embeddablecontent-contentpage-copymention",
+				"embeddablecontent-contentpage-copymention-hint",
 				"embeddablecontent-gadget-copied"
 			],
 			"targets": [

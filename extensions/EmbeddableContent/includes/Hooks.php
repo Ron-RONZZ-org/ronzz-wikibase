@@ -245,15 +245,23 @@ class Hooks {
 		}
 
 		// Ordinary content pages (Main, Help, Cheatsheets, HowItWorks, …) —
-		// the "Copy internal reference" button, rendered inline next to the
+		// the "Copy internal mention" button, rendered inline next to the
 		// title (the File: page copy-button pattern). Entity pages
 		// (Item:/Property:), Special pages, File: pages and the per-kind
 		// classic namespaces are handled above; only real, existing content
-		// pages qualify.
+		// pages qualify. The `[[…]]` snippet is normalized server-side
+		// (MentionSnippet): Main-namespace titles lowercase their first
+		// letter unless they are proper names; other namespaces are kept.
 		if ( $title->exists() && $title->isContentPage()
 			&& !self::isEntityNamespace( $title->getNamespace() )
 		) {
-			$out->addJsConfigVars( 'wbReferencePageName', $title->getPrefixedText() );
+			$out->addJsConfigVars(
+				'wbReferenceSnippet',
+				\EmbeddableContent\Spec\MentionSnippet::fromPrefixedTitle(
+					$title->getPrefixedText(),
+					$title->getNamespace() === NS_MAIN
+				)
+			);
 			$out->addModules( 'ext.embeddableContent.contentpagetoolbar' );
 			return;
 		}

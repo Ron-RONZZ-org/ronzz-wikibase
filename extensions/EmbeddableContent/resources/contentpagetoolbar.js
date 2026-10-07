@@ -1,14 +1,15 @@
 /**
  * Classic content-page action toolbar, rendered INLINE to the right of the
  * page title (the File: page copy-button pattern). Its first action is the
- * "Copy internal reference" button: it copies `[[Page name]]` so an editor
+ * "Copy internal mention" button: it copies `[[Page name]]` so an editor
  * can link to this page from anywhere on the wiki.
  *
  * The module is deliberately generic (a content-page action toolbar): future
  * page-level actions join the same inline row.
  *
- * The server resolves the page's prefixed title into wbReferencePageName
- * (Hooks::onBeforePageDisplay), so the module needs no API roundtrip.
+ * The server resolves the page's `[[…]]` snippet into wbReferenceSnippet
+ * (Hooks::onBeforePageDisplay + Spec\MentionSnippet), so the module needs no
+ * API roundtrip.
  */
 ( function () {
 	'use strict';
@@ -63,19 +64,18 @@
 	}
 
 	mw.loader.using( [ 'mediawiki.notification', 'mediawiki.util' ] ).then( function () {
-		var name = mw.config.get( 'wbReferencePageName' );
-		if ( !name || $( '#firstHeading' ).length === 0 ) {
+		var snippet = mw.config.get( 'wbReferenceSnippet' );
+		if ( !snippet || $( '#firstHeading' ).length === 0 ) {
 			return;
 		}
-		if ( $( '#ca-wb-content-copyref' ).length > 0 ) {
+		if ( $( '#ca-wb-content-copymention' ).length > 0 ) {
 			return;
 		}
-		var snippet = '[[' + name + ']]';
 		var $toolbar = $( '<span class="wb-content-page-toolbar"></span>' )
 			.append( makeButton(
-				'ca-wb-content-copyref',
-				'embeddablecontent-contentpage-copyref',
-				'embeddablecontent-contentpage-copyref-hint',
+				'ca-wb-content-copymention',
+				'embeddablecontent-contentpage-copymention',
+				'embeddablecontent-contentpage-copymention-hint',
 				function () { copyText( snippet ); }
 			) );
 		$( '#firstHeading' ).append( $toolbar );
