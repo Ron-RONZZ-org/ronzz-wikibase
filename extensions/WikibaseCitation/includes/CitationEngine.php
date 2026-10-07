@@ -201,6 +201,53 @@ class CitationEngine {
 	}
 
 	/**
+	 * Renders a citation for a WIKI PAGE (not a Wikibase item) — the classic
+	 * content-page "Copy citation" (issue follow-up): the page title, its
+	 * canonical URL, the site name, and its LAST-revision date (the page's
+	 * "last edition"). The caller resolves those primitives (MW-bound) and
+	 * this method builds the CSL-JSON (PageCitationBuilder), formats it and
+	 * caches on the page title + revision timestamp.
+	 *
+	 * @throws CitationException on an unsupported style
+	 */
+	public function renderPage(
+		string $pageTitle,
+		string $url,
+		?string $siteName,
+		?string $timestamp,
+		string $style,
+		string $format = 'text',
+		?string $language = null
+	): string {
+		if ( !in_array( $style, CitationFormatter::STYLES, true ) ) {
+			throw new CitationException( "Unsupported citation style: '$style'" );
+		}
+		$csl = PageCitationBuilder::build( $pageTitle, $url, $siteName, $timestamp );
+
+		// json is verbatim and never cached; the formatted styles cache on
+		// the page title + last-revision timestamp (a new revision misses).
+		$cacheKey = $this->cache->makeKey(
+			'WikibaseCitation', 'page', sha1( $pageTitle ), (string)$timestamp,
+			$style, $format, $language ?? ''
+		);
+		if ( $style !== 'json' ) {
+			$cached = $this->cache->get( $cacheKey );
+			if ( is_string( $cached ) ) {
+				return $cached;
+			}
+		}
+
+		$text = $this->formatter->format( $csl, $style, $format );
+		if ( $style !== 'json' ) {
+			if ( $format === 'html' && ( $style === 'apa' || $style === 'vancouver' ) ) {
+				$text = $this->sanitizer->sanitizeHtml( $text );
+			}
+			$this->cache->set( $cacheKey, $text, self::CACHE_TTL );
+		}
+		return $text;
+	}
+
+	/**
 	 * Loads the item behind an entity id string.
 	 *
 	 * @throws InvalidCitationIdException when the id is not a valid item id

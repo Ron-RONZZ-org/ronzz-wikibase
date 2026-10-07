@@ -8,6 +8,8 @@
 	"wikibasecitation-desc": "Citi Wikibase-elementojn en normaj cistiloj",
 	"wikibasecitation-error-invalidentity": "Nevalida ento-identigilo.",
 	"wikibasecitation-error-notfound": "Ento ne trovita.",
+	"wikibasecitation-error-needtarget": "Donu aŭ enton aŭ paĝon por citi.",
+	"wikibasecitation-error-pagenotfound": "Paĝo ne trovita.",
 	"wikibasecitation-cite-error-missing-id": "Neniu ento-identigilo donita. Uzado: {{#cite:Q42|style=apa|output=html}}.",
 	"wikibasecitation-cite-error-invalidentity": "Nevalida ento-identigilo: $1.",
 	"wikibasecitation-cite-error-notfound": "Ento $1 ne trovita.",
