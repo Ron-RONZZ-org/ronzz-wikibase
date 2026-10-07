@@ -3474,6 +3474,15 @@ def flow_add_more(op, base: str, api: str, person_qid: str, source_url: str) -> 
         raise FlowError(f"Add-more did not carry sourceUrl: {url}")
     if "label" in q or "payload" in q:
         raise FlowError(f"Add-more carried label/payload over (they must reset): {url}")
+    # The created item rides the return trip so the reopened form pops up its
+    # preview (the Add* success popup).
+    created = (q.get("created") or [""])[0]
+    if not re.match(r"^Q[1-9]\d*$", created):
+        raise FlowError(f"Add-more did not carry the created item id (?created=): {url}")
+    if "wbJustAddedItem" not in body:
+        raise FlowError("Add-more return trip did not wire the success popup (wbJustAddedItem)")
+    if "ext.embeddableContent.addmore" not in body:
+        raise FlowError("Add-more return trip did not load the addmore module")
     # The reopened form: label back to the default prefill, provenance
     # prefilled, the previous payload GONE.
     if input_value(body, "wplabel") != "(quotation)":
