@@ -30,6 +30,7 @@ class ApiEmbed extends ApiBase {
 		$params = $this->extractRequestParams();
 		$format = $params['output'];
 		$lang = $params['lang'] !== null ? $params['lang'] : null;
+		$preview = $params['preview'];
 
 		$id = $this->parseItemId( $params['entity'] );
 		if ( $id === null ) {
@@ -39,7 +40,7 @@ class ApiEmbed extends ApiBase {
 		$acceptLanguages = array_keys( $this->getMain()->getRequest()->getAcceptLang() );
 
 		try {
-			$result = $this->renderer->render( $id, $format, $lang, null, $acceptLanguages );
+			$result = $this->renderer->render( $id, $format, $lang, null, $acceptLanguages, $preview );
 		} catch ( RenderException $e ) {
 			$this->dieWithError( [ 'rawmessage' => $e->getMessage() ], $e->getErrorCode() );
 		}
@@ -73,6 +74,12 @@ class ApiEmbed extends ApiBase {
 			'lang' => [
 				self::PARAM_TYPE => 'string',
 				self::PARAM_REQUIRED => false,
+			],
+			// The in-wiki preview mode (Item page + Add* popup): a quotation
+			// renders original + reader-language translation + attribution.
+			'preview' => [
+				self::PARAM_TYPE => 'boolean',
+				self::PARAM_DFLT => false,
 			],
 		];
 	}

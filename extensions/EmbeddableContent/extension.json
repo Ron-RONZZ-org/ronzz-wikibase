@@ -278,6 +278,7 @@
 			],
 			"dependencies": [
 				"ext.embeddableContent.katex",
+				"ext.embeddableContent.inlinekatex",
 				"mediawiki.api",
 				"oojs-ui"
 			],
@@ -322,7 +323,20 @@
 			],
 			"dependencies": [
 				"mediawiki.api",
-				"ext.embeddableContent.embed"
+				"ext.embeddableContent.embed",
+				"ext.embeddableContent.inlinekatex"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.inlinekatex": {
+			"scripts": [
+				"inlinekatex.js"
+			],
+			"dependencies": [
+				"ext.embeddableContent.katex"
 			],
 			"targets": [
 				"desktop",

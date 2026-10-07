@@ -8,8 +8,8 @@ use DataValues\MonolingualTextValue;
 use DataValues\StringValue;
 use EmbeddableContent\Content\ContentWikitext;
 use EmbeddableContent\Content\PayloadCodec;
+use EmbeddableContent\Content\ProvenanceWikitext;
 use EmbeddableContent\EmbeddableContentConfig;
-use EmbeddableContent\Spec\EntityLabelText;
 use MediaWiki\Parser\Parser;
 use Wikibase\DataModel\Entity\EntityId;
 use Wikibase\DataModel\Entity\EntityIdValue;
@@ -348,7 +348,8 @@ final class ContentPayload {
 	 * label; sources are the `source` entities rendered italic and linked
 	 * to their classic page (`''[[Source:Beloved (Book)|Beloved]]''`), or
 	 * the plain italic label when the item has no page. Empty when the item
-	 * carries neither statement.
+	 * carries neither statement. The resolution is shared with the embed
+	 * preview (Content/ProvenanceWikitext).
 	 */
 	private static function quotationAttribution(
 		Item $item,
@@ -356,58 +357,30 @@ final class ContentPayload {
 		Parser $parser
 	): string {
 		$provenance = $config->provenancePropertyIds();
-		$authors = [];
-		foreach ( self::entityIds( $item, $provenance['attributedTo'] ?? null ) as $authorId ) {
-			$authors[] = self::entityInfo( $authorId )['label'] ?? $authorId;
-			self::registerEntityDependency( $parser, $authorId );
-		}
-		$sources = [];
-		foreach ( self::entityIds( $item, $provenance['source'] ?? null ) as $sourceId ) {
-			$sources[] = self::sourceWikitext( $sourceId, $parser );
-		}
+		$lookup = WikibaseRepo::getEntityLookup();
+
+		$authorProperty = $provenance['attributedTo'] ?? null;
+		$authors = ProvenanceWikitext::authorLabels( $item, $authorProperty, $lookup );
+		self::registerEntityDependencies( $parser, ProvenanceWikitext::entityIds( $item, $authorProperty ) );
+
+		$sourceProperty = $provenance['source'] ?? null;
+		$sources = ProvenanceWikitext::sourceWikitexts( $item, $sourceProperty, $lookup );
+		self::registerEntityDependencies( $parser, ProvenanceWikitext::entityIds( $item, $sourceProperty ) );
+
 		return ContentWikitext::quotationAttribution( $authors, $sources );
 	}
 
 	/**
-	 * The engine-id values of a wikibase-item property, in statement order.
+	 * Best-effort parser-cache dependency on each item page (editing the
+	 * author/source re-renders every consumer). A malformed id or a
+	 * registration failure never breaks the parse.
 	 *
-	 * @return string[]
+	 * @param string[] $itemIds
 	 */
-	private static function entityIds( Item $item, ?string $propertyId ): array {
-		if ( $propertyId === null || $propertyId === '' ) {
-			return [];
+	private static function registerEntityDependencies( Parser $parser, array $itemIds ): void {
+		foreach ( $itemIds as $itemId ) {
+			self::registerEntityDependency( $parser, $itemId );
 		}
-		$ids = [];
-		foreach ( $item->getStatements() as $statement ) {
-			$snak = $statement->getMainSnak();
-			if ( !$snak instanceof PropertyValueSnak
-				|| $snak->getPropertyId()->getSerialization() !== $propertyId
-			) {
-				continue;
-			}
-			$value = $snak->getDataValue();
-			if ( $value instanceof EntityIdValue ) {
-				$ids[] = $value->getEntityId()->getSerialization();
-			}
-		}
-		return $ids;
-	}
-
-	/**
-	 * The italic wikitext for a source: a link to its classic page when it
-	 * has one (`''[[Source:Beloved (Book)|Beloved]]''`), else the plain
-	 * italic label (`''Beloved''`). Registers the source item as a
-	 * parser-cache dependency. Never throws — a malformed/missing entity
-	 * degrades to the bare id.
-	 */
-	private static function sourceWikitext( string $sourceId, Parser $parser ): string {
-		$info = self::entityInfo( $sourceId );
-		$label = $info['label'] ?? $sourceId;
-		self::registerEntityDependency( $parser, $sourceId );
-		if ( $info['page'] === null || $info['page'] === '' ) {
-			return "''" . $label . "''";
-		}
-		return "''[[" . $info['page'] . '|' . $label . "]]''";
 	}
 
 	/**
@@ -421,33 +394,6 @@ final class ContentPayload {
 		} catch ( \Throwable $e ) {
 			// Best-effort: a cache dependency must never break the parse.
 		}
-	}
-
-	/**
-	 * The en label + local classic-page title of an item, or nulls when it
-	 * does not exist.
-	 *
-	 * @return array{label:?string,page:?string}
-	 */
-	private static function entityInfo( string $itemId ): array {
-		try {
-			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
-		} catch ( \Throwable $e ) {
-			return [ 'label' => null, 'page' => null ];
-		}
-		if ( !$item instanceof Item ) {
-			return [ 'label' => null, 'page' => null ];
-		}
-		$label = EntityLabelText::of( $item );
-		$siteLinks = $item->getSiteLinkList();
-		// getBySiteId() THROWS when the site link is absent — guard it.
-		$sitelink = $siteLinks->hasLinkWithSiteId( self::SITE_ID )
-			? $siteLinks->getBySiteId( self::SITE_ID )
-			: null;
-		return [
-			'label' => $label,
-			'page' => $sitelink?->getPageName(),
-		];
 	}
 
 	/** The Pygments lexer for the item's programming-language statement. */

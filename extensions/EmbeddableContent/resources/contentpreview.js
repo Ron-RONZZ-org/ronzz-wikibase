@@ -41,6 +41,11 @@
 		} else {
 			$( '#firstHeading' ).after( $preview );
 		}
+		// The embed fragment may carry a math note (rich wikitext with inline
+		// `$…$`): the modules the server render declares (SimpleMathJax) are
+		// NOT loaded on the Item page, so typeset it with the vendored KaTeX
+		// (shared with the AddMath live preview).
+		mw.embeddableContent.typesetInlineMath( $preview[ 0 ] );
 		// Let math.js / code.js typeset KaTeX and highlight the injected
 		// code (their initial pass already ran).
 		mw.hook( 'ext.embeddableContent.embedContentAdded' ).fire( $preview );
@@ -48,7 +53,16 @@
 
 	mw.loader.using( [ 'mediawiki.api', 'ext.embeddableContent.embed' ] ).then( function () {
 		var api = new mw.Api();
-		api.get( { action: 'embed', entity: item, output: 'html' } ).done( function ( data ) {
+		// preview=1 renders the in-wiki preview variant (quotation: original +
+		// reader-language translation + attribution); lang= the reader's
+		// interface language so the translation block matches what they read.
+		api.get( {
+			action: 'embed',
+			entity: item,
+			output: 'html',
+			preview: 1,
+			lang: mw.config.get( 'wgUserLanguage' ) || 'en'
+		} ).done( function ( data ) {
 			var html = data && data.embed && data.embed.html;
 			// Not embeddable (missing payload / wrong class): render nothing —
 			// the Item page still shows the statements.
