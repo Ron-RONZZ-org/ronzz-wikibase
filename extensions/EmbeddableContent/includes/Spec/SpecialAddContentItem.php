@@ -65,6 +65,43 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		if ( $this->getKind() === 'math' ) {
 			$this->addMathPreviewBox();
 		}
+		$this->maybeWireAddMorePopup();
+	}
+
+	/**
+	 * On the "Add more" return trip (?addmore=1&created=<Qid>) the previous
+	 * submit carries the created item id — render a success popup with the
+	 * just-added item's preview and the entity actions (Edit content /
+	 * Copy Embed code / Copy citation), so the contributor sees what landed
+	 * while the form is ready for the next item.
+	 */
+	private function maybeWireAddMorePopup(): void {
+		$created = trim( (string)$this->getRequest()->getVal( 'created', '' ) );
+		if ( $created === '' ) {
+			return;
+		}
+		try {
+			$id = WikibaseRepo::getEntityIdParser()->parse( $created );
+		} catch ( \Throwable $e ) {
+			return;
+		}
+		if ( !$id instanceof ItemId ) {
+			return;
+		}
+		$this->getOutput()->addJsConfigVars( 'wbJustAddedItem', $id->getSerialization() );
+		$updatePages = [
+			'quotation' => 'UpdateQuotation',
+			'math' => 'UpdateMath',
+			'code' => 'UpdateCodeSnippet',
+		];
+		$updatePage = $updatePages[$this->getKind()] ?? null;
+		if ( $updatePage !== null ) {
+			$this->getOutput()->addJsConfigVars(
+				'wbJustAddedEditUrl',
+				SpecialPage::getTitleFor( $updatePage, $id->getSerialization() )->getFullURL()
+			);
+		}
+		$this->getOutput()->addModules( 'ext.embeddableContent.addmore' );
 	}
 
 	/** @var \EmbeddableContent\Flow\SpecialContentFlowService|null lazily built */
@@ -383,6 +420,11 @@ abstract class SpecialAddContentItem extends SpecialPage {
 	 */
 	private function addMoreUrl( array $data ): string {
 		$params = [ 'addmore' => '1' ];
+		// The created item rides the return trip so the reopened form can
+		// pop up its preview (maybeWireAddMorePopup).
+		if ( $this->createdItemId !== null ) {
+			$params['created'] = $this->createdItemId->getSerialization();
+		}
 		foreach ( self::CARRY_OVER_FIELDS as $name ) {
 			$value = trim( (string)( $data[$name] ?? '' ) );
 			if ( $value !== '' ) {

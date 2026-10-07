@@ -104,3 +104,10 @@
 	margin-top: 0.5em;
 	text-align: right;
 }
+
+/* Add* "Add more" success popup (resources/addmore.js): the just-added item's
+ * preview + the entity actions (Edit content / Copy Embed code / Copy
+ * citation). */
+.wb-addmore-preview {
+	margin-bottom: 0.75em;
+}

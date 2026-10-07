@@ -38,6 +38,8 @@
 	"embeddablecontent-add-label-default-code": "(code snippet)",
 	"embeddablecontent-add-label-default-math": "(math snippet)",
 	"embeddablecontent-add-more": "Add more",
+	"embeddablecontent-addmore-title": "Item added",
+	"embeddablecontent-addmore-close": "Close",
 	"embeddablecontent-add-payload": "Content",
 	"embeddablecontent-add-quotation-payload": "Quotation text",
 	"embeddablecontent-add-language": "Language",

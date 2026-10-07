@@ -25,6 +25,8 @@
 	"embeddablecontent-add-label-default-code": "(code snippet)",
 	"embeddablecontent-add-label-default-math": "(math snippet)",
 	"embeddablecontent-add-more": "Ajouter un autre",
+	"embeddablecontent-addmore-title": "Élément ajouté",
+	"embeddablecontent-addmore-close": "Fermer",
 	"embeddablecontent-add-payload": "Contenu",
 	"embeddablecontent-add-quotation-payload": "Texte de la citation",
 	"embeddablecontent-add-language": "Langue",

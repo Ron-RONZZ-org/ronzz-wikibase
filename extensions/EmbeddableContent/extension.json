@@ -300,6 +300,22 @@
 			"dependencies": [
 				"mediawiki.api",
 				"mediawiki.notification",
+				"ext.embeddableContent.entityactions"
+			],
+			"targets": [
+				"desktop"
+			]
+		},
+		"ext.embeddableContent.entityactions": {
+			"scripts": [
+				"entityactions.js"
+			],
+			"styles": [
+				"gadget.css"
+			],
+			"dependencies": [
+				"mediawiki.api",
+				"mediawiki.notification",
 				"mediawiki.util",
 				"ext.embeddableContent.citationpopup"
 			],
@@ -315,7 +331,27 @@
 				"embeddablecontent-gadget-embed-option-external-hint"
 			],
 			"targets": [
-				"desktop"
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.addmore": {
+			"scripts": [
+				"addmore.js"
+			],
+			"dependencies": [
+				"oojs-ui",
+				"ext.embeddableContent.contentpreview",
+				"ext.embeddableContent.entityactions"
+			],
+			"messages": [
+				"embeddablecontent-update-content-button",
+				"embeddablecontent-addmore-title",
+				"embeddablecontent-addmore-close"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
 			]
 		},
 		"ext.embeddableContent.contentpreview": {
