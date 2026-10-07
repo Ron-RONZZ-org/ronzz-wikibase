@@ -108,7 +108,7 @@ final class QuotationsOf {
 		if ( $title === null || !$title->exists() ) {
 			return;
 		}
-		$revId = WikibaseRepo::getEntityRevisionLookup( $services )->getLatestRevisionId( $itemId ) ?? 0;
+		$revId = \EmbeddableContent\Spec\LatestRevision::id( WikibaseRepo::getEntityRevisionLookup( $services ), $itemId );
 		$parser->getOutput()->addTemplate( $title, $title->getArticleID(), $revId );
 	}
 }

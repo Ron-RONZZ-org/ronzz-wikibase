@@ -154,11 +154,7 @@ class ContentRenderer {
 		// target's revision id), so map it to the int.
 		$revisionId = $entityRevision ? $entityRevision->getRevisionId() : 0;
 		if ( $revisionId <= 0 ) {
-			$revisionId = $this->revisionLookup->getLatestRevisionId( $id )
-				->onConcreteRevision( static fn ( int $revId ): int => $revId )
-				->onRedirect( static fn ( int $revId ): int => $revId )
-				->onNonexistentEntity( static fn (): int => 0 )
-				->map();
+			$revisionId = \EmbeddableContent\Spec\LatestRevision::id( $this->revisionLookup, $id );
 		}
 
 		$cacheKey = $this->cache->makeKey(
