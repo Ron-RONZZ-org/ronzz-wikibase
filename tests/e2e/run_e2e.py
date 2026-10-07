@@ -199,6 +199,36 @@ def check(args: argparse.Namespace) -> int:
                     f"citation {style}: empty output",
                 )
 
+    def check_page_citation() -> None:
+        """A classic content page is cited as the PAGE itself — type webpage,
+        title, canonical URL and last-revision date (the page's 'last
+        edition') — not via a sitelinked item."""
+        page = "Main Page"
+        for style in ("json", "apa", "vancouver"):
+            params = {
+                "action": "citation", "page": page, "style": style,
+                "output": "text", "format": "json",
+            }
+            status, body, _ = http_get(f"{api}?{urllib.parse.urlencode(params)}")
+            expect(status == 200, f"page citation {style}: HTTP {status}")
+            payload = json.loads(body.decode("utf-8", "replace"))
+            expect("error" not in payload, f"page citation {style}: {payload.get('error')!r}")
+            if style == "json":
+                csl = payload["citation"]
+                expect(csl.get("type") == "webpage",
+                       f"page citation json: type {csl.get('type')!r}")
+                expect(csl.get("title") == page,
+                       f"page citation json: title {csl.get('title')!r}")
+                expect("URL" in csl, "page citation json: missing URL")
+                expect("issued" in csl, "page citation json: missing issued (last edition)")
+                expect("author" not in csl, "page citation json: must have no author")
+            else:
+                citation = payload.get("citation", "")
+                expect(isinstance(citation, str) and citation.strip() != "",
+                       f"page citation {style}: empty output")
+                expect("http" in citation,
+                       f"page citation {style}: URL missing from the text: {citation!r}")
+
     def check_sparql() -> None:
         # Prefixes must be declared explicitly: the store defaults for
         # wd:/wdt: point at wikidata.org, not at this instance.
@@ -332,6 +362,7 @@ def check(args: argparse.Namespace) -> int:
     run("embed surfaces (api + /embed/ + oEmbed)", check_embed_surfaces)
     run("language negotiation (?lang=)", check_embed_negotiation)
     run("citation styles (json/apa/vancouver/bibtex/ris)", check_citation_styles)
+    run("page citation (classic content page)", check_page_citation)
     run("entitysearch fulltext (combobox search)", check_entitysearch_fulltext)
     run("sparql instance-of check", check_sparql)
     run("entity-creation pages registered + login-gated (issue #7)", check_entity_creation_pages)
@@ -525,8 +556,10 @@ def rich(args: argparse.Namespace) -> int:
         note_property = property_id("note")
         source_property = property_id("source")
         attributed_to_property = property_id("attributed to")
-        # A property the math item will NOT have, for the empty-row check.
-        lacks_property_label = "date"
+        # The source item (the math item below) also carries a URL + a
+        # publication year, so the citation can read them from the SOURCE.
+        url_property = property_id("URL")
+        date_property = property_id("date")
         quotation_class = class_id("quotation content")
         math_class = class_id("mathematical expression")
 
@@ -584,6 +617,19 @@ def rich(args: argparse.Namespace) -> int:
             note_property: item_claim(note_property, {
                 "value": f"{NOTE_MARKER} $x$ <script>alert(1)</script>",
                 "type": "string",
+            }),
+            # Source-level citation metadata read by the citation (the source
+            # of the quotation below): the URL property + the publication year.
+            url_property: item_claim(url_property, {
+                "value": "https://example.org/e2e-source",
+                "type": "string",
+            }),
+            date_property: item_claim(date_property, {
+                "value": {
+                    "time": "+2013-01-01T00:00:00Z", "timezone": 0, "before": 0, "after": 0,
+                    "precision": 9, "calendarmodel": "http://www.wikidata.org/entity/Q1985727",
+                },
+                "type": "time",
             }),
         }, "E2E rich suite: math claims")
 
@@ -706,7 +752,7 @@ def rich(args: argparse.Namespace) -> int:
         def statement_row_shows_data_and_hides_empty() -> None:
             # {{#statement-row:Label|property|Qid}} — a complete table row only
             # when the item carries data for the property (the empty infobox
-            # row bug). `instance of` is present; `date` is not.
+            # row bug). `instance of` is present; `DOI` is not.
             with_data = _parse_wikitext(
                 args.api_url,
                 '{| class="wikitable"\n{{#statement-row:Instance of|instance of|' + math_id + '}}\n|}',
@@ -714,9 +760,55 @@ def rich(args: argparse.Namespace) -> int:
             expect("Instance of" in with_data, "{{#statement-row}} dropped a row that has data")
             without_data = _parse_wikitext(
                 args.api_url,
-                '{| class="wikitable"\n{{#statement-row:Date|date|' + math_id + '}}\n|}',
+                '{| class="wikitable"\n{{#statement-row:DOI|DOI|' + math_id + '}}\n|}',
             )
-            expect("Date" not in without_data, "{{#statement-row}} rendered an empty row")
+            expect("DOI" not in without_data, "{{#statement-row}} rendered an empty row")
+
+        def citation_reads_source_url_and_last_edition_year() -> None:
+            # The quotation's SOURCE (the math item) carries a URL + a 2013
+            # date: the citation must include both (the webpage guideline +
+            # the source's last-edition year), read from the SOURCE item.
+            params = {
+                "action": "citation", "entity": quote_id, "style": "apa",
+                "output": "text", "format": "json",
+            }
+            status, body, _ = http_get(f"{args.api_url}?{urllib.parse.urlencode(params)}")
+            expect(status == 200, f"citation for the quotation: HTTP {status}")
+            payload = json.loads(body.decode("utf-8", "replace"))
+            expect("error" not in payload, f"citation error: {payload.get('error')!r}")
+            text = payload.get("citation", "")
+            expect("https://example.org/e2e-source" in text,
+                   f"source URL missing from the citation: {text!r}")
+            expect("2013" in text, f"source last-edition year missing from the citation: {text!r}")
+
+        def preview_quotation_translation_and_attribution() -> None:
+            # action=embed&preview=1 (the Item-page / Add* popup variant): a
+            # quotation renders its ORIGINAL, the reader-language translation,
+            # and the attribution line — not the single negotiated language.
+            params = {
+                "action": "embed", "entity": quote_id, "output": "html",
+                "format": "json", "preview": "1", "lang": "fr",
+            }
+            status, body, _ = http_get(f"{args.api_url}?{urllib.parse.urlencode(params)}")
+            expect(status == 200, f"embed preview: HTTP {status}")
+            payload = json.loads(body.decode("utf-8", "replace"))
+            expect("embed" in payload, f"embed preview error: {payload.get('error')!r}")
+            html = payload["embed"]["html"]
+            expect(QUOTE_MARKER in html, "preview lost the original quotation")
+            expect("fr translation:" in html, "preview missing the reader-language translation block")
+            expect("TRADUCTION" in html, "preview missing the translated text")
+            expect("E2E math-note item" in html, "preview missing the attribution line")
+            # The framed embed surface is unchanged (no translation block).
+            expect("fr translation:" not in embed(quote_id),
+                   "the framed embed surface leaked the preview translation block")
+
+        def math_note_has_no_embed_chrome() -> None:
+            # The math note is plain rich wikitext below the expression — it
+            # must not carry the .wb-embed border/background (the stray line).
+            html = embed(math_id)
+            expect('class="wb-embed-note"' in html, "math note wrapper class changed")
+            expect('class="wb-embed wb-embed-note"' not in html,
+                   "math note still carries the .wb-embed chrome")
 
         def quotations_by_row_and_listing() -> None:
             # WDQS is warm (the source listing check polled until the
@@ -754,6 +846,9 @@ def rich(args: argparse.Namespace) -> int:
         run_check("quotation payload parses as wikitext (embed surface)", quotation_is_rich)
         run_check("quotation payload parses as wikitext ({{#content:}})", quotation_rich_in_parser_function)
         run_check("math note renders below the expression (embed surface)", math_note_renders)
+        run_check("math note has no .wb-embed chrome", math_note_has_no_embed_chrome)
+        run_check("quotation preview = original + translation + attribution", preview_quotation_translation_and_attribution)
+        run_check("citation reads the source URL + last-edition year", citation_reads_source_url_and_last_edition_year)
         run_check("{{#content:Q|noNote}} suppresses the note", no_note_suppresses_it)
         run_check("{{#content:Q|fr|eo}} renders translations + not-found", quotation_translations_render)
         run_check("rich injections do not survive (embed/parse/listing)", injections_do_not_survive)

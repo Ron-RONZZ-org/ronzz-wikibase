@@ -121,20 +121,52 @@ async function main() {
 			console.log('[ok] File: copy-link button copies the direct media URL');
 		}
 
-		// --- classic content page: "Copy internal reference" -------------
+		// --- classic content page: "Copy internal mention" ---------------
 		// The toolbar is inline inside the title (the File: page pattern) and
-		// copies [[Page name]] for linking to the page from anywhere.
-		await page.goto(`${BASE_URL}/wiki/Main_Page`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-		await page.waitForSelector('#ca-wb-content-copyref', { timeout: 15000 });
-		if (await page.locator('#firstHeading #ca-wb-content-copyref').count() !== 1) {
-			failures.push('content-page copy-reference button is not inline inside the title');
+		// copies a [[Page name]] internal link. In the Main namespace the
+		// first letter is lowercased unless the title is a proper name
+		// (every word capitalized): "Main Page" stays as-is, while
+		// "Classical mechanics" becomes [[classical mechanics]].
+		const mentionCases = [
+			[ 'Main_Page', '[[Main Page]]' ],
+			[ 'Classical_mechanics', '[[classical mechanics]]' ],
+		];
+		for ( const [ pageName, expected ] of mentionCases ) {
+			await page.goto(`${BASE_URL}/wiki/${pageName}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+			await page.waitForSelector('#ca-wb-content-copymention', { timeout: 15000 });
+			if (await page.locator('#firstHeading #ca-wb-content-copymention').count() !== 1) {
+				failures.push(`content-page copy-mention button is not inline inside the title (${pageName})`);
+			}
+			await page.locator('#ca-wb-content-copymention').click();
+			const copiedRef = await page.evaluate(() => navigator.clipboard.readText());
+			if (copiedRef !== expected) {
+				failures.push(`copy-mention on ${pageName} copied ${JSON.stringify(copiedRef)}, expected ${expected}`);
+			} else {
+				console.log(`[ok] content-page copy-mention button copies ${expected} (${pageName})`);
+			}
 		}
-		await page.locator('#ca-wb-content-copyref').click();
-		const copiedRef = await page.evaluate(() => navigator.clipboard.readText());
-		if (copiedRef !== '[[Main Page]]') {
-			failures.push(`copy-reference copied ${JSON.stringify(copiedRef)}, expected [[Main Page]]`);
-		} else {
-			console.log('[ok] content-page copy-reference button copies the [[Page]] snippet');
+
+		// --- classic content page: "Copy citation" popup -----------------
+		// A classic content page offers "Copy citation" (citing the PAGE —
+		// title + URL + last-revision date); clicking it opens the shared
+		// citation popup with the APA (default) preview.
+		await page.goto(`${BASE_URL}/wiki/Main_Page`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+		await page.waitForSelector('#ca-wb-content-copycite', { timeout: 15000 });
+		await page.locator('#ca-wb-content-copycite').click();
+		try {
+			await page.waitForSelector('.wb-citation-popup', { state: 'attached', timeout: 15000 });
+			await page.waitForFunction(() => {
+				const el = document.querySelector('.wb-citation-popup-preview');
+				return el && /http/.test(el.textContent);
+			}, { timeout: 15000 });
+			const citeText = await page.locator('.wb-citation-popup-preview').innerText();
+			if (!citeText.includes('Main Page')) {
+				failures.push(`citation popup preview missing the page title: ${JSON.stringify(citeText)}`);
+			} else {
+				console.log('[ok] content-page Copy citation popup shows the APA citation');
+			}
+		} catch (e) {
+			failures.push('content-page Copy citation popup did not show a citation preview');
 		}
 
 		// --- Item: content-item rendered preview -------------------------

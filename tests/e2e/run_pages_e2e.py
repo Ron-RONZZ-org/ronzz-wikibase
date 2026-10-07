@@ -2625,21 +2625,23 @@ def flow_entityconfirm_module_source(op, base: str) -> None:
 
 
 def flow_gadget_module_source(op, base: str) -> None:
-    """The Item-page toolbar gadget's "Copy embed code" must offer TWO
-    snippet flavours on click — internal (the {{#content:Q42}} wikitext for
-    on-wiki embedding) and external (the <iframe> of Special:Embed for
-    third-party pages). A curl E2E cannot click; assert the shipped source
-    carries both snippet builders and the chooser wiring."""
+    """The entity toolbar's "Copy embed code" must offer TWO snippet flavours
+    on click — internal (the {{#content:Q42}} wikitext for on-wiki embedding)
+    and external (the <iframe> of Special:Embed for third-party pages). The
+    controls live in the shared ext.embeddableContent.entityactions module
+    (gadget.js delegates to it; the Add* success popup reuses it). A curl E2E
+    cannot click; assert the shipped source carries both snippet builders and
+    the chooser wiring."""
     _, body = page_get(op, base,
-        "/load.php?modules=ext.embeddableContent.gadget&lang=en&skin=vector&debug=true")
+        "/load.php?modules=ext.embeddableContent.entityactions&lang=en&skin=vector&debug=true")
     if "contentSnippet" not in body or "{{#content:' + entityId + '}}" not in body:
-        raise FlowError("gadget module: internal {{#content:Q42}} snippet builder missing "
+        raise FlowError("entityactions module: internal {{#content:Q42}} snippet builder missing "
                         "(embed flavour chooser regression)")
     if "embedSnippet" not in body or "Special:Embed/" not in body:
-        raise FlowError("gadget module: external iframe snippet builder missing "
+        raise FlowError("entityactions module: external iframe snippet builder missing "
                         "(embed flavour chooser regression)")
     if "ca-wb-embed-copy-internal" not in body or "ca-wb-embed-copy-external" not in body:
-        raise FlowError("gadget module: embed flavour chooser buttons missing "
+        raise FlowError("entityactions module: embed flavour chooser buttons missing "
                         "(embed flavour chooser regression)")
 
 
@@ -3474,6 +3476,15 @@ def flow_add_more(op, base: str, api: str, person_qid: str, source_url: str) -> 
         raise FlowError(f"Add-more did not carry sourceUrl: {url}")
     if "label" in q or "payload" in q:
         raise FlowError(f"Add-more carried label/payload over (they must reset): {url}")
+    # The created item rides the return trip so the reopened form pops up its
+    # preview (the Add* success popup).
+    created = (q.get("created") or [""])[0]
+    if not re.match(r"^Q[1-9]\d*$", created):
+        raise FlowError(f"Add-more did not carry the created item id (?created=): {url}")
+    if "wbJustAddedItem" not in body:
+        raise FlowError("Add-more return trip did not wire the success popup (wbJustAddedItem)")
+    if "ext.embeddableContent.addmore" not in body:
+        raise FlowError("Add-more return trip did not load the addmore module")
     # The reopened form: label back to the default prefill, provenance
     # prefilled, the previous payload GONE.
     if input_value(body, "wplabel") != "(quotation)":
@@ -5238,7 +5249,7 @@ def main() -> int:
         print("[ok] entityconfirm module source: delegated [Yes]/[No] binding "
               "(autoinfuse banner-node orphaning fix)")
         flow_gadget_module_source(op, base)
-        print("[ok] gadget module source: embed flavour chooser (internal {{#content:}} vs "
+        print("[ok] entityactions module source: embed flavour chooser (internal {{#content:}} vs "
               "external iframe)")
         flow_addsource_label_preview(op, base)
         print("[ok] AddSource label preview: manual/review wiring + idempotent suffix module")

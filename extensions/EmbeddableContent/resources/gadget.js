@@ -11,22 +11,12 @@
  * feature parity. The item id comes from the wbEmbedItem config var (set by
  * Hooks::wireItemToolbar); wgTitle is only a fallback for an entity page.
  *
- * The copy-embed action offers TWO snippet flavours (Sep-2026 UX batch):
- * internal ({{#content:Q42}} — the on-wiki wikitext) and external (the
- * <iframe> of Special:Embed, meant for third-party sites, with an ABSOLUTE
- * URL (wgServer + path)). Multi-language quotations offer a language
- * selector next to the button: auto (server negotiates), all languages
- * (?lang=all), or a specific language — it applies to the iframe flavour
- * ({{#content:}} negotiates from the embedding page).
- *
- * Copy citation offers a FORMAT selector: APA / Vancouver / BibTeX / RIS
- * (the four text formats api.php?action=citation supports; json is a raw
- * structure, not meant for copying). The text for the selected format is
- * fetched lazily and cached per format.
- *
- * The toolbar renders only the actions that apply to the item: the embed
- * button appears when the item is embeddable (action=embed succeeds), the
- * citation button when a citation can be built (action=citation succeeds).
+ * The controls themselves live in the shared ext.embeddableContent.entityactions
+ * module (also used by the Add* success popup): "Copy embed code" offers the
+ * internal {{#content:Q42}} vs the external <iframe> flavour (+ a language
+ * selector for multi-language quotations); "Copy citation" opens the shared
+ * citation popup (APA default / Vancouver / BibTeX / RIS). The toolbar
+ * renders only the actions that apply to the item (API probes).
  */
 ( function () {
 	'use strict';
@@ -35,18 +25,6 @@
 	var entityId = null;
 	var configItem = mw.config.get( 'wbEmbedItem' );
 	var titleText = mw.config.get( 'wgTitle' ) || '';
-	var embedLang = ''; // '' = auto, 'all' = all languages, else a language code
-
-	// Citation text formats, in display order. The select and the button
-	// share the currently selected format (citationStyle).
-	var CITATION_STYLES = [
-		{ key: 'apa', label: 'APA' },
-		{ key: 'vancouver', label: 'Vancouver' },
-		{ key: 'bibtex', label: 'BibTeX' },
-		{ key: 'ris', label: 'RIS' }
-	];
-	var citationText = {}; // style key => formatted text (fetched lazily)
-	var citationStyle = 'apa';
 
 	// The server sets wbEmbedItem for BOTH entity pages and the classic
 	// per-kind pages (Source:/FOSS:/Person:/Collective:/Software:), where
@@ -72,238 +50,13 @@
 		return $toolbar;
 	}
 
-	/**
-	 * Appends controls after the "Update basic information" button when it is
-	 * present, so the primary action stays first in the row.
-	 */
-	function appendControls( controls ) {
-		var $update = getToolbar().find( '.wb-update-basic-btn' );
-		if ( $update.length > 0 ) {
-			$update.after( controls );
-		} else {
-			getToolbar().append( controls );
-		}
-	}
-
-	function embedSnippet() {
-		var server = mw.config.get( 'wgServer' ) || '';
-		var params = embedLang ? { lang: embedLang } : {};
-		return '<iframe src="' + server + mw.util.getUrl( 'Special:Embed/' + entityId, params ) +
-			'" loading="lazy" style="width:100%;border:0;min-height:120px"></iframe>';
-	}
-
-	/**
-	 * The on-wiki (internal) embed snippet: the {{#content:Q42}} parser
-	 * function renders the item's payload inline on any wiki page, with the
-	 * language negotiated from the embedding page — no lang param needed.
-	 */
-	function contentSnippet() {
-		return '{{#content:' + entityId + '}}';
-	}
-
-	function copyText( text ) {
-		var done = function () {
-			mw.notify( mw.msg( 'embeddablecontent-gadget-copied' ) );
-		};
-		if ( navigator.clipboard && navigator.clipboard.writeText ) {
-			return navigator.clipboard.writeText( text ).then( done, function () {
-				fallbackCopy( text );
-				done();
-			} );
-		}
-		fallbackCopy( text );
-		done();
-	}
-
-	function fallbackCopy( text ) {
-		var ta = document.createElement( 'textarea' );
-		ta.value = text;
-		ta.style.position = 'fixed';
-		ta.style.opacity = '0';
-		document.body.appendChild( ta );
-		ta.select();
-		try {
-			document.execCommand( 'copy' );
-		} finally {
-			document.body.removeChild( ta );
-		}
-	}
-
-	function makeButton( id, messageKey, handler ) {
-		return $( '<button>' )
-			.attr( 'id', id )
-			.attr( 'type', 'button' )
-			.addClass( 'wb-embed-toolbar-btn' )
-			.text( mw.msg( messageKey ) )
-			.on( 'click', handler );
-	}
-
-	/**
-	 * Embed button + (for multi-language quotations) a language selector.
-	 *
-	 * Clicking "Copy embed code" offers a CHOICE of two snippet flavours
-	 * (issue request): internal (the {{#content:Q42}} parser-function
-	 * wikitext, for embedding on this wiki) and external (the <iframe> of
-	 * Special:Embed, for third-party pages). The chooser opens on the first
-	 * click (the button becomes "which flavour?"), the chosen flavour is
-	 * copied on the second, and the chooser closes. Language select stays
-	 * beside the button and applies to the iframe ({{#content:}} negotiates
-	 * from the embedding page, so it needs no lang parameter).
-	 *
-	 * @param {Object} languages code => text, from the embed API response
-	 * @return {jQuery[]} toolbar children for the embed action
-	 */
-	function embedControls( languages ) {
-		var $chooser;
-		var close = function () {
-			if ( $chooser ) {
-				$chooser.hide();
-			}
-		};
-		var $btn = makeButton( 'ca-wb-embed-copy', 'embeddablecontent-gadget-copyembed', function () {
-			if ( $chooser && $chooser.is( ':visible' ) ) {
-				close();
-				return;
-			}
-			if ( $chooser ) {
-				$chooser.show();
-			}
-		} );
-
-		// Two flavour buttons — the internal (content#) one first: it is the
-		// on-wiki default, the iframe the third-party one.
-		$chooser = $( '<span class="wb-embed-embed-options" style="display:none"></span>' )
-			.append( $( '<button>' )
-				.attr( 'type', 'button' )
-				.addClass( 'wb-embed-toolbar-btn' )
-				.attr( 'id', 'ca-wb-embed-copy-internal' )
-				.attr( 'title', mw.msg( 'embeddablecontent-gadget-embed-option-internal-hint' ) )
-				.text( mw.msg( 'embeddablecontent-gadget-embed-option-internal' ) )
-				.on( 'click', function () {
-					copyText( contentSnippet() );
-					close();
-				} ) )
-			.append( $( '<button>' )
-				.attr( 'type', 'button' )
-				.addClass( 'wb-embed-toolbar-btn' )
-				.attr( 'id', 'ca-wb-embed-copy-external' )
-				.attr( 'title', mw.msg( 'embeddablecontent-gadget-embed-option-external-hint' ) )
-				.text( mw.msg( 'embeddablecontent-gadget-embed-option-external' ) )
-				.on( 'click', function () {
-					copyText( embedSnippet() );
-					close();
-				} ) );
-
-		var controls = [ $btn, $chooser ];
-		if ( languages && Object.keys( languages ).length > 1 ) {
-			var $select = $( '<select>' )
-				.addClass( 'wb-embed-toolbar-lang' )
-				.append( $( '<option>' ).val( '' ).text( mw.msg( 'embeddablecontent-gadget-embed-auto' ) ) )
-				.append( $( '<option>' ).val( 'all' ).text( mw.msg( 'embeddablecontent-gadget-embed-all' ) ) );
-			Object.keys( languages ).forEach( function ( code ) {
-				$select.append( $( '<option>' ).val( code ).text( code ) );
-			} );
-			$select.on( 'change', function () {
-				embedLang = $select.val();
-			} );
-			controls.push( $select );
-		}
-		// Close the flavour chooser when clicking anywhere else.
-		$( document ).on( 'click', function ( e ) {
-			if ( !$chooser.is( ':visible' ) ) {
-				return;
-			}
-			var $t = $( e.target );
-			if ( $t.closest( '.wb-embed-embed-options' ).length || $t.closest( '#ca-wb-embed-copy' ).length ) {
-				return;
-			}
-			close();
-		} );
-		return controls;
-	}
-
-	/**
-	 * Fetches and caches the citation text for a format. Best-effort: a
-	 * failed fetch leaves the previous text cached (the button copies
-	 * whatever is available for the selected format).
-	 *
-	 * @param {mw.Api} api
-	 * @param {string} style
-	 */
-	function fetchCitationText( api, style ) {
-		if ( citationText[ style ] || !entityId ) {
-			return;
-		}
-		api.get( { action: 'citation', entity: entityId, style: style, output: 'text' } )
-			.done( function ( data ) {
-				if ( data && data.citation && !data.error ) {
-					citationText[ style ] = data.citation;
-				}
-			} );
-	}
-
-	/**
-	 * Copy-citation button + the format selector. The button copies the text
-	 * of the currently selected format; changing the selector fetches (and
-	 * caches) that format's text.
-	 *
-	 * @param {mw.Api} api
-	 * @return {jQuery[]} toolbar children for the citation action
-	 */
-	function citationControls( api ) {
-		var $btn = makeButton( 'ca-wb-embed-cite', 'embeddablecontent-gadget-copycitation', function () {
-			copyText( citationText[ citationStyle ] || '' );
-		} );
-		var $select = $( '<select>' )
-			.addClass( 'wb-embed-toolbar-style' )
-			.attr( 'title', mw.msg( 'embeddablecontent-gadget-citation-style' ) );
-		CITATION_STYLES.forEach( function ( style ) {
-			$select.append( $( '<option>' ).val( style.key ).text( style.label ) );
-		} );
-		$select.val( citationStyle );
-		$select.on( 'change', function () {
-			citationStyle = $select.val();
-			fetchCitationText( api, citationStyle );
-		} );
-		return [ $btn, $select ];
-	}
-
 	mw.loader.using( [ 'mediawiki.api', 'mediawiki.notification' ] ).then( function () {
 		if ( !entityId || $( '#firstHeading' ).length === 0 ) {
 			return;
 		}
-		var api = new mw.Api();
-		var children = [];
-		var checkDone = 0;
-
-		function maybeRender() {
-			checkDone++;
-			if ( checkDone < 2 ) {
-				return;
-			}
-			if ( children.length > 0 ) {
-				appendControls( children );
-			}
-		}
-
-		// Embed button: only for embeddable items (the API reports the
-		// available payload languages for the selector — only in json mode).
-		api.get( { action: 'embed', entity: entityId, output: 'json' } ).done( function ( data ) {
-			if ( !data.error && data.embed ) {
-				children = children.concat( embedControls( data.embed.languages ) );
-			}
-			maybeRender();
-		} ).fail( maybeRender );
-
-		// Citation button + format selector: only when a citation can be
-		// built. The APA probe doubles as the first fetched text.
-		api.get( { action: 'citation', entity: entityId, style: 'apa', output: 'text' } ).done( function ( data ) {
-			var citation = ( data && data.citation && !data.error ) ? data.citation : '';
-			if ( citation ) {
-				citationText.apa = citation;
-				children = children.concat( citationControls( api ) );
-			}
-			maybeRender();
-		} ).fail( maybeRender );
+		// The controls append to the shared row; updatebutton.js prepends the
+		// primary "Update basic information" / "Edit content" button, so it
+		// stays first.
+		mw.embeddableContent.entityActions.attach( getToolbar(), entityId );
 	} );
 }() );

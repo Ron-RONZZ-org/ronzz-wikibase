@@ -8,5 +8,7 @@
 	"ISBN": "ISBN-13",
 	"givenName": "given name",
 	"familyName": "family name",
-	"language": "language"
+	"language": "language",
+	"issued": "date",
+	"URL": "URL"
 }

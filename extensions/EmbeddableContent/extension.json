@@ -278,6 +278,7 @@
 			],
 			"dependencies": [
 				"ext.embeddableContent.katex",
+				"ext.embeddableContent.inlinekatex",
 				"mediawiki.api",
 				"oojs-ui"
 			],
@@ -299,7 +300,24 @@
 			"dependencies": [
 				"mediawiki.api",
 				"mediawiki.notification",
-				"mediawiki.util"
+				"ext.embeddableContent.entityactions"
+			],
+			"targets": [
+				"desktop"
+			]
+		},
+		"ext.embeddableContent.entityactions": {
+			"scripts": [
+				"entityactions.js"
+			],
+			"styles": [
+				"gadget.css"
+			],
+			"dependencies": [
+				"mediawiki.api",
+				"mediawiki.notification",
+				"mediawiki.util",
+				"ext.embeddableContent.citationpopup"
 			],
 			"messages": [
 				"embeddablecontent-gadget-copyembed",
@@ -313,7 +331,27 @@
 				"embeddablecontent-gadget-embed-option-external-hint"
 			],
 			"targets": [
-				"desktop"
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.addmore": {
+			"scripts": [
+				"addmore.js"
+			],
+			"dependencies": [
+				"oojs-ui",
+				"ext.embeddableContent.contentpreview",
+				"ext.embeddableContent.entityactions"
+			],
+			"messages": [
+				"embeddablecontent-update-content-button",
+				"embeddablecontent-addmore-title",
+				"embeddablecontent-addmore-close"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
 			]
 		},
 		"ext.embeddableContent.contentpreview": {
@@ -322,7 +360,20 @@
 			],
 			"dependencies": [
 				"mediawiki.api",
-				"ext.embeddableContent.embed"
+				"ext.embeddableContent.embed",
+				"ext.embeddableContent.inlinekatex"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.inlinekatex": {
+			"scripts": [
+				"inlinekatex.js"
+			],
+			"dependencies": [
+				"ext.embeddableContent.katex"
 			],
 			"targets": [
 				"desktop",
@@ -575,12 +626,40 @@
 			],
 			"dependencies": [
 				"mediawiki.notification",
-				"mediawiki.util"
+				"mediawiki.util",
+				"ext.embeddableContent.citationpopup"
 			],
 			"messages": [
-				"embeddablecontent-contentpage-copyref",
-				"embeddablecontent-contentpage-copyref-hint",
+				"embeddablecontent-contentpage-copymention",
+				"embeddablecontent-contentpage-copymention-hint",
+				"embeddablecontent-contentpage-copycite-hint",
+				"embeddablecontent-gadget-copycitation",
 				"embeddablecontent-gadget-copied"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.citationpopup": {
+			"scripts": [
+				"citationpopup.js"
+			],
+			"styles": [
+				"gadget.css"
+			],
+			"dependencies": [
+				"mediawiki.api",
+				"mediawiki.notification",
+				"oojs-ui"
+			],
+			"messages": [
+				"embeddablecontent-gadget-copycitation",
+				"embeddablecontent-gadget-citation-style",
+				"embeddablecontent-gadget-copied",
+				"embeddablecontent-citationpopup-copy",
+				"embeddablecontent-citationpopup-loading",
+				"embeddablecontent-citationpopup-error"
 			],
 			"targets": [
 				"desktop",

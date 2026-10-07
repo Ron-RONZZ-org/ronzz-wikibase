@@ -43,51 +43,11 @@
 		return s;
 	}
 
-	/**
-	 * Typesets every inline $…$ segment found in the TEXT NODES under root
-	 * (the parsed wikitext may wrap the math in links/emphasis). Mirrors the
-	 * SimpleMathJax inline delimiter.
+	/*
+	 * The inline-`$…$` typesetter is shared with the Item-page preview
+	 * (resources/inlinekatex.js, ext.embeddableContent.inlinekatex): it is
+	 * called as mw.embeddableContent.typesetInlineMath( root ).
 	 */
-	function typesetInlineMath( root ) {
-		if ( !window.katex ) {
-			return;
-		}
-		var walker = document.createTreeWalker( root, NodeFilter.SHOW_TEXT, null );
-		var textNodes = [];
-		var node;
-		while ( ( node = walker.nextNode() ) ) {
-			if ( node.nodeValue && node.nodeValue.indexOf( '$' ) !== -1 ) {
-				textNodes.push( node );
-			}
-		}
-		textNodes.forEach( function ( textNode ) {
-			var text = textNode.nodeValue;
-			var re = /\$([^$]+)\$/g;
-			var last = 0;
-			var m;
-			var frag = document.createDocumentFragment();
-			while ( ( m = re.exec( text ) ) !== null ) {
-				if ( m.index > last ) {
-					frag.appendChild( document.createTextNode( text.slice( last, m.index ) ) );
-				}
-				var span = document.createElement( 'span' );
-				try {
-					window.katex.render( m[ 1 ], span, { throwOnError: false, displayMode: false } );
-				} catch ( e ) {
-					span.textContent = m[ 1 ];
-				}
-				frag.appendChild( span );
-				last = m.index + m[ 0 ].length;
-			}
-			if ( last === 0 ) {
-				return;
-			}
-			if ( last < text.length ) {
-				frag.appendChild( document.createTextNode( text.slice( last ) ) );
-			}
-			textNode.parentNode.replaceChild( frag, textNode );
-		} );
-	}
 
 	/**
 	 * Fallback rendering (pre-parse-API behaviour): the plain text with line
@@ -158,7 +118,7 @@
 			}
 			var tmp = document.createElement( 'div' );
 			tmp.innerHTML = html;
-			typesetInlineMath( tmp );
+			mw.embeddableContent.typesetInlineMath( tmp );
 			el.textContent = '';
 			while ( tmp.firstChild ) {
 				el.appendChild( tmp.firstChild );

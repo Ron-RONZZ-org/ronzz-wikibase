@@ -83,6 +83,11 @@ class ContentRenderer {
 
 	/**
 	 * @param string[] $acceptLanguages preferred languages in order (from Accept-Language)
+	 * @param bool $preview the in-wiki preview mode (Item page + Add* success
+	 *  popup): a quotation renders its ORIGINAL + the reader-language
+	 *  translation (when present) + the `-author, ''source''` attribution
+	 *  line, instead of the single negotiated language of the framed embed.
+	 *  Math/code fragments are unchanged.
 	 *
 	 * @throws RenderException
 	 */
@@ -91,7 +96,8 @@ class ContentRenderer {
 		string $format,
 		?string $lang = null,
 		?int $revId = null,
-		array $acceptLanguages = []
+		array $acceptLanguages = [],
+		bool $preview = false
 	): RenderResult {
 		$entityRevision = null;
 		if ( $revId !== null && $revId > 0 ) {
@@ -133,8 +139,10 @@ class ContentRenderer {
 		}
 
 		// `lang=all` renders every available payload language (multi-language
-		// embed for quotations); otherwise negotiate a single language.
-		$multi = ( $lang === 'all' );
+		// embed for quotations); otherwise negotiate a single language. The
+		// preview mode never multi-renders (it shows the original + one
+		// reader-language translation).
+		$multi = ( !$preview && $lang === 'all' );
 		if ( $multi ) {
 			$negotiated = 'all';
 		} else {
@@ -158,7 +166,7 @@ class ContentRenderer {
 		}
 
 		$cacheKey = $this->cache->makeKey(
-			'EmbeddableContent', 'embed', $id->getSerialization(),
+			'EmbeddableContent', $preview ? 'preview' : 'embed', $id->getSerialization(),
 			(string)$revisionId,
 			$format, $negotiated
 		);
@@ -180,7 +188,10 @@ class ContentRenderer {
 			// ([[File:…]] → <figure>/<img>). A per-render token carries the
 			// parsed HTML through the sanitizer untouched.
 			$richParts = [];
-			if ( $multi ) {
+			$isQuotationPreview = $preview && $kind === 'quotation';
+			if ( $isQuotationPreview ) {
+				$html = $this->renderQuotationPreview( $item, $payload, $lang, $richParts );
+			} elseif ( $multi ) {
 				$fragments = [];
 				foreach ( $payload as $code => $text ) {
 					$fragments[] = $this->renderKind( $kind, $item, [ $code => $text ], (string)$code, $richParts );
@@ -189,7 +200,9 @@ class ContentRenderer {
 			} else {
 				$html = $this->renderKind( $kind, $item, $payload, $negotiated, $richParts );
 			}
-			$html = $this->attachProvenance( $html, $item, $negotiated );
+			if ( !$isQuotationPreview ) {
+				$html = $this->attachProvenance( $html, $item, $negotiated );
+			}
 			// Re-pass through MediaWiki's tag sanitizer (defense in depth,
 			// issue #6 §1.7). MW 1.46 removed removeHTMLtags; removeSomeTags
 			// with an explicit barred-tag list preserves our controlled
@@ -356,13 +369,80 @@ class ContentRenderer {
 				$html = $this->mathRenderer->render( $payload[''] ?? '' );
 				$note = $this->noteFor( $item );
 				if ( $note !== '' ) {
-					$html .= '<div class="wb-embed wb-embed-note">'
+					// The note is plain rich wikitext below the expression —
+					// it deliberately carries NO `.wb-embed` chrome (the blue
+					// left border read as a jarring stray line on the Item-
+					// page preview).
+					$html .= '<div class="wb-embed-note">'
 						. $this->richFragment( $note, $item, $richParts )
 						. '</div>';
 				}
 				return $html;
 		}
 		throw new RenderException( "Unknown kind '$kind'", 'notembeddable', 400 );
+	}
+
+	/**
+	 * The quotation preview (Item page + Add* success popup): the ORIGINAL
+	 * payload followed — when the reader's language has a translation — by
+	 * that translation block, then the `-author, ''source''` attribution
+	 * line. Distinct from the framed single-language embed (Special:Embed /
+	 * third-party iframes) and from `lang=all`: the reader sees the source
+	 * text AND its translation side by side.
+	 *
+	 * @param array<string,string> $payload language => decoded text, base first
+	 * @param array<string,RichTextResult> &$richParts
+	 */
+	private function renderQuotationPreview(
+		Item $item,
+		array $payload,
+		?string $targetLang,
+		array &$richParts
+	): string {
+		if ( $payload === [] ) {
+			return '';
+		}
+		$baseLang = array_key_first( $payload );
+		$baseLang = is_string( $baseLang ) ? $baseLang : '';
+		$wikitext = (string)$payload[$baseLang];
+
+		// The reader-language translation, when it exists and differs from
+		// the original's language.
+		if ( $targetLang !== null && $targetLang !== '' && $targetLang !== $baseLang
+			&& isset( $payload[$targetLang] )
+		) {
+			$header = wfMessage( 'embeddablecontent-content-translation-header', $targetLang )->text();
+			$wikitext .= "\n\n'''" . $header . "'''\n\n" . $payload[$targetLang];
+		}
+
+		$attribution = $this->quotationAttributionWikitext( $item );
+		if ( $attribution !== '' ) {
+			$wikitext .= "\n\n" . $attribution;
+		}
+
+		return $this->quoteRenderer->wrapHtml(
+			$this->richFragment( $wikitext, $item, $richParts ),
+			$baseLang
+		);
+	}
+
+	/**
+	 * The `-author, ''source''` attribution wikitext of a quotation (the
+	 * same assembly as `{{#content:}}`), or '' when the item carries neither.
+	 */
+	private function quotationAttributionWikitext( Item $item ): string {
+		$provenance = $this->config->provenancePropertyIds();
+		$authors = ProvenanceWikitext::authorLabels(
+			$item,
+			$provenance['attributedTo'] ?? null,
+			$this->entityLookup
+		);
+		$sources = ProvenanceWikitext::sourceWikitexts(
+			$item,
+			$provenance['source'] ?? null,
+			$this->entityLookup
+		);
+		return ContentWikitext::quotationAttribution( $authors, $sources );
 	}
 
 	/**

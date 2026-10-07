@@ -144,6 +144,13 @@ class StatementToCslConverter {
 		foreach ( self::SOURCE_LEVEL_FIELDS as $field ) {
 			$this->addFromSource( $sourceItem, $field, $csl, $preferredLanguage );
 		}
+		// The citation year and URL read from the SOURCE item (issue
+		// follow-up): a source cited directly (Source: page / self-cite)
+		// carries its publication year under `date` and its address under the
+		// `URL` property; the source's LAST edition (latest date) wins. A URL
+		// already resolved from the content item's own `source URL` is kept.
+		$this->addSourceIssued( $sourceItem, $csl );
+		$this->addSourceUrl( $sourceItem, $csl );
 		if ( $sourceItem !== null && !isset( $csl['container-title'] ) ) {
 			// A `part of` target (a webpage's website, a book excerpt's book)
 			// names the container; the book-label fallback below is the last
@@ -469,6 +476,76 @@ class StatementToCslConverter {
 			return;
 		}
 		$csl[$field] = $value;
+	}
+
+	/**
+	 * The citation year read from the SOURCE item — the LAST edition, i.e.
+	 * the latest year among its `date` statements. Sets `issued` when the
+	 * source carries at least one date; no-op otherwise.
+	 *
+	 * @param array<string,mixed> $csl
+	 */
+	private function addSourceIssued( ?Item $sourceItem, array &$csl ): void {
+		if ( $sourceItem === null ) {
+			return;
+		}
+		$propertyId = $this->propertyMap->getSourcePropertyForField( 'issued' );
+		if ( $propertyId === null ) {
+			return;
+		}
+		$years = [];
+		foreach ( $sourceItem->getStatements() as $statement ) {
+			$snak = $statement->getMainSnak();
+			if ( !$snak instanceof PropertyValueSnak
+				|| $snak->getPropertyId()->getSerialization() !== $propertyId
+			) {
+				continue;
+			}
+			$value = $snak->getDataValue();
+			if ( $value instanceof TimeValue ) {
+				$year = (int)substr( ltrim( $value->getTime(), '+' ), 0, 4 );
+				if ( $year > 0 ) {
+					$years[] = $year;
+				}
+			}
+		}
+		if ( $years === [] ) {
+			return;
+		}
+		// The LAST edition: the most recent year.
+		$csl['issued'] = [ 'date-parts' => [ [ max( $years ) ] ] ];
+	}
+
+	/**
+	 * The URL read from the SOURCE item's `URL` property (a self-cited
+	 * webpage renders its address in the citation text). A URL already
+	 * resolved from the content item's own `source URL` wins.
+	 *
+	 * @param array<string,mixed> $csl
+	 */
+	private function addSourceUrl( ?Item $sourceItem, array &$csl ): void {
+		if ( $sourceItem === null || isset( $csl['URL'] ) ) {
+			return;
+		}
+		$propertyId = $this->propertyMap->getSourcePropertyForField( 'URL' );
+		if ( $propertyId === null ) {
+			return;
+		}
+		$statement = $this->bestStatement( $sourceItem, $propertyId );
+		if ( $statement === null ) {
+			return;
+		}
+		$snak = $statement->getMainSnak();
+		if ( !$snak instanceof PropertyValueSnak ) {
+			return;
+		}
+		$value = $snak->getDataValue();
+		if ( $value instanceof StringValue ) {
+			$value = $value->getValue();
+		}
+		if ( is_string( $value ) && $value !== '' ) {
+			$csl['URL'] = $value;
+		}
 	}
 
 	/**

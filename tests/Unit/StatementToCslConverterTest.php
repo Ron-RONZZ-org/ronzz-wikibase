@@ -48,6 +48,8 @@ class StatementToCslConverterTest extends TestCase {
 					'givenName' => 'P25',
 					'familyName' => 'P26',
 					'language' => 'P27',
+					'issued' => 'P28',
+					'URL' => 'P29',
 				][$field] ?? null;
 			}
 
@@ -630,5 +632,49 @@ class StatementToCslConverterTest extends TestCase {
 
 		$csl = $converter->toCslJson( $item, 'en' );
 		$this->assertSame( [ [ 'given' => 'Grace', 'family' => 'Hopper' ] ], $csl['author'] );
+	}
+
+	public function testSourceUrlAndLastEditionYearComeFromTheSource(): void {
+		// A source-class item cited directly reads its URL (`URL` property)
+		// and its LAST edition year (latest `date`) from itself.
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31',
+			[ 'Q20' ]
+		);
+		$item = new Item();
+		$item->setLabel( 'en', 'A web page source' );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P31' ), new EntityIdValue( new ItemId( 'Q20' ) ) ) );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P29' ), new StringValue( 'https://example.org/page' ) ) );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P28' ), new TimeValue( '+2013-01-01T00:00:00Z', 0, 0, 0, 9, 'http://www.wikidata.org/entity/Q1985727' ) ) );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P28' ), new TimeValue( '+2020-01-01T00:00:00Z', 0, 0, 0, 9, 'http://www.wikidata.org/entity/Q1985727' ) ) );
+
+		$csl = $converter->toCslJson( $item );
+
+		$this->assertSame( 'https://example.org/page', $csl['URL'] );
+		$this->assertSame( [ 'date-parts' => [ [ 2020 ] ] ], $csl['issued'] );
+	}
+
+	public function testContentSourceUrlWinsOverSourceUrlProperty(): void {
+		// The content item's own `source URL` (the specific page quoted) is
+		// kept; the source item's `URL` property only fills a gap.
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31',
+			[ 'Q20' ]
+		);
+		$item = new Item();
+		$item->setLabel( 'en', 'A quotation with a provenance URL' );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P31' ), new EntityIdValue( new ItemId( 'Q5' ) ) ) );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P7' ), new StringValue( 'https://example.org/quote-page' ) ) );
+		$item->getStatements()->addNewStatement( new PropertyValueSnak( new PropertyId( 'P8' ), new EntityIdValue( new ItemId( 'Q20' ) ) ) );
+
+		$csl = $converter->toCslJson( $item );
+
+		$this->assertSame( 'https://example.org/quote-page', $csl['URL'] );
 	}
 }
