@@ -23,7 +23,7 @@
 
 	mw.loader.using( [
 		'oojs-ui',
-		'ext.embeddableContent.preview',
+		'ext.embeddableContent.contentpreview',
 		'ext.embeddableContent.entityactions'
 	] ).then( function () {
 		var $preview = $( '<div class="wb-addmore-preview"></div>' );
