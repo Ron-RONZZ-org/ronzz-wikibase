@@ -262,6 +262,9 @@ class Hooks {
 					$title->getNamespace() === NS_MAIN
 				)
 			);
+			// The "Copy citation" action cites the PAGE itself (title +
+			// canonical URL + last-revision date) — NOT a sitelinked item.
+			$out->addJsConfigVars( 'wbCitePage', $title->getPrefixedText() );
 			$out->addModules( 'ext.embeddableContent.contentpagetoolbar' );
 			return;
 		}

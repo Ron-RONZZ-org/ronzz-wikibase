@@ -300,7 +300,8 @@
 			"dependencies": [
 				"mediawiki.api",
 				"mediawiki.notification",
-				"mediawiki.util"
+				"mediawiki.util",
+				"ext.embeddableContent.citationpopup"
 			],
 			"messages": [
 				"embeddablecontent-gadget-copyembed",
@@ -589,12 +590,40 @@
 			],
 			"dependencies": [
 				"mediawiki.notification",
-				"mediawiki.util"
+				"mediawiki.util",
+				"ext.embeddableContent.citationpopup"
 			],
 			"messages": [
 				"embeddablecontent-contentpage-copymention",
 				"embeddablecontent-contentpage-copymention-hint",
+				"embeddablecontent-contentpage-copycite-hint",
+				"embeddablecontent-gadget-copycitation",
 				"embeddablecontent-gadget-copied"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.citationpopup": {
+			"scripts": [
+				"citationpopup.js"
+			],
+			"styles": [
+				"gadget.css"
+			],
+			"dependencies": [
+				"mediawiki.api",
+				"mediawiki.notification",
+				"oojs-ui"
+			],
+			"messages": [
+				"embeddablecontent-gadget-copycitation",
+				"embeddablecontent-gadget-citation-style",
+				"embeddablecontent-gadget-copied",
+				"embeddablecontent-citationpopup-copy",
+				"embeddablecontent-citationpopup-loading",
+				"embeddablecontent-citationpopup-error"
 			],
 			"targets": [
 				"desktop",

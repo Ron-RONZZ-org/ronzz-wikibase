@@ -1,15 +1,17 @@
 /**
  * Classic content-page action toolbar, rendered INLINE to the right of the
- * page title (the File: page copy-button pattern). Its first action is the
- * "Copy internal mention" button: it copies `[[Page name]]` so an editor
- * can link to this page from anywhere on the wiki.
+ * page title (the File: page copy-button pattern). Its actions:
+ *
+ *   - "Copy internal mention" — copies `[[Page name]]` so an editor can link
+ *     to this page from anywhere on the wiki (the snippet is resolved by
+ *     Hooks + Spec\MentionSnippet into wbReferenceSnippet);
+ *   - "Copy citation" — opens the shared citation popup
+ *     (resources/citationpopup.js) for the PAGE itself (wbCitePage): its
+ *     title, canonical URL and last-revision date, formatted in APA /
+ *     Vancouver / BibTeX / RIS.
  *
  * The module is deliberately generic (a content-page action toolbar): future
  * page-level actions join the same inline row.
- *
- * The server resolves the page's `[[…]]` snippet into wbReferenceSnippet
- * (Hooks::onBeforePageDisplay + Spec\MentionSnippet), so the module needs no
- * API roundtrip.
  */
 ( function () {
 	'use strict';
@@ -53,31 +55,42 @@
 		return ok;
 	}
 
-	function makeButton( id, messageKey, hintKey, handler ) {
-		return $( '<button>' )
-			.attr( 'id', id )
-			.attr( 'type', 'button' )
-			.addClass( 'wb-embed-toolbar-btn' )
-			.attr( 'title', hintKey ? mw.msg( hintKey ) : '' )
-			.text( mw.msg( messageKey ) )
-			.on( 'click', handler );
-	}
-
 	mw.loader.using( [ 'mediawiki.notification', 'mediawiki.util' ] ).then( function () {
 		var snippet = mw.config.get( 'wbReferenceSnippet' );
-		if ( !snippet || $( '#firstHeading' ).length === 0 ) {
+		var citePage = mw.config.get( 'wbCitePage' );
+		if ( ( !snippet && !citePage ) || $( '#firstHeading' ).length === 0 ) {
 			return;
 		}
-		if ( $( '#ca-wb-content-copymention' ).length > 0 ) {
+		if ( $( '.wb-content-page-toolbar' ).length > 0 ) {
 			return;
 		}
-		var $toolbar = $( '<span class="wb-content-page-toolbar"></span>' )
-			.append( makeButton(
-				'ca-wb-content-copymention',
-				'embeddablecontent-contentpage-copymention',
-				'embeddablecontent-contentpage-copymention-hint',
-				function () { copyText( snippet ); }
-			) );
+		var $toolbar = $( '<span class="wb-content-page-toolbar"></span>' );
+
+		if ( snippet ) {
+			$toolbar.append(
+				$( '<button>' )
+					.attr( 'id', 'ca-wb-content-copymention' )
+					.attr( 'type', 'button' )
+					.addClass( 'wb-embed-toolbar-btn' )
+					.attr( 'title', mw.msg( 'embeddablecontent-contentpage-copymention-hint' ) )
+					.text( mw.msg( 'embeddablecontent-contentpage-copymention' ) )
+					.on( 'click', function () { copyText( snippet ); } )
+			);
+		}
+
+		if ( citePage ) {
+			var $cite = $( '<button>' )
+				.attr( 'id', 'ca-wb-content-copycite' )
+				.attr( 'type', 'button' )
+				.addClass( 'wb-embed-toolbar-btn' )
+				.attr( 'title', mw.msg( 'embeddablecontent-contentpage-copycite-hint' ) )
+				.text( mw.msg( 'embeddablecontent-gadget-copycitation' ) )
+				.on( 'click', function () {
+					mw.embeddableContent.citationPopup.open( $cite, { page: citePage } );
+				} );
+			$toolbar.append( $cite );
+		}
+
 		$( '#firstHeading' ).append( $toolbar );
 	} );
 }() );

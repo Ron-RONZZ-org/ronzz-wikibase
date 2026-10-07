@@ -19,10 +19,11 @@
  * (?lang=all), or a specific language — it applies to the iframe flavour
  * ({{#content:}} negotiates from the embedding page).
  *
- * Copy citation offers a FORMAT selector: APA / Vancouver / BibTeX / RIS
- * (the four text formats api.php?action=citation supports; json is a raw
- * structure, not meant for copying). The text for the selected format is
- * fetched lazily and cached per format.
+ * Copy citation opens a POPUP (resources/citationpopup.js): a format
+ * selector (APA default / Vancouver / BibTeX / RIS — the four text formats
+ * api.php?action=citation supports; json is a raw structure, not meant for
+ * copying), a live preview of the formatted citation, and a copy button.
+ * The text for the selected format is fetched lazily and cached.
  *
  * The toolbar renders only the actions that apply to the item: the embed
  * button appears when the item is embeddable (action=embed succeeds), the
@@ -36,17 +37,6 @@
 	var configItem = mw.config.get( 'wbEmbedItem' );
 	var titleText = mw.config.get( 'wgTitle' ) || '';
 	var embedLang = ''; // '' = auto, 'all' = all languages, else a language code
-
-	// Citation text formats, in display order. The select and the button
-	// share the currently selected format (citationStyle).
-	var CITATION_STYLES = [
-		{ key: 'apa', label: 'APA' },
-		{ key: 'vancouver', label: 'Vancouver' },
-		{ key: 'bibtex', label: 'BibTeX' },
-		{ key: 'ris', label: 'RIS' }
-	];
-	var citationText = {}; // style key => formatted text (fetched lazily)
-	var citationStyle = 'apa';
 
 	// The server sets wbEmbedItem for BOTH entity pages and the classic
 	// per-kind pages (Source:/FOSS:/Person:/Collective:/Software:), where
@@ -223,49 +213,17 @@
 	}
 
 	/**
-	 * Fetches and caches the citation text for a format. Best-effort: a
-	 * failed fetch leaves the previous text cached (the button copies
-	 * whatever is available for the selected format).
+	 * Copy-citation button. It opens the shared citation popup (format
+	 * selector / preview / copy — resources/citationpopup.js) for this item;
+	 * the popup fetches and caches each format lazily.
 	 *
-	 * @param {mw.Api} api
-	 * @param {string} style
-	 */
-	function fetchCitationText( api, style ) {
-		if ( citationText[ style ] || !entityId ) {
-			return;
-		}
-		api.get( { action: 'citation', entity: entityId, style: style, output: 'text' } )
-			.done( function ( data ) {
-				if ( data && data.citation && !data.error ) {
-					citationText[ style ] = data.citation;
-				}
-			} );
-	}
-
-	/**
-	 * Copy-citation button + the format selector. The button copies the text
-	 * of the currently selected format; changing the selector fetches (and
-	 * caches) that format's text.
-	 *
-	 * @param {mw.Api} api
 	 * @return {jQuery[]} toolbar children for the citation action
 	 */
-	function citationControls( api ) {
+	function citationControls() {
 		var $btn = makeButton( 'ca-wb-embed-cite', 'embeddablecontent-gadget-copycitation', function () {
-			copyText( citationText[ citationStyle ] || '' );
+			mw.embeddableContent.citationPopup.open( $btn, { entity: entityId } );
 		} );
-		var $select = $( '<select>' )
-			.addClass( 'wb-embed-toolbar-style' )
-			.attr( 'title', mw.msg( 'embeddablecontent-gadget-citation-style' ) );
-		CITATION_STYLES.forEach( function ( style ) {
-			$select.append( $( '<option>' ).val( style.key ).text( style.label ) );
-		} );
-		$select.val( citationStyle );
-		$select.on( 'change', function () {
-			citationStyle = $select.val();
-			fetchCitationText( api, citationStyle );
-		} );
-		return [ $btn, $select ];
+		return [ $btn ];
 	}
 
 	mw.loader.using( [ 'mediawiki.api', 'mediawiki.notification' ] ).then( function () {
@@ -295,13 +253,12 @@
 			maybeRender();
 		} ).fail( maybeRender );
 
-		// Citation button + format selector: only when a citation can be
-		// built. The APA probe doubles as the first fetched text.
+		// Citation button: only when a citation can be built (the popup
+		// fetches each format on demand).
 		api.get( { action: 'citation', entity: entityId, style: 'apa', output: 'text' } ).done( function ( data ) {
 			var citation = ( data && data.citation && !data.error ) ? data.citation : '';
 			if ( citation ) {
-				citationText.apa = citation;
-				children = children.concat( citationControls( api ) );
+				children = children.concat( citationControls() );
 			}
 			maybeRender();
 		} ).fail( maybeRender );

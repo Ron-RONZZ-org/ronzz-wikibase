@@ -83,3 +83,24 @@
 .wb-uploadcopy-notice code {
 	font-size: 0.95em;
 }
+
+/* "Copy citation" popup (resources/citationpopup.js): a format dropdown, a
+ * live preview of the formatted citation, and a copy button. */
+.wb-citation-popup-preview {
+	margin: 0.6em 0;
+	padding: 0.5em;
+	background: #f8f9fa;
+	border: 1px solid #eaecf0;
+	white-space: pre-wrap;
+	word-break: break-word;
+	max-width: 42em;
+}
+
+.wb-citation-popup-error {
+	color: #b32424;
+}
+
+.wb-citation-popup-actions {
+	margin-top: 0.5em;
+	text-align: right;
+}
