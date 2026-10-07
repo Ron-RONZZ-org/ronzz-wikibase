@@ -608,8 +608,32 @@ report). See `SimpleMathJax/VENDORED.md`.
   properties, config `imageClasses`/`imageProperties` + person/FOSS keys.
   MsUpload (production-only, not in dev/CI) coexistence is a deploy-time
   verification item.
-- **Entity-page toolbar gadget** (copy embed with absolute URL + language
-  selector / copy citation) and entity-combobox autocomplete.
+- **Entity-page toolbar gadget + shared citation popup (ADR
+  `docs/decisions/classic-page-citation-and-preview.md`)**: the toolbar
+  controls live in `resources/entityactions.js` (embed chooser with
+  internal `{{#content:}}` / external `<iframe>` flavours + language
+  selector; "Copy citation") and are used by both the entity / classic-page
+  toolbar (`gadget.js`) and the Add* success popup. "Copy citation" now
+  opens the shared `resources/citationpopup.js` popup (OOUI `PopupWidget`:
+  format dropdown APA default / Vancouver / BibTeX / RIS, live preview, copy
+  button) instead of copying the current format from an inline selector;
+  the popup cites either an item ({ entity }) or a wiki page ({ page }).
+  Entity-combobox autocomplete unchanged.
+
+- **Classic content-page toolbar: mention + page citation (ADR
+  `docs/decisions/classic-page-citation-and-preview.md` +
+  `content-page-reference-toolbar.md`)**: the ordinary content-page toolbar
+  renders "Copy internal mention" (the renamed "Copy internal reference" —
+  the snippet is resolved by the pure `Spec\MentionSnippet`: `[[Page name]]`
+  with the Main-namespace first letter lowercased unless the title is a
+  proper name; other namespaces kept) and "Copy citation", which opens the
+  citation popup for the PAGE itself (`action=citation&page=<title>` — type
+  `webpage`, title + canonical URL + last-revision date, no author,
+  `PageCitationBuilder` + `CitationEngine::renderPage`). The item citation
+  now reads the SOURCE item's `URL` property (a content item's own `source
+  URL` wins) and its LAST-edition year (the latest `date`), and the source
+  type map maps `web page` → `webpage` (re-publish the citation maps on
+  deploy).
 - **Autofill confirm + Special:Update\* pages (autofill-confirm-update
   batch, ADR `docs/decisions/autofill-confirm-update.md`)**: entity-typed
   fields auto-filled from fetched source data (license on Special:Upload /
@@ -895,7 +919,10 @@ report). See `SimpleMathJax/VENDORED.md`.
   implementationOf) — **label resets to the default prefill, payload to
   empty** (`carryOverParams()` gates the prefill to the addmore return
   trip). The content-page submit is now **login-gated** (the write surface;
-  page loads stay open).
+  page loads stay open). The return trip also carries `?created=<Qid>` and
+  `resources/addmore.js` opens the **success popup** (the just-added item's
+  in-wiki preview + Edit content / Copy Embed code / Copy citation) — ADR
+  `docs/decisions/classic-page-citation-and-preview.md`.
 - **Label sanitization for page titles (fix, same ADR — the Q1232 bug)**:
   harvested titles carry HTML markup (OpenAlex `<i>…</i>` italics), which was
   stored verbatim in the item label and made the classic-page title invalid
@@ -1109,10 +1136,14 @@ report). See `SimpleMathJax/VENDORED.md`.
   rendered below the expression in a `.wb-embed-note` block;
   `{{#content:Q…|noNote}}` (`ParserFunctions/ContentArgs::noNote`,
   case-insensitive) suppresses it. (c) **Classic content-page toolbar** —
-  `resources/contentpagetoolbar.js` renders a "Copy internal reference"
-  button inline next to the title on ordinary content pages (the
-  `Hooks::onBeforePageDisplay` branch sets `wbReferencePageName`), copying
-  `[[Page name]]`; File:/per-kind/entity pages keep their own toolbars.
+  `resources/contentpagetoolbar.js` renders "Copy internal mention"
+  (formerly the misnomer "Copy internal reference") and "Copy citation"
+  inline next to the title on ordinary content pages (the
+  `Hooks::onBeforePageDisplay` branch sets `wbReferenceSnippet` via
+  `Spec\MentionSnippet` and `wbCitePage`), copying the normalized
+  `[[Page name]]` snippet / opening the page-citation popup;
+  File:/per-kind/entity pages keep their own toolbars (see the
+  classic-page-citation ADR).
   **Re-seed required** (new property). Tests: `run_e2e.py rich`
   (self-cleaning), `run_wiki_ux_e2e.mjs`, `run_addmath_ux_e2e.mjs`,
   `SpecialContentFlowServiceTest`/`FieldMapTest`/`ContentArgsTest`.
@@ -1245,6 +1276,18 @@ report). See `SimpleMathJax/VENDORED.md`.
   create/update paths). `Template:Person` gains the row via the migration
   tool. No vocabulary/seed/config change; the two deploy steps are the
   extension rsync + parser-cache purge, then the template migration.
+  (e) **Preview mode + richer previews (ADR
+  `docs/decisions/classic-page-citation-and-preview.md`)**:
+  `action=embed` gains `preview=1` (used by the Item-page preview +
+  the Add* success popup; the framed embed surfaces are unchanged). A
+  quotation preview renders the ORIGINAL + the reader-language translation
+  (when present) + the `-author, ''source''` attribution line (the shared
+  `Content/ProvenanceWikitext`, also used by `{{#content:}}`); the math
+  note now carries a PLAIN `.wb-embed-note` wrapper (no `.wb-embed` chrome
+  — the stray line) and the Item page typesets its inline `$…$` with the
+  vendored KaTeX (`resources/inlinekatex.js`). The Add* "Add more" submit
+  appends `?created=<Qid>`, and `resources/addmore.js` opens a success
+  dialog with the same preview + the entity actions.
 
 ### WikibaseCitation
 
@@ -1320,6 +1363,17 @@ report). See `SimpleMathJax/VENDORED.md`.
   the href follows the current sitelink (a page rename is never stale).
   Multi-entity refs and source items without a page render unchanged;
   `{{#citations:}}` (the aggregated bibliography) is untouched.
+- **Page citation + source URL/last-edition year (ADR
+  `docs/decisions/classic-page-citation-and-preview.md`)**: `action=citation`
+  accepts `page=<title>` (mutually exclusive with `entity`): the WIKI PAGE
+  itself is cited as a CSL `webpage` — `PageCitationBuilder` (pure) from the
+  title, `$wgSitename`, the canonical URL and the last-revision date (the
+  page's "last edition"); `CitationEngine::renderPage` formats + caches it,
+  no author. The ITEM citation reads the cited SOURCE item's `URL` property
+  (a content item's own `source URL` wins) and its LAST-edition year (the
+  latest `date` statement); the source type map maps `web page` → `webpage`
+  and the source property map gains `URL` — re-run
+  `maintenance/importCitationMap.php` on deploy.
 
 ### LanguageBar
 

@@ -92,6 +92,10 @@ Four editor-facing gaps:
   (`json` is a raw structure, not meant for copying). The text for the
   selected format is fetched lazily and cached per format; the APA probe that
   decides whether the button renders doubles as the first fetched text.
+  **Updated (Oct 7 2026, `classic-page-citation-and-preview.md`)**: the
+  inline selector was replaced by the shared citation popup
+  (`resources/citationpopup.js` — format dropdown, live preview, copy
+  button), opened on click from this button.
 
 ## Consequences
 

@@ -62,6 +62,10 @@ source.
   label, so a page rename or label edit is never stale.
 - `Special:QuotationsOf` and the embed surfaces are unchanged; a follow-up
   could reuse the same attribution assembly there if desired.
+  **Updated (Oct 7 2026, `classic-page-citation-and-preview.md`)**: the
+  attribution resolution moved to `Content/ProvenanceWikitext` (shared by
+  `ContentPayload` and the embed renderer), and the `action=embed&preview=1`
+  quotation preview now reuses the exact attribution line.
 
 ## Tests
 

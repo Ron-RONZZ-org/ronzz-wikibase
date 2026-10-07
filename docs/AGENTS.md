@@ -35,7 +35,9 @@ deployed, how to operate it, and why it is designed the way it is.
   `cite-by-qid.md` (citations as a derived view over items — `{{#cite}}`/
   `{{#citations}}` parser functions, issues #24/#25; accepted but not yet
   implemented), `automatic-languages-bar.md` (the `{{Languages}}` bar is
-  injected by default on content pages).
+  injected by default on content pages), `classic-page-citation-and-preview.md`
+  (the classic-page "Copy citation" + page citation, the content-item preview
+  mode, the Add* success popup + the "Copy internal mention" rename).
 
 ## Constraints and Invariants
 
