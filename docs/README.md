@@ -81,4 +81,10 @@ preservation), `subpages.md`
 parent page), `upload-image-tools-and-plain-content.md` (local-file upload
 preview + client-side resize + extension auto-correction; `{{#content:}}`
 expands to plain wikitext — math via SimpleMathJax, no `.wb-embed` chrome;
-the AddMath note sits below Content and shows in the preview).
+the AddMath note sits below Content and shows in the preview),
+`law-embed-code.md` (legal provisions are embeddable — the `law` class in
+`ContentRenderer`; the Source-page "Copy embed code" button),
+`addsource-law-addmore.md` (the `law` form's "Add more" submit + success
+popup, parent legislation preserved), `classic-page-label-sync.md` (a direct
+label edit renames the sitelinked classic page, a redirect left behind;
+backtracking moves it back).

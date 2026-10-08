@@ -1796,6 +1796,46 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		parent::executeManual();
 	}
 
+	// ------------------------------------------------------------- "Add more"
+	// The legal-provision form supports rapid clause entry: the "Add more"
+	// button creates the provision + its Source: page, then reopens this form
+	// with the PARENT legislation preserved (the reference code and the clause
+	// text reset) and the success popup (the content pages' pattern).
+
+	/** @return array<string,mixed> */
+	protected function manualExtraSubmits(): array {
+		if ( $this->currentClassKey !== 'law' ) {
+			return [];
+		}
+		return [ 'addMore' => [
+			'type' => 'submit',
+			'buttonlabel-message' => 'embeddablecontent-add-more',
+			'buttonlabel' => $this->msg( 'embeddablecontent-add-more' )->text(),
+		] ];
+	}
+
+	protected function addMoreReturnStep(): ?string {
+		return $this->currentClassKey === 'law' ? 'manual' : null;
+	}
+
+	/** @return string[] */
+	protected function addMoreCarryFields(): array {
+		return $this->currentClassKey === 'law' ? [ 'parent' ] : [];
+	}
+
+	protected function addMoreEditUrl( string $itemId ): ?string {
+		if ( $this->currentClassKey !== 'law' ) {
+			return parent::addMoreEditUrl( $itemId );
+		}
+		return \MediaWiki\SpecialPage\SpecialPage::getTitleFor( 'UpdateSource', $itemId )->getFullURL();
+	}
+
+	protected function addMoreEditLabelKey(): string {
+		return $this->currentClassKey === 'law'
+			? 'embeddablecontent-update-button'
+			: parent::addMoreEditLabelKey();
+	}
+
 	// ------------------------------------------------------------- classic page
 	// The base afterCreate() writes a sitelinked Source:<label> page (the
 	// issue-#26 AddSoftware pattern); this class declares the page facts.

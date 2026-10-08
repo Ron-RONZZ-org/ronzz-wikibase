@@ -97,7 +97,7 @@ class ApiEmbed extends ApiBase {
 	}
 
 	public function getModuleDescription() {
-		return 'Render an embeddable content item (quotation, code snippet, mathematical expression) as an HTML fragment.';
+		return 'Render an embeddable content item (quotation, code snippet, mathematical expression, legal provision) as an HTML fragment.';
 	}
 
 	private function parseItemId( string $input ): ?ItemId {
