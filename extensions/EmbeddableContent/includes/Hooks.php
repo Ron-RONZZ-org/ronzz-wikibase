@@ -90,14 +90,18 @@ class Hooks {
 	}
 
 	/**
-	 * The item↔page auto-link pair:
+	 * The item↔page auto-link pair plus the label→title sync:
 	 *  - Special:NewItem auto-creates a Main-namespace sitelinked classic page
 	 *    for the item it just created (Flow/NewItemPageCreator) — gated to the
 	 *    Special:NewItem request, so the Add* flows (which create their own
 	 *    per-kind pages) and API/script item creation are untouched;
 	 *  - a NEW Main-namespace classic page auto-creates (or reuses) its
 	 *    sitelinked item (Flow/PageItemCreator) — the reverse direction, and
-	 *    the backfill for pages that predate the item.
+	 *    the backfill for pages that predate the item;
+	 *  - a DIRECT label edit on the Item: page (or via the API/MCP) renames the
+	 *    sitelinked classic page to the new label's title, leaving a redirect
+	 *    (Flow/ClassicPageLabelSync) — the Update* forms already rename and
+	 *    suppress this handler.
 	 */
 	public static function onPageSaveComplete(
 		$wikiPage,
@@ -119,6 +123,14 @@ class Hooks {
 			\MediaWiki\Context\RequestContext::getMain()->getTitle()
 		);
 		\EmbeddableContent\Flow\PageItemCreator::handle(
+			$wikiPage,
+			$user,
+			$flags
+		);
+		// Keep the classic page title in sync with a DIRECT label edit on the
+		// Item: page / via the API (the Update* forms rename themselves and
+		// suppress this handler).
+		\EmbeddableContent\Flow\ClassicPageLabelSync::handle(
 			$wikiPage,
 			$user,
 			$flags
