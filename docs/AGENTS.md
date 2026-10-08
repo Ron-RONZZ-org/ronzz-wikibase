@@ -37,7 +37,12 @@ deployed, how to operate it, and why it is designed the way it is.
   implemented), `automatic-languages-bar.md` (the `{{Languages}}` bar is
   injected by default on content pages), `classic-page-citation-and-preview.md`
   (the classic-page "Copy citation" + page citation, the content-item preview
-  mode, the Add* success popup + the "Copy internal mention" rename).
+  mode, the Add* success popup + the "Copy internal mention" rename),
+  `law-embed-code.md` (legal provisions embeddable through the quotation path
+  — the Source-page "Copy embed code" button), `addsource-law-addmore.md` (the
+  `law` form's "Add more" submit + success popup), and
+  `classic-page-label-sync.md` (a direct label edit renames the sitelinked
+  classic page, leaving a redirect; backtracking moves it back).
 
 ## Constraints and Invariants
 

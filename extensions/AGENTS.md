@@ -423,6 +423,50 @@ report). See `SimpleMathJax/VENDORED.md`.
   property + config keys); on-wiki `Template:Law` + the `Template:Legislation`
   child row are deploy tasks. The MCP server's pinned field contract is
   re-copied + regenerated.
+- **Legal provisions are embeddable (`law` in `ContentRenderer`; ADR
+  `docs/decisions/law-embed-code.md`)**: the framed embed path now recognizes
+  the `law` class exactly like `{{#content:}}` does — `ContentRenderer::detectKind()`
+  accepts `config->lawClass()`, `extractPayload()` reads the quotation payload
+  property + the `translation` property (so `lang=fr|eo|all` work as for
+  quotations), `renderKind()` renders through the quotation blockquote path,
+  and `preview=1` uses the quotation preview minus the attribution line (a
+  provision carries no author/source). Consequence: the classic-page toolbar
+  gadget's `action=embed` probe succeeds on a provision's `Source:` page, so
+  its **"Copy embed code"** button (internal `{{#content:Q}}` + external
+  iframe) renders alongside "Copy internal citation"/"Copy internal mention".
+  A `legislation` item itself stays non-embeddable (no payload). No
+  vocabulary/config change.
+- **AddSource/law "Add more" (ADR
+  `docs/decisions/addsource-law-addmore.md`)**: the legal-provision manual form
+  (`Special:AddSource/law/manual`) gains the content pages' second **"Add
+  more"** submit. On `wpaddMore` the provision + its `Source:` page are created
+  (through the usual `complete/<id>` finalize), then the flow reopens the form
+  at `?addmore=1&created=<Qid>&parent=<Qid>` — the **parent legislation is
+  preserved**, the reference code/clause/translations reset — and shows the
+  shared `resources/addmore.js` success popup (preview + "Update basic
+  information" → `Special:UpdateSource/<Qid>` / "Copy embed code" / "Copy
+  citation"). The generic plumbing lives on `SpecialAddExternalEntity`
+  (`manualExtraSubmits()`, `addMoreReturnStep()`, `addMoreCarryFields()`, a
+  session-flag intent that survives the duplication-guard confirm round-trip,
+  and `maybeWireAddMorePopup()`), activated for `law` by `SpecialAddSource`.
+  The popup's primary label is now `wbJustAddedEditLabel`-driven, so a content
+  item still says "Edit content" while a provision says "Update basic
+  information". No vocabulary/config change.
+- **Direct label edit renames the classic page (ADR
+  `docs/decisions/classic-page-label-sync.md`)**: a new `PageSaveComplete`
+  handler (`Flow/ClassicPageLabelSync`) keeps a classic page's title in sync
+  with its item on a **direct** label edit (the Item page's label field,
+  `wbeditentity`, the MCP `wikibase-edit-entity`) — the `Special:Update*`
+  forms already renamed. When an Item: save (not a create) has a `wikibase`
+  sitelink whose page title differs from the item's **English label** (fallback:
+  its term-language label), the page is moved to the new title — **a redirect
+  is left behind** — and the sitelink is re-pointed. The move is the shared
+  `Flow/ClassicPageRenamer` primitive (also used by
+  `UpdateExternalEntityFlow::renameClassicPage`, so the two can never drift),
+  and it moves over the single-revision redirect a previous rename left behind
+  (label backtracking), never clobbering a real page. A static suppression
+  guard keeps the Update* flow's own label-changing save from double-moving.
+  No vocabulary/config change.
 - **Classic-page "Update basic information" return (ADR
   `docs/decisions/classic-page-update-return.md`)**: the toolbar button on a
   classic per-kind page marks its Update URL `?frompage=1`; the Update form
