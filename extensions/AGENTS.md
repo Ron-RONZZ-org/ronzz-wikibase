@@ -458,9 +458,11 @@ report). See `SimpleMathJax/VENDORED.md`.
   with its item on a **direct** label edit (the Item page's label field,
   `wbeditentity`, the MCP `wikibase-edit-entity`) — the `Special:Update*`
   forms already renamed. When an Item: save (not a create) has a `wikibase`
-  sitelink whose page title differs from the item's **English label** (fallback:
-  its term-language label), the page is moved to the new title — **a redirect
-  is left behind** — and the sitelink is re-pointed. The move is the shared
+  sitelink in a **classic per-kind namespace** (`Source:`/`Person:`/
+  `Collective:`/`FOSS:`/`Software:` — never a Main-namespace page) whose title
+  differs from the item's **English label** (fallback: its term-language
+  label), the page is moved to the new title — **a redirect is left behind** —
+  and the sitelink is re-pointed. The move is the shared
   `Flow/ClassicPageRenamer` primitive (also used by
   `UpdateExternalEntityFlow::renameClassicPage`, so the two can never drift),
   and it moves over the single-revision redirect a previous rename left behind

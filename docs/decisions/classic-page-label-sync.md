@@ -25,7 +25,10 @@ A new `PageSaveComplete` handler (`Flow/ClassicPageLabelSync`) keeps the two in
 sync on Item: entity saves:
 
 - it acts only on **Item: page saves** (not creates) whose item carries a
-  `wikibase` sitelink;
+  `wikibase` sitelink in a **classic per-kind namespace** (`Source:` /
+  `Person:` / `Collective:` / `FOSS:` / `Software:`) — Main-namespace pages
+  (the `Special:NewItem` / `PageItemCreator` auto-pages) may be titled
+  differently from the item label on purpose, so they are never moved here;
 - the new title is derived from the item's **English label** (fallback: the
   item's term-language label — e.g. an AddSource item stored under a
   non-English `labelLanguage`);

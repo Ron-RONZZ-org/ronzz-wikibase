@@ -31,6 +31,10 @@ use Wikibase\Repo\WikibaseRepo;
  *    ordinary page saves are skipped;
  *  - `EDIT_NEW` is skipped (the Add* flows write their sitelink + page in a
  *    controlled order; this handler would only race them);
+ *  - only the CLASSIC per-kind pages (Source:/Person:/Collective:/FOSS:/
+ *    Software:) are renamed — a Main-namespace page (the `Special:NewItem` /
+ *    `PageItemCreator` auto-pages) may be titled differently from the item
+ *    label on purpose, so it is never moved here;
  *  - the shared `ClassicPageRenamer` suppression guard skips the save the
  *    Update* flow owns;
  *  - a no-op whenever the derived title equals the current sitelink title,
@@ -92,7 +96,10 @@ final class ClassicPageLabelSync {
 		} catch ( \Throwable $e ) {
 			return;
 		}
-		if ( $oldTitle === null ) {
+		if ( $oldTitle === null || !self::isClassicEntityNamespace( $oldTitle->getNamespace() ) ) {
+			// Only the per-kind classic pages are renamed: a Main-namespace
+			// page may be titled differently from the item label on purpose
+			// (the PageItemCreator label match), so it is never moved here.
 			return;
 		}
 
@@ -126,5 +133,19 @@ final class ClassicPageLabelSync {
 			return null;
 		}
 		return (string)reset( $labels );
+	}
+
+	/**
+	 * The classic per-kind namespaces (Source: / Person: / Collective: /
+	 * FOSS: / Software:), defined by the instance LocalSettings. The
+	 * defined() guards keep the handler safe on a wiki without them.
+	 */
+	private static function isClassicEntityNamespace( int $namespace ): bool {
+		foreach ( [ 'NS_SOURCE', 'NS_PERSON', 'NS_COLLECTIVE', 'NS_FOSS', 'NS_SOFTWARE' ] as $constant ) {
+			if ( defined( $constant ) && $namespace === constant( $constant ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 }
