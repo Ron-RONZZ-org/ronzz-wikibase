@@ -4900,6 +4900,27 @@ def main() -> int:
               f"class honored + parent organization + official website statements "
               f"({parent_org_qid})")
 
+        # 3a1. AddCollective label language: an entity whose name has no
+        #      English form is stored under the chosen term language — the
+        #      form's `labelLanguage` must reach the shared semantic flow
+        #      (before this feature it was hardcoded to en).
+        fr_label = f"Collectif E2E {int(time.time())}"
+        collective_fr = track(flow_manual(op, base, api, "AddCollective",
+                                          fr_label, governmental_agency_class,
+                                          {"wplabelLanguage": "fr"}))
+        r = api_call(op, api, {"action": "wbgetentities", "ids": collective_fr,
+                               "props": "labels", "format": "json"})
+        fr_labels = r.get("entities", {}).get(collective_fr, {}).get("labels", {})
+        if set(fr_labels) != {"fr"}:
+            raise FlowError(f"AddCollective labelLanguage=fr stored label languages "
+                            f"{sorted(fr_labels)} (expected only fr) — the field did "
+                            f"not reach the semantic flow")
+        if fr_labels.get("fr", {}).get("value") != fr_label:
+            raise FlowError(f"AddCollective fr label mismatch: "
+                            f"{fr_labels.get('fr', {}).get('value')!r} != {fr_label!r}")
+        print(f"[ok] AddCollective labelLanguage=fr -> {collective_fr}: "
+              f"label stored only in fr")
+
         # 3a2. AddCollective logo (issue follow-up): the optional logo
         #     uploads as File:<label>-logo.png (AddSoftware pattern) with a
         #     mandatory license; the image + license statements are written.

@@ -1822,6 +1822,48 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	}
 
 	/**
+	 * The `labelLanguage` field (shared by every semantic-entity kind): the
+	 * SEPARATE term language the item's label/description are stored under,
+	 * default `en`. A collective/person whose name has no English form keeps
+	 * its native-language label instead of an English transliteration.
+	 *
+	 * The options are MediaWiki's own language set (valid TERM languages,
+	 * English names) — the same list the AddSource `labelLanguage` field
+	 * offers; the field is code-labelled `"{code} — {name}"` so it
+	 * partial-matches the code AND the English name.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,mixed> fieldname => descriptor
+	 */
+	protected function labelLanguageFieldSpec( array $record ): array {
+		$options = [];
+		foreach ( \MediaWiki\MediaWikiServices::getInstance()
+			->getLanguageNameUtils()->getLanguageNames( 'en' ) as $code => $name ) {
+			$options[ $code . LanguageCatalog::LABEL_SEPARATOR . $name ] = $code;
+		}
+		return [ 'labelLanguage' => [
+			'type' => 'combobox',
+			'label-message' => 'embeddablecontent-field-labellanguage',
+			'help-message' => 'embeddablecontent-field-labellanguage-help',
+			'options' => $options,
+			'default' => (string)( $record['labelLanguage'] ?? 'en' ),
+		] ];
+	}
+
+	/**
+	 * The `labelLanguage` a record should prefill on the review/manual form:
+	 * an explicit record value, else the language the item's label is
+	 * currently stored under (the Update* flows pass it from recordFromItem),
+	 * else `en`.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function labelLanguageValue( array $record ): string {
+		$value = trim( (string)( $record['labelLanguage'] ?? '' ) );
+		return $value !== '' ? $value : 'en';
+	}
+
+	/**
 	 * Official-website URL field (shared by AddSoftware / AddPerson /
 	 * AddCollective): a plain URL input writing the shared P856-aligned
 	 * property as a string (url-datatype) statement.

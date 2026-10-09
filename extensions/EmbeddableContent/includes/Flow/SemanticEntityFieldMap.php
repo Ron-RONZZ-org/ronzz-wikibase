@@ -20,6 +20,11 @@ final class SemanticEntityFieldMap {
 	public const ALL_FIELDS = [
 		'label',
 		'description',
+		// The SEPARATE term language the item label/description are stored
+		// under (`en` default) — a collective/person whose name has no
+		// English form keeps its native-language label (the AddSource
+		// `labelLanguage` contract, extended to every semantic-entity kind).
+		'labelLanguage',
 		'givenName',
 		'familyName',
 		'alias',
@@ -76,11 +81,11 @@ final class SemanticEntityFieldMap {
 
 	/** kind => fields the flow accepts for it. */
 	private const KIND_FIELDS = [
-		'person' => [ 'givenName', 'familyName', 'description', 'dateOfBirth', 'placeOfBirth', 'dateOfDeath', 'placeOfDeath', 'orcid', 'viafId', 'isni', 'wikidataId', 'openalexAuthorId', 'officialWebsite' ],
-		'software' => [ 'label', 'description', 'developer', 'license', 'programmingLanguage', 'operatingSystem', 'userInterface', 'hasUse', 'officialWebsite', 'sourceCodeRepository', 'documentationUrl', 'wikidataId', 'pageKind' ],
-		'collective' => [ 'label', 'description', 'collectiveClass', 'parentOrganization', 'officialWebsite', 'wikidataId' ],
-		'fictional-character' => [ 'givenName', 'familyName', 'alias', 'description', 'presentInWork' ],
-		'other' => [ 'label', 'description', 'instanceOf' ],
+		'person' => [ 'givenName', 'familyName', 'description', 'labelLanguage', 'dateOfBirth', 'placeOfBirth', 'dateOfDeath', 'placeOfDeath', 'orcid', 'viafId', 'isni', 'wikidataId', 'openalexAuthorId', 'officialWebsite' ],
+		'software' => [ 'label', 'description', 'labelLanguage', 'developer', 'license', 'programmingLanguage', 'operatingSystem', 'userInterface', 'hasUse', 'officialWebsite', 'sourceCodeRepository', 'documentationUrl', 'wikidataId', 'pageKind' ],
+		'collective' => [ 'label', 'description', 'labelLanguage', 'collectiveClass', 'parentOrganization', 'officialWebsite', 'wikidataId' ],
+		'fictional-character' => [ 'givenName', 'familyName', 'alias', 'description', 'labelLanguage', 'presentInWork' ],
+		'other' => [ 'label', 'description', 'labelLanguage', 'instanceOf' ],
 	];
 
 	/**

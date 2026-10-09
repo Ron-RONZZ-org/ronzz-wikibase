@@ -69,6 +69,7 @@ class SpecialUpdateCollective extends SpecialAddCollective {
 		$record = [
 			'label' => $this->itemLabel( $item ),
 			'description' => $this->itemDescription( $item ),
+			'labelLanguage' => $this->itemTermLanguage( $item ),
 			'parentOrganization' => $this->firstEntityForProperty(
 				$item,
 				$this->config->collectivePropertyIds()['parentOrganization'] ?? null

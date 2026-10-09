@@ -166,6 +166,8 @@
 	"embeddablecontent-source-manual-title": "Ajouter une source manuellement",
 	"embeddablecontent-collective-manual-title": "Ajouter un collectif manuellement",
 	"embeddablecontent-field-description": "Description",
+	"embeddablecontent-field-labellanguage": "Langue du libellé",
+	"embeddablecontent-field-labellanguage-help": "La langue dans laquelle le libellé et la description de l'élément sont enregistrés (anglais par défaut). Certaines entités n'ont pas de nom anglais — choisissez la langue du nom saisi.",
 	"embeddablecontent-field-givenname": "Prénom",
 	"embeddablecontent-field-familyname": "Nom de famille",
 	"embeddablecontent-field-dateofbirth": "Date de naissance",

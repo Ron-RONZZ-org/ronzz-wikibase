@@ -54,9 +54,10 @@ class SpecialUpdateFictionalCharacter extends SpecialAddFictionalCharacter {
 		// split the remainder into given/family (primaryLabel round-trip).
 		$name = trim( (string)preg_replace( '/\s*\(fictional character\)\s*$/i', '', $label ) );
 		$split = NameSplitter::splitFullName( $name );
-		$aliases = $item->getAliasGroups()->toTextArray()['en'] ?? [];
+		$aliases = $item->getAliasGroups()->toTextArray()[ $this->itemTermLanguage( $item ) ] ?? [];
 		$record = [
 			'description' => $this->itemDescription( $item ),
+			'labelLanguage' => $this->itemTermLanguage( $item ),
 			'givenName' => $split['givenName'],
 			'familyName' => $split['familyName'],
 			'alias' => implode( ', ', $aliases ),

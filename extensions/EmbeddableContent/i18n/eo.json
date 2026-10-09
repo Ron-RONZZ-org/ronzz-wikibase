@@ -166,6 +166,8 @@
 	"embeddablecontent-source-manual-title": "Aldoni fonton permane",
 	"embeddablecontent-collective-manual-title": "Aldoni kolektivon permane",
 	"embeddablecontent-field-description": "Priskribo",
+	"embeddablecontent-field-labellanguage": "Etikeda lingvo",
+	"embeddablecontent-field-labellanguage-help": "La lingvo en kiu la etikedo kaj priskribo de la ero estas konservitaj (angle defaŭlte). Iuj eroj ne havas anglan nomon — elektu la lingvon de la nomo, kiun vi entajpas.",
 	"embeddablecontent-field-givenname": "Antaŭnomo",
 	"embeddablecontent-field-familyname": "Familia nomo",
 	"embeddablecontent-field-dateofbirth": "Naskiĝdato",

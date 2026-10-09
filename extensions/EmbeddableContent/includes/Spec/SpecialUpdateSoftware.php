@@ -69,6 +69,7 @@ class SpecialUpdateSoftware extends SpecialAddSoftware {
 		$record = [
 			'label' => $this->itemLabel( $item ),
 			'description' => $this->itemDescription( $item ),
+			'labelLanguage' => $this->itemTermLanguage( $item ),
 		];
 
 		$props = $this->config->fossPropertyIds();

@@ -18,6 +18,7 @@ use Wikibase\DataModel\Services\Lookup\EntityLookup;
 use Wikibase\DataModel\Services\Statement\GuidGenerator;
 use Wikibase\DataModel\Snak\PropertyValueSnak;
 use Wikibase\DataModel\Statement\StatementList;
+use Wikibase\DataModel\Term\TermList;
 
 /**
  * The entity-mode semantic-entity pipeline (person / software / collective /
@@ -36,6 +37,9 @@ final class SemanticEntityFlowService {
 	public const ERROR_LABEL_REQUIRED = 'label is required when creating a %s item.';
 	public const ERROR_NAME_REQUIRED = 'givenName or familyName is required when creating a person / fictional-character item.';
 	public const ERROR_INSTANCE_OF_REQUIRED = 'instanceOf is required when creating an other item.';
+
+	/** BCP-47-ish language-code shape (the SourceFlowService pattern). */
+	private const LANGUAGE_CODE_PATTERN = '/^[a-z]{2,8}(?:-[a-z0-9]{2,8})*$/i';
 
 	/** The AddCollective picker presets: preset key => agentClasses() key. */
 	private const COLLECTIVE_PRESETS = [
@@ -149,6 +153,14 @@ final class SemanticEntityFlowService {
 					return "{$entityField} contains \"{$id}\", which is not an item ID.";
 				}
 			}
+		}
+
+		// The term language the label/description/aliases are stored under
+		// (default `en`): the SEPARATE `labelLanguage` field (the AddSource
+		// contract, extended to every semantic-entity kind).
+		$labelLanguage = trim( (string)( $record['labelLanguage'] ?? '' ) );
+		if ( $labelLanguage !== '' && preg_match( self::LANGUAGE_CODE_PATTERN, $labelLanguage ) !== 1 ) {
+			return "labelLanguage \"{$labelLanguage}\" is not a valid language code.";
 		}
 
 		if ( $kind === 'collective' ) {
@@ -360,14 +372,15 @@ final class SemanticEntityFlowService {
 	/** @param array<string,mixed> $record */
 	public function buildItem( string $kind, array $record ): Item {
 		$item = new Item();
-		$item->setLabel( 'en', $this->labelFor( $kind, $record ) );
+		$language = self::termLanguage( $record );
+		$item->setLabel( $language, $this->labelFor( $kind, $record ) );
 		$description = trim( (string)( $record['description'] ?? '' ) );
 		if ( $description !== '' ) {
-			$item->setDescription( 'en', $description );
+			$item->setDescription( $language, $description );
 		}
 		$aliases = self::splitAliases( (string)( $record['alias'] ?? '' ) );
 		if ( $aliases !== [] ) {
-			$item->setAliases( 'en', $aliases );
+			$item->setAliases( $language, $aliases );
 		}
 		foreach ( $this->statementSpecs( $kind, $record ) as $propertyId => $value ) {
 			foreach ( is_array( $value ) ? $value : [ $value ] as $single ) {
@@ -413,19 +426,34 @@ final class SemanticEntityFlowService {
 			// edit-mode row for logged-in users).
 			StatementGuidAssigner::ensureGuids( $item, new GuidGenerator() );
 		}
+		$language = trim( (string)( $record['labelLanguage'] ?? '' ) );
+		$oldLanguage = self::labelLanguage( $item );
+		if ( $language === '' ) {
+			// No-clobber: a blank labelLanguage keeps the item's current
+			// term language (an update must never silently re-language an
+			// item the caller did not touch).
+			$language = $oldLanguage;
+		}
 		$label = $this->labelFor( $kind, $record );
 		if ( $label !== '' ) {
-			$item->setLabel( 'en', $label );
+			$item->setLabel( $language, $label );
+			self::moveTerm( $item->getLabels(), $oldLanguage, $language );
 		}
 		$description = trim( (string)( $record['description'] ?? '' ) );
 		if ( $description !== '' ) {
-			$item->setDescription( 'en', $description );
+			$item->setDescription( $language, $description );
+			self::moveTerm( $item->getDescriptions(), $oldLanguage, $language );
 		}
 		// Aliases: no-clobber — only a NON-empty alias field replaces the
-		// stored set (a blank field keeps the existing aliases).
+		// stored set (a blank field keeps the existing aliases). The set is
+		// stored under the chosen term language and the previous language's
+		// group is dropped (the chosen-language-only contract).
 		$aliases = self::splitAliases( (string)( $record['alias'] ?? '' ) );
 		if ( $aliases !== [] ) {
-			$item->setAliases( 'en', $aliases );
+			$item->setAliases( $language, $aliases );
+			if ( $oldLanguage !== $language && $item->getAliases()->hasGroupForLanguage( $oldLanguage ) ) {
+				$item->getAliases()->removeByLanguage( $oldLanguage );
+			}
 		}
 	}
 
@@ -485,6 +513,38 @@ final class SemanticEntityFlowService {
 
 	private function isHttpUrl( string $url ): bool {
 		return preg_match( '#^https?://\S+$#i', $url ) === 1;
+	}
+
+	/**
+	 * The term language a record's label/description/aliases are stored
+	 * under: the dedicated `labelLanguage` field (default `en`). The one
+	 * contract create, update and the browser forms share.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	public static function termLanguage( array $record ): string {
+		$language = trim( (string)( $record['labelLanguage'] ?? '' ) );
+		return $language !== '' ? $language : 'en';
+	}
+
+	/** The language of an item's (first) label, or `en` when it has none. */
+	private static function labelLanguage( Item $item ): string {
+		$language = array_key_first( $item->getLabels()->toTextArray() );
+		return is_string( $language ) ? $language : 'en';
+	}
+
+	/**
+	 * Moves a term from `$from` to `$to` (the new term is already written
+	 * under `$to`): removes the old-language term so the label/description
+	 * lives ONLY in the selected language. A no-op when the language did not
+	 * change or the old term is absent (the SourceFlowService contract).
+	 *
+	 * @param TermList $terms
+	 */
+	private static function moveTerm( TermList $terms, string $from, string $to ): void {
+		if ( $from !== $to && $terms->hasTermForLanguage( $from ) ) {
+			$terms->removeByLanguage( $from );
+		}
 	}
 
 	/**

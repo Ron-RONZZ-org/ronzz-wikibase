@@ -180,6 +180,8 @@
 	"embeddablecontent-source-manual-title": "Add a source manually",
 	"embeddablecontent-collective-manual-title": "Add a collective manually",
 	"embeddablecontent-field-description": "Description",
+	"embeddablecontent-field-labellanguage": "Label language",
+	"embeddablecontent-field-labellanguage-help": "The language the item's label and description are stored in (default English). Some entities have no English name — pick the language of the name you enter.",
 	"embeddablecontent-field-givenname": "Given name",
 	"embeddablecontent-field-familyname": "Family name",
 	"embeddablecontent-field-dateofbirth": "Date of birth",

@@ -132,6 +132,7 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 	protected function reviewFieldSpecs( array $record ): array {
 		$fields = $this->labelFieldSpec( 'label', 'embeddablecontent-add-label', (string)( $record['label'] ?? '' ) )
 			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
+			+ $this->labelLanguageFieldSpec( $record )
 			+ [
 				// Optional parent organization (issue follow-up): a
 				// class-scoped entity combobox over agent items, writing the
