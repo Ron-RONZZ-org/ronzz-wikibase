@@ -81,4 +81,10 @@ preservation), `subpages.md`
 parent page), `upload-image-tools-and-plain-content.md` (local-file upload
 preview + client-side resize + extension auto-correction; `{{#content:}}`
 expands to plain wikitext — math via SimpleMathJax, no `.wb-embed` chrome;
-the AddMath note sits below Content and shows in the preview).
+the AddMath note sits below Content and shows in the preview),
+`semantic-entity-label-language.md` (the AddSource `labelLanguage` field
+extended to every semantic-entity Add\*/Update\* form + `addsemanticentity`),
+`upload-source-memory-dragpaste.md` (`Special:Upload` remembers the File/Url
+source across "upload another" and accepts a dropped/pasted image),
+`printable-version.md` (namespace/subpage-stripped print title, centered
+authors, the "Print this page" toolbar button and the cover-page popup).

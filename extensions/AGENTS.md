@@ -1289,6 +1289,43 @@ report). See `SimpleMathJax/VENDORED.md`.
   appends `?created=<Qid>`, and `resources/addmore.js` opens a success
   dialog with the same preview + the entity actions.
 
+- **Oct-2026 UX batch (ADRs `docs/decisions/semantic-entity-label-language.md`,
+  `upload-source-memory-dragpaste.md`, `printable-version.md`)**:
+  (a) **Label language on every semantic-entity Add\* form** — the AddSource
+  `labelLanguage` contract (the separate term language the label/description/
+  aliases are stored under, default `en`) is added to
+  `SemanticEntityFieldMap::ALL_FIELDS` + every `KIND_FIELDS` entry (person/
+  software/collective/fictional-character/other) and to the
+  `action=addsemanticentity` API; `SemanticEntityFlowService::buildItem` /
+  `applyUpdate` write the terms under it (move-on-change,
+  chosen-language-only) and a blank update keeps the item's current language
+  (`UpdateExternalEntityFlow::updateTermLanguage` is now the generic
+  contract). The shared `SpecialAddExternalEntity::labelLanguageFieldSpec`
+  combobox is exposed by the four Add\* forms; `Update*` `recordFromItem`
+  prefills the item's language. Field contract re-emitted + MCP server
+  pinned copy/validators refreshed.
+  (b) **Special:Upload source memory + drag/paste** — `wbsourcetype`
+  (the blob fallback's original selection wins over the converted
+  `wpSourceType`) preserves the source radio across "upload another";
+  `resources/uploadform.js` accepts a dropped/pasted image on the
+  Source-filename area (switch to File + fill the picker + `change`, so the
+  shared preview/resize runs), with a hint + drop highlight
+  (`uploadform.css`) and a notification fallback when `FileList` is not
+  settable.
+  (c) **Printable-version enhancements** — `ext.embeddableContent.print`
+  (loaded on existing article pages; Special:/Item:/Property:/File:
+  excluded) sets `wbPrintTitle = Title::getSubpageText()` (namespace +
+  subpage parent dropped), hides the subpage breadcrumb and injected
+  toolbars in print, prints a centered `by A, B, and C` line from the
+  registered, non-bot contributors (`prop=contributors&pcexcludegroup=bot`,
+  Oxford comma, localized separators), adds a "Print this page" toolbar
+  button, intercepts the core sidebar `javascript:print();` link, and offers
+  an "Add a cover page" popup option (centered serif cover,
+  `page-break-after: always`). Ctrl-P without either entry point keeps the
+  browser default (`body.wb-printing` gates the title swap).
+  No vocabulary/seed/config-map change; deploy = extension rsync + php-fpm
+  restart (+ the runbook's objectcache/message purge).
+
 ### WikibaseCitation
 
 

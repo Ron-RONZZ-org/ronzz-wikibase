@@ -3362,6 +3362,32 @@ def flow_quotation_translation(op, base: str, api: str, person_qid: str) -> str:
     return qid
 
 
+def flow_print_module(op, base: str, api: str) -> None:
+    """Printable-version server-side wiring: an existing User: subpage loads
+    the print module and carries wbPrintTitle = the leaf (the namespace AND
+    the subpage parent are stripped by Title::getSubpageText). Self-cleaning
+    (the client-side flow — popup, cover page, authors — is exercised by
+    tests/e2e/run_wiki_ux_e2e.mjs)."""
+    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = csrf["query"]["tokens"]["csrftoken"]
+    leaf = f"Print E2E {int(time.time())}"
+    title = f"User:PrintE2E/{leaf}"
+    api_call(op, api, {"action": "edit", "title": title, "text": "print wiring fixture",
+                       "token": token, "format": "json"}, post=True)
+    try:
+        _, body = page_get(op, base, "/wiki/" + urllib.parse.quote(title.replace(" ", "_")))
+        if "ext.embeddableContent.print" not in body:
+            raise FlowError(f"{title} does not load ext.embeddableContent.print")
+        if f'"wbPrintTitle":"{leaf}"' not in body:
+            raise FlowError(f"{title} does not carry wbPrintTitle={leaf!r} "
+                            f"(namespace/subpage strip regression)")
+        print(f"[ok] print module wired: {title} -> wbPrintTitle={leaf!r}")
+    finally:
+        api_call(op, api, {"action": "delete", "title": title, "token": token,
+                           "reason": "page-flow E2E cleanup (run_pages_e2e.py)",
+                           "format": "json"}, post=True)
+
+
 def delete_item(op, api: str, qid: str) -> None:
     csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
     token = csrf["query"]["tokens"]["csrftoken"]
@@ -4920,6 +4946,11 @@ def main() -> int:
                             f"{fr_labels.get('fr', {}).get('value')!r} != {fr_label!r}")
         print(f"[ok] AddCollective labelLanguage=fr -> {collective_fr}: "
               f"label stored only in fr")
+
+        # 3a1b. Printable-version wiring (server side): the namespace +
+        #       subpage-parent strip and the module load. The client-side
+        #       popup/cover/authors flow is covered by run_wiki_ux_e2e.mjs.
+        flow_print_module(op, base, api)
 
         # 3a2. AddCollective logo (issue follow-up): the optional logo
         #     uploads as File:<label>-logo.png (AddSoftware pattern) with a

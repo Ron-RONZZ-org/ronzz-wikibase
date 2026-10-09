@@ -188,6 +188,12 @@ class Hooks {
 			return;
 		}
 
+		// Printable-version enhancements on every existing article page
+		// (namespace/subpage-stripped title + centered authors + the
+		// cover-page popup); Special:, Item:/Property: and File: pages are
+		// excluded (File: has its own copy toolbar).
+		self::wirePrintModule( $out, $title );
+
 		// Special:Upload — the semantic license combobox needs the entity
 		// autocomplete (native formatting, same as the Add* pages) and the
 		// URL validate button + 429 blob fallback. The wiring span is
@@ -310,6 +316,25 @@ class Hooks {
 			'type' => 'application/json+oembed',
 			'href' => $oembedUrl,
 		] );
+	}
+
+	/**
+	 * Wire the printable-version module on an existing article page: the
+	 * namespace- and subpage-stripped title (`Title::getSubpageText()`, the
+	 * `wbPrintTitle` JS config) plus the "Print this page" toolbar button and
+	 * the core sidebar "Printable version" link interception. Special pages,
+	 * Wikibase entity pages and File: pages are skipped (the File: page
+	 * already has its own copy toolbar).
+	 */
+	private static function wirePrintModule( OutputPage $out, \MediaWiki\Title\Title $title ): void {
+		if ( !$title->exists() || $title->isSpecialPage()
+			|| $title->getNamespace() === NS_FILE
+			|| self::isEntityNamespace( $title->getNamespace() )
+		) {
+			return;
+		}
+		$out->addJsConfigVars( 'wbPrintTitle', $title->getSubpageText() );
+		$out->addModules( 'ext.embeddableContent.print' );
 	}
 
 	/**

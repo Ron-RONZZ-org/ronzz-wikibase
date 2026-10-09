@@ -14,7 +14,13 @@
  *   - Special:Upload — the file picker is disabled unless the "Source
  *     filename" (File) radio is selected; an empty Author/License shows a
  *     cancellable warning; the "Submit and upload another" button carries
- *     name=wpUpload value=another and opens the upload in a new tab.
+ *     name=wpUpload value=another and opens the upload in a new tab; a
+ *     `wbsourcetype` param restores the remembered source radio; a dropped
+ *     or pasted image fills the picker + switches to File;
+ *   - Printable version — a "Print this page" button opens the print popup
+ *     (cover-page option); the printed title drops the namespace + subpage
+ *     parent, the cover carries the centered title + authors, and the core
+ *     sidebar "Printable version" link opens the same popup.
  *
  * Usage (from a directory with `playwright` installed):
  *
@@ -478,6 +484,73 @@ async function main() {
 		} else {
 			console.log('[ok] "upload another" opens the upload in a new tab');
 			await popup.close();
+		}
+
+		// --- Printable version: clean title + authors + cover popup ------
+		// A scratch User: subpage exercises the namespace + subpage-parent
+		// strip (Title::getSubpageText); the fixture is deleted afterwards.
+		const printTitle = `User:${USER}/Print UX ${Date.now()}`;
+		await page.evaluate(async (title) => {
+			await new Promise((r) => mw.loader.using('mediawiki.api', r));
+			await new mw.Api().postWithToken('csrf', {
+				action: 'edit', title, text: 'Printable-version UX fixture.', createonly: true,
+			});
+		}, printTitle);
+		try {
+			await page.goto(`${BASE_URL}/wiki/${encodeURIComponent(printTitle.replace(/ /g, '_'))}`,
+				{ waitUntil: 'domcontentloaded', timeout: 60000 });
+			await page.waitForSelector('#ca-wb-print', { timeout: 15000 });
+
+			const leaf = printTitle.split('/').pop();
+			const cfgTitle = await page.evaluate(() => mw.config.get('wbPrintTitle'));
+			if (cfgTitle !== leaf) {
+				failures.push(`wbPrintTitle is ${JSON.stringify(cfgTitle)}, expected ${JSON.stringify(leaf)}`);
+			} else {
+				console.log(`[ok] print title drops the namespace + subpage parent (${leaf})`);
+			}
+
+			// Stub window.print so the dialog never blocks the test.
+			await page.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; });
+
+			// The toolbar button opens the popup with the cover-page option.
+			await page.click('#ca-wb-print');
+			await page.waitForSelector('.wb-print-popup', { timeout: 10000 });
+			if (await page.locator('.wb-print-popup input[type="checkbox"]').count() !== 1) {
+				failures.push('print popup lacks the "Add a cover page" option');
+			} else {
+				console.log('[ok] print popup offers the cover-page option');
+			}
+
+			// Cover-path print: a centered cover page carrying title + authors.
+			await page.check('.wb-print-popup input[type="checkbox"]');
+			await page.click('.wb-print-popup .wb-print-popup-actions .oo-ui-buttonElement-button');
+			await page.waitForFunction(() => window.__printed === 1, null, { timeout: 10000 });
+			await page.waitForSelector('.wb-print-cover .wb-print-title', { timeout: 10000 });
+			const coverText = await page.locator('.wb-print-cover .wb-print-title').innerText();
+			const coverAuthors = await page.locator('.wb-print-cover .wb-print-authors').count();
+			if (coverText !== leaf) {
+				failures.push(`print cover title is ${JSON.stringify(coverText)}, expected ${JSON.stringify(leaf)}`);
+			} else if (coverAuthors !== 1) {
+				failures.push('print cover lacks the authors line');
+			} else {
+				console.log('[ok] print cover page prints the title + authors');
+			}
+			if (!(await page.evaluate(() => document.body.classList.contains('wb-printing')))) {
+				failures.push('print flow did not add the wb-printing body class');
+			}
+
+			// The core sidebar "Printable version" link opens the same popup.
+			await page.evaluate(() => document.querySelectorAll('.wb-print-header, .wb-print-cover').forEach((n) => n.remove()));
+			await page.click('#t-print a');
+			await page.waitForSelector('.wb-print-popup', { timeout: 10000 });
+			console.log('[ok] the sidebar "Printable version" link opens the print popup');
+		} finally {
+			await page.evaluate(async (title) => {
+				await new Promise((r) => mw.loader.using('mediawiki.api', r));
+				try {
+					await new mw.Api().postWithToken('csrf', { action: 'delete', title });
+				} catch (e) { /* best-effort cleanup */ }
+			}, printTitle).catch(() => {});
 		}
 	} finally {
 		await browser.close();

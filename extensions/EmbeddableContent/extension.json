@@ -641,6 +641,33 @@
 				"mobile"
 			]
 		},
+		"ext.embeddableContent.print": {
+			"scripts": [
+				"print.js"
+			],
+			"styles": [
+				"gadget.css",
+				"print.css"
+			],
+			"dependencies": [
+				"mediawiki.api",
+				"oojs-ui"
+			],
+			"messages": [
+				"embeddablecontent-print-button",
+				"embeddablecontent-print-button-hint",
+				"embeddablecontent-print-cover",
+				"embeddablecontent-print-cover-help",
+				"embeddablecontent-print-go",
+				"embeddablecontent-print-by",
+				"and",
+				"comma-separator"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
 		"ext.embeddableContent.citationpopup": {
 			"scripts": [
 				"citationpopup.js"
