@@ -391,6 +391,8 @@
 	"embeddablecontent-upload-copyembed": "Kopii la internan enig-kodon",
 	"embeddablecontent-upload-copyembed-notice": "Alŝuto finita. Via enig-kodo pretas — kopiu ĝin:",
 	"embeddablecontent-upload-missing-confirm": "La jenaj kampoj estas malplenaj: $1. Ĉu alŝuti malgraŭe?",
+	"embeddablecontent-upload-drop-hint": "Ŝovu bildon ĉi tien, aŭ algluu ĝin el la tondujo.",
+	"embeddablecontent-upload-drop-unsupported": "Via retumilo ne subtenas demeti dosieron ĉi tie — uzu la dosieran butonon.",
 	"embeddablecontent-upload-resize": "Regrandigi grandajn bildojn antaŭ alŝuto (maks. 2000 rastrumeroj)",
 	"embeddablecontent-upload-autoext": "Aŭtomate ĝustigi la dosieran etendon laŭ la bilda tipo",
 	"embeddablecontent-upload-resizing": "Regrandigante la bildon…",

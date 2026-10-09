@@ -391,6 +391,8 @@
 	"embeddablecontent-upload-copyembed": "Copier le code d'intégration interne",
 	"embeddablecontent-upload-copyembed-notice": "Téléversement terminé. Votre code d'intégration est prêt — copiez-le :",
 	"embeddablecontent-upload-missing-confirm": "Les champs suivants sont vides : $1. Téléverser quand même ?",
+	"embeddablecontent-upload-drop-hint": "Glissez une image ici, ou collez-la depuis le presse-papiers.",
+	"embeddablecontent-upload-drop-unsupported": "Votre navigateur ne prend pas en charge le dépôt d'un fichier ici — utilisez le bouton de fichier.",
 	"embeddablecontent-upload-resize": "Redimensionner les grandes images avant le téléversement (max 2000 px)",
 	"embeddablecontent-upload-autoext": "Corriger automatiquement l'extension du fichier d'après le type d'image",
 	"embeddablecontent-upload-resizing": "Redimensionnement de l'image…",

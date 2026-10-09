@@ -151,6 +151,16 @@ final class UploadHooks {
 			if ( isset( $descriptor['UploadFileURL'] ) ) {
 				$descriptor['UploadFileURL']['checked'] = $isUrl;
 			}
+		} elseif ( ( $remembered = strtolower( trim( (string)$request->getVal( 'wbsourcetype', '' ) ) ) ) !== '' ) {
+			// "Upload another image from same author" hand-off: the source
+			// radio the user picked on the previous upload is restored
+			// (BeforePageRedirect appends wbsourcetype; filepage.js carries
+			// it onto the reloaded form).
+			$isUrl = $remembered === 'url';
+			$descriptor['UploadFile']['checked'] = !$isUrl;
+			if ( isset( $descriptor['UploadFileURL'] ) ) {
+				$descriptor['UploadFileURL']['checked'] = $isUrl;
+			}
 		} elseif ( !$request->getCheck( 'wpSourceType' ) ) {
 			// The core builds the radios with 'checked' from the posted (or
 			// default 'File') source type BEFORE this hook runs. A fresh GET
@@ -165,6 +175,12 @@ final class UploadHooks {
 			$descriptor['UploadFile']['help-raw'] = wfMessage( 'upload-maxfilesize' )
 				->sizeParams( UploadBase::getMaxUploadSize( 'file' ) )
 				->parse()
+				// resources/uploadform.js makes this field a drop target and
+				// accepts a clipboard image (the "drag an image here or
+				// paste it" hint).
+				. '<div class="wb-upload-drop-hint">'
+				. wfMessage( 'embeddablecontent-upload-drop-hint' )->parse()
+				. '</div>'
 				// resources/uploadimage.js fills this with the selected
 				// local file's preview (thumbnail + pixel/byte size).
 				. '<div class="wb-image-preview wb-uploadmeta-preview"></div>';

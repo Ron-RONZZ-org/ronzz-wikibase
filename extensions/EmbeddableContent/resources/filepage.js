@@ -141,7 +141,10 @@
 		}
 		if ( params.get( 'wbanother' ) === '1' && window.opener && !window.opener.closed ) {
 			var query = {};
-			[ [ 'wblicense', 'wpLicense' ], [ 'wbauthor', 'wpUploadAuthor' ], [ 'wblicenseinfo', 'wpUploadLicenseInfo' ] ]
+			[ [ 'wblicense', 'wpLicense' ], [ 'wbauthor', 'wpUploadAuthor' ],
+				[ 'wblicenseinfo', 'wpUploadLicenseInfo' ],
+				// Remember the source radio (File | Url) the user picked.
+				[ 'wbsourcetype', 'wbsourcetype' ] ]
 				.forEach( function ( pair ) {
 					var value = params.get( pair[ 0 ] );
 					if ( value ) {
@@ -155,7 +158,7 @@
 			}
 		}
 		if ( params.get( 'wbuploadcopy' ) === '1' || params.get( 'wbanother' ) === '1' ) {
-			[ 'wbuploadcopy', 'wbanother', 'wblicense', 'wbauthor', 'wblicenseinfo' ]
+			[ 'wbuploadcopy', 'wbanother', 'wblicense', 'wbauthor', 'wblicenseinfo', 'wbsourcetype' ]
 				.forEach( function ( key ) { params.delete( key ); } );
 			var clean = window.location.pathname + ( params.toString() ? '?' + params.toString() : '' );
 			window.history.replaceState( null, '', clean );

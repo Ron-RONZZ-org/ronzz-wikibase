@@ -162,6 +162,19 @@ class Hooks {
 			$params['wblicense'] = (string)$request->getVal( 'wpLicense', '' );
 			$params['wbauthor'] = (string)$request->getVal( 'wpUploadAuthor', '' );
 			$params['wblicenseinfo'] = (string)$request->getVal( 'wpUploadLicenseInfo', '' );
+			// The source radio (File | Url): preserved so "upload another
+			// image from same author" remembers the user's choice (a URL
+			// uploader pastes another URL instead of re-picking a file). The
+			// browser blob fallback's ORIGINAL selection wins over the
+			// converted-internal wpSourceType (wbUploadmetaSourceType, the
+			// same precedence onUploadFormSourceDescriptors uses).
+			$sourceType = trim( (string)$request->getVal( 'wbUploadmetaSourceType', '' ) );
+			if ( $sourceType === '' ) {
+				$sourceType = trim( (string)$request->getVal( 'wpSourceType', '' ) );
+			}
+			if ( $sourceType !== '' ) {
+				$params['wbsourcetype'] = strtolower( $sourceType );
+			}
 		}
 		if ( $params === [] ) {
 			return;

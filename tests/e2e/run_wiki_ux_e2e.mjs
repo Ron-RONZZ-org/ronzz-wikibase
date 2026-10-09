@@ -279,6 +279,24 @@ async function main() {
 		await page.goto(`${BASE_URL}/wiki/Special:Upload`, { waitUntil: 'domcontentloaded', timeout: 60000 });
 		await page.waitForSelector('#mw-upload-form', { timeout: 15000 });
 
+		// Source memory ("upload another image from same author" hand-off):
+		// a wbsourcetype query param restores the user's previous source
+		// radio choice instead of resetting to the fresh-load default.
+		await page.goto(`${BASE_URL}/wiki/Special:Upload?wbsourcetype=url`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+		if (!(await page.locator('#wpSourceTypeurl').isChecked())) {
+			failures.push('Special:Upload?wbsourcetype=url did not restore the Url source');
+		} else {
+			console.log('[ok] Special:Upload restores the remembered Url source');
+		}
+		await page.goto(`${BASE_URL}/wiki/Special:Upload?wbsourcetype=file`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+		if (!(await page.locator('#wpSourceTypeFile').isChecked())) {
+			failures.push('Special:Upload?wbsourcetype=file did not restore the File source');
+		} else {
+			console.log('[ok] Special:Upload restores the remembered File source');
+		}
+		await page.goto(`${BASE_URL}/wiki/Special:Upload`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+		await page.waitForSelector('#mw-upload-form', { timeout: 15000 });
+
 		// Source gating: Url is the fresh-load default → the file picker is
 		// disabled; selecting the File radio enables it.
 		if (await page.locator('#wpUploadFile').isEnabled()) {
@@ -346,6 +364,69 @@ async function main() {
 		}
 
 		// Clear the fixture so the later submit-path checks never upload it.
+		await page.evaluate(() => {
+			const input = document.querySelector('#wpUploadFile');
+			if (input) {
+				input.value = '';
+				input.dispatchEvent(new Event('change', { bubbles: true }));
+			}
+		});
+
+		// Drag-and-drop / clipboard paste onto the source area: dropping an
+		// image (or pasting one) must switch to the File source and fill the
+		// picker (then the shared change handler previews it). Start in Url
+		// mode so the mode switch is exercised.
+		await page.check('#wpSourceTypeurl');
+		await page.evaluate(async () => {
+			const canvas = document.createElement('canvas');
+			canvas.width = 40; canvas.height = 40;
+			canvas.getContext('2d').fillRect(0, 0, 40, 40);
+			const blob = await new Promise((r) => canvas.toBlob(r, 'image/png'));
+			const dt = new DataTransfer();
+			dt.items.add(new File([blob], 'dropped.png', { type: 'image/png' }));
+			const input = document.querySelector('#wpUploadFile');
+			const wrap = input.closest('.mw-htmlform-field, .oo-ui-fieldLayout, tr') || input;
+			wrap.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt }));
+			wrap.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }));
+		});
+		let uploadState = await page.evaluate(() => ({
+			files: document.querySelector('#wpUploadFile').files.length,
+			fileChecked: document.querySelector('#wpSourceTypeFile').checked,
+		}));
+		if (uploadState.files < 1 || !uploadState.fileChecked) {
+			failures.push(`drop did not fill the picker + switch to File (files=${uploadState.files}, fileChecked=${uploadState.fileChecked})`);
+		} else {
+			console.log('[ok] drag-and-drop onto the source area fills the picker + switches to File');
+		}
+
+		// Reset, then the clipboard-paste path (the same setFile contract).
+		await page.evaluate(() => {
+			const input = document.querySelector('#wpUploadFile');
+			input.value = '';
+			input.dispatchEvent(new Event('change', { bubbles: true }));
+		});
+		await page.check('#wpSourceTypeurl');
+		await page.evaluate(async () => {
+			const canvas = document.createElement('canvas');
+			canvas.width = 40; canvas.height = 40;
+			canvas.getContext('2d').fillRect(0, 0, 40, 40);
+			const blob = await new Promise((r) => canvas.toBlob(r, 'image/png'));
+			const dt = new DataTransfer();
+			dt.items.add(new File([blob], 'pasted.png', { type: 'image/png' }));
+			const ev = new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: dt });
+			document.querySelector('#mw-upload-form').dispatchEvent(ev);
+		});
+		uploadState = await page.evaluate(() => ({
+			files: document.querySelector('#wpUploadFile').files.length,
+			fileChecked: document.querySelector('#wpSourceTypeFile').checked,
+		}));
+		if (uploadState.files < 1 || !uploadState.fileChecked) {
+			failures.push(`paste did not fill the picker + switch to File (files=${uploadState.files}, fileChecked=${uploadState.fileChecked})`);
+		} else {
+			console.log('[ok] clipboard paste onto the upload form fills the picker + switches to File');
+		}
+
+		// Clear both fixtures so the later submit-path checks never upload.
 		await page.evaluate(() => {
 			const input = document.querySelector('#wpUploadFile');
 			if (input) {

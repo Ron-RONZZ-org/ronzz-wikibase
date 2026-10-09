@@ -404,6 +404,8 @@
 	"embeddablecontent-upload-copyembed": "Copy internal embed code",
 	"embeddablecontent-upload-copyembed-notice": "Upload complete. Your embed code is ready — copy it:",
 	"embeddablecontent-upload-missing-confirm": "The following field(s) are empty: $1. Upload anyway?",
+	"embeddablecontent-upload-drop-hint": "Drag an image here, or paste it from your clipboard.",
+	"embeddablecontent-upload-drop-unsupported": "Your browser does not support dropping a file here — pick it with the file button instead.",
 	"embeddablecontent-upload-resize": "Resize large images before upload (max 2000 px)",
 	"embeddablecontent-upload-autoext": "Automatically correct the file extension from the image type",
 	"embeddablecontent-upload-resizing": "Resizing the image…",

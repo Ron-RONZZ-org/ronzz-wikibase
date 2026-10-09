@@ -670,13 +670,17 @@
 			"scripts": [
 				"uploadform.js"
 			],
+			"styles": [
+				"uploadform.css"
+			],
 			"dependencies": [
 				"mediawiki.notification"
 			],
 			"messages": [
 				"embeddablecontent-upload-author",
 				"embeddablecontent-upload-license",
-				"embeddablecontent-upload-missing-confirm"
+				"embeddablecontent-upload-missing-confirm",
+				"embeddablecontent-upload-drop-unsupported"
 			],
 			"targets": [
 				"desktop",
