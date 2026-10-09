@@ -34,6 +34,15 @@ Rules:
 - **Data fields only.** `hidden`, `submit`, `button`, `info`, `html` and
   `cloner` fields are never prefilled (server-owned markers, controls,
   array-valued cloner); a non-scalar value is ignored.
+- **MediaWiki routing params are never prefills.** `title` is the crucial
+  one: Special pages canonicalise to `index.php?title=Special:…`, and the
+  AddSource forms have a `title` field — a naive prefill let a plain form
+  load write `Special:AddSource/book/manual` into the title and a subsequent
+  update renamed the classic page to `Source:Special:UpdateSource/Q231`
+  (the sitelink-corruption regression hit in CI). The reserved set
+  (`title`, `action`, `oldid`, `diff`, `curid`, `section`, `useskin`,
+  `uselang`, `returnto`, `token`, …) is skipped, so `title` is not
+  deep-linkable (type it) while `parent`, `referenceCode`, … are.
 - **The URL wins over the builder default**, but only when the value is
   non-empty (so an absent param keeps the form's own default).
 - **POST is unaffected.** HTMLForm's action URL carries no query on POST (the

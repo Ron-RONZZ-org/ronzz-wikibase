@@ -33,21 +33,21 @@ final class RequestPrefillTest extends TestCase {
 	}
 
 	public function testTrimsValueAndOverridesAnExistingDefault(): void {
-		$fields = [ 'title' => [ 'type' => 'text', 'default' => 'From the record' ] ];
-		$result = RequestPrefill::apply( $fields, [ 'title' => '  From the URL  ' ] );
-		$this->assertSame( 'From the URL', $result['title']['default'] );
+		$fields = [ 'referenceCode' => [ 'type' => 'text', 'default' => 'From the record' ] ];
+		$result = RequestPrefill::apply( $fields, [ 'referenceCode' => '  From the URL  ' ] );
+		$this->assertSame( 'From the URL', $result['referenceCode']['default'] );
 	}
 
 	public function testIgnoresEmptyAndArrayValues(): void {
 		$fields = [
-			'title' => [ 'type' => 'text', 'default' => 'keep' ],
+			'referenceCode' => [ 'type' => 'text', 'default' => 'keep' ],
 			'parent' => [ 'type' => 'combobox', 'default' => 'keep' ],
 		];
 		$result = RequestPrefill::apply( $fields, [
-			'title' => '   ',
+			'referenceCode' => '   ',
 			'parent' => [ 'Q1', 'Q2' ],
 		] );
-		$this->assertSame( 'keep', $result['title']['default'] );
+		$this->assertSame( 'keep', $result['referenceCode']['default'] );
 		$this->assertSame( 'keep', $result['parent']['default'] );
 	}
 
@@ -80,5 +80,18 @@ final class RequestPrefillTest extends TestCase {
 		$this->assertSame( 'embeddablecontent-source-field-parent', $result['parent']['label-message'] );
 		$this->assertTrue( $result['parent']['required'] );
 		$this->assertSame( 'Q2048', $result['parent']['default'] );
+	}
+
+	public function testIgnoresMediaWikiReservedRoutingParams(): void {
+		// A Special page canonicalises to index.php?title=Special:… — the
+		// routing `title` must never prefill the AddSource `title` field
+		// (the sitelink-corruption regression hit in CI).
+		$fields = [ 'title' => [ 'type' => 'text', 'default' => '' ] ];
+		$result = RequestPrefill::apply( $fields, [ 'title' => 'Special:UpdateSource/Q231' ] );
+		$this->assertSame( '', $result['title']['default'] );
+
+		$fields = [ 'action' => [ 'type' => 'text', 'default' => '' ] ];
+		$result = RequestPrefill::apply( $fields, [ 'action' => 'edit' ] );
+		$this->assertSame( '', $result['action']['default'] );
 	}
 }

@@ -36,6 +36,21 @@ final class RequestPrefill {
 	private const SKIP_TYPES = [ 'hidden', 'submit', 'button', 'info', 'html', 'cloner' ];
 
 	/**
+	 * MediaWiki routing/action query params that are NEVER form-field
+	 * prefills. `title` is the crucial one: Special pages canonicalise to
+	 * `index.php?title=Special:…`, and the AddSource forms have a `title`
+	 * field — without this exclusion a plain form load would prefill the
+	 * item's title from the page URL (`Special:AddSource/book/manual`) and a
+	 * subsequent update would rename the classic page to
+	 * `Source:Special:UpdateSource/Q231` (the sitelink corruption hit in CI).
+	 */
+	private const RESERVED_PARAMS = [
+		'title', 'action', 'veaction', 'oldid', 'diff', 'curid', 'section',
+		'useskin', 'uselang', 'variant', 'returnto', 'returntoquery', 'token',
+		'debug', 'safemode', 'mobileaction', 'printable', 'from', 'wprov',
+	];
+
+	/**
 	 * @param array<string,mixed> $fields HTMLForm field specs (name => spec)
 	 * @param array<string,mixed> $query request query values
 	 * @return array<string,mixed> the specs with matching defaults applied
@@ -45,7 +60,9 @@ final class RequestPrefill {
 			if ( !is_array( $spec ) || !array_key_exists( $name, $query ) ) {
 				continue;
 			}
-			if ( in_array( $spec['type'] ?? 'text', self::SKIP_TYPES, true ) ) {
+			if ( in_array( $name, self::RESERVED_PARAMS, true )
+				|| in_array( $spec['type'] ?? 'text', self::SKIP_TYPES, true )
+			) {
 				continue;
 			}
 			$value = $query[$name];
