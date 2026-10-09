@@ -43,10 +43,42 @@ provision says "Update basic information".
 ## Consequences
 
 - No vocabulary/config/data change; deploy = extension rsync + php-fpm restart
-  + a parser-cache/message purge is unnecessary (no message change).
+  + a message purge (the fix batch adds `embeddablecontent-update-button` to
+  the addmore module's messages — see the Follow-up).
 - The popup's "Copy embed code" button depends on the provision being
   embeddable — delivered by ADR `law-embed-code.md` in the same batch.
 - Other AddSource classes are untouched (the hooks return empty/default).
+
+## Follow-up (Oct 2026 fix batch)
+
+Four defects in the shipped popup + one print integration were fixed together:
+
+1. **Raw message key** — the popup's primary button rendered
+   `embeddablecontent-update-button` literally: `wbJustAddedEditLabel` carries
+   a message KEY resolved client-side (`addmore.js` → `mw.msg`), but that key
+   was not in `ext.embeddableContent.addmore`'s `messages` list (only the
+   content-item key was). The key is now declared, so a provision reads
+   "Update basic information".
+2. **Internal citation in the popup** — the popup now also offers **"Copy
+   internal citation"** (`<ref>{{#cite:Q…}}</ref>`), the Source:-page action.
+   The button is a shared primitive
+   (`entityActions.internalCitationControls`, also used by `sourcecite.js`);
+   the server sets `wbJustAddedInternalCitation` for a source-class item
+   (`SpecialAddSource::addMoreInternalCitation`).
+3. **Update-tab return** — the popup's "Update basic information" button now
+   marks `Special:UpdateSource/<Qid>?fromaddmore=1&parent=<parent>`; the
+   Update form carries the marker as a hidden field and, on **submit AND
+   cancel**, returns to the reopened `Special:AddSource/law/manual?addmore=1&
+   parent=<parent>` (the parent carried), so the contributor keeps adding
+   after correcting. The base hook is `updateAddMoreReturnUrl`
+   (`SpecialAddExternalEntity`; overridden by `SpecialAddSource`), consumed by
+   `UpdateExternalEntityFlow`.
+4. **Citation popup behind the dialog** — "Copy citation" opened its OOUI
+   `PopupWidget` below the "Item added" `ProcessDialog` (OOUI gives the popup
+   `z-index: 1`, the dialog `450`), so it was unclickable. The popup now
+   carries `.wb-citation-popup-widget` (`gadget.css` → `z-index: 500`).
+5. **Print button** — the separate `.wb-print-toolbar` was replaced by joining
+   the page's existing toolbar row (see ADR `printable-version.md`).
 
 ## Tests
 
@@ -55,4 +87,11 @@ provision says "Update basic information".
   `addmore=1`/`created`/`parent`, prefills the parent and resets the reference
   code + clause; a second submit creates a second provision from the same
   parent; the return trip wires the popup (`wbJustAddedItem` + the `addmore`
-  module).
+  module). The fix batch adds: the addmore module's **message bundle** carries
+  `embeddablecontent-update-button` (`load.php?only=messages`), the
+  `wbJustAddedInternalCitation` flag, the GET-prefill check, and the
+  `fromaddmore` submit+cancel round-trip
+  (`flow_update_source_addmore_return`).
+- Browser UX (`run_wiki_ux_e2e.mjs`): the popup shows the resolved label,
+  offers "Copy internal citation", and its citation popup stacks above the
+  dialog and is clickable.

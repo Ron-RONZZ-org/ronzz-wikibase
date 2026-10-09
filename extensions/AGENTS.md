@@ -452,6 +452,40 @@ report). See `SimpleMathJax/VENDORED.md`.
   The popup's primary label is now `wbJustAddedEditLabel`-driven, so a content
   item still says "Edit content" while a provision says "Update basic
   information". No vocabulary/config change.
+- **AddSource/law "Add more" fixes + popup parity (ADR
+  `docs/decisions/addsource-law-addmore.md` §Follow-up)**: four defects in the
+  shipped popup — (a) the primary button rendered the RAW
+  `embeddablecontent-update-button` key: `wbJustAddedEditLabel` carries a
+  message KEY resolved client-side, and the key was missing from the
+  `ext.embeddableContent.addmore` `messages` list (now declared); (b) the popup
+  now also offers **"Copy internal citation"** (`<ref>{{#cite:Q…}}</ref>`) via
+  the shared `entityActions.internalCitationControls` (also used by
+  `sourcecite.js`), gated by `wbJustAddedInternalCitation` (a source-class
+  item); (c) the popup's Update button marks
+  `Special:UpdateSource/<Qid>?fromaddmore=1&parent=<parent>` and the Update form
+  (hidden `fromaddmore` field + `UpdateExternalEntityFlow`) returns to the
+  reopened `Special:AddSource/law/manual?addmore=1&parent=<parent>` on **submit
+  AND cancel** (`SpecialAddExternalEntity::updateAddMoreReturnUrl`, overridden
+  by `SpecialAddSource`); (d) the "Copy citation" `PopupWidget` now carries
+  `.wb-citation-popup-widget` (`gadget.css` → `z-index: 500`) so it stacks
+  above the "Item added" `ProcessDialog` (OOUI popup `z-index: 1` vs dialog
+  `450`) instead of hiding behind it. Deploy = rsync + php-fpm + a message
+  purge (the new addmore message).
+- **URL query-param prefill for the Add* / Update* forms (ADR
+  `docs/decisions/form-url-prefill.md`)**: a pure `Spec/RequestPrefill::apply(
+  $fields, $query )` sets a field's default from an identically-named request
+  query parameter, so a deep link such as
+  `Special:AddSource/law/manual?parent=Q2048&referenceCode=Article%209` opens
+  the form prefilled — the GUI made reachable as a "web API". Applied at every
+  Add* / Update* form assembly point (`SpecialAddExternalEntity` review /
+  content / manual, `SpecialAddSource` URL-entry + class picker,
+  `SpecialAddContentItem::buildFields`, `UpdateExternalEntityFlow::execute`).
+  Hidden/submit/info/html/cloner fields are skipped, a non-scalar value is
+  ignored, and the URL wins over the builder default only when non-empty. POST
+  is unaffected (HTMLForm's action URL carries no query on POST; the submitted
+  values are `wp`-prefixed) and prefilled values are re-validated on submit, so
+  no write surface is opened. Unit-tested
+  (`tests/Unit/Spec/RequestPrefillTest`). No vocabulary/config change.
 - **Direct label edit renames the classic page (ADR
   `docs/decisions/classic-page-label-sync.md`)**: a new `PageSaveComplete`
   handler (`Flow/ClassicPageLabelSync`) keeps a classic page's title in sync
@@ -1365,8 +1399,13 @@ report). See `SimpleMathJax/VENDORED.md`.
   toolbars in print, prints a centered `by A, B, and C` line from the
   registered, non-bot contributors ordered by revision count
   (`prop=contributors&pcexcludegroup=bot` + a capped revision-count walk;
-  Oxford comma, localized separators), adds a "Print this page" toolbar
-  button, intercepts the core sidebar `javascript:print();` link, and offers
+  Oxford comma, localized separators), adds a "Print this page" button that
+  **joins the page's existing action toolbar** (one row): the inline
+  `.wb-content-page-toolbar` on ordinary content pages, else the shared
+  `.wb-embed-toolbar` row (`Hooks::wirePrintModule` sets `wbPrintToolbar`;
+  `print.js` creates-or-reuses the row; `contentpagetoolbar.js` appends to the
+  same inline row — deterministic despite print loading first), intercepts the
+  core sidebar `javascript:print();` link, and offers
   an "Add a cover page" popup option (centered serif cover,
   `page-break-after: always`). Ctrl-P without either entry point keeps the
   browser default (`body.wb-printing` gates the title swap).

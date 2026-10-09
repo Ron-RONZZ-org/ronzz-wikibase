@@ -25,8 +25,14 @@ a subpage-enabled namespace, else the namespace-stripped text).
 
 Two entry points share one flow:
 
-1. **"Print this page"** — a button in the page-title toolbar
-   (`.wb-print-toolbar`, the File:-page/content-page button pattern).
+1. **"Print this page"** — a button that **joins the page's existing action
+   toolbar** (one row, not a second line): the inline `.wb-content-page-toolbar`
+   on ordinary content pages, else the shared `.wb-embed-toolbar` row below the
+   title (classic per-kind pages and any other article page).
+   `Hooks::wirePrintModule` sets `wbPrintToolbar` (`content`/`embed`); `print.js`
+   creates the row when absent and reuses it otherwise, and
+   `contentpagetoolbar.js` appends to the same inline row — so both modules land
+   in one row regardless of load order (print loads first).
 2. **The core sidebar link** — `a[href="javascript:print();"]` is intercepted
    (delegated, skin-agnostic).
 
