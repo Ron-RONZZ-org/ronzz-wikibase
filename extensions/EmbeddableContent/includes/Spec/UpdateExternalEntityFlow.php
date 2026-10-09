@@ -9,7 +9,6 @@ use EmbeddableContent\Content\PayloadCodec;
 use EmbeddableContent\Flow\SemanticEntityFlowService;
 use MediaWiki\Html\Html;
 use MediaWiki\HTMLForm\HTMLForm;
-use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\Title;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
@@ -323,12 +322,21 @@ trait UpdateExternalEntityFlow {
 			}
 		}
 
-		WikibaseRepo::getEntityStore()->saveEntity(
-			$item,
-			$this->msg( 'embeddablecontent-update-edit-summary', $newLabel )->inContentLanguage()->text(),
-			$this->getUser(),
-			EDIT_UPDATE
-		);
+		// The label changes in this save; the classic-page rename is owned by
+		// renameClassicPage() below, so mute the direct-label-edit label-sync
+		// handler for the duration (it would otherwise move the page first and
+		// make the rename a no-op — harmless, but a double sitelink save).
+		\EmbeddableContent\Flow\ClassicPageRenamer::suppress( true );
+		try {
+			WikibaseRepo::getEntityStore()->saveEntity(
+				$item,
+				$this->msg( 'embeddablecontent-update-edit-summary', $newLabel )->inContentLanguage()->text(),
+				$this->getUser(),
+				EDIT_UPDATE
+			);
+		} finally {
+			\EmbeddableContent\Flow\ClassicPageRenamer::suppress( false );
+		}
 
 		// Post-update hook: the default no-ops; Special:UpdateSource
 		// overrides it to invalidate the parent pages whose child-items
@@ -525,59 +533,26 @@ trait UpdateExternalEntityFlow {
 	 * the sitelinked page to the new title (a label change within the same
 	 * namespace, OR a license flip moving it between the FOSS: and
 	 * Software: namespaces), then update the sitelink to the new page name.
-	 * The OLD page name comes from the item's sitelink (ground truth —
-	 * it knows exactly where the page is); the NEW title from the updated
-	 * record's namespace + label. A failure leaves the old page in place —
-	 * the item update itself is never rolled back.
+	 * Delegates to the shared `Flow/ClassicPageRenamer` (the same primitive
+	 * the direct-label-edit `PageSaveComplete` handler uses). The OLD page
+	 * name comes from the item's sitelink (ground truth); the NEW title from
+	 * the record's namespace + label. A failure leaves the old page in place
+	 * — the item update itself is never rolled back.
 	 */
 	private function renameClassicPage( Item $item, string $oldLabel, string $newLabel, array $record ): void {
-		$sitelinks = $item->getSiteLinkList();
-		if ( !$sitelinks->hasLinkWithSiteId( 'wikibase' ) ) {
-			// No sitelink → no page to move (the heal path creates it).
-			return;
-		}
 		$newNs = $this->pageNamespaceForRecord( $record );
 		if ( $newNs === null ) {
 			return;
 		}
-		try {
-			$oldTitle = Title::newFromText( $sitelinks->getBySiteId( 'wikibase' )->getPageName() );
-		} catch ( \Throwable $e ) {
-			return;
-		}
-		// The shared Spec/PageTitle contract (first-letter capitalization
-		// per namespace, title-forbidden characters normalized away).
-		$newTitle = PageTitle::fromLabel( $newLabel, $newNs );
-		if ( $oldTitle === null || $newTitle === null
-			|| $oldTitle->equals( $newTitle ) || !$oldTitle->exists() || $newTitle->exists() ) {
-			return;
-		}
-		try {
-			$movePage = MediaWikiServices::getInstance()->getMovePageFactory()
-				->newMovePage( $oldTitle, $newTitle );
-			$status = $movePage->move(
-				$this->getUser(),
-				$this->msg( 'embeddablecontent-update-move-summary', $newLabel )->inContentLanguage()->text(),
-				true,
-				[ 'movetalk', 'movesubpages' ]
-			);
-			if ( !$status->isOK() ) {
-				return;
-			}
-		} catch ( \Throwable $e ) {
-			return;
-		}
-		// Point the sitelink at the new page name (entity save + table).
-		if ( $sitelinks->hasLinkWithSiteId( 'wikibase' ) ) {
-			$sitelinks->setNewSiteLink( 'wikibase', $newTitle->getPrefixedText() );
-			WikibaseRepo::getEntityStore()->saveEntity(
-				$item,
-				$this->msg( 'embeddablecontent-update-sitelink-summary', $newLabel )->inContentLanguage()->text(),
-				$this->getUser(),
-				EDIT_UPDATE
-			);
-			WikibaseRepo::getStore()->newSiteLinkStore()->saveLinksOfItem( $item );
-		}
+		\EmbeddableContent\Flow\ClassicPageRenamer::renameForLabel(
+			$item,
+			$newLabel,
+			$newNs,
+			$this->getUser(),
+			$this->msg( 'embeddablecontent-update-move-summary', $newLabel )->inContentLanguage()->text(),
+			$this->msg( 'embeddablecontent-update-sitelink-summary', $newLabel )->inContentLanguage()->text(),
+			[ 'movetalk', 'movesubpages' ]
+		);
 	}
 
 	// ------------------------------------------------------------- record from item

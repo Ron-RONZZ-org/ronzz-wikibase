@@ -115,7 +115,7 @@ class ContentRenderer {
 
 		$payload = $this->extractPayload( $item, $kind );
 		if ( $payload === [] ) {
-			$payloadProperty = $this->config->payloadPropertyIds()[$kind] ?? '?';
+			$payloadProperty = $this->config->payloadPropertyIds()[$kind === 'law' ? 'quotation' : $kind] ?? '?';
 			$props = [];
 			$values = [];
 			foreach ( $item->getStatements() as $s ) {
@@ -188,9 +188,17 @@ class ContentRenderer {
 			// ([[File:…]] → <figure>/<img>). A per-render token carries the
 			// parsed HTML through the sanitizer untouched.
 			$richParts = [];
-			$isQuotationPreview = $preview && $kind === 'quotation';
+			// Legal provisions share the quotation preview (original + one
+			// reader-language translation) but carry NO attribution line.
+			$isQuotationPreview = $preview && ( $kind === 'quotation' || $kind === 'law' );
 			if ( $isQuotationPreview ) {
-				$html = $this->renderQuotationPreview( $item, $payload, $lang, $richParts );
+				$html = $this->renderQuotationPreview(
+					$item,
+					$payload,
+					$lang,
+					$richParts,
+					$kind !== 'law'
+				);
 			} elseif ( $multi ) {
 				$fragments = [];
 				foreach ( $payload as $code => $text ) {
@@ -252,6 +260,9 @@ class ContentRenderer {
 	private function detectKind( Item $item ): ?string {
 		$instanceOf = $this->config->instanceOfPropertyId();
 		$classToKind = array_flip( $this->config->classIds() );
+		// A legal provision (the AddSource `law` class) renders through the
+		// quotation monolingual path — the same class `{{#content:}}` accepts.
+		$lawClass = $this->config->lawClass();
 
 		foreach ( $item->getStatements() as $statement ) {
 			$snak = $statement->getMainSnak();
@@ -262,8 +273,15 @@ class ContentRenderer {
 				continue;
 			}
 			$value = $this->unwrapEntityValue( $snak->getDataValue() );
-			if ( $value instanceof ItemId && isset( $classToKind[$value->getSerialization()] ) ) {
-				return $classToKind[$value->getSerialization()];
+			if ( !$value instanceof ItemId ) {
+				continue;
+			}
+			$classId = $value->getSerialization();
+			if ( $lawClass !== null && $classId === $lawClass ) {
+				return 'law';
+			}
+			if ( isset( $classToKind[$classId] ) ) {
+				return $classToKind[$classId];
 			}
 		}
 		return null;
@@ -279,8 +297,11 @@ class ContentRenderer {
 	 * @return array<string,string>
 	 */
 	private function extractPayload( Item $item, string $kind ): array {
-		$result = $this->collectMonolingual( $item, $this->config->payloadPropertyIds()[$kind] );
-		if ( $kind === 'quotation' ) {
+		// A legal provision reuses the quotation payload (`content text`)
+		// property and its added `translation` claims.
+		$payloadKind = $kind === 'law' ? 'quotation' : $kind;
+		$result = $this->collectMonolingual( $item, $this->config->payloadPropertyIds()[$payloadKind] );
+		if ( $kind === 'quotation' || $kind === 'law' ) {
 			$translationPropertyId = $this->config->translationPropertyId();
 			if ( $translationPropertyId !== null ) {
 				foreach ( $this->collectMonolingual( $item, $translationPropertyId ) as $code => $text ) {
@@ -356,8 +377,10 @@ class ContentRenderer {
 	private function renderKind( string $kind, Item $item, array $payload, string $lang, array &$richParts ): string {
 		switch ( $kind ) {
 			case 'quotation':
+			case 'law':
 				// Rich content: the payload is full wikitext ([[File:…]],
 				// links, emphasis, $…$) parsed by MediaWiki's own sanitizer.
+				// A legal provision reuses this monolingual quotation path.
 				return $this->quoteRenderer->wrapHtml(
 					$this->richFragment( $payload[$lang], $item, $richParts ),
 					$lang
@@ -392,12 +415,16 @@ class ContentRenderer {
 	 *
 	 * @param array<string,string> $payload language => decoded text, base first
 	 * @param array<string,RichTextResult> &$richParts
+	 * @param bool $withAttribution append the `-author, ''source''` line (a
+	 *  legal provision carries none — its `part of` parent, not a person, is
+	 *  the context)
 	 */
 	private function renderQuotationPreview(
 		Item $item,
 		array $payload,
 		?string $targetLang,
-		array &$richParts
+		array &$richParts,
+		bool $withAttribution = true
 	): string {
 		if ( $payload === [] ) {
 			return '';
@@ -415,9 +442,11 @@ class ContentRenderer {
 			$wikitext .= "\n\n'''" . $header . "'''\n\n" . $payload[$targetLang];
 		}
 
-		$attribution = $this->quotationAttributionWikitext( $item );
-		if ( $attribution !== '' ) {
-			$wikitext .= "\n\n" . $attribution;
+		if ( $withAttribution ) {
+			$attribution = $this->quotationAttributionWikitext( $item );
+			if ( $attribution !== '' ) {
+				$wikitext .= "\n\n" . $attribution;
+			}
 		}
 
 		return $this->quoteRenderer->wrapHtml(

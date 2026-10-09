@@ -1203,6 +1203,193 @@ def flow_source_law(op, base: str, api: str, resolve) -> tuple[str, str]:
     return law, legislation
 
 
+def flow_source_law_addmore(op, base: str, api: str, resolve) -> tuple[str, str, str]:
+    """"Add more" on Special:AddSource/law: the second submit button creates
+    the provision + its Source: page, then reopens /law/manual with the parent
+    legislation preserved (?addmore=1&created=<Qid>&parent=<Qid>) and the
+    success popup wired (wbJustAddedItem + the addmore module). A second,
+    ordinary submit creates a second provision from the same parent.
+
+    Also asserts the framed embed surface (the "Copy embed code" feature):
+    action=embed renders a legal provision through the quotation path, in
+    every stored language. Returns (law1, law2, legislation)."""
+    law_class = resolve("legal provision", "item")
+    instance_of_prop = resolve("instance of", "property")
+    part_of_prop = resolve("part of", "property")
+    reference_prop = resolve("reference code", "property")
+    content_prop = resolve("content text", "property")
+    if not (law_class and instance_of_prop and part_of_prop and reference_prop and content_prop):
+        raise FlowError("law vocabulary missing (instance of / part of / reference code / content text)")
+
+    ts = int(time.time())
+    legislation_label = f"Page-flow E2E addmore legislation {ts}"
+    legislation = flow_source_class_manual(op, base, api, "legislation", {
+        "wptitle": legislation_label,
+        "wplanguage": "fr",
+    })
+
+    url, body = page_get(op, base, "/wiki/Special:AddSource/law/manual")
+    if 'name="wpaddMore"' not in body and "name='wpaddMore'" not in body:
+        raise FlowError(
+            f"AddSource/law/manual does not render the 'Add more' button: {find_error(body)}")
+
+    content1 = "Le premier alinéa. E2E addmore"
+    translation1 = f"The first clause. E2E addmore {ts}"
+    url, body = page_post(op, url, {
+        "wpparent": legislation,
+        "wpreferenceCode": "Article 1",
+        "wpcontent": content1,
+        "wptranslations[0][language]": "en",
+        "wptranslations[0][content]": translation1,
+        "wpEditToken": edit_token(body),
+        # HTMLForm keeps the field key's casing: 'addMore' -> 'wpaddMore'.
+        "wpaddMore": "Add more",
+    })
+    # Special pages canonicalise to /w/index.php?title=Special:… — match the
+    # title, not the /wiki/ article path.
+    if "Special:AddSource/law/manual" not in urllib.parse.unquote(url):
+        raise FlowError(f"Add-more did not reopen the law form: {url} {find_error(body)}")
+    q = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
+    if q.get("addmore") != ["1"]:
+        raise FlowError(f"Add-more did not carry addmore=1: {url}")
+    if q.get("parent") != [legislation]:
+        raise FlowError(f"Add-more did not preserve the parent legislation: {url}")
+    created1 = (q.get("created") or [""])[0]
+    if not re.match(r"^Q[1-9]\d*$", created1):
+        raise FlowError(f"Add-more did not carry the created item id (?created=): {url}")
+    if "wbJustAddedItem" not in body or "ext.embeddableContent.addmore" not in body:
+        raise FlowError("Add-more return trip did not wire the success popup: " + find_error(body))
+    if input_value(body, "wpparent") != legislation:
+        raise FlowError(f"Add-more form did not prefill the parent: {find_error(body)}")
+    if input_value(body, "wpreferenceCode"):
+        raise FlowError("Add-more form did not reset the reference code")
+    if content1 in body:
+        raise FlowError("Add-more form still carries the previous clause text")
+
+    # Second provision from the same parent (an ordinary submit — no wpaddMore).
+    url2, body2 = page_post(op, url, {
+        "wpparent": input_value(body, "wpparent"),
+        "wpreferenceCode": "Article 2",
+        "wpcontent": "Le deuxième alinéa. E2E addmore",
+        "wpEditToken": edit_token(body),
+        "wpSubmit": "1",
+    })
+    law2 = flow_final_item(op, base, api, url2, body2, "AddSource/law/manual")
+
+    # The first provision exists (resolved from the ?created= id).
+    claims, _ = entity_claims(op, api, created1)
+    assert first_value(claims, instance_of_prop) == law_class, \
+        f"{created1} instance-of != legal provision ({first_value(claims, instance_of_prop)})"
+    assert first_value(claims, part_of_prop) == legislation, \
+        f"{created1} missing the part-of link to its parent legislation"
+    assert first_value(claims, reference_prop) == "Article 1", \
+        f"{created1} reference code missing ({first_value(claims, reference_prop)!r})"
+
+    # The framed embed surface renders the legal provision through the
+    # quotation path, in BOTH stored languages (lang=all).
+    embed = api_call(op, api, {
+        "action": "embed", "entity": created1, "output": "json",
+        "lang": "all", "format": "json",
+    })
+    html = embed.get("embed", {}).get("html", "")
+    if "wb-embed-quotation" not in html or content1 not in html or translation1 not in html:
+        raise FlowError(
+            f"action=embed did not render the legal provision + translation: {html[:400]}")
+
+    # The provision's Source: page loads the embed gadget (wbEmbedItem), so
+    # entityactions.js probes action=embed successfully and renders the
+    # "Copy embed code" button.
+    page_title = f"Source:Article 1 of {legislation_label} (Legislation)"
+    _, page_body = page_get(op, base, "/wiki/" + page_title.replace(" ", "_"))
+    if "wbEmbedItem" not in page_body or "ext.embeddableContent.gadget" not in page_body:
+        raise FlowError(
+            f"{page_title} does not load the embed gadget (Copy embed code): "
+            + find_error(page_body))
+
+    print(f"[ok] AddSource/law Add-more -> {created1} + {law2}: parent preserved, "
+          f"success popup wired, action=embed renders the provision + translation, "
+          f"Copy embed code wired")
+    return created1, law2, legislation
+
+
+def item_sitelink_page(op, api: str, qid: str) -> str:
+    """The item's `wikibase` sitelink page title ('' when unlinked)."""
+    r = api_call(op, api, {"action": "wbgetentities", "ids": qid,
+                           "props": "sitelinks", "format": "json"})
+    return r.get("entities", {}).get(qid, {}).get("sitelinks", {}) \
+        .get("wikibase", {}).get("title", "")
+
+
+def page_exists(op, api: str, title: str) -> bool:
+    r = api_call(op, api, {"action": "query", "titles": title, "format": "json"})
+    pages = list(r.get("query", {}).get("pages", {}).values())
+    return bool(pages) and "missing" not in pages[0]
+
+
+def page_is_redirect(op, api: str, title: str) -> bool:
+    """Whether the page is a redirect (prop=info's `redirect` marker — the
+    parse path follows redirects, so wikitext is not a reliable signal)."""
+    r = api_call(op, api, {"action": "query", "titles": title, "prop": "info",
+                           "format": "json"})
+    pages = list(r.get("query", {}).get("pages", {}).values())
+    return bool(pages) and "redirect" in pages[0]
+
+
+def set_item_en_label(op, api: str, qid: str, label: str) -> None:
+    """Direct en-label edit via wbeditentity — the Item-page label-field
+    equivalent (which must rename the sitelinked classic page)."""
+    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = csrf["query"]["tokens"]["csrftoken"]
+    r = api_call(op, api, {
+        "action": "wbeditentity", "id": qid,
+        "data": json.dumps({"labels": {"en": {"language": "en", "value": label}}}),
+        "token": token, "format": "json",
+    }, post=True)
+    if "entity" not in r:
+        raise FlowError(f"wbeditentity(label) failed for {qid}: {r}")
+
+
+def flow_label_rename(op, base: str, api: str) -> str:
+    """A DIRECT en-label edit (wbeditentity — the Item-page label field) must
+    rename the sitelinked classic page to the new label's title, LEAVING A
+    REDIRECT behind, and re-point the sitelink; editing the label BACK must
+    move the page over that redirect (label backtracking). Returns the item."""
+    ts = int(time.time())
+    label = f"Page-flow E2E rename {ts}"
+    qid = flow_source_class_manual(op, base, api, "text", {
+        "wptitle": label,
+        "wplanguage": "en",
+    })
+    old_page = item_sitelink_page(op, api, qid)
+    if not old_page.startswith("Source:"):
+        raise FlowError(f"label-rename: item {qid} has no Source: sitelink ({old_page!r})")
+
+    new_label = f"Page-flow E2E renamed {ts} (Text)"
+    new_page = f"Source:{new_label}"
+    set_item_en_label(op, api, qid, new_label)
+    if not page_exists(op, api, new_page):
+        raise FlowError(f"label-rename: {new_page} was not created by the direct label edit")
+    if item_sitelink_page(op, api, qid) != new_page:
+        raise FlowError(
+            f"label-rename: sitelink not updated ({item_sitelink_page(op, api, qid)!r} != {new_page!r})")
+    if not page_is_redirect(op, api, old_page):
+        raise FlowError(f"label-rename: {old_page} is not a redirect after the rename")
+
+    # Backtrack: edit the label back — the page must move over the redirect.
+    set_item_en_label(op, api, qid, label + " (Text)")
+    if not page_exists(op, api, old_page) or page_is_redirect(op, api, old_page):
+        raise FlowError(f"label-rename: move-back did not restore {old_page} as a page")
+    if not page_is_redirect(op, api, new_page):
+        raise FlowError(f"label-rename: move-back did not leave {new_page} as a redirect")
+
+    for page in (old_page, new_page):
+        if page not in CREATED_CLASSIC_PAGES:
+            CREATED_CLASSIC_PAGES.append(page)
+    print(f"[ok] label rename -> {qid}: {old_page!r} <-> {new_page!r} "
+          f"(direct edit renames + leaves a redirect; backtrack moves back)")
+    return qid
+
+
 def flow_entitysearch_case_insensitive(op, api: str, label: str, qid: str) -> None:
     """action=entitysearch matches labels case-insensitively anywhere in the
     term. The old raw/title/upper variant probing missed uppercase and
@@ -4524,6 +4711,21 @@ def main() -> int:
         law, law_legislation = flow_source_law(op, base, api, resolve)
         track(law)
         track(law_legislation)
+
+        # 2g7b. AddSource/law "Add more" (feature): the second submit button
+        #       creates the provision + its Source: page, reopens the form with
+        #       the parent legislation preserved, and wires the success popup;
+        #       action=embed renders the provision through the quotation path
+        #       (the "Copy embed code" button).
+        law_add1, law_add2, law_add_legislation = flow_source_law_addmore(op, base, api, resolve)
+        track(law_add1)
+        track(law_add2)
+        track(law_add_legislation)
+
+        # 2g8. Direct en-label edit (the Item-page label field / wbeditentity)
+        #      renames the sitelinked classic page, leaving a redirect behind;
+        #      editing the label back moves the page over that redirect.
+        track(flow_label_rename(op, base, api))
 
         # 2h. AddSource/book access field, local-file mode (issue #35): the
         #     upload lands as File:<label>.png (auto-named from the item

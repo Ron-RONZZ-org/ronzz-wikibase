@@ -87,4 +87,10 @@ extended to every semantic-entity Add\*/Update\* form + `addsemanticentity`),
 `upload-source-memory-dragpaste.md` (`Special:Upload` remembers the File/Url
 source across "upload another" and accepts a dropped/pasted image),
 `printable-version.md` (namespace/subpage-stripped print title, centered
-authors, the "Print this page" toolbar button and the cover-page popup).
+authors, the "Print this page" toolbar button and the cover-page popup),
+`law-embed-code.md` (legal provisions are embeddable — the `law` class in
+`ContentRenderer`; the Source-page "Copy embed code" button),
+`addsource-law-addmore.md` (the `law` form's "Add more" submit + success
+popup, parent legislation preserved), `classic-page-label-sync.md` (a direct
+label edit renames the sitelinked classic page, a redirect left behind;
+backtracking moves it back).

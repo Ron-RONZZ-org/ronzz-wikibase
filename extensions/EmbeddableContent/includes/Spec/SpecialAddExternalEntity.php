@@ -780,6 +780,16 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		$this->removeTokenValue( $token );
 		$this->removeTokenValue( $token, ':class' );
 		$target = $this->afterCreate( $itemId, $record );
+		// "Add more": land on the reopened form (with the success popup)
+		// instead of the classic page — but never hide the unusable-page-title
+		// warning (the item exists and the user must see it).
+		if ( $this->consumeAddMoreRequest() && $this->pageTitleWarning === null ) {
+			$addMoreTarget = $this->addMoreTarget( $itemId, $record, $target );
+			if ( $addMoreTarget !== null ) {
+				$this->getOutput()->redirect( $addMoreTarget );
+				return true;
+			}
+		}
 		if ( $target !== null ) {
 			$this->getOutput()->redirect( $target );
 			return true;
@@ -802,6 +812,151 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		return true;
 	}
 
+	// ------------------------------------------------------------- "Add more"
+
+	/**
+	 * Extra submit buttons for the manual form. Default none; a class that
+	 * supports "Add more" (the AddSource `law` class) returns a second
+	 * `submit` field. The button submits the same form; onManualSubmit
+	 * detects the `wpaddMore` request value.
+	 *
+	 * @return array<string,mixed> fieldname => descriptor
+	 */
+	protected function manualExtraSubmits(): array {
+		return [];
+	}
+
+	/**
+	 * The step (subpage) the "Add more" return trip reopens, or null when the
+	 * class does not support it. The AddSource `law` class returns 'manual'.
+	 */
+	protected function addMoreReturnStep(): ?string {
+		return null;
+	}
+
+	/**
+	 * Record fields carried over between "Add more" submissions (e.g. the
+	 * law's parent legislation). The label/payload reset.
+	 *
+	 * @return string[]
+	 */
+	protected function addMoreCarryFields(): array {
+		return [];
+	}
+
+	/** Records the "Add more" intent for this creation (session flag). */
+	private function noteAddMoreRequest(): void {
+		if ( $this->addMoreReturnStep() !== null
+			&& $this->getRequest()->getVal( 'wpaddMore' ) !== null
+		) {
+			$this->getRequest()->getSession()->set( self::SESSION_PREFIX . 'addmore', '1' );
+		}
+	}
+
+	/**
+	 * Whether an "Add more" creation is pending, clearing the flag (consumed
+	 * once per creation, so a later ordinary submission is unaffected). The
+	 * session flag survives the duplication-guard confirm round-trip.
+	 */
+	private function consumeAddMoreRequest(): bool {
+		$session = $this->getRequest()->getSession();
+		if ( $session->get( self::SESSION_PREFIX . 'addmore' ) !== '1' ) {
+			return false;
+		}
+		$session->remove( self::SESSION_PREFIX . 'addmore' );
+		return true;
+	}
+
+	/**
+	 * The redirect target for an "Add more" creation: the reopened form with
+	 * ?addmore=1&created=<Qid> + the carried fields. When the classic page was
+	 * created this request, $completeTarget is the complete/<id> finalize URL
+	 * — the addmore params ride it and executeComplete() lands on the form
+	 * (the page's wikibase_item property must still be finalized).
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function addMoreTarget( string $itemId, array $record, ?string $completeTarget ): ?string {
+		$step = $this->addMoreReturnStep();
+		if ( $step === null ) {
+			return null;
+		}
+		$params = [ 'addmore' => '1', 'created' => $itemId ] + $this->addMoreCarryParams( $record );
+		if ( $completeTarget !== null ) {
+			return wfAppendQuery( $completeTarget, $params );
+		}
+		return $this->stepTitle( $step )->getFullURL( $params );
+	}
+
+	/**
+	 * The reopened form URL from the current request's carried params (the
+	 * executeComplete landing).
+	 */
+	private function addMoreFormUrl( string $itemId ): string {
+		$params = [ 'addmore' => '1', 'created' => $itemId ];
+		foreach ( $this->addMoreCarryFields() as $name ) {
+			$value = trim( (string)$this->getRequest()->getVal( $name, '' ) );
+			if ( $value !== '' ) {
+				$params[$name] = $value;
+			}
+		}
+		return $this->stepTitle( $this->addMoreReturnStep() ?? '' )->getFullURL( $params );
+	}
+
+	/** @param array<string,mixed> $record @return array<string,string> */
+	private function addMoreCarryParams( array $record ): array {
+		$params = [];
+		foreach ( $this->addMoreCarryFields() as $name ) {
+			$value = trim( (string)( $record[$name] ?? '' ) );
+			if ( $value !== '' ) {
+				$params[$name] = $value;
+			}
+		}
+		return $params;
+	}
+
+	/**
+	 * The success popup on the "Add more" return trip (?created=<Qid>): wires
+	 * wbJustAddedItem + the item's Update URL and loads resources/addmore.js
+	 * (the just-added item's preview + the entity actions), matching the
+	 * content pages' "Add more".
+	 */
+	private function maybeWireAddMorePopup(): void {
+		$created = trim( (string)$this->getRequest()->getVal( 'created', '' ) );
+		if ( $created === '' ) {
+			return;
+		}
+		try {
+			$id = WikibaseRepo::getEntityIdParser()->parse( $created );
+		} catch ( \Throwable $e ) {
+			return;
+		}
+		if ( !$id instanceof ItemId ) {
+			return;
+		}
+		$this->getOutput()->addJsConfigVars( 'wbJustAddedItem', $id->getSerialization() );
+		$editUrl = $this->addMoreEditUrl( $id->getSerialization() );
+		if ( $editUrl !== null ) {
+			$this->getOutput()->addJsConfigVars( 'wbJustAddedEditUrl', $editUrl );
+			$this->getOutput()->addJsConfigVars( 'wbJustAddedEditLabel', $this->addMoreEditLabelKey() );
+		}
+		$this->getOutput()->addModules( 'ext.embeddableContent.addmore' );
+	}
+
+	/**
+	 * The Update* page URL for the just-added item (the popup's primary
+	 * button), or null when the class has no Update page. The AddSource law
+	 * class returns Special:UpdateSource/<Qid>.
+	 */
+	protected function addMoreEditUrl( string $itemId ): ?string {
+		return null;
+	}
+
+	/** i18n key of the popup's primary-button label. */
+	protected function addMoreEditLabelKey(): string {
+		return 'embeddablecontent-update-content-button';
+	}
+
 	// ------------------------------------------------------------- manual
 
 	protected function executeManual(): void {
@@ -811,7 +966,19 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// inputs prefill the manual fields — the user corrects instead of
 		// retyping.
 		$record = $this->manualAutofillRecord();
-		$fields = $this->reviewFieldSpecs( $record ) + $this->classFieldSpec( $record );
+		// "Add more" return trip: the carried fields (?parent=…) prefill the
+		// reopened form for the next item (the label/payload reset).
+		if ( $this->getRequest()->getVal( 'addmore' ) === '1' ) {
+			foreach ( $this->addMoreCarryFields() as $name ) {
+				$value = trim( (string)$this->getRequest()->getVal( $name, '' ) );
+				if ( $value !== '' ) {
+					$record[$name] = $value;
+				}
+			}
+		}
+		$fields = $this->reviewFieldSpecs( $record )
+			+ $this->classFieldSpec( $record )
+			+ $this->manualExtraSubmits();
 
 		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
 		$form->setTitle( $this->stepTitle( 'manual' ) )
@@ -820,6 +987,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			->setSubmitID( 'wb-ext-add-manual' )
 			->setWrapperLegendMsg( $this->manualLegendMessage() );
 		$this->showForm( $form );
+		$this->maybeWireAddMorePopup();
 	}
 
 	/**
@@ -907,6 +1075,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		if ( $loginError !== null ) {
 			return $loginError;
 		}
+		// "Add more": remember the intent for this creation (a session flag, so
+		// it survives the duplication-guard confirm round-trip too). Consumed
+		// by createItemAndRedirect once the item is created.
+		$this->noteAddMoreRequest();
 		$classItemId = (string)( $data['class'] ?? '' );
 		if ( $classItemId === '' ) {
 			return $this->msg( 'embeddablecontent-extselect-classrequired' )->text();
@@ -1554,6 +1726,13 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 				}
 				$target = $title->getFullURL();
 			}
+		}
+		// "Add more": the finalize step lands on the reopened form (the
+		// success popup) instead of the classic page. The carried fields ride
+		// the complete/<id> URL (createItemAndRedirect::addMoreTarget).
+		if ( $this->getRequest()->getVal( 'addmore' ) === '1' && $this->addMoreReturnStep() !== null ) {
+			$this->getOutput()->redirect( $this->addMoreFormUrl( $itemId ) );
+			return;
 		}
 		$this->getOutput()->redirect( $target ?? $this->stepTitle()->getFullURL() );
 	}

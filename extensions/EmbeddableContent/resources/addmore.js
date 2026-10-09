@@ -29,10 +29,15 @@
 		var $preview = $( '<div class="wb-addmore-preview"></div>' );
 		var $actions = $( '<div class="wb-embed-toolbar wb-addmore-actions"></div>' );
 		if ( editUrl ) {
+			// The primary button label is configurable: content items show
+			// "Edit content", a legal provision "Update basic information"
+			// (wbJustAddedEditLabel, set by the server).
+			var editLabelKey = mw.config.get( 'wbJustAddedEditLabel' )
+				|| 'embeddablecontent-update-content-button';
 			$actions.append(
 				$( '<a class="wb-embed-toolbar-btn wb-update-basic-btn"></a>' )
 					.attr( 'href', editUrl )
-					.text( mw.msg( 'embeddablecontent-update-content-button' ) )
+					.text( mw.msg( editLabelKey ) )
 			);
 		}
 		mw.embeddableContent.entityActions.attach( $actions, item );
