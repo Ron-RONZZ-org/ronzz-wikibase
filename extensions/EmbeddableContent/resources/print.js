@@ -57,32 +57,89 @@
 	}
 
 	/**
-	 * Registered, non-bot contributors of the current page, in first-seen
-	 * order. Resolves [] on any failure (the print flow never blocks on it).
+	 * How many revision batches (rvlimit=max, i.e. up to 500 revisions each)
+	 * are walked when counting contributors — a safety cap on a very long
+	 * page history (up to 5000 revisions counted).
+	 */
+	var MAX_REVISION_BATCHES = 10;
+
+	/**
+	 * Registered, non-bot contributors of the current page, ordered by
+	 * revision count (most active first; ties broken alphabetically).
+	 *
+	 * `prop=contributors` yields the bot-excluded distinct-contributor SET
+	 * only — it carries no edit counts and its order is arbitrary — so the
+	 * counts come from the page's revision list, walked with the rvcontinue
+	 * token (capped at MAX_REVISION_BATCHES batches). Resolves [] on any
+	 * failure (the print flow never blocks on it).
 	 */
 	function fetchAuthors() {
-		return new mw.Api().get( {
+		var api = new mw.Api();
+		var title = mw.config.get( 'wgPageName' );
+		return api.get( {
 			action: 'query',
 			prop: 'contributors',
-			titles: mw.config.get( 'wgPageName' ),
+			titles: title,
 			pcexcludegroup: 'bot',
 			pclimit: 'max',
 			formatversion: 2
 		} ).then( function ( data ) {
 			var page = data && data.query && data.query.pages && data.query.pages[ 0 ];
-			var contributors = ( page && page.contributors ) || [];
-			var names = [];
-			contributors.forEach( function ( contributor ) {
+			var counts = new Map();
+			( ( page && page.contributors ) || [] ).forEach( function ( contributor ) {
 				// A registered user carries a numeric userid; anonymous edits
 				// (and the bot group excluded above) are skipped.
 				if ( contributor && contributor.userid && contributor.name ) {
-					names.push( contributor.name );
+					counts.set( contributor.name, 0 );
 				}
 			} );
-			return names;
+			if ( counts.size === 0 ) {
+				return [];
+			}
+			return countRevisions( api, title, counts ).then( function () {
+				return Array.from( counts.keys() ).sort( function ( a, b ) {
+					return counts.get( b ) - counts.get( a ) ||
+						a.toLowerCase().localeCompare( b.toLowerCase() );
+				} );
+			} );
 		} ).catch( function () {
 			return [];
 		} );
+	}
+
+	/**
+	 * Walk the page's revisions (rvcontinue), incrementing counts for the
+	 * allowed (registered, non-bot) users only; bail out after
+	 * MAX_REVISION_BATCHES batches.
+	 */
+	function countRevisions( api, title, counts ) {
+		var batches = MAX_REVISION_BATCHES;
+		function step( rvcontinue ) {
+			var params = {
+				action: 'query',
+				prop: 'revisions',
+				titles: title,
+				rvprop: 'user',
+				rvlimit: 'max',
+				formatversion: 2
+			};
+			if ( rvcontinue ) {
+				params.rvcontinue = rvcontinue;
+			}
+			return api.get( params ).then( function ( data ) {
+				var page = data && data.query && data.query.pages && data.query.pages[ 0 ];
+				( ( page && page.revisions ) || [] ).forEach( function ( revision ) {
+					if ( revision.user !== undefined && counts.has( revision.user ) ) {
+						counts.set( revision.user, counts.get( revision.user ) + 1 );
+					}
+				} );
+				var next = data && data.continue && data.continue.rvcontinue;
+				if ( next && --batches > 0 ) {
+					return step( next );
+				}
+			} );
+		}
+		return step( undefined );
 	}
 
 	/** Remove any injected print nodes and the printing body class. */

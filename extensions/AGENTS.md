@@ -1317,7 +1317,8 @@ report). See `SimpleMathJax/VENDORED.md`.
   excluded) sets `wbPrintTitle = Title::getSubpageText()` (namespace +
   subpage parent dropped), hides the subpage breadcrumb and injected
   toolbars in print, prints a centered `by A, B, and C` line from the
-  registered, non-bot contributors (`prop=contributors&pcexcludegroup=bot`,
+  registered, non-bot contributors ordered by revision count
+  (`prop=contributors&pcexcludegroup=bot` + a capped revision-count walk;
   Oxford comma, localized separators), adds a "Print this page" toolbar
   button, intercepts the core sidebar `javascript:print();` link, and offers
   an "Add a cover page" popup option (centered serif cover,

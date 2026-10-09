@@ -35,7 +35,9 @@ Both open one OOUI `PopupWidget` (the `citationpopup.js` pattern) offering an
 
 - the page's registered, non-bot contributors are fetched
   (`action=query&prop=contributors&pcexcludegroup=bot`; anonymous/IP edits are
-  skipped) and rendered as a centered `by A, B, and C` line (Oxford comma,
+  skipped), ordered by **revision count** (most active first, ties
+  alphabetical — counted from the page's revision list, capped at 5000
+  revisions), and rendered as a centered `by A, B, and C` line (Oxford comma,
   localized separators);
 - a print-only header is injected (or, with the cover option, a centered serif
   cover page with `page-break-after: always` so the content starts on page 2);
