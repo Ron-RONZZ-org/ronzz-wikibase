@@ -1380,6 +1380,11 @@ def flow_source_law_addmore(op, base: str, api: str, resolve) -> tuple[str, str,
         raise FlowError(
             f"{page_title} does not load the embed gadget (Copy embed code): "
             + find_error(page_body))
+    # A classic per-kind page is a content namespace but carries the block
+    # .wb-embed-toolbar row — the print button must join THAT, not the inline
+    # content-page toolbar.
+    if '"wbPrintToolbar":"embed"' not in page_body:
+        raise FlowError(f"{page_title} print button not wired to the .wb-embed-toolbar row")
 
     # The popup's Update tab returns to the reopened law form on submit/cancel
     # (fromaddmore), so the contributor keeps adding after correcting.
@@ -4894,7 +4899,9 @@ def main() -> int:
         #     page titles carry the class disambiguation suffix (" (Book)").
         access_cell = source_access_cell(op, api, f"Source:{access_label} (Book)")
         assert "Special:SourceFile" in access_cell and f"item={access_book}" in access_cell, \
-            f"file-mode access row not rendered as a Special:SourceFile link: {access_cell}"
+            f"file-mode access row not rendered as a Special:SourceFile link: {access_cell} " \
+            f"(sitelink={item_sitelink_page(op, api, access_book)!r}, " \
+            f"file={first_value(entity_claims(op, api, access_book)[0], file_prop)!r})"
         url_label = f"Page-flow E2E access-url {int(time.time())}"
         url_book = track(flow_source_book_access_url(
             op, base, api, url_label, person, "https://example.org/e2e-access"))

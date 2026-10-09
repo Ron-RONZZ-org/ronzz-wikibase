@@ -351,8 +351,12 @@ class Hooks {
 			return;
 		}
 		$out->addJsConfigVars( 'wbPrintTitle', $title->getSubpageText() );
+		// The classic per-kind namespaces (Source:/Person:/…) ARE content
+		// namespaces but carry the block `.wb-embed-toolbar` row, not the
+		// inline content-page toolbar — exclude them from the 'content'
+		// surface.
 		$contentPage = $title->isContentPage()
-			&& !self::isEntityNamespace( $title->getNamespace() );
+			&& !self::isClassicEntityNamespace( $title->getNamespace() );
 		$out->addJsConfigVars( 'wbPrintToolbar', $contentPage ? 'content' : 'embed' );
 		$out->addModules( 'ext.embeddableContent.print' );
 	}
