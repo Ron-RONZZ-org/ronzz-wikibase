@@ -63,6 +63,14 @@ trait UpdateExternalEntityFlow {
 	 */
 	protected bool $updateReturnToClassic = false;
 
+	/**
+	 * Whether the update was launched from the Add* "Add more" success popup
+	 * (the fromaddmore marker on the popup's Update button) — the submit and
+	 * the cancel then return to the reopened Add* form (the parent carried)
+	 * so the contributor keeps adding after correcting.
+	 */
+	protected bool $updateReturnToAddMore = false;
+
 	/** Kind key for the update-page i18n titles (e.g. 'person'). */
 	abstract protected function updateKindKey(): string;
 
@@ -125,6 +133,12 @@ trait UpdateExternalEntityFlow {
 			);
 			return;
 		}
+		// The "Add more" return (the popup's Update button marks its URL
+		// fromaddmore=1): only honoured when the class supports it (the
+		// updateAddMoreReturnUrl hook), so a stray marker on another class
+		// degrades to the normal return.
+		$this->updateReturnToAddMore = $this->getRequest()->getVal( 'fromaddmore' ) === '1'
+			&& $this->updateAddMoreReturnUrl() !== null;
 
 		$this->getOutput()->setPageTitle(
 			$this->msg( 'embeddablecontent-update-' . $this->updateKindKey() . '-title' )->text()
@@ -141,24 +155,35 @@ trait UpdateExternalEntityFlow {
 			// query string is lost by HTMLForm::setTitle's action URL).
 			$fields['frompage'] = [ 'type' => 'hidden', 'default' => '1' ];
 		}
+		if ( $this->updateReturnToAddMore ) {
+			$fields['fromaddmore'] = [ 'type' => 'hidden', 'default' => '1' ];
+		}
+		// URL query-param prefill (deep links): a field named in the query
+		// takes that value as its default.
+		$fields = $this->applyRequestPrefill( $fields );
 
 		$itemUrl = WikibaseRepo::getEntityTitleStoreLookup()
 			->getTitleForId( new ItemId( $itemId ) )->getFullURL();
+		$cancelTarget = $itemUrl;
+		if ( $this->updateReturnToClassic ) {
+			$cancelTarget = $this->classicPageUrl( $item ) ?? $itemUrl;
+		} elseif ( $this->updateReturnToAddMore ) {
+			$cancelTarget = $this->updateAddMoreReturnUrl( [
+				'parent' => (string)( $record['parent'] ?? '' ),
+			] ) ?? $itemUrl;
+		}
 		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
 		$form->setTitle( $this->getPageTitle( $itemId ) )
 			->setSubmitTextMsg( 'embeddablecontent-update-submit' )
 			->setSubmitCallback( fn ( array $data ) => $this->onUpdateSubmit( $data, $itemId ) )
 			->setSubmitID( 'wb-ext-update' )
 			->setWrapperLegendMsg( 'embeddablecontent-update-legend' )
-			// Cancel returns to where the user came from: the item's classic
-			// page when the form was opened from there (frompage), the item
-			// page otherwise. HTMLForm's built-in cancel primitive.
+			// Cancel returns to where the user came from: the reopened Add*
+			// form when the update was launched from the "Add more" popup
+			// (fromaddmore), the item's classic page when opened from there
+			// (frompage), the item page otherwise.
 			->showCancel( true )
-			->setCancelTarget(
-				$this->updateReturnToClassic
-					? ( $this->classicPageUrl( $item ) ?? $itemUrl )
-					: $itemUrl
-			);
+			->setCancelTarget( $cancelTarget );
 		$this->showForm( $form );
 	}
 
@@ -174,6 +199,8 @@ trait UpdateExternalEntityFlow {
 		// The classic-page return marker rides the hidden field (the query
 		// string is lost on POST).
 		$this->updateReturnToClassic = ( (string)( $data['frompage'] ?? '' ) === '1' );
+		$this->updateReturnToAddMore = ( (string)( $data['fromaddmore'] ?? '' ) === '1'
+			&& $this->updateAddMoreReturnUrl() !== null );
 		$classItemId = (string)( $data['class'] ?? '' );
 		if ( $classItemId === '' ) {
 			return $this->msg( 'embeddablecontent-extselect-classrequired' )->text();
@@ -220,6 +247,14 @@ trait UpdateExternalEntityFlow {
 			$redirect = $this->applyUpdate( $itemId, $record, $classItemId, $label );
 		} catch ( \Throwable $e ) {
 			return $this->msg( 'embeddablecontent-update-error', get_class( $e ), $e->getMessage() )->text();
+		}
+		// The "Add more" return wins over the classic-page/item target: back
+		// to the reopened Add* form with the parent carried, so the user keeps
+		// adding after correcting.
+		if ( $this->updateReturnToAddMore ) {
+			$redirect = $this->updateAddMoreReturnUrl( [
+				'parent' => (string)( $record['parent'] ?? '' ),
+			] ) ?? $redirect;
 		}
 		$this->getOutput()->redirect(
 			$redirect ?? WikibaseRepo::getEntityTitleStoreLookup()->getTitleForId( new ItemId( $itemId ) )->getFullURL()

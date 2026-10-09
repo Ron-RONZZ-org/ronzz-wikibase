@@ -262,6 +262,23 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		$form->displayForm( $result );
 	}
 
+	/**
+	 * Apply URL query-param prefill to a field set (Spec\RequestPrefill): a
+	 * field whose NAME appears in the query string takes that value as its
+	 * default — a deep link such as
+	 * Special:AddSource/law/manual?parent=Q2048 fills the form. POST is
+	 * unaffected (the action URL carries no query on POST).
+	 *
+	 * @param array<string,mixed> $fields HTMLForm field specs
+	 * @return array<string,mixed>
+	 */
+	protected function applyRequestPrefill( array $fields ): array {
+		return \EmbeddableContent\Spec\RequestPrefill::apply(
+			$fields,
+			$this->getRequest()->getQueryValues()
+		);
+	}
+
 	// ------------------------------------------------------------- step 1
 
 	protected function executeSearch(): void {
@@ -576,7 +593,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		}
 
 		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-' . $this->kindKey() . '-review-title' )->text() );
-		$fields = $this->reviewFieldSpecs( $record ) + $this->classFieldSpec( $record );
+		$fields = $this->applyRequestPrefill( $this->reviewFieldSpecs( $record ) + $this->classFieldSpec( $record ) );
 
 		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
 		$form->setTitle( $this->stepTitle( $token . '/review/' . $index ) )
@@ -703,7 +720,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			return;
 		}
 		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-content-review-title' )->text() );
-		$fields = $this->contentFieldSpecs( $record ) + $this->classFieldSpec( $record );
+		$fields = $this->applyRequestPrefill( $this->contentFieldSpecs( $record ) + $this->classFieldSpec( $record ) );
 
 		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
 		$form->setTitle( $this->stepTitle( $token . '/review/' . $index . '/content' ) )
@@ -940,6 +957,11 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			$this->getOutput()->addJsConfigVars( 'wbJustAddedEditUrl', $editUrl );
 			$this->getOutput()->addJsConfigVars( 'wbJustAddedEditLabel', $this->addMoreEditLabelKey() );
 		}
+		if ( $this->addMoreInternalCitation( $id->getSerialization() ) ) {
+			// A source-class item also offers "Copy internal citation"
+			// (the Source: page action) in the popup.
+			$this->getOutput()->addJsConfigVars( 'wbJustAddedInternalCitation', true );
+		}
 		$this->getOutput()->addModules( 'ext.embeddableContent.addmore' );
 	}
 
@@ -955,6 +977,28 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	/** i18n key of the popup's primary-button label. */
 	protected function addMoreEditLabelKey(): string {
 		return 'embeddablecontent-update-content-button';
+	}
+
+	/**
+	 * Whether the popup should offer "Copy internal citation" for the
+	 * just-added item (a source-class action). Default no; the AddSource
+	 * override returns true for its source classes.
+	 */
+	protected function addMoreInternalCitation( string $itemId ): bool {
+		return false;
+	}
+
+	/**
+	 * The URL the Update* form (opened from the "Add more" popup) returns to
+	 * on submit/cancel: the reopened Add* form with the parent carried, so
+	 * the contributor can keep adding after correcting. Null when the item's
+	 * class does not support "Add more" (the default; SpecialAddSource
+	 * overrides it for `law`).
+	 *
+	 * @param array<string,string> $carry parent/field values for the URL
+	 */
+	protected function updateAddMoreReturnUrl( array $carry = [] ): ?string {
+		return null;
 	}
 
 	// ------------------------------------------------------------- manual
@@ -976,9 +1020,11 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 				}
 			}
 		}
-		$fields = $this->reviewFieldSpecs( $record )
+		$fields = $this->applyRequestPrefill(
+			$this->reviewFieldSpecs( $record )
 			+ $this->classFieldSpec( $record )
-			+ $this->manualExtraSubmits();
+			+ $this->manualExtraSubmits()
+		);
 
 		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
 		$form->setTitle( $this->stepTitle( 'manual' ) )
@@ -1139,7 +1185,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			return;
 		}
 		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-content-review-title' )->text() );
-		$fields = $this->contentFieldSpecs( $record ) + $this->classFieldSpec( $record );
+		$fields = $this->applyRequestPrefill( $this->contentFieldSpecs( $record ) + $this->classFieldSpec( $record ) );
 
 		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
 		// The token lives in the QUERY (the manual path is /manual/content,

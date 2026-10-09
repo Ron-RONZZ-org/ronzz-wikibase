@@ -61,10 +61,17 @@
 		if ( ( !snippet && !citePage ) || $( '#firstHeading' ).length === 0 ) {
 			return;
 		}
-		if ( $( '.wb-content-page-toolbar' ).length > 0 ) {
+		if ( $( '#ca-wb-content-copymention' ).length > 0 || $( '#ca-wb-content-copycite' ).length > 0 ) {
 			return;
 		}
-		var $toolbar = $( '<span class="wb-content-page-toolbar"></span>' );
+		// Reuse the inline page-toolbar row when it already exists — print.js
+		// loads first and creates it (its "Print this page" button shares this
+		// row); otherwise create it.
+		var $toolbar = $( '.wb-content-page-toolbar' ).first();
+		if ( $toolbar.length === 0 ) {
+			$toolbar = $( '<span class="wb-content-page-toolbar"></span>' );
+			$( '#firstHeading' ).append( $toolbar );
+		}
 
 		if ( snippet ) {
 			$toolbar.append(
@@ -90,7 +97,5 @@
 				} );
 			$toolbar.append( $cite );
 		}
-
-		$( '#firstHeading' ).append( $toolbar );
 	} );
 }() );

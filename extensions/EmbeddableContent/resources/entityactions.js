@@ -5,7 +5,9 @@
  *     the external `Special:Embed` <iframe>) + a language selector for
  *     multi-language quotations;
  *   - "Copy citation" — opens the shared citation popup
- *     (resources/citationpopup.js).
+ *     (resources/citationpopup.js);
+ *   - "Copy internal citation" — copies `<ref>{{#cite:Q42}}</ref>` (the
+ *     source-class action; opt-in per surface).
  *
  * Used by the entity / classic-page toolbar (resources/gadget.js) and the
  * Add* success popup (resources/addmore.js), so both surfaces offer the same
@@ -13,10 +15,13 @@
  *
  *   mw.embeddableContent.entityActions.embedControls( entityId, languages )
  *   mw.embeddableContent.entityActions.citationControls( entityId )
- *   mw.embeddableContent.entityActions.attach( $container, entityId )
+ *   mw.embeddableContent.entityActions.internalCitationControls( entityId )
+ *   mw.embeddableContent.entityActions.attach( $container, entityId, options )
  *
- * The controls appear only when the item supports them (the embed / citation
- * API probes inside attach()).
+ * The embed/citation controls appear only when the item supports them (the
+ * API probes inside attach()); `options.internalCitation` renders the
+ * internal-citation button immediately (no probe — the class check is
+ * server-side).
  */
 ( function () {
 	'use strict';
@@ -167,13 +172,44 @@
 	}
 
 	/**
+	 * "Copy internal citation" button — copies `<ref>{{#cite:Q42}}</ref>`, the
+	 * wikitext snippet that cites the item from any wiki page through the
+	 * stock Cite extension. Source pages render this action inline
+	 * (resources/sourcecite.js delegates here); the Add* success popup shows
+	 * it too.
+	 *
+	 * @param {string} entityId
+	 * @return {jQuery[]} toolbar children
+	 */
+	function internalCitationControls( entityId ) {
+		var $btn = makeButton(
+			'ca-wb-source-cite-internal',
+			'embeddablecontent-sourcecite-button',
+			function () {
+				copyText( '<ref>{{#cite:' + entityId + '}}</ref>' );
+			}
+		);
+		$btn.attr( 'title', mw.msg( 'embeddablecontent-sourcecite-hint', entityId ) );
+		return [ $btn ];
+	}
+
+	/**
 	 * Probes the embed / citation APIs and appends the applicable controls to
-	 * $container (best-effort: a failed probe simply adds nothing).
+	 * $container (best-effort: a failed probe simply adds nothing). When
+	 * `options.internalCitation` is set, the internal-citation button is
+	 * appended FIRST (it needs no probe — the server already resolved the
+	 * source class).
 	 *
 	 * @param {jQuery} $container
 	 * @param {string} entityId
+	 * @param {Object} [options]
+	 * @param {boolean} [options.internalCitation] render the internal citation
 	 */
-	function attach( $container, entityId ) {
+	function attach( $container, entityId, options ) {
+		options = options || {};
+		if ( options.internalCitation ) {
+			$container.append( internalCitationControls( entityId ) );
+		}
 		var api = new mw.Api();
 		api.get( { action: 'embed', entity: entityId, output: 'json' } ).done( function ( data ) {
 			if ( !data.error && data.embed ) {
@@ -191,6 +227,7 @@
 	mw.embeddableContent.entityActions = {
 		embedControls: embedControls,
 		citationControls: citationControls,
+		internalCitationControls: internalCitationControls,
 		attach: attach
 	};
 }() );
