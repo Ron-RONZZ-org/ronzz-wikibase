@@ -98,18 +98,6 @@ class SpecialUpdateSource extends SpecialAddSource {
 		return false;
 	}
 
-	/**
-	 * The term language is the dedicated `labelLanguage` field on update too:
-	 * a non-empty submitted value wins; a blank one keeps the item's current
-	 * label language (no-clobber).
-	 *
-	 * @param array<string,mixed> $record
-	 */
-	protected function updateTermLanguage( array $record, Item $item ): string {
-		$language = trim( (string)( $record['labelLanguage'] ?? '' ) );
-		return $language !== '' ? $language : $this->itemTermLanguage( $item );
-	}
-
 	protected function updateClassItemId( Item $item ): ?string {
 		$classIds = $this->itemClassIds( $item );
 		foreach ( $this->config->sourceClasses() as $key => $id ) {

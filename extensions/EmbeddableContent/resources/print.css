@@ -1,0 +1,73 @@
+/**
+ * Printable-version enhancements (resources/print.js).
+ *
+ * The print-only header/cover never render on screen; they are injected
+ * just before window.print() and removed on afterprint. `body.wb-printing`
+ * gates the whole behaviour so an untouched Ctrl-P keeps the browser
+ * default (no vanishing title).
+ */
+
+.wb-print-header,
+.wb-print-cover {
+	display: none;
+}
+
+@media print {
+	body.wb-printing #firstHeading {
+		display: none !important;
+	}
+
+	/* Drop the navigation/chrome the user should not see on paper: the
+	 * subpage breadcrumb ("< User:Rongzhou"), the site subtitle, the
+	 * injected toolbars, the category bar, the site navigation and footer. */
+	body.wb-printing #mw-content-subtitle,
+	body.wb-printing #siteSub,
+	body.wb-printing .subpages,
+	body.wb-printing .wb-content-page-toolbar,
+	body.wb-printing .wb-print-toolbar,
+	body.wb-printing .wb-embed-toolbar,
+	body.wb-printing .wb-file-toolbar,
+	body.wb-printing #catlinks,
+	body.wb-printing #mw-navigation,
+	body.wb-printing #footer {
+		display: none !important;
+	}
+
+	body.wb-printing .wb-print-header {
+		display: block;
+		text-align: center;
+		margin: 0 0 1.5em;
+	}
+
+	body.wb-printing .wb-print-cover {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		min-height: 90vh;
+		text-align: center;
+		page-break-after: always;
+	}
+
+	body.wb-printing .wb-print-title,
+	body.wb-printing .wb-print-authors {
+		font-family: Georgia, "Times New Roman", serif;
+	}
+
+	body.wb-printing .wb-print-title {
+		font-size: 2em;
+		font-weight: bold;
+		line-height: 1.25;
+	}
+
+	body.wb-printing .wb-print-authors {
+		font-size: 1.2em;
+		margin-top: 0.8em;
+	}
+}
+
+/* The popup action row (matches the citation popup). */
+.wb-print-popup-actions {
+	margin-top: 0.8em;
+	text-align: right;
+}

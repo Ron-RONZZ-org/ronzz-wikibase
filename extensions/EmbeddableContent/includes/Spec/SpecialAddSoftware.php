@@ -198,6 +198,7 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 	protected function reviewFieldSpecs( array $record ): array {
 		$fields = $this->labelFieldSpec( 'label', 'embeddablecontent-extsearch-name', (string)( $record['label'] ?? '' ) )
 			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
+			+ $this->labelLanguageFieldSpec( $record )
 			+ [
 				'sourceRepository' => [
 					'type' => 'url',

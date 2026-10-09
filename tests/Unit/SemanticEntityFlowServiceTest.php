@@ -285,4 +285,67 @@ class SemanticEntityFlowServiceTest extends TestCase {
 		}
 		$this->assertSame( '0000-0002', $orcid->getValue() );
 	}
+
+	public function testBuildItemUsesLabelLanguage(): void {
+		$service = $this->makeService();
+		$record = [
+			'givenName' => 'Ada', 'familyName' => 'Lovelace',
+			'labelLanguage' => 'fr', 'description' => 'mathématicienne',
+		];
+		$this->assertNull( $service->prepare( 'person', $record, true ) );
+
+		$item = $service->buildItem( 'person', $record );
+		$this->assertSame( [ 'fr' ], array_keys( $item->getLabels()->toTextArray() ) );
+		$this->assertSame( 'Ada Lovelace', $item->getLabels()->getByLanguage( 'fr' )->getText() );
+		$this->assertSame( 'mathématicienne', $item->getDescriptions()->getByLanguage( 'fr' )->getText() );
+		$this->assertFalse( $item->getLabels()->hasTermForLanguage( 'en' ) );
+	}
+
+	public function testBuildItemLabelLanguageDefaultsToEnglish(): void {
+		$service = $this->makeService();
+		$item = $service->buildItem( 'other', [ 'label' => 'Anything', 'instanceOf' => 'Q42' ] );
+		$this->assertTrue( $item->getLabels()->hasTermForLanguage( 'en' ) );
+	}
+
+	public function testPrepareRejectsInvalidLabelLanguage(): void {
+		$service = $this->makeService();
+		$record = [ 'label' => 'X', 'labelLanguage' => 'not a language code' ];
+		$error = $service->prepare( 'software', $record, true );
+		$this->assertIsString( $error );
+		$this->assertStringContainsString( 'labelLanguage', $error );
+	}
+
+	public function testApplyUpdateMovesTermLanguage(): void {
+		$service = $this->makeService();
+		$item = $service->buildItem( 'person', [
+			'givenName' => 'Radcliffe', 'familyName' => 'Brown', 'description' => 'mathematician',
+		] );
+		// applyUpdate runs on a LOADED item — it needs the id for GUIDs.
+		$item->setId( new ItemId( 'Q42' ) );
+
+		$service->applyUpdate( 'person', $item, [
+			'givenName' => 'Radcliffe', 'familyName' => 'Brown',
+			'labelLanguage' => 'fr', 'description' => 'mathématicien',
+		] );
+
+		// The chosen-language-only contract: the label/description now live
+		// in French, and the previous English term is gone.
+		$this->assertTrue( $item->getLabels()->hasTermForLanguage( 'fr' ) );
+		$this->assertFalse( $item->getLabels()->hasTermForLanguage( 'en' ) );
+		$this->assertSame( 'mathématicien', $item->getDescriptions()->getByLanguage( 'fr' )->getText() );
+		$this->assertFalse( $item->getDescriptions()->hasTermForLanguage( 'en' ) );
+	}
+
+	public function testApplyUpdateKeepsTermLanguageWhenBlank(): void {
+		$service = $this->makeService();
+		$item = $service->buildItem( 'person', [
+			'givenName' => 'Ada', 'familyName' => 'Lovelace', 'labelLanguage' => 'fr',
+		] );
+		$item->setId( new ItemId( 'Q42' ) );
+
+		// A blank labelLanguage keeps the item's current (fr) language.
+		$service->applyUpdate( 'person', $item, [ 'givenName' => 'Ada', 'familyName' => 'Lovelace' ] );
+		$this->assertTrue( $item->getLabels()->hasTermForLanguage( 'fr' ) );
+		$this->assertFalse( $item->getLabels()->hasTermForLanguage( 'en' ) );
+	}
 }

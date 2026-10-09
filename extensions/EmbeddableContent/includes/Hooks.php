@@ -174,6 +174,19 @@ class Hooks {
 			$params['wblicense'] = (string)$request->getVal( 'wpLicense', '' );
 			$params['wbauthor'] = (string)$request->getVal( 'wpUploadAuthor', '' );
 			$params['wblicenseinfo'] = (string)$request->getVal( 'wpUploadLicenseInfo', '' );
+			// The source radio (File | Url): preserved so "upload another
+			// image from same author" remembers the user's choice (a URL
+			// uploader pastes another URL instead of re-picking a file). The
+			// browser blob fallback's ORIGINAL selection wins over the
+			// converted-internal wpSourceType (wbUploadmetaSourceType, the
+			// same precedence onUploadFormSourceDescriptors uses).
+			$sourceType = trim( (string)$request->getVal( 'wbUploadmetaSourceType', '' ) );
+			if ( $sourceType === '' ) {
+				$sourceType = trim( (string)$request->getVal( 'wpSourceType', '' ) );
+			}
+			if ( $sourceType !== '' ) {
+				$params['wbsourcetype'] = strtolower( $sourceType );
+			}
 		}
 		if ( $params === [] ) {
 			return;
@@ -186,6 +199,12 @@ class Hooks {
 		if ( $title === null ) {
 			return;
 		}
+
+		// Printable-version enhancements on every existing article page
+		// (namespace/subpage-stripped title + centered authors + the
+		// cover-page popup); Special:, Item:/Property: and File: pages are
+		// excluded (File: has its own copy toolbar).
+		self::wirePrintModule( $out, $title );
 
 		// Special:Upload — the semantic license combobox needs the entity
 		// autocomplete (native formatting, same as the Add* pages) and the
@@ -309,6 +328,25 @@ class Hooks {
 			'type' => 'application/json+oembed',
 			'href' => $oembedUrl,
 		] );
+	}
+
+	/**
+	 * Wire the printable-version module on an existing article page: the
+	 * namespace- and subpage-stripped title (`Title::getSubpageText()`, the
+	 * `wbPrintTitle` JS config) plus the "Print this page" toolbar button and
+	 * the core sidebar "Printable version" link interception. Special pages,
+	 * Wikibase entity pages and File: pages are skipped (the File: page
+	 * already has its own copy toolbar).
+	 */
+	private static function wirePrintModule( OutputPage $out, \MediaWiki\Title\Title $title ): void {
+		if ( !$title->exists() || $title->isSpecialPage()
+			|| $title->getNamespace() === NS_FILE
+			|| self::isEntityNamespace( $title->getNamespace() )
+		) {
+			return;
+		}
+		$out->addJsConfigVars( 'wbPrintTitle', $title->getSubpageText() );
+		$out->addModules( 'ext.embeddableContent.print' );
 	}
 
 	/**

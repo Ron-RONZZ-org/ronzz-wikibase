@@ -120,6 +120,7 @@ class SpecialAddFictionalCharacter extends SpecialAddExternalEntity {
 		// NO editable label field: the label is auto-generated from
 		// given/family + the "(fictional character)" suffix (primaryLabel).
 		return $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
+			+ $this->labelLanguageFieldSpec( $record )
 			+ [
 				'givenName' => $this->plainTextField( 'embeddablecontent-field-givenname', (string)( $record['givenName'] ?? '' ) ),
 				'familyName' => $this->plainTextField( 'embeddablecontent-field-familyname', (string)( $record['familyName'] ?? '' ) ),

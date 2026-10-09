@@ -124,6 +124,7 @@ class SpecialUpdatePerson extends SpecialAddPerson {
 	protected function recordFromItem( Item $item ): array {
 		$record = [
 			'description' => $this->itemDescription( $item ),
+			'labelLanguage' => $this->itemTermLanguage( $item ),
 		];
 		// The label is the full name — split it back into given/family (the
 		// primaryLabel() re-derivation round-trips exactly).

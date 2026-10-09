@@ -1,0 +1,16 @@
+/**
+ * Special:Upload form — drag-and-drop / paste affordance
+ * (resources/uploadform.js).
+ */
+
+.wb-upload-drop-hint {
+	color: #54595d;
+	font-size: 90%;
+}
+
+/* Highlight the Source-filename row while an image is dragged over it. */
+.wb-upload-drop-active {
+	outline: 2px dashed #36c;
+	outline-offset: 4px;
+	background-color: rgba( 51, 102, 204, 0.06 );
+}

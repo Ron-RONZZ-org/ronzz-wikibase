@@ -216,6 +216,7 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 			'familyName' => $this->plainTextField( 'embeddablecontent-field-familyname', (string)( $record['familyName'] ?? '' ) ),
 		]
 		+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
+		+ $this->labelLanguageFieldSpec( $record )
 		+ [
 			'dateOfBirth' => [
 				'type' => 'date',

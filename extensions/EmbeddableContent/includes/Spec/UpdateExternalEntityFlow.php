@@ -273,10 +273,14 @@ trait UpdateExternalEntityFlow {
 			}
 		}
 		// Aliases (fictional characters): no-clobber — only a NON-empty
-		// field replaces the stored set.
+		// field replaces the stored set. Stored under the chosen term
+		// language; a language change drops the previous language's group.
 		$aliases = SemanticEntityFlowService::splitAliases( (string)( $record['alias'] ?? '' ) );
 		if ( $aliases !== [] ) {
-			$item->setAliases( 'en', $aliases );
+			$item->setAliases( $newLanguage, $aliases );
+			if ( $newLanguage !== $oldLanguage && $item->getAliases()->hasGroupForLanguage( $oldLanguage ) ) {
+				$item->getAliases()->removeByLanguage( $oldLanguage );
+			}
 		}
 
 		// Statement replacement — NO-CLOBBER contract: only properties with
@@ -554,15 +558,16 @@ trait UpdateExternalEntityFlow {
 	// ------------------------------------------------------------- record from item
 
 	/**
-	 * The term language this kind's label/description are written under on
-	 * update: the record's `language` when provided (the AddSource language
-	 * field), else `en` (every other kind). Kinds with a language field
-	 * override.
+	 * The term language a record's label/description are written under on
+	 * update: a non-empty submitted `labelLanguage` wins; a blank one keeps
+	 * the item's current label language (no-clobber). Every semantic-entity
+	 * kind (and AddSource) exposes the field, so the one contract lives here.
 	 *
 	 * @param array<string,mixed> $record
 	 */
 	protected function updateTermLanguage( array $record, Item $item ): string {
-		return 'en';
+		$language = trim( (string)( $record['labelLanguage'] ?? '' ) );
+		return $language !== '' ? $language : $this->itemTermLanguage( $item );
 	}
 
 	/** The language of an item's (first) label, or `en` when it has none. */
