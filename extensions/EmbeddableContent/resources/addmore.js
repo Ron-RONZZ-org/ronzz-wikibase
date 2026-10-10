@@ -38,6 +38,7 @@
 			$actions.append(
 				$( '<a class="wb-embed-toolbar-btn wb-update-basic-btn"></a>' )
 					.attr( 'href', editUrl )
+					.attr( 'data-wb-order', mw.embeddableContent.toolbar.ORDER.update )
 					.text( mw.msg( editLabelKey ) )
 			);
 		}

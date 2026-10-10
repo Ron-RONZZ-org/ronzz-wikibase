@@ -72,16 +72,19 @@
 			$toolbar = $( '<span class="wb-content-page-toolbar"></span>' );
 			$( '#firstHeading' ).append( $toolbar );
 		}
+		var toolbar = mw.embeddableContent.toolbar;
 
 		if ( snippet ) {
-			$toolbar.append(
+			toolbar.add(
+				$toolbar,
 				$( '<button>' )
 					.attr( 'id', 'ca-wb-content-copymention' )
 					.attr( 'type', 'button' )
 					.addClass( 'wb-embed-toolbar-btn' )
 					.attr( 'title', mw.msg( 'embeddablecontent-contentpage-copymention-hint' ) )
 					.text( mw.msg( 'embeddablecontent-contentpage-copymention' ) )
-					.on( 'click', function () { copyText( snippet ); } )
+					.on( 'click', function () { copyText( snippet ); } ),
+				toolbar.ORDER.mention
 			);
 		}
 
@@ -95,7 +98,7 @@
 				.on( 'click', function () {
 					mw.embeddableContent.citationPopup.open( $cite, { page: citePage } );
 				} );
-			$toolbar.append( $cite );
+			toolbar.add( $toolbar, $cite, toolbar.ORDER.citation );
 		}
 	} );
 }() );

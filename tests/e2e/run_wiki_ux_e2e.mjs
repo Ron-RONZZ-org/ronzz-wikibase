@@ -20,8 +20,14 @@
  *   - Printable version — a "Print this page" button opens the print popup
  *     (cover-page option); the printed title drops the namespace + subpage
  *     parent, the cover carries the centered title + authors, and the core
- *     sidebar "Printable version" link opens the same popup; the button
- *     joins the page's toolbar row (content-page toolbar / .wb-embed-toolbar);
+ *     sidebar "Printable version" link opens the same popup WITHOUT firing
+ *     window.print() (the capture-phase interception beats core's handler);
+ *     the button joins the page's toolbar row (content-page toolbar /
+ *     .wb-embed-toolbar);
+ *   - Page action toolbar order — the shared order primitive keeps one
+ *     left→right sequence (update → internal citation → mention → embed →
+ *     citation → print) on the block .wb-embed-toolbar and the inline
+ *     .wb-content-page-toolbar (mention → citation → print);
  *   - Special:AddSource/law — the "Add more" success popup shows the resolved
  *     "Update basic information" label (not the raw message key), offers
  *     "Copy internal citation", and its "Copy citation" popup stacks above
@@ -80,6 +86,22 @@ async function api(params) {
 		headers: { 'User-Agent': 'ronzz-wikibase-wiki-ux-e2e/1.0' },
 	});
 	return res.json();
+}
+
+/**
+ * The wanted controls' ids in a toolbar row, in DOM order — the canonical
+ * left→right order is asserted against this. The update button carries no id
+ * (`wb-update-basic-btn`), so it is reported as `ca-wb-update-basic`.
+ */
+async function toolbarOrder(page, barSelector, wanted) {
+	return page.$$eval(
+		barSelector + ' > *',
+		(els, ids) => els
+			.map((e) => e.id
+				|| (e.classList.contains('wb-update-basic-btn') ? 'ca-wb-update-basic' : null))
+			.filter((id) => id && ids.includes(id)),
+		wanted
+	);
 }
 
 async function main() {
@@ -562,11 +584,22 @@ async function main() {
 				failures.push('print flow did not add the wb-printing body class');
 			}
 
-			// The core sidebar "Printable version" link opens the same popup.
+			// The core sidebar "Printable version" link opens the same popup —
+			// and must NOT fire window.print(): core's mediawiki.page.ready
+			// binds its OWN `#t-print a` handler that calls it, so the
+			// capture-phase interception must beat it (otherwise the PDF
+			// dialog opens before the contributor can tick the cover-page
+			// checkbox).
 			await page.evaluate(() => document.querySelectorAll('.wb-print-header, .wb-print-cover').forEach((n) => n.remove()));
+			const printedBefore = await page.evaluate(() => window.__printed);
 			await page.click('#t-print a');
 			await page.waitForSelector('.wb-print-popup', { timeout: 10000 });
-			console.log('[ok] the sidebar "Printable version" link opens the print popup');
+			const printedAfter = await page.evaluate(() => window.__printed);
+			if (printedAfter !== printedBefore) {
+				failures.push(`sidebar "Printable version" fired window.print() (${printedBefore} -> ${printedAfter}) instead of only opening the popup`);
+			} else {
+				console.log('[ok] the sidebar "Printable version" link opens the popup without firing window.print()');
+			}
 		} finally {
 			await page.evaluate(async (title) => {
 				await new Promise((r) => mw.loader.using('mediawiki.api', r));
@@ -574,6 +607,38 @@ async function main() {
 					await new mw.Api().postWithToken('csrf', { action: 'delete', title });
 				} catch (e) { /* best-effort cleanup */ }
 			}, printTitle).catch(() => {});
+		}
+
+		// --- Content-page toolbar order (mention → citation → print) ---
+		// The shared order primitive ranks each control regardless of module
+		// load order (print.js loads first and used to append its button
+		// before the others). A Main-namespace fixture gives the inline
+		// .wb-content-page-toolbar.
+		const contentTitle = `Toolbar UX ${Date.now()}`;
+		await page.evaluate(async (title) => {
+			await new Promise((r) => mw.loader.using('mediawiki.api', r));
+			await new mw.Api().postWithToken('csrf', {
+				action: 'edit', title, text: 'Toolbar order fixture.', createonly: true,
+			});
+		}, contentTitle);
+		try {
+			await page.goto(`${BASE_URL}/wiki/${encodeURIComponent(contentTitle.replace(/ /g, '_'))}`,
+				{ waitUntil: 'domcontentloaded', timeout: 60000 });
+			await page.waitForSelector('.wb-content-page-toolbar #ca-wb-print', { timeout: 15000 });
+			const contentWant = [ 'ca-wb-content-copymention', 'ca-wb-content-copycite', 'ca-wb-print' ];
+			const contentGot = await toolbarOrder(page, '.wb-content-page-toolbar', contentWant);
+			if (JSON.stringify(contentGot) !== JSON.stringify(contentWant)) {
+				failures.push(`content-page toolbar order is ${JSON.stringify(contentGot)}, expected ${JSON.stringify(contentWant)}`);
+			} else {
+				console.log('[ok] content-page toolbar order: mention → citation → print');
+			}
+		} finally {
+			await page.evaluate(async (title) => {
+				await new Promise((r) => mw.loader.using('mediawiki.api', r));
+				try {
+					await new mw.Api().postWithToken('csrf', { action: 'delete', title });
+				} catch (e) { /* best-effort cleanup */ }
+			}, contentTitle).catch(() => {});
 		}
 
 		// --- AddSource/law "Add more" popup (label, citation, z-index) ---
@@ -641,6 +706,30 @@ async function main() {
 				// is actually on top (Playwright fails on pointer interception).
 				await page.click('.wb-citation-popup .oo-ui-buttonElement-button', { timeout: 10000 });
 				console.log('[ok] citation popup renders above the Add-more dialog and is clickable');
+
+				// The provision's Source: page carries the full six-button row;
+				// assert the shared left→right order (update → internal
+				// citation → mention → embed → citation → print).
+				const sourceTitle = `Source:Article 1 of ${legislationLabel} (Legislation)`;
+				await page.goto(
+					`${BASE_URL}/wiki/${encodeURIComponent(sourceTitle.replace(/ /g, '_'))}`,
+					{ waitUntil: 'domcontentloaded', timeout: 60000 });
+				await page.waitForSelector('.wb-embed-toolbar #ca-wb-embed-copy', { timeout: 15000 });
+				await page.waitForSelector('.wb-embed-toolbar #ca-wb-embed-cite', { timeout: 15000 });
+				const embedWant = [
+					'ca-wb-update-basic',
+					'ca-wb-source-cite-internal',
+					'ca-wb-mention',
+					'ca-wb-embed-copy',
+					'ca-wb-embed-cite',
+					'ca-wb-print',
+				];
+				const embedGot = await toolbarOrder(page, '.wb-embed-toolbar', embedWant);
+				if (JSON.stringify(embedGot) !== JSON.stringify(embedWant)) {
+					failures.push(`Source: toolbar order is ${JSON.stringify(embedGot)}, expected ${JSON.stringify(embedWant)}`);
+				} else {
+					console.log('[ok] Source: toolbar order: update → internal citation → mention → embed → citation → print');
+				}
 			} catch (e) {
 				failures.push('AddSource/law Add-more popup check failed: ' + e.message);
 			} finally {

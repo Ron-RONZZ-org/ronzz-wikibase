@@ -1404,13 +1404,35 @@ report). See `SimpleMathJax/VENDORED.md`.
   `.wb-content-page-toolbar` on ordinary content pages, else the shared
   `.wb-embed-toolbar` row (`Hooks::wirePrintModule` sets `wbPrintToolbar`;
   `print.js` creates-or-reuses the row; `contentpagetoolbar.js` appends to the
-  same inline row — deterministic despite print loading first), intercepts the
-  core sidebar `javascript:print();` link, and offers
-  an "Add a cover page" popup option (centered serif cover,
+  same inline row), intercepts the
+  core sidebar `javascript:print();` link **in the capture phase** (core's
+  `mediawiki.page.ready` binds its own `#t-print a` handler that calls
+  `window.print()`; a bubble-phase listener ran too late and the print dialog
+  opened alongside the popup — capture + `stopPropagation` beats it), and
+  offers an "Add a cover page" popup option (centered serif cover,
   `page-break-after: always`). Ctrl-P without either entry point keeps the
   browser default (`body.wb-printing` gates the title swap).
   No vocabulary/seed/config-map change; deploy = extension rsync + php-fpm
   restart (+ the runbook's objectcache/message purge).
+- **Canonical page-action-toolbar order (ADR
+  `docs/decisions/page-toolbar-order.md`)**: a new shared
+  `ext.embeddableContent.toolbar` module (`resources/toolbar.js`) ranks each
+  toolbar control (`data-wb-order`) and re-sorts the row, so the block
+  `.wb-embed-toolbar` (entity + classic per-kind pages) and the inline
+  `.wb-content-page-toolbar` render ONE deterministic left→right order —
+  update basic information / edit content (10) → copy internal citation (20)
+  → copy internal mention (30) → copy embed code (40; flavour chooser 41,
+  language select 42) → copy citation (50) → print this page (60) —
+  regardless of module load order and the asynchronous embed/citation probes.
+  The sort moves DOM nodes, so the keyboard tab order matches the visual
+  order; a no-op sort is skipped, so a live popup/focused control is never
+  detached. `updatebutton.js`, `entityactions.js` (embed/citation/internal
+  citation), `mention.js`, `sourcecite.js`, `contentpagetoolbar.js`,
+  `print.js` and `addmore.js` all route through it, and the Add\* success popup
+  row shares the same ranks. No server/config change; deploy = extension rsync
+  + php-fpm restart. Regression: `run_wiki_ux_e2e.mjs` asserts the DOM order
+  on a provision `Source:` page (all six) and on a Main-namespace content page
+  (mention → citation → print).
 
 ### WikibaseCitation
 

@@ -34,10 +34,19 @@ Two entry points share one flow:
    `contentpagetoolbar.js` appends to the same inline row — so both modules land
    in one row regardless of load order (print loads first).
 2. **The core sidebar link** — `a[href="javascript:print();"]` is intercepted
-   (delegated, skin-agnostic).
+   in the **capture phase** (skin-agnostic). MediaWiki core's
+   `mediawiki.page.ready` binds its OWN `#t-print a` handler that calls
+   `window.print()`; a bubble-phase (delegated) listener runs too late, so the
+   print dialog opened alongside the popup. The capture listener
+   `preventDefault()`s and `stopPropagation()`s before core's handler runs, so
+   only the cover-page popup opens.
 
-Both open one OOUI `PopupWidget` (the `citationpopup.js` pattern) offering an
-**"Add a cover page"** checkbox + a **Print** button. On print:
+The "Print this page" button carries the shared rank `60`
+(`data-wb-order`), so the order primitive
+(`ext.embeddableContent.toolbar`, ADR `page-toolbar-order.md`) keeps it LAST
+in the row regardless of module load order. Both open one OOUI `PopupWidget`
+(the `citationpopup.js` pattern) offering an **"Add a cover page"** checkbox +
+a **Print** button. On print:
 
 - the page's registered, non-bot contributors are fetched
   (`action=query&prop=contributors&pcexcludegroup=bot`; anonymous/IP edits are
