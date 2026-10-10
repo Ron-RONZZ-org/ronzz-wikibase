@@ -80,13 +80,12 @@
 				copyText( snippet );
 			} );
 
-		// To the right of the "Copy internal citation" button on source
-		// pages; otherwise the end of the toolbar row.
-		var $citation = getToolbar().find( '#ca-wb-source-cite-internal' );
-		if ( $citation.length > 0 ) {
-			$citation.after( $button );
-		} else {
-			getToolbar().append( $button );
-		}
+		// Ranked by the shared toolbar primitive: after "Copy internal
+		// citation" (when present), before "Copy embed code".
+		mw.embeddableContent.toolbar.add(
+			getToolbar(),
+			$button,
+			mw.embeddableContent.toolbar.ORDER.mention
+		);
 	} );
 }() );

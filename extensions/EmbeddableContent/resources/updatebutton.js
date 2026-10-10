@@ -32,12 +32,15 @@
 		// information" for the semantic entities, "Edit content" for the
 		// quotation/math/code-snippet content items.
 		var labelKey = mw.config.get( 'wbUpdateBasicInfoLabel' ) || 'embeddablecontent-update-button';
-		// prepend: whichever module renders first (this one or the gadget),
-		// the update button is the PRIMARY action and stays first in the row.
-		getToolbar().prepend(
+		// The update button is the PRIMARY action; the shared toolbar
+		// primitive keeps it first in the row (rank 10) regardless of which
+		// module renders first.
+		mw.embeddableContent.toolbar.add(
+			getToolbar(),
 			$( '<a class="wb-embed-toolbar-btn wb-update-basic-btn"></a>' )
 				.attr( 'href', url )
-				.text( mw.msg( labelKey ) )
+				.text( mw.msg( labelKey ) ),
+			mw.embeddableContent.toolbar.ORDER.update
 		);
 	} );
 }() );

@@ -9,7 +9,8 @@
  *
  * Two entry points, one flow:
  *   - the core sidebar "Printable version" link (`#t-print a`, whose
- *     `javascript:print();` is intercepted);
+ *     `javascript:print();` is intercepted in the CAPTURE phase — core's
+ *     own `#t-print a` handler calls `window.print()` first otherwise);
  *   - a "Print this page" button that JOINS the page's existing action
  *     toolbar row (the inline `.wb-content-page-toolbar` on ordinary content
  *     pages, else the shared `.wb-embed-toolbar` row below the title —
@@ -255,15 +256,40 @@
 		if ( $( '#firstHeading' ).length === 0 || $( '#ca-wb-print' ).length > 0 ) {
 			return;
 		}
-		getToolbar().append(
+		mw.embeddableContent.toolbar.add(
+			getToolbar(),
 			$( '<button>' )
 				.attr( 'id', 'ca-wb-print' )
 				.attr( 'type', 'button' )
 				.addClass( 'wb-embed-toolbar-btn' )
 				.attr( 'title', mw.msg( 'embeddablecontent-print-button-hint' ) )
 				.text( mw.msg( 'embeddablecontent-print-button' ) )
-				.on( 'click', function () { open( $( this ) ); } )
+				.on( 'click', function () { open( $( this ) ); } ),
+			mw.embeddableContent.toolbar.ORDER.print
 		);
+	}
+
+	/**
+	 * Intercept the core sidebar "Printable version" link, on any skin. The
+	 * link is a `javascript:print();` anchor AND mediawiki.page.ready binds
+	 * its OWN handler on it that calls `window.print()` — so a delegated
+	 * (bubble-phase) listener runs too late and the print dialog opens
+	 * alongside the popup. Capturing in the CAPTURE phase runs before the
+	 * element's handler; stopping propagation there keeps core's
+	 * `window.print()` from firing, so only the cover-page popup opens.
+	 */
+	function onPrintLinkClick( e ) {
+		var target = e.target;
+		if ( !target || typeof target.closest !== 'function' ) {
+			return;
+		}
+		var link = target.closest( 'a[href="javascript:print();"], #t-print a' );
+		if ( !link ) {
+			return;
+		}
+		e.preventDefault();
+		e.stopPropagation();
+		open( $( link ) );
 	}
 
 	mw.embeddableContent = mw.embeddableContent || {};
@@ -274,11 +300,8 @@
 
 		addToolbarButton();
 
-		// Intercept the core sidebar "Printable version" link on any skin
-		// (delegated, so it works regardless of when the portlet renders).
-		$( document ).on( 'click', 'a[href="javascript:print();"]', function ( e ) {
-			e.preventDefault();
-			open( $( this ) );
-		} );
+		// Capture phase: beats mediawiki.page.ready's own #t-print a handler
+		// (which calls window.print() before a bubble-phase listener could).
+		document.addEventListener( 'click', onPrintLinkClick, true );
 	} );
 }() );

@@ -11,7 +11,10 @@
  *
  * Used by the entity / classic-page toolbar (resources/gadget.js) and the
  * Add* success popup (resources/addmore.js), so both surfaces offer the same
- * actions with no drift. Exposes:
+ * actions with no drift. Each control carries its canonical rank
+ * (`data-wb-order`), so the shared toolbar primitive
+ * (ext.embeddableContent.toolbar) keeps one left→right order across
+ * surfaces. Exposes:
  *
  *   mw.embeddableContent.entityActions.embedControls( entityId, languages )
  *   mw.embeddableContent.entityActions.citationControls( entityId )
@@ -25,6 +28,9 @@
  */
 ( function () {
 	'use strict';
+
+	var toolbar = mw.embeddableContent.toolbar;
+	var ORDER = toolbar.ORDER;
 
 	/** Copy `text`, notifying on success. */
 	function copyText( text ) {
@@ -107,6 +113,7 @@
 				$chooser.show();
 			}
 		} );
+		$btn.attr( 'data-wb-order', ORDER.embed );
 
 		$chooser = $( '<span class="wb-embed-embed-options" style="display:none"></span>' )
 			.append( $( '<button>' )
@@ -129,6 +136,7 @@
 					copyText( embedSnippet( entityId, embedLang ) );
 					close();
 				} ) );
+		$chooser.attr( 'data-wb-order', ORDER.embedChooser );
 
 		var controls = [ $btn, $chooser ];
 		if ( languages && Object.keys( languages ).length > 1 ) {
@@ -142,6 +150,7 @@
 			$select.on( 'change', function () {
 				embedLang = $select.val();
 			} );
+			$select.attr( 'data-wb-order', ORDER.embedLang );
 			controls.push( $select );
 		}
 		// Close the flavour chooser when clicking anywhere else.
@@ -168,6 +177,7 @@
 		var $btn = makeButton( 'ca-wb-embed-cite', 'embeddablecontent-gadget-copycitation', function () {
 			mw.embeddableContent.citationPopup.open( $btn, { entity: entityId } );
 		} );
+		$btn.attr( 'data-wb-order', ORDER.citation );
 		return [ $btn ];
 	}
 
@@ -190,6 +200,7 @@
 			}
 		);
 		$btn.attr( 'title', mw.msg( 'embeddablecontent-sourcecite-hint', entityId ) );
+		$btn.attr( 'data-wb-order', ORDER.citeInternal );
 		return [ $btn ];
 	}
 
@@ -209,16 +220,19 @@
 		options = options || {};
 		if ( options.internalCitation ) {
 			$container.append( internalCitationControls( entityId ) );
+			toolbar.sort( $container );
 		}
 		var api = new mw.Api();
 		api.get( { action: 'embed', entity: entityId, output: 'json' } ).done( function ( data ) {
 			if ( !data.error && data.embed ) {
 				$container.append( embedControls( entityId, data.embed.languages ) );
+				toolbar.sort( $container );
 			}
 		} );
 		api.get( { action: 'citation', entity: entityId, style: 'apa', output: 'text' } ).done( function ( data ) {
 			if ( data && data.citation && !data.error ) {
 				$container.append( citationControls( entityId ) );
+				toolbar.sort( $container );
 			}
 		} );
 	}

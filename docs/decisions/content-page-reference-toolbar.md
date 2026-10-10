@@ -41,7 +41,9 @@ copies the page's `[[…]]` snippet to the clipboard.
   copy/fallback primitives as `filepage.js` and reuses the
   `embeddablecontent-gadget-copied` notification. The module is deliberately
   a **content-page toolbar** (not a copy-only module): future page-level
-  actions join the same inline row.
+  actions join the same inline row. Its controls are ranked through the shared
+  `ext.embeddableContent.toolbar` primitive, so the inline row renders in the
+  canonical order **mention → citation → print** (ADR `page-toolbar-order.md`).
 - i18n keys `embeddablecontent-contentpage-copymention` / `-hint` (en/fr/eo).
 
 ## Consequences

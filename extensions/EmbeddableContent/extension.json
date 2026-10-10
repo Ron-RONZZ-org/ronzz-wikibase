@@ -317,6 +317,7 @@
 				"mediawiki.api",
 				"mediawiki.notification",
 				"mediawiki.util",
+				"ext.embeddableContent.toolbar",
 				"ext.embeddableContent.citationpopup"
 			],
 			"messages": [
@@ -337,6 +338,15 @@
 				"mobile"
 			]
 		},
+		"ext.embeddableContent.toolbar": {
+			"scripts": [
+				"toolbar.js"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
 		"ext.embeddableContent.addmore": {
 			"scripts": [
 				"addmore.js"
@@ -344,6 +354,7 @@
 			"dependencies": [
 				"oojs-ui",
 				"ext.embeddableContent.contentpreview",
+				"ext.embeddableContent.toolbar",
 				"ext.embeddableContent.entityactions"
 			],
 			"messages": [
@@ -492,6 +503,9 @@
 			"styles": [
 				"gadget.css"
 			],
+			"dependencies": [
+				"ext.embeddableContent.toolbar"
+			],
  "messages": [
   "embeddablecontent-update-button",
   "embeddablecontent-update-content-button"
@@ -530,6 +544,7 @@
 				"gadget.css"
 			],
 			"dependencies": [
+				"ext.embeddableContent.toolbar",
 				"ext.embeddableContent.entityactions"
 			],
 			"targets": [
@@ -550,7 +565,8 @@
 				"embeddablecontent-gadget-copied"
 			],
 			"dependencies": [
-				"mediawiki.notification"
+				"mediawiki.notification",
+				"ext.embeddableContent.toolbar"
 			],
 			"targets": [
 				"desktop",
@@ -625,6 +641,7 @@
 			"dependencies": [
 				"mediawiki.notification",
 				"mediawiki.util",
+				"ext.embeddableContent.toolbar",
 				"ext.embeddableContent.citationpopup"
 			],
 			"messages": [
@@ -649,7 +666,8 @@
 			],
 			"dependencies": [
 				"mediawiki.api",
-				"oojs-ui"
+				"oojs-ui",
+				"ext.embeddableContent.toolbar"
 			],
 			"messages": [
 				"embeddablecontent-print-button",

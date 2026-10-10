@@ -36,5 +36,6 @@
 		getToolbar().append(
 			mw.embeddableContent.entityActions.internalCitationControls( qid )
 		);
+		mw.embeddableContent.toolbar.sort( getToolbar() );
 	} );
 }() );
