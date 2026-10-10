@@ -111,3 +111,12 @@
 .wb-addmore-preview {
 	margin-bottom: 0.75em;
 }
+
+/* The citation popup opened from inside an OOUI modal dialog (the Add*
+ * "Item added" success popup) must sit ABOVE the dialog: OOUI gives
+ * `.oo-ui-windowManager > .oo-ui-dialog` z-index 450 but a bare
+ * `.oo-ui-popupWidget` only 1, so the popup used to render behind and was
+ * unclickable. The higher-specificity selector wins over `.oo-ui-popupWidget`. */
+.oo-ui-popupWidget.wb-citation-popup-widget {
+	z-index: 500;
+}

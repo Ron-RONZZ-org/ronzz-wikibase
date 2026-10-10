@@ -10,8 +10,11 @@
  * Two entry points, one flow:
  *   - the core sidebar "Printable version" link (`#t-print a`, whose
  *     `javascript:print();` is intercepted);
- *   - a "Print this page" button added to the page-title toolbar
- *     (`.wb-print-toolbar`, the content-page toolbar pattern).
+ *   - a "Print this page" button that JOINS the page's existing action
+ *     toolbar row (the inline `.wb-content-page-toolbar` on ordinary content
+ *     pages, else the shared `.wb-embed-toolbar` row below the title —
+ *     `wbPrintToolbar` picks the surface; the row is created-or-reused, so
+ *     the button shares one row with the other page actions).
  *
  * Both open the shared print popup (the citationpopup.js OOUI
  * PopupWidget pattern): an "Add a cover page" checkbox + a Print button.
@@ -220,12 +223,39 @@
 		popup.toggle( true );
 	}
 
-	/** The inline "Print this page" button (the page-title toolbar pattern). */
+	/**
+	 * The page-toolbar row the button joins. `wbPrintToolbar` (set by
+	 * Hooks::wirePrintModule) picks the surface: 'content' → the inline
+	 * `.wb-content-page-toolbar` on ordinary content pages, 'embed' → the
+	 * shared `.wb-embed-toolbar` row below the title (classic per-kind pages,
+	 * and every other article page). The row is created when absent — the
+	 * sibling toolbar modules reuse it (the same create-or-reuse contract
+	 * they use themselves), so the print button lands in ONE row with the
+	 * other page actions regardless of module load order (print loads first).
+	 */
+	function getToolbar() {
+		var contentSurface = mw.config.get( 'wbPrintToolbar' ) === 'content';
+		var selector = contentSurface ? '.wb-content-page-toolbar' : '.wb-embed-toolbar';
+		var $toolbar = $( selector ).first();
+		if ( $toolbar.length > 0 ) {
+			return $toolbar;
+		}
+		if ( contentSurface ) {
+			$toolbar = $( '<span class="wb-content-page-toolbar"></span>' );
+			$( '#firstHeading' ).append( $toolbar );
+		} else {
+			$toolbar = $( '<div class="wb-embed-toolbar"></div>' );
+			$( '#firstHeading' ).after( $toolbar );
+		}
+		return $toolbar;
+	}
+
+	/** The "Print this page" button, rendered into the page-toolbar row. */
 	function addToolbarButton() {
 		if ( $( '#firstHeading' ).length === 0 || $( '#ca-wb-print' ).length > 0 ) {
 			return;
 		}
-		var $toolbar = $( '<span class="wb-print-toolbar"></span>' ).append(
+		getToolbar().append(
 			$( '<button>' )
 				.attr( 'id', 'ca-wb-print' )
 				.attr( 'type', 'button' )
@@ -234,7 +264,6 @@
 				.text( mw.msg( 'embeddablecontent-print-button' ) )
 				.on( 'click', function () { open( $( this ) ); } )
 		);
-		$( '#firstHeading' ).append( $toolbar );
 	}
 
 	mw.embeddableContent = mw.embeddableContent || {};

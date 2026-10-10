@@ -174,7 +174,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				'default' => false,
 			];
 		}
-		$form = \MediaWiki\HTMLForm\HTMLForm::factory( 'ooui', $fields, $this->getContext() );
+		$form = \MediaWiki\HTMLForm\HTMLForm::factory( 'ooui', $this->applyRequestPrefill( $fields ), $this->getContext() );
 		$form->setTitle( $this->stepTitle() )
 			->setSubmitTextMsg( 'embeddablecontent-source-url-submit' )
 			->setSubmitCallback( [ $this, 'onUrlEntrySubmit' ] )
@@ -600,13 +600,13 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		}
 		$options = LabelSorter::sortByLabel( $options, $this->getLanguage()->getCode() );
 
-		$form = \MediaWiki\HTMLForm\HTMLForm::factory( 'ooui', [
+		$form = \MediaWiki\HTMLForm\HTMLForm::factory( 'ooui', $this->applyRequestPrefill( [
 			'class' => [
 				'type' => 'radio',
 				'options' => $options,
 				'required' => true,
 			],
-		], $this->getContext() );
+		] ), $this->getContext() );
 		$form->setTitle( $this->getPageTitle() )
 			->setSubmitTextMsg( 'embeddablecontent-source-pick-continue' )
 			->setSubmitCallback( [ $this, 'onClassPickerSubmit' ] )
@@ -1827,13 +1827,49 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		if ( $this->currentClassKey !== 'law' ) {
 			return parent::addMoreEditUrl( $itemId );
 		}
-		return \MediaWiki\SpecialPage\SpecialPage::getTitleFor( 'UpdateSource', $itemId )->getFullURL();
+		// The fromaddmore marker makes the Update form return to the reopened
+		// law form (with the parent carried) on submit/cancel — the user keeps
+		// adding after correcting the provision.
+		$query = [ 'fromaddmore' => '1' ];
+		$parent = trim( (string)$this->getRequest()->getVal( 'parent', '' ) );
+		if ( $parent !== '' ) {
+			$query['parent'] = $parent;
+		}
+		return \MediaWiki\SpecialPage\SpecialPage::getTitleFor( 'UpdateSource', $itemId )->getFullURL( $query );
 	}
 
 	protected function addMoreEditLabelKey(): string {
 		return $this->currentClassKey === 'law'
 			? 'embeddablecontent-update-button'
 			: parent::addMoreEditLabelKey();
+	}
+
+	/**
+	 * The popup's "Copy internal citation" action applies to the source
+	 * classes (the Source: page action); the AddSource flow's class is a
+	 * source class.
+	 */
+	protected function addMoreInternalCitation( string $itemId ): bool {
+		return $this->currentClassKey !== null
+			&& isset( $this->config->sourceClasses()[$this->currentClassKey] );
+	}
+
+	/**
+	 * The Update form's addmore return: back to the reopened law form with
+	 * the parent legislation carried (the create-time "Add more" URL shape).
+	 *
+	 * @param array<string,string> $carry
+	 */
+	protected function updateAddMoreReturnUrl( array $carry = [] ): ?string {
+		if ( $this->currentClassKey !== 'law' ) {
+			return null;
+		}
+		$params = [ 'addmore' => '1' ];
+		$parent = trim( (string)( $carry['parent'] ?? '' ) );
+		if ( $parent !== '' ) {
+			$params['parent'] = $parent;
+		}
+		return \MediaWiki\SpecialPage\SpecialPage::getTitleFor( 'AddSource', 'law/manual' )->getFullURL( $params );
 	}
 
 	// ------------------------------------------------------------- classic page

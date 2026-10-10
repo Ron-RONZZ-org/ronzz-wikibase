@@ -20,7 +20,12 @@
  *   - Printable version — a "Print this page" button opens the print popup
  *     (cover-page option); the printed title drops the namespace + subpage
  *     parent, the cover carries the centered title + authors, and the core
- *     sidebar "Printable version" link opens the same popup.
+ *     sidebar "Printable version" link opens the same popup; the button
+ *     joins the page's toolbar row (content-page toolbar / .wb-embed-toolbar);
+ *   - Special:AddSource/law — the "Add more" success popup shows the resolved
+ *     "Update basic information" label (not the raw message key), offers
+ *     "Copy internal citation", and its "Copy citation" popup stacks above
+ *     the dialog (clickable); the law form's URL query-param GET prefill.
  *
  * Usage (from a directory with `playwright` installed):
  *
@@ -150,6 +155,16 @@ async function main() {
 			} else {
 				console.log(`[ok] content-page copy-mention button copies ${expected} (${pageName})`);
 			}
+		}
+
+		// The "Print this page" button joins the CONTENT-page toolbar row
+		// (wbPrintToolbar='content') together with mention/citation — one row.
+		await page.goto(`${BASE_URL}/wiki/Main_Page`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+		await page.waitForSelector('#ca-wb-print', { timeout: 15000 });
+		if (await page.locator('.wb-content-page-toolbar #ca-wb-print').count() !== 1) {
+			failures.push('print button is not inside the content-page toolbar on a content page');
+		} else {
+			console.log('[ok] print button joins the content-page toolbar row');
 		}
 
 		// --- classic content page: "Copy citation" popup -----------------
@@ -501,6 +516,14 @@ async function main() {
 				{ waitUntil: 'domcontentloaded', timeout: 60000 });
 			await page.waitForSelector('#ca-wb-print', { timeout: 15000 });
 
+			// The button joins the shared .wb-embed-toolbar row (this page is
+			// not a content page → the 'embed' surface).
+			if (await page.locator('.wb-embed-toolbar #ca-wb-print').count() !== 1) {
+				failures.push('print button is not inside the .wb-embed-toolbar row (non-content page)');
+			} else {
+				console.log('[ok] print button joins the .wb-embed-toolbar row');
+			}
+
 			const leaf = printTitle.split('/').pop();
 			const cfgTitle = await page.evaluate(() => mw.config.get('wbPrintTitle'));
 			if (cfgTitle !== leaf) {
@@ -551,6 +574,97 @@ async function main() {
 					await new mw.Api().postWithToken('csrf', { action: 'delete', title });
 				} catch (e) { /* best-effort cleanup */ }
 			}, printTitle).catch(() => {});
+		}
+
+		// --- AddSource/law "Add more" popup (label, citation, z-index) ---
+		// Create the parent legislation via the API, then drive the law web
+		// form: the URL query-param prefill fills the parent, the "Add more"
+		// submit opens the success popup. The popup's primary button must show
+		// the RESOLVED label (not the raw message key), offer "Copy internal
+		// citation", and its "Copy citation" popup must stack ABOVE the dialog
+		// and be clickable.
+		const legislationLabel = 'Law UX E2E legislation ' + Date.now();
+		const legislationQid = await page.evaluate(async (title) => {
+			await new Promise((r) => mw.loader.using('mediawiki.api', r));
+			const res = await new mw.Api().postWithToken('csrf', {
+				action: 'addsource', class: 'legislation', title,
+				language: 'fr', confirmDuplicate: '1', format: 'json',
+			});
+			return res.source ? res.source.entityId : null;
+		}, legislationLabel);
+		let lawQid = null;
+		if (!legislationQid) {
+			failures.push('could not create the legislation fixture for the law Add-more check');
+		} else {
+			try {
+				await page.goto(
+					`${BASE_URL}/wiki/Special:AddSource/law/manual?parent=${legislationQid}&referenceCode=Article%201`,
+					{ waitUntil: 'domcontentloaded', timeout: 60000 });
+				await page.waitForSelector('input[name="wpparent"]', { timeout: 15000 });
+				const prefilled = await page.inputValue('input[name="wpparent"]');
+				if (prefilled !== legislationQid) {
+					failures.push(`law form GET prefill: wpparent=${JSON.stringify(prefilled)}, expected ${legislationQid}`);
+				} else {
+					console.log('[ok] law form fills the parent from the URL query (GET prefill)');
+				}
+
+				await page.fill('textarea[name="wpcontent"]', 'Le premier alinéa. UX addmore.');
+				await page.click('button[name="wpaddMore"]');
+				await page.waitForSelector('.wb-addmore-actions', { timeout: 15000 });
+				lawQid = new URL(page.url()).searchParams.get('created');
+
+				const label = (await page.locator('.wb-addmore-actions .wb-update-basic-btn').innerText()).trim();
+				if (label !== 'Update basic information') {
+					failures.push(`Add-more popup primary button reads ${JSON.stringify(label)}, expected "Update basic information"`);
+				} else {
+					console.log('[ok] Add-more popup shows the resolved "Update basic information" label');
+				}
+
+				if (await page.locator('.wb-addmore-actions #ca-wb-source-cite-internal').count() !== 1) {
+					failures.push('Add-more popup lacks the "Copy internal citation" button');
+				} else {
+					console.log('[ok] Add-more popup offers "Copy internal citation"');
+				}
+
+				await page.click('.wb-addmore-actions #ca-wb-embed-cite');
+				await page.waitForSelector('.wb-citation-popup', { timeout: 10000 });
+				const stacked = await page.evaluate(() => {
+					const popup = document.querySelector('.wb-citation-popup-widget');
+					const dialog = document.querySelector('.oo-ui-windowManager > .oo-ui-dialog');
+					return !!(popup && dialog
+						&& parseInt(getComputedStyle(popup).zIndex, 10) > parseInt(getComputedStyle(dialog).zIndex, 10));
+				});
+				if (!stacked) {
+					failures.push('citation popup does not stack above the modal dialog (z-index)');
+				}
+				// A click on the popup's copy button only lands when the popup
+				// is actually on top (Playwright fails on pointer interception).
+				await page.click('.wb-citation-popup .oo-ui-buttonElement-button', { timeout: 10000 });
+				console.log('[ok] citation popup renders above the Add-more dialog and is clickable');
+			} catch (e) {
+				failures.push('AddSource/law Add-more popup check failed: ' + e.message);
+			} finally {
+				// Best-effort cleanup: the provision + its Source: page, then
+				// the legislation + its Source: page.
+				const lawLabel = `Article 1 of ${legislationLabel} (Legislation)`;
+				await page.evaluate(async (titles) => {
+					await new Promise((r) => mw.loader.using('mediawiki.api', r));
+					const api = new mw.Api();
+					for (const title of titles) {
+						if (!title) {
+							continue;
+						}
+						try {
+							await api.postWithToken('csrf', { action: 'delete', title, format: 'json' });
+						} catch (e) { /* best-effort cleanup */ }
+					}
+				}, [
+					lawQid ? `Item:${lawQid}` : null,
+					`Item:${legislationQid}`,
+					`Source:${lawLabel}`,
+					`Source:${legislationLabel} (Legislation)`,
+				]).catch(() => {});
+			}
 		}
 	} finally {
 		await browser.close();

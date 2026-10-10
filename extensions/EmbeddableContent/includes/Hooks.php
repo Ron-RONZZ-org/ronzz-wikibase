@@ -337,6 +337,11 @@ class Hooks {
 	 * the core sidebar "Printable version" link interception. Special pages,
 	 * Wikibase entity pages and File: pages are skipped (the File: page
 	 * already has its own copy toolbar).
+	 *
+	 * `wbPrintToolbar` tells the button which page-toolbar surface to join:
+	 * the classic per-kind pages carry the shared `.wb-embed-toolbar` row
+	 * (block, below the title), ordinary content pages the inline
+	 * `.wb-content-page-toolbar`; every other article page gets the block row.
 	 */
 	private static function wirePrintModule( OutputPage $out, \MediaWiki\Title\Title $title ): void {
 		if ( !$title->exists() || $title->isSpecialPage()
@@ -346,6 +351,13 @@ class Hooks {
 			return;
 		}
 		$out->addJsConfigVars( 'wbPrintTitle', $title->getSubpageText() );
+		// The classic per-kind namespaces (Source:/Person:/…) ARE content
+		// namespaces but carry the block `.wb-embed-toolbar` row, not the
+		// inline content-page toolbar — exclude them from the 'content'
+		// surface.
+		$contentPage = $title->isContentPage()
+			&& !self::isClassicEntityNamespace( $title->getNamespace() );
+		$out->addJsConfigVars( 'wbPrintToolbar', $contentPage ? 'content' : 'embed' );
 		$out->addModules( 'ext.embeddableContent.print' );
 	}
 

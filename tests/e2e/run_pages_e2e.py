@@ -280,6 +280,16 @@ def has_cancel_link(body: str, qid: str) -> bool:
     return any(qid in m.group(1) for m in pattern.finditer(body))
 
 
+def cancel_href(body: str) -> str:
+    """The href of the form's OOUI cancel button ('' when none)."""
+    pattern = re.compile(
+        r"""<a\b[^>]*href=['"]([^'"]+)['"][^>]*>(?:(?!</a>).)*?Cancel(?:(?!</a>).)*?</a>""",
+        re.DOTALL,
+    )
+    m = pattern.search(body)
+    return m.group(1) if m else ""
+
+
 def first_reference_url(claims: dict, prop_id: str) -> str | None:
     for stmt in claims.get(prop_id, []):
         for ref in stmt.get("references", []):
@@ -1110,6 +1120,44 @@ def flow_update_source_classic_return(op, base: str, api: str, qid: str,
             f"{url} {find_error(body)}")
 
 
+def flow_update_source_addmore_return(op, base: str, api: str, qid: str,
+                                      parent_qid: str) -> None:
+    """The Add* "Add more" popup's Update button marks Special:UpdateSource/<qid>
+    with ?fromaddmore=1&parent=…: the form carries the marker, its CANCEL and a
+    successful submit both target the reopened law form (parent carried), so
+    the contributor keeps adding after correcting the provision."""
+    url, body = page_get(
+        op, base, f"/wiki/Special:UpdateSource/{qid}?fromaddmore=1&parent={parent_qid}")
+    if "Update a source" not in body:
+        raise FlowError(
+            f"Special:UpdateSource/{qid} (fromaddmore) did not render: {find_error(body)}")
+    if 'name="wpfromaddmore"' not in body and "name='wpfromaddmore'" not in body:
+        raise FlowError(
+            f"UpdateSource/{qid}?fromaddmore=1 did not render the addmore-return marker")
+    href = urllib.parse.unquote(cancel_href(body))
+    if "Special:AddSource/law/manual" not in href or "addmore=1" not in href \
+            or f"parent={parent_qid}" not in href:
+        raise FlowError(
+            f"UpdateSource/{qid} (fromaddmore) cancel did not target the law form: {href!r}")
+
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "wpparent": input_value(body, "wpparent"),
+        "wpreferenceCode": input_value(body, "wpreferenceCode"),
+        "wpcontent": textarea_value(body, "wpcontent"),
+        "wpdescription": input_value(body, "wpdescription"),
+        "wpfromaddmore": "1",
+        "wpclass": input_value(body, "wpclass"),
+        "wpEditToken": token, "wpSubmit": "1",
+    })
+    decoded = urllib.parse.unquote(url)
+    if "Special:AddSource/law/manual" not in decoded or "addmore=1" not in decoded \
+            or f"parent={parent_qid}" not in decoded:
+        raise FlowError(
+            f"UpdateSource/{qid} (fromaddmore) submit did not return to the law form: "
+            f"{url} {find_error(body)}")
+
+
 def flow_source_law(op, base: str, api: str, resolve) -> tuple[str, str]:
     """AddSource/law (legal provision, child of a legislation): a reference
     code + a monolingual clause text whose language is INHERITED from the
@@ -1259,12 +1307,39 @@ def flow_source_law_addmore(op, base: str, api: str, resolve) -> tuple[str, str,
         raise FlowError(f"Add-more did not carry the created item id (?created=): {url}")
     if "wbJustAddedItem" not in body or "ext.embeddableContent.addmore" not in body:
         raise FlowError("Add-more return trip did not wire the success popup: " + find_error(body))
+    # The popup's primary-button label rides wbJustAddedEditLabel as a message
+    # KEY resolved client-side (addmore.js -> mw.msg), so that key MUST be in
+    # the addmore module's message bundle — otherwise the button renders the
+    # raw key (the reported "embeddablecontent-update-button" bug).
+    _, messages = page_get(
+        op, base,
+        "/load.php?lang=en&modules=ext.embeddableContent.addmore&only=messages&skin=vector")
+    if '"embeddablecontent-update-button":"Update basic information"' not in messages:
+        raise FlowError(
+            "the addmore module does not declare embeddablecontent-update-button "
+            "(the popup would render the raw key)")
+    if '"wbJustAddedEditLabel":"embeddablecontent-update-button"' not in body:
+        raise FlowError("Add-more did not wire the wbJustAddedEditLabel key")
+    # A legal provision is a source class: the popup offers "Copy internal
+    # citation" too (wbJustAddedInternalCitation, resolved server-side).
+    if "wbJustAddedInternalCitation" not in body:
+        raise FlowError("Add-more popup did not wire the internal-citation action")
     if input_value(body, "wpparent") != legislation:
         raise FlowError(f"Add-more form did not prefill the parent: {find_error(body)}")
     if input_value(body, "wpreferenceCode"):
         raise FlowError("Add-more form did not reset the reference code")
     if content1 in body:
         raise FlowError("Add-more form still carries the previous clause text")
+
+    # URL query-param prefill (the "web API": a deep link fills the GUI form).
+    _, prefill = page_get(
+        op, base,
+        f"/wiki/Special:AddSource/law/manual?parent={legislation}&referenceCode=Article%209")
+    if input_value(prefill, "wpparent") != legislation:
+        raise FlowError("GET prefill did not fill the parent: " + find_error(prefill))
+    if input_value(prefill, "wpreferenceCode") != "Article 9":
+        raise FlowError("GET prefill did not fill the reference code: " + find_error(prefill))
+
 
     # Second provision from the same parent (an ordinary submit — no wpaddMore).
     url2, body2 = page_post(op, url, {
@@ -1305,10 +1380,20 @@ def flow_source_law_addmore(op, base: str, api: str, resolve) -> tuple[str, str,
         raise FlowError(
             f"{page_title} does not load the embed gadget (Copy embed code): "
             + find_error(page_body))
+    # A classic per-kind page is a content namespace but carries the block
+    # .wb-embed-toolbar row — the print button must join THAT, not the inline
+    # content-page toolbar.
+    if '"wbPrintToolbar":"embed"' not in page_body:
+        raise FlowError(f"{page_title} print button not wired to the .wb-embed-toolbar row")
+
+    # The popup's Update tab returns to the reopened law form on submit/cancel
+    # (fromaddmore), so the contributor keeps adding after correcting.
+    flow_update_source_addmore_return(op, base, api, created1, legislation)
 
     print(f"[ok] AddSource/law Add-more -> {created1} + {law2}: parent preserved, "
-          f"success popup wired, action=embed renders the provision + translation, "
-          f"Copy embed code wired")
+          f"success popup wired (label key declared, internal citation), "
+          f"GET prefill + fromaddmore return, action=embed renders the provision "
+          f"+ translation, Copy embed code wired")
     return created1, law2, legislation
 
 
@@ -4814,7 +4899,9 @@ def main() -> int:
         #     page titles carry the class disambiguation suffix (" (Book)").
         access_cell = source_access_cell(op, api, f"Source:{access_label} (Book)")
         assert "Special:SourceFile" in access_cell and f"item={access_book}" in access_cell, \
-            f"file-mode access row not rendered as a Special:SourceFile link: {access_cell}"
+            f"file-mode access row not rendered as a Special:SourceFile link: {access_cell} " \
+            f"(sitelink={item_sitelink_page(op, api, access_book)!r}, " \
+            f"file={first_value(entity_claims(op, api, access_book)[0], file_prop)!r})"
         url_label = f"Page-flow E2E access-url {int(time.time())}"
         url_book = track(flow_source_book_access_url(
             op, base, api, url_label, person, "https://example.org/e2e-access"))

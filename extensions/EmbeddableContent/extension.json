@@ -328,7 +328,9 @@
 				"embeddablecontent-gadget-embed-option-internal",
 				"embeddablecontent-gadget-embed-option-internal-hint",
 				"embeddablecontent-gadget-embed-option-external",
-				"embeddablecontent-gadget-embed-option-external-hint"
+				"embeddablecontent-gadget-embed-option-external-hint",
+				"embeddablecontent-sourcecite-button",
+				"embeddablecontent-sourcecite-hint"
 			],
 			"targets": [
 				"desktop",
@@ -345,6 +347,7 @@
 				"ext.embeddableContent.entityactions"
 			],
 			"messages": [
+				"embeddablecontent-update-button",
 				"embeddablecontent-update-content-button",
 				"embeddablecontent-addmore-title",
 				"embeddablecontent-addmore-close"
@@ -526,13 +529,8 @@
 			"styles": [
 				"gadget.css"
 			],
-			"messages": [
-				"embeddablecontent-sourcecite-button",
-				"embeddablecontent-sourcecite-hint",
-				"embeddablecontent-gadget-copied"
-			],
 			"dependencies": [
-				"mediawiki.notification"
+				"ext.embeddableContent.entityactions"
 			],
 			"targets": [
 				"desktop",

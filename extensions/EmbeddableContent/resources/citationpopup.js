@@ -139,6 +139,10 @@
 			padded: true,
 			autoFlip: true,
 			head: true,
+			// Raised above an OOUI modal dialog (the Add* "Item added"
+			// popup is z-index 450; a PopupWidget defaults to 1, so the
+			// citation popup used to hide behind it) — see gadget.css.
+			classes: [ 'wb-citation-popup-widget' ],
 			label: mw.msg( 'embeddablecontent-gadget-copycitation' )
 		} );
 		popup.on( 'toggle', function ( visible ) {

@@ -55,6 +55,11 @@ entity/classic-page toolbar (`gadget.js`) and the content-page toolbar both
 use it; the inline format `<select>` next to the old button is gone. The
 action controls live in the shared `resources/entityactions.js` module.
 
+The popup carries `.wb-citation-popup-widget` (`gadget.css`, `z-index: 500`)
+so it stacks ABOVE an OOUI modal dialog: opened from the Add* "Item added"
+`ProcessDialog`, the bare `PopupWidget` (`z-index: 1`) used to hide behind the
+dialog (`z-index: 450`) and was unclickable.
+
 ### Page citation (`action=citation&page=`)
 
 `action=citation` accepts `page=<title>` (mutually exclusive with `entity`).

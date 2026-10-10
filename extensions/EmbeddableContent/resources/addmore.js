@@ -7,9 +7,10 @@
  *
  * It shows a dialog with the just-added item's preview (the exact in-wiki
  * preview variant — resources/contentpreview.js) and the entity actions
- * below it (Edit content / Copy Embed code / Copy citation — the shared
- * resources/entityactions.js), matching the entity page toolbar. Closing the
- * dialog leaves the reopened form ready for the next item.
+ * below it (Edit content / Copy Embed code / Copy citation / Copy internal
+ * citation — the shared resources/entityactions.js), matching the entity
+ * page toolbar. Closing the dialog leaves the reopened form ready for the
+ * next item.
  */
 ( function () {
 	'use strict';
@@ -40,7 +41,12 @@
 					.text( mw.msg( editLabelKey ) )
 			);
 		}
-		mw.embeddableContent.entityActions.attach( $actions, item );
+		mw.embeddableContent.entityActions.attach( $actions, item, {
+			// A source-class item (a legal provision) also offers the "Copy
+			// internal citation" action its Source: page renders; the server
+			// resolves the class and sets wbJustAddedInternalCitation.
+			internalCitation: !!mw.config.get( 'wbJustAddedInternalCitation' )
+		} );
 
 		function AddMoreDialog( config ) {
 			AddMoreDialog.super.call( this, config );

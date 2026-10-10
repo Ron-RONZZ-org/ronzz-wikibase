@@ -282,7 +282,13 @@ abstract class SpecialAddContentItem extends SpecialPage {
 			'buttonlabel-message' => 'embeddablecontent-add-more',
 			'buttonlabel' => $this->msg( 'embeddablecontent-add-more' )->text(),
 		];
-		return $fields;
+		// URL query-param prefill (deep links): a field named in the query
+		// takes that value as its default (the SpecialAddExternalEntity
+		// applyRequestPrefill contract — the content forms accept it too).
+		return \EmbeddableContent\Spec\RequestPrefill::apply(
+			$fields,
+			$this->getRequest()->getQueryValues()
+		);
 	}
 
 	/**
