@@ -334,6 +334,7 @@
 	"embeddablecontent-sitelink-tab": "Lien d'entité",
 	"embeddablecontent-sitelink-tab-set": "Cette page est liée à l'élément $1",
 	"embeddablecontent-sitelink-tab-unset": "Cette page n'est liée à aucun élément — cliquez pour la lier",
+	"embeddablecontent-addsection": "Ajouter une section",
 	"embeddablecontent-sitelink-dialog-title": "Lier cette page à un élément",
 	"embeddablecontent-sitelink-placeholder": "Rechercher un élément par libellé, ou saisir un identifiant Q (p. ex. Q42)",
 	"embeddablecontent-sitelink-link": "Lier",

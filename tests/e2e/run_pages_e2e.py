@@ -113,17 +113,27 @@ def login(op, api: str, user: str, password: str) -> None:
 
 
 def page_get(op, base: str, path: str) -> tuple[str, str]:
-    """GET a page; returns (final url, body)."""
+    """GET a page; returns (final url, body). An HTTP error surfaces the
+    response body (MediaWiki's dev config shows exception details) so a 500
+    is diagnosable from the suite output instead of a bare status."""
     req = urllib.request.Request(base + path, headers={"User-Agent": UA})
-    with op.open(req, timeout=120) as resp:
-        return resp.geturl(), resp.read().decode("utf-8", "replace")
+    try:
+        with op.open(req, timeout=120) as resp:
+            return resp.geturl(), resp.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", "replace")
+        raise FlowError(f"GET {base + path} -> HTTP {e.code}: {body[:1500]}") from None
 
 
 def page_post(op, url: str, fields: dict) -> tuple[str, str]:
     req = urllib.request.Request(url, data=urllib.parse.urlencode(fields).encode(),
                                  headers={"User-Agent": UA})
-    with op.open(req, timeout=180) as resp:
-        return resp.geturl(), resp.read().decode("utf-8", "replace")
+    try:
+        with op.open(req, timeout=180) as resp:
+            return resp.geturl(), resp.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", "replace")
+        raise FlowError(f"POST {url} -> HTTP {e.code}: {body[:1500]}") from None
 
 
 def page_post_multipart(op, url: str, fields: dict, files: dict) -> tuple[str, str]:

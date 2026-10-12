@@ -93,4 +93,9 @@ authors, the "Print this page" toolbar button and the cover-page popup),
 `addsource-law-addmore.md` (the `law` form's "Add more" submit + success
 popup, parent legislation preserved), `classic-page-label-sync.md` (a direct
 label edit renames the sitelinked classic page, a redirect left behind;
-backtracking moves it back).
+backtracking moves it back), `wiki-bug-fixes-2026-10.md` (the self-cited-book
+citation duplication + class-suffix strip, the AddMath Note `$$…$$` preview
+fix, the defensive AddPerson date normalization, bookExcerpt language
+inheritance from the parent book, the content-page "Add section" action, and
+the label/description fallback that makes `fr`/`eo`-only items visible in the
+search results and on their Item: pages).

@@ -750,10 +750,14 @@ trait UpdateExternalEntityFlow {
 		}
 		foreach ( $item->getStatements()->getByPropertyId( new NumericPropertyId( $propertyId ) ) as $statement ) {
 			$value = $statement->getMainSnak()->getDataValue();
-			if ( $value instanceof \DataValues\TimeValue
-				&& preg_match( '/^\+(\d{4})-(\d{2})-(\d{2})T/', $value->getTime(), $m ) === 1
-			) {
-				return sprintf( '%s-%s-%s', $m[1], $m[2], $m[3] );
+			if ( $value instanceof \DataValues\TimeValue ) {
+				// Normalize year/month `00` placeholders to `01` (the Add*
+				// harvest's own normalization) so the date widget prefills a
+				// real YYYY-MM-DD, not the unwidget-parseable YYYY-00-00.
+				$iso = \EmbeddableContent\Spec\WikibaseTime::isoDay( $value->getTime() );
+				if ( $iso !== null ) {
+					return $iso;
+				}
 			}
 		}
 		return '';

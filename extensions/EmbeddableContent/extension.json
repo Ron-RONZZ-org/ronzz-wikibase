@@ -215,6 +215,7 @@
 		}
 	},
 	"Hooks": {
+		"MediaWikiServices": "main",
 		"BeforePageDisplay": "main",
 		"BeforePageRedirect": "main",
 		"SkinTemplateNavigation::Universal": "main",
@@ -487,6 +488,18 @@
 		"ext.embeddableContent.osmsuggest": {
 			"scripts": [
 				"osmsuggest.js"
+			],
+			"dependencies": [
+				"oojs-ui"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.datefields": {
+			"scripts": [
+				"datefields.js"
 			],
 			"dependencies": [
 				"oojs-ui"

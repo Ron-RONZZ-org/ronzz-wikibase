@@ -113,10 +113,12 @@ class StatementToCslConverter {
 	 */
 	public function toCslJson( Item $item, ?string $preferredLanguage = null ): array {
 		$sourceItem = $this->sourceItemOf( $item );
+		$selfCited = false;
 		if ( $sourceItem === null && $this->isSourceClass( $item ) ) {
 			// Issue #24: a source-class item cited directly is its own source —
 			// otherwise the source-level fields below would all be omitted.
 			$sourceItem = $item;
+			$selfCited = true;
 		}
 		$contentClassIds = $this->classIdsOf( $item );
 		$sourceClassIds = $sourceItem !== null ? $this->classIdsOf( $sourceItem ) : [];
@@ -159,8 +161,11 @@ class StatementToCslConverter {
 			$container = $this->partOfLabel( $sourceItem, $preferredLanguage );
 			if ( $container !== null && $container !== '' ) {
 				$csl['container-title'] = $container;
-			} elseif ( $csl['type'] === 'book' ) {
+			} elseif ( $csl['type'] === 'book' && !$selfCited ) {
 				// Books: the container IS the source item (label fallback).
+				// A SELF-cited book must NOT echo its own label here — the
+				// title is already the book's label, so the "In <label>"
+				// clause duplicated it (the Q1982 "(Book) in (Book)" report).
 				$sourceLabel = $this->labelOf( $sourceItem, $preferredLanguage );
 				if ( $sourceLabel !== '' ) {
 					$csl['container-title'] = $sourceLabel;
@@ -173,7 +178,37 @@ class StatementToCslConverter {
 		// and overrides the work-level page range read from the source item.
 		$this->addSourceStatementQualifier( $item, $csl, $preferredLanguage );
 
+		// Display labels carry the AddSource class-disambiguation suffix
+		// (" (Book)", " (Website)", " (Scholarly article)") so the item keeps
+		// a unique label. A citation must show the clean title/container — the
+		// suffix is page-title disambiguation, not part of the work. The strip
+		// mirrors `EmbeddableContent\Spec\LabelSanitizer::stripParentheticalSuffix`
+		// (reimplemented locally to keep the two extensions decoupled; only a
+		// single trailing parenthetical group is dropped, so a legitimate
+		// title like "The Art of War (annotated)" is preserved).
+		foreach ( [ 'title', 'container-title' ] as $field ) {
+			if ( isset( $csl[$field] ) && is_string( $csl[$field] ) ) {
+				$csl[$field] = $this->stripClassDisambiguationSuffix( $csl[$field] );
+			}
+		}
+
 		return $csl;
+	}
+
+	/**
+	 * Drops a single trailing parenthetical group from a display label, e.g.
+	 * "Méditations poétiques (Book)" → "Méditations poétiques". Only ONE
+	 * trailing group is removed; a label that is nothing but a parenthetical
+	 * is returned unchanged.
+	 */
+	private function stripClassDisambiguationSuffix( string $label ): string {
+		$label = trim( $label );
+		$stripped = preg_replace( '/\s*\([^()]*\)\s*$/u', '', $label );
+		if ( $stripped === null ) {
+			return $label;
+		}
+		$stripped = trim( $stripped );
+		return $stripped === '' ? $label : $stripped;
 	}
 
 	/**

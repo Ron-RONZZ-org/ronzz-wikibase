@@ -51,37 +51,15 @@
 
 	/**
 	 * Fallback rendering (pre-parse-API behaviour): the plain text with line
-	 * breaks kept and inline $…$ typeset with KaTeX. Used when the parse API
-	 * is unavailable/fails.
+	 * breaks kept and the math delimiters typeset with KaTeX through the
+	 * SHARED typesetter (ext.embeddableContent.inlinekatex), so `$$…$$` /
+	 * `$…$` / `\[…\]` / `\(…\)` pair exactly as in the parsed path. Used when
+	 * the parse API is unavailable/fails.
 	 */
 	function renderNotePlain( el, text ) {
-		el.textContent = '';
-		text = String( text || '' );
-		if ( !text.trim() ) {
-			return;
-		}
-		var re = /\$([^$]+)\$/g;
-		var last = 0;
-		var m;
-		while ( ( m = re.exec( text ) ) !== null ) {
-			if ( m.index > last ) {
-				el.appendChild( document.createTextNode( text.slice( last, m.index ) ) );
-			}
-			var span = document.createElement( 'span' );
-			if ( window.katex ) {
-				try {
-					window.katex.render( m[ 1 ], span, { throwOnError: false, displayMode: false } );
-				} catch ( e ) {
-					span.textContent = m[ 1 ];
-				}
-			} else {
-				span.textContent = m[ 1 ];
-			}
-			el.appendChild( span );
-			last = m.index + m[ 0 ].length;
-		}
-		if ( last < text.length ) {
-			el.appendChild( document.createTextNode( text.slice( last ) ) );
+		el.textContent = String( text || '' );
+		if ( mw.embeddableContent && mw.embeddableContent.typesetInlineMath ) {
+			mw.embeddableContent.typesetInlineMath( el );
 		}
 	}
 

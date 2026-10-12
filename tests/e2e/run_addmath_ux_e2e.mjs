@@ -195,6 +195,37 @@ async function main() {
 		} else {
 			console.log('[ok] preview shows the Content and the wikitext Note');
 		}
+
+		// Regression (note `$$…$$` report): a DISPLAY delimiter inside the
+		// Note must render as one display KaTeX span, not be mis-read as the
+		// inner `$…$` plus two literal `$` (the inline-only matcher bug).
+		await page.evaluate(() => {
+			const note = document.querySelector('#mw-input-wpnote textarea, #mw-input-wpnote input');
+			if (note) {
+				note.value = 'inline $a$ and display $$ b = c $$';
+				note.dispatchEvent(new Event('input', { bubbles: true }));
+			}
+		});
+		await page.locator(INPUT).first().fill('$x^2$');
+		await page.click('#wb-math-preview');
+		await page.waitForFunction(() => {
+			const note = document.getElementById('wb-math-preview-note');
+			return note && note.querySelectorAll('.katex').length >= 2;
+		}, { timeout: 15000 });
+		const noteDelims = await page.evaluate(() => {
+			const note = document.getElementById('wb-math-preview-note');
+			return {
+				text: note ? note.textContent : '',
+				display: note ? note.querySelectorAll('.katex-display').length : 0,
+			};
+		});
+		if (noteDelims.display < 1) {
+			failures.push(`note $$…$$ did not render as display math (display spans: ${noteDelims.display})`);
+		} else if (noteDelims.text.includes('$')) {
+			failures.push(`note $$…$$ left a literal $ in the preview (${JSON.stringify(noteDelims.text)})`);
+		} else {
+			console.log('[ok] note $$…$$ renders as display math with no literal $');
+		}
 	} finally {
 		await browser.close();
 	}

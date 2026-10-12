@@ -157,11 +157,23 @@ class StatementToCslConverterTest extends TestCase {
 					);
 					return $item;
 				}
+				if ( $entityId->getSerialization() === 'Q60' ) {
+					// A SELF-cited book whose label carries the AddSource
+					// class-disambiguation suffix: the citation must strip the
+					// suffix AND must not echo the label as a duplicate
+					// container-title (the Q1982 "(Book) in (Book)" report).
+					$item = new Item( new ItemId( 'Q60' ) );
+					$item->setLabel( 'en', 'The Old Man and the Sea (Book)' );
+					$item->getStatements()->addNewStatement(
+						new PropertyValueSnak( new PropertyId( 'P31' ), new EntityIdValue( new ItemId( 'Q20' ) ) )
+					);
+					return $item;
+				}
 				return null;
 			}
 
 			public function hasEntity( EntityId $entityId ) {
-				return in_array( $entityId->getSerialization(), [ 'Q10', 'Q11', 'Q12', 'Q20', 'Q30', 'Q40', 'Q41', 'Q50' ], true );
+				return in_array( $entityId->getSerialization(), [ 'Q10', 'Q11', 'Q12', 'Q20', 'Q30', 'Q40', 'Q41', 'Q50', 'Q60' ], true );
 			}
 		};
 	}
@@ -289,6 +301,28 @@ class StatementToCslConverterTest extends TestCase {
 		// Label fallback: the source item's label IS the container title.
 		$this->assertSame( 'The Old Man and the Sea', $csl['container-title'] );
 		$this->assertSame( 'book', $csl['type'] );
+	}
+
+	public function testSelfCitedBookOmitsDuplicateContainerAndStripsClassSuffix(): void {
+		// Regression (Q1982 report): citing the book ITSELF must not echo the
+		// book's own label as a container-title (APA rendered "Title. In
+		// Title. Publisher.") and the AddSource class-disambiguation suffix
+		// (" (Book)") is not part of the work — it is dropped from the title.
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31',
+			[ 'Q20' ]   // Q20 is the book source class
+		);
+		$book = $this->makeEntityLookup()->getEntity( new ItemId( 'Q60' ) );
+		$this->assertInstanceOf( Item::class, $book );
+
+		$csl = $converter->toCslJson( $book, 'en' );
+
+		$this->assertSame( 'book', $csl['type'] );
+		$this->assertSame( 'The Old Man and the Sea', $csl['title'] );
+		$this->assertArrayNotHasKey( 'container-title', $csl );
 	}
 
 	public function testContainerTitleComesFromPartOfTargetForWebpages(): void {
