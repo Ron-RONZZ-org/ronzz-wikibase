@@ -1431,8 +1431,36 @@ report). See `SimpleMathJax/VENDORED.md`.
   `print.js` and `addmore.js` all route through it, and the Add\* success popup
   row shares the same ranks. No server/config change; deploy = extension rsync
   + php-fpm restart. Regression: `run_wiki_ux_e2e.mjs` asserts the DOM order
-  on a provision `Source:` page (all six) and on a Main-namespace content page
+  on a provision `Source:` page (all six) and   on a Main-namespace content page
   (mention → citation → print).
+
+- **Oct-2026 bug + language batch (ADR `docs/decisions/wiki-bug-fixes-2026-10.md`)**:
+  (a) **AddMath Note `$$…$$` preview** — `resources/inlinekatex.js`
+  `typesetInlineMath` now matches delimiters LONGEST-FIRST (`$$…$$`/`\[…\]`
+  display before `$…$`/`\(…\)` inline; an unbalanced opener is skipped whole),
+  fixing the note where the inner `$…$` was rendered and the outer `$` left
+  literal (`addmath.js` `renderNotePlain` and `contentpreview.js` share the
+  helper). (b) **Date fields** — `resources/datefields.js` (Add/UpdatePerson)
+  rewrites every date widget to strict `YYYY-MM-DD` on submit (the OOUI
+  DateInputWidget keeps a loosely-parsed raw time verbatim), and
+  `UpdateExternalEntityFlow::timeValueForProperty` normalizes year/month
+  `00`→`01` (matching the harvest). (c) **bookExcerpt language inheritance**
+  — `SpecialAddSource::inheritBookExcerptLanguage` defaults the
+  language/additionalLanguages/labelLanguage fields from the parent book's
+  `language` statement(s) + label term language at FORM LOAD when the parent
+  is known (the `?parent=` deep link or a previous submit); `youtubeVideo`
+  is out of scope. (d) **Content-page "Add section"** —
+  `Hooks::addSectionAction` inserts a `views['addsection']` link
+  (`action=edit&section=new`) between Edit/View source and View history on
+  content pages (core only renders it for talk pages / `__NEWSECTIONLINK__`);
+  i18n `embeddablecontent-addsection` (en/fr/eo). (e) **Label/description
+  fallback** — `Hooks::onMediaWikiServices` decorates Wikibase's
+  `LanguageFallbackChainFactory` (repo + client, when present) so the term
+  chain appends the instance `fallbackLanguages` (`[en, fr, eo, mul]` for an
+  `en` reader), fixing the empty search-result label and the "No label
+  defined" Item: page for `fr`/`eo`-only items; the pure `Spec/FallbackChain`
+  is unit-tested, and the global message fallback is untouched (deploy adds a
+  message + parser/object cache purge).
 
 ### WikibaseCitation
 
@@ -1519,6 +1547,14 @@ report). See `SimpleMathJax/VENDORED.md`.
   latest `date` statement); the source type map maps `web page` → `webpage`
   and the source property map gains `URL` — re-run
   `maintenance/importCitationMap.php` on deploy.
+- **Self-cited book + class-suffix citation fix (ADR
+  `docs/decisions/wiki-bug-fixes-2026-10.md` §1)**: citing a source-class item
+  directly (self-cite) no longer echoes its own label as `container-title`
+  (APA rendered "Title. In Title. Publisher." for the Q1982 book), and the
+  AddSource class-disambiguation suffix (" (Book)") is stripped from the CSL
+  `title` and `container-title` — a single trailing parenthetical group,
+  mirroring `LabelSanitizer::stripParentheticalSuffix` locally. Test:
+  `tests/Unit/StatementToCslConverterTest.php`.
 
 ### LanguageBar
 
