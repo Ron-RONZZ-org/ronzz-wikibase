@@ -166,7 +166,9 @@ class Hooks {
 		if ( !isset( $links['views'] ) || isset( $links['views']['addsection'] ) ) {
 			return;
 		}
-		if ( !$title->quickUserCan( 'edit' ) ) {
+		// MW 1.46 removed Title::quickUserCan(); the skin's Authority is the
+		// current idiom (Skin extends ContextSource).
+		if ( !$skin->getAuthority()->probablyCan( 'edit', $title ) ) {
 			return;
 		}
 		$action = [
@@ -175,18 +177,23 @@ class Hooks {
 			'icon' => 'speechBubbleAdd',
 			'href' => $title->getLocalURL( 'action=edit&section=new' ),
 		];
+		// Anchor on `edit` (the visible Edit action) so the new action sits
+		// BETWEEN Edit and View history; fall back to `ve-edit` (VisualEditor)
+		// or `viewsource` (no edit permission) when `edit` is absent.
+		$anchor = isset( $links['views']['edit'] ) ? 'edit'
+			: ( isset( $links['views']['ve-edit'] ) ? 've-edit'
+				: ( isset( $links['views']['viewsource'] ) ? 'viewsource' : null ) );
+		if ( $anchor === null ) {
+			return;
+		}
 		$views = [];
-		$inserted = false;
 		foreach ( $links['views'] as $key => $value ) {
 			$views[$key] = $value;
-			if ( !$inserted && ( $key === 've-edit' || $key === 'edit' || $key === 'viewsource' ) ) {
+			if ( $key === $anchor ) {
 				$views['addsection'] = $action;
-				$inserted = true;
 			}
 		}
-		if ( $inserted ) {
-			$links['views'] = $views;
-		}
+		$links['views'] = $views;
 	}
 
 	/**
