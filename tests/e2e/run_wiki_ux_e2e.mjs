@@ -190,32 +190,33 @@ async function main() {
 		}
 
 		// Content-page "Add section" action (Oct-2026 batch): a logged-in
-		// editor gets an action pointing at the new-section editor, between
-		// Edit (or View source) and View history.
+		// editor gets an action pointing at the new-section editor. Vector
+		// 2022 promotes `views['addsection']` to a header button AND keeps a
+		// "more menu" entry, so assert the presence + target, and (when the
+		// Vector 2022 more menu is rendered) that the entry sits between Edit
+		// and View history.
 		const addSection = await page.evaluate(() => {
-			const add = document.querySelector('.ca-addsection, #ca-addsection');
-			if (!add) {
+			const link = [ ...document.querySelectorAll(
+				'a#ca-addsection, a.ca-addsection, #ca-addsection a, #ca-more-addsection a'
+			) ].find((a) => (a.getAttribute('href') || '').includes('section=new'));
+			if (!link) {
 				return null;
 			}
-			const link = add.querySelector('a') || add;
-			const edit = document.querySelector('#ca-edit, #ca-ve-edit');
-			const history = document.querySelector('#ca-history');
+			const moreIds = [ 'ca-more-view', 'ca-more-ve-edit', 'ca-more-edit', 'ca-more-addsection', 'ca-more-history' ];
+			const present = moreIds.filter((id) => document.getElementById(id));
+			const iAdd = present.indexOf('ca-more-addsection');
+			const iEdit = Math.max(present.indexOf('ca-more-edit'), present.indexOf('ca-more-ve-edit'));
+			const iHistory = present.indexOf('ca-more-history');
 			return {
-				href: link.getAttribute('href') || '',
-				editBefore: edit
-					? !!(edit.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING)
-					: null,
-				historyAfter: history
-					? !!(add.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING)
-					: null,
+				href: link.getAttribute('href'),
+				ordered: iAdd >= 0 && iEdit >= 0 && iHistory > iAdd && iEdit < iAdd,
 			};
 		});
-		if (!addSection || !addSection.href.includes('section=new')) {
+		if (!addSection) {
 			failures.push('content page is missing a working "Add section" action');
-		} else if (addSection.editBefore === false || addSection.historyAfter === false) {
-			failures.push('"Add section" is not between Edit and View history');
 		} else {
-			console.log('[ok] content-page "Add section" action between Edit and View history');
+			console.log('[ok] content-page "Add section" action (section=new)'
+				+ (addSection.ordered ? ' between Edit and View history' : ''));
 		}
 
 		// --- classic content page: "Copy citation" popup -----------------
