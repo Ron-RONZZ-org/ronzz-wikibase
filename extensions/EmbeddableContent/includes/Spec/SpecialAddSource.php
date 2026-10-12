@@ -1073,6 +1073,12 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		if ( $this->currentClassKey === 'law' ) {
 			return $this->lawFieldSpecs( $record );
 		}
+		// bookExcerpt: default the language fields from the parent book when
+		// the parent is already known at form load (the `?parent=` deep link
+		// or a previous submit) — see inheritBookExcerptLanguage().
+		if ( $this->currentClassKey === 'bookExcerpt' ) {
+			$record = $this->inheritBookExcerptLanguage( $record );
+		}
 		$title = (string)( $record['title'] ?? '' );
 		$fields = $this->labelFieldSpec(
 			'title',
@@ -2400,6 +2406,67 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * bookExcerpt only: default the language fields from the parent BOOK at
+	 * FORM-LOAD time, when the parent is already known — the record carries it
+	 * (a previous submit) or the URL does (the `?parent=Q…` deep-link prefill,
+	 * the flow's "GUI as a web API"). The parent's `language` statement(s)
+	 * become the source language(s) and its label term language becomes
+	 * `labelLanguage`; a field the record already provides is kept (the
+	 * user's/URL's value wins). Best-effort: a missing/invalid parent, an
+	 * unavailable item or no language statement leaves the historical `en`
+	 * default. (`law` inherits server-side elsewhere; `youtubeVideo` is out of
+	 * scope — the parent is not known at form-load there.)
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,mixed> the record with the language defaults filled
+	 */
+	private function inheritBookExcerptLanguage( array $record ): array {
+		if ( ( $this->config->sourceParents()[$this->currentClassKey] ?? null ) !== 'book' ) {
+			return $record;
+		}
+		$parentId = trim( (string)( $record['parent'] ?? '' ) );
+		if ( $parentId === '' ) {
+			$parentId = trim( (string)$this->getRequest()->getVal( 'parent', '' ) );
+		}
+		if ( preg_match( '/^Q[1-9]\d*$/', $parentId ) !== 1 ) {
+			return $record;
+		}
+		try {
+			$parent = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $parentId ) );
+		} catch ( \Throwable $e ) {
+			return $record;
+		}
+		if ( !$parent instanceof Item ) {
+			return $record;
+		}
+
+		$property = $this->config->sourcePropertyIds()['language'] ?? null;
+		if ( $property !== null && trim( (string)( $record['language'] ?? '' ) ) === '' ) {
+			$languages = [];
+			foreach ( $parent->getStatements()->getByPropertyId( new NumericPropertyId( $property ) ) as $statement ) {
+				$value = $statement->getMainSnak()->getDataValue();
+				if ( $value instanceof StringValue && $value->getValue() !== '' ) {
+					$languages[] = $value->getValue();
+				}
+			}
+			if ( $languages !== [] ) {
+				$record['language'] = $languages[0];
+				if ( count( $languages ) > 1 && trim( (string)( $record['additionalLanguages'] ?? '' ) ) === '' ) {
+					$record['additionalLanguages'] = implode( ', ', array_slice( $languages, 1 ) );
+				}
+			}
+		}
+
+		if ( trim( (string)( $record['labelLanguage'] ?? '' ) ) === '' ) {
+			$labelLanguage = array_key_first( $parent->getLabels()->toTextArray() );
+			if ( is_string( $labelLanguage ) && $labelLanguage !== '' ) {
+				$record['labelLanguage'] = $labelLanguage;
+			}
+		}
+		return $record;
 	}
 
 	/** Year of an item's `date` (P577-aligned) statement, or null. */

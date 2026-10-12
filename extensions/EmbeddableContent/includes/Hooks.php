@@ -32,6 +32,61 @@ use Wikibase\Repo\WikibaseRepo;
 class Hooks {
 
 	/**
+	 * Make Wikibase's term-fallback chains include the instance's configured
+	 * `fallbackLanguages` (`['fr','en','eo']`), so an item labelled only in a
+	 * non-reader language still renders its label/description in the SEARCH
+	 * RESULTS (`ShowSearchHitHandler` + `HtmlPageLinkRendererEndHookHandler`)
+	 * and on its `Item:` page (`EntityTermsViewFactory` →
+	 * `LanguageFallbackLabelDescriptionLookup`).
+	 *
+	 * Wikibase builds every chain from the reader language with
+	 * `LanguageFallbackChainFactory` (whose chain for `en` is `[en, mul]`) and
+	 * exposes no config for extra languages; the documented
+	 * `addServiceManipulator()` extension point lets us rebuild the factory
+	 * with a `LanguageFallback` that appends the instance languages — the
+	 * same order `action=entitysearch` already uses. The GLOBAL
+	 * `LanguageFallback` service is left untouched, so MediaWiki MESSAGE
+	 * fallback is unaffected (the subclass only decorates the factory).
+	 *
+	 * @param MediaWikiServices $services
+	 */
+	public static function onMediaWikiServices( MediaWikiServices $services ): void {
+		$config = $services->getMainConfig()->get( 'EmbeddableContentConfig' );
+		$extra = is_array( $config ) && is_array( $config['fallbackLanguages'] ?? null )
+			? array_values( array_map( 'strval', $config['fallbackLanguages'] ) )
+			: [];
+		if ( $extra === [] ) {
+			return;
+		}
+
+		$manipulator = static function ( $current, MediaWikiServices $container ) use ( $extra ) {
+			$fallback = new \EmbeddableContent\Spec\InstanceLanguageFallback(
+				$container->getContentLanguage()->getCode(),
+				$container->getLocalisationCache(),
+				$container->getLanguageNameUtils(),
+				$extra
+			);
+			// null terms-languages keeps the factory's own default (the same
+			// CONTEXT_TERM set Wikibase itself passes).
+			return new \Wikibase\Lib\LanguageFallbackChainFactory(
+				null,
+				$container->getLanguageFactory(),
+				$container->getLanguageConverterFactory(),
+				$fallback
+			);
+		};
+
+		// The repo factory backs the Item: page + the search results; the
+		// client factory backs the sitelinked content pages (same-wiki
+		// install). Each is decorated only when present.
+		foreach ( [ 'WikibaseRepo.LanguageFallbackChainFactory', 'WikibaseClient.LanguageFallbackChainFactory' ] as $name ) {
+			if ( $services->hasService( $name ) ) {
+				$services->addServiceManipulator( $name, $manipulator );
+			}
+		}
+	}
+
+	/**
 	 * Sitelink tab next to Page/Discussion on every content page: blue when
 	 * the page is sitelinked to an item (href → Item page), red when not
 	 * (href → Special:NewItem prefilled as a no-JS fallback; the JS module
@@ -86,7 +141,52 @@ class Hooks {
 		$links['namespaces']['sitelink'] = $tab;
 		$links['associated-pages']['sitelink'] = $tab;
 
+		self::addSectionAction( $skin, $title, $links );
+
 		$skin->getOutput()->addModules( 'ext.embeddableContent.sitelinktab' );
+	}
+
+	/**
+	 * The "Add section" page action on content pages. MediaWiki core only
+	 * renders it for talk pages / pages carrying `__NEWSECTIONLINK__`, so an
+	 * ordinary article has no way to start a new section from the page
+	 * actions. Insert the action between "Edit" (or "View source") and
+	 * "View history", reusing the skin's action-link styling and the core
+	 * `action=edit&section=new` target. Skipped when the page already
+	 * carries the core action, when the user cannot edit, or when there is
+	 * no edit action to anchor to.
+	 *
+	 * @param array<string,array<string,mixed>> &$links
+	 */
+	private static function addSectionAction(
+		SkinTemplate $skin,
+		\MediaWiki\Title\Title $title,
+		array &$links
+	): void {
+		if ( !isset( $links['views'] ) || isset( $links['views']['addsection'] ) ) {
+			return;
+		}
+		if ( !$title->quickUserCan( 'edit' ) ) {
+			return;
+		}
+		$action = [
+			'class' => 'ca-addsection',
+			'text' => $skin->msg( 'embeddablecontent-addsection' )->text(),
+			'icon' => 'speechBubbleAdd',
+			'href' => $title->getLocalURL( 'action=edit&section=new' ),
+		];
+		$views = [];
+		$inserted = false;
+		foreach ( $links['views'] as $key => $value ) {
+			$views[$key] = $value;
+			if ( !$inserted && ( $key === 've-edit' || $key === 'edit' || $key === 'viewsource' ) ) {
+				$views['addsection'] = $action;
+				$inserted = true;
+			}
+		}
+		if ( $inserted ) {
+			$links['views'] = $views;
+		}
 	}
 
 	/**
@@ -236,6 +336,15 @@ class Hooks {
 			|| $title->isSpecial( 'AddSource' ) || $title->isSpecial( 'UpdateSource' )
 		) {
 			$out->addModules( 'ext.embeddableContent.osmsuggest' );
+		}
+
+		// AddPerson/UpdatePerson also carry `date`-typed fields. The OOUI
+		// DateInputWidget keeps a loosely-parseable non-`YYYY-MM-DD` value
+		// verbatim, so a raw time prefill could reach the server and fail
+		// HTMLDateTimeField validation; the module normalizes the value to
+		// `YYYY-MM-DD` on submit (the date-of-birth report).
+		if ( $title->isSpecial( 'AddPerson' ) || $title->isSpecial( 'UpdatePerson' ) ) {
+			$out->addModules( 'ext.embeddableContent.datefields' );
 		}
 
 		// File: pages — the "Copy internal embed code" / "Copy direct link"

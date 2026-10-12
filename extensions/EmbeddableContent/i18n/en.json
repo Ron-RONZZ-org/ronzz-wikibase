@@ -347,6 +347,7 @@
 	"embeddablecontent-sitelink-tab": "Sitelink",
 	"embeddablecontent-sitelink-tab-set": "This page is linked to item $1",
 	"embeddablecontent-sitelink-tab-unset": "This page is not linked to an item — click to link it",
+	"embeddablecontent-addsection": "Add section",
 	"embeddablecontent-sitelink-dialog-title": "Link this page to an item",
 	"embeddablecontent-sitelink-placeholder": "Search an item by label, or type a Q-id (e.g. Q42)",
 	"embeddablecontent-sitelink-link": "Link",

@@ -189,6 +189,35 @@ async function main() {
 			console.log('[ok] print button joins the content-page toolbar row');
 		}
 
+		// Content-page "Add section" action (Oct-2026 batch): a logged-in
+		// editor gets an action pointing at the new-section editor, between
+		// Edit (or View source) and View history.
+		const addSection = await page.evaluate(() => {
+			const add = document.querySelector('.ca-addsection, #ca-addsection');
+			if (!add) {
+				return null;
+			}
+			const link = add.querySelector('a') || add;
+			const edit = document.querySelector('#ca-edit, #ca-ve-edit');
+			const history = document.querySelector('#ca-history');
+			return {
+				href: link.getAttribute('href') || '',
+				editBefore: edit
+					? !!(edit.compareDocumentPosition(add) & Node.DOCUMENT_POSITION_FOLLOWING)
+					: null,
+				historyAfter: history
+					? !!(add.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING)
+					: null,
+			};
+		});
+		if (!addSection || !addSection.href.includes('section=new')) {
+			failures.push('content page is missing a working "Add section" action');
+		} else if (addSection.editBefore === false || addSection.historyAfter === false) {
+			failures.push('"Add section" is not between Edit and View history');
+		} else {
+			console.log('[ok] content-page "Add section" action between Edit and View history');
+		}
+
 		// --- classic content page: "Copy citation" popup -----------------
 		// A classic content page offers "Copy citation" (citing the PAGE —
 		// title + URL + last-revision date); clicking it opens the shared
