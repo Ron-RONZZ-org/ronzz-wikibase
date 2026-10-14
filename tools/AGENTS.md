@@ -121,7 +121,7 @@ fixer.
   external **`pandoc`** binary (3.x) on PATH — the only tool here with a
   non-stdlib runtime dependency; its unit tests are pandoc-free. Unit tests:
   `python3 -m unittest discover -s tools/tests`.
-- **`tools/usertools/fix_svg_text.py`** — makes downloaded SVG multi-line
+- **`tools/usertools/svg_compatibility_preprocessing.py`** — makes downloaded SVG multi-line
   text editable in Inkscape. Generated SVGs (browsers, graph tools,
   Illustrator/draw.io exports) position each visual line with an absolute
   `x`/`y` on a bare `<tspan>` and no role, so Inkscape reads the `<text>` as a
@@ -129,8 +129,12 @@ fixer.
   one. The script adds `sodipodi:role="line"` to every positioned `<tspan>`
   (converting single-value `dy` shifts to absolute `y`; per-glyph `dy` lists
   and inline styling are left untouched), declares the `sodipodi` namespace,
-  seeds `x`/`y` onto the `<text>`, and sets `xml:space="preserve"` — rendering
-  is unchanged. Takes local paths (in place, batch, `-o`) or `http(s)` URLs:
+  seeds `x`/`y` onto the `<text>`, and sets `xml:space="preserve"`. To make the
+  text edit like native Inkscape text it also strips the pretty-printed
+  whitespace *between* `<tspan>` lines (leftover newlines/indentation become
+  phantom, undeletable spaces while editing), moves presentation attributes
+  (`font-size`, `fill`, …) into `style=""`, and assigns `id`s — rendering is
+  unchanged. Takes local paths (in place, batch, `-o`) or `http(s)` URLs:
   a URL is downloaded into a temp dir (`--outdir`), normalised, and an
   interactive menu then opens it in Inkscape (`--inkscape`), renames/moves it,
   or exits. Stdlib only (`xml.etree`, `urllib`); the `inkscape` binary is

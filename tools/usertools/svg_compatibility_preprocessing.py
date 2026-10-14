@@ -19,9 +19,20 @@ For every ``<text>`` element, per direct ``<tspan>`` child:
 * relative ``dy`` (single value) -> convert to absolute ``y``, drop ``dy``, mark
 * ``dy`` list / no position      -> leave as inline styling (do NOT mark)
 
-It also seeds ``x``/``y`` on the ``<text>`` from its first line and sets
-``xml:space="preserve"``. Rendering is unchanged; only Inkscape editing metadata
-is added. Comments and processing instructions are preserved.
+It also reshapes each text object to match Inkscape's own output so it edits
+like native text:
+
+* seeds ``x``/``y`` on the ``<text>`` from its first line and sets
+  ``xml:space="preserve"``;
+* removes the pretty-printed whitespace *between* ``<tspan>`` lines — Inkscape
+  writes multi-line text with no inter-tspan whitespace, and leftover newlines
+  / indentation become phantom spaces that cannot be deleted while editing;
+* moves presentation attributes (``font-size``, ``fill``, ...) into a ``style``
+  attribute;
+* gives every ``<text>`` / ``<tspan>`` an ``id``.
+
+Rendering is unchanged; only Inkscape editing metadata is added. Comments and
+processing instructions are preserved.
 
 Remote sources
 --------------
@@ -32,13 +43,13 @@ then lets you open it in Inkscape, rename/move it, or exit.
 Usage
 -----
     # local files (in place, or -o elsewhere)
-    python3 fix_svg_text.py drawing.svg
-    python3 fix_svg_text.py *.svg
-    python3 fix_svg_text.py -o fixed.svg drawing.svg
+    python3 svg_compatibility_preprocessing.py drawing.svg
+    python3 svg_compatibility_preprocessing.py *.svg
+    python3 svg_compatibility_preprocessing.py -o fixed.svg drawing.svg
 
     # fetch from a URL, then pick from the menu (open / rename / exit)
-    python3 fix_svg_text.py https://example.org/diagram.svg
-    python3 fix_svg_text.py --outdir ~/Downloads https://example.org/diagram.svg
+    python3 svg_compatibility_preprocessing.py https://example.org/diagram.svg
+    python3 svg_compatibility_preprocessing.py --outdir ~/Downloads https://example.org/diagram.svg
 
 License: GPL-2.0-or-later
 """
@@ -75,6 +86,20 @@ USER_AGENT = (
 )
 DEFAULT_FETCH_DIR = os.path.join(tempfile.gettempdir(), "inkscape-svg")
 
+# Presentation attributes Inkscape keeps in the style="" attribute of text.
+_TEXT_STYLE_PROPS = frozenset(
+    """fill fill-opacity fill-rule stroke stroke-width stroke-opacity
+    stroke-linecap stroke-linejoin stroke-miterlimit stroke-dasharray
+    stroke-dashoffset opacity color font-family font-size font-size-adjust
+    font-stretch font-style font-variant font-weight text-anchor
+    text-decoration letter-spacing word-spacing paint-order""".split()
+)
+# Properties whose unitless value is a length and needs a unit in CSS.
+_LENGTH_PROPS = frozenset(
+    ["font-size", "letter-spacing", "word-spacing", "stroke-width", "stroke-dashoffset"]
+)
+_NUMBER_RE = re.compile(r"-?(?:\d+\.?\d*|\.\d+)")
+
 
 class SvgFixError(Exception):
     """Fetch / parse / write failure with a message meant for the user."""
@@ -101,7 +126,74 @@ def _single_number(value: str) -> float | None:
         return None
 
 
-def _normalize_text(el: ET.Element, warnings: list[str]) -> int:
+def _css_value(name: str, value: str) -> str:
+    """Give a bare number a ``px`` unit where CSS requires one."""
+    value = value.strip()
+    if name in _LENGTH_PROPS and _NUMBER_RE.fullmatch(value):
+        return value + "px"
+    return value
+
+
+def _to_native_style(el: ET.Element) -> None:
+    """Move presentation attributes on text/tspans into a ``style`` attribute."""
+    extra = {
+        name: _css_value(name, el.attrib[name])
+        for name in el.attrib
+        if not name.startswith("{") and name in _TEXT_STYLE_PROPS
+    }
+    if not extra:
+        return
+    order: list[str] = []
+    values: dict[str, str] = {}
+    for decl in el.get("style", "").split(";"):
+        if ":" not in decl:
+            continue
+        prop, val = (part.strip() for part in decl.split(":", 1))
+        if not prop:
+            continue
+        if prop not in values:
+            order.append(prop)
+        values[prop] = val                       # an existing style wins
+    for name, val in extra.items():
+        if name in values:
+            continue
+        order.append(name)
+        values[name] = val
+    el.set("style", ";".join(f"{p}:{values[p]}" for p in order))
+    for name in extra:
+        del el.attrib[name]
+
+
+def _strip_line_whitespace(el: ET.Element, lines: list[ET.Element]) -> None:
+    """Drop the formatting whitespace Inkscape turns into phantom spaces.
+
+    Inkscape writes multi-line text with no whitespace between its line
+    ``<tspan>``s; pretty-printed newlines / indentation instead become
+    undeletable spaces once ``xml:space="preserve"`` is set.
+    """
+    line_ids = {id(t) for t in lines}
+    children = list(el)
+    if children and id(children[0]) in line_ids and not (el.text or "").strip():
+        el.text = None
+    for tspan in lines:
+        if not (tspan.tail or "").strip():
+            tspan.tail = None
+
+
+def _ensure_id(el: ET.Element, prefix: str, taken: set[str]) -> None:
+    """Give ``el`` a unique ``id`` if it has none (matching Inkscape)."""
+    if el.get("id"):
+        return
+    n = 1
+    while f"{prefix}{n}" in taken:
+        n += 1
+    el.set("id", f"{prefix}{n}")
+    taken.add(f"{prefix}{n}")
+
+
+def _normalize_text(
+    el: ET.Element, warnings: list[str], taken: set[str]
+) -> int:
     tspans = [c for c in el if _local(c.tag) == "tspan"]
     if not tspans:
         return 0
@@ -140,6 +232,12 @@ def _normalize_text(el: ET.Element, warnings: list[str]) -> int:
     el.set(XML_SPACE, "preserve")
     for tspan in lines:
         tspan.set("{%s}role" % SODIPODI_NS, "line")
+    _strip_line_whitespace(el, lines)
+    _to_native_style(el)
+    _ensure_id(el, "text", taken)
+    for tspan in tspans:
+        _to_native_style(tspan)
+        _ensure_id(tspan, "tspan", taken)
     return len(lines)
 
 
@@ -152,10 +250,13 @@ def normalize_tree(tree: ET.ElementTree, warnings: list[str]) -> int:
     # Keep the SVG namespace as the default (avoid rewriting it to ns0:).
     if root.tag.startswith("{"):
         ET.register_namespace("", root.tag.split("}", 1)[0][1:])
+    taken = {
+        e.get("id") for e in root.iter() if isinstance(e.tag, str) and e.get("id")
+    }
     marked = 0
     for el in root.iter():
         if _local(el.tag) == "text":
-            marked += _normalize_text(el, warnings)
+            marked += _normalize_text(el, warnings, taken)
     return marked
 
 
@@ -329,7 +430,7 @@ def menu(path: str, inkscape_bin: str) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="fix_svg_text.py",
+        prog="svg_compatibility_preprocessing.py",
         description=(
             "Make SVG multi-line text editable in Inkscape "
             "(add sodipodi:role=\"line\"). Accepts local paths or http(s) URLs; "

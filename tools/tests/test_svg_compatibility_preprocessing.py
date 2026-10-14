@@ -1,4 +1,4 @@
-"""Unit tests for tools/usertools/fix_svg_text.py — pure helpers.
+"""Unit tests for tools/usertools/svg_compatibility_preprocessing.py — pure helpers.
 
 No network and no Inkscape required. Run with:
     python3 -m unittest discover -s tools/tests
@@ -16,7 +16,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "usertools"))
 
-import fix_svg_text as fx  # noqa: E402
+import svg_compatibility_preprocessing as fx  # noqa: E402
 
 SVG = "http://www.w3.org/2000/svg"
 SOD = "http://sodipodi.sourceforge.net/DTD/sodipodi-0.0.dtd"
@@ -71,6 +71,59 @@ class NormalizeTest(unittest.TestCase):
         self.assertEqual(fx.normalize_tree(tree, []), 0)
 
 
+class NativePolishTest(unittest.TestCase):
+    def test_inter_tspan_whitespace_stripped(self):
+        tree = _tree(
+            '<text x="1" y="1">\n  <tspan x="1" y="1">a</tspan>\n'
+            '  <tspan x="1" y="5">b</tspan>\n</text>'
+        )
+        self.assertEqual(fx.normalize_tree(tree, []), 2)
+        text = tree.getroot().find(f"{{{SVG}}}text")
+        self.assertIsNone(text.text)
+        for tspan in text.findall(f"{{{SVG}}}tspan"):
+            self.assertIsNone(tspan.tail)
+
+    def test_presentation_attrs_moved_to_style(self):
+        tree = _tree(
+            '<text font-size="11" font-weight="normal" fill="#636363">'
+            '<tspan x="1" y="1">a</tspan></text>'
+        )
+        fx.normalize_tree(tree, [])
+        text = tree.getroot().find(f"{{{SVG}}}text")
+        self.assertEqual(
+            text.get("style"), "font-size:11px;font-weight:normal;fill:#636363"
+        )
+        self.assertIsNone(text.get("font-size"))
+        self.assertIsNone(text.get("fill"))
+
+    def test_existing_style_wins_over_presentation_attr(self):
+        tree = _tree(
+            '<text style="fill:red" fill="blue">'
+            '<tspan x="1" y="1">a</tspan></text>'
+        )
+        fx.normalize_tree(tree, [])
+        text = tree.getroot().find(f"{{{SVG}}}text")
+        self.assertEqual(text.get("style"), "fill:red")
+        self.assertIsNone(text.get("fill"))
+
+    def test_ids_added_and_unique(self):
+        tree = _tree(
+            '<text><tspan x="1" y="1">a</tspan></text>'
+            '<text><tspan x="2" y="1">b</tspan></text>'
+        )
+        fx.normalize_tree(tree, [])
+        ids = [e.get("id") for e in tree.getroot().iter() if e.get("id")]
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertTrue(all(i is not None for i in ids))
+        self.assertEqual(len(ids), 4)  # 2 <text> + 2 <tspan>
+
+    def test_inline_whitespace_preserved(self):
+        tree = _tree('<text x="1" y="1">Hello <tspan fill="red">world</tspan></text>')
+        self.assertEqual(fx.normalize_tree(tree, []), 0)
+        text = tree.getroot().find(f"{{{SVG}}}text")
+        self.assertEqual(text.text, "Hello ")
+
+
 class FileTest(unittest.TestCase):
     def test_malformed_xml_raises(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -98,6 +151,19 @@ class FileTest(unittest.TestCase):
             before = path.read_bytes()
             self.assertEqual(fx.normalize_file(str(path), str(path), []), 0)
             self.assertEqual(path.read_bytes(), before)
+
+    def test_no_whitespace_inside_text_element(self):
+        xml = (
+            f'<svg xmlns="{SVG}">\n<text>\n<tspan x="1" y="1">a</tspan>\n'
+            '<tspan x="1" y="5">b</tspan>\n</text>\n</svg>'
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "a.svg"
+            path.write_text(xml, encoding="utf-8")
+            fx.normalize_file(str(path), str(path), [])
+            out = path.read_text(encoding="utf-8")
+        self.assertIn("</tspan><tspan", out)
+        self.assertNotIn("</tspan>\n", out)
 
 
 class FetchHelperTest(unittest.TestCase):
