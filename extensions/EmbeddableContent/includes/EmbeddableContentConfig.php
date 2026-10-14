@@ -88,6 +88,16 @@ class EmbeddableContentConfig {
 	}
 
 	/**
+	 * Pre-content-note property (the math item's optional wikitext note
+	 * rendered ABOVE the expression). Nullable: absent on instances seeded
+	 * before this property existed — the math form then renders no
+	 * pre-content note field and `{{#content:}}` renders no pre-content note.
+	 */
+	public function preNotePropertyId(): ?string {
+		return $this->optionalString( 'preNote' );
+	}
+
+	/**
 	 * Quotation-translation property (the added translations, one monolingual
 	 * claim per language). Nullable: absent on instances seeded before this
 	 * property existed — the AddQuotation form then renders no "Add

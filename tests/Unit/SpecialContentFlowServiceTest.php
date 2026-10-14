@@ -31,6 +31,7 @@ class SpecialContentFlowServiceTest extends TestCase {
 		'implementationOf' => 'P30',
 		'note' => 'P31',
 		'translation' => 'P32',
+		'preNote' => 'P33',
 	];
 
 	private function makeService(): SpecialContentFlowService {
@@ -132,6 +133,22 @@ class SpecialContentFlowServiceTest extends TestCase {
 
 		$code = [ 'label' => 'x', 'content' => 'print(1)', 'note' => 'n' ];
 		$this->assertIsString( $service->prepare( 'code-snippet', $code, true ) );
+
+		$quotationPre = [ 'label' => 'x', 'content' => 'hi', 'attributedTo' => 'Q6', 'preNote' => 'n' ];
+		$this->assertIsString( $service->prepare( 'quotation', $quotationPre, true ) );
+	}
+
+	public function testMathPreNoteIsEscapedAndWritten(): void {
+		$service = $this->makeService();
+		$record = [ 'label' => 'E', 'content' => 'E=mc^2', 'preNote' => "see [[File:x.png]]\nand \$x\$" ];
+
+		$this->assertNull( $service->prepare( 'math', $record, true ) );
+		// Stored escaped-at-rest (real newline → \n sequence).
+		$this->assertSame( 'see [[File:x.png]]\\nand $x$', $record['preNote'] );
+
+		$specs = $service->statementSpecs( 'math', $record );
+		$this->assertInstanceOf( StringValue::class, $specs['P33'] );
+		$this->assertSame( 'see [[File:x.png]]\\nand $x$', $specs['P33']->getValue() );
 	}
 
 	public function testBlankNoteKeepsTheExistingStatementOnUpdate(): void {

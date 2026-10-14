@@ -206,6 +206,9 @@
 			"class": "EmbeddableContent\\Api\\ApiFileSearch"
 		}
 	},
+	"Actions": {
+		"appendsection": "EmbeddableContent\\Action\\AppendSectionAction"
+	},
 	"HookHandlers": {
 		"main": {
 			"class": "EmbeddableContent\\Hooks"
@@ -662,6 +665,29 @@
 				"embeddablecontent-contentpage-copymention-hint",
 				"embeddablecontent-contentpage-copycite-hint",
 				"embeddablecontent-gadget-copycitation",
+				"embeddablecontent-gadget-copied"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.sectionactions": {
+			"scripts": [
+				"sectionactions.js"
+			],
+			"styles": [
+				"gadget.css"
+			],
+			"dependencies": [
+				"mediawiki.notification",
+				"mediawiki.util"
+			],
+			"messages": [
+				"embeddablecontent-section-copymention",
+				"embeddablecontent-section-copymention-hint",
+				"embeddablecontent-section-copyurl",
+				"embeddablecontent-section-copyurl-hint",
 				"embeddablecontent-gadget-copied"
 			],
 			"targets": [

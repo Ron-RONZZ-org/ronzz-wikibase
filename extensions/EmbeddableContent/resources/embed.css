@@ -51,6 +51,12 @@
 	margin-top: 0.6em;
 }
 
+/* The PRE-content note sits ABOVE the expression — margin below instead. */
+.wb-embed-note-pre {
+	margin-top: 0;
+	margin-bottom: 0.6em;
+}
+
 .wb-embed-footer {
 	margin-top: 0.6em;
 	font-size: 0.72em;
@@ -135,6 +141,17 @@ body.skin-embedskin .printfooter {
 	margin-top: 0.6em;
 	padding-top: 0.5em;
 	border-top: 1px solid #eaecf0;
+}
+
+/* The preview's PRE-content note sits ABOVE the expression: the separating
+   rule goes below it instead of above. */
+#wb-math-preview-prenote-wrap {
+	margin-top: 0;
+	margin-bottom: 0.6em;
+	padding-top: 0;
+	padding-bottom: 0.5em;
+	border-top: none;
+	border-bottom: 1px solid #eaecf0;
 }
 
 .wb-math-preview-note-title {

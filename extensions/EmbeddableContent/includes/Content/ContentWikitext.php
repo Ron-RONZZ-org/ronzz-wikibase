@@ -95,12 +95,17 @@ final class ContentWikitext {
 	}
 
 	/**
-	 * A math item expands to a display-math span, optionally followed by the
-	 * accompanying note as wikitext (separated by a blank line so it renders
-	 * as its own paragraph).
+	 * A math item expands to a display-math span, optionally preceded by the
+	 * pre-content note and followed by the post-content note as wikitext
+	 * (each separated by a blank line so it renders as its own paragraph).
 	 */
-	public static function math( string $latex, string $note = '' ): string {
-		$out = self::MATH_DELIMITER . $latex . self::MATH_DELIMITER;
+	public static function math( string $latex, string $preNote = '', string $note = '' ): string {
+		$out = '';
+		$preNote = trim( $preNote );
+		if ( $preNote !== '' ) {
+			$out .= $preNote . "\n\n";
+		}
+		$out .= self::MATH_DELIMITER . $latex . self::MATH_DELIMITER;
 		$note = trim( $note );
 		if ( $note !== '' ) {
 			$out .= "\n\n" . $note;

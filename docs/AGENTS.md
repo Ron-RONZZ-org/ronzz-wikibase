@@ -44,7 +44,9 @@ deployed, how to operate it, and why it is designed the way it is.
   query-param prefill for the Add*/Update* forms), `printable-version.md` (the
   "Print this page" toolbar button + cover page), and
   `classic-page-label-sync.md` (a direct label edit renames the sitelinked
-  classic page, leaving a redirect; backtracking moves it back).
+  classic page, leaving a redirect; backtracking moves it back), and
+  `math-note-split-and-page-actions.md` (the math pre/post-content notes, the
+  per-section mention/URL copy controls, and the append "Add section" action).
 
 ## Constraints and Invariants
 

@@ -498,6 +498,7 @@ RICH_QUOTE_LABEL = "E2E rich-content quotation"
 RICH_MATH_LABEL = "E2E math-note item"
 RICH_CACHE_LABEL = "E2E embed-cache refresh item"
 NOTE_MARKER = "E2E-NOTE-MARKER"
+PRE_NOTE_MARKER = "E2E-PRENOTE-MARKER"
 QUOTE_MARKER = "E2E-QUOTE-MARKER"
 
 
@@ -520,9 +521,10 @@ def _parse_wikitext(api_url: str, text: str) -> str:
 
 def rich(args: argparse.Namespace) -> int:
     """Rich-content E2E (self-cleaning): the quotation payload and the math
-    note are full wikitext — links/emphasis/$…$ parse on the embed surfaces
-    and via {{#content:}}, and {{#content:Q|noNote}} hides the note. Also
-    asserts an injection in the note never survives."""
+    notes (pre-content + post-content) are full wikitext — links/emphasis/$…$
+    parse on the embed surfaces and via {{#content:}}, and the note flags
+    ({{#content:Q|noNote}} / noPreNote / noPostNote) hide the right note(s).
+    Also asserts an injection in the note never survives."""
     api = WikibaseApi(args.api_url, args.user, args.password)
     api.login()
 
@@ -554,6 +556,7 @@ def rich(args: argparse.Namespace) -> int:
         translation_property = property_id("translation")
         latex_source = property_id("LaTeX source")
         note_property = property_id("note")
+        pre_note_property = property_id("pre-content note")
         source_property = property_id("source")
         attributed_to_property = property_id("attributed to")
         # The source item (the math item below) also carries a URL + a
@@ -616,6 +619,10 @@ def rich(args: argparse.Namespace) -> int:
             latex_source: item_claim(latex_source, { "value": "x^2", "type": "string" }),
             note_property: item_claim(note_property, {
                 "value": f"{NOTE_MARKER} $x$ <script>alert(1)</script>",
+                "type": "string",
+            }),
+            pre_note_property: item_claim(pre_note_property, {
+                "value": f"{PRE_NOTE_MARKER} $y$",
                 "type": "string",
             }),
             # Source-level citation metadata read by the citation (the source
@@ -687,20 +694,41 @@ def rich(args: argparse.Namespace) -> int:
             # auto blockquote — the consumer page wraps it.
             expect("wb-embed" not in html, "{{#content:}} quotation still carries the embed chrome")
 
-        def math_note_renders() -> None:
+        def math_notes_render_around_expression() -> None:
             html = embed(math_id)
             expect("wb-embed-note" in html, "math note wrapper missing")
-            expect(NOTE_MARKER in html, "math note marker missing")
+            expect(PRE_NOTE_MARKER in html, "math pre-content note marker missing")
+            expect(NOTE_MARKER in html, "math post-content note marker missing")
+            # The pre-content note renders ABOVE the expression, the
+            # post-content note BELOW it.
+            expect(html.index(PRE_NOTE_MARKER) < html.index("wb-embed-math"),
+                   "the math pre-content note did not render above the expression")
+            expect(html.index("wb-embed-math") < html.index(NOTE_MARKER),
+                   "the math post-content note did not render below the expression")
 
         def no_note_suppresses_it() -> None:
             with_note = _parse_wikitext(args.api_url, f"{{{{#content:{math_id}}}}}")
-            expect(NOTE_MARKER in with_note, "{{#content:Q}} did not render the note")
+            expect(PRE_NOTE_MARKER in with_note, "{{#content:Q}} did not render the pre-note")
+            expect(NOTE_MARKER in with_note, "{{#content:Q}} did not render the post-note")
             without = _parse_wikitext(args.api_url, f"{{{{#content:{math_id}|noNote}}}}")
-            expect(NOTE_MARKER not in without, "{{#content:Q|noNote}} still rendered the note")
+            expect(PRE_NOTE_MARKER not in without, "{{#content:Q|noNote}} still rendered the pre-note")
+            expect(NOTE_MARKER not in without, "{{#content:Q|noNote}} still rendered the post-note")
             # The math expands to plain display-math wikitext ($$…$$), never
             # the framed .wb-embed KaTeX span.
             expect("x^2" in without, "{{#content:Q|noNote}} dropped the math")
             expect("wb-embed" not in without, "{{#content:}} still carries the .wb-embed embed chrome")
+
+        def granular_note_flags_suppress_one_each() -> None:
+            pre_hidden = _parse_wikitext(args.api_url, f"{{{{#content:{math_id}|noPreNote}}}}")
+            expect(PRE_NOTE_MARKER not in pre_hidden,
+                   "{{#content:Q|noPreNote}} still rendered the pre-note")
+            expect(NOTE_MARKER in pre_hidden,
+                   "{{#content:Q|noPreNote}} dropped the post-note too")
+            post_hidden = _parse_wikitext(args.api_url, f"{{{{#content:{math_id}|noPostNote}}}}")
+            expect(NOTE_MARKER not in post_hidden,
+                   "{{#content:Q|noPostNote}} still rendered the post-note")
+            expect(PRE_NOTE_MARKER in post_hidden,
+                   "{{#content:Q|noPostNote}} dropped the pre-note too")
 
         def quotation_translations_render() -> None:
             # {{#content:Q|fr|eo}}: the original + the fr translation block,
@@ -803,10 +831,13 @@ def rich(args: argparse.Namespace) -> int:
                    "the framed embed surface leaked the preview translation block")
 
         def math_note_has_no_embed_chrome() -> None:
-            # The math note is plain rich wikitext below the expression — it
-            # must not carry the .wb-embed border/background (the stray line).
+            # The math notes are plain rich wikitext around the expression —
+            # they must not carry the .wb-embed border/background (the stray
+            # line). The pre-content note additionally carries the -pre class.
             html = embed(math_id)
-            expect('class="wb-embed-note"' in html, "math note wrapper class changed")
+            expect('class="wb-embed-note"' in html, "math post-note wrapper class changed")
+            expect('class="wb-embed-note wb-embed-note-pre"' in html,
+                   "math pre-note wrapper class missing")
             expect('class="wb-embed wb-embed-note"' not in html,
                    "math note still carries the .wb-embed chrome")
 
@@ -845,11 +876,12 @@ def rich(args: argparse.Namespace) -> int:
         run_check("embed reflects the latest revision after an update (Q2039)", embed_reflects_latest_revision)
         run_check("quotation payload parses as wikitext (embed surface)", quotation_is_rich)
         run_check("quotation payload parses as wikitext ({{#content:}})", quotation_rich_in_parser_function)
-        run_check("math note renders below the expression (embed surface)", math_note_renders)
-        run_check("math note has no .wb-embed chrome", math_note_has_no_embed_chrome)
+        run_check("math notes render above/below the expression (embed surface)", math_notes_render_around_expression)
+        run_check("math notes have no .wb-embed chrome", math_note_has_no_embed_chrome)
         run_check("quotation preview = original + translation + attribution", preview_quotation_translation_and_attribution)
         run_check("citation reads the source URL + last-edition year", citation_reads_source_url_and_last_edition_year)
-        run_check("{{#content:Q|noNote}} suppresses the note", no_note_suppresses_it)
+        run_check("{{#content:Q|noNote}} suppresses both notes", no_note_suppresses_it)
+        run_check("{{#content:Q|noPreNote}}/noPostNote suppress one each", granular_note_flags_suppress_one_each)
         run_check("{{#content:Q|fr|eo}} renders translations + not-found", quotation_translations_render)
         run_check("rich injections do not survive (embed/parse/listing)", injections_do_not_survive)
         run_check("Special:QuotationsOf renders the rich quotation", quotation_listing_renders_rich)

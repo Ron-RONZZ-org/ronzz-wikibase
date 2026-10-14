@@ -149,12 +149,14 @@ class Hooks {
 	/**
 	 * The "Add section" page action on content pages. MediaWiki core only
 	 * renders it for talk pages / pages carrying `__NEWSECTIONLINK__`, so an
-	 * ordinary article has no way to start a new section from the page
-	 * actions. Insert the action between "Edit" (or "View source") and
-	 * "View history", reusing the skin's action-link styling and the core
-	 * `action=edit&section=new` target. Skipped when the page already
-	 * carries the core action, when the user cannot edit, or when there is
-	 * no edit action to anchor to.
+	 * ordinary article has no way to add to the page from the page actions.
+	 * Insert the action between "Edit" (or "View source") and "View history",
+	 * reusing the skin's action-link styling. The target is the extension's
+	 * `action=appendsection` flow (AppendSectionAction) — an Edit-like form
+	 * (Content + Summary + Watch, no minor edit, no subject) whose save
+	 * APPENDS the submitted wikitext to the end of the page (no new heading).
+	 * Skipped when the page already carries the core action, when the user
+	 * cannot edit, or when there is no edit action to anchor to.
 	 *
 	 * @param array<string,array<string,mixed>> &$links
 	 */
@@ -175,7 +177,7 @@ class Hooks {
 			'class' => 'ca-addsection',
 			'text' => $skin->msg( 'embeddablecontent-addsection' )->text(),
 			'icon' => 'speechBubbleAdd',
-			'href' => $title->getLocalURL( 'action=edit&section=new' ),
+			'href' => $title->getLocalURL( 'action=appendsection' ),
 		];
 		// Anchor on `edit` (the visible Edit action) so the new action sits
 		// BETWEEN Edit and View history; fall back to `ve-edit` (VisualEditor)
@@ -413,6 +415,10 @@ class Hooks {
 			// canonical URL + last-revision date) — NOT a sitelinked item.
 			$out->addJsConfigVars( 'wbCitePage', $title->getPrefixedText() );
 			$out->addModules( 'ext.embeddableContent.contentpagetoolbar' );
+			// Per-section "Copy internal mention" / "Copy URL" controls,
+			// rendered next to each heading's [edit] link (they reuse the
+			// wbReferenceSnippet set above).
+			$out->addModules( 'ext.embeddableContent.sectionactions' );
 			return;
 		}
 
