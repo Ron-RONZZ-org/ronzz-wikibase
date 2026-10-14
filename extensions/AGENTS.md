@@ -1488,6 +1488,13 @@ report). See `SimpleMathJax/VENDORED.md`.
   `WikiPage::doUserEditContent`, so edit filters/AbuseFilter/hooks apply) —
   replacing the core `section=new` heading editor. No vocabulary/class
   change; deploy = rsync + php-fpm + message/objectcache purge.
+  **Partly superseded (2026-10-14)** for §2/§3 by
+  `docs/decisions/section-controls-and-editor.md`: the section controls are
+  each in their own `[ ]` bracket pair and gain "Add section below" /
+  "Delete section" (a new `deletesection` action), and the append editor
+  uses a plain `wpTextbox1` textarea so WikiEditor attaches the Edit-parity
+  toolbar, plus a Preview button (`action=parse`) and an auto-inferred
+  summary (`Spec/SectionSummary::infer`). §1 (the math notes) stands.
 
 ### WikibaseCitation
 
@@ -1645,6 +1652,21 @@ report). See `SimpleMathJax/VENDORED.md`.
   `.ggb` with `Access-Control-Allow-Origin` for the player origin (production
   nginx rule; a CI step). No DB/seed/manifest/config-map surface — see
   `GeoGebra/AGENTS.md` + `../docs/decisions/geogebra.md`.
+- **Raw GeoGebra commands (`<geogebra>` tag, ADR
+  `../docs/decisions/geogebra-inline-commands.md`)**: a new parser tag
+  (`Hooks::onParserFirstCallInit` + `renderGeoGebra`, registered in
+  `extension.json`) renders `commands` — one GeoGebra command per line —
+  through the SAME sandboxed cross-origin player iframe, carrying the
+  commands in the `commands` query parameter instead of a `file`. The player
+  (`resources/player/player.js`) builds the applet without a `filename` and,
+  in `appletOnLoad`, runs each non-empty line through `api.evalCommand()`;
+  the Layer-1 hardening (`disableJavaScript` + `useBrowserForJS`) is
+  unchanged, so the `.ggb` threat model is unchanged. Config
+  `$wgGeoGebraEnableCommands` (default on) +
+  `$wgGeoGebraCommandMaxLength` (20000 bytes; over-long input renders an
+  error notice). `GeoGebraEmbed::commandPlayerSrc`/`commandIframeAttributes`
+  are the pure builders (unit-tested). No DB/seed/manifest change; deploy =
+  rsync + php-fpm + message/objectcache purge.
 
 ### CSVTable
 

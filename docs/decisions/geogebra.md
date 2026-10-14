@@ -126,6 +126,7 @@ GPL-2.0-or-later.
 ## References
 
 - `extensions/GeoGebra/AGENTS.md` · `extensions/GeoGebra/ASSETS.md`
+- `geogebra-inline-commands.md` — the `<geogebra>` tag (raw commands, no upload)
 - `tools/install-geogebra.sh` · `dev/config/Extensions.php` · `dev/docker-compose.ci.yml`
 - `tests/e2e/run_geogebra_e2e.py` · `tests/e2e/run_geogebra_ux_e2e.mjs` · `tests/Unit/GeoGebraEmbedTest.php`
 - mediawiki.org: Extension:GeoGebra (tag-based, upload deprecated) ·

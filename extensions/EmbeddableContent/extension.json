@@ -207,7 +207,8 @@
 		}
 	},
 	"Actions": {
-		"appendsection": "EmbeddableContent\\Action\\AppendSectionAction"
+		"appendsection": "EmbeddableContent\\Action\\AppendSectionAction",
+		"deletesection": "EmbeddableContent\\Action\\DeleteSectionAction"
 	},
 	"HookHandlers": {
 		"main": {
@@ -688,7 +689,31 @@
 				"embeddablecontent-section-copymention-hint",
 				"embeddablecontent-section-copyurl",
 				"embeddablecontent-section-copyurl-hint",
+				"embeddablecontent-section-addbelow",
+				"embeddablecontent-section-addbelow-hint",
+				"embeddablecontent-section-delete",
+				"embeddablecontent-section-delete-hint",
 				"embeddablecontent-gadget-copied"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.sectionform": {
+			"scripts": [
+				"sectionform.js"
+			],
+			"styles": [
+				"gadget.css"
+			],
+			"dependencies": [
+				"mediawiki.api"
+			],
+			"messages": [
+				"embeddablecontent-sectionform-preview",
+				"embeddablecontent-sectionform-preview-empty",
+				"embeddablecontent-sectionform-preview-error"
 			],
 			"targets": [
 				"desktop",

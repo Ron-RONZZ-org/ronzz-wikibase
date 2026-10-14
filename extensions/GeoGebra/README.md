@@ -1,7 +1,9 @@
 # GeoGebra (house extension)
 
 Interactive GeoGebra worksheets on classic wiki pages: upload a `.ggb` and
-embed it with `[[File:name.ggb|600px]]`.
+embed it with `[[File:name.ggb|600px]]` — or write raw GeoGebra commands
+directly with the `<geogebra>` parser tag (no upload needed), e.g.
+`<geogebra width=640>A = (1, 2)\nf(x) = x^2</geogebra>`.
 
 Standalone MediaWiki extension (`type: media`, GPL-2.0-or-later, MW ≥ 1.46).
 See [`AGENTS.md`](AGENTS.md) for the module contract, [`ASSETS.md`](ASSETS.md)
@@ -12,8 +14,8 @@ for the app-bundle provenance/licence, and
 
 | File | Role |
 |------|------|
-| `extension.json` | MIME + media-handler registration, hooks, config, RL module |
-| `src/Hooks.php` | `MimeMagicInit` + `MimeMagicImproveFromExtension` (`.ggb` → `application/geogebra`) |
+| `extension.json` | MIME + media-handler registration, the `<geogebra>` tag hook, config, RL module |
+| `src/Hooks.php` | `MimeMagicInit` + `MimeMagicImproveFromExtension` (`.ggb` → `application/geogebra`) + `ParserFirstCallInit` (the `<geogebra>` tag) |
 | `src/GeoGebraHandler.php` | `ImageHandler` subclass — client-side transform |
 | `src/GeoGebraOutput.php` | `MediaTransformOutput` — emits the sandboxed player iframe |
 | `src/GeoGebraEmbed.php` | pure URL/attribute builders (unit-tested) |
