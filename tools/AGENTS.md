@@ -100,7 +100,7 @@ the wiki content conformant, or bootstrap draft pages from external sources.
   `--verify` re-checks the sitelinks. **Review the dry-run list before
   applying.** Python stdlib only (reuses `seed/wikibase_api.py`). Unit tests:
   `python3 -m unittest discover -s tools/tests`.
-- **`tools/libretexts2wikitext.py`** — converts a LibreTexts page into a
+- **`tools/usertools/libretexts2wikitext.py`** — converts a LibreTexts page into a
   `.wiki` draft for this wiki. LibreTexts runs MindTouch, not MediaWiki (no
   `action=raw`; the `@api/deki` REST API is token-gated), so it fetches the
   rendered HTML, extracts the `mt-content-container` section, runs
@@ -114,7 +114,7 @@ the wiki content conformant, or bootstrap draft pages from external sources.
   (`\PageIndex`, `\ref`, `\label`, …). Images become `[[File:…]]` plus an
   upload manifest; provenance + the source attribution are prepended.
   **Verify the source licence before republishing.** Usage:
-  `python3 tools/libretexts2wikitext.py <url> -o draft.wiki`. Requires the
+  `python3 tools/usertools/libretexts2wikitext.py <url> -o draft.wiki`. Requires the
   external **`pandoc`** binary (3.x) on PATH — the only tool here with a
   non-stdlib runtime dependency; its unit tests are pandoc-free. Unit tests:
   `python3 -m unittest discover -s tools/tests`.
@@ -123,7 +123,7 @@ the wiki content conformant, or bootstrap draft pages from external sources.
 
 - **Python stdlib only** for the generator (argparse, csv, re, subprocess,
   sys) — no pip dependencies. The one exception is
-  `tools/libretexts2wikitext.py`, which shells out to the external `pandoc`
+  `tools/usertools/libretexts2wikitext.py`, which shells out to the external `pandoc`
   binary; its unit tests cover the pure helpers and skip the pandoc path when
   the binary is absent, so the stdlib-only `unit` CI job stays green without
   pandoc.

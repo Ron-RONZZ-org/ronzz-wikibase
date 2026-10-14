@@ -82,7 +82,7 @@ Options evaluated (MW 1.46):
   closing delimiter (the `Sandbox:Temp` report: an indented continuation
   line under a `\\`). The `SimpleMathJaxMultiline` patch strips per-line
   leading blanks inside display spans before core's preformatted pass, and
-  `tools/libretexts2wikitext.py` never emits them. Convention: `$$` sits on
+  `tools/usertools/libretexts2wikitext.py` never emits them. Convention: `$$` sits on
   its own line.
 - **A bare display block renders in a centred `gathered` environment**,
   which has no alignment column — a leftover `&` alignment tab in a block

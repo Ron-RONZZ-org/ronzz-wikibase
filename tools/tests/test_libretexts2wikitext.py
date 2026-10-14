@@ -1,4 +1,4 @@
-"""Unit tests for tools/libretexts2wikitext.py — pure helpers.
+"""Unit tests for tools/usertools/libretexts2wikitext.py — pure helpers.
 
 No network and no pandoc required (the pandoc test is skipped when absent).
 Run with: python3 -m unittest discover -s tools/tests
@@ -13,7 +13,7 @@ import sys
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "usertools"))
 
 import libretexts2wikitext as lt  # noqa: E402
 
