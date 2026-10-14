@@ -38,7 +38,9 @@ generation → wiki bridge was missing.
    `ghcr.io/ron-ronzz-org/open-webui:ronzz-v0.12.0` and pinned by digest.
 3. **Bridge through the existing writer** — no new MCP server: `mediawiki-mcp-writer` gets the
    OWUI `uploads` subpath mounted **read-only** (`volume.subpath: uploads`, so `webui.db` is not
-   shared) and lists it in `uploadDirs`. The model passes `files[].path` to `upload-file`.
+   shared) and lists it in `uploadDirs`. The model passes `files[].path` to `upload-file` — the
+   guidance lives in `execute_code`'s **tool description** and in the returned `files_note`, not
+   in a per-model system prompt.
 4. **Test through the public suite** — fork `open-webui/tests`; add `open-webui-repository`,
    `tests-repository` and `fast` inputs (backwards-compatible) and a test driving both the tag
    path and the tool path through the fake-Jupyter harness.
@@ -62,7 +64,8 @@ generation → wiki bridge was missing.
   `RonzzIT:Runbook/OpenWebUI` · `RonzzIT:Runbook/WikiWriterMCP`.
 - Fork: `github.com/Ron-RONZZ-org/open-webui` (branch `ronzz/artifact-pipeline`, tag
   `ronzz-v0.12.0`); tests fork `github.com/Ron-RONZZ-org/open-webui-tests`.
-- CI run 38626181677; image digest
-  `sha256:d0bcbe3c50c8510dde9a6be3103bdce369f3aa40cd87990b6eeabf873808a3ce`.
+- CI runs 38626181677 (first) and 38633945923 (tool-contract redeploy); the deployed image
+  digest is pinned in `/opt/openwebui/docker-compose.yml` and recorded per deploy in
+  `logs/openwebui.md`.
 - Upstream issue `open-webui/open-webui#32432` (PRs `#32430` and tests `#13` closed by the
   contribution gate).
