@@ -250,6 +250,33 @@ def assert_embed(body: str, page: str, player_url: str | None, file_url: str) ->
     return src
 
 
+def assert_command_embed(body: str, page: str, player_url: str | None, commands: str) -> str:
+    """Assert the `<geogebra>` tag's command-mode iframe: sandboxed, carrying
+    the percent-encoded commands and NO file param."""
+    match = IFRAME_RE.search(body)
+    if match is None:
+        raise FlowError(f"{page}: no ggb-embed iframe found for the <geogebra> tag")
+    iframe = match.group(0)
+    if 'sandbox="' not in iframe or "allow-scripts" not in iframe:
+        raise FlowError(f"{page}: command iframe sandbox does not allow scripts: {iframe[:300]!r}")
+    if "<script" in iframe.lower():
+        raise FlowError(f"{page}: unexpected <script> inside the command iframe: {iframe[:300]!r}")
+    src_match = re.search(r'src="([^"]+)"', iframe)
+    if src_match is None:
+        raise FlowError(f"{page}: command iframe has no src")
+    src = src_match.group(1).replace("&amp;", "&")
+    query = urllib.parse.parse_qs(urllib.parse.urlparse(src).query)
+    if player_url is not None and not src.startswith(player_url):
+        raise FlowError(f"{page}: command iframe src does not start with the player URL: {src!r}")
+    got = query.get("commands", [None])[0]
+    if got != commands:
+        raise FlowError(f"{page}: commands param {got!r} != {commands!r}")
+    if "file" in query:
+        raise FlowError(f"{page}: command iframe unexpectedly carries a file param: {src!r}")
+    print(f"[ok] {page}: <geogebra> command iframe ({src[:90]}…)")
+    return src
+
+
 def fetch_status(op, url: str, headers: dict | None = None) -> tuple[int, str, dict]:
     req = urllib.request.Request(url, headers={"User-Agent": UA, **(headers or {})})
     try:
@@ -330,6 +357,16 @@ def geogebra_flow(op, api: str, base: str, player_url: str | None, keep: bool) -
             raise FlowError(f"{xss_page}: script injection survived rendering")
         assert_embed(xss_body, xss_page, player_url, info["url"])
         print(f"[ok] {xss_page}: injection did not survive")
+
+        # The <geogebra> parser tag: RAW commands, no uploaded .ggb.
+        commands = "A = (1, 2)\nf(x) = x^2"
+        cmd_page = f"GeoGebra E2E commands {stamp}"
+        create_page(op, api, cmd_page,
+                    f"Commands E2E.\n\n<geogebra width=\"480\" app=\"classic\">\n"
+                    f"{commands}\n</geogebra>\n")
+        created.append(cmd_page)
+        cmd_body = page_get(op, base, rendered_path(cmd_page))
+        assert_command_embed(cmd_body, cmd_page, player_url, commands)
 
         if player_url is not None:
             check_player(op, player_url)

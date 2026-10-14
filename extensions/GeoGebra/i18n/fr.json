@@ -6,6 +6,10 @@
 	},
 	"geogebra-desc": "Feuilles de travail GeoGebra interactives : téléversez un .ggb et intégrez-le avec [[File:nom.ggb]]",
 	"geogebra-open-file": "Ouvrir le fichier GeoGebra",
+	"geogebra-empty": "La balise GeoGebra est vide — ajoutez une commande GeoGebra par ligne.",
+	"geogebra-too-long": "Les commandes GeoGebra sont trop longues (limite : $1 octets).",
+	"geogebra-no-player": "L'intégration GeoGebra n'est pas configurée sur ce wiki.",
+	"geogebra-commands-disabled": "Les commandes GeoGebra brutes sont désactivées sur ce wiki.",
 	"geogebra-short-desc": "Feuille de travail GeoGebra $1",
 	"geogebra-long-desc": "Feuille de travail interactive GeoGebra"
 }

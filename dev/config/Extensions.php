@@ -67,6 +67,18 @@ if ( is_dir( '/var/www/html/extensions/Cite' ) ) {
 	wfLoadExtension( 'Cite' );
 }
 
+// WikiEditor — the wikitext toolbar shown on the ordinary Edit page AND on
+// the EmbeddableContent "Add section"/"Add section below" append editor
+// (`AppendSectionAction` renders a plain textarea with the stable
+// `wpTextbox1` id; WikiEditor's own bootstrap attaches the toolbar when the
+// user has the `usebetatoolbar` preference). Production loads WikiEditor
+// (see siteinfo); the WBS image bundles it. The guard keeps the wiki bootable
+// if the image ever drops it — the append editor then degrades to a plain
+// textarea (the `wpTextbox1` id and the Preview button still work).
+if ( is_dir( '/var/www/html/extensions/WikiEditor' ) ) {
+	wfLoadExtension( 'WikiEditor' );
+}
+
 // ---- GeoGebra (interactive [[File:x.ggb]] embeds, extensions/GeoGebra) ----
 // A .ggb is a renamed ZIP; the extension registers the application/geogebra
 // MIME + a media handler that emits a SANDBOXED <iframe> pointing at the

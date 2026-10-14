@@ -6,6 +6,10 @@
 	},
 	"geogebra-desc": "{{desc|name=GeoGebra|url=https://www.mediawiki.org/wiki/Extension:GeoGebra}}",
 	"geogebra-open-file": "Link text for the fallback shown when no player URL is configured.",
+	"geogebra-empty": "Shown when the <geogebra> tag has no commands.",
+	"geogebra-too-long": "Shown when the <geogebra> tag's commands exceed the configured limit. Parameters:\n* $1 — the byte limit",
+	"geogebra-no-player": "Shown when the <geogebra> tag is used but no player URL is configured.",
+	"geogebra-commands-disabled": "Shown when the <geogebra> tag is used but raw commands are disabled in configuration.",
 	"geogebra-short-desc": "Short description of a GeoGebra file. Parameters:\n* $1 — the file name",
 	"geogebra-long-desc": "Long description of a GeoGebra file."
 }

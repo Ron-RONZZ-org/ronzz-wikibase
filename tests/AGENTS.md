@@ -42,13 +42,22 @@ plus the Playwright browser UX suite for the query GUI (query.ronzz.org).
   allowed upload extension, a `.ggb` uploads as `application/geogebra` (the
   MIME hooks), `[[File:name.ggb|600px]]` renders the sandboxed player iframe
   (class + player URL + file/size params + `sandbox`/`allow`/`loading`), the
-  player origin serves the player page + the installed GeoGebra app
-  (`GeoGebra/deployggb.js`), the wiki serves the `.ggb` with a CORS header for
-  the player origin, and injections do not survive; **self-cleaning**. Needs
-  the app bundle (`tools/install-geogebra.sh`) and the CORS step on the wiki
-  (see ci.yml / `dev/README.md`). The browser render is verified by
-  `tests/e2e/run_geogebra_ux_e2e.mjs` (Playwright, manual/production like the
-  math UX suite).
+  `<geogebra>` parser tag renders raw commands (the `commands` param, no
+  `file` param), the player origin serves the player page + the installed
+  GeoGebra app (`GeoGebra/deployggb.js`), the wiki serves the `.ggb` with a
+  CORS header for the player origin, and injections do not survive;
+  **self-cleaning**. Needs the app bundle (`tools/install-geogebra.sh`) and
+  the CORS step on the wiki (see ci.yml / `dev/README.md`). The browser render
+  is verified by `tests/e2e/run_geogebra_ux_e2e.mjs` (Playwright,
+  manual/production like the math UX suite).
+- **`tests/e2e/run_section_actions_e2e.py`** — the content-page section
+  actions (EmbeddableContent): GETs the rendered `?action=appendsection` /
+  `?action=deletesection` forms, parses their hidden fields (CSRF token, form
+  identifier, the `section` carrier) and POSTs them back like a browser —
+  asserting the page-end append preserves content, "Add section below"
+  inserts below the target section, a blank Summary auto-infers the
+  section-edit comment (`/* Heading */`), and "Delete section" removes the
+  whole section; **self-cleaning** (page + auto-created item).
 - **`tests/e2e/run_codeblock_spaces_e2e.py`** — the CodeBlockSpaces
   extension: read-only (`action=parse` of inline `text=` payloads — no page,
   no login, safe against production) asserts that `<pre>`/`<code>` and

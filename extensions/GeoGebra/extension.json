@@ -29,7 +29,8 @@
 	},
 	"Hooks": {
 		"MimeMagicInit": "main",
-		"MimeMagicImproveFromExtension": "main"
+		"MimeMagicImproveFromExtension": "main",
+		"ParserFirstCallInit": "main"
 	},
 	"ResourceModules": {
 		"ext.geogebra.styles": {
@@ -58,6 +59,14 @@
 		"GeoGebraIframeSandbox": {
 			"value": "allow-scripts allow-same-origin allow-popups allow-downloads allow-modals",
 			"description": "sandbox attribute for the player iframe. allow-same-origin is safe here because the player origin differs from the wiki origin — the applet cannot reach the wiki DOM, cookies or session."
+		},
+		"GeoGebraEnableCommands": {
+			"value": true,
+			"description": "Enable the <geogebra> parser tag (raw GeoGebra commands evaluated client-side by the player, no .ggb upload)."
+		},
+		"GeoGebraCommandMaxLength": {
+			"value": 20000,
+			"description": "Maximum byte length of the raw GeoGebra commands accepted by the <geogebra> tag (0 = unlimited). Longer input renders an error notice instead of an iframe."
 		}
 	},
 	"manifest_version": 2

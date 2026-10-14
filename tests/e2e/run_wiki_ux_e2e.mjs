@@ -28,11 +28,15 @@
  *     left→right sequence (update → internal citation → mention → embed →
  *     citation → print) on the block .wb-embed-toolbar and the inline
  *     .wb-content-page-toolbar (mention → citation → print);
- *   - Section copy controls + "Add section" append — each heading's [edit]
- *     link carries "Copy internal mention" (`[[Page#section|`) and "Copy URL"
- *     (the absolute section URL); the "Add section" action
- *     (`action=appendsection`) opens an Edit-like form (no subject, no minor
- *     edit) whose save APPENDS to the page without adding a heading;
+ *   - Section controls + section actions — each heading's [edit] link carries,
+ *     each in its own [ ] bracket pair, "Copy internal mention"
+ *     (`[[Page#section|`), "Copy URL" (the absolute section URL),
+ *     "Add section below" (`action=appendsection&section=<n>`) and
+ *     "Delete section" (`action=deletesection&section=<n>`); the append editor
+ *     is a plain `wpTextbox1` textarea (WikiEditor attaches the Edit toolbar),
+ *     has a Preview button (`action=parse`), and a blank Summary auto-infers
+ *     the section-edit comment from the topmost heading; the delete
+ *     confirmation shows the section's wikitext before removal;
  *   - Special:AddSource/law — the "Add more" success popup shows the resolved
  *     "Update basic information" label (not the raw message key), offers
  *     "Copy internal citation", and its "Copy citation" popup stacks above
@@ -373,12 +377,23 @@ async function main() {
 			await page.goto(`${BASE_URL}/wiki/${encodeURIComponent(sectionTitle.replace(/ /g, '_'))}`,
 				{ waitUntil: 'domcontentloaded', timeout: 60000 });
 			await page.waitForSelector('.mw-editsection #wb-section-copymention-First_section', { timeout: 15000 });
-			const inEdit = await page.evaluate(() => !!(
-				document.querySelector('.mw-editsection #wb-section-copymention-First_section')
-				&& document.querySelector('.mw-editsection #wb-section-copyurl-First_section')
-			));
-			if (!inEdit) {
-				failures.push('section copy controls are not inside a section [edit] link');
+			// The four per-section controls, each inside the [edit] link and
+			// wrapped in its own [ ] bracket pair.
+			const controls = await page.evaluate(() => {
+				const ids = ['wb-section-copymention-First_section', 'wb-section-copyurl-First_section',
+					'wb-section-addbelow-First_section', 'wb-section-delete-First_section'];
+				const edit = document.querySelector('.mw-editsection');
+				return {
+					present: !!edit && ids.every((id) => edit.querySelector('#' + id)),
+					brackets: edit ? edit.querySelectorAll('.mw-editsection-bracket').length : 0,
+				};
+			});
+			if (!controls.present) {
+				failures.push('section controls missing: expected copymention/copyurl/addbelow/delete inside the [edit] link');
+			} else if (controls.brackets < 8) {
+				failures.push(`section controls are not bracketed (bracket spans: ${controls.brackets}, expected >= 8)`);
+			} else {
+				console.log('[ok] section controls render, bracketed (copymention/copyurl/addbelow/delete)');
 			}
 			await page.click('.mw-editsection #wb-section-copymention-First_section');
 			const sectionMention = await page.evaluate(() => navigator.clipboard.readText());
@@ -402,19 +417,41 @@ async function main() {
 			}
 
 			// The append flow: an Edit-like form with no subject / no minor
-			// edit; the save appends without adding a heading.
-			await page.goto(
-				`${BASE_URL}/wiki/${encodeURIComponent(sectionTitle.replace(/ /g, '_'))}?action=appendsection`,
-				{ waitUntil: 'domcontentloaded', timeout: 60000 });
+			// edit; the Content textarea carries the WikiEditor id and a
+			// Preview button; the save appends without adding a heading.
+			const pageUrl = `${BASE_URL}/wiki/${encodeURIComponent(sectionTitle.replace(/ /g, '_'))}`;
+			await page.goto(`${pageUrl}?action=appendsection`, { waitUntil: 'domcontentloaded', timeout: 60000 });
 			await page.waitForSelector('#wb-append-section-submit', { timeout: 15000 });
 			if (await page.locator('[name="wpMinoredit"], #wpMinoredit').count() !== 0) {
 				failures.push('the Add section form carries a minor-edit checkbox');
 			}
-			await page.fill('[name="wpcontent"]', 'Appended by the E2E.');
+			if (await page.locator('textarea#wpTextbox1').count() !== 1) {
+				failures.push('the Add section Content textarea lacks the wpTextbox1 id');
+			}
+			if (await page.locator('#wb-sectionform-preview').count() !== 1) {
+				failures.push('the Add section form lacks the Preview button');
+			}
+			await page.fill('#wpTextbox1', '== Previewed ==\n\nPreview body.');
+			await page.click('#wb-sectionform-preview');
+			await page.waitForFunction(() => {
+				const box = document.querySelector('.wb-sectionform-preview');
+				return box && !box.hidden && box.textContent.includes('Preview body');
+			}, { timeout: 15000 }).catch(() => {});
+			const previewOk = await page.evaluate(() => {
+				const box = document.querySelector('.wb-sectionform-preview');
+				return !!box && !box.hidden && box.textContent.includes('Preview body');
+			});
+			if (!previewOk) {
+				failures.push('the Preview button did not render the preview');
+			} else {
+				console.log('[ok] Preview button renders the content');
+			}
+
+			await page.fill('#wpTextbox1', 'Appended by the E2E.');
 			await page.fill('[name="wpsummary"]', 'E2E append');
 			await page.click('#wb-append-section-submit');
 			await page.waitForSelector('#firstHeading', { timeout: 15000 });
-			const bodyText = await page.locator('#mw-content-text').innerText();
+			let bodyText = await page.locator('#mw-content-text').innerText();
 			if (!bodyText.includes('Appended by the E2E.')) {
 				failures.push('the Add section save did not append the content');
 			} else if (!bodyText.includes('Body one.') || !bodyText.includes('Body two.')) {
@@ -427,6 +464,59 @@ async function main() {
 				failures.push(`Add section added a heading (h2 count ${headingCount}, expected 2)`);
 			} else {
 				console.log('[ok] Add section added no heading');
+			}
+
+			// "Add section below": insert a block below First section; a blank
+			// Summary auto-infers the comment from the topmost heading.
+			await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+			const addBelowHref = await page.getAttribute('.mw-editsection #wb-section-addbelow-First_section', 'href');
+			await page.goto(new URL(addBelowHref, BASE_URL).href, { waitUntil: 'domcontentloaded', timeout: 60000 });
+			await page.waitForSelector('#wb-append-section-submit', { timeout: 15000 });
+			await page.fill('#wpTextbox1', '=== Added sub ===\n\nSub body.');
+			await page.fill('[name="wpsummary"]', '');
+			await page.click('#wb-append-section-submit');
+			await page.waitForSelector('#firstHeading', { timeout: 15000 });
+			bodyText = await page.locator('#mw-content-text').innerText();
+			const oneAt = bodyText.indexOf('Body one.');
+			const subAt = bodyText.indexOf('Added sub');
+			const twoAt = bodyText.indexOf('Body two.');
+			if (subAt === -1 || twoAt === -1 || !(oneAt < subAt && subAt < twoAt)) {
+				failures.push('"Add section below" did not insert below the First section');
+			} else {
+				console.log('[ok] Add section below inserts below the target section');
+			}
+			const subComment = await page.evaluate(async (title) => {
+				await new Promise((r) => mw.loader.using('mediawiki.api', r));
+				const r = await new mw.Api().get({
+					action: 'query', prop: 'revisions', titles: title, rvprop: 'comment', rvlimit: 1,
+				});
+				const pages = r.query.pages;
+				const pageObj = pages[Object.keys(pages)[0]];
+				return pageObj.revisions && pageObj.revisions[0] && pageObj.revisions[0].comment;
+			}, sectionTitle);
+			if (subComment !== '/* Added sub */') {
+				failures.push(`auto-summary comment ${JSON.stringify(subComment)} != "/* Added sub */"`);
+			} else {
+				console.log('[ok] blank Summary auto-infers /* Added sub */');
+			}
+
+			// "Delete section": the confirmation shows the text; the save
+			// removes the whole section.
+			await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+			const deleteHref = await page.getAttribute('.mw-editsection #wb-section-delete-Second_section', 'href');
+			await page.goto(new URL(deleteHref, BASE_URL).href, { waitUntil: 'domcontentloaded', timeout: 60000 });
+			await page.waitForSelector('#wb-delete-section-submit', { timeout: 15000 });
+			const confirmText = await page.locator('.wb-deletesection-preview').innerText();
+			if (!confirmText.includes('Body two.')) {
+				failures.push('the delete confirmation does not show the section content');
+			}
+			await page.click('#wb-delete-section-submit');
+			await page.waitForSelector('#firstHeading', { timeout: 15000 });
+			bodyText = await page.locator('#mw-content-text').innerText();
+			if (bodyText.includes('Body two.')) {
+				failures.push('"Delete section" did not remove the section');
+			} else {
+				console.log('[ok] Delete section removes the section');
 			}
 		} finally {
 			await page.evaluate(async (title) => {

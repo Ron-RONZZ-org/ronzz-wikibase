@@ -9,6 +9,10 @@ renamed ZIP (containing `geogebra.xml`); the extension registers the
 embeds an applet instead of a file link. Upload/versioning use the standard
 `Special:Upload` + `File:` machinery.
 
+A second surface, the **`<geogebra>` parser tag**, renders RAW GeoGebra
+commands (one per line, no upload) through the same sandboxed player iframe —
+see `../../docs/decisions/geogebra-inline-commands.md`.
+
 Design rationale: `../../docs/decisions/geogebra.md`. App-bundle provenance +
 licence: [`ASSETS.md`](ASSETS.md).
 
@@ -38,6 +42,13 @@ licence: [`ASSETS.md`](ASSETS.md).
    extracts it and its idempotency check requires the css marker, so a
    pre-2026-09-24 web3d-only install self-heals (without the css the applet
    never renders — blank iframe).
+5. **`<geogebra>` tag** (`Hooks::onParserFirstCallInit` + `renderGeoGebra`):
+   takes raw GeoGebra commands (one per line) plus optional
+   `width`/`height`/`app` attributes and emits the SAME sandboxed iframe with
+   the commands in the `commands` query parameter. The player evaluates each
+   line via `api.evalCommand()` in `appletOnLoad`. `GeoGebraEmbed::commandPlayerSrc`
+   / `commandIframeAttributes` are the pure builders; `$wgGeoGebraEnableCommands`
+   + `$wgGeoGebraCommandMaxLength` bound it.
 
 ## Constraints and Invariants
 
@@ -58,16 +69,19 @@ licence: [`ASSETS.md`](ASSETS.md).
 
 ## Input/Output Expectations
 
-- **Input**: an uploaded `.ggb`; `[[File:…]]` options (width/height).
+- **Input**: an uploaded `.ggb`; `[[File:…]]` options (width/height);
+  `<geogebra>` raw commands + `width`/`height`/`app` attributes.
 - **Output**: a sandboxed player `<iframe>` (HTML).
 - **Unit-test surface**: `tests/Unit/GeoGebraEmbedTest.php` covers the pure
-  `GeoGebraEmbed` builders. The MW-bound paths (MIME hooks, handler, rendered
-  iframe) are covered by `tests/e2e/run_geogebra_e2e.py` (dev-stack CI + live)
-  and the browser render by `tests/e2e/run_geogebra_ux_e2e.mjs`.
+  `GeoGebraEmbed` builders (file + command modes). The MW-bound paths (MIME
+  hooks, handler, the `<geogebra>` tag, rendered iframe) are covered by
+  `tests/e2e/run_geogebra_e2e.py` (dev-stack CI + live) and the browser
+  render by `tests/e2e/run_geogebra_ux_e2e.mjs`.
 
 ## Documentation Reference
 
 - `../../docs/decisions/geogebra.md` — the design decision + security model
+- `../../docs/decisions/geogebra-inline-commands.md` — the `<geogebra>` tag
 - `ASSETS.md` — the app-bundle provenance/licence
 - On-wiki: `Help:Contributing/richMediaContent`
 - `RonzzIT:Deployment/Wikibase` + `RonzzIT:Runbook/Wikibase` — instance ops

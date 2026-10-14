@@ -6,6 +6,10 @@
 	},
 	"geogebra-desc": "Interactive GeoGebra worksheets: upload a .ggb and embed it with [[File:name.ggb]]",
 	"geogebra-open-file": "Open the GeoGebra file",
+	"geogebra-empty": "The GeoGebra tag is empty — add one GeoGebra command per line.",
+	"geogebra-too-long": "The GeoGebra commands are too long (limit: $1 bytes).",
+	"geogebra-no-player": "GeoGebra embedding is not configured on this wiki.",
+	"geogebra-commands-disabled": "Raw GeoGebra commands are disabled on this wiki.",
 	"geogebra-short-desc": "GeoGebra worksheet $1",
 	"geogebra-long-desc": "GeoGebra interactive worksheet"
 }

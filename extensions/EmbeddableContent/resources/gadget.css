@@ -65,10 +65,11 @@
 	padding: 2px 8px;
 }
 
-/* Per-section copy controls (resources/sectionactions.js): two small
- * link-styled controls rendered inside each heading's [edit] link, to its
- * right — they inherit the editsection's small inline scale. */
-.wb-section-actions {
+/* Per-section controls (resources/sectionactions.js): small link-styled
+ * controls rendered inside each heading's [edit] link, to its right, each in
+ * its own [ ] bracket pair — they inherit the editsection's small inline
+ * scale. */
+.wb-section-action-group {
 	white-space: nowrap;
 }
 
@@ -80,10 +81,43 @@
 	font: inherit;
 	color: #36c;
 	cursor: pointer;
+	text-decoration: none;
 }
 
 .wb-section-action:hover {
 	text-decoration: underline;
+}
+
+/* "Delete section" confirmation (resources DeleteSectionAction): the target
+ * section shown above the form. */
+.wb-deletesection-heading {
+	font-weight: bold;
+	margin: 0 0 0.25em;
+}
+
+.wb-deletesection-preview {
+	max-height: 24em;
+	overflow: auto;
+	padding: 0.5em;
+	background: #f8f9fa;
+	border: 1px solid #eaecf0;
+	white-space: pre-wrap;
+}
+
+/* "Preview" button + box on the append editor (resources/sectionform.js). */
+.wb-sectionform-preview {
+	margin: 0.75em 0;
+	padding: 0.5em;
+	background: #f8f9fa;
+	border: 1px solid #eaecf0;
+}
+
+.wb-sectionform-preview-error {
+	color: #b32424;
+}
+
+.wb-sectionform-preview-btn {
+	margin-right: 0.5em;
 }
 
 /* Upload hand-off fallback: a page-load clipboard write is blocked without a

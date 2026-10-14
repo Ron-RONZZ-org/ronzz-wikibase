@@ -6,6 +6,10 @@
 	},
 	"geogebra-desc": "Interagaj GeoGebra-folioj: alŝutu .ggb kaj enigu ĝin per [[File:nomo.ggb]]",
 	"geogebra-open-file": "Malfermi la GeoGebra-dosieron",
+	"geogebra-empty": "La GeoGebra-etikedo estas malplena — aldonu unu GeoGebra-komandon por linio.",
+	"geogebra-too-long": "La GeoGebra-komandoj estas tro longaj (limo: $1 bajtoj).",
+	"geogebra-no-player": "GeoGebra-enigado ne estas agordita en ĉi tiu vikio.",
+	"geogebra-commands-disabled": "Krudaĵaj GeoGebra-komandoj estas malŝaltitaj en ĉi tiu vikio.",
 	"geogebra-short-desc": "GeoGebra-folio $1",
 	"geogebra-long-desc": "Interaga GeoGebra-folio"
 }

@@ -46,7 +46,12 @@ deployed, how to operate it, and why it is designed the way it is.
   `classic-page-label-sync.md` (a direct label edit renames the sitelinked
   classic page, leaving a redirect; backtracking moves it back), and
   `math-note-split-and-page-actions.md` (the math pre/post-content notes, the
-  per-section mention/URL copy controls, and the append "Add section" action).
+  per-section mention/URL copy controls, and the append "Add section" action
+  — §2/§3 partly superseded), `section-controls-and-editor.md` (the bracketed
+  per-section controls + "Add section below"/"Delete section", the Edit-parity
+  WikiEditor + Preview on the append editor, the auto-inferred summary), and
+  `geogebra-inline-commands.md` (the `<geogebra>` tag rendering raw GeoGebra
+  commands without an uploaded `.ggb`).
 
 ## Constraints and Invariants
 

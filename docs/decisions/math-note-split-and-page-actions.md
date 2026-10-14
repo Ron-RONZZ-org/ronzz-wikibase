@@ -2,6 +2,14 @@
 
 Status: accepted (2026-10-14). Owner: ronzz.org.
 
+> **Partly superseded (2026-10-14)** for **§2** (per-section controls) and
+> **§3** (the append editor): the section controls are now each in their own
+> `[ ]` bracket pair and gain "Add section below" / "Delete section"; the
+> append editor uses a plain `wpTextbox1` textarea so WikiEditor attaches the
+> Edit-parity toolbar, plus a Preview button and an auto-inferred summary.
+> See `section-controls-and-editor.md`. **§1 (the math pre/post-content
+> notes) stands.**
+
 Three UX requirements on the EmbeddableContent surfaces. **Re-seed required**
 (one new property); no other vocabulary/class/config change.
 

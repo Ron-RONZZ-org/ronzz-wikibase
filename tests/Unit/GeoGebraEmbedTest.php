@@ -64,4 +64,33 @@ final class GeoGebraEmbedTest extends TestCase {
 		$this->assertSame( 'application/geogebra', GeoGebraEmbed::MIME );
 		$this->assertSame( 'ggb', GeoGebraEmbed::EXTENSION );
 	}
+
+	public function testCommandPlayerSrcCarriesTheCommands(): void {
+		$commands = "A = (1, 2)\nf(x) = x^2";
+		$src = GeoGebraEmbed::commandPlayerSrc( self::PLAYER, $commands, 640, 480, 'classic' );
+
+		$this->assertStringStartsWith( self::PLAYER . '?', $src );
+		parse_str( (string)parse_url( $src, PHP_URL_QUERY ), $query );
+		$this->assertSame( $commands, $query['commands'] );
+		$this->assertSame( '640', $query['w'] );
+		$this->assertSame( '480', $query['h'] );
+		$this->assertSame( 'classic', $query['app'] );
+		$this->assertArrayNotHasKey( 'file', $query );
+	}
+
+	public function testCommandIframeAttributesCarryTheIsolationContract(): void {
+		$attribs = GeoGebraEmbed::commandIframeAttributes(
+			self::PLAYER,
+			"A = (1, 2)\nf(x) = x^2",
+			800,
+			600,
+			'allow-scripts allow-same-origin',
+			'graphing'
+		);
+
+		$this->assertSame( 'ggb-embed', $attribs['class'] );
+		$this->assertSame( 'allow-scripts allow-same-origin', $attribs['sandbox'] );
+		$this->assertStringContainsString( 'commands=', $attribs['src'] );
+		$this->assertStringNotContainsString( 'file=', $attribs['src'] );
+	}
 }

@@ -1,13 +1,18 @@
 /**
- * Per-section copy controls on ordinary content pages: two small controls
- * rendered to the RIGHT of each heading's "[edit]" link (the core
- * `.mw-editsection`):
+ * Per-section controls on ordinary content pages, rendered INSIDE each
+ * heading's `.mw-editsection` next to the core `[edit]` link, each in its own
+ * bracket pair (the `[edit]` style):
+ *
+ *   [edit] [Copy internal mention] [Copy URL] [Add section below] [Delete section]
  *
  *   - "Copy internal mention" — copies `[[Page title#section anchor|` (NO
- *     closing brackets — the contributor types the display text themselves),
- *     so a section can be linked/mentioned from anywhere on the wiki;
- *   - "Copy URL" — copies the ABSOLUTE URL of the section
- *     (`https://host/wiki/Page#section-anchor`).
+ *     closing brackets — the contributor types the display text themselves);
+ *   - "Copy URL" — copies the ABSOLUTE URL of the section;
+ *   - "Add section below" — opens the append editor targeting this section
+ *     (`?action=appendsection&section=<n>`; the number is read from the
+ *     existing `[edit]` link);
+ *   - "Delete section" — opens the delete confirmation
+ *     (`?action=deletesection&section=<n>`).
  *
  * The page-title part of the mention reuses the server-resolved
  * `wbReferenceSnippet` (`Spec\MentionSnippet`, the same Main-namespace
@@ -87,8 +92,39 @@
 		return null;
 	}
 
+	/**
+	 * The section index the core `[edit]` link targets (`?…&section=<n>`), or
+	 * null. The same number drives `action=appendsection` / `deletesection`.
+	 *
+	 * @param {jQuery} $edit the `.mw-editsection` element
+	 * @return {?number}
+	 */
+	function sectionNumber( $edit ) {
+		var href = $edit.find( 'a' ).first().attr( 'href' ) || '';
+		var value = null;
+		try {
+			value = new URL( href, window.location.href ).searchParams.get( 'section' );
+		} catch ( e ) {
+			value = null;
+		}
+		if ( value === null ) {
+			return null;
+		}
+		var number = parseInt( value, 10 );
+		return isNaN( number ) || number <= 0 ? null : number;
+	}
+
+	/** Wrap one control in its own `[ ]` bracket pair, with a leading space. */
+	function bracketed( $control ) {
+		return $( '<span class="wb-section-action-group"></span>' )
+			.append( document.createTextNode( ' ' ) )
+			.append( $( '<span class="mw-editsection-bracket"></span>' ).text( '[' ) )
+			.append( $control )
+			.append( $( '<span class="mw-editsection-bracket"></span>' ).text( ']' ) );
+	}
+
 	/** One small copy control matching the [edit] link's style. */
-	function makeButton( id, messageKey, hintKey, text ) {
+	function makeCopyButton( id, messageKey, hintKey, text ) {
 		return $( '<button>' )
 			.attr( 'id', id )
 			.attr( 'type', 'button' )
@@ -99,6 +135,16 @@
 				e.preventDefault();
 				copyText( text );
 			} );
+	}
+
+	/** One small navigation control matching the [edit] link's style. */
+	function makeActionLink( id, messageKey, hintKey, href ) {
+		return $( '<a>' )
+			.attr( 'id', id )
+			.attr( 'href', href )
+			.addClass( 'wb-section-action' )
+			.attr( 'title', mw.msg( hintKey ) )
+			.text( mw.msg( messageKey ) );
 	}
 
 	mw.loader.using( [ 'mediawiki.notification', 'mediawiki.util' ] ).then( function () {
@@ -121,27 +167,36 @@
 			if ( !anchor ) {
 				return;
 			}
-			var mention = linkBase + '#' + anchor + '|';
-			var url = pageUrlBase + '#' + anchor;
-			// Append INSIDE the `.mw-editsection` (after the closing bracket,
-			// which is its last child) so the controls inherit its small inline
-			// link style — the "[edit] mention url" row.
-			var $actions = $( '<span class="wb-section-actions"></span>' )
-				.append( document.createTextNode( ' ' ) )
-				.append( makeButton(
-					'wb-section-copymention-' + anchor,
-					'embeddablecontent-section-copymention',
-					'embeddablecontent-section-copymention-hint',
-					mention
-				) )
-				.append( document.createTextNode( ' ' ) )
-				.append( makeButton(
-					'wb-section-copyurl-' + anchor,
-					'embeddablecontent-section-copyurl',
-					'embeddablecontent-section-copyurl-hint',
-					url
-				) );
-			$edit.append( $actions );
+
+			$edit.append( bracketed( makeCopyButton(
+				'wb-section-copymention-' + anchor,
+				'embeddablecontent-section-copymention',
+				'embeddablecontent-section-copymention-hint',
+				linkBase + '#' + anchor + '|'
+			) ) );
+			$edit.append( bracketed( makeCopyButton(
+				'wb-section-copyurl-' + anchor,
+				'embeddablecontent-section-copyurl',
+				'embeddablecontent-section-copyurl-hint',
+				pageUrlBase + '#' + anchor
+			) ) );
+
+			var number = sectionNumber( $edit );
+			if ( number === null ) {
+				return;
+			}
+			$edit.append( bracketed( makeActionLink(
+				'wb-section-addbelow-' + anchor,
+				'embeddablecontent-section-addbelow',
+				'embeddablecontent-section-addbelow-hint',
+				mw.util.getUrl( pageName, { action: 'appendsection', section: number } )
+			) ) );
+			$edit.append( bracketed( makeActionLink(
+				'wb-section-delete-' + anchor,
+				'embeddablecontent-section-delete',
+				'embeddablecontent-section-delete-hint',
+				mw.util.getUrl( pageName, { action: 'deletesection', section: number } )
+			) ) );
 		} );
 	} );
 }() );

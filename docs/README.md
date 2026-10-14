@@ -99,3 +99,10 @@ fix, the defensive AddPerson date normalization, bookExcerpt language
 inheritance from the parent book, the content-page "Add section" action, and
 the label/description fallback that makes `fr`/`eo`-only items visible in the
 search results and on their Item: pages).
+
+Later content-page UX: `section-controls-and-editor.md` (each per-section
+control in its own `[ ]` bracket pair + "Add section below"/"Delete section",
+the Edit-parity WikiEditor toolbar + Preview button on the append editor, and
+the topmost-heading auto-summary) and `geogebra-inline-commands.md` (the
+`<geogebra>` parser tag: raw GeoGebra commands rendered by the sandboxed
+player without an uploaded `.ggb`).
