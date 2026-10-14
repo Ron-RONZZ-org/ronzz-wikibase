@@ -217,9 +217,9 @@ def find_form(html: str, required_field: str) -> tuple[str, dict]:
     raise FlowError(f"no form carrying {required_field!r} found on the page")
 
 
-def submit_form(op, base: str, path: str, required_field: str, overrides: dict) -> str:
+def submit_form(op, base: str, path: str, required_field: str, overrides: dict) -> tuple[str, str]:
     """GET the form, set the known inputs, POST it back (following redirects);
-    returns the final response body (the destination page)."""
+    returns (final_url, body)."""
     html = page_get(op, base, path)
     action, fields = find_form(html, required_field)
     fields.update(overrides)
@@ -229,7 +229,15 @@ def submit_form(op, base: str, path: str, required_field: str, overrides: dict) 
         headers={"User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded"},
     )
     with op.open(req, timeout=90) as resp:
-        return resp.read().decode("utf-8", "replace")
+        return resp.geturl(), resp.read().decode("utf-8", "replace")
+
+
+def response_diagnostic(body: str) -> str:
+    """A compact hint about why an edit form did not save."""
+    plain = re.sub(r"<[^>]+>", " ", body)
+    plain = re.sub(r"\s+", " ", plain).strip()
+    mode = re.search(r"name=['\"]mode['\"]\s+value=['\"]([^'\"]*)['\"]", body)
+    return f"mode={mode.group(1) if mode else '?'}; body[:600]={plain[:600]!r}"
 
 
 def section_number(html: str, anchor: str) -> int:
@@ -333,21 +341,24 @@ def section_action_flow(op, api: str, base: str, keep: bool) -> None:
         print("[ok] the append editor renders the built-in edit surface (no minor-edit checkbox)")
 
         # 1. Page-end append (?action=appendsection, no target section).
-        submit_form(op, base, rendered_path(title) + "?action=appendsection", "wpTextbox1",
-                    append_save_fields("Appended tail.", "E2E tail append"))
+        save_url, save_resp = submit_form(
+            op, base, rendered_path(title) + "?action=appendsection", "wpTextbox1",
+            append_save_fields("Appended tail.", "E2E tail append"))
         text, _ = page_wikitext(op, api, title)
         if not text.rstrip().endswith("Appended tail."):
-            raise FlowError(f"page-end append did not land at the end:\n{text!r}")
+            raise FlowError(
+                f"page-end append did not land at the end (final url {save_url}):\n"
+                f"{text!r}\n{response_diagnostic(save_resp)}")
         if "== First ==" not in text or "== Second ==" not in text:
             raise FlowError(f"page-end append lost existing content:\n{text!r}")
         print("[ok] action=appendsection appends to the page end, preserving content")
 
         # 2. Show preview renders the assembled result without saving.
         before, _ = page_wikitext(op, api, title)
-        preview_html = submit_form(op, base, rendered_path(title) + "?action=appendsection",
-                                   "wpTextbox1",
-                                   {"wpTextbox1": "Preview only text.", "wpSummary": "",
-                                    "wpPreview": "1", "wpSave": "", "wpDiff": ""})
+        _, preview_html = submit_form(
+            op, base, rendered_path(title) + "?action=appendsection", "wpTextbox1",
+            {"wpTextbox1": "Preview only text.", "wpSummary": "",
+             "wpPreview": "1", "wpSave": "", "wpDiff": ""})
         if "wikiPreview" not in preview_html or "Preview only text." not in preview_html:
             raise FlowError("Show preview did not render the assembled content")
         after, _ = page_wikitext(op, api, title)
@@ -356,10 +367,10 @@ def section_action_flow(op, api: str, base: str, keep: bool) -> None:
         print("[ok] Show preview renders the result without saving")
 
         # 3. Show changes renders a diff against the current page.
-        diff_html = submit_form(op, base, rendered_path(title) + "?action=appendsection",
-                                "wpTextbox1",
-                                {"wpTextbox1": "Diff only text.", "wpSummary": "",
-                                 "wpDiff": "1", "wpSave": "", "wpPreview": ""})
+        _, diff_html = submit_form(
+            op, base, rendered_path(title) + "?action=appendsection", "wpTextbox1",
+            {"wpTextbox1": "Diff only text.", "wpSummary": "",
+             "wpDiff": "1", "wpSave": "", "wpPreview": ""})
         if "wikiDiff" not in diff_html or "Diff only text." not in diff_html:
             raise FlowError("Show changes did not render the diff against the current page")
         print("[ok] Show changes renders a diff against the current page")
@@ -367,13 +378,16 @@ def section_action_flow(op, api: str, base: str, keep: bool) -> None:
         # 4. Add section below (?action=appendsection&wbsection=<First>), blank
         #    Summary → auto-inferred `/* Sub */` comment.
         first = section_number(page_get(op, base, rendered_path(title)), "First")
-        submit_form(op, base, f"{rendered_path(title)}?action=appendsection&wbsection={first}",
-                    "wpTextbox1", append_save_fields("=== Sub ===\n\nSub body.", ""))
+        below_url, below_resp = submit_form(
+            op, base, f"{rendered_path(title)}?action=appendsection&wbsection={first}",
+            "wpTextbox1", append_save_fields("=== Sub ===\n\nSub body.", ""))
         text, comment = page_wikitext(op, api, title)
         sub_at = text.find("=== Sub ===")
         second_at = text.find("== Second ==")
         if sub_at == -1 or second_at == -1 or not sub_at < second_at:
-            raise FlowError(f"'Add section below' did not insert below First:\n{text!r}")
+            raise FlowError(
+                f"'Add section below' did not insert below First (final url {below_url}):\n"
+                f"{text!r}\n{response_diagnostic(below_resp)}")
         if "One." not in text[:sub_at] or "Two." not in text[second_at:]:
             raise FlowError(f"'Add section below' disturbed the surrounding sections:\n{text!r}")
         if comment != "/* Sub */":
