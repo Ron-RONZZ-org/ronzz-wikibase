@@ -5,10 +5,13 @@
 Developer tooling for ronzz-wikibase: the language-manifest generator
 (Pygments-derived language items), the live fetch-layer smoke test, the
 `owui-writer/` deploy kit (Open WebUI wiki writer — MCP endpoint + least-privilege
-bot), the syntaxhighlight `copy` standardizer/auditor, and the LibreTexts →
-wikitext draft converter. Small helpers that feed the D1 manifests, prove the
-integration layer end-to-end, wire the wiki into the LLM writing studio, keep
-the wiki content conformant, or bootstrap draft pages from external sources.
+bot), and the syntaxhighlight `copy` standardizer/auditor. Small helpers that
+feed the D1 manifests, prove the integration layer end-to-end, wire the wiki
+into the LLM writing studio, or keep the wiki content conformant.
+
+`tools/usertools/` collects personal, local-only helpers — not part of the CI
+surface: the LibreTexts → wikitext draft converter and an Inkscape SVG-text
+fixer.
 
 ## Purpose and Expected Behavior
 
@@ -117,6 +120,21 @@ the wiki content conformant, or bootstrap draft pages from external sources.
   `python3 tools/usertools/libretexts2wikitext.py <url> -o draft.wiki`. Requires the
   external **`pandoc`** binary (3.x) on PATH — the only tool here with a
   non-stdlib runtime dependency; its unit tests are pandoc-free. Unit tests:
+  `python3 -m unittest discover -s tools/tests`.
+- **`tools/usertools/fix_svg_text.py`** — makes downloaded SVG multi-line
+  text editable in Inkscape. Generated SVGs (browsers, graph tools,
+  Illustrator/draw.io exports) position each visual line with an absolute
+  `x`/`y` on a bare `<tspan>` and no role, so Inkscape reads the `<text>` as a
+  single line and pressing Enter inserts the next line overlapping the previous
+  one. The script adds `sodipodi:role="line"` to every positioned `<tspan>`
+  (converting single-value `dy` shifts to absolute `y`; per-glyph `dy` lists
+  and inline styling are left untouched), declares the `sodipodi` namespace,
+  seeds `x`/`y` onto the `<text>`, and sets `xml:space="preserve"` — rendering
+  is unchanged. Takes local paths (in place, batch, `-o`) or `http(s)` URLs:
+  a URL is downloaded into a temp dir (`--outdir`), normalised, and an
+  interactive menu then opens it in Inkscape (`--inkscape`), renames/moves it,
+  or exits. Stdlib only (`xml.etree`, `urllib`); the `inkscape` binary is
+  needed only for the "open" action. Unit tests:
   `python3 -m unittest discover -s tools/tests`.
 
 ## Constraints and Invariants
