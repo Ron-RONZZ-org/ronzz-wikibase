@@ -268,20 +268,26 @@ def append_save_fields(text: str, summary: str) -> dict:
     }
 
 
+def _has_attr(html: str, attr: str, value: str) -> bool:
+    """Match attr='value' or attr="value" (core HTML uses double quotes,
+    OOUI server-side rendering uses single quotes)."""
+    return re.search(r"%s=['\"]%s['\"]" % (attr, re.escape(value)), html) is not None
+
+
 def assert_edit_parity(html: str) -> None:
     """The append editor is the built-in edit surface, minus minor-edit."""
     present = {
-        "form id=editform": 'id="editform"' in html,
-        "wpTextbox1": 'name="wpTextbox1"' in html or 'id="wpTextbox1"' in html,
-        "wpSummary": 'name="wpSummary"' in html,
-        "Save button": 'name="wpSave"' in html,
-        "Show preview button": 'name="wpPreview"' in html,
-        "Show changes button": 'name="wpDiff"' in html,
+        "form id=editform": _has_attr(html, "id", "editform"),
+        "wpTextbox1": _has_attr(html, "name", "wpTextbox1") or _has_attr(html, "id", "wpTextbox1"),
+        "wpSummary": _has_attr(html, "name", "wpSummary"),
+        "Save button": _has_attr(html, "name", "wpSave"),
+        "Show preview button": _has_attr(html, "name", "wpPreview"),
+        "Show changes button": _has_attr(html, "name", "wpDiff"),
     }
     missing = [name for name, ok in present.items() if not ok]
     if missing:
         raise FlowError(f"the append editor is missing built-in edit elements: {missing}")
-    if "wpMinoredit" in html:
+    if _has_attr(html, "name", "wpMinoredit") or _has_attr(html, "id", "wpMinoredit"):
         raise FlowError("the append editor must NOT render the 'minor edit' checkbox (wpMinoredit)")
 
 
