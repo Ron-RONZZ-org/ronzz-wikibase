@@ -102,7 +102,9 @@ search results and on their Item: pages).
 
 Later content-page UX: `section-controls-and-editor.md` (each per-section
 control in its own `[ ]` bracket pair + "Add section below"/"Delete section",
-the Edit-parity WikiEditor toolbar + Preview button on the append editor, and
-the topmost-heading auto-summary) and `geogebra-inline-commands.md` (the
+and the topmost-heading auto-summary), `section-controls-editpage-editor.md`
+(the controls extended to every classic article page, and the append editor
+rebuilt on core's `EditPage` — built-in Show preview / Show changes, minus the
+minor-edit checkbox) and `geogebra-inline-commands.md` (the
 `<geogebra>` parser tag: raw GeoGebra commands rendered by the sandboxed
 player without an uploaded `.ggb`).

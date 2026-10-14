@@ -69,12 +69,12 @@ if ( is_dir( '/var/www/html/extensions/Cite' ) ) {
 
 // WikiEditor — the wikitext toolbar shown on the ordinary Edit page AND on
 // the EmbeddableContent "Add section"/"Add section below" append editor
-// (`AppendSectionAction` renders a plain textarea with the stable
-// `wpTextbox1` id; WikiEditor's own bootstrap attaches the toolbar when the
-// user has the `usebetatoolbar` preference). Production loads WikiEditor
+// (`AppendSectionEditPage` IS core's `EditPage`, whose `wpTextbox1` textarea
+// WikiEditor's own `EditPage::showEditForm:initial` bootstrap attaches to when
+// the user has the `usebetatoolbar` preference). Production loads WikiEditor
 // (see siteinfo); the WBS image bundles it. The guard keeps the wiki bootable
 // if the image ever drops it — the append editor then degrades to a plain
-// textarea (the `wpTextbox1` id and the Preview button still work).
+// textarea (the built-in Show preview / Show changes still work).
 if ( is_dir( '/var/www/html/extensions/WikiEditor' ) ) {
 	wfLoadExtension( 'WikiEditor' );
 }

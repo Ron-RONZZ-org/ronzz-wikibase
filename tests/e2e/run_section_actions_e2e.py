@@ -1,22 +1,28 @@
 #!/usr/bin/env python3
-"""E2E for the content-page section actions (EmbeddableContent).
+"""E2E for the classic-page section actions (EmbeddableContent).
 
 Exercises the two custom page actions against a live instance, as a logged-in
-editor, by GETting the rendered form, parsing its hidden fields (the CSRF
-token, the form identifier and the `section` carrier), filling the known
-inputs and POSTing it back — the same round-trip a browser performs:
+editor, as a browser would: GET the rendered form, parse its hidden fields
+(the CSRF token, form identifier and the target-section carrier), fill the
+known inputs and POST it back.
 
-1. `?action=appendsection` appends the submitted wikitext to the END of the
-   page (no heading added, existing content preserved);
-2. `?action=appendsection&section=<n>` appends BELOW that section, and — with
+1. `?action=appendsection` renders core's built-in edit surface (form id
+   `editform`, `wpTextbox1`, Summary, Save / Show preview / Show changes) with
+   NO "This is a minor edit" checkbox, and its save APPENDS the submitted
+   wikitext to the END of the page (no heading added, existing content
+   preserved);
+2. Show preview and Show changes render the assembled page WITHOUT saving;
+3. `?action=appendsection&wbsection=<n>` appends BELOW that section, and — with
    a blank Summary — the revision comment is auto-inferred from the topmost
    heading of the content (`/* Heading */`);
-3. `?action=deletesection&section=<n>` shows a confirmation page bearing the
+4. `?action=deletesection&section=<n>` shows a confirmation page bearing the
    section's wikitext, and its save removes the whole section;
-4. the rendered section `[edit]` link carries the `section` number the
-   controls and the actions rely on.
+5. the rendered section `[edit]` link carries the `section` number the
+   controls and the actions rely on;
+6. the controls + Add section action also load on a non-content classic page
+   (the `Help:` namespace), which the pre-change scope excluded.
 
-Self-cleaning: the scratch page (and the item the page→item hook may have
+Self-cleaning: the scratch pages (and the item the page→item hook may have
 auto-created) are deleted on the way out.
 
 Usage::
@@ -247,6 +253,64 @@ def rendered_path(title: str) -> str:
     return "/wiki/" + urllib.parse.quote(title.replace(" ", "_"), safe="/:")
 
 
+def append_save_fields(text: str, summary: str) -> dict:
+    """The POST fields the EditPage-based append editor needs to SAVE.
+
+    The editor is core's edit form: `wpSave` saves, while `wpPreview`/`wpDiff`
+    take precedence, so a save must blank them (a browser only submits the
+    clicked button)."""
+    return {
+        "wpTextbox1": text,
+        "wpSummary": summary,
+        "wpSave": "1",
+        "wpPreview": "",
+        "wpDiff": "",
+    }
+
+
+def assert_edit_parity(html: str) -> None:
+    """The append editor is the built-in edit surface, minus minor-edit."""
+    present = {
+        "form id=editform": 'id="editform"' in html,
+        "wpTextbox1": 'name="wpTextbox1"' in html or 'id="wpTextbox1"' in html,
+        "wpSummary": 'name="wpSummary"' in html,
+        "Save button": 'name="wpSave"' in html,
+        "Show preview button": 'name="wpPreview"' in html,
+        "Show changes button": 'name="wpDiff"' in html,
+    }
+    missing = [name for name, ok in present.items() if not ok]
+    if missing:
+        raise FlowError(f"the append editor is missing built-in edit elements: {missing}")
+    if "wpMinoredit" in html:
+        raise FlowError("the append editor must NOT render the 'minor edit' checkbox (wpMinoredit)")
+
+
+def scope_expansion_flow(op, api: str, base: str, keep: bool) -> None:
+    """The per-section controls + Add section action load on a non-content
+    classic page (Help:), which the pre-change code excluded."""
+    stamp = int(time.time())
+    title = f"Help:Section actions E2E {stamp}"
+    try:
+        create_page(op, api, title, "Lead.\n\n== Alpha ==\n\nA.")
+        html = page_get(op, base, rendered_path(title))
+        if "wbReferenceSnippet" not in html:
+            raise FlowError("section controls did not load on a Help: (non-content) page")
+        if "ext.embeddableContent.sectionactions" not in html:
+            raise FlowError("the section-actions module was not queued on a Help: page")
+        if "action=appendsection" not in html:
+            raise FlowError("the 'Add section' page action is missing on a Help: page")
+        print("[ok] section controls + Add section action load on a non-content classic page (Help:)")
+    finally:
+        if keep:
+            print(f"[keep] leaving scratch page {title}")
+        else:
+            try:
+                delete_page(op, api, title)
+                print(f"[ok] cleanup: {title} deleted")
+            except Exception as exc:  # noqa: BLE001 — best-effort cleanup
+                print(f"[warn] cleanup of {title} failed: {exc}")
+
+
 def section_action_flow(op, api: str, base: str, keep: bool) -> None:
     stamp = int(time.time())
     title = f"Section actions E2E {stamp}"
@@ -255,9 +319,16 @@ def section_action_flow(op, api: str, base: str, keep: bool) -> None:
         create_page(op, api, title, lead)
         check_initial_controls(op, base, title)
 
-        # 1. Page-end append (?action=appendsection, no section).
-        submit_form(op, base, rendered_path(title) + "?action=appendsection", "wpcontent",
-                    {"wpcontent": "Appended tail.", "wpsummary": "E2E tail append"})
+        # 0. The append editor IS the built-in edit surface (form id editform,
+        #    wpTextbox1, Summary, Save/Show preview/Show changes), minus the
+        #    "This is a minor edit" checkbox.
+        form_html = page_get(op, base, rendered_path(title) + "?action=appendsection")
+        assert_edit_parity(form_html)
+        print("[ok] the append editor renders the built-in edit surface (no minor-edit checkbox)")
+
+        # 1. Page-end append (?action=appendsection, no target section).
+        submit_form(op, base, rendered_path(title) + "?action=appendsection", "wpTextbox1",
+                    append_save_fields("Appended tail.", "E2E tail append"))
         text, _ = page_wikitext(op, api, title)
         if not text.rstrip().endswith("Appended tail."):
             raise FlowError(f"page-end append did not land at the end:\n{text!r}")
@@ -265,12 +336,33 @@ def section_action_flow(op, api: str, base: str, keep: bool) -> None:
             raise FlowError(f"page-end append lost existing content:\n{text!r}")
         print("[ok] action=appendsection appends to the page end, preserving content")
 
-        # 2. Add section below (?action=appendsection&section=<First>), blank
+        # 2. Show preview renders the assembled result without saving.
+        before, _ = page_wikitext(op, api, title)
+        preview_html = submit_form(op, base, rendered_path(title) + "?action=appendsection",
+                                   "wpTextbox1",
+                                   {"wpTextbox1": "Preview only text.", "wpSummary": "",
+                                    "wpPreview": "1", "wpSave": "", "wpDiff": ""})
+        if "wikiPreview" not in preview_html or "Preview only text." not in preview_html:
+            raise FlowError("Show preview did not render the assembled content")
+        after, _ = page_wikitext(op, api, title)
+        if after != before:
+            raise FlowError("Show preview saved the page (it must not)")
+        print("[ok] Show preview renders the result without saving")
+
+        # 3. Show changes renders a diff against the current page.
+        diff_html = submit_form(op, base, rendered_path(title) + "?action=appendsection",
+                                "wpTextbox1",
+                                {"wpTextbox1": "Diff only text.", "wpSummary": "",
+                                 "wpDiff": "1", "wpSave": "", "wpPreview": ""})
+        if "wikiDiff" not in diff_html or "Diff only text." not in diff_html:
+            raise FlowError("Show changes did not render the diff against the current page")
+        print("[ok] Show changes renders a diff against the current page")
+
+        # 4. Add section below (?action=appendsection&wbsection=<First>), blank
         #    Summary → auto-inferred `/* Sub */` comment.
         first = section_number(page_get(op, base, rendered_path(title)), "First")
-        submit_form(op, base, rendered_path(title) + "?action=appendsection", "wpcontent",
-                    {"wpcontent": "=== Sub ===\n\nSub body.", "wpsection": str(first),
-                     "wpsummary": ""})
+        submit_form(op, base, f"{rendered_path(title)}?action=appendsection&wbsection={first}",
+                    "wpTextbox1", append_save_fields("=== Sub ===\n\nSub body.", ""))
         text, comment = page_wikitext(op, api, title)
         sub_at = text.find("=== Sub ===")
         second_at = text.find("== Second ==")
@@ -282,7 +374,7 @@ def section_action_flow(op, api: str, base: str, keep: bool) -> None:
             raise FlowError(f"auto-summary comment {comment!r} != '/* Sub */'")
         print("[ok] Add section below inserts below the section + auto-infers the summary")
 
-        # 3. Delete section (confirmation page shows the text, save removes it).
+        # 5. Delete section (confirmation page shows the text, save removes it).
         second = section_number(page_get(op, base, rendered_path(title)), "Second")
         confirm = page_get(op, base, f"{rendered_path(title)}?action=deletesection&section={second}")
         if "Two." not in confirm:
@@ -321,6 +413,7 @@ def main() -> int:
     op = make_opener(args.base_url)
     login(op, args.api_url, args.user, password)
     section_action_flow(op, args.api_url, args.base_url, args.keep)
+    scope_expansion_flow(op, args.api_url, args.base_url, args.keep)
     print("section-actions E2E: all checks passed")
     return 0
 

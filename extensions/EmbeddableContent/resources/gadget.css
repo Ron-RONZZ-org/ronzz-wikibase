@@ -104,22 +104,6 @@
 	white-space: pre-wrap;
 }
 
-/* "Preview" button + box on the append editor (resources/sectionform.js). */
-.wb-sectionform-preview {
-	margin: 0.75em 0;
-	padding: 0.5em;
-	background: #f8f9fa;
-	border: 1px solid #eaecf0;
-}
-
-.wb-sectionform-preview-error {
-	color: #b32424;
-}
-
-.wb-sectionform-preview-btn {
-	margin-right: 0.5em;
-}
-
 /* Upload hand-off fallback: a page-load clipboard write is blocked without a
  * user gesture, so when the automatic copy fails the File: page shows a
  * persistent one-click notice with the snippet. */
