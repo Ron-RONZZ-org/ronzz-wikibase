@@ -1462,6 +1462,33 @@ report). See `SimpleMathJax/VENDORED.md`.
   is unit-tested, and the global message fallback is untouched (deploy adds a
   message + parser/object cache purge).
 
+- **Math pre/post-content notes + per-section copy controls + append "Add
+  section" (ADR `docs/decisions/math-note-split-and-page-actions.md`)**:
+  (a) the math accompanying note is SPLIT — a NEW string property
+  **`pre-content note`** (config key `preNote`, `preNotePropertyId()`) renders
+  ABOVE the expression while the existing `note` renders below it; the math
+  Add/Update form gains a `preNote` textarea above Content, `{{#content:}}` /
+  the embed surfaces (`ContentRenderer`, `.wb-embed-note-pre`) / the AddMath
+  live preview render pre → expression → post, `ContentWikitext::math()` takes
+  the pre-note first, and `ContentArgs` gains the bare flags
+  `noPreNote`/`noPostNote` (`noNote` still hides both). No data migration
+  (existing `note` statements ARE the post-notes); **re-seed required** for the
+  new property, the field contract is re-emitted (`preNote` joins
+  `action=addspecialcontent`) and the MCP server's pinned contract/tools
+  refreshed. (b) every content-page heading's `[edit]` link gains two
+  same-style controls inside it (`resources/sectionactions.js`, module
+  `ext.embeddableContent.sectionactions`, loaded on the content-page branch):
+  "Copy internal mention" (`[[Page#section|`, no closing brackets; the page
+  part reused from `wbReferenceSnippet`) and "Copy URL" (the absolute section
+  URL). (c) the "Add section" page action is now `?action=appendsection`
+  (`extension.json` `Actions` → `Action/AppendSectionAction extends
+  FormAction`; `Hooks::addSectionAction` links to it) — an OOUI form
+  (Content + Summary + Watch, no minor edit, no subject) whose save APPENDS
+  the wikitext to the end of the page (`Spec/AppendSectionText`, pure; via
+  `WikiPage::doUserEditContent`, so edit filters/AbuseFilter/hooks apply) —
+  replacing the core `section=new` heading editor. No vocabulary/class
+  change; deploy = rsync + php-fpm + message/objectcache purge.
+
 ### WikibaseCitation
 
 

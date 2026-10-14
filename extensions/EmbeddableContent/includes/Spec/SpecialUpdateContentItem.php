@@ -118,7 +118,7 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 		$defaults = [ 'label' => $record['label'] ?? '', 'payload' => $record['content'] ?? '' ];
 		foreach ( [
 			'language', 'lexer', 'attributedTo', 'sourceUrl', 'source',
-			'date', 'describes', 'implementationOf', 'note',
+			'date', 'describes', 'implementationOf', 'note', 'preNote',
 		] as $name ) {
 			if ( !empty( $record[$name] ) ) {
 				$defaults[$name] = $record[$name];
@@ -201,13 +201,21 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 			}
 		}
 
-		// The math accompanying note (rich wikitext, decoded).
-		$notePropertyId = $this->config->notePropertyId();
-		if ( $kind === 'math' && $notePropertyId !== null ) {
-			foreach ( $this->statementValues( $item, $notePropertyId ) as $value ) {
-				if ( isset( $value['text'] ) ) {
-					$record['note'] = PayloadCodec::decode( $value['text'] );
-					break;
+		// The math accompanying notes (rich wikitext, decoded): `preNote`
+		// renders above the expression, `note` below it.
+		if ( $kind === 'math' ) {
+			foreach ( [ 'note', 'preNote' ] as $noteField ) {
+				$notePropertyId = $noteField === 'note'
+					? $this->config->notePropertyId()
+					: $this->config->preNotePropertyId();
+				if ( $notePropertyId === null ) {
+					continue;
+				}
+				foreach ( $this->statementValues( $item, $notePropertyId ) as $value ) {
+					if ( isset( $value['text'] ) ) {
+						$record[$noteField] = PayloadCodec::decode( $value['text'] );
+						break;
+					}
 				}
 			}
 		}

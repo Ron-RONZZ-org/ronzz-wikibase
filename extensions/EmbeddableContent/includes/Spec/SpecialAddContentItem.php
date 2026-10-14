@@ -125,14 +125,21 @@ abstract class SpecialAddContentItem extends SpecialPage {
 	 */
 	protected function addMathPreviewBox(): void {
 		$this->getOutput()->addModules( 'ext.embeddableContent.addmath' );
-		// The preview shows BOTH the rendered Content (KaTeX) and the
-		// accompanying Note (wikitext; inline $…$ typeset with the same
-		// KaTeX). The note block stays hidden until a note is present.
+		// The preview shows the PRE-content Note (above), the rendered Content
+		// (KaTeX), then the POST-content Note (below) — mirroring the render
+		// order of `{{#content:}}` and the embed surfaces. Each note block
+		// stays hidden until a note is present.
 		$this->getOutput()->addHTML(
 			'<div id="wb-math-preview-box" class="wb-math-preview-box" hidden>'
 			. '<div class="wb-math-preview-title">'
 			. $this->msg( 'embeddablecontent-add-math-preview-label' )->escaped()
-			. '</div><div id="wb-math-preview-content" class="wb-math-preview-content"></div>'
+			. '</div>'
+			. '<div id="wb-math-preview-prenote-wrap" class="wb-math-preview-note-wrap" hidden>'
+			. '<div class="wb-math-preview-note-title">'
+			. $this->msg( 'embeddablecontent-add-prenote' )->escaped()
+			. '</div><div id="wb-math-preview-prenote" class="wb-math-preview-note"></div>'
+			. '</div>'
+			. '<div id="wb-math-preview-content" class="wb-math-preview-content"></div>'
 			. '<div id="wb-math-preview-note-wrap" class="wb-math-preview-note-wrap" hidden>'
 			. '<div class="wb-math-preview-note-title">'
 			. $this->msg( 'embeddablecontent-add-note' )->escaped()
@@ -160,19 +167,31 @@ abstract class SpecialAddContentItem extends SpecialPage {
 				// target of the "Add more" flow.
 				'default' => $this->msg( $this->labelDefaultMessageKey() )->text(),
 			],
-			'payload' => [
-				'type' => 'textarea',
-				'label-message' => $this->getKind() === 'quotation'
-					? 'embeddablecontent-add-quotation-payload'
-					: 'embeddablecontent-add-payload',
-				'required' => true,
-				'rows' => 8,
-			],
 		];
 
-		// The math accompanying note (rich wikitext: [[File:…]], links,
-		// emphasis, $…$). It sits directly BELOW the Content field (it used
-		// to render last, after the provenance block); optional.
+		// The math PRE-CONTENT note (rich wikitext: [[File:…]], links,
+		// emphasis, $…$). It sits directly ABOVE the Content field, mirroring
+		// where it renders; optional.
+		if ( $this->getKind() === 'math' && $this->config->preNotePropertyId() !== null ) {
+			$fields['preNote'] = [
+				'type' => 'textarea',
+				'label-message' => 'embeddablecontent-add-prenote',
+				'rows' => 5,
+				'help-message' => 'embeddablecontent-add-prenote-help',
+			];
+		}
+
+		$fields['payload'] = [
+			'type' => 'textarea',
+			'label-message' => $this->getKind() === 'quotation'
+				? 'embeddablecontent-add-quotation-payload'
+				: 'embeddablecontent-add-payload',
+			'required' => true,
+			'rows' => 8,
+		];
+
+		// The math POST-CONTENT note (rich wikitext, same vocabulary as the
+		// pre-content note). It sits directly BELOW the Content field; optional.
 		if ( $this->getKind() === 'math' && $this->config->notePropertyId() !== null ) {
 			$fields['note'] = [
 				'type' => 'textarea',
@@ -475,11 +494,14 @@ abstract class SpecialAddContentItem extends SpecialPage {
 			'content' => trim( (string)( $data['payload'] ?? '' ) ),
 			'labelLanguage' => (string)( $data['labelLanguage'] ?? $this->getLanguage()->getCode() ),
 		];
-		// The math accompanying note (rich wikitext). Passed raw — the flow
-		// service escapes it at rest and writes it only for math items.
-		$note = trim( (string)( $data['note'] ?? '' ) );
-		if ( $note !== '' ) {
-			$record['note'] = $note;
+		// The math accompanying notes (rich wikitext). Passed raw — the flow
+		// service escapes them at rest and writes them only for math items.
+		// `preNote` renders above the expression; `note` below it.
+		foreach ( [ 'note', 'preNote' ] as $noteField ) {
+			$note = trim( (string)( $data[$noteField] ?? '' ) );
+			if ( $note !== '' ) {
+				$record[$noteField] = $note;
+			}
 		}
 		$errors = [];
 

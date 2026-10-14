@@ -170,10 +170,16 @@ final class ContentPayload {
 					);
 					break;
 				case 'math':
-					// The accompanying note (rich wikitext) renders below the
-					// expression by default; {{#content:Q42|noNote}} suppresses it.
-					$note = ContentArgs::noNote( $args ) ? '' : self::noteFor( $entity, $config );
-					$wikitext = ContentWikitext::math( $text, $note );
+					// The pre-content note (rich wikitext) renders above the
+					// expression, the post-content note below it.
+					// {{#content:Q42|noNote}} suppresses BOTH; noPreNote /
+					// noPostNote suppress one each.
+					$noAll = ContentArgs::noNote( $args );
+					$preNote = ( $noAll || ContentArgs::noPreNote( $args ) )
+						? '' : self::preNoteFor( $entity, $config );
+					$note = ( $noAll || ContentArgs::noPostNote( $args ) )
+						? '' : self::noteFor( $entity, $config );
+					$wikitext = ContentWikitext::math( $text, $preNote, $note );
 					break;
 				default:
 					return self::emptyResult();
@@ -318,19 +324,35 @@ final class ContentPayload {
 	}
 
 	/**
-	 * The item's accompanying note (math items): the decoded wikitext of the
+	 * The item's POST-content note (math items): the decoded wikitext of the
 	 * `note` property, or '' when the item carries none / the instance has no
 	 * note vocabulary.
 	 */
 	private static function noteFor( Item $item, EmbeddableContentConfig $config ): string {
-		$noteProperty = $config->notePropertyId();
-		if ( $noteProperty === null ) {
+		return self::stringPropertyText( $item, $config->notePropertyId() );
+	}
+
+	/**
+	 * The item's PRE-content note (math items): the decoded wikitext of the
+	 * `preNote` property, or '' when the item carries none / the instance has
+	 * no pre-note vocabulary.
+	 */
+	private static function preNoteFor( Item $item, EmbeddableContentConfig $config ): string {
+		return self::stringPropertyText( $item, $config->preNotePropertyId() );
+	}
+
+	/**
+	 * The decoded text of one string property (the first claim), or '' when
+	 * the property is absent / unconfigured.
+	 */
+	private static function stringPropertyText( Item $item, ?string $propertyId ): string {
+		if ( $propertyId === null ) {
 			return '';
 		}
 		foreach ( $item->getStatements() as $statement ) {
 			$snak = $statement->getMainSnak();
 			if ( !$snak instanceof PropertyValueSnak
-				|| $snak->getPropertyId()->getSerialization() !== $noteProperty
+				|| $snak->getPropertyId()->getSerialization() !== $propertyId
 			) {
 				continue;
 			}

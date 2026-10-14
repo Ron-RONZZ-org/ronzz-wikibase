@@ -28,6 +28,11 @@
  *     left→right sequence (update → internal citation → mention → embed →
  *     citation → print) on the block .wb-embed-toolbar and the inline
  *     .wb-content-page-toolbar (mention → citation → print);
+ *   - Section copy controls + "Add section" append — each heading's [edit]
+ *     link carries "Copy internal mention" (`[[Page#section|`) and "Copy URL"
+ *     (the absolute section URL); the "Add section" action
+ *     (`action=appendsection`) opens an Edit-like form (no subject, no minor
+ *     edit) whose save APPENDS to the page without adding a heading;
  *   - Special:AddSource/law — the "Add more" success popup shows the resolved
  *     "Update basic information" label (not the raw message key), offers
  *     "Copy internal citation", and its "Copy citation" popup stacks above
@@ -189,16 +194,17 @@ async function main() {
 			console.log('[ok] print button joins the content-page toolbar row');
 		}
 
-		// Content-page "Add section" action (Oct-2026 batch): a logged-in
-		// editor gets an action pointing at the new-section editor. Vector
-		// 2022 promotes `views['addsection']` to a header button AND keeps a
-		// "more menu" entry, so assert the presence + target, and (when the
-		// Vector 2022 more menu is rendered) that the entry sits between Edit
-		// and View history.
+		// Content-page "Add section" action: a logged-in editor gets an action
+		// pointing at the append-section flow (action=appendsection — an
+		// Edit-like form that APPENDS to the page, not core's section=new
+		// heading editor). Vector 2022 promotes `views['addsection']` to a
+		// header button AND keeps a "more menu" entry, so assert the presence
+		// + target, and (when the Vector 2022 more menu is rendered) that the
+		// entry sits between Edit and View history.
 		const addSection = await page.evaluate(() => {
 			const link = [ ...document.querySelectorAll(
 				'a#ca-addsection, a.ca-addsection, #ca-addsection a, #ca-more-addsection a'
-			) ].find((a) => (a.getAttribute('href') || '').includes('section=new'));
+			) ].find((a) => (a.getAttribute('href') || '').includes('action=appendsection'));
 			if (!link) {
 				return null;
 			}
@@ -213,9 +219,9 @@ async function main() {
 			};
 		});
 		if (!addSection) {
-			failures.push('content page is missing a working "Add section" action');
+			failures.push('content page is missing a working "Add section" action (action=appendsection)');
 		} else {
-			console.log('[ok] content-page "Add section" action (section=new)'
+			console.log('[ok] content-page "Add section" action (action=appendsection)'
 				+ (addSection.ordered ? ' between Edit and View history' : ''));
 		}
 
@@ -349,6 +355,88 @@ async function main() {
 			page.waitForLoadState('domcontentloaded'),
 			page.click('#wpLoginAttempt'),
 		]);
+
+		// --- Section copy controls + "Add section" append flow -----------
+		// A scratch content page with two headings: the per-section "Copy
+		// internal mention" / "Copy URL" controls render inside each heading's
+		// [edit] link; the "Add section" action opens an Edit-like form whose
+		// save APPENDS to the page (no new heading, no subject, no minor edit).
+		const sectionTitle = `Section UX ${Date.now()}`;
+		const sectionText = '== First section ==\n\nBody one.\n\n== Second section ==\n\nBody two.';
+		await page.evaluate(async ([title, text]) => {
+			await new Promise((r) => mw.loader.using('mediawiki.api', r));
+			await new mw.Api().postWithToken('csrf', {
+				action: 'edit', title, text, createonly: true,
+			});
+		}, [sectionTitle, sectionText]);
+		try {
+			await page.goto(`${BASE_URL}/wiki/${encodeURIComponent(sectionTitle.replace(/ /g, '_'))}`,
+				{ waitUntil: 'domcontentloaded', timeout: 60000 });
+			await page.waitForSelector('.mw-editsection #wb-section-copymention-First_section', { timeout: 15000 });
+			const inEdit = await page.evaluate(() => !!(
+				document.querySelector('.mw-editsection #wb-section-copymention-First_section')
+				&& document.querySelector('.mw-editsection #wb-section-copyurl-First_section')
+			));
+			if (!inEdit) {
+				failures.push('section copy controls are not inside a section [edit] link');
+			}
+			await page.click('.mw-editsection #wb-section-copymention-First_section');
+			const sectionMention = await page.evaluate(() => navigator.clipboard.readText());
+			// Mirror the implementation: the page part is the server-resolved
+			// wbReferenceSnippet (Main-namespace case-normalized).
+			const expectedMention = await page.evaluate(() => {
+				const snippet = mw.config.get('wbReferenceSnippet');
+				return String(snippet).replace(/\]\]\s*$/, '') + '#First_section|';
+			});
+			if (sectionMention !== expectedMention) {
+				failures.push(`section copy-mention copied ${JSON.stringify(sectionMention)}, expected ${JSON.stringify(expectedMention)}`);
+			} else {
+				console.log('[ok] section copy-mention copies the [[Page#section| snippet');
+			}
+			await page.click('.mw-editsection #wb-section-copyurl-First_section');
+			const sectionUrl = await page.evaluate(() => navigator.clipboard.readText());
+			if (!/^https?:\/\/.+#First_section$/.test(sectionUrl)) {
+				failures.push(`section copy-url copied ${JSON.stringify(sectionUrl)}, expected an absolute URL ending in #First_section`);
+			} else {
+				console.log('[ok] section copy-url copies the absolute section URL');
+			}
+
+			// The append flow: an Edit-like form with no subject / no minor
+			// edit; the save appends without adding a heading.
+			await page.goto(
+				`${BASE_URL}/wiki/${encodeURIComponent(sectionTitle.replace(/ /g, '_'))}?action=appendsection`,
+				{ waitUntil: 'domcontentloaded', timeout: 60000 });
+			await page.waitForSelector('#wb-append-section-submit', { timeout: 15000 });
+			if (await page.locator('[name="wpMinoredit"], #wpMinoredit').count() !== 0) {
+				failures.push('the Add section form carries a minor-edit checkbox');
+			}
+			await page.fill('[name="wpcontent"]', 'Appended by the E2E.');
+			await page.fill('[name="wpsummary"]', 'E2E append');
+			await page.click('#wb-append-section-submit');
+			await page.waitForSelector('#firstHeading', { timeout: 15000 });
+			const bodyText = await page.locator('#mw-content-text').innerText();
+			if (!bodyText.includes('Appended by the E2E.')) {
+				failures.push('the Add section save did not append the content');
+			} else if (!bodyText.includes('Body one.') || !bodyText.includes('Body two.')) {
+				failures.push('the Add section save did not preserve the existing content');
+			} else {
+				console.log('[ok] Add section appends the content, preserves the page');
+			}
+			const headingCount = await page.locator('#mw-content-text h2').count();
+			if (headingCount !== 2) {
+				failures.push(`Add section added a heading (h2 count ${headingCount}, expected 2)`);
+			} else {
+				console.log('[ok] Add section added no heading');
+			}
+		} finally {
+			await page.evaluate(async (title) => {
+				await new Promise((r) => mw.loader.using('mediawiki.api', r));
+				try {
+					await new mw.Api().postWithToken('csrf', { action: 'delete', title, format: 'json' });
+				} catch (e) { /* best-effort cleanup */ }
+			}, sectionTitle).catch(() => {});
+		}
+
 		await page.goto(`${BASE_URL}/wiki/Special:Upload`, { waitUntil: 'domcontentloaded', timeout: 60000 });
 		await page.waitForSelector('#mw-upload-form', { timeout: 15000 });
 

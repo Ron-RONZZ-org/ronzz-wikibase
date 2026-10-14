@@ -25,12 +25,26 @@ final class ContentWikitextTest extends TestCase {
 	public function testMathAppendsNoteAsOwnParagraph(): void {
 		$this->assertSame(
 			'$$x^2$$' . "\n\n" . 'where $x$ is a real number',
+			ContentWikitext::math( 'x^2', '', 'where $x$ is a real number' )
+		);
+	}
+
+	public function testMathPrependsPreContentNoteAsOwnParagraph(): void {
+		$this->assertSame(
+			'where $x$ is a real number' . "\n\n" . '$$x^2$$',
 			ContentWikitext::math( 'x^2', 'where $x$ is a real number' )
 		);
 	}
 
-	public function testMathIgnoresBlankNote(): void {
-		$this->assertSame( '$$x^2$$', ContentWikitext::math( 'x^2', "  \n  " ) );
+	public function testMathRendersBothNotesAroundTheExpression(): void {
+		$this->assertSame(
+			'lead' . "\n\n" . '$$x^2$$' . "\n\n" . 'trail',
+			ContentWikitext::math( 'x^2', 'lead', 'trail' )
+		);
+	}
+
+	public function testMathIgnoresBlankNotes(): void {
+		$this->assertSame( '$$x^2$$', ContentWikitext::math( 'x^2', "  \n  ", "  \n  " ) );
 	}
 
 	public function testQuotationReturnsWikitextUnchanged(): void {

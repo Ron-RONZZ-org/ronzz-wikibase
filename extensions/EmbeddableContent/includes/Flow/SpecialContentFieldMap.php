@@ -29,6 +29,7 @@ final class SpecialContentFieldMap {
 		'label',
 		'content',
 		'note',
+		'preNote',
 		'labelLanguage',
 		'language',
 		'programmingLanguage',
@@ -56,7 +57,7 @@ final class SpecialContentFieldMap {
 	/** kind => fields the flow accepts for it. */
 	private const KIND_FIELDS = [
 		'quotation' => [ 'label', 'content', 'labelLanguage', 'language', 'translations', 'attributedTo', 'source', 'sourceUrl', 'date' ],
-		'math' => [ 'label', 'content', 'note', 'labelLanguage', 'describes', 'attributedTo', 'source', 'sourceUrl', 'date' ],
+		'math' => [ 'label', 'content', 'note', 'preNote', 'labelLanguage', 'describes', 'attributedTo', 'source', 'sourceUrl', 'date' ],
 		'code-snippet' => [ 'label', 'content', 'labelLanguage', 'programmingLanguage', 'implementationOf', 'attributedTo', 'source', 'sourceUrl', 'date' ],
 	];
 

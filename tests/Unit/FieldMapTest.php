@@ -200,9 +200,20 @@ class FieldMapTest extends TestCase {
 
 	public function testSpecialContentNoteIsMathOnly(): void {
 		$this->assertTrue( SpecialContentFieldMap::acceptsField( 'math', 'note' ) );
-		$this->assertFalse( SpecialContentFieldMap::acceptsField( 'quotation', 'note' ) );
-		$this->assertFalse( SpecialContentFieldMap::acceptsField( 'code-snippet', 'note' ) );
+		$this->assertUnableForNonMath( 'note' );
 		$this->assertNotContains( 'note', SpecialContentFieldMap::requiredOnCreate( 'math' ) );
+	}
+
+	public function testSpecialContentPreNoteIsMathOnly(): void {
+		$this->assertContains( 'preNote', SpecialContentFieldMap::ALL_FIELDS );
+		$this->assertTrue( SpecialContentFieldMap::acceptsField( 'math', 'preNote' ) );
+		$this->assertUnableForNonMath( 'preNote' );
+		$this->assertNotContains( 'preNote', SpecialContentFieldMap::requiredOnCreate( 'math' ) );
+	}
+
+	private function assertUnableForNonMath( string $field ): void {
+		$this->assertFalse( SpecialContentFieldMap::acceptsField( 'quotation', $field ) );
+		$this->assertFalse( SpecialContentFieldMap::acceptsField( 'code-snippet', $field ) );
 	}
 
 	public function testSpecialContentTranslationsIsQuotationOnly(): void {

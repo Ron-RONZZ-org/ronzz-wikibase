@@ -30,6 +30,8 @@ PROPERTY_KINDS = {
     "implementation of": ("implementationOf", None),
     # Math accompanying note (rich wikitext rendered below the expression).
     "note": ("note", None),
+    # Math pre-content note (rich wikitext rendered above the expression).
+    "pre-content note": ("preNote", None),
     # Quotation translations (one monolingual claim per target language) —
     # the "Add translation" field on Special:AddQuotation.
     "translation": ("translation", None),
@@ -414,6 +416,7 @@ def build_config(
     describes = None
     implementation_of = None
     note = None
+    pre_note = None
     translation = None
     for label, (section, key) in PROPERTY_KINDS.items():
         if label not in property_ids:
@@ -431,6 +434,8 @@ def build_config(
             implementation_of = prop_id
         elif section == "note":
             note = prop_id
+        elif section == "preNote":
+            pre_note = prop_id
         elif section == "translation":
             translation = prop_id
 
@@ -494,6 +499,7 @@ def build_config(
         "describes": describes,
         "implementationOf": implementation_of,
         "note": note,
+        "preNote": pre_note,
         "translation": translation,
         "provenance": provenance,
         "externalIds": external_ids,

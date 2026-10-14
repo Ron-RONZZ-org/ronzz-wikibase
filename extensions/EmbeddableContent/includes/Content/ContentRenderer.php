@@ -389,13 +389,20 @@ class ContentRenderer {
 				$lexer = $this->languageLexer( $item );
 				return $this->codeRenderer->render( $payload[''] ?? '', $lexer );
 			case 'math':
-				$html = $this->mathRenderer->render( $payload[''] ?? '' );
+				$html = '';
+				// The PRE-content note (rich wikitext) renders ABOVE the
+				// expression — plain, deliberately NO `.wb-embed` chrome (the
+				// blue left border read as a jarring stray line).
+				$preNote = $this->preNoteFor( $item );
+				if ( $preNote !== '' ) {
+					$html .= '<div class="wb-embed-note wb-embed-note-pre">'
+						. $this->richFragment( $preNote, $item, $richParts )
+						. '</div>';
+				}
+				$html .= $this->mathRenderer->render( $payload[''] ?? '' );
+				// The POST-content note renders below the expression.
 				$note = $this->noteFor( $item );
 				if ( $note !== '' ) {
-					// The note is plain rich wikitext below the expression —
-					// it deliberately carries NO `.wb-embed` chrome (the blue
-					// left border read as a jarring stray line on the Item-
-					// page preview).
 					$html .= '<div class="wb-embed-note">'
 						. $this->richFragment( $note, $item, $richParts )
 						. '</div>';
@@ -508,19 +515,35 @@ class ContentRenderer {
 	}
 
 	/**
-	 * The item's accompanying note (math items): the decoded wikitext of the
+	 * The item's POST-content note (math items): the decoded wikitext of the
 	 * `note` property, or '' when the item carries none / the instance has no
 	 * note vocabulary.
 	 */
 	private function noteFor( Item $item ): string {
-		$noteProperty = $this->config->notePropertyId();
-		if ( $noteProperty === null ) {
+		return $this->stringPropertyText( $item, $this->config->notePropertyId() );
+	}
+
+	/**
+	 * The item's PRE-content note (math items): the decoded wikitext of the
+	 * `preNote` property, or '' when the item carries none / the instance has
+	 * no pre-note vocabulary.
+	 */
+	private function preNoteFor( Item $item ): string {
+		return $this->stringPropertyText( $item, $this->config->preNotePropertyId() );
+	}
+
+	/**
+	 * The decoded text of one string property (the first claim), or '' when
+	 * the property is absent / unconfigured.
+	 */
+	private function stringPropertyText( Item $item, ?string $propertyId ): string {
+		if ( $propertyId === null ) {
 			return '';
 		}
 		foreach ( $item->getStatements() as $statement ) {
 			$snak = $statement->getMainSnak();
 			if ( !$snak instanceof \Wikibase\DataModel\Snak\PropertyValueSnak
-				|| $snak->getPropertyId()->getSerialization() !== $noteProperty
+				|| $snak->getPropertyId()->getSerialization() !== $propertyId
 			) {
 				continue;
 			}

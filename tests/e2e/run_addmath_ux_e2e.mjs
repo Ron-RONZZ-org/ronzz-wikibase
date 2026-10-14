@@ -94,24 +94,33 @@ async function main() {
 		}
 		console.log('[ok] Preview button + KaTeX present');
 
-		// The accompanying note field (rich wikitext) renders on the form,
-		// directly BELOW the Content field.
-		if (await page.locator('#mw-input-wpnote').count() !== 1) {
-			failures.push('Special:AddMath is missing the accompanying note field (#mw-input-wpnote)');
+		// The two note fields (rich wikitext) surround the Content field:
+		// the Pre-content note sits ABOVE, the Post-content note BELOW.
+		const preNoteCount = await page.locator('#mw-input-wppreNote').count();
+		const postNoteCount = await page.locator('#mw-input-wpnote').count();
+		if (preNoteCount !== 1 || postNoteCount !== 1) {
+			failures.push(`Special:AddMath is missing a note field (pre=${preNoteCount}, post=${postNoteCount})`);
 		} else {
-			console.log('[ok] accompanying note field present');
-			const noteAfterContent = await page.evaluate(() => {
+			console.log('[ok] pre/post-content note fields present');
+			const order = await page.evaluate(() => {
+				const pre = document.getElementById('mw-input-wppreNote');
 				const payload = document.getElementById('mw-input-wppayload');
 				const note = document.getElementById('mw-input-wpnote');
-				if (!payload || !note) {
+				if (!pre || !payload || !note) {
 					return null;
 				}
-				return (payload.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+				const follows = (a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+				return {
+					preBeforeContent: follows(pre, payload),
+					contentBeforeNote: follows(payload, note),
+				};
 			});
-			if (noteAfterContent !== true) {
-				failures.push('the Note field does not sit below the Content field');
+			if (!order || !order.preBeforeContent) {
+				failures.push('the Pre-content note field does not sit above the Content field');
+			} else if (!order.contentBeforeNote) {
+				failures.push('the Post-content note field does not sit below the Content field');
 			} else {
-				console.log('[ok] Note field sits below Content');
+				console.log('[ok] Pre-content note above Content, Post-content note below');
 			}
 		}
 
@@ -154,14 +163,19 @@ async function main() {
 		}
 		console.log(`[ok] malformed TeX shows the renderer error: ${bad.text.slice(0, 80)}`);
 
-		// The preview shows BOTH the Content and the accompanying Note, and
-		// the Note is rendered as WIKITEXT (through action=parse): links and
-		// emphasis render, inline $…$ is typeset with KaTeX.
+		// The preview shows the PRE-content Note (above), the Content
+		// (KaTeX) and the POST-content Note (below); both notes render as
+		// WIKITEXT (through action=parse) and their inline $…$ is typeset.
 		await page.evaluate(() => {
 			const note = document.querySelector('#mw-input-wpnote textarea, #mw-input-wpnote input');
 			if (note) {
 				note.value = "where $a$ is a '''constant''' and a [[Main Page|reference]]";
 				note.dispatchEvent(new Event('input', { bubbles: true }));
+			}
+			const pre = document.querySelector('#mw-input-wppreNote textarea, #mw-input-wppreNote input');
+			if (pre) {
+				pre.value = 'above the expression with $b$';
+				pre.dispatchEvent(new Event('input', { bubbles: true }));
 			}
 		});
 		await page.locator(INPUT).first().fill('$a^2 + b^2 = c^2$');
@@ -169,17 +183,27 @@ async function main() {
 		// The note HTML arrives asynchronously (action=parse).
 		await page.waitForFunction(() => {
 			const note = document.getElementById('wb-math-preview-note');
-			return note && note.textContent.includes('constant');
+			const pre = document.getElementById('wb-math-preview-prenote');
+			return note && note.textContent.includes('constant')
+				&& pre && pre.textContent.includes('above');
 		}, { timeout: 15000 });
 		const noteState = await page.evaluate(() => {
 			const wrap = document.getElementById('wb-math-preview-note-wrap');
 			const note = document.getElementById('wb-math-preview-note');
+			const preWrap = document.getElementById('wb-math-preview-prenote-wrap');
+			const pre = document.getElementById('wb-math-preview-prenote');
+			const content = document.getElementById('wb-math-preview-content');
+			const follows = (a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
 			return {
 				hidden: wrap ? wrap.hidden : true,
 				text: note ? note.textContent : '',
 				katex: note ? note.querySelectorAll('.katex').length : 0,
 				bold: note ? note.querySelectorAll('b').length : 0,
 				link: note ? note.querySelectorAll('a').length : 0,
+				preHidden: preWrap ? preWrap.hidden : true,
+				preText: pre ? pre.textContent : '',
+				preKatex: pre ? pre.querySelectorAll('.katex').length : 0,
+				preAboveContent: (pre && content) ? follows(pre, content) : false,
 			};
 		});
 		if (noteState.hidden) {
@@ -194,6 +218,17 @@ async function main() {
 			failures.push('the note preview did not render the [[Main Page|reference]] link');
 		} else {
 			console.log('[ok] preview shows the Content and the wikitext Note');
+		}
+		if (noteState.preHidden) {
+			failures.push('the pre-content note preview block stayed hidden');
+		} else if (!noteState.preText.includes('above')) {
+			failures.push(`the pre-content note preview did not show the note (${JSON.stringify(noteState.preText)})`);
+		} else if (noteState.preKatex === 0) {
+			failures.push('the pre-content note preview did not typeset its inline $…$ math');
+		} else if (!noteState.preAboveContent) {
+			failures.push('the pre-content note preview is not above the expression');
+		} else {
+			console.log('[ok] preview shows the pre-content Note above the expression');
 		}
 
 		// Regression (note `$$…$$` report): a DISPLAY delimiter inside the

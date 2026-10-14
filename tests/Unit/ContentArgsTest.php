@@ -33,6 +33,30 @@ class ContentArgsTest extends TestCase {
 		$this->assertFalse( ContentArgs::noNote( [ 'Q42', 'other' ] ) );
 	}
 
+	public function testGranularNoteFlagsAreReadSeparately(): void {
+		// noPreNote suppresses the pre-content note only; noPostNote the
+		// post-content note only; noNote both.
+		$args = [ 'Q42', 'noPreNote' ];
+		$this->assertTrue( ContentArgs::noPreNote( $args ) );
+		$this->assertFalse( ContentArgs::noPostNote( $args ) );
+		$this->assertFalse( ContentArgs::noNote( $args ) );
+
+		$args = [ 'Q42', '  noPostNote ' ];
+		$this->assertFalse( ContentArgs::noPreNote( $args ) );
+		$this->assertTrue( ContentArgs::noPostNote( $args ) );
+		$this->assertFalse( ContentArgs::noNote( $args ) );
+
+		// The flags combine.
+		$args = [ 'Q42', 'noPreNote', 'noPostNote' ];
+		$this->assertTrue( ContentArgs::noPreNote( $args ) );
+		$this->assertTrue( ContentArgs::noPostNote( $args ) );
+	}
+
+	public function testGranularNoteFlagsAreNotReadFromTheItemIdPosition(): void {
+		$this->assertFalse( ContentArgs::noPreNote( [ 'noPreNote' ] ) );
+		$this->assertFalse( ContentArgs::noPostNote( [ 'noPostNote' ] ) );
+	}
+
 	public function testLanguagesReadsTheCodesAfterTheItemId(): void {
 		$this->assertSame( [ 'fr', 'en' ], ContentArgs::languages( [ 'Q42', 'fr', 'en' ] ) );
 		// The no-id form: {{#content:|fr|en}}.
@@ -42,10 +66,12 @@ class ContentArgsTest extends TestCase {
 	}
 
 	public function testLanguagesSkipsFlagsAndNonCodes(): void {
-		// The noNote math flag and anything that is not a language code are
+		// The math-note flags and anything that is not a language code are
 		// not treated as translation languages.
 		$this->assertSame( [], ContentArgs::languages( [ 'Q42', 'noNote' ] ) );
-		$this->assertSame( [ 'fr' ], ContentArgs::languages( [ 'Q42', 'noNote', 'fr' ] ) );
+		$this->assertSame( [], ContentArgs::languages( [ 'Q42', 'noPreNote' ] ) );
+		$this->assertSame( [], ContentArgs::languages( [ 'Q42', 'noPostNote' ] ) );
+		$this->assertSame( [ 'fr' ], ContentArgs::languages( [ 'Q42', 'noNote', 'noPreNote', 'fr' ] ) );
 		$this->assertSame( [], ContentArgs::languages( [ 'Q42', 'not a code!' ] ) );
 		$this->assertSame( [], ContentArgs::languages( [ 'fr' ] ) );
 	}

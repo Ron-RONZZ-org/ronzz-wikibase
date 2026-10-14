@@ -89,12 +89,16 @@ final class SpecialContentFlowService {
 			$record['content'] = PayloadCodec::escape( $payload );
 		}
 
-		// The math accompanying note is rich wikitext (links, media, $…$):
+		// The math accompanying notes are rich wikitext (links, media, $…$):
 		// stored escaped-at-rest like every multi-line payload, decoded at
-		// render.
+		// render. `note` renders below the expression, `preNote` above it.
 		$note = trim( (string)( $record['note'] ?? '' ) );
 		if ( $note !== '' ) {
 			$record['note'] = PayloadCodec::escape( $note );
+		}
+		$preNote = trim( (string)( $record['preNote'] ?? '' ) );
+		if ( $preNote !== '' ) {
+			$record['preNote'] = PayloadCodec::escape( $preNote );
 		}
 
 		$language = (string)( $record['language'] ?? 'en' );
@@ -194,11 +198,17 @@ final class SpecialContentFlowService {
 			}
 		}
 
-		// The math accompanying note (rich wikitext, escaped-at-rest).
-		if ( $kind === 'math' && isset( $record['note'] ) && $record['note'] !== '' ) {
-			$notePropertyId = $this->config->notePropertyId();
-			if ( $notePropertyId !== null ) {
-				$specs[$notePropertyId] = new StringValue( (string)$record['note'] );
+		// The math accompanying notes (rich wikitext, escaped-at-rest):
+		// `note` renders below the expression, `preNote` above it.
+		$noteProperties = [
+			'note' => $this->config->notePropertyId(),
+			'preNote' => $this->config->preNotePropertyId(),
+		];
+		if ( $kind === 'math' ) {
+			foreach ( $noteProperties as $field => $notePropertyId ) {
+				if ( $notePropertyId !== null && isset( $record[$field] ) && $record[$field] !== '' ) {
+					$specs[$notePropertyId] = new StringValue( (string)$record[$field] );
+				}
 			}
 		}
 
