@@ -370,7 +370,7 @@ def section_action_flow(op, api: str, base: str, keep: bool) -> None:
             op, base, rendered_path(title) + "?action=appendsection", "wpTextbox1",
             {"wpTextbox1": "Preview only text.", "wpSummary": "",
              "wpPreview": "1", "wpDiff": None, "wpSave": None})
-        if "wikiPreview" not in preview_html or "Preview only text." not in preview_html:
+        if "only a preview" not in preview_html or "Preview only text." not in preview_html:
             raise FlowError("Show preview did not render the assembled content")
         after, _ = page_wikitext(op, api, title)
         if after != before:
