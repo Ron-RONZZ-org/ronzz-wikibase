@@ -30,8 +30,10 @@
 # Resolves the repo root from the script's own location (works from any CWD,
 # and in CI on the runner HOST before `docker compose up` — the extension dir
 # is a read-only bind mount, so the assets must exist in the checkout before
-# the stack boots). Requires `curl`, `tar`, `bzip2` and `python3` (stdlib
-# only). Exits non-zero with a clear message on any failure.
+# the stack boots). Requires `curl` and `python3` (stdlib only; the core
+# tarball is extracted with python3's built-in bz2/tarfile, so no external
+# `bzip2`/`tar` binary is needed). Exits non-zero with a clear message on any
+# failure.
 #
 # License: GPL-2.0-or-later (repo tools)
 
@@ -92,9 +94,25 @@ if [ "$actual" != "$PYODIDE_CORE_SHA256" ]; then
 fi
 
 install -d -m 0755 "$dest_dir"
-# The tarball's single top-level directory is `pyodide/`; strip it so the
-# distribution lands directly in dest_dir (indexURL).
-tar -xjf "$tmp" -C "$dest_dir" --strip-components=1
+# Extract the core tarball with python3's built-in bz2/tarfile — no external
+# `bzip2`/`tar` binary required (production has neither bzip2 nor a tar with
+# bz2 support). The tarball's single top-level directory is `pyodide/`; strip
+# it so the distribution lands directly in dest_dir (the indexURL).
+PYODIDE_CORE_TARBALL="$tmp" PYODIDE_DEST="$dest_dir" python3 - <<'PY'
+import os
+import tarfile
+
+dest = os.environ["PYODIDE_DEST"]
+# `filter=` requires Python 3.12+; fall back on older interpreters.
+kwargs = {"filter": "data"} if hasattr(tarfile, "data_filter") else {}
+with tarfile.open(os.environ["PYODIDE_CORE_TARBALL"], "r:bz2") as tar:
+    for member in tar.getmembers():
+        parts = member.name.split("/", 1)
+        if len(parts) < 2 or not parts[1]:
+            continue
+        member.name = parts[1]
+        tar.extract(member, dest, **kwargs)
+PY
 
 lock="${dest_dir}/pyodide-lock.json"
 if [ ! -f "$lock" ]; then
