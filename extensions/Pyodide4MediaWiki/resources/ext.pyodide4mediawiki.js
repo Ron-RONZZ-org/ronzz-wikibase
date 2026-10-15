@@ -101,10 +101,15 @@ function ensureWorker() {
 	workerPromise = new Promise( function ( resolve, reject ) {
 		var source;
 		try {
-			source = '(' + workerBody.toString() + ')();';
-			worker = new Worker( URL.createObjectURL(
-				new Blob( [ source ], { type: 'application/javascript' } )
-			) );
+			// Pyodide requires a module worker: inject a module-level import of
+			// pyodide.mjs (which exposes loadPyodide) ahead of the serialized
+			// worker function, then instantiate the Blob as { type: 'module' }.
+			source = 'import { loadPyodide } from ' + JSON.stringify( indexUrl + 'pyodide.mjs' )
+				+ ';\n(' + workerBody.toString() + ')();';
+			worker = new Worker(
+				URL.createObjectURL( new Blob( [ source ], { type: 'application/javascript' } ) ),
+				{ type: 'module' }
+			);
 		} catch ( err ) {
 			reject( err );
 			return;

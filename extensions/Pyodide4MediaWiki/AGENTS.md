@@ -37,16 +37,20 @@ client-side Python** (`Extension:Piwo` runs Python server-side;
    without the marker load nothing.
 3. **Bootstrap** (`resources/ext.pyodide4mediawiki.js`): on `wikipage.content`
    / DOM ready, injects the Run control into each `pyodide` block. On first
-   Run it creates a Web Worker from the serialized worker body
+   Run it creates a **module** Web Worker from the serialized worker body
    (`resources/pyodide.worker.js`, via `Function.prototype.toString()` + a
-   Blob URL) and initialises the interpreter; the reader downloads the
-   distribution once, then the browser caches it.
+   Blob URL, with a module-level `import { loadPyodide } from
+   "<indexUrl>pyodide.mjs"` prepended) and initialises the interpreter; the
+   reader downloads the distribution once, then the browser caches it.
 4. **Worker** (`resources/pyodide.worker.js`): a self-contained function that
-   `importScripts()` the classic `pyodide.js`, calls
-   `loadPyodide({ indexURL, packageBaseUrl })` — **both pinned to the wiki's
-   own origin** so nothing is ever fetched from Pyodide's bundled CDN default —
-   installs `setStdout`/`setStderr` batched handlers that stream to the page,
-   and runs each block with `runPythonAsync`.
+   calls `loadPyodide({ indexURL, packageBaseUrl })` — **both pinned to the
+   wiki's own origin** so nothing is ever fetched from Pyodide's bundled CDN
+   default — installs `setStdout`/`setStderr` batched handlers that stream to
+   the page, and runs each block with `runPythonAsync`. **Pyodide 314 dropped
+   the classic-worker build** (`pyodide.js` throws "Classic web workers are
+   not supported"), so the worker MUST be created with `{ type: 'module' }`
+   and load `pyodide.mjs`; do not "simplify" it back to `importScripts` +
+   `pyodide.js`.
 5. **Assets** (`tools/install-pyodide.sh`, gitignored): the pinned Pyodide
    core release tarball (sha256-checked) plus the transitive dependency
    closure of the configured packages, whose wheels are fetched from the

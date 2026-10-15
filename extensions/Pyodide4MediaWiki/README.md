@@ -52,9 +52,10 @@ is itself one) holding the code.
   (`ext.pyodide4mediawiki.run`) is queued and its site-wide config is
   exported. Pages without the marker load nothing extra.
 - **Client** (`resources/ext.pyodide4mediawiki.js`): injects the Run control
-  and, on first Run, starts the interpreter in a Web Worker created from the
-  serialized worker body (`resources/pyodide.worker.js`). The worker loads
-  Pyodide from the wiki's own origin and executes each block.
+  and, on first Run, starts the interpreter in a **module** Web Worker created
+  from the serialized worker body (`resources/pyodide.worker.js`) — Pyodide
+  314 requires a module worker loading `pyodide.mjs`. The worker loads Pyodide
+  from the wiki's own origin and executes each block.
 - **Assets**: the Pyodide distribution is installed per environment by
   `tools/install-pyodide.sh` into `resources/pyodide/` (gitignored — never
   committed, never a runtime CDN). The reader downloads it once; the browser

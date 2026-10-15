@@ -2,10 +2,15 @@
  * Pyodide4MediaWiki — Pyodide Web Worker body.
  *
  * This module exports a FUNCTION whose source is serialized with
- * `Function.prototype.toString()` and instantiated as a Blob worker by
- * `ext.pyodide4mediawiki.js`. It must therefore be fully self-contained (no
- * references to outer-module scope) and must not rely on ResourceLoader's
- * module wrapper.
+ * `Function.prototype.toString()` and instantiated by `ext.pyodide4mediawiki.js`
+ * as a **module worker** from a Blob URL. It must therefore be fully
+ * self-contained (no references to outer-module scope) except for the
+ * `loadPyodide` binding, which the bootstrap injects as a module-level import
+ * of `pyodide.mjs` ahead of the serialized function.
+ *
+ * Pyodide requires a module worker (`pyodide.js`'s classic-worker build was
+ * dropped) — the bootstrap therefore creates the worker with `{ type: 'module' }`
+ * and prepends `import { loadPyodide } from "<indexUrl>pyodide.mjs";`.
  *
  * The worker keeps ONE interpreter alive for the page, so variables persist
  * across cells like a notebook, and it streams stdout/stderr back so output
@@ -33,19 +38,11 @@ module.exports = function pyodide4MediaWikiWorker() {
 		var message = event.data;
 
 		if ( message.type === 'init' ) {
-			// The classic build defines a global loadPyodide; it resolves its
-			// own assets (pyodide.asm.wasm, python_stdlib.zip, pyodide-lock.json
-			// and the vendored wheels) relative to indexURL. packageBaseUrl is
-			// pinned to the same local directory so loadPackage never falls
-			// back to Pyodide's bundled CDN default — this wiki serves its own
-			// assets (tools/install-pyodide.sh).
-			try {
-				importScripts( message.indexUrl + 'pyodide.js' );
-			} catch ( err ) {
-				post( { type: 'init-error', message: describeError( err ) } );
-				return;
-			}
-			self.loadPyodide( {
+			// packageBaseUrl is pinned to the wiki's own origin alongside
+			// indexURL so loadPackage never falls back to Pyodide's bundled
+			// CDN default — this wiki serves its own assets
+			// (tools/install-pyodide.sh).
+			loadPyodide( {
 				indexURL: message.indexUrl,
 				packageBaseUrl: message.indexUrl
 			} ).then( function ( instance ) {
