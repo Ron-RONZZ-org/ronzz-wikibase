@@ -1501,10 +1501,14 @@ report). See `SimpleMathJax/VENDORED.md`.
   `wireSectionControls`; the classic per-kind namespaces no longer return
   before them, and the "Add section" page action is gated the same way), and
   the append editor is core's own `EditPage`
-  (`Action/AppendSectionEditPage`; `AppendSectionAction extends EditAction`) —
+  (  `Action/AppendSectionEditPage`; `AppendSectionAction extends EditAction`) —
   built-in Show preview / Show changes, no minor-edit checkbox — with the
   target section carried in `wbsection` (not core's `section`).
-  `resources/sectionform.js` and its module are removed.
+  `resources/sectionform.js` and its module are removed. **⚠️ `NS_MODULE` is a
+  Scribunto constant, not core** — the CI/WBS stack loads Scribunto but
+  production does not, so guard any non-core `NS_*` constant with `defined()`
+  (the unguarded use in `isClassicArticleTitle` fataled every page render on
+  the 2026-10-15 deploy; fixed by the follow-up hotfix).
 
 ### WikibaseCitation
 
