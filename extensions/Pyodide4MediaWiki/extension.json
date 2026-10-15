@@ -63,14 +63,8 @@
 			"description": "Only show the Run control to logged-in users. Default false: on this instance every editor is vetted, so the page content is trusted and the Run control is available to all readers. Note that client-side Pyodide runs Python in the reader's browser session (DOM and fetch access), so enabling this gate is advisable if untrusted users ever gain edit access. The gate is applied client-side against wgUserName, never in the cached parser output."
 		},
 		"Pyodide4MediaWikiPackages": {
-			"value": [
-				"numpy",
-				"matplotlib",
-				"pandas",
-				"scipy",
-				"sympy"
-			],
-			"description": "Pyodide packages loaded before each code block runs. Only packages vendored offline by tools/install-pyodide.sh are available; a package the install script did not vendor fails at run time with Pyodide's own error."
+			"value": [],
+			"description": "Pyodide packages to preload before each code block, in addition to those the block imports (imports are resolved and loaded automatically from the vendored offline set). Empty by default, so a cell that imports nothing downloads no packages. Only packages vendored by tools/install-pyodide.sh are available; a package the install script did not vendor fails at run time with Pyodide's own error."
 		}
 	},
 	"manifest_version": 2

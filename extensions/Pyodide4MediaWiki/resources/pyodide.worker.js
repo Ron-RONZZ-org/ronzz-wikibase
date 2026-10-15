@@ -79,6 +79,12 @@ module.exports = function pyodide4MediaWikiWorker() {
 			if ( message.packages && message.packages.length ) {
 				await pyodide.loadPackage( message.packages );
 			}
+			// Notebook semantics: load only the packages the code imports, so a
+			// cell that imports nothing (e.g. `print(1 + 1)`) pulls no packages
+			// and `import numpy` pulls just numpy — from the vendored offline
+			// set. Configured `packages` (above) are preloaded on top.
+			await pyodide.loadPackagesFromImports( message.code );
+
 			var result = await pyodide.runPythonAsync( message.code );
 
 			var text = null;
