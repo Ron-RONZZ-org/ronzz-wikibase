@@ -217,12 +217,17 @@ def find_form(html: str, required_field: str) -> tuple[str, dict]:
     raise FlowError(f"no form carrying {required_field!r} found on the page")
 
 
+LAST_FORM_FIELDS: dict = {}
+
+
 def submit_form(op, base: str, path: str, required_field: str, overrides: dict) -> tuple[str, str]:
     """GET the form, set the known inputs, POST it back (following redirects);
     returns (final_url, body)."""
+    global LAST_FORM_FIELDS
     html = page_get(op, base, path)
     action, fields = find_form(html, required_field)
     fields.update(overrides)
+    LAST_FORM_FIELDS = fields
     url = urllib.parse.urljoin(base, action)
     req = urllib.request.Request(
         url, data=urllib.parse.urlencode(fields).encode(),
@@ -234,10 +239,15 @@ def submit_form(op, base: str, path: str, required_field: str, overrides: dict) 
 
 def response_diagnostic(body: str) -> str:
     """A compact hint about why an edit form did not save."""
-    plain = re.sub(r"<[^>]+>", " ", body)
+    critical = [ "wpEditToken", "wpUltimateParam", "wpSave", "wpPreview", "wpDiff",
+                 "wpUnicodeCheck", "wpSection", "wpEdittime", "editRevId", "mode",
+                 "wpTextbox1", "wpSummary", "wpAntispam" ]
+    posted = { k: (str(LAST_FORM_FIELDS.get(k, "<MISSING>"))[:48]) for k in critical }
+    idx = body.find('id="mw-content-text"')
+    window = body[idx:idx + 5000] if idx >= 0 else body[:5000]
+    plain = re.sub(r"<[^>]+>", " ", window)
     plain = re.sub(r"\s+", " ", plain).strip()
-    mode = re.search(r"name=['\"]mode['\"]\s+value=['\"]([^'\"]*)['\"]", body)
-    return f"mode={mode.group(1) if mode else '?'}; body[:600]={plain[:600]!r}"
+    return f"posted={posted}; content={plain[:1600]!r}"
 
 
 def section_number(html: str, anchor: str) -> int:
