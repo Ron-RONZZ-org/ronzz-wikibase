@@ -547,7 +547,7 @@ class Hooks {
 		$namespace = $title->getNamespace();
 		if ( $namespace === NS_FILE || $namespace === NS_CATEGORY
 			|| $namespace === NS_TEMPLATE || $namespace === NS_MEDIAWIKI
-			|| $namespace === NS_MODULE
+			|| ( defined( 'NS_MODULE' ) && $namespace === NS_MODULE )
 		) {
 			return false;
 		}
