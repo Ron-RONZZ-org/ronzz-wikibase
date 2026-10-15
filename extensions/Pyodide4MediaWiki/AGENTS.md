@@ -46,7 +46,10 @@ client-side Python** (`Extension:Piwo` runs Python server-side;
    calls `loadPyodide({ indexURL, packageBaseUrl })` — **both pinned to the
    wiki's own origin** so nothing is ever fetched from Pyodide's bundled CDN
    default — installs `setStdout`/`setStderr` batched handlers that stream to
-   the page, and runs each block with `runPythonAsync`. **Pyodide 314 dropped
+   the page, loads the packages the code **imports**
+   (`loadPackagesFromImports`, plus the configured `Pyodide4MediaWikiPackages`
+   preload list, empty by default — a plain cell downloads no packages), and
+   runs each block with `runPythonAsync`. **Pyodide 314 dropped
    the classic-worker build** (`pyodide.js` throws "Classic web workers are
    not supported"), so the worker MUST be created with `{ type: 'module' }`
    and load `pyodide.mjs`; do not "simplify" it back to `importScripts` +

@@ -67,7 +67,7 @@ is itself one) holding the code.
 |----------|---------|---------|
 | `$wgPyodide4MediaWikiEnable` | `true` | Master switch. When off, blocks render as ordinary highlighted code. |
 | `$wgPyodide4MediaWikiRequireLogin` | `false` | When `true`, only logged-in users see the Run control. |
-| `$wgPyodide4MediaWikiPackages` | `[ "numpy", "matplotlib", "pandas", "scipy", "sympy" ]` | Pyodide packages pre-loaded before each block. Only packages vendored by `install-pyodide.sh` are available offline. |
+| `$wgPyodide4MediaWikiPackages` | `[]` | Extra Pyodide packages to preload before each block. Packages the code **imports** are loaded automatically from the vendored offline set, so this is normally left empty (a cell that imports nothing downloads no packages). Only packages vendored by `install-pyodide.sh` are available offline. |
 
 ## Security
 

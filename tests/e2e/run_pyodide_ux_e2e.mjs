@@ -74,7 +74,8 @@ function ignoredConsole(msg) {
 	const url = (msg.location && msg.location().url) || '';
 	return text.toLowerCase().includes('favicon.ico')
 		|| url.toLowerCase().includes('favicon.ico')
-		|| text.includes('No version information available for component');
+		|| text.includes('No version information available for component')
+		|| text.includes('jquery.ui');
 }
 
 async function apiPost(request, params) {
