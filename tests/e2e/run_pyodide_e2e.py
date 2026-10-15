@@ -141,12 +141,34 @@ def check_code_is_escaped(api: str) -> None:
         raise CheckError(f"the code text was not HTML-escaped as expected: {html[:400]!r}")
 
 
+def check_runner_module_loads(api: str) -> None:
+    """The runner module's own files must resolve and load.
+
+    A module registered in extension.json without `ResourceFileModulePaths`
+    resolves its files against the wiki root, not the extension directory, so
+    `load.php` returns a module "error" state with a RuntimeException. This is
+    the cheap server-side guard for that regression (the browser UX suite
+    catches it too, but that suite is manual).
+    """
+    base = api.rsplit("/", 1)[0]
+    for only in ("scripts", "styles"):
+        url = f"{base}/load.php?lang=en&modules={RUN_MODULE}&only={only}"
+        req = urllib.request.Request(url, headers={"User-Agent": UA})
+        with urllib.request.urlopen(req, timeout=90) as resp:
+            body = resp.read().decode("utf-8", "replace")
+        if "RuntimeException" in body or f'"{RUN_MODULE}":"error"' in body:
+            raise CheckError(
+                f"the {RUN_MODULE} module's {only} failed to load: {body[:200]!r}"
+            )
+
+
 CHECKS = [
     ("extension loaded (siteinfo)", check_extension_loaded),
     ("pyodide block queues the runner module", check_block_registers_module),
     ("site-wide config is exported (local asset URL)", check_config_exported),
     ("plain block loads nothing extra", check_plain_block_has_no_module),
     ("code text is HTML-escaped", check_code_is_escaped),
+    ("runner module files load (no path regression)", check_runner_module_loads),
 ]
 
 

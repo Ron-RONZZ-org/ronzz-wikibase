@@ -49,6 +49,10 @@
 			]
 		}
 	},
+	"ResourceFileModulePaths": {
+		"localBasePath": "",
+		"remoteExtPath": "Pyodide4MediaWiki"
+	},
 	"config": {
 		"Pyodide4MediaWikiEnable": {
 			"value": true,

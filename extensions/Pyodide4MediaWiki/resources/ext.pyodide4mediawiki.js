@@ -17,7 +17,11 @@
 var workerBody = require( './pyodide.worker.js' );
 
 var CLASS_NAME = 'pyodide';
-var indexUrl = mw.config.get( 'wgPyodide4MediaWikiIndexUrl' );
+var rawIndexUrl = mw.config.get( 'wgPyodide4MediaWikiIndexUrl' );
+// Resolve to an ABSOLUTE URL: the worker is created from a Blob and imports
+// pyodide.mjs relative to that Blob, so a root-relative path would not
+// resolve. Pyodide's own asset fetches use indexURL the same way.
+var indexUrl = rawIndexUrl ? new URL( rawIndexUrl, document.baseURI ).href : null;
 var packages = mw.config.get( 'wgPyodide4MediaWikiPackages' ) || [];
 var requireLogin = mw.config.get( 'wgPyodide4MediaWikiRequireLogin' ) !== false;
 var userName = mw.config.get( 'wgUserName' );
@@ -118,7 +122,11 @@ function ensureWorker() {
 		workerReadyReject = reject;
 		worker.addEventListener( 'message', onWorkerMessage );
 		worker.addEventListener( 'error', function ( event ) {
-			var err = event.error || new Error( event.message || 'Pyodide worker error' );
+			var detail = event.message || '';
+			if ( event.filename ) {
+				detail += ' (' + event.filename + ':' + event.lineno + ':' + event.colno + ')';
+			}
+			var err = event.error || new Error( detail || 'Pyodide worker error' );
 			if ( workerReadyReject ) {
 				workerReadyReject( err );
 				workerReadyResolve = null;
