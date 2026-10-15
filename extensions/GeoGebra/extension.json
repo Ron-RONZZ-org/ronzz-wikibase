@@ -39,6 +39,10 @@
 			]
 		}
 	},
+	"ResourceFileModulePaths": {
+		"localBasePath": "",
+		"remoteExtPath": "GeoGebra"
+	},
 	"config": {
 		"GeoGebraPlayerUrl": {
 			"value": "",
