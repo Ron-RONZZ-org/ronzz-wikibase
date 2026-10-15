@@ -227,6 +227,8 @@ def submit_form(op, base: str, path: str, required_field: str, overrides: dict) 
     html = page_get(op, base, path)
     action, fields = find_form(html, required_field)
     fields.update(overrides)
+    for key in [ k for k, v in fields.items() if v is None ]:
+        del fields[key]
     LAST_FORM_FIELDS = fields
     url = urllib.parse.urljoin(base, action)
     req = urllib.request.Request(
@@ -274,15 +276,14 @@ def rendered_path(title: str) -> str:
 def append_save_fields(text: str, summary: str) -> dict:
     """The POST fields the EditPage-based append editor needs to SAVE.
 
-    The editor is core's edit form: `wpSave` saves, while `wpPreview`/`wpDiff`
-    take precedence, so a save must blank them (a browser only submits the
-    clicked button)."""
+    `WebRequest::getCheck()` treats PRESENCE as true, so `wpPreview`/`wpDiff`
+    must be OMITTED (setting them to '' still forces preview); a None value
+    drops the key (see submit_form)."""
     return {
         "wpTextbox1": text,
         "wpSummary": summary,
-        "wpSave": "1",
-        "wpPreview": "",
-        "wpDiff": "",
+        "wpPreview": None,
+        "wpDiff": None,
     }
 
 
@@ -368,7 +369,7 @@ def section_action_flow(op, api: str, base: str, keep: bool) -> None:
         _, preview_html = submit_form(
             op, base, rendered_path(title) + "?action=appendsection", "wpTextbox1",
             {"wpTextbox1": "Preview only text.", "wpSummary": "",
-             "wpPreview": "1", "wpSave": "", "wpDiff": ""})
+             "wpPreview": "1", "wpDiff": None, "wpSave": None})
         if "wikiPreview" not in preview_html or "Preview only text." not in preview_html:
             raise FlowError("Show preview did not render the assembled content")
         after, _ = page_wikitext(op, api, title)
@@ -380,7 +381,7 @@ def section_action_flow(op, api: str, base: str, keep: bool) -> None:
         _, diff_html = submit_form(
             op, base, rendered_path(title) + "?action=appendsection", "wpTextbox1",
             {"wpTextbox1": "Diff only text.", "wpSummary": "",
-             "wpDiff": "1", "wpSave": "", "wpPreview": ""})
+             "wpDiff": "1", "wpPreview": None, "wpSave": None})
         if "wikiDiff" not in diff_html or "Diff only text." not in diff_html:
             raise FlowError("Show changes did not render the diff against the current page")
         print("[ok] Show changes renders a diff against the current page")
