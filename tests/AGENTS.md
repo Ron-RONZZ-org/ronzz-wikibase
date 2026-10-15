@@ -50,14 +50,18 @@ plus the Playwright browser UX suite for the query GUI (query.ronzz.org).
   the CORS step on the wiki (see ci.yml / `dev/README.md`). The browser render
   is verified by `tests/e2e/run_geogebra_ux_e2e.mjs` (Playwright,
   manual/production like the math UX suite).
-- **`tests/e2e/run_section_actions_e2e.py`** — the content-page section
+- **`tests/e2e/run_section_actions_e2e.py`** — the classic-page section
   actions (EmbeddableContent): GETs the rendered `?action=appendsection` /
-  `?action=deletesection` forms, parses their hidden fields (CSRF token, form
-  identifier, the `section` carrier) and POSTs them back like a browser —
-  asserting the page-end append preserves content, "Add section below"
-  inserts below the target section, a blank Summary auto-infers the
-  section-edit comment (`/* Heading */`), and "Delete section" removes the
-  whole section; **self-cleaning** (page + auto-created item).
+  `?action=deletesection` forms, parses their fields (CSRF token, timestamps,
+  texts) and POSTs them back like a browser — asserting the append editor is
+  core's built-in edit surface (form id `editform`, `wpTextbox1`, Summary,
+  Save / Show preview / Show changes) with NO minor-edit checkbox; the
+  page-end append preserves content; Show preview and Show changes render the
+  assembled page without saving; "Add section below" (`wbsection`) inserts
+  below the target section; a blank Summary auto-infers the section-edit
+  comment (`/* Heading */`); "Delete section" removes the whole section; and
+  the controls + Add section action also load on a non-content classic page
+  (`Help:`); **self-cleaning** (pages + auto-created item).
 - **`tests/e2e/run_codeblock_spaces_e2e.py`** — the CodeBlockSpaces
   extension: read-only (`action=parse` of inline `text=` payloads — no page,
   no login, safe against production) asserts that `<pre>`/`<code>` and

@@ -3,6 +3,14 @@
 - **Status**: accepted (2026-10-14). Owner: ronzz.org.
 - **Supersedes**: the per-section control rendering and the append-form
   editor decisions of `math-note-split-and-page-actions.md` §2–§3.
+- **Partly superseded (2026-10-14)** by
+  `section-controls-editpage-editor.md`: the controls now load on **every
+  classic article page** (not just content pages) and **§4** is replaced —
+  the append editor is core's own `EditPage` (`AppendSectionEditPage`), so it
+  carries the built-in Show preview / Show changes instead of the bespoke
+  `action=parse` Preview, with the "minor edit" checkbox removed. §1–§3 and
+  §5 stand (bracketed controls, section-scoped append/delete, the
+  auto-inferred summary).
 
 ## Context
 
@@ -54,6 +62,12 @@ AbuseFilter and the page-save hooks all apply.
 
 ### 4. Edit-parity wikitext editor + Preview
 
+> **Superseded (2026-10-14)** by
+> `section-controls-editpage-editor.md`: the editor is now core's `EditPage`
+> (built-in Show preview / Show changes), not a `FormAction` with a bespoke
+> JavaScript `action=parse` Preview. The paragraphs below describe the earlier
+> implementation.
+
 `AppendSectionAction` switches to a **plain (non-OOUI) HTMLForm** so the
 Content textarea keeps the stable id `wpTextbox1` — the exact selector
 WikiEditor's own bootstrap (`ext.wikiEditor.js`) attaches the toolbar to. The
@@ -86,7 +100,9 @@ the content has no heading. The scan deliberately mirrors core's own parse
   flow, and section-edit-style summaries for free.
 - The append action keeps its clean, upstreamable shape (a `FormAction`, not
   an `EditPage` subclass); the Editor integration relies on WikiEditor's
-  documented bootstrap selector + the user preference.
+  documented bootstrap selector + the user preference. **(Superseded
+  2026-10-14: the append editor is now core's `EditPage` — see
+  `section-controls-editpage-editor.md`.)**
 - **Deploy**: extension rsync + php-fpm restart + a message/objectcache purge
   (new i18n keys + the new `deletesection` action). No vocabulary/seed change.
 

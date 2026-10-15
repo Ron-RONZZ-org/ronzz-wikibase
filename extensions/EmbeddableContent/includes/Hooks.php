@@ -98,12 +98,21 @@ class Hooks {
 	 */
 	public static function onSkinTemplateNavigation__Universal( SkinTemplate $skin, array &$links ): void {
 		$title = $skin->getTitle();
-		if ( $title === null || !$title->exists() || !$title->isContentPage() ) {
+		if ( $title === null || !$title->exists() ) {
 			return;
 		}
 
-		// Entity pages (Item:/Property:) are the semantic entities themselves
-		// — the tab makes no sense there.
+		// The "Add section" page action on every classic article page.
+		if ( self::isClassicArticleTitle( $title ) ) {
+			self::addSectionAction( $skin, $title, $links );
+		}
+
+		// Sitelink tab: content pages except the entity namespaces (Item:/
+		// Property:) — the semantic entities themselves; the tab makes no
+		// sense there.
+		if ( !$title->isContentPage() ) {
+			return;
+		}
 		$namespaceLookup = WikibaseRepo::getEntityNamespaceLookup();
 		foreach ( [ Item::ENTITY_TYPE, Property::ENTITY_TYPE ] as $entityType ) {
 			$namespace = $namespaceLookup->getEntityNamespace( $entityType );
@@ -141,20 +150,19 @@ class Hooks {
 		$links['namespaces']['sitelink'] = $tab;
 		$links['associated-pages']['sitelink'] = $tab;
 
-		self::addSectionAction( $skin, $title, $links );
-
 		$skin->getOutput()->addModules( 'ext.embeddableContent.sitelinktab' );
 	}
 
 	/**
-	 * The "Add section" page action on content pages. MediaWiki core only
-	 * renders it for talk pages / pages carrying `__NEWSECTIONLINK__`, so an
-	 * ordinary article has no way to add to the page from the page actions.
-	 * Insert the action between "Edit" (or "View source") and "View history",
-	 * reusing the skin's action-link styling. The target is the extension's
-	 * `action=appendsection` flow (AppendSectionAction) — an Edit-like form
-	 * (Content + Summary + Watch, no minor edit, no subject) whose save
-	 * APPENDS the submitted wikitext to the end of the page (no new heading).
+	 * The "Add section" page action on every classic article page. MediaWiki
+	 * core only renders it for talk pages / pages carrying
+	 * `__NEWSECTIONLINK__`, so an ordinary article has no way to add to the
+	 * page from the page actions. Insert the action between "Edit" (or "View
+	 * source") and "View history", reusing the skin's action-link styling. The
+	 * target is the extension's `action=appendsection` flow
+	 * (AppendSectionAction) — core's own edit surface (toolbar, Preview, Show
+	 * changes, Summary, Watch; no "minor edit" checkbox) whose save APPENDS
+	 * the submitted wikitext to the end of the page (no new heading).
 	 * Skipped when the page already carries the core action, when the user
 	 * cannot edit, or when there is no edit action to anchor to.
 	 *
@@ -390,35 +398,24 @@ class Hooks {
 				self::wireItemToolbar( $out, $itemId->getSerialization(), true );
 				self::wireMentionButton( $out, $title, $itemId->getSerialization() );
 			}
+			self::wireSectionControls( $out, $title );
 			return;
 		}
 
-		// Ordinary content pages (Main, Help, Cheatsheets, HowItWorks, …) —
-		// the "Copy internal mention" button, rendered inline next to the
-		// title (the File: page copy-button pattern). Entity pages
-		// (Item:/Property:), Special pages, File: pages and the per-kind
-		// classic namespaces are handled above; only real, existing content
-		// pages qualify. The `[[…]]` snippet is normalized server-side
-		// (MentionSnippet): Main-namespace titles lowercase their first
-		// letter unless they are proper names; other namespaces are kept.
-		if ( $title->exists() && $title->isContentPage()
-			&& !self::isEntityNamespace( $title->getNamespace() )
-		) {
-			$out->addJsConfigVars(
-				'wbReferenceSnippet',
-				\EmbeddableContent\Spec\MentionSnippet::fromPrefixedTitle(
-					$title->getPrefixedText(),
-					$title->getNamespace() === NS_MAIN
-				)
-			);
-			// The "Copy citation" action cites the PAGE itself (title +
-			// canonical URL + last-revision date) — NOT a sitelinked item.
-			$out->addJsConfigVars( 'wbCitePage', $title->getPrefixedText() );
-			$out->addModules( 'ext.embeddableContent.contentpagetoolbar' );
-			// Per-section "Copy internal mention" / "Copy URL" controls,
-			// rendered next to each heading's [edit] link (they reuse the
-			// wbReferenceSnippet set above).
-			$out->addModules( 'ext.embeddableContent.sectionactions' );
+		// Every other classic article page (Main, Help, Cheatsheets,
+		// HowItWorks, Forum, RonzzIT, …) — the per-section controls, plus the
+		// page-level "Copy internal mention"/"Copy citation" toolbar on
+		// content pages. Entity pages (Item:/Property:), Special pages,
+		// File: pages, the technical namespaces and talk pages are excluded;
+		// the per-kind classic namespaces are handled above.
+		if ( self::isClassicArticleTitle( $title ) ) {
+			self::wireSectionControls( $out, $title );
+			if ( $title->isContentPage() ) {
+				// The "Copy citation" action cites the PAGE itself (title +
+				// canonical URL + last-revision date) — NOT a sitelinked item.
+				$out->addJsConfigVars( 'wbCitePage', $title->getPrefixedText() );
+				$out->addModules( 'ext.embeddableContent.contentpagetoolbar' );
+			}
 			return;
 		}
 
@@ -484,6 +481,27 @@ class Hooks {
 	}
 
 	/**
+	 * The per-section controls (Copy internal mention / Copy URL / Add section
+	 * below / Delete section), loaded next to each heading's `[edit]` link on
+	 * every classic article page. `wbReferenceSnippet` is the server-resolved
+	 * `[[Page name]]` the section "Copy internal mention" control reuses
+	 * (Spec\MentionSnippet, the same snippet the page-level button copies).
+	 */
+	private static function wireSectionControls(
+		OutputPage $out,
+		\MediaWiki\Title\Title $title
+	): void {
+		$out->addJsConfigVars(
+			'wbReferenceSnippet',
+			\EmbeddableContent\Spec\MentionSnippet::fromPrefixedTitle(
+				$title->getPrefixedText(),
+				$title->getNamespace() === NS_MAIN
+			)
+		);
+		$out->addModules( 'ext.embeddableContent.sectionactions' );
+	}
+
+	/**
 	 * The classic-page namespaces that carry an item's action toolbar —
 	 * the Add* flows' per-kind pages: FOSS / Person / Source / Collective /
 	 * Software. The constants are defined by the instance LocalSettings
@@ -513,6 +531,27 @@ class Hooks {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Whether the title is a "classic wiki page" — the scope of the per-section
+	 * controls and the "Add section" action: any existing article page, EXCEPT
+	 * the Special: namespace, the Wikibase entity namespaces (Item:/Property:),
+	 * File: pages (they carry their own copy toolbar), the technical namespaces
+	 * (Category:/Template:/MediaWiki:/Module:) and every talk page.
+	 */
+	private static function isClassicArticleTitle( \MediaWiki\Title\Title $title ): bool {
+		if ( !$title->exists() || $title->isSpecialPage() || $title->isTalkPage() ) {
+			return false;
+		}
+		$namespace = $title->getNamespace();
+		if ( $namespace === NS_FILE || $namespace === NS_CATEGORY
+			|| $namespace === NS_TEMPLATE || $namespace === NS_MEDIAWIKI
+			|| $namespace === NS_MODULE
+		) {
+			return false;
+		}
+		return !self::isEntityNamespace( $namespace );
 	}
 
 	/**

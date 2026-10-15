@@ -1495,6 +1495,16 @@ report). See `SimpleMathJax/VENDORED.md`.
   uses a plain `wpTextbox1` textarea so WikiEditor attaches the Edit-parity
   toolbar, plus a Preview button (`action=parse`) and an auto-inferred
   summary (`Spec/SectionSummary::infer`). §1 (the math notes) stands.
+  **Further superseded (2026-10-14)** by
+  `docs/decisions/section-controls-editpage-editor.md`: the controls now load
+  on **every classic article page** (`Hooks::isClassicArticleTitle` +
+  `wireSectionControls`; the classic per-kind namespaces no longer return
+  before them, and the "Add section" page action is gated the same way), and
+  the append editor is core's own `EditPage`
+  (`Action/AppendSectionEditPage`; `AppendSectionAction extends EditAction`) —
+  built-in Show preview / Show changes, no minor-edit checkbox — with the
+  target section carried in `wbsection` (not core's `section`).
+  `resources/sectionform.js` and its module are removed.
 
 ### WikibaseCitation
 

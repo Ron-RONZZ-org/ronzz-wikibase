@@ -9,8 +9,10 @@
  *     closing brackets — the contributor types the display text themselves);
  *   - "Copy URL" — copies the ABSOLUTE URL of the section;
  *   - "Add section below" — opens the append editor targeting this section
- *     (`?action=appendsection&section=<n>`; the number is read from the
- *     existing `[edit]` link);
+ *     (`?action=appendsection&wbsection=<n>`; the number is read from the
+ *     existing `[edit]` link. It rides `wbsection`, not `section`, because
+ *     the append editor is core's `EditPage`, whose own `section` parameter
+ *     must stay empty);
  *   - "Delete section" — opens the delete confirmation
  *     (`?action=deletesection&section=<n>`).
  *
@@ -189,7 +191,7 @@
 				'wb-section-addbelow-' + anchor,
 				'embeddablecontent-section-addbelow',
 				'embeddablecontent-section-addbelow-hint',
-				mw.util.getUrl( pageName, { action: 'appendsection', section: number } )
+				mw.util.getUrl( pageName, { action: 'appendsection', wbsection: number } )
 			) ) );
 			$edit.append( bracketed( makeActionLink(
 				'wb-section-delete-' + anchor,

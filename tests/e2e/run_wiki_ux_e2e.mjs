@@ -31,12 +31,13 @@
  *   - Section controls + section actions — each heading's [edit] link carries,
  *     each in its own [ ] bracket pair, "Copy internal mention"
  *     (`[[Page#section|`), "Copy URL" (the absolute section URL),
- *     "Add section below" (`action=appendsection&section=<n>`) and
+ *     "Add section below" (`action=appendsection&wbsection=<n>`) and
  *     "Delete section" (`action=deletesection&section=<n>`); the append editor
- *     is a plain `wpTextbox1` textarea (WikiEditor attaches the Edit toolbar),
- *     has a Preview button (`action=parse`), and a blank Summary auto-infers
- *     the section-edit comment from the topmost heading; the delete
- *     confirmation shows the section's wikitext before removal;
+ *     is core's built-in edit surface (the wpTextbox1 textarea + WikiEditor,
+ *     Summary, Save / Show preview / Show changes) with NO minor-edit
+ *     checkbox, and a blank Summary auto-infers the section-edit comment from
+ *     the topmost heading; the delete confirmation shows the section's
+ *     wikitext before removal;
  *   - Special:AddSource/law — the "Add more" success popup shows the resolved
  *     "Update basic information" label (not the raw message key), offers
  *     "Copy internal citation", and its "Copy citation" popup stacks above
@@ -416,40 +417,42 @@ async function main() {
 				console.log('[ok] section copy-url copies the absolute section URL');
 			}
 
-			// The append flow: an Edit-like form with no subject / no minor
-			// edit; the Content textarea carries the WikiEditor id and a
-			// Preview button; the save appends without adding a heading.
+			// The append flow IS the built-in edit surface: the wpTextbox1
+			// textarea (WikiEditor), Summary, and Save / Show preview / Show
+			// changes — with NO minor-edit checkbox; the save appends without
+			// adding a heading.
 			const pageUrl = `${BASE_URL}/wiki/${encodeURIComponent(sectionTitle.replace(/ /g, '_'))}`;
 			await page.goto(`${pageUrl}?action=appendsection`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-			await page.waitForSelector('#wb-append-section-submit', { timeout: 15000 });
+			await page.waitForSelector('#wpSave', { timeout: 15000 });
 			if (await page.locator('[name="wpMinoredit"], #wpMinoredit').count() !== 0) {
 				failures.push('the Add section form carries a minor-edit checkbox');
 			}
 			if (await page.locator('textarea#wpTextbox1').count() !== 1) {
 				failures.push('the Add section Content textarea lacks the wpTextbox1 id');
 			}
-			if (await page.locator('#wb-sectionform-preview').count() !== 1) {
-				failures.push('the Add section form lacks the Preview button');
+			for (const [sel, label] of [['#wpPreview', 'Show preview'], ['#wpDiff', 'Show changes']]) {
+				if (await page.locator(sel).count() !== 1) {
+					failures.push(`the Add section form lacks the ${label} button`);
+				}
 			}
+
+			// Show preview renders the assembled page without saving.
 			await page.fill('#wpTextbox1', '== Previewed ==\n\nPreview body.');
-			await page.click('#wb-sectionform-preview');
-			await page.waitForFunction(() => {
-				const box = document.querySelector('.wb-sectionform-preview');
-				return box && !box.hidden && box.textContent.includes('Preview body');
-			}, { timeout: 15000 }).catch(() => {});
+			await page.click('#wpPreview');
+			await page.waitForSelector('#wikiPreview', { timeout: 15000 });
 			const previewOk = await page.evaluate(() => {
-				const box = document.querySelector('.wb-sectionform-preview');
-				return !!box && !box.hidden && box.textContent.includes('Preview body');
+				const box = document.querySelector('#wikiPreview');
+				return !!box && box.textContent.includes('Preview body');
 			});
 			if (!previewOk) {
-				failures.push('the Preview button did not render the preview');
+				failures.push('Show preview did not render the content');
 			} else {
-				console.log('[ok] Preview button renders the content');
+				console.log('[ok] Show preview renders the content');
 			}
 
 			await page.fill('#wpTextbox1', 'Appended by the E2E.');
-			await page.fill('[name="wpsummary"]', 'E2E append');
-			await page.click('#wb-append-section-submit');
+			await page.fill('[name="wpSummary"]', 'E2E append');
+			await page.click('#wpSave');
 			await page.waitForSelector('#firstHeading', { timeout: 15000 });
 			let bodyText = await page.locator('#mw-content-text').innerText();
 			if (!bodyText.includes('Appended by the E2E.')) {
@@ -471,10 +474,10 @@ async function main() {
 			await page.goto(pageUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
 			const addBelowHref = await page.getAttribute('.mw-editsection #wb-section-addbelow-First_section', 'href');
 			await page.goto(new URL(addBelowHref, BASE_URL).href, { waitUntil: 'domcontentloaded', timeout: 60000 });
-			await page.waitForSelector('#wb-append-section-submit', { timeout: 15000 });
+			await page.waitForSelector('#wpSave', { timeout: 15000 });
 			await page.fill('#wpTextbox1', '=== Added sub ===\n\nSub body.');
-			await page.fill('[name="wpsummary"]', '');
-			await page.click('#wb-append-section-submit');
+			await page.fill('[name="wpSummary"]', '');
+			await page.click('#wpSave');
 			await page.waitForSelector('#firstHeading', { timeout: 15000 });
 			bodyText = await page.locator('#mw-content-text').innerText();
 			const oneAt = bodyText.indexOf('Body one.');

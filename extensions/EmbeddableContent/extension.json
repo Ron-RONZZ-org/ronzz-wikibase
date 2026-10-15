@@ -700,26 +700,6 @@
 				"mobile"
 			]
 		},
-		"ext.embeddableContent.sectionform": {
-			"scripts": [
-				"sectionform.js"
-			],
-			"styles": [
-				"gadget.css"
-			],
-			"dependencies": [
-				"mediawiki.api"
-			],
-			"messages": [
-				"embeddablecontent-sectionform-preview",
-				"embeddablecontent-sectionform-preview-empty",
-				"embeddablecontent-sectionform-preview-error"
-			],
-			"targets": [
-				"desktop",
-				"mobile"
-			]
-		},
 		"ext.embeddableContent.print": {
 			"scripts": [
 				"print.js"

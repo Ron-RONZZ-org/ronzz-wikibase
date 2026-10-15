@@ -48,10 +48,13 @@ deployed, how to operate it, and why it is designed the way it is.
   `math-note-split-and-page-actions.md` (the math pre/post-content notes, the
   per-section mention/URL copy controls, and the append "Add section" action
   — §2/§3 partly superseded), `section-controls-and-editor.md` (the bracketed
-  per-section controls + "Add section below"/"Delete section", the Edit-parity
-  WikiEditor + Preview on the append editor, the auto-inferred summary), and
-  `geogebra-inline-commands.md` (the `<geogebra>` tag rendering raw GeoGebra
-  commands without an uploaded `.ggb`).
+  per-section controls + "Add section below"/"Delete section" and the
+  topmost-heading auto-summary — its scope + append-editor parts superseded),
+  `section-controls-editpage-editor.md` (the controls extended to every classic
+  article page, and the append editor rebuilt on core's `EditPage` for true
+  Show preview / Show changes parity with only the minor-edit checkbox
+  removed), and `geogebra-inline-commands.md` (the `<geogebra>` tag rendering
+  raw GeoGebra commands without an uploaded `.ggb`).
 
 ## Constraints and Invariants
 
