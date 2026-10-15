@@ -25,6 +25,11 @@ seed/generated/
 # extensions/GeoGebra/ASSETS.md)
 /extensions/GeoGebra/resources/player/GeoGebra/
 
+# Pyodide distribution — installed by tools/install-pyodide.sh
+# (pinned Pyodide core + sha256-checked pre-built packages from the
+# distribution's own lock file; never committed)
+/extensions/Pyodide4MediaWiki/resources/pyodide/
+
 # IDE / OS
 .idea/
 .vscode/

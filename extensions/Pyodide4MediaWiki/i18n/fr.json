@@ -1,0 +1,14 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		]
+	},
+	"pyodide4mediawiki-desc": "Exécute côté client, dans le navigateur, les blocs de code <code>&lt;syntaxhighlight&gt;</code> marqués <code>class=\"pyodide\"</code> via [https://pyodide.org/ Pyodide] (CPython compilé en WebAssembly) — un bouton « Exécuter » et un panneau de sortie, comme une cellule de notebook.",
+	"pyodide4mediawiki-run": "Exécuter",
+	"pyodide4mediawiki-running": "Exécution…",
+	"pyodide4mediawiki-loading": "Chargement de Python… (l’interpréteur est téléchargé une fois, puis mis en cache par le navigateur)",
+	"pyodide4mediawiki-login-required": "Connectez-vous pour exécuter ce code.",
+	"pyodide4mediawiki-error": "Erreur",
+	"pyodide4mediawiki-output": "Sortie"
+}

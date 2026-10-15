@@ -1,0 +1,14 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		]
+	},
+	"pyodide4mediawiki-desc": "Runs <code>&lt;syntaxhighlight&gt;</code> code blocks marked with <code>class=\"pyodide\"</code> client-side in the browser via [https://pyodide.org/ Pyodide] (CPython compiled to WebAssembly) — a Run button and an output panel, like a notebook cell.",
+	"pyodide4mediawiki-run": "Run",
+	"pyodide4mediawiki-running": "Running…",
+	"pyodide4mediawiki-loading": "Loading Python… (the interpreter is downloaded once, then cached by the browser)",
+	"pyodide4mediawiki-login-required": "Log in to run this code.",
+	"pyodide4mediawiki-error": "Error",
+	"pyodide4mediawiki-output": "Output"
+}

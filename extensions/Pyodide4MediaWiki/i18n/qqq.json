@@ -1,0 +1,14 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		]
+	},
+	"pyodide4mediawiki-desc": "{{desc|name=Pyodide4MediaWiki|url=https://github.com/Ron-RONZZ-org/ronzz-wikibase}}",
+	"pyodide4mediawiki-run": "Button label that executes the code block in the browser.",
+	"pyodide4mediawiki-running": "Status shown while the code block is executing.",
+	"pyodide4mediawiki-loading": "Status shown while the Pyodide interpreter is being downloaded and initialised on the first Run.",
+	"pyodide4mediawiki-login-required": "Message shown to anonymous readers in place of the Run button.",
+	"pyodide4mediawiki-error": "Heading/prefix for an execution error.",
+	"pyodide4mediawiki-output": "Accessible label for the execution output panel."
+}

@@ -1,0 +1,73 @@
+{
+	"name": "Pyodide4MediaWiki",
+	"version": "1.0.0",
+	"author": [
+		"ronzz.org"
+	],
+	"url": "https://github.com/Ron-RONZZ-org/ronzz-wikibase",
+	"descriptionmsg": "pyodide4mediawiki-desc",
+	"license-name": "GPL-2.0-or-later",
+	"type": "other",
+	"requires": {
+		"MediaWiki": ">= 1.46.0"
+	},
+	"AutoloadNamespaces": {
+		"MediaWiki\\Extension\\Pyodide4MediaWiki\\": "src/"
+	},
+	"MessagesDirs": {
+		"Pyodide4MediaWiki": [
+			"i18n"
+		]
+	},
+	"HookHandlers": {
+		"main": {
+			"class": "MediaWiki\\Extension\\Pyodide4MediaWiki\\Hooks"
+		}
+	},
+	"Hooks": {
+		"ParserAfterTidy": "main"
+	},
+	"ResourceModules": {
+		"ext.pyodide4mediawiki.run": {
+			"packageFiles": [
+				"resources/ext.pyodide4mediawiki.js",
+				"resources/pyodide.worker.js"
+			],
+			"styles": [
+				"resources/ext.pyodide4mediawiki.css"
+			],
+			"messages": [
+				"pyodide4mediawiki-run",
+				"pyodide4mediawiki-running",
+				"pyodide4mediawiki-loading",
+				"pyodide4mediawiki-login-required",
+				"pyodide4mediawiki-error",
+				"pyodide4mediawiki-output"
+			],
+			"dependencies": [
+				"mediawiki.util"
+			]
+		}
+	},
+	"config": {
+		"Pyodide4MediaWikiEnable": {
+			"value": true,
+			"description": "Enable client-side Python execution of code blocks marked with class=\"pyodide\". When off, the blocks render as ordinary highlighted code with no Run control and the client module is not loaded."
+		},
+		"Pyodide4MediaWikiRequireLogin": {
+			"value": false,
+			"description": "Only show the Run control to logged-in users. Default false: on this instance every editor is vetted, so the page content is trusted and the Run control is available to all readers. Note that client-side Pyodide runs Python in the reader's browser session (DOM and fetch access), so enabling this gate is advisable if untrusted users ever gain edit access. The gate is applied client-side against wgUserName, never in the cached parser output."
+		},
+		"Pyodide4MediaWikiPackages": {
+			"value": [
+				"numpy",
+				"matplotlib",
+				"pandas",
+				"scipy",
+				"sympy"
+			],
+			"description": "Pyodide packages loaded before each code block runs. Only packages vendored offline by tools/install-pyodide.sh are available; a package the install script did not vendor fails at run time with Pyodide's own error."
+		}
+	},
+	"manifest_version": 2
+}

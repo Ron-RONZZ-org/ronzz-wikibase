@@ -100,6 +100,15 @@ $wgTrustedMediaFormats[] = 'application/geogebra';
 wfLoadExtension( 'CSVTable' );
 $wgFileExtensions[] = 'csv';
 
+// ---- Pyodide4MediaWiki (client-side Python execution, extensions/Pyodide4MediaWiki) ----
+// Makes `class="pyodide"` SyntaxHighlight blocks executable in the reader's
+// browser via Pyodide (CPython/WASM) — a Run control + output panel. The
+// distribution is served from the wiki's own origin (resources/pyodide/),
+// installed by tools/install-pyodide.sh; run it on the host of this checkout
+// BEFORE `up -d` (the extension dir is a read-only bind mount). Mirrors the
+// production LocalSettings block (see RonzzIT:Deployment/Wikibase).
+wfLoadExtension( 'Pyodide4MediaWiki' );
+
 // Dev-only: surface exception details instead of a bare 500.
 $wgShowExceptionDetails = true;
 
