@@ -24,14 +24,18 @@ Self-hosted **Wikibase** (structured-data wiki, the software behind Wikidata) on
   vendored at `extensions/SimpleMathJax/` — see `VENDORED.md` +
   `docs/decisions/inline-latex-math.md`); **CSVTable** (house media handler,
   `[[File:data.csv]]` rendered as a wikitable — `extensions/CSVTable/` —
-  see `docs/decisions/csv-table-embed.md`)
+  see `docs/decisions/csv-table-embed.md`); **Pyodide4MediaWiki** (house
+  extension, client-side Python execution of `class="pyodide"` code blocks via
+  Pyodide/WASM — `extensions/Pyodide4MediaWiki/` — see
+  `docs/decisions/pyodide4mediawiki.md`)
 - seed/ (bootstrap orchestrator), tools/, tests/, dev/ (CI stack)
 - `docs/decisions/` — ADR-style design rationale (opaque IDs, ontology alignment,
   raw RDF in Blazegraph, cite-by-QID, static LLM translation, automatic
   languages bar, forum via DPLforum, diagrams via Extension:Diagrams, inline
   LaTeX math via SimpleMathJax, rich content + math note, content-page
   reference toolbar, copy internal mention + quotation attribution,
-  fictional-character aliases, source language field)
+  fictional-character aliases, source language field, client-side Python via
+  Pyodide)
 - `docs/contribution-guide.md` — pointer to the on-wiki `Help:Contributing` family
 - Editor-facing rules live on-wiki at `Help:Contributing` (public)
 

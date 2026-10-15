@@ -24,6 +24,15 @@ server-side HTML with no assets). Every cell is escaped; size/row/column
 caps degrade to an error notice. See `CSVTable/AGENTS.md` +
 `../docs/decisions/csv-table-embed.md`.
 
+Plus **Pyodide4MediaWiki** (a standalone house extension): a code block marked
+with `class="pyodide"` (typically a `<syntaxhighlight lang="python"
+class="pyodide">`) gains a Run button and an output panel and executes Python
+**in the reader's browser** via Pyodide (CPython/WASM) — no server execution.
+The distribution is installed per environment by `tools/install-pyodide.sh`
+(pinned core + sha256-checked wheels, gitignored) and served from the wiki's
+own origin. See `Pyodide4MediaWiki/AGENTS.md` +
+`../docs/decisions/pyodide4mediawiki.md`.
+
 Plus **vendored third-party** extensions: **DPLforum** (the forum — see
 `DPLforum/VENDORED.md` for provenance and `../docs/decisions/forum-dplforum.md`
 for the choice rationale) and **InputBox** (the `<inputbox type=create>`
@@ -1699,6 +1708,37 @@ report). See `SimpleMathJax/VENDORED.md`.
   `CSVTableFirstRowHeader` (`true`) + the caps. See `CSVTable/AGENTS.md` +
   `../docs/decisions/csv-table-embed.md`.
 
+### Pyodide4MediaWiki
+
+- **Client-side Python execution** (`extensions/Pyodide4MediaWiki/`, a
+  standalone house extension): a block marked `class="pyodide"` (typically a
+  `<syntaxhighlight lang="python" class="pyodide" copy>`) gains a Run button
+  and an output panel and runs its code in the reader's browser via **Pyodide**
+  (CPython compiled to WebAssembly) — no server execution. `Hooks::onParserAfterTidy`
+  detects the marker in the assembled HTML (`PyodideBlockDetector`, pure — an
+  exact whitespace-delimited token; both quote styles) and, only then, queues
+  the small module `ext.pyodide4mediawiki.run` + exports **site-wide** config
+  via `ParserOutput::setJsConfigVar` (local asset URL, package list,
+  login-gate flag). The bootstrap runs the block in a **module Web Worker**
+  (Pyodide 314 dropped classic workers: the worker body is serialized via
+  `Function.prototype.toString()` and instantiated from a Blob URL with a
+  module-level `import { loadPyodide } from "<indexUrl>pyodide.mjs"`); **one
+  interpreter per page** (variables persist across cells). `stdout`/`stderr`
+  stream to the panel, the last expression's value is shown, tracebacks render
+  as text (never `innerHTML`). The distribution is installed by
+  `tools/install-pyodide.sh` (pinned core tarball + the transitive dependency
+  closure of the configured packages, sha256-checked from the distribution's
+  own `pyodide-lock.json`; ~49 MB, gitignored) and served from the wiki's own
+  origin (`packageBaseUrl` pinned locally — never a runtime CDN). Execution is
+  open to all readers by default (content is trusted; every editor is vetted);
+  `$wgPyodide4MediaWikiRequireLogin` opts into a client-side login gate. A
+  `<syntaxhighlight>`-level `class` attribute and the `copy` feature are
+  upstream (verified on the instance). No existing MediaWiki extension runs
+  client-side Python (survey in the ADR). No DB/seed/manifest/config-map
+  surface — deploy = rsync + the install script + `wfLoadExtension` + php-fpm
+  restart / parser-cache purge. See `Pyodide4MediaWiki/AGENTS.md` +
+  `../docs/decisions/pyodide4mediawiki.md`.
+
 ## Constraints and Invariants
 
 - **Standalone extensions, never forks of Wikibase** — deep integration via
@@ -1715,6 +1755,10 @@ report). See `SimpleMathJax/VENDORED.md`.
   `styles/*.csl`) — never re-fetch from CDNs at runtime. The GeoGebra app
   bundle is likewise never a runtime CDN: it is installed per environment by
   `tools/install-geogebra.sh` and served from the cookie-less player origin.
+  The Pyodide distribution is likewise never a runtime CDN: it is installed by
+  `tools/install-pyodide.sh` and served from the wiki's own origin
+  (`packageBaseUrl` pinned locally so `loadPackage` cannot fall back to
+  Pyodide's bundled jsDelivr default).
 - The fetch providers must stay **SSRF-allowlisted** (no arbitrary URLs).
 - The XSS suite is mandatory for EmbeddableContent — injections must not
   survive rendering on any embed surface.
