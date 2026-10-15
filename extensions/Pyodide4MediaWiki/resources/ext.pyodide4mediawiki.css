@@ -1,0 +1,70 @@
+/*!
+ * Pyodide4MediaWiki — Run control + output panel for `class="pyodide"` code
+ * blocks. Styled to match the SyntaxHighlight copy button (pygments.copy.less)
+ * using MediaWiki design tokens, with light-theme fallbacks.
+ * @license GPL-2.0-or-later
+ */
+.pyodide4mediawiki-toolbar {
+	display: flex;
+	align-items: center;
+	gap: 0.5em;
+	margin: 0.25em 0 0.5em;
+	font-size: 0.875em;
+}
+
+.pyodide4mediawiki-run {
+	box-sizing: border-box;
+	padding: 2px 10px;
+	border: 1px solid var( --border-color-muted, #c8ccd1 );
+	border-radius: 2px;
+	background: var( --background-color-neutral-subtle, #f8f9fa );
+	color: var( --color-progressive, #3366cc );
+	cursor: pointer;
+	user-select: none;
+}
+
+.pyodide4mediawiki-run:hover:not( :disabled ) {
+	background: var( --background-color-interactive-subtle, #eaecf0 );
+	border-color: var( --border-color-progressive--hover, #3366cc );
+	color: var( --color-progressive--hover, #447ff5 );
+}
+
+.pyodide4mediawiki-run:disabled {
+	cursor: default;
+	opacity: 0.6;
+}
+
+.pyodide4mediawiki-status,
+.pyodide4mediawiki-login-note {
+	color: var( --color-subtle, #54595d );
+}
+
+.pyodide4mediawiki-output {
+	margin: 0.25em 0 1em;
+	overflow: auto;
+	border: 1px solid var( --border-color-base, #c8ccd1 );
+	border-left: 3px solid var( --color-progressive, #3366cc );
+	border-radius: 2px;
+	background: var( --background-color-neutral-subtle, #f8f9fa );
+	padding: 0.5em 0.75em;
+}
+
+.pyodide4mediawiki-stream,
+.pyodide4mediawiki-result,
+.pyodide4mediawiki-error {
+	margin: 0;
+	font-family: monospace, monospace;
+	font-size: 0.875em;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.pyodide4mediawiki-error {
+	color: var( --color-error, #b32424 );
+}
+
+.pyodide4mediawiki-result {
+	margin-top: 0.35em;
+	padding-top: 0.35em;
+	border-top: 1px dashed var( --border-color-muted, #c8ccd1 );
+}

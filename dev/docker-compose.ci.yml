@@ -51,6 +51,7 @@ services:
       - ../extensions/CodeBlockSpaces:/var/www/html/extensions/CodeBlockSpaces:ro
       - ../extensions/GeoGebra:/var/www/html/extensions/GeoGebra:ro
       - ../extensions/CSVTable:/var/www/html/extensions/CSVTable:ro
+      - ../extensions/Pyodide4MediaWiki:/var/www/html/extensions/Pyodide4MediaWiki:ro
     depends_on:
       mysql:
         condition: service_healthy

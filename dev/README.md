@@ -76,6 +76,12 @@ docker compose -f dev/docker-compose.ci.yml exec -T -u root wikibase bash -c '
 docker compose -f dev/docker-compose.ci.yml restart wikibase
 for i in $(seq 1 300); do curl -sf -o /dev/null http://127.0.0.1:8082/api.php && break; sleep 2; done
 
+# 0e. Pyodide distribution (Pyodide4MediaWiki — client-side Python execution).
+#     ~49 MB (core + a curated set of pre-built wheels), NOT in git — install
+#     it on the HOST before `up -d` (the extension dir is a read-only bind
+#     mount). Served from the wiki's own origin; no runtime CDN.
+tools/install-pyodide.sh
+
 # 1. D1 importers (vocabulary via maintenance scripts)
 docker compose -f dev/docker-compose.ci.yml exec -T wikibase \
   php maintenance/run.php extensions/EmbeddableContent/maintenance/importVocabulary.php --type=property

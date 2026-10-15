@@ -51,6 +51,19 @@ fixer.
   `install-plantuml.sh`. Run it on the host of a dev/CI checkout before the
   stack boots, and on the server (`--dest /var/www/ggb`) after the extension
   rsync.
+- **`tools/install-pyodide.sh`** — installs the pinned Pyodide distribution
+  for the Pyodide4MediaWiki extension, idempotently: downloads the
+  sha256-checked Pyodide **core** release tarball, then resolves the
+  **transitive dependency closure** of the requested packages (`--packages`,
+  default `numpy matplotlib pandas scipy sympy`) from the distribution's own
+  `pyodide-lock.json` and fetches each wheel from the pinned release mirror,
+  verifying every sha256 against the lock. Installs into the checkout's
+  `extensions/Pyodide4MediaWiki/resources/pyodide` (or `--dest DIR` on the
+  server, after the extension rsync) — the assets are gitignored and served
+  from the wiki's own origin (never a runtime CDN; same pattern as
+  `install-mathjax.sh` / `install-geogebra.sh`). Requires `curl`, `tar`,
+  `bzip2` and `python3` (stdlib only). Bump the pinned version + core sha256
+  together when updating Pyodide.
 - **`tools/add-copy-to-syntaxhighlight.py`** — enforces the wiki content
   standard that every *block-mode* `<syntaxhighlight lang="...">` carries the
   `copy` attribute (copy button; `Help:Contributing/code` house rule). `inline`

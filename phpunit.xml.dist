@@ -18,6 +18,7 @@
 			<directory>extensions/CodeBlockSpaces/includes</directory>
 			<directory>extensions/GeoGebra/src</directory>
 			<directory>extensions/CSVTable/src</directory>
+			<directory>extensions/Pyodide4MediaWiki/src</directory>
 		</include>
 	</source>
 </phpunit>

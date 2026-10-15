@@ -256,6 +256,14 @@ jobs:
       - name: Install GeoGebra app bundle (GeoGebra local mode)
         run: tools/install-geogebra.sh
 
+      # Pyodide4MediaWiki (client-side Python): the Pyodide distribution (core
+      # + a curated set of pre-built Python packages) is NOT in git (gitignored,
+      # installed by the pinned script). Installed on the runner HOST — the WBS
+      # container bind-mounts the checkout's extension dir read-only. This also
+      # smoke-tests the install script's pinned-checksum chain on a clean runner.
+      - name: Install Pyodide assets (Pyodide4MediaWiki local mode)
+        run: tools/install-pyodide.sh
+
       # CORS for .ggb: the sandboxed player (the `ggb` service) fetches the
       # file cross-origin from the wiki. Production does this in nginx; the
       # WBS image's Apache needs mod_headers + a conf snippet, applied by the
@@ -394,6 +402,13 @@ jobs:
           python3 tests/e2e/run_csv_e2e.py \
             --base-url "$BASE_URL" --api-url "$API_URL" \
             --user "$MW_ADMIN_NAME" --password-file /tmp/e2e-pass
+
+      # Pyodide4MediaWiki: read-only parse-level contract (the runner module is
+      # queued + the local asset URL is exported for a `class="pyodide"` block;
+      # a plain block loads nothing). The browser run itself is covered by
+      # tests/e2e/run_pyodide_ux_e2e.mjs (Playwright, manual/production).
+      - name: Pyodide4MediaWiki E2E (client-side runner contract)
+        run: python3 tests/e2e/run_pyodide_e2e.py --api-url "$API_URL"
 
       - name: Tear down the stack
         if: always()

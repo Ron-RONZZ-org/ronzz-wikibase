@@ -1,0 +1,14 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		]
+	},
+	"pyodide4mediawiki-desc": "Ruligas klientflanke, en la retumilo, la kodblokojn <code>&lt;syntaxhighlight&gt;</code> markitajn per <code>class=\"pyodide\"</code> per [https://pyodide.org/ Pyodide] (CPython kompilita al WebAssembly) — butono «Ruli» kaj eligpanelo, kiel ĉelo de notlibro.",
+	"pyodide4mediawiki-run": "Ruli",
+	"pyodide4mediawiki-running": "Rulado…",
+	"pyodide4mediawiki-loading": "Ŝargado de Python… (la interpretilo estas elŝutata unufoje, poste kaŝmemorigata de la retumilo)",
+	"pyodide4mediawiki-login-required": "Ensalutu por ruli tiun ĉi kodon.",
+	"pyodide4mediawiki-error": "Eraro",
+	"pyodide4mediawiki-output": "Eligo"
+}

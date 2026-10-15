@@ -29,6 +29,10 @@
 			]
 		}
 	},
+	"ResourceFileModulePaths": {
+		"localBasePath": "",
+		"remoteExtPath": "CSVTable"
+	},
 	"config": {
 		"CSVTableDelimiter": {
 			"value": "auto",

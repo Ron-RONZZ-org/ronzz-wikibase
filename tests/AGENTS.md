@@ -74,6 +74,18 @@ plus the Playwright browser UX suite for the query GUI (query.ronzz.org).
   `<syntaxhighlight lang="text" copy>` block, clicks the copy button and
   asserts the clipboard is byte-for-byte the command (no NBSP), then deletes
   the page.
+- **`tests/e2e/run_pyodide_e2e.py`** — the Pyodide4MediaWiki extension:
+  read-only (`action=parse` of inline `text=` payloads — no page, no login,
+  safe against production) asserts the server-side contract the browser
+  runner depends on — `siteinfo` loads the extension; a `class="pyodide"`
+  SyntaxHighlight block is queued the `ext.pyodide4mediawiki.run` module and
+  exports `wgPyodide4MediaWikiIndexUrl` (the local asset URL); a plain block
+  loads nothing extra; and code text is HTML-escaped. The browser run itself
+  (module worker loading the installed distribution, stdout/result/traceback)
+  is exercised by `tests/e2e/run_pyodide_ux_e2e.mjs` (Playwright,
+  manual/production like the other UX suites; needs the assets installed):
+  it creates a two-cell scratch page, runs both cells and asserts the second
+  sees the first's variable (shared interpreter), then deletes the page.
 - **`tests/e2e/run_wiki_ux_e2e.mjs`** — Playwright browser UX suite for the
   Sep-2026 UX batch B (manual/production, needs `--user` + `--password-file`
   for Special:Upload): the File: page copy buttons write `[[File:xxx]]` /
