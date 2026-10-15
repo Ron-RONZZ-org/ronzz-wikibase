@@ -105,6 +105,14 @@ page-end append with a logged warning.
   `getCheckboxesDefinition`, `getActionURL`, `setHeaders`, `attemptSave`).
 - **Deploy**: extension rsync + php-fpm restart + a message/objectcache purge
   (removed i18n keys). No LocalSettings, vocabulary or seed change.
+- **Gotcha (the 2026-10-15 deploy)**:
+  `Hooks::isClassicArticleTitle()` must not reference an
+  extension-conditional `NS_*` constant unguarded. **`NS_MODULE` is defined by
+  Scribunto, not core** — the CI/WBS stack loads Scribunto (so CI passed) but
+  production does not, and the unguarded use fataled **every** page render
+  (`Error: Undefined constant "EmbeddableContent\NS_MODULE"`). Guard such a
+  constant with `defined()`: `defined( 'NS_MODULE' ) && $namespace ===
+  NS_MODULE`. (Fixed in the follow-up hotfix.)
 
 ## References
 
