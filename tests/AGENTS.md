@@ -56,12 +56,19 @@ plus the Playwright browser UX suite for the query GUI (query.ronzz.org).
   texts) and POSTs them back like a browser — asserting the append editor is
   core's built-in edit surface (form id `editform`, `wpTextbox1`, Summary,
   Save / Show preview / Show changes) with NO minor-edit checkbox; the
-  page-end append preserves content; Show preview and Show changes render the
-  assembled page without saving; "Add section below" (`wbsection`) inserts
-  below the target section; a blank Summary auto-infers the section-edit
-  comment (`/* Heading */`); "Delete section" removes the whole section; and
-  the controls + Add section action also load on a non-content classic page
-  (`Help:`); **self-cleaning** (pages + auto-created item).
+  page-end append preserves content; Show preview renders **only the typed
+  section** (never the assembled article) while Show changes diffs the
+  assembled page; "Add section below" (`wbsection`) inserts below the target
+  section and shares the section-only preview contract; a blank Summary
+  auto-infers the section-edit comment (`/* Heading */`); "Delete section"
+  removes the whole section; and the controls + Add section action also load
+  on a non-content classic page (`Help:`); **self-cleaning** (pages +
+  auto-created item).
+- **`tests/e2e/run_search_e2e.py`** — `Special:Search`'s **Items** section
+  (EmbeddableContent): creates a scratch item whose label does not start
+  with the search term, searches a mid-label fragment, and asserts the item
+  link + `wb-search-items` markup render (the entity-label gap core
+  SearchMySQL cannot cover); **self-cleaning**.
 - **`tests/e2e/run_codeblock_spaces_e2e.py`** — the CodeBlockSpaces
   extension: read-only (`action=parse` of inline `text=` payloads — no page,
   no login, safe against production) asserts that `<pre>`/`<code>` and

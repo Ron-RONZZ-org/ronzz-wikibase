@@ -1,0 +1,25 @@
+/**
+ * "Items" results section appended to Special:Search
+ * (Hooks::onSpecialSearchResultsAppend).
+ *
+ * Reuses the core search-result typography (.mw-search-result-heading /
+ * .searchresult) and only adds the section separation + list reset.
+ */
+
+.wb-search-items {
+	margin-top: 1.5em;
+}
+
+.wb-search-items ul {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.wb-search-items li {
+	margin: 0 0 0.75em;
+}
+
+.wb-search-items .mw-search-result-heading {
+	font-size: 1.1em;
+}

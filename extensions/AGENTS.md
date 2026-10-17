@@ -598,6 +598,15 @@ report). See `SimpleMathJax/VENDORED.md`.
   (read-only, in-process, schema stable across 1.4x); CirrusSearch +
   WikibaseCirrusSearch (real token fulltext, needs Elasticsearch ~1–1.5 GB)
   is the documented upgrade path for a larger instance.
+- **Site search now surfaces items (ADR `docs/decisions/search-items-section.md`)**:
+  `Special:Search` appends an **Items** section (`Hooks::onSpecialSearchResultsAppend`)
+  for the default/all profiles (or an explicit Item: selection), using the
+  same `Search\EntityTermSearch` CONTAINS matching as `action=entitysearch`.
+  Core SearchMySQL indexes page text only, and Item: pages have no text, so
+  labels were invisible to the site search box; `wbsearchentities` is
+  prefix-only and is used by the comboboxes, not `Special:Search`. The
+  section renders label + description + a `Special:EntityPage/Q…` link and a
+  small `search.css` module; no CirrusSearch/Elasticsearch needed.
 - **Add* form fixes batch (ADR `docs/decisions/add-forms-fixes-2026-09.md`)**:
   (a) **Combobox search is case-insensitive** (above) — `action=entitysearch`
   now `CONVERT`s the term column, so `APACHE`/`aPaChE` find "Apache License

@@ -9,6 +9,7 @@ use EmbeddableContent\Fetch\NominatimProvider;
 use EmbeddableContent\Fetch\ProviderClient;
 use EmbeddableContent\Fetch\RateLimitedHttpClient;
 use EmbeddableContent\Fetch\WikipediaContentProvider;
+use EmbeddableContent\Search\EntityTermSearch;
 use MediaWiki\MediaWikiServices;
 use Wikibase\Repo\WikibaseRepo;
 
@@ -22,6 +23,12 @@ return [
 		return new EmbeddableContentConfig(
 			$services->getMainConfig()->get( 'EmbeddableContentConfig' )
 		);
+	},
+
+	'EmbeddableContent.EntityTermSearch' => static function ( MediaWikiServices $services ): EntityTermSearch {
+		// CONTAINS search over the Wikibase term store — shared by
+		// action=entitysearch and the Special:Search "Items" section.
+		return new EntityTermSearch( $services->get( 'EmbeddableContent.Config' ) );
 	},
 
 	'EmbeddableContent.ContentRenderer' => static function ( MediaWikiServices $services ): ContentRenderer {
