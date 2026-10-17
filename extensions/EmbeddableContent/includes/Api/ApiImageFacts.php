@@ -147,7 +147,7 @@ class ApiImageFacts extends ApiBase {
 			'mode' => [
 				self::PARAM_TYPE => [ 'create', 'update' ],
 				self::PARAM_REQUIRED => false,
-				self::PARAM_DEFAULT => 'create',
+				self::PARAM_DFLT => 'create',
 			],
 		];
 	}
