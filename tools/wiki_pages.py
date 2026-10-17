@@ -181,6 +181,12 @@ def cmd_push(api: WikiApi, manifest: dict, state: dict, args: argparse.Namespace
     blocked = blocking_rows(rows)
     if blocked:
         return refuse(blocked, args)
+    # Log in lazily: a no-op push (the normal merge of this snapshot, whose
+    # state already matches production) must not require the bot secrets.
+    if not args.dry_run and any(
+        row["status"] in (STATUS_REPO_AHEAD, STATUS_REPO_ONLY) for row in rows
+    ):
+        login_from_args(api, args)
     pushed = 0
     conflicts = []
     for row in rows:
@@ -267,6 +273,8 @@ def cmd_resolve(api: WikiApi, manifest: dict, state: dict, args: argparse.Namesp
     if not targets:
         print("[ok] nothing to resolve")
         return EXIT_OK
+    if args.accept_repo and not args.dry_run:
+        login_from_args(api, args)
     resolved = 0
     for row in targets:
         prod = row["prod"]
@@ -384,11 +392,6 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_discover(api, args)
         manifest = load_manifest(DEFAULT_MANIFEST if args.manifest is None else Path(args.manifest))
         state = load_state(DEFAULT_STATE if args.state is None else Path(args.state))
-        if args.command in ("push", "resolve"):
-            if args.command == "resolve" and args.accept_prod:
-                pass  # accepting the wiki side is a read-only pull
-            else:
-                login_from_args(api, args)
         if args.command == "pull":
             return cmd_pull(api, manifest, state, args)
         if args.command == "push":
