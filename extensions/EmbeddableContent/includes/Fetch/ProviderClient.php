@@ -153,10 +153,20 @@ class ProviderClient {
 		);
 	}
 
-	public function searchWorks( string $title ): ProviderResult {
+	/**
+	 * @param string[] $classQids Wikidata class scope for providers that
+	 *        support it (AddSource); [] = unscoped. Non-Wikidata providers
+	 *        are already class-appropriate and are never filtered out.
+	 */
+	public function searchWorks( string $title, array $classQids = [] ): ProviderResult {
 		return $this->searchCascade(
 			$this->workTitleProviders,
-			static fn ( WorkProvider $p, string $q ) => $p->searchByTitle( $q ),
+			static function ( WorkProvider $p, string $q ) use ( $classQids ) {
+				if ( $classQids !== [] && $p instanceof ClassFilteredWorkProvider ) {
+					return $p->searchByTitleInClasses( $q, $classQids );
+				}
+				return $p->searchByTitle( $q );
+			},
 			$title,
 			fn ( array $records ) => $this->dedupeWorks( $records )
 		);
@@ -166,11 +176,18 @@ class ProviderClient {
 	 * Work search by free-text author name (narrowed by an optional title):
 	 * Wikidata → Open Library → OpenAlex → Crossref. The author filter
 	 * narrows down common-title searches.
+	 *
+	 * @param string[] $classQids Wikidata class scope (see searchWorks)
 	 */
-	public function searchWorksByAuthorName( string $author, string $title = '' ): ProviderResult {
+	public function searchWorksByAuthorName( string $author, string $title = '', array $classQids = [] ): ProviderResult {
 		return $this->searchCascade(
 			$this->workTitleProviders,
-			static fn ( WorkProvider $p, string $q ) => $p->searchByAuthorName( $q, $title ),
+			static function ( WorkProvider $p, string $q ) use ( $title, $classQids ) {
+				if ( $classQids !== [] && $p instanceof ClassFilteredWorkProvider ) {
+					return $p->searchByAuthorNameInClasses( $q, $title, $classQids );
+				}
+				return $p->searchByAuthorName( $q, $title );
+			},
 			$author,
 			fn ( array $records ) => $this->dedupeWorks( $records )
 		);
@@ -182,11 +199,17 @@ class ProviderClient {
 	 * work providers return [] for this operation.
 	 *
 	 * @param string[] $qids Wikidata author entity ids
+	 * @param string[] $classQids Wikidata class scope (see searchWorks)
 	 */
-	public function searchWorksByAuthorEntities( array $qids, string $title = '' ): ProviderResult {
+	public function searchWorksByAuthorEntities( array $qids, string $title = '', array $classQids = [] ): ProviderResult {
 		return $this->searchCascade(
 			$this->workTitleProviders,
-			static fn ( WorkProvider $p, string $q ) => $p->searchByAuthorEntities( $qids, $title ),
+			static function ( WorkProvider $p, string $q ) use ( $qids, $title, $classQids ) {
+				if ( $classQids !== [] && $p instanceof ClassFilteredWorkProvider ) {
+					return $p->searchByAuthorEntitiesInClasses( $qids, $title, $classQids );
+				}
+				return $p->searchByAuthorEntities( $qids, $title );
+			},
 			implode( '|', $qids ),
 			fn ( array $records ) => $this->dedupeWorks( $records )
 		);

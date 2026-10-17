@@ -1,0 +1,6 @@
+<div style="border:1px solid #c8ccd1;background:#f8f9fa;padding:0.5em 1em;margin-bottom:1em;">
+<blockquote>
+'''Software''' — part of the [[Software:Main|software collection]] (non-FOSS programs; free &amp; open-source software lives in the [[FOSS:Main|FOSS collection]]).
+</blockquote>
+{{Software/Infobox|logo={{{logo|}}}}}
+<includeonly>[[Category:Software]]</includeonly>

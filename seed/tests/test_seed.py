@@ -222,6 +222,10 @@ class ConfigBuilderTest(unittest.TestCase):
         # harvest inference maps: Wikidata QID -> local class key
         self.assertIn("'Q571' => 'book'", snippet)
         self.assertIn("'Q5' => 'person'", snippet)
+        # AddSource Wikidata search scope: book accepts literary works too
+        self.assertIn("'sourceClassSearchClasses'", snippet)
+        self.assertIn("'Q571',", snippet)
+        self.assertIn("'Q7725634',", snippet)
         # issue #24: WikibaseCitation source-class list (self-cite config)
         self.assertIn("$wgWikibaseCitationSourceClasses", snippet)
         self.assertIn("'Q21',", snippet)

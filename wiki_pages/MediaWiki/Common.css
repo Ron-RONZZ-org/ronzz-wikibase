@@ -1,0 +1,17 @@
+/* CSS placed here will be applied to all skins */
+
+/* === Collapsible section behaviour === */
+
+/* Removes the border, background, and padding when the element is collapsed */
+
+.mw-collapsible.mw-collapsed {
+    border: none !important;
+    background: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+}
+
+/* Moves the toggle to the left for elements with the class 'toggle-left' */
+ .mw-collapsible-toggle {
+    float: left !important;
+}

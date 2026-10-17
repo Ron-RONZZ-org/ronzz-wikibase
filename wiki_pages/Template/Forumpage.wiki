@@ -1,0 +1,31 @@
+{{Forumheader}}
+{{Forumnotice}}
+<div class="forum-intro">{{{1|}}}</div>
+<div class="forum-new-thread">
+<inputbox>
+type=create
+width=60
+prefix={{FULLPAGENAME}}/
+preload=Template:Forumthread
+placeholder=My topic
+buttonlabel=Start a new thread
+</inputbox>
+New to the forum? See [[Help:Contributing/forum]].
+</div>
+{| class="forum-table" style="width: 100%"
+! Topic !! Last edit
+|-
+<forum>
+namespace=Forum
+category={{PAGENAME}}
+omit={{PAGENAME}}/
+shownamespace=false
+addauthor=true
+addlasteditor=true
+compact=all
+timestamp=true
+cache=false
+</forum>
+|}
+[[Category:Forums]]<noinclude>
+[[Category:Forum templates]]</noinclude>

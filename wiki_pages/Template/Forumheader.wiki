@@ -1,0 +1,4 @@
+<div class="forum-header">
+'''Forums:''' [[Forum:Index|Index]] → {{SUBPAGENAME}}
+</div><noinclude>
+[[Category:Forum templates]]</noinclude>

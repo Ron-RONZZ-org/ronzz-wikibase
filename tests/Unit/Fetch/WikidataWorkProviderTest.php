@@ -30,6 +30,65 @@ final class WikidataWorkProviderTest extends TestCase {
 		$this->assertSame( 'Q123', $records[0]->wikidataId );
 	}
 
+	public function testSearchByTitleInClassesUsesSparqlClassFilter(): void {
+		$http = ( new FakeHttpClient() )->onJson( 'query.wikidata.org', [
+			'head' => [ 'vars' => [] ],
+			'results' => [ 'bindings' => [
+				[
+					'item' => [ 'type' => 'uri', 'value' => 'http://www.wikidata.org/entity/Q74287' ],
+					'itemLabel' => [ 'type' => 'literal', 'value' => 'The Hobbit' ],
+					'itemDescription' => [ 'type' => 'literal', 'value' => '1937 novel by J. R. R. Tolkien' ],
+				],
+			] ],
+		] );
+		$provider = new WikidataWorkProvider( $http );
+
+		$records = $provider->searchByTitleInClasses( 'The Hobbit', [ 'Q571', 'Q7725634' ] );
+
+		$this->assertCount( 1, $records );
+		$this->assertSame( 'Q74287', $records[0]->wikidataId );
+		$this->assertSame( 'The Hobbit', $records[0]->title );
+		$this->assertSame( '1937 novel by J. R. R. Tolkien', $records[0]->description );
+		$query = $http->calls[0]['params']['query'] ?? '';
+		$this->assertStringContainsString( 'wikibase:mwapi', $query );
+		$this->assertStringContainsString( 'wdt:P31/wdt:P279*', $query );
+		$this->assertStringContainsString( 'wd:Q571', $query );
+		$this->assertStringContainsString( 'wd:Q7725634', $query );
+	}
+
+	public function testSearchByTitleInClassesWithoutScopeFallsBackToSearch(): void {
+		$http = ( new FakeHttpClient() )->onJson( 'action=wbsearchentities', [
+			'search' => [ [ 'id' => 'Q123', 'label' => 'A Book' ] ],
+		] );
+		$provider = new WikidataWorkProvider( $http );
+
+		$records = $provider->searchByTitleInClasses( 'a book', [] );
+
+		$this->assertCount( 1, $records );
+		$this->assertSame( 'Q123', $records[0]->wikidataId );
+	}
+
+	public function testSearchByAuthorNameInClassesAddsClassFilter(): void {
+		$http = ( new FakeHttpClient() )->onJson( 'query.wikidata.org', [
+			'head' => [ 'vars' => [] ],
+			'results' => [ 'bindings' => [
+				[
+					'work' => [ 'type' => 'uri', 'value' => 'http://www.wikidata.org/entity/Q123' ],
+					'workLabel' => [ 'type' => 'literal', 'value' => 'A Book' ],
+				],
+			] ],
+		] );
+		$provider = new WikidataWorkProvider( $http );
+
+		$records = $provider->searchByAuthorNameInClasses( 'Tolkien', '', [ 'Q571', 'Q7725634' ] );
+
+		$this->assertCount( 1, $records );
+		$query = $http->calls[0]['params']['query'] ?? '';
+		$this->assertStringContainsString( 'wdt:P31/wdt:P279*', $query );
+		$this->assertStringContainsString( 'wd:Q571', $query );
+		$this->assertStringContainsString( 'wd:Q7725634', $query );
+	}
+
 	public function testByWikidataIdHarvestsCitationMetadata(): void {
 		$http = ( new FakeHttpClient() )
 			->onJson( 'action=wbgetentities&ids=Q571&props=labels%7Cdescriptions%7Cclaims', [

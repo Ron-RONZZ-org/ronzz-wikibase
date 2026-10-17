@@ -1,0 +1,4 @@
+<div class="forum-search">
+Search the forums with the sidebar search box (the Forum namespace is searched by default), or browse via [[Special:RecentChanges|recent changes]].
+</div><noinclude>
+[[Category:Forum templates]]</noinclude>

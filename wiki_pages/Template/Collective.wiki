@@ -1,0 +1,16 @@
+
+<div style="border:1px solid #c8ccd1;background:#f8f9fa;padding:0.5em 1em;margin-bottom:1em;">
+<blockquote>
+'''Collective''' — part of the [[Collective:Main|collectives collection]]. Created via [[Special:AddCollective]].
+</blockquote>
+{| class="wikitable" style="float:right;clear:right;width:300px;margin:0 0 1em 1em;"
+|-
+! colspan="2" style="background:#f8f9fa;text-align:center;" | {{PAGENAME}}
+|-
+| colspan="2" style="text-align:center;" | {{{logo|{{#item-image:}}}}}
+{{#statement-row:Instance of|instance of}}
+{{#statement-row:Official website|official website}}
+{{#statement-row:Wikidata ID|Wikidata ID}}
+|}
+<includeonly>[[Category:Collectives]]</includeonly>
+<noinclude>This template reads its data from the item sitelinked to the page (see [[Help:Contributing/semanticDynamicContent]]). Rows with no data are hidden (<code>{{#statement-row:}}</code>). The image cell shows the item's <code>image</code> statement via <code>{{#item-image:}}</code>; the optional <code>logo</code> parameter (a full <code>[[File:…]]</code> link) overrides it when set by hand.</noinclude>

@@ -515,6 +515,7 @@
 	"embeddablecontent-print-cover-help": "Print the title and authors on a centered cover page; the content starts on the next page.",
 	"embeddablecontent-print-go": "Print",
 	"embeddablecontent-print-by": "by $1",
+	"embeddablecontent-search-items": "Items",
 	"embeddablecontent-gadget-embed-option-internal": "Internal (on-wiki)",
 	"embeddablecontent-gadget-embed-option-external": "External (iframe)",
 	"embeddablecontent-gadget-embed-option-internal-hint": "Copies {{#content:Q42}} — paste it on a wiki page to show this content inline",

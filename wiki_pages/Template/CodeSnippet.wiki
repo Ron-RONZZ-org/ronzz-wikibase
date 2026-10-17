@@ -1,0 +1,3 @@
+<includeonly>{{error|Template:CodeSnippet is not usable: MediaWiki 1.46 does not expand parser functions or template parameters inside &lt;syntaxhighlight&gt; / &lt;pre&gt; tags. Render decoded content directly with &lt;nowiki&gt;{{#content:Qxx}}&lt;/nowiki&gt; instead.}}</includeonly><noinclude>
+Created as a helper for the multi-line demo on [[Sandbox:Temp]], then found broken: on MW 1.46 the content of extension tags is protected from preprocessing, so a <code>{{#content:Qxx}}</code> argument cannot be wrapped in <code>&lt;syntaxhighlight&gt;</code> via a template. Deletion is admin-only, so this stub replaces it. Use <nowiki>{{#content:Qxx}}</nowiki> bare for decoded payloads.
+</noinclude>

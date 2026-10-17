@@ -9,12 +9,15 @@ use EmbeddableContent\ParserFunctions\ContentPayload;
 use EmbeddableContent\ParserFunctions\ItemImage;
 use EmbeddableContent\ParserFunctions\QuotationsOf;
 use EmbeddableContent\ParserFunctions\SourceAccess;
+use EmbeddableContent\Search\EntityTermSearch;
 use EmbeddableContent\Spec\EntityLabelText;
+use MediaWiki\Html\Html;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Output\OutputPage;
 use MediaWiki\Parser\Parser;
 use MediaWiki\Skin\SkinTemplate;
 use MediaWiki\SpecialPage\SpecialPage;
+use MediaWiki\Specials\SpecialSearch;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\DataModel\Entity\Property;
@@ -447,6 +450,109 @@ class Hooks {
 			'type' => 'application/json+oembed',
 			'href' => $oembedUrl,
 		] );
+	}
+
+	/**
+	 * Surface Wikibase items in Special:Search.
+	 *
+	 * Core SearchMySQL indexes page TEXT: Item: pages carry no page text, so
+	 * an item label can never appear in the normal results — searching
+	 * "Ring" misses "2.2: Rings" even though the item's label contains it.
+	 * The term store has the labels, but wbsearchentities is prefix-only and
+	 * is only used by the combobox API. This hook appends a compact "Items"
+	 * section backed by the same CONTAINS search (Search\EntityTermSearch)
+	 * the comboboxes use.
+	 *
+	 * Scope: the default/all profiles, the normal `advanced` landing profile
+	 * (whose namespace set includes Item on this instance), and an explicit
+	 * Item: namespace selection. A search restricted to another namespace
+	 * keeps core's results only.
+	 */
+	public static function onSpecialSearchResultsAppend(
+		SpecialSearch $specialSearch,
+		OutputPage $output,
+		string $term
+	): void {
+		$term = trim( $term );
+		if ( $term === '' || $specialSearch->getPrefix() !== '' ) {
+			return;
+		}
+		$namespace = WikibaseRepo::getEntityNamespaceLookup()
+			->getEntityNamespace( Item::ENTITY_TYPE );
+		if ( $namespace === false ) {
+			return;
+		}
+		// The normal site search lands on `profile=advanced` (the request
+		// carries `fulltext=1` and no explicit profile), whose resolved
+		// namespace set includes Item: on this instance. `default`/`all`
+		// always include it; an explicit namespace selection includes it
+		// only when the user kept the Item checkbox.
+		$profile = (string)$specialSearch->getProfile();
+		$namespaces = $specialSearch->getNamespaces();
+		$explicitNamespace = false;
+		foreach ( $specialSearch->getRequest()->getValueNames() as $name ) {
+			if ( preg_match( '/^ns\d+$/', $name ) === 1 ) {
+				$explicitNamespace = true;
+				break;
+			}
+		}
+		if ( !in_array( $namespace, $namespaces, true )
+			&& $profile !== 'default' && $profile !== 'all' && $profile !== ''
+			&& !( $profile === 'advanced' && !$explicitNamespace )
+		) {
+			return;
+		}
+
+		$search = MediaWikiServices::getInstance()
+			->getService( 'EmbeddableContent.EntityTermSearch' );
+		$entries = $search->search(
+			$term,
+			$output->getLanguage()->getCode(),
+			10
+		);
+		if ( $entries === [] ) {
+			return;
+		}
+
+		$linkRenderer = $specialSearch->getLinkRenderer();
+		$items = '';
+		foreach ( $entries as $entry ) {
+			$id = (string)( $entry['id'] ?? '' );
+			if ( $id === '' ) {
+				continue;
+			}
+			$label = (string)( $entry['label'] ?? $id );
+			$link = $linkRenderer->makeKnownLink(
+				SpecialPage::getTitleFor( 'EntityPage', $id ),
+				$label
+			);
+			$description = (string)( $entry['description'] ?? '' );
+			$items .= Html::rawElement(
+				'li',
+				[],
+				Html::rawElement( 'div', [ 'class' => 'mw-search-result-heading' ], $link )
+				. ( $description !== ''
+					? Html::element( 'div', [ 'class' => 'searchresult' ], $description )
+					: '' )
+			);
+		}
+		if ( $items === '' ) {
+			return;
+		}
+
+		$output->addModuleStyles( 'ext.embeddableContent.search' );
+		$output->addHTML(
+			Html::rawElement(
+				'div',
+				[ 'class' => 'wb-search-items' ],
+				Html::element(
+					'h2',
+					[ 'class' => 'wb-search-items-heading' ],
+					$specialSearch->msg( 'embeddablecontent-search-items' )->text()
+				)
+				. Html::rawElement( 'ul', [], $items )
+			)
+		);
 	}
 
 	/**

@@ -29,6 +29,9 @@ Self-hosted **Wikibase** (structured-data wiki, the software behind Wikidata) on
   Pyodide/WASM — `extensions/Pyodide4MediaWiki/` — see
   `docs/decisions/pyodide4mediawiki.md`)
 - seed/ (bootstrap orchestrator), tools/, tests/, dev/ (CI stack)
+- `wiki_pages/` — the tracked production `MediaWiki:` / `Template:` page
+  mirror (manifest + state + `tools/wiki_pages.py`; see
+  `docs/decisions/wiki-pages-parity.md`)
 - `docs/decisions/` — ADR-style design rationale (opaque IDs, ontology alignment,
   raw RDF in Blazegraph, cite-by-QID, static LLM translation, automatic
   languages bar, forum via DPLforum, diagrams via Extension:Diagrams, inline
@@ -91,7 +94,8 @@ extended to every semantic-entity Add\*/Update\* form + `addsemanticentity`),
 `upload-source-memory-dragpaste.md` (`Special:Upload` remembers the File/Url
 source across "upload another" and accepts a dropped/pasted image),
 `printable-version.md` (namespace/subpage-stripped print title, centered
-authors, the "Print this page" toolbar button and the cover-page popup),
+authors, the "Print this page" toolbar button, the cover-page popup, and the
+browser Save-as-PDF filename),
 `law-embed-code.md` (legal provisions are embeddable — the `law` class in
 `ContentRenderer`; the Source-page "Copy embed code" button),
 `addsource-law-addmore.md` (the `law` form's "Add more" submit + success
@@ -112,3 +116,10 @@ rebuilt on core's `EditPage` — built-in Show preview / Show changes, minus the
 minor-edit checkbox) and `geogebra-inline-commands.md` (the
 `<geogebra>` parser tag: raw GeoGebra commands rendered by the sandboxed
 player without an uploaded `.ggb`).
+
+Sync/search follow-ups: `search-items-section.md` (Special:Search surfaces
+Wikibase item labels through the shared CONTAINS term search),
+`addsource-class-scoped-search.md` (AddSource Wikidata candidates are scoped
+to the selected class — book also accepts literary works), and
+`wiki-pages-parity.md` (two-way repo ↔ production sync for
+`MediaWiki:`/`Template:` pages, with conflict detection and a dedicated bot).

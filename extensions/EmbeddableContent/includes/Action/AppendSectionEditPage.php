@@ -26,9 +26,10 @@ use MediaWiki\Title\Title;
  * Append semantics are supplied through two focused overrides:
  *  - `getContentObject()` returns an EMPTY content object, so the text box
  *    starts blank (the contributor types only the new block);
- *  - `toEditContent()` assembles the page the editor previews, diffs and
- *    saves — the current wikitext with the typed block appended to the page
- *    end, or to the end of the target section.
+ *  - `toEditContent()` assembles the page the editor diffs and saves — the
+ *    current wikitext with the typed block appended to the page end, or to
+ *    the end of the target section. The PREVIEW deliberately sees only the
+ *    typed block (the section being added), matching core's section editor.
  *
  * The target section rides the `wbsection` request parameter (not core's
  * `section`, which must stay empty so `EditPage` treats this as a whole-page
@@ -61,10 +62,19 @@ class AppendSectionEditPage extends EditPage {
 	}
 
 	/**
-	 * The edit content every render/save path reads: the current page text
-	 * with the typed block appended. `EditPage` calls this for the Preview,
-	 * the Show-changes diff and the save (with `$this->section` empty, core's
-	 * `replaceSectionAtRev( '' )` passes the assembled text straight through).
+	 * The edit content every render/save path reads. `EditPage` calls this
+	 * for the Preview, the Show-changes diff and the save (with
+	 * `$this->section` empty, core's `replaceSectionAtRev( '' )` passes the
+	 * assembled text straight through).
+	 *
+	 * PREVIEW shows ONLY the typed block — the section being added — never
+	 * the assembled whole page. Core's section editor previews the edited
+	 * section alone for the same reason; showing the full article here made
+	 * "Show preview" on the page-level "Add section" button (and on every
+	 * per-heading "Add section below" control) render the entire page.
+	 *
+	 * The diff and the save still receive the assembled page: the save must
+	 * append the block, and the diff must compare against the current page.
 	 *
 	 * @param string|false|null $text the text box content
 	 * @return \MediaWiki\Content\Content|false|null
@@ -72,6 +82,9 @@ class AppendSectionEditPage extends EditPage {
 	protected function toEditContent( $text ) {
 		if ( $text === false || $text === null ) {
 			return $text;
+		}
+		if ( $this->preview && !$this->diff ) {
+			return parent::toEditContent( (string)$text );
 		}
 		$current = $this->getCurrentContent();
 		if ( !$current instanceof TextContent ) {

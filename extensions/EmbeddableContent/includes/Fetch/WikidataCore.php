@@ -207,7 +207,7 @@ class WikidataCore {
 	 * @param string $authorName free-text author name (text mode)
 	 * @return array<int,array<string,mixed>> raw SPARQL rows, deduped by work
 	 */
-	public function searchWorksByAuthor( array $qids = [], string $authorName = '' ): array {
+	public function searchWorksByAuthor( array $qids = [], string $authorName = '', array $classQids = [] ): array {
 		if ( $qids !== [] ) {
 			$values = implode( ' ', array_map(
 				static fn ( string $qid ): string => 'wd:' . $qid,
@@ -220,8 +220,10 @@ class WikidataCore {
 				. "  ?author rdfs:label ?authorLabel .\n"
 				. "  FILTER(CONTAINS(LCASE(?authorLabel), \"{$escaped}\"))";
 		}
+		$classPattern = $this->classFilterPattern( $classQids, '?work' );
 		$query = "SELECT DISTINCT ?work ?workLabel ?workDescription ?date ?class WHERE {\n"
 			. "  {$authorPattern}\n"
+			. ( $classPattern !== '' ? "  {$classPattern}\n" : '' )
 			. "  OPTIONAL { ?work wdt:P577 ?date . }\n"
 			. "  OPTIONAL { ?work wdt:P31 ?class . }\n"
 			. "  SERVICE wikibase:label { bd:serviceParam wikibase:language \"en,fr,eo\". }\n"
@@ -243,6 +245,73 @@ class WikidataCore {
 			$rows[$work] = $binding;
 		}
 		return array_values( $rows );
+	}
+
+	/**
+	 * Class-scoped title search via the Wikibase MWAPI SPARQL service: the
+	 * same EntitySearch candidates wbsearchentities returns, joined to the
+	 * requested ontology class (and its subclasses). The service-side join
+	 * keeps the filter on Wikidata's query service, so a book search never
+	 * returns video games/other works just because the term matched.
+	 *
+	 * @param string $term free-text title
+	 * @param string[] $classQids Wikidata class ids (book + family extras)
+	 * @return array<int,array<string,mixed>> rows with item/itemLabel/itemDescription
+	 */
+	public function searchWorksByClass( string $term, array $classQids ): array {
+		$classPattern = $this->classFilterPattern( $classQids, '?item' );
+		if ( $classPattern === '' ) {
+			return $this->searchRaw( $term );
+		}
+		$escaped = str_replace( [ '\\', '"' ], [ '\\\\', '\\"' ], $term );
+		$query = "SELECT DISTINCT ?item ?itemLabel ?itemDescription WHERE {\n"
+			. "  SERVICE wikibase:mwapi {\n"
+			. "    bd:serviceParam wikibase:api \"EntitySearch\";\n"
+			. "    wikibase:endpoint \"www.wikidata.org\";\n"
+			. "    mwapi:search \"{$escaped}\";\n"
+			. "    mwapi:language \"en\".\n"
+			. "    ?item wikibase:apiOutputItem mwapi:item.\n"
+			. "  }\n"
+			. "  {$classPattern}\n"
+			. "  SERVICE wikibase:label { bd:serviceParam wikibase:language \"en,fr,eo\". }\n"
+			. "}\nLIMIT 10";
+		$data = $this->http->postForm(
+			self::SPARQL,
+			[ 'query' => $query ],
+			[ 'Accept' => 'application/sparql-results+json' ],
+			$this->timeout
+		);
+		$rows = [];
+		foreach ( $data['results']['bindings'] ?? [] as $binding ) {
+			$item = (string)( $binding['item']['value'] ?? '' );
+			if ( $item === '' || isset( $rows[$item] ) ) {
+				continue;
+			}
+			$rows[$item] = $binding;
+		}
+		return array_values( $rows );
+	}
+
+	/**
+	 * The `?subject wdt:P31/wdt:P279* ?classScope` filter clause (with a
+	 * VALUES list of the requested classes), or '' for an empty/invalid
+	 * scope. Qids are validated so a malformed config value can never inject
+	 * SPARQL.
+	 *
+	 * @param string[] $classQids
+	 */
+	private function classFilterPattern( array $classQids, string $subject ): string {
+		$ids = [];
+		foreach ( $classQids as $qid ) {
+			if ( is_string( $qid ) && preg_match( '/^Q[1-9]\d*$/', $qid ) === 1 ) {
+				$ids['wd:' . $qid] = true;
+			}
+		}
+		if ( $ids === [] ) {
+			return '';
+		}
+		return 'VALUES ?classScope { ' . implode( ' ', array_keys( $ids ) ) . " }\n"
+			. "  {$subject} wdt:P31/wdt:P279* ?classScope .";
 	}
 
 	/**

@@ -11,7 +11,7 @@ namespace EmbeddableContent\Fetch;
  *
  * @license GPL-2.0-or-later
  */
-class WikidataWorkProvider implements WorkProvider {
+class WikidataWorkProvider implements WorkProvider, ClassFilteredWorkProvider {
 
 	private WikidataCore $core;
 
@@ -20,21 +20,42 @@ class WikidataWorkProvider implements WorkProvider {
 	}
 
 	public function searchByTitle( string $title ): array {
-		$out = [];
-		foreach ( $this->core->searchRaw( $title ) as $row ) {
-			$out[] = new WorkRecord(
-				title: (string)( $row['label'] ?? $row['id'] ),
-				description: isset( $row['description'] ) ? (string)$row['description'] : null,
-				wikidataId: $row['id'],
-				provider: 'wikidata',
-				providerId: $row['id']
-			);
+		return $this->mapSearchRows( $this->core->searchRaw( $title ) );
+	}
+
+	/**
+	 * Class-scoped title search (Special:AddSource): the Wikidata hub joins
+	 * the EntitySearch candidates to the requested class/subclasses, so a
+	 * `/book` search does not offer video games/other works that happen to
+	 * match the title. Other providers (OpenLibrary/OpenAlex/Crossref) are
+	 * already class-appropriate and stay unfiltered.
+	 */
+	public function searchByTitleInClasses( string $title, array $classQids ): array {
+		if ( $classQids === [] ) {
+			return $this->searchByTitle( $title );
 		}
-		return $out;
+		return $this->mapSearchRows( $this->core->searchWorksByClass( $title, $classQids ) );
 	}
 
 	public function searchByAuthorName( string $author, string $title = '' ): array {
 		return $this->mapAuthorRows( $this->core->searchWorksByAuthor( [], $author ) );
+	}
+
+	public function searchByAuthorNameInClasses( string $author, string $title, array $classQids ): array {
+		if ( $classQids === [] ) {
+			return $this->searchByAuthorName( $author, $title );
+		}
+		$records = $this->mapAuthorRows(
+			$this->core->searchWorksByAuthor( [], $author, $classQids )
+		);
+		if ( $records !== [] ) {
+			return $records;
+		}
+		// Author search is a narrowing aid, and Wikidata often leaves P50
+		// off scholarly articles (or classifies a work differently). An
+		// empty class-scoped author result must not dead-end the flow: fall
+		// back to the author's works unfiltered. TITLE search stays strict.
+		return $this->searchByAuthorName( $author, $title );
 	}
 
 	public function searchByAuthorEntities( array $qids, string $title = '' ): array {
@@ -42,6 +63,52 @@ class WikidataWorkProvider implements WorkProvider {
 			return [];
 		}
 		return $this->mapAuthorRows( $this->core->searchWorksByAuthor( $qids ) );
+	}
+
+	public function searchByAuthorEntitiesInClasses( array $qids, string $title, array $classQids ): array {
+		if ( $qids === [] ) {
+			return [];
+		}
+		$records = $this->mapAuthorRows(
+			$this->core->searchWorksByAuthor( $qids, '', $classQids )
+		);
+		if ( $records !== [] ) {
+			return $records;
+		}
+		// Same fallback as the name search: author-entity search is a
+		// narrowing aid, not the strict class-filtered title search.
+		return $this->mapAuthorRows( $this->core->searchWorksByAuthor( $qids ) );
+	}
+
+	/**
+	 * Maps wbsearchentities rows (id/label/description) OR SPARQL
+	 * class-scoped rows (item/itemLabel/itemDescription) to light
+	 * WorkRecords. The full harvest happens on pick.
+	 *
+	 * @param array<int,array<string,mixed>> $rows
+	 * @return WorkRecord[]
+	 */
+	private function mapSearchRows( array $rows ): array {
+		$out = [];
+		foreach ( $rows as $row ) {
+			$qid = (string)( $row['id'] ?? '' );
+			if ( $qid === '' && isset( $row['item']['value'] ) ) {
+				$qid = basename( (string)$row['item']['value'] );
+			}
+			if ( preg_match( '/^Q[1-9]\d*$/i', $qid ) !== 1 ) {
+				continue;
+			}
+			$label = (string)( $row['label'] ?? ( $row['itemLabel']['value'] ?? '' ) );
+			$description = (string)( $row['description'] ?? ( $row['itemDescription']['value'] ?? '' ) );
+			$out[] = new WorkRecord(
+				title: $label !== '' ? $label : $qid,
+				description: $description !== '' ? $description : null,
+				wikidataId: $qid,
+				provider: 'wikidata',
+				providerId: $qid
+			);
+		}
+		return $out;
 	}
 
 	/**

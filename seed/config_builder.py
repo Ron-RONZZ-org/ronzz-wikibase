@@ -192,6 +192,17 @@ SOURCE_CLASS_KINDS = {
     "legal provision": "law",
 }
 
+# Extra Wikidata classes accepted when filtering the Wikidata work search on
+# an AddSource class (the class's own align.wikidata QID is always included;
+# these widen it to the semantically appropriate family). `book` also accepts
+# literary works (novels/textbooks are `instance of novel`, not subclasses of
+# book). Deliberately NOT Q47461344 "written work": its Wikidata hierarchy
+# swallows video games (Q7889 is a subclass), which would leak game items
+# into a book search.
+SOURCE_CLASS_SEARCH_EXTRA = {
+    "book": [ "Q7725634" ],
+}
+
 # Issue #7: source-class parent/child relations (child kind => parent kind).
 # Child-class creation requires an existing parent-class item, picked on the
 # form and linked via the `part of` statement.
@@ -361,9 +372,20 @@ def build_config(
             agent_classes[kind] = class_ids[label]
 
     source_classes: dict[str, str] = {}
+    source_class_search_classes: dict[str, list[str]] = {}
     for label, kind in SOURCE_CLASS_KINDS.items():
-        if label in class_ids:
-            source_classes[kind] = class_ids[label]
+        if label not in class_ids:
+            continue
+        source_classes[kind] = class_ids[label]
+        # Wikidata search scope: the aligned class + the explicit family
+        # extras (book -> literary work). No alignment = no filter.
+        aligned_qid = wikidata_class_qids.get(label)
+        if aligned_qid:
+            scope = [ aligned_qid ]
+            for extra in SOURCE_CLASS_SEARCH_EXTRA.get(label, []):
+                if extra not in scope:
+                    scope.append(extra)
+            source_class_search_classes[kind] = scope
 
     foss_classes: dict[str, str] = {}
     for label, kind in FOSS_CLASS_KINDS.items():
@@ -483,6 +505,7 @@ def build_config(
         "classes": classes,
         "agentClasses": agent_classes,
         "sourceClasses": source_classes,
+        "sourceClassSearchClasses": source_class_search_classes,
         "sourceParents": source_parents,
         "sourceProperties": source_props,
         "fossClasses": foss_classes,

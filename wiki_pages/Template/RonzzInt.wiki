@@ -1,0 +1,3 @@
+<blockquote>
+This page is part of the internal docs at ronzz.ORG. The [[RonzzInt:Main|RonzzInt]] namespace is auth-gated to ronzz.ORG users. If you would like to share something publicly, use other namespaces.
+</blockquote>

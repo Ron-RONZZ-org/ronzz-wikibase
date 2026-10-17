@@ -1,0 +1,21 @@
+<div style="border:1px solid #c8ccd1;background:#f8f9fa;padding:0.5em 1em;margin-bottom:1em;">
+<blockquote>
+'''Magazine article''' — part of the [[Source:Main|sources collection]]. Created via [[Special:AddSource]].
+</blockquote>
+{| class="wikitable" style="float:right;clear:right;width:300px;margin:0 0 1em 1em;"
+|-
+! colspan="2" style="background:#f8f9fa;text-align:center;" | {{PAGENAME}}
+{{#statement-row:Instance of|instance of}}
+{{#statement-row:Author(s)|attributed to}}
+{{#statement-row:Publication date|date}}
+{{#statement-row:Publisher|publisher (entity)}}
+{{#statement-row:Volume|volume}}
+{{#statement-row:Issue|issue}}
+{{#statement-row:Page(s)|page(s)}}
+{{#statement-row:URL|URL}}
+|-
+| Access || {{#source-access:}}
+{{#quotations-of:}}
+|}
+<includeonly>[[Category:Sources]]</includeonly>
+<noinclude>This template reads its data from the item sitelinked to the page (see [[Help:Contributing/semanticDynamicContent]]). Rows with no data are hidden (<code>{{#statement-row:}}</code>). The Quotations row is emitted by <code>{{#quotations-of:}}</code> only when quotation items cite this source.</noinclude>

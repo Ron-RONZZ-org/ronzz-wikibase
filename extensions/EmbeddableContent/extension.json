@@ -155,7 +155,7 @@
 		"entitysearch": {
 			"class": "EmbeddableContent\\Api\\ApiEntitySearch",
 			"services": [
-				"EmbeddableContent.Config"
+				"EmbeddableContent.EntityTermSearch"
 			]
 		},
 		"uploadmeta": {
@@ -235,7 +235,8 @@
 		"UploadForm:BeforeProcessing": "upload",
 		"UploadForm:getInitialPageText": "upload",
 		"UploadComplete": "upload",
-		"PageSaveComplete": "main"
+		"PageSaveComplete": "main",
+		"SpecialSearchResultsAppend": "main"
 	},
 	"ResourceModules": {
 		"ext.embeddableContent.embed": {
@@ -728,6 +729,15 @@
 				"embeddablecontent-print-by",
 				"and",
 				"comma-separator"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.search": {
+			"styles": [
+				"search.css"
 			],
 			"targets": [
 				"desktop",

@@ -1,0 +1,1 @@
+<includeonly><div class="mw-collapsible mw-collapsed solution" data-expandtext="Show Solution" data-collapsetext="Hide Solution"><br></includeonly><noinclude>{{doc}}</noinclude>

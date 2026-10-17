@@ -1,0 +1,18 @@
+{| class="wikitable" style="float:right;clear:right;width:300px;margin:0 0 1em 1em;"
+|-
+! colspan="2" style="background:#f8f9fa;text-align:center;" | {{PAGENAME}}
+|-
+| colspan="2" style="text-align:center;" | {{{logo|{{#item-image:}}}}}
+{{#statement-row:Instance of|instance of}}
+{{#statement-row:Developed by|developer}}
+{{#statement-row:Licence|license}}
+{{#statement-row:Operating system|operating system}}
+{{#statement-row:Programming language|programming language}}
+{{#statement-row:Official website|official website}}
+{{#statement-row:Source code repository|source code repository}}
+{{#statement-row:Documentation|documentation URL}}
+{{#statement-row:User interface|user interface}}
+{{#statement-row:Usecase|has use}}
+{{#statement-row:Succeeds/can replace|replaces}}
+|}
+<noinclude>This infobox reads its data from the item sitelinked to the page (see [[Help:Contributing/semanticDynamicContent]]). Rows with no data are hidden (<code>{{#statement-row:}}</code>). The image cell shows the item's <code>image</code> statement via <code>{{#item-image:}}</code>; the optional <code>logo</code> parameter (a full <code>[[File:…]]</code> link) overrides it when set by hand.</noinclude>

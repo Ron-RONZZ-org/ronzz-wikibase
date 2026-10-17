@@ -117,6 +117,21 @@ fixer.
   `--verify` re-checks the sitelinks. **Review the dry-run list before
   applying.** Python stdlib only (reuses `seed/wikibase_api.py`). Unit tests:
   `python3 -m unittest discover -s tools/tests`.
+- **`tools/wiki_pages.py`** — two-way sync for the production wiki-page
+  customisations tracked in `wiki_pages/` (`MediaWiki:Common.css`, the
+  `MediaWiki:` interface overrides, the custom `Template:` pages). Commands:
+  `status` / `verify` (read-only drift checks, anonymous), `pull` (wiki →
+  repo files + state), `push` (repo → wiki, `baserevid`-guarded),
+  `resolve --accept-prod|--accept-repo` (explicit conflict resolution), and
+  `discover` (list namespace pages as a manifest). The state machine never
+  auto-deletes and refuses the whole operation when both sides changed since
+  the last synchronized state (exit 3 + a conflict report). Only titles in
+  `wiki_pages/manifest.json` are writable. Push/resolve use
+  `WIKI_SYNC_BOT_USER` / `WIKI_SYNC_BOT_PASS` (or `--user`/`--password-file`);
+  credentials are never printed. The automated schedule/commit workflow is
+  `.github/workflows/wiki-pages.yml`; see
+  `docs/decisions/wiki-pages-parity.md`. Unit tests:
+  `python3 -m unittest discover -s tools/tests`.
 - **`tools/usertools/libretexts2wikitext.py`** — converts a LibreTexts page into a
   `.wiki` draft for this wiki. LibreTexts runs MindTouch, not MediaWiki (no
   `action=raw`; the `@api/deki` REST API is token-gated), so it fetches the

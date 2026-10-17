@@ -306,6 +306,18 @@ report). See `SimpleMathJax/VENDORED.md`.
   license implementations collapse into `licenseSpec()`), and
   `EntityClassFilter` is the one `instance-of` helper. Legal classes omit
   authors; the citation source-type map gains the CSL types.
+- **AddSource Wikidata search is class-scoped (ADR
+  `docs/decisions/addsource-class-scoped-search.md`)**: the seed emits
+  `sourceClassSearchClasses` (form class key → Wikidata QID list; `book` =
+  `Q571` + `Q7725634` literary work, deliberately not `Q47461344` written
+  work, which contains video games). `WikidataWorkProvider` implements
+  `ClassFilteredWorkProvider`; title search uses the Wikidata MWAPI SPARQL
+  service joined to `P31/P279*`, author searches add the same class clause.
+  `ProviderClient` passes the scope only to that provider — OpenLibrary/
+  OpenAlex/Crossref results stay unfiltered because they are already
+  class-appropriate. `EmbeddableContentConfig::sourceClassSearchClasses()`
+  validates the list and falls back to the single aligned QID on a config
+  emitted before this key.
 - **AddSource round 4 — optional fields, multi-value jurisdiction,
   international marker, `text` class (ADR
   `docs/decisions/addsource-improvements.md`)**: (a) **title is the ONLY
@@ -598,6 +610,15 @@ report). See `SimpleMathJax/VENDORED.md`.
   (read-only, in-process, schema stable across 1.4x); CirrusSearch +
   WikibaseCirrusSearch (real token fulltext, needs Elasticsearch ~1–1.5 GB)
   is the documented upgrade path for a larger instance.
+- **Site search now surfaces items (ADR `docs/decisions/search-items-section.md`)**:
+  `Special:Search` appends an **Items** section (`Hooks::onSpecialSearchResultsAppend`)
+  for the default/all profiles (or an explicit Item: selection), using the
+  same `Search\EntityTermSearch` CONTAINS matching as `action=entitysearch`.
+  Core SearchMySQL indexes page text only, and Item: pages have no text, so
+  labels were invisible to the site search box; `wbsearchentities` is
+  prefix-only and is used by the comboboxes, not `Special:Search`. The
+  section renders label + description + a `Special:EntityPage/Q…` link and a
+  small `search.css` module; no CirrusSearch/Elasticsearch needed.
 - **Add* form fixes batch (ADR `docs/decisions/add-forms-fixes-2026-09.md`)**:
   (a) **Combobox search is case-insensitive** (above) — `action=entitysearch`
   now `CONVERT`s the term column, so `APACHE`/`aPaChE` find "Apache License
