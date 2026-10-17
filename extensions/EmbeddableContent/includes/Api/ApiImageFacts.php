@@ -73,6 +73,29 @@ class ApiImageFacts extends ApiBase {
 			);
 		}
 
+		$clearFields = ImageFactsRequest::parseClearFields( (string)( $params['clear'] ?? '' ) );
+		foreach ( $clearFields as $field ) {
+			if ( !ImageFactsRequest::isClearableField( $field ) ) {
+				$this->dieWithError(
+					new RawMessage( "clear field \"{$field}\" is not one of: "
+						. implode( ', ', ImageFactsRequest::CLEARABLE_FIELDS ) . '.' ),
+					'invalid_clear'
+				);
+			}
+			if ( trim( (string)( $params[$field] ?? '' ) ) !== '' ) {
+				$this->dieWithError(
+					new RawMessage( "clear field \"{$field}\" was also given a value; use one or the other." ),
+					'clear_conflict'
+				);
+			}
+		}
+		if ( $clearFields !== [] && $params['mode'] !== 'update' ) {
+			$this->dieWithError(
+				new RawMessage( 'clear requires mode=update.' ),
+				'clear_requires_update'
+			);
+		}
+
 		$label = (string)preg_replace( '/\.[^.]+$/', '', $title->getText() );
 		$itemId = ImageItemCreator::createOrReuse(
 			$this->config,
@@ -85,7 +108,8 @@ class ApiImageFacts extends ApiBase {
 			trim( (string)( $params['licenseInfo'] ?? '' ) ),
 			trim( (string)( $params['sourceUrl'] ?? '' ) ),
 			$params['summary'] ?? 'Set image facts',
-			$params['mode'] === 'update'
+			$params['mode'] === 'update',
+			$clearFields
 		);
 
 		if ( $itemId === null ) {
@@ -101,6 +125,7 @@ class ApiImageFacts extends ApiBase {
 			'itemId' => $itemId,
 			'filePage' => $title->getPrefixedText(),
 			'mode' => $params['mode'],
+			...( $clearFields !== [] ? [ 'cleared' => $clearFields ] : [] ),
 		] );
 	}
 
@@ -149,6 +174,14 @@ class ApiImageFacts extends ApiBase {
 				self::PARAM_REQUIRED => false,
 				self::PARAM_DFLT => 'create',
 			],
+			// Comma-separated fact fields to remove in mode=update; a field
+			// cannot be both cleared and given a value.
+			'clear' => [
+				self::PARAM_TYPE => 'string',
+				self::PARAM_REQUIRED => false,
+				self::PARAM_MAX_BYTES => 200,
+				self::PARAM_DFLT => '',
+			],
 		];
 	}
 
@@ -165,6 +198,6 @@ class ApiImageFacts extends ApiBase {
 	}
 
 	public function getModuleDescription() {
-		return 'Creates, reuses or updates the sitelinked image item for an uploaded File: page, writing the license, image author, additional license information and source URL statements (the API counterpart of the Special:Upload itemization; mode=update replaces the statements for the fields provided).';
+		return 'Creates, reuses or updates the sitelinked image item for an uploaded File: page, writing the license, image author, additional license information and source URL statements (the API counterpart of the Special:Upload itemization; mode=update replaces the statements for the fields provided and clear removes them).';
 	}
 }
