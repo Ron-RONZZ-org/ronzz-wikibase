@@ -84,7 +84,8 @@ class ApiImageFacts extends ApiBase {
 			trim( (string)( $params['author'] ?? '' ) ),
 			trim( (string)( $params['licenseInfo'] ?? '' ) ),
 			trim( (string)( $params['sourceUrl'] ?? '' ) ),
-			$params['summary'] ?? 'Set image facts'
+			$params['summary'] ?? 'Set image facts',
+			$params['mode'] === 'update'
 		);
 
 		if ( $itemId === null ) {
@@ -99,6 +100,7 @@ class ApiImageFacts extends ApiBase {
 		$this->getResult()->addValue( null, 'imagefacts', [
 			'itemId' => $itemId,
 			'filePage' => $title->getPrefixedText(),
+			'mode' => $params['mode'],
 		] );
 	}
 
@@ -139,6 +141,14 @@ class ApiImageFacts extends ApiBase {
 				self::PARAM_REQUIRED => false,
 				self::PARAM_MAX_BYTES => 255,
 			],
+			// create (default) = create/reuse and never rewrite an existing
+			// item; update = replace the statements for each PROVIDED field
+			// (blank keeps the current statement), for update-file.
+			'mode' => [
+				self::PARAM_TYPE => [ 'create', 'update' ],
+				self::PARAM_REQUIRED => false,
+				self::PARAM_DEFAULT => 'create',
+			],
 		];
 	}
 
@@ -155,6 +165,6 @@ class ApiImageFacts extends ApiBase {
 	}
 
 	public function getModuleDescription() {
-		return 'Creates or reuses the sitelinked image item for an uploaded File: page, writing the license, image author, additional license information and source URL statements (the API counterpart of the Special:Upload itemization).';
+		return 'Creates, reuses or updates the sitelinked image item for an uploaded File: page, writing the license, image author, additional license information and source URL statements (the API counterpart of the Special:Upload itemization; mode=update replaces the statements for the fields provided).';
 	}
 }

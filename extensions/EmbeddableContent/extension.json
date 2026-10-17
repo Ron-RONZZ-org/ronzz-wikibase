@@ -167,6 +167,12 @@
 				"EmbeddableContent.Config"
 			]
 		},
+		"imagefacts-fields": {
+			"class": "EmbeddableContent\\Api\\ApiImageFactsFields",
+			"services": [
+				"EmbeddableContent.Config"
+			]
+		},
 		"addsource": {
 			"class": "EmbeddableContent\\Api\\ApiAddSource",
 			"services": [
