@@ -388,6 +388,46 @@ class EmbeddableContentConfig {
 	}
 
 	/**
+	 * AddSource Wikidata search scope: form class key => Wikidata QID list
+	 * (the class's aligned QID plus family extras, e.g. `book` also accepts
+	 * `literary work` Q7725634 so novels are not filtered out).
+	 *
+	 * Falls back to a single aligned QID per class (from
+	 * sourceClassByWikidata) when the emitted config predates this key.
+	 * Malformed ids are dropped — the scope is an enhancement, never a hard
+	 * failure.
+	 *
+	 * @return array<string,string[]>
+	 */
+	public function sourceClassSearchClasses(): array {
+		$raw = $this->raw['sourceClassSearchClasses'] ?? null;
+		$out = [];
+		if ( is_array( $raw ) ) {
+			foreach ( $raw as $key => $ids ) {
+				if ( !is_string( $key ) || !is_array( $ids ) ) {
+					continue;
+				}
+				$clean = [];
+				foreach ( $ids as $id ) {
+					if ( is_string( $id ) && preg_match( '/^Q[1-9]\d*$/', $id ) === 1 ) {
+						$clean[] = $id;
+					}
+				}
+				if ( $clean !== [] ) {
+					$out[$key] = array_values( array_unique( $clean ) );
+				}
+			}
+		}
+		if ( $out !== [] ) {
+			return $out;
+		}
+		foreach ( $this->sourceClassByWikidata() as $qid => $key ) {
+			$out[$key] = [ $qid ];
+		}
+		return $out;
+	}
+
+	/**
 	 * Issue #7: Wikidata QID → local agent-class key (harvest class inference).
 	 *
 	 * @return array<string,string>

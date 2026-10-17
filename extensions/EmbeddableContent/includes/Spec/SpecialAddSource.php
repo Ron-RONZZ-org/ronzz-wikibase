@@ -753,6 +753,10 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	private function searchByTitleAuthor( array $data ): ProviderResult {
 		$title = trim( (string)( $data['title'] ?? '' ) );
 		$author = trim( (string)( $data['author'] ?? '' ) );
+		// The Wikidata hub is restricted to the selected source class
+		// (book -> book + literary works); other providers are already
+		// class-appropriate and stay unfiltered.
+		$classQids = $this->classSearchClasses();
 		if ( $author !== '' ) {
 			if ( ( $data['authorMode'] ?? 'text' ) === 'entity' ) {
 				$qids = array_values( array_filter(
@@ -762,14 +766,29 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				if ( $qids === [] ) {
 					return new ProviderResult( [], [ 'Entity-mode author search needs Wikidata Q-ids (e.g. Q42, Q179)' ] );
 				}
-				return $this->client->searchWorksByAuthorEntities( $qids, $title );
+				return $this->client->searchWorksByAuthorEntities( $qids, $title, $classQids );
 			}
-			return $this->client->searchWorksByAuthorName( $author, $title );
+			return $this->client->searchWorksByAuthorName( $author, $title, $classQids );
 		}
 		if ( $title === '' ) {
 			return new ProviderResult( [], [ 'No title or author given' ] );
 		}
-		return $this->client->searchWorks( $title );
+		return $this->client->searchWorks( $title, $classQids );
+	}
+
+	/**
+	 * The Wikidata class scope for the current AddSource class (the emitted
+	 * `sourceClassSearchClasses` map; [] = no scope, so the cascade behaves
+	 * exactly as before on an unseeded/older config).
+	 *
+	 * @return string[]
+	 */
+	private function classSearchClasses(): array {
+		if ( $this->currentClassKey === null ) {
+			return [];
+		}
+		$formKey = \EmbeddableContent\Flow\SourceFieldMap::formKey( $this->currentClassKey );
+		return $this->config->sourceClassSearchClasses()[$formKey] ?? [];
 	}
 
 	/**

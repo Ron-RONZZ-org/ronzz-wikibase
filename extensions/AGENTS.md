@@ -306,6 +306,18 @@ report). See `SimpleMathJax/VENDORED.md`.
   license implementations collapse into `licenseSpec()`), and
   `EntityClassFilter` is the one `instance-of` helper. Legal classes omit
   authors; the citation source-type map gains the CSL types.
+- **AddSource Wikidata search is class-scoped (ADR
+  `docs/decisions/addsource-class-scoped-search.md`)**: the seed emits
+  `sourceClassSearchClasses` (form class key → Wikidata QID list; `book` =
+  `Q571` + `Q7725634` literary work, deliberately not `Q47461344` written
+  work, which contains video games). `WikidataWorkProvider` implements
+  `ClassFilteredWorkProvider`; title search uses the Wikidata MWAPI SPARQL
+  service joined to `P31/P279*`, author searches add the same class clause.
+  `ProviderClient` passes the scope only to that provider — OpenLibrary/
+  OpenAlex/Crossref results stay unfiltered because they are already
+  class-appropriate. `EmbeddableContentConfig::sourceClassSearchClasses()`
+  validates the list and falls back to the single aligned QID on a config
+  emitted before this key.
 - **AddSource round 4 — optional fields, multi-value jurisdiction,
   international marker, `text` class (ADR
   `docs/decisions/addsource-improvements.md`)**: (a) **title is the ONLY
