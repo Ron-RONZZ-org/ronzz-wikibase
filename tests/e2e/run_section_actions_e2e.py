@@ -364,18 +364,25 @@ def section_action_flow(op, api: str, base: str, keep: bool) -> None:
             raise FlowError(f"page-end append lost existing content:\n{text!r}")
         print("[ok] action=appendsection appends to the page end, preserving content")
 
-        # 2. Show preview renders the assembled result without saving.
+        # 2. Show preview renders ONLY the typed section — never the whole
+        #    article — without saving. (The page-level "Add section" action
+        #    and the per-heading controls share AppendSectionEditPage.)
         before, _ = page_wikitext(op, api, title)
         _, preview_html = submit_form(
             op, base, rendered_path(title) + "?action=appendsection", "wpTextbox1",
             {"wpTextbox1": "Preview only text.", "wpSummary": "",
              "wpPreview": "1", "wpDiff": None, "wpSave": None})
         if "only a preview" not in preview_html or "Preview only text." not in preview_html:
-            raise FlowError("Show preview did not render the assembled content")
+            raise FlowError("Show preview did not render the typed section")
+        for leaked in ("Lead paragraph.", "== First ==", "One.", "== Second ==", "Two."):
+            if leaked in preview_html:
+                raise FlowError(
+                    f"Show preview rendered the whole article (found {leaked!r}); "
+                    "it must show only the typed section")
         after, _ = page_wikitext(op, api, title)
         if after != before:
             raise FlowError("Show preview saved the page (it must not)")
-        print("[ok] Show preview renders the result without saving")
+        print("[ok] Show preview renders only the typed section, without saving")
 
         # 3. Show changes renders a diff against the current page.
         _, diff_html = submit_form(
@@ -389,6 +396,20 @@ def section_action_flow(op, api: str, base: str, keep: bool) -> None:
         # 4. Add section below (?action=appendsection&wbsection=<First>), blank
         #    Summary → auto-inferred `/* Sub */` comment.
         first = section_number(page_get(op, base, rendered_path(title)), "First")
+        # The wbsection entry point shares the same preview contract: only
+        # the typed block, not the assembled article.
+        _, below_preview = submit_form(
+            op, base, f"{rendered_path(title)}?action=appendsection&wbsection={first}",
+            "wpTextbox1",
+            {"wpTextbox1": "Below preview text.", "wpSummary": "",
+             "wpPreview": "1", "wpDiff": None, "wpSave": None})
+        if "Below preview text." not in below_preview:
+            raise FlowError("'Add section below' preview did not render the typed block")
+        for leaked in ("Lead paragraph.", "== First ==", "One.", "== Second ==", "Two."):
+            if leaked in below_preview:
+                raise FlowError(
+                    f"'Add section below' preview rendered the whole article (found {leaked!r})")
+        print("[ok] 'Add section below' preview renders only the typed block")
         below_url, below_resp = submit_form(
             op, base, f"{rendered_path(title)}?action=appendsection&wbsection={first}",
             "wpTextbox1", append_save_fields("=== Sub ===\n\nSub body.", ""))

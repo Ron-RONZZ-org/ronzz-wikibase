@@ -68,9 +68,13 @@ editor:
   wikitext with the typed block appended at the page end, or at the end of
   the target section (below its heading and any nested subsections) through
   core's `Content::getSection()` / `replaceSection()`. `EditPage` reads the
-  edit content through this method for the preview, the diff **and** the save
-  (with `$this->section` empty, `WikiPage::replaceSectionAtRev( '' )` passes
-  the assembled text straight through).
+  edit content through this method for the diff **and** the save (with
+  `$this->section` empty, `WikiPage::replaceSectionAtRev( '' )` passes the
+  assembled text straight through). **Show preview is the exception**: it
+  gets only the typed block (the section being added), matching core's
+  section editor — the preview must never render the whole article. Both
+  entry points (page-level `?action=appendsection` and per-heading
+  `?action=appendsection&wbsection=<n>`) share this contract.
 
 The target section travels in a **`wbsection`** request parameter — not
 core's `section`, which must stay empty so `EditPage` treats the flow as a
@@ -98,6 +102,10 @@ page-end append with a logged warning.
   flows are indistinguishable from a normal edit except for the missing
   minor-edit checkbox — true Edit parity for free, including future core
   editor improvements.
+- **Show preview is section-scoped**: both the page-level "Add section" and
+  the per-heading "Add section below" previews render only the typed block,
+  never the assembled whole page (the regression fixed Oct 2026). Show
+  changes still diffs the assembled page and Save still appends it.
 - Reusing `EditPage` (rather than forking) is the sanctioned MediaWiki
   extension point; it supersedes the earlier "a `FormAction`, not an
   `EditPage` subclass" consequence. The integration surface is the documented
