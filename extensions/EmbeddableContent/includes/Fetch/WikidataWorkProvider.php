@@ -45,9 +45,17 @@ class WikidataWorkProvider implements WorkProvider, ClassFilteredWorkProvider {
 		if ( $classQids === [] ) {
 			return $this->searchByAuthorName( $author, $title );
 		}
-		return $this->mapAuthorRows(
+		$records = $this->mapAuthorRows(
 			$this->core->searchWorksByAuthor( [], $author, $classQids )
 		);
+		if ( $records !== [] ) {
+			return $records;
+		}
+		// Author search is a narrowing aid, and Wikidata often leaves P50
+		// off scholarly articles (or classifies a work differently). An
+		// empty class-scoped author result must not dead-end the flow: fall
+		// back to the author's works unfiltered. TITLE search stays strict.
+		return $this->searchByAuthorName( $author, $title );
 	}
 
 	public function searchByAuthorEntities( array $qids, string $title = '' ): array {
@@ -61,9 +69,15 @@ class WikidataWorkProvider implements WorkProvider, ClassFilteredWorkProvider {
 		if ( $qids === [] ) {
 			return [];
 		}
-		return $this->mapAuthorRows(
+		$records = $this->mapAuthorRows(
 			$this->core->searchWorksByAuthor( $qids, '', $classQids )
 		);
+		if ( $records !== [] ) {
+			return $records;
+		}
+		// Same fallback as the name search: author-entity search is a
+		// narrowing aid, not the strict class-filtered title search.
+		return $this->mapAuthorRows( $this->core->searchWorksByAuthor( $qids ) );
 	}
 
 	/**

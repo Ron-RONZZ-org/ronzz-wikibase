@@ -53,6 +53,14 @@ interface. OpenLibrary / OpenAlex / Crossref results are already
 class-appropriate by provider and stay unfiltered, so a book search still
 shows their books.
 
+**Title search is strict; author search is class-preferred.** Wikidata often
+omits `P50` on scholarly articles (or classifies a work under a sibling
+class), so a class-scoped author search can legitimately return nothing even
+when the author has works. When the scoped author result is empty, the hub
+falls back to the author's works unfiltered — an author search is a narrowing
+aid, and a dead-end selection page is worse than a broader candidate list.
+The title search (the reported book case) never falls back.
+
 `SpecialAddSource::searchByTitleAuthor()` reads the scope for the current
 class and passes it through all three work-search paths.
 
