@@ -157,16 +157,29 @@ def run(args: argparse.Namespace) -> None:
     try:
         # First prove the term-store search the hook uses can see the new
         # item; a miss here isolates the failure to the search index/term
-        # store rather than the Special:Search hook.
-        es = api_call(op, args.api_url, {
-            "action": "entitysearch", "search": term, "language": "en",
-            "limit": "20", "format": "json",
-        })
-        es_ids = [entry.get("id") for entry in es.get("search", [])]
+        # store rather than the Special:Search hook. Term-store writes are
+        # eventually visible (the search reads DB_REPLICA), so poll briefly
+        # instead of racing the save.
+        deadline = time.time() + 30
+        es_ids: list[str] = []
+        while time.time() < deadline:
+            es = api_call(op, args.api_url, {
+                "action": "entitysearch", "search": term, "language": "en",
+                "limit": "20", "format": "json",
+            })
+            es_ids = [entry.get("id") for entry in es.get("search", [])]
+            if qid in es_ids:
+                break
+            time.sleep(1)
         if qid not in es_ids:
+            item = api_call(op, args.api_url, {
+                "action": "wbgetentities", "ids": qid,
+                "props": "labels", "format": "json",
+            })
+            labels = item.get("entities", {}).get(qid, {}).get("labels", {})
             raise SearchError(
                 f"action=entitysearch did not find {qid} for {term!r} "
-                f"(got {es_ids})")
+                f"after 30s (got {es_ids}); stored labels={list(labels)}")
         print(f"[ok] action=entitysearch finds {qid} for {term!r}")
 
         html = search_html(op, args.base_url, term)
