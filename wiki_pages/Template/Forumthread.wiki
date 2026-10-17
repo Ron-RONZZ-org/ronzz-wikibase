@@ -1,0 +1,5 @@
+{{Forumheader}}
+<!-- Write your post below. Replies are added below with one colon (:) per indent level; sign your post with <nowiki>~~~~</nowiki> (it renders as your name + timestamp). Full instructions: [[Help:Contributing/forum]]. -->
+
+[[Category:{{BASEPAGENAME}}]]<noinclude>
+[[Category:Forum templates]][[Category:Preload templates]]</noinclude>

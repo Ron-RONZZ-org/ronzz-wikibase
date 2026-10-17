@@ -1,0 +1,322 @@
+{
+  "wiki": "https://wikibase.ronzz.org",
+  "pages": [
+    {
+      "title": "MediaWiki:Addcodesnippet",
+      "path": "MediaWiki/Addcodesnippet.wiki"
+    },
+    {
+      "title": "MediaWiki:Addcollective",
+      "path": "MediaWiki/Addcollective.wiki"
+    },
+    {
+      "title": "MediaWiki:Addfictionalcharacter",
+      "path": "MediaWiki/Addfictionalcharacter.wiki"
+    },
+    {
+      "title": "MediaWiki:Addmath",
+      "path": "MediaWiki/Addmath.wiki"
+    },
+    {
+      "title": "MediaWiki:Addperson",
+      "path": "MediaWiki/Addperson.wiki"
+    },
+    {
+      "title": "MediaWiki:Addquotation",
+      "path": "MediaWiki/Addquotation.wiki"
+    },
+    {
+      "title": "MediaWiki:Addsoftware",
+      "path": "MediaWiki/Addsoftware.wiki"
+    },
+    {
+      "title": "MediaWiki:Addsource",
+      "path": "MediaWiki/Addsource.wiki"
+    },
+    {
+      "title": "MediaWiki:Common.css",
+      "path": "MediaWiki/Common.css",
+      "model": "css"
+    },
+    {
+      "title": "MediaWiki:Copyupload-allowed-domains",
+      "path": "MediaWiki/Copyupload-allowed-domains.wiki"
+    },
+    {
+      "title": "MediaWiki:Embed",
+      "path": "MediaWiki/Embed.wiki"
+    },
+    {
+      "title": "MediaWiki:Entitydata",
+      "path": "MediaWiki/Entitydata.wiki"
+    },
+    {
+      "title": "MediaWiki:Forum-index",
+      "path": "MediaWiki/Forum-index.wiki"
+    },
+    {
+      "title": "MediaWiki:Itemdisambiguation",
+      "path": "MediaWiki/Itemdisambiguation.wiki"
+    },
+    {
+      "title": "MediaWiki:Licenses",
+      "path": "MediaWiki/Licenses.wiki"
+    },
+    {
+      "title": "MediaWiki:Listdatatypes",
+      "path": "MediaWiki/Listdatatypes.wiki"
+    },
+    {
+      "title": "MediaWiki:Listproperties",
+      "path": "MediaWiki/Listproperties.wiki"
+    },
+    {
+      "title": "MediaWiki:Newitem",
+      "path": "MediaWiki/Newitem.wiki"
+    },
+    {
+      "title": "MediaWiki:Newproperty",
+      "path": "MediaWiki/Newproperty.wiki"
+    },
+    {
+      "title": "MediaWiki:Semantic-tools",
+      "path": "MediaWiki/Semantic-tools.wiki"
+    },
+    {
+      "title": "MediaWiki:Sidebar",
+      "path": "MediaWiki/Sidebar.wiki"
+    },
+    {
+      "title": "MediaWiki:Toolbox",
+      "path": "MediaWiki/Toolbox.wiki"
+    },
+    {
+      "title": "Template:Bill",
+      "path": "Template/Bill.wiki"
+    },
+    {
+      "title": "Template:Book",
+      "path": "Template/Book.wiki"
+    },
+    {
+      "title": "Template:Cc-by-4.0",
+      "path": "Template/Cc-by-4.0.wiki"
+    },
+    {
+      "title": "Template:Cc-by-sa-4.0",
+      "path": "Template/Cc-by-sa-4.0.wiki"
+    },
+    {
+      "title": "Template:Cc0-1.0",
+      "path": "Template/Cc0-1.0.wiki"
+    },
+    {
+      "title": "Template:Cheatsheet",
+      "path": "Template/Cheatsheet.wiki"
+    },
+    {
+      "title": "Template:CodeSnippet",
+      "path": "Template/CodeSnippet.wiki"
+    },
+    {
+      "title": "Template:Collective",
+      "path": "Template/Collective.wiki"
+    },
+    {
+      "title": "Template:ConferencePaper",
+      "path": "Template/ConferencePaper.wiki"
+    },
+    {
+      "title": "Template:Dataset",
+      "path": "Template/Dataset.wiki"
+    },
+    {
+      "title": "Template:DesktopLinux",
+      "path": "Template/DesktopLinux.wiki"
+    },
+    {
+      "title": "Template:Document",
+      "path": "Template/Document.wiki"
+    },
+    {
+      "title": "Template:End hidden",
+      "path": "Template/End hidden.wiki"
+    },
+    {
+      "title": "Template:End solution",
+      "path": "Template/End solution.wiki"
+    },
+    {
+      "title": "Template:FOSS",
+      "path": "Template/FOSS.wiki"
+    },
+    {
+      "title": "Template:FOSS/Infobox",
+      "path": "Template/FOSS/Infobox.wiki"
+    },
+    {
+      "title": "Template:Fairuse",
+      "path": "Template/Fairuse.wiki"
+    },
+    {
+      "title": "Template:Film",
+      "path": "Template/Film.wiki"
+    },
+    {
+      "title": "Template:Forumheader",
+      "path": "Template/Forumheader.wiki"
+    },
+    {
+      "title": "Template:Forumnotice",
+      "path": "Template/Forumnotice.wiki"
+    },
+    {
+      "title": "Template:Forumpage",
+      "path": "Template/Forumpage.wiki"
+    },
+    {
+      "title": "Template:Forumsearch",
+      "path": "Template/Forumsearch.wiki"
+    },
+    {
+      "title": "Template:Forumthread",
+      "path": "Template/Forumthread.wiki"
+    },
+    {
+      "title": "Template:Hidden proof",
+      "path": "Template/Hidden proof.wiki"
+    },
+    {
+      "title": "Template:Hidden solution",
+      "path": "Template/Hidden solution.wiki"
+    },
+    {
+      "title": "Template:HowItWorks",
+      "path": "Template/HowItWorks.wiki"
+    },
+    {
+      "title": "Template:Interview",
+      "path": "Template/Interview.wiki"
+    },
+    {
+      "title": "Template:Languages",
+      "path": "Template/Languages.wiki"
+    },
+    {
+      "title": "Template:Law",
+      "path": "Template/Law.wiki"
+    },
+    {
+      "title": "Template:LegalCase",
+      "path": "Template/LegalCase.wiki"
+    },
+    {
+      "title": "Template:Legislation",
+      "path": "Template/Legislation.wiki"
+    },
+    {
+      "title": "Template:MagazineArticle",
+      "path": "Template/MagazineArticle.wiki"
+    },
+    {
+      "title": "Template:Manuscript",
+      "path": "Template/Manuscript.wiki"
+    },
+    {
+      "title": "Template:Map",
+      "path": "Template/Map.wiki"
+    },
+    {
+      "title": "Template:NewspaperArticle",
+      "path": "Template/NewspaperArticle.wiki"
+    },
+    {
+      "title": "Template:No license",
+      "path": "Template/No license.wiki"
+    },
+    {
+      "title": "Template:Patent",
+      "path": "Template/Patent.wiki"
+    },
+    {
+      "title": "Template:Pd",
+      "path": "Template/Pd.wiki"
+    },
+    {
+      "title": "Template:Person",
+      "path": "Template/Person.wiki"
+    },
+    {
+      "title": "Template:Presentation",
+      "path": "Template/Presentation.wiki"
+    },
+    {
+      "title": "Template:Report",
+      "path": "Template/Report.wiki"
+    },
+    {
+      "title": "Template:Rongzhou/Vivre en France",
+      "path": "Template/Rongzhou/Vivre en France.wiki"
+    },
+    {
+      "title": "Template:RonzzIT",
+      "path": "Template/RonzzIT.wiki"
+    },
+    {
+      "title": "Template:RonzzInt",
+      "path": "Template/RonzzInt.wiki"
+    },
+    {
+      "title": "Template:ScholarlyArticle",
+      "path": "Template/ScholarlyArticle.wiki"
+    },
+    {
+      "title": "Template:Software",
+      "path": "Template/Software.wiki"
+    },
+    {
+      "title": "Template:Software/Infobox",
+      "path": "Template/Software/Infobox.wiki"
+    },
+    {
+      "title": "Template:Song",
+      "path": "Template/Song.wiki"
+    },
+    {
+      "title": "Template:Text",
+      "path": "Template/Text.wiki"
+    },
+    {
+      "title": "Template:Thesis",
+      "path": "Template/Thesis.wiki"
+    },
+    {
+      "title": "Template:Translation",
+      "path": "Template/Translation.wiki"
+    },
+    {
+      "title": "Template:Treaty",
+      "path": "Template/Treaty.wiki"
+    },
+    {
+      "title": "Template:Video",
+      "path": "Template/Video.wiki"
+    },
+    {
+      "title": "Template:Webpage",
+      "path": "Template/Webpage.wiki"
+    },
+    {
+      "title": "Template:Website",
+      "path": "Template/Website.wiki"
+    },
+    {
+      "title": "Template:YouTubeChannel",
+      "path": "Template/YouTubeChannel.wiki"
+    },
+    {
+      "title": "Template:YouTubeVideo",
+      "path": "Template/YouTubeVideo.wiki"
+    }
+  ]
+}

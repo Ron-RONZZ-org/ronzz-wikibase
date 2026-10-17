@@ -1,0 +1,4 @@
+<div class="forum-notice">
+'''Reminder:''' be civil and stay on topic!
+</div><noinclude>
+[[Category:Forum templates]]</noinclude>

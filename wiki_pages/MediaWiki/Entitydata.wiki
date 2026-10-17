@@ -1,0 +1,1 @@
+Entity data (raw JSON/RDF)

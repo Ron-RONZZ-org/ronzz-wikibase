@@ -1,0 +1,128 @@
+name: Wiki page sync
+
+# Two-way sync for the repo's tracked wiki pages (wiki_pages/):
+#   - hourly (schedule): wiki -> repo, auto-committed to main;
+#   - push to main touching wiki_pages/: repo -> wiki;
+#   - manual: status / verify / pull / push.
+#
+# Conflict contract: if BOTH the wiki and the repo changed since the last
+# synchronized state (wiki_pages/state.json) and the contents differ, the
+# tool exits 3, writes a report, this workflow opens/updates a
+# `wiki-sync-conflict` issue, and NOTHING is overwritten on either side.
+#
+# Credentials: WIKI_SYNC_BOT_USER / WIKI_SYNC_BOT_PASS (a bot password with
+# `editsiteconfig` for MediaWiki:Common.css/JS and edit/create rights for
+# templates). Repo writes use the workflow's GITHUB_TOKEN.
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'wiki_pages/**'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Sync operation'
+        type: choice
+        options: [status, verify, pull, push]
+        default: status
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: wiki-pages-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    env:
+      MODE: ${{ github.event_name == 'schedule' && 'pull' || github.event_name == 'push' && 'push' || inputs.mode }}
+      WIKI_SYNC_BOT_USER: ${{ secrets.WIKI_SYNC_BOT_USER }}
+      WIKI_SYNC_BOT_PASS: ${{ secrets.WIKI_SYNC_BOT_PASS }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Determine mode
+        id: mode
+        run: echo "value=$MODE" >> "$GITHUB_OUTPUT"
+
+      - name: Run sync
+        id: sync
+        run: |
+          set +e
+          python3 tools/wiki_pages.py "$MODE" --report /tmp/wiki-pages-conflict.md
+          code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Commit pulled wiki changes
+        if: steps.mode.outputs.value == 'pull' && steps.sync.outputs.code == '0'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wiki_pages
+          if git diff --cached --quiet; then
+            echo "no wiki page changes to commit"
+            exit 0
+          fi
+          git commit -m "chore(wiki-pages): pull production changes [skip ci]"
+          git pull --rebase origin main
+          git push
+
+      - name: Record pushed wiki revisions
+        if: steps.mode.outputs.value == 'push' && steps.sync.outputs.code == '0'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wiki_pages/state.json
+          if git diff --cached --quiet; then
+            echo "no state changes to commit"
+            exit 0
+          fi
+          git commit -m "chore(wiki-pages): record pushed revisions [skip ci]"
+          git pull --rebase origin main
+          git push
+
+      - name: Report a sync conflict
+        if: steps.sync.outputs.code == '3'
+        run: |
+          if [ ! -s /tmp/wiki-pages-conflict.md ]; then
+            echo "conflict exit without a report" >&2
+            exit 1
+          fi
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" \
+            --label wiki-sync-conflict --state open --limit 1 --json number \
+            --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" \
+              --body-file /tmp/wiki-pages-conflict.md
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" \
+              --title "Wiki page sync conflict" \
+              --label wiki-sync-conflict \
+              --body-file /tmp/wiki-pages-conflict.md
+          fi
+
+      - name: Fail loudly
+        if: steps.sync.outputs.code != '0'
+        run: |
+          if [ "${{ steps.sync.outputs.code }}" = "3" ]; then
+            echo "::error::wiki page sync conflict — nothing was overwritten; resolve the issue and re-run"
+          else
+            echo "::error::wiki page sync failed"
+          fi
+          exit "${{ steps.sync.outputs.code }}"

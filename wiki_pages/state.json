@@ -1,0 +1,401 @@
+{
+  "pages": {
+    "MediaWiki:Addcodesnippet": {
+      "revid": 333,
+      "sha256": "6232047154b672374a86e882f9685b3f2f3206a0943cfeeea51131bec46d5844",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "MediaWiki:Addcollective": {
+      "revid": 331,
+      "sha256": "6bb502c875d45093b5021a7a6e976e92a6ad8ba338411ad91557df9f671d8213",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "MediaWiki:Addfictionalcharacter": {
+      "revid": 8772,
+      "sha256": "e8dfb73e9e2ce5275d9c5d1a43651fa0e2733bd154c980ada3c6aff74ddff228",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "MediaWiki:Addmath": {
+      "revid": 334,
+      "sha256": "ab4770984eaff90e5f8afef5b0a9c68ea49e2dbb8fdee69f04ef1b0c4c22070a",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "MediaWiki:Addperson": {
+      "revid": 329,
+      "sha256": "66848b5361f4fbc04582d4b7a4202d966847642d4af7129e7ca0af9f800115ae",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "MediaWiki:Addquotation": {
+      "revid": 332,
+      "sha256": "9e9001fa8770d42c65f45d78d223fed15ae98cbf7b7107ec44f93cf480171058",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "MediaWiki:Addsoftware": {
+      "revid": 1029,
+      "sha256": "4a8a31c38e44fc82053a179d8175c8c4d2f886b08fc553f3b87d4fa89040a242",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "MediaWiki:Addsource": {
+      "revid": 330,
+      "sha256": "6ea6c9ec2a76b459311598f9d9f3907f4cfec7552896a09e46b2f6bb1506e2ca",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "MediaWiki:Common.css": {
+      "revid": 9959,
+      "sha256": "3d57b84eb71de015c6b927678e723d77ae24c77b7faff09589c758064a2680e7",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "MediaWiki:Copyupload-allowed-domains": {
+      "revid": 750,
+      "sha256": "35cf99c939c8c21849d50ec7a0dbb6255bde3d375fe3aa7da0af4a1371d2e9d0",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "MediaWiki:Embed": {
+      "revid": 335,
+      "sha256": "7512561d2f685534f3a839981a09f87a955c3f853397da88fd2a99bad04f3e7a",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "MediaWiki:Entitydata": {
+      "revid": 11,
+      "sha256": "f21ee45f4913cbe9fc37f14b22173f4b9d3863f209d44b4b098cd392f4a876ee",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "MediaWiki:Forum-index": {
+      "revid": 2202,
+      "sha256": "4da7bd42ab804fd5c1f7b6069a068f0df72084b8f799c935bf4ee393aebae218",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "MediaWiki:Itemdisambiguation": {
+      "revid": 10,
+      "sha256": "d3f3676dd959cebd64ddaf87afcea71bf43cad8d7bc40f178009d8355508c99c",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "MediaWiki:Licenses": {
+      "revid": 769,
+      "sha256": "948871462566a9ce242aea332fbeb4e2493193e05030c7f222a81b7735774f0a",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "MediaWiki:Listdatatypes": {
+      "revid": 9,
+      "sha256": "0af9b1a464a47b54e479dc4f0415b9ae38d62d1089705cfbcc60debd72613b78",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "MediaWiki:Listproperties": {
+      "revid": 8,
+      "sha256": "d91ec732a59b1c377cbb32cb57a8a8ccbe246b817640649e34f01a649c50a56a",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "MediaWiki:Newitem": {
+      "revid": 6,
+      "sha256": "05d8e83e8d6adefaa30b3d96ca7e24015638fc60720b6224b61e9a48c5a4941f",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "MediaWiki:Newproperty": {
+      "revid": 7,
+      "sha256": "8de7e869d8844d30f353f1c03054d39e7cbfa4a3844e7388f59edbf30e4f5512",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "MediaWiki:Semantic-tools": {
+      "revid": 4,
+      "sha256": "7ce369040a19a21ceaaad0ae8d8af3ee49477a17641e4331664783955fe6dda3",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "MediaWiki:Sidebar": {
+      "revid": 8773,
+      "sha256": "d84c3b0debd5ea69f8c47f6820cbb0641482e81a775858a8faaeadf61ae628d0",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "MediaWiki:Toolbox": {
+      "revid": 5,
+      "sha256": "37f29eac4a11290a8a603234ead53ececd04906dcd6cca7b461bebe17513547e",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Bill": {
+      "revid": 9036,
+      "sha256": "b9b4ef3a7c2a633377cf017c05bf7e3478e80f46243940a4e0149641a3af326c",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Book": {
+      "revid": 9017,
+      "sha256": "f7e14d5b0fdaec0fa38eba19975a15b4c2485fb4e49df4421ab63fc687f78d6f",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Cc-by-4.0": {
+      "revid": 752,
+      "sha256": "79059cbf267c4bd8af5f65c63859be4da2d2eee6dec6455628991847b3b96782",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Cc-by-sa-4.0": {
+      "revid": 751,
+      "sha256": "10870947f20ddfbda8be9180be2748b9413b8edae0cd9cc1551360870eb76afa",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Cc0-1.0": {
+      "revid": 753,
+      "sha256": "f46ed78fa3f86e507fb19aef4e18122496df3367a896180b929fc1eb2763bf7a",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Cheatsheet": {
+      "revid": 744,
+      "sha256": "725662a58bcba328a2d165c2706d77f3b8de61d1cd79c2e07c873d820c5a1941",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:CodeSnippet": {
+      "revid": 5030,
+      "sha256": "0ae72aac2817c409151a1c6c9a36bba9e55c334b376c08b851b8514023ccfce6",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Collective": {
+      "revid": 9014,
+      "sha256": "afcf966a5e4a350118488a2299887156e18358a578f72cb23a1e4c4977999487",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:ConferencePaper": {
+      "revid": 9028,
+      "sha256": "827b814127b66e00db220cc4312181809a54102fb962707a5f363d5b35708c0b",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Dataset": {
+      "revid": 9041,
+      "sha256": "3018bdba352151fa287cc18b5643d79a02ef47b54e7bab106b4e93e3ff035317",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:DesktopLinux": {
+      "revid": 1564,
+      "sha256": "598ffe0e95479dab4b96bc039bd5d4854b296d6145b142c143ecc8a7710d178f",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Document": {
+      "revid": 9030,
+      "sha256": "8a3051d3d48e7ecdd0559e9b3ee17ea493b30a61c43bf025b4bf56db9a2d3668",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:End hidden": {
+      "revid": 10047,
+      "sha256": "62b055ba3716c813b0b18da5edd95104f1fe31e9e207f20e772e36f05eef466a",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:End solution": {
+      "revid": 10048,
+      "sha256": "1619df844817310d21efb8e696103645ed6a0a5b249f6a62b18c2d230633fce3",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:FOSS": {
+      "revid": 1465,
+      "sha256": "be71ef2260e9dc51d2a320e262a10a149d3195127bf05085bc6367dafc996496",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:FOSS/Infobox": {
+      "revid": 9015,
+      "sha256": "7e3e85e3a48dbf87d165b93b398a6ddd39ff3673b1b3d7d36088f0f5483eb27c",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Fairuse": {
+      "revid": 755,
+      "sha256": "7262679e4aaaed9261b935ac9da71176957ffecfe09ec55e0a5dc4366b98d98a",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Film": {
+      "revid": 9021,
+      "sha256": "072ed26037630563acff69b5e27561a67923cea30d285a8b2c617d0731b04611",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Forumheader": {
+      "revid": 2193,
+      "sha256": "0570fa840d1240b96231c14ca91e098672d699c46a0e0ec951ddcb413a56dbdc",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Forumnotice": {
+      "revid": 2363,
+      "sha256": "e6f9b32b6664c13d9e0db45fb5b23697cceba612f9426a0c3cc086ea21631638",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Forumpage": {
+      "revid": 2701,
+      "sha256": "95bef832ca9da06e7d052927f07000c5738e2f7e6b5f9c25122a130faf7a729a",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Forumsearch": {
+      "revid": 2195,
+      "sha256": "338378e66481d27e2155b3cc4b81f483ccfd2c9da87322e16a5b0f516c8181f1",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Forumthread": {
+      "revid": 2692,
+      "sha256": "a9fb1fbddfba433b802f5992362469ac3609ffc35313d1c32ad9db62d8a1c8f6",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Hidden proof": {
+      "revid": 10046,
+      "sha256": "d51916ae947c2d869740daf82c67b36336efc38228627263e4fc4ef9371b71fe",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Hidden solution": {
+      "revid": 9960,
+      "sha256": "03fa2d536a81961e7c285aea9c1eccda5c1eafa53238d1de9af49c3b3ba3a002",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:HowItWorks": {
+      "revid": 833,
+      "sha256": "6ee4bae1ebca6d84dffcbf6e1841e23b92231871f0806dca06fa4b3d139b2a0d",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Interview": {
+      "revid": 9038,
+      "sha256": "740b2254f951243b174a6e9c481ce0685699b4fd82a215ac68ec5b2359be2bb7",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Languages": {
+      "revid": 7632,
+      "sha256": "5d23c3fdd108f4fec3c5dbdd377ab47fe2485aa5f7c889436d7ec5ba4abb8325",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Law": {
+      "revid": 9135,
+      "sha256": "c11809a02a433240a4394a5392e58f86a8ec6bf321e2cd7142f35330849de5cc",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:LegalCase": {
+      "revid": 9034,
+      "sha256": "a035577d2f73a59432c865611e2277da5940bb9f9a41744b67d8dd5d923e8820",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Legislation": {
+      "revid": 9136,
+      "sha256": "7c60fb811c47c55e9f9f7b6d10d1ca263f1c3ee09699e0c3a325495173a9defb",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:MagazineArticle": {
+      "revid": 9027,
+      "sha256": "255918db9f2d60c47ffe30480e435d1dbd5e1c1a2d068a0fccdd337e4fce30f4",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Manuscript": {
+      "revid": 9032,
+      "sha256": "e29974e328807aebb2ca4d436e8d353bda3677027f584c8d7d3b51702ef780c8",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Map": {
+      "revid": 9039,
+      "sha256": "73187b331371854de18aa10f925a780d1be00edbd8f9b0c060a50834086d6956",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:NewspaperArticle": {
+      "revid": 9026,
+      "sha256": "a305e9417b4d5fd01d46e314b524e700c8cfd3135a4875528b354f69b7d6253f",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:No license": {
+      "revid": 756,
+      "sha256": "5895cd752631c945ff48c085eccb05078378d1e8e21327d0774870fdecb15a59",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Patent": {
+      "revid": 9033,
+      "sha256": "ef776acb705398e62eb61b3feeed8d01ac3f2d6144eadf4f9b79677f46972607",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Pd": {
+      "revid": 754,
+      "sha256": "d6166077bbfab550fe7c6ad2942bf3518e230aa89838843ecc3e7c44a1be54e1",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Person": {
+      "revid": 9101,
+      "sha256": "7a5926c8e28c9556a14d061355065f169740b15fc4dcfc661e56981b090d79f2",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Presentation": {
+      "revid": 9040,
+      "sha256": "acffb6ef5b9ed0556941d1433a2df1dfbd19172638ec1953db4f41178ba432a3",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Report": {
+      "revid": 9029,
+      "sha256": "f65b707b003905a78bd72dd695f1addd2121841c7e7d92346b787bc96e75c798",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Rongzhou/Vivre en France": {
+      "revid": 2785,
+      "sha256": "9d7df2505fa534a817f8d54e69fb86d046c498af48b90f5937fdda9a87aab9fd",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:RonzzIT": {
+      "revid": 946,
+      "sha256": "961a1886215ded331d3c015316c8e954478779ec7bbdab3748fe77954048d6ed",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:RonzzInt": {
+      "revid": 919,
+      "sha256": "876be14e1c3fd653e0882169001f24800864c50b0f579a120b51f11e936fd11f",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:ScholarlyArticle": {
+      "revid": 9018,
+      "sha256": "4f260e7af25c6e8d293c500c7e2f3dfca948359f82354202836a07c9d714e3f4",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Software": {
+      "revid": 6305,
+      "sha256": "068fb874e2a21fd161cfd0b65499e71f74bf174de58f00971404596331dce97b",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Software/Infobox": {
+      "revid": 9016,
+      "sha256": "7e3e85e3a48dbf87d165b93b398a6ddd39ff3673b1b3d7d36088f0f5483eb27c",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Song": {
+      "revid": 9020,
+      "sha256": "6cd58e9d9c2abf8fb5911991f76e0b66c21e073b55659b1bebf94cd762892be0",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Text": {
+      "revid": 9042,
+      "sha256": "c2394944187cd10861c12ecee5e36525c38ac8ac46ada3114cbbaedbf608bbcd",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Thesis": {
+      "revid": 9031,
+      "sha256": "d6780e0eb4e3acd9e449d787d250ca5d8ca31c3ae21f4f080c11112c0f0e7977",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Translation": {
+      "revid": 813,
+      "sha256": "ddc8353662629cc7649e9cd847f8e4255baed9060d6964cb6ac74988be6fd3f1",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Treaty": {
+      "revid": 9037,
+      "sha256": "e1c8bfbf56e10c807886292d620ac73ec97979e655c0aa08596d187eec34ff6e",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Video": {
+      "revid": 9022,
+      "sha256": "55a3f7c53f029c00c5b0ea8c9d17a085c237e1f5c0bceb02d574ab3e2f93ad4f",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Webpage": {
+      "revid": 9025,
+      "sha256": "301e9fe1f56aa306eb361864526f0f0e7a2cccad39be0224c2178f8de0c90dbe",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Website": {
+      "revid": 9019,
+      "sha256": "a9a39f3724f16836f01cfce37e6679701ee2c1fc1a433b04f0320e0ee526a1ab",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:YouTubeChannel": {
+      "revid": 9023,
+      "sha256": "14355360ec8f2b4774df2e62342a6cd2ca08d57d54570ce960a0a89985838c4a",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:YouTubeVideo": {
+      "revid": 9024,
+      "sha256": "3e600b30f6ff04a5439feb5a7530d3604db10f665340bd9070cacadb18e740cd",
+      "synced_at": "2026-10-17T12:18:01+00:00"
+    }
+  },
+  "updated": "2026-10-17T12:18:01+00:00",
+  "version": 1
+}

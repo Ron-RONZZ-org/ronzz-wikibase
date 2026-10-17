@@ -1,0 +1,23 @@
+
+
+<div style="border:1px solid #c8ccd1;background:#f8f9fa;padding:0.5em 1em;margin-bottom:1em;">
+<blockquote>
+'''Person''' — part of the [[Person:Main|people collection]]. Created via [[Special:AddPerson]].
+</blockquote>
+{| class="wikitable" style="float:right;clear:right;width:300px;margin:0 0 1em 1em;"
+|-
+! colspan="2" style="background:#f8f9fa;text-align:center;" | {{PAGENAME}}
+|-
+| colspan="2" style="text-align:center;" | {{{portrait|{{#item-image:}}}}}
+{{#statement-row:Date of birth|date of birth}}
+{{#statement-row:Place of birth|osm-birth}}
+{{#statement-row:Date of death|date of death}}
+{{#statement-row:Place of death|osm-death}}
+{{#statement-row:Official website|official website}}
+{{#statement-row:ORCID|ORCID}}
+{{#statement-row:VIAF ID|VIAF ID}}
+{{#statement-row:ISNI|ISNI}}
+{{#quotations-by:}}
+|}
+<includeonly>[[Category:People]]</includeonly>
+<noinclude>This template reads its data from the item sitelinked to the page (see [[Help:Contributing/semanticDynamicContent]]). Rows with no data are hidden (<code>{{#statement-row:}}</code>). Birth/death rows stay empty while the person is alive. Place rows are rendered by <code>{{#osm-place:birth}}</code> / <code>{{#osm-place:death}}</code>: the OpenStreetMap place fact (picked from the Nominatim search combobox on [[Special:AddPerson]]) shows as its human-readable display label linked to openstreetmap.org — the label is stored next to the OSM id at creation/update ([[Special:AddPerson]] / [[Special:UpdatePerson]]), with the raw id as the fallback text. The image cell shows the item's <code>image</code> statement via <code>{{#item-image:}}</code>; the optional <code>portrait</code> parameter (a full <code>[[File:…]]</code> link) overrides it when set by hand.</noinclude>

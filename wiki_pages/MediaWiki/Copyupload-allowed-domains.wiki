@@ -1,0 +1,14 @@
+# Copy-upload host allowlist (optional lockdown).
+#
+# When this page has content, ONLY the listed hosts may be used for
+# "Upload from URL" on Special:Upload. An empty list (this state) means
+# every PUBLIC host is allowed; localhost/private/link-local targets are
+# always refused by the SSRF guard in LocalSettings.php.
+#
+# Format: one host per line. '#' starts a comment. Wildcards are allowed
+# per label, e.g. '*.wikimedia.org' or 'upload.*.gov.uk'.
+#
+# Example lockdown:
+# upload.wikimedia.org
+# github.com
+# raw.githubusercontent.com

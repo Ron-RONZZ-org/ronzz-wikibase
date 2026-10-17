@@ -1,0 +1,3 @@
+<blockquote>
+This is part of the [[RonzzIT:Main|ronzz.ORG internal IT documentation]].
+</blockquote>

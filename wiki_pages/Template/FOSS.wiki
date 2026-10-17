@@ -1,0 +1,6 @@
+<div style="border:1px solid #c8ccd1;background:#f8f9fa;padding:0.5em 1em;margin-bottom:1em;">
+<blockquote>
+'''Free &amp; open-source software''' — part of the [[FOSS:Main|FOSS collection]]. 
+</blockquote>
+{{FOSS/Infobox|logo={{{logo|}}}}}
+<includeonly>[[Category:FOSS]]</includeonly>
