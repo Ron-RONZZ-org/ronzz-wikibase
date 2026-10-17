@@ -11,6 +11,7 @@ use MediaWiki\User\User;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
+use Wikibase\DataModel\Entity\NumericPropertyId;
 use Wikibase\DataModel\Services\Statement\GuidGenerator;
 use Wikibase\DataModel\Snak\PropertyValueSnak;
 use Wikibase\DataModel\Statement\Statement;
@@ -57,7 +58,8 @@ final class ImageItemCreator {
 		string $author,
 		string $licenseInfo,
 		string $sourceUrl,
-		string $editSummary
+		string $editSummary,
+		bool $replaceExistingFacts = false
 	): ?string {
 		$classes = $config->imageClasses();
 		$classItemId = $classes['image'] ?? null;
@@ -72,6 +74,21 @@ final class ImageItemCreator {
 		$existing = self::findItemIdByLabel( $label );
 		if ( $existing !== null ) {
 			self::assertSitelink( $existing, $filePageName, $user, $editSummary );
+			if ( $replaceExistingFacts ) {
+				$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $existing ) );
+				if ( $item instanceof Item ) {
+					self::applyFacts(
+						$config,
+						$item,
+						$license,
+						$author,
+						$licenseInfo,
+						$sourceUrl,
+						true
+					);
+					WikibaseRepo::getEntityStore()->saveEntity( $item, $editSummary, $user, EDIT_UPDATE );
+				}
+			}
 			return $existing;
 		}
 
@@ -89,10 +106,7 @@ final class ImageItemCreator {
 		$guidGenerator = new GuidGenerator();
 		$add = static function ( string $propertyId, $value ) use ( $item, $guidGenerator ): void {
 			$statement = new Statement(
-				new PropertyValueSnak(
-					new \Wikibase\DataModel\Entity\NumericPropertyId( $propertyId ),
-					$value
-				),
+				new PropertyValueSnak( new NumericPropertyId( $propertyId ), $value ),
 				null,
 				null,
 				$guidGenerator->newGuid( $item->getId() )
@@ -112,32 +126,72 @@ final class ImageItemCreator {
 				$add( $props['image'], new StringValue( $fileTitle->getFullURL() ) );
 			}
 		}
+		self::applyFacts( $config, $item, $license, $author, $licenseInfo, $sourceUrl, false );
+
+		WikibaseRepo::getEntityStore()->saveEntity( $item, $editSummary, $user, EDIT_UPDATE );
+		self::assertSitelink( $item->getId()->getSerialization(), $filePageName, $user, $editSummary );
+		return $item->getId()->getSerialization();
+	}
+
+	/**
+	 * Adds (or, in replace mode, replaces) the fact statements on an item.
+	 *
+	 * Replace mode is for `update-file`: a provided value replaces every
+	 * existing statement for that property; a blank value keeps the current
+	 * statement (no-clobber). The image and instance-of statements are the
+	 * caller's job and are never touched here.
+	 *
+	 * @param bool $replace remove existing statements for each PROVIDED property
+	 */
+	private static function applyFacts(
+		EmbeddableContentConfig $config,
+		Item $item,
+		?string $license,
+		string $author,
+		string $licenseInfo,
+		string $sourceUrl,
+		bool $replace
+	): void {
+		$props = $config->imagePropertyIds();
+		$guidGenerator = new GuidGenerator();
+		$set = static function ( string $propertyId, $value ) use ( $item, $guidGenerator, $replace ): void {
+			$property = new NumericPropertyId( $propertyId );
+			if ( $replace ) {
+				foreach ( $item->getStatements()->getByPropertyId( $property ) as $existing ) {
+					$item->getStatements()->removeStatementsWithGuid( $existing->getGuid() );
+				}
+			}
+			$guid = $guidGenerator->newGuid( $item->getId() );
+			$item->getStatements()->addStatement( new Statement(
+				new PropertyValueSnak( $property, $value ),
+				null,
+				null,
+				$guid
+			) );
+		};
+
 		if ( $license !== null && $license !== '' && isset( $props['license'] ) ) {
 			try {
 				$licenseItem = WikibaseRepo::getEntityIdParser()->parse( $license );
 				if ( $licenseItem instanceof ItemId ) {
-					$add( $props['license'], new EntityIdValue( $licenseItem ) );
+					$set( $props['license'], new EntityIdValue( $licenseItem ) );
 				}
 			} catch ( \Throwable $e ) {
 				// A malformed license value is a form-level problem; the item
-				// still gets created with the rest of the statements.
+				// still gets created/updated with the rest of the statements.
 			}
 		}
 		foreach ( [ 'imageAuthor' => $author, 'imageLicenseInfo' => $licenseInfo ] as $propKey => $value ) {
 			if ( $value !== '' && isset( $props[$propKey] ) ) {
-				$add( $props[$propKey], new StringValue( mb_substr( $value, 0, 250 ) ) );
+				$set( $props[$propKey], new StringValue( mb_substr( $value, 0, 250 ) ) );
 			}
 		}
 		if ( $sourceUrl !== '' ) {
 			$provenance = $config->provenancePropertyIds();
 			if ( isset( $provenance['sourceUrl'] ) ) {
-				$add( $provenance['sourceUrl'], new StringValue( mb_substr( $sourceUrl, 0, 500 ) ) );
+				$set( $provenance['sourceUrl'], new StringValue( mb_substr( $sourceUrl, 0, 500 ) ) );
 			}
 		}
-
-		WikibaseRepo::getEntityStore()->saveEntity( $item, $editSummary, $user, EDIT_UPDATE );
-		self::assertSitelink( $item->getId()->getSerialization(), $filePageName, $user, $editSummary );
-		return $item->getId()->getSerialization();
 	}
 
 	/**

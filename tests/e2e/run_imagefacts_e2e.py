@@ -6,11 +6,12 @@ uploads (the MediaWiki MCP server, scripts) bypass that hook. This suite
 proves the API counterpart writes the same facts:
 
 1. upload a tiny PNG through action=upload (no form marker),
-2. resolve the image vocabulary by label (properties: instance of, image,
-   license, image author, additional license information, source URL) and a
-   license item,
-3. POST action=imagefacts with the file title + facts,
-4. read the returned item and assert the sitelink and every statement,
+2. read the vocabulary from action=imagefacts-fields (image class/property
+   ids + the preseeded license label => Q-id map) and pick two licences,
+3. POST action=imagefacts with the file title + facts; assert the returned
+   item's sitelink and every statement,
+4. POST mode=update with a new licence/author; assert the provided statements
+   were replaced and the blank fields (license info, source URL) were kept,
 5. cleanup: unlink + delete the item and the File: page.
 
 Usage::
@@ -100,16 +101,6 @@ def login(op, api: str, user: str, password: str) -> None:
 def csrf_token(op, api: str) -> str:
     return api_call(op, api, {"action": "query", "meta": "tokens",
                               "format": "json"})["query"]["tokens"]["csrftoken"]
-
-
-def search_entity(op, api: str, label: str, entity_type: str) -> str:
-    r = api_call(op, api, {"action": "wbsearchentities", "search": label,
-                           "language": "en", "type": entity_type, "limit": 10,
-                           "format": "json"})
-    for hit in r.get("search", []):
-        if (hit.get("label") or "").casefold() == label.casefold():
-            return hit["id"]
-    raise FlowError(f"no {entity_type} labelled {label!r}: {r.get('search')!r}")
 
 
 def upload_png(op, api: str, filename: str, token: str) -> None:
@@ -205,19 +196,27 @@ def main() -> int:
         file_title = f"File:{filename}"
         upload_png(op, args.api_url, filename, token)
 
-        instance_of = search_entity(op, args.api_url, "instance of", "property")
-        image = search_entity(op, args.api_url, "image", "property")
-        license_prop = search_entity(op, args.api_url, "license", "property")
-        author_prop = search_entity(op, args.api_url, "image author", "property")
-        info_prop = search_entity(op, args.api_url,
-                                  "additional license information", "property")
-        source_prop = search_entity(op, args.api_url, "source URL", "property")
-        license_item = search_entity(op, args.api_url, "CC0 1.0", "item")
+        fields = api_call(op, args.api_url, {
+            "action": "imagefacts-fields", "format": "json",
+        }).get("imagefactsfields")
+        if not fields:
+            raise FlowError("imagefacts-fields returned no vocabulary")
+        instance_of = fields["instanceOf"]
+        image = fields["imageProperties"]["image"]
+        license_prop = fields["imageProperties"]["license"]
+        author_prop = fields["imageProperties"]["imageAuthor"]
+        info_prop = fields["imageProperties"]["imageLicenseInfo"]
+        source_prop = fields["provenance"]["sourceUrl"]
+        licenses = fields.get("licenses") or {}
+        license_ids = list(dict.fromkeys(licenses.values()))
+        if len(license_ids) < 2:
+            raise FlowError(f"expected >=2 preseed licenses, got {licenses!r}")
+        license_a, license_b = license_ids[0], license_ids[1]
 
         r = api_call(op, args.api_url, {
             "action": "imagefacts", "filename": file_title,
             "description": "Image-facts E2E fixture",
-            "license": license_item, "author": AUTHOR,
+            "license": license_a, "author": AUTHOR,
             "licenseInfo": LICENSE_INFO, "sourceUrl": SOURCE_URL,
             "token": token, "format": "json",
         }, post=True)
@@ -227,7 +226,7 @@ def main() -> int:
 
         item = fetch_item(op, args.api_url, item_id)
         check_item(item, file_title, {
-            license_prop: license_item,
+            license_prop: license_a,
             author_prop: AUTHOR,
             info_prop: LICENSE_INFO,
             source_prop: SOURCE_URL,
@@ -237,6 +236,26 @@ def main() -> int:
         image_values = claim_values(item, image)
         if not any(str(value).endswith(file_title) for value in image_values):
             raise FlowError(f"{image}: no value ends with {file_title!r}: {image_values!r}")
+
+        # mode=update: provided fields replace their statements; blank fields
+        # keep the existing ones (no-clobber).
+        updated_author = AUTHOR + " (updated)"
+        r = api_call(op, args.api_url, {
+            "action": "imagefacts", "filename": file_title, "mode": "update",
+            "license": license_b, "author": updated_author,
+            "token": token, "format": "json",
+        }, post=True)
+        if r.get("imagefacts", {}).get("itemId") != item_id:
+            raise FlowError(f"update reused a different item: {r!r}")
+        item = fetch_item(op, args.api_url, item_id)
+        check_item(item, file_title, {
+            license_prop: license_b,
+            author_prop: updated_author,
+            info_prop: LICENSE_INFO,
+            source_prop: SOURCE_URL,
+        })
+        if AUTHOR in claim_values(item, author_prop):
+            raise FlowError("the superseded author statement survived mode=update")
 
         print(f"OK imagefacts: {file_title} -> {item_id}")
         if not args.keep:
