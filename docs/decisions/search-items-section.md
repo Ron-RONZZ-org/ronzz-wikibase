@@ -36,9 +36,13 @@ CONTAINS search:
   behaviour change for the comboboxes.
 - `Hooks::onSpecialSearchResultsAppend` runs when:
   - the term is non-empty and this is not a prefix search;
-  - the profile is `default` or `all`, or the Item namespace is explicitly
-    selected.
-  A search restricted to another namespace keeps core's results only.
+  - the profile is `default`/`all`/empty, or the resolved namespace set
+    includes Item, or it is the normal `advanced` landing page with no
+    explicit `ns*` selection. The site search (a `fulltext=1` request with no
+    profile) lands on `advanced`; showing the section there does not require
+    the user to have ticked a namespace checkbox.
+  A search restricted to an explicit namespace set without Item keeps core's
+  results only.
 - Render up to 10 items with label + description + a link to
   `Special:EntityPage/Q…`, reusing the core `.mw-search-result-heading` /
   `.searchresult` classes; a tiny `search.css` module adds the section

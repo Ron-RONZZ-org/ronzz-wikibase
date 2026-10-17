@@ -463,9 +463,10 @@ class Hooks {
 	 * section backed by the same CONTAINS search (Search\EntityTermSearch)
 	 * the comboboxes use.
 	 *
-	 * Scope: the default/all search profiles (and an explicit Item:
-	 * namespace selection). A search restricted to another namespace keeps
-	 * core's results only.
+	 * Scope: the default/all profiles, the normal `advanced` landing profile
+	 * (whose namespace set includes Item on this instance), and an explicit
+	 * Item: namespace selection. A search restricted to another namespace
+	 * keeps core's results only.
 	 */
 	public static function onSpecialSearchResultsAppend(
 		SpecialSearch $specialSearch,
@@ -481,10 +482,23 @@ class Hooks {
 		if ( $namespace === false ) {
 			return;
 		}
+		// The normal site search lands on `profile=advanced` (the request
+		// carries `fulltext=1` and no explicit profile), whose resolved
+		// namespace set includes Item: on this instance. `default`/`all`
+		// always include it; an explicit namespace selection includes it
+		// only when the user kept the Item checkbox.
 		$profile = (string)$specialSearch->getProfile();
 		$namespaces = $specialSearch->getNamespaces();
-		if ( $profile !== 'default' && $profile !== 'all'
-			&& !in_array( $namespace, $namespaces, true )
+		$explicitNamespace = false;
+		foreach ( $specialSearch->getRequest()->getValueNames() as $name ) {
+			if ( preg_match( '/^ns\d+$/', $name ) === 1 ) {
+				$explicitNamespace = true;
+				break;
+			}
+		}
+		if ( !in_array( $namespace, $namespaces, true )
+			&& $profile !== 'default' && $profile !== 'all' && $profile !== ''
+			&& !( $profile === 'advanced' && !$explicitNamespace )
 		) {
 			return;
 		}
