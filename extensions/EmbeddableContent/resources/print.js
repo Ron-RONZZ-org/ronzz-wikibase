@@ -28,6 +28,14 @@
  * Ctrl-P (without either entry point) keeps the browser default — a print
  * output cannot be retro-fitted after the fact.
  *
+ * The browser's Save-as-PDF dialog suggests a filename from document.title.
+ * While our print flow runs, document.title is temporarily set to the
+ * namespace-stripped page title with spaces and slashes normalised to "_"
+ * (e.g. "User:Rongzhou/Construction site visit report" ->
+ * "Rongzhou_Construction_site_visit_report.pdf"); it is restored on
+ * afterprint. The printed HEADER keeps using wbPrintTitle (the subpage
+ * parent is dropped there).
+ *
  * Exposes: mw.embeddableContent.print.open( $anchor ).
  */
 ( function () {
@@ -35,10 +43,57 @@
 
 	var activePopup = null;
 
+	/** The document.title saved before the first print-title swap. */
+	var documentTitleBackup = null;
+
 	function closeActive() {
 		if ( activePopup ) {
 			activePopup.$element.remove();
 			activePopup = null;
+		}
+	}
+
+	/**
+	 * The browser Save-as-PDF suggested filename for the current page:
+	 * the namespace-stripped title (wgTitle, subpage slashes preserved)
+	 * with whitespace/slashes and filesystem-illegal characters normalised
+	 * to "_". Empty titles leave document.title untouched.
+	 *
+	 * @param {string} title
+	 * @return {string}
+	 */
+	function pdfFileName( title ) {
+		var name = String( title || '' );
+		if ( name.normalize ) {
+			name = name.normalize( 'NFC' );
+		}
+		// Slashes and the characters Windows rejects become "_"; the
+		// control-character range covers newlines/tabs a page title should
+		// never carry but a copy-pasted title might.
+		name = name.replace( /[\/\\:*?"<>|\u0000-\u001F\u007F]+/g, '_' );
+		name = name.replace( /\s+/g, '_' );
+		name = name.replace( /_+/g, '_' ).replace( /^_+|_+$/g, '' );
+		name = name.replace( /\.pdf$/i, '' );
+		return name === '' ? '' : name + '.pdf';
+	}
+
+	/** Swap document.title for the Save-as-PDF filename (idempotent). */
+	function setPrintDocumentTitle() {
+		var name = pdfFileName( mw.config.get( 'wgTitle' ) );
+		if ( name === '' ) {
+			return;
+		}
+		if ( documentTitleBackup === null ) {
+			documentTitleBackup = document.title;
+		}
+		document.title = name;
+	}
+
+	/** Restore document.title after the print dialog closes (idempotent). */
+	function restoreDocumentTitle() {
+		if ( documentTitleBackup !== null ) {
+			document.title = documentTitleBackup;
+			documentTitleBackup = null;
 		}
 	}
 
@@ -150,6 +205,7 @@
 	function cleanup() {
 		$( '.wb-print-header, .wb-print-cover' ).remove();
 		$( document.body ).removeClass( 'wb-printing' );
+		restoreDocumentTitle();
 	}
 
 	/** Inject the print-only header (or cover page) and mark the body. */
@@ -176,6 +232,9 @@
 				? mw.msg( 'embeddablecontent-print-by', listAuthors( names ) )
 				: '';
 			inject( title, authorLine, withCover );
+			// The Save-as-PDF dialog reads document.title; swap it just
+			// before the dialog opens and restore it on afterprint.
+			setPrintDocumentTitle();
 			window.print();
 		} );
 	}
@@ -297,6 +356,13 @@
 
 	mw.loader.using( [ 'mediawiki.api', 'oojs-ui' ] ).then( function () {
 		window.addEventListener( 'afterprint', cleanup );
+		// Belt-and-braces: some browsers fire beforeprint after our
+		// setPrintDocumentTitle() but before the dialog reads the title.
+		window.addEventListener( 'beforeprint', function () {
+			if ( $( document.body ).hasClass( 'wb-printing' ) ) {
+				setPrintDocumentTitle();
+			}
+		} );
 
 		addToolbarButton();
 

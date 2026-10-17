@@ -765,8 +765,23 @@ async function main() {
 				console.log(`[ok] print title drops the namespace + subpage parent (${leaf})`);
 			}
 
-			// Stub window.print so the dialog never blocks the test.
-			await page.evaluate(() => { window.__printed = 0; window.print = () => { window.__printed++; }; });
+			// The Save-as-PDF suggested filename uses the namespace-stripped
+			// FULL title (subpage slashes kept, spaces/slashes -> "_").
+			const expectedFile = printTitle
+				.replace(/^[^:]+:/, '')
+				.replace(/[\/\s]+/g, '_') + '.pdf';
+			const originalTitle = await page.title();
+
+			// Stub window.print so the dialog never blocks the test; capture
+			// the document.title the browser would use as the filename.
+			await page.evaluate(() => {
+				window.__printed = 0;
+				window.__printedTitle = null;
+				window.print = () => {
+					window.__printed++;
+					window.__printedTitle = document.title;
+				};
+			});
 
 			// The toolbar button opens the popup with the cover-page option.
 			await page.click('#ca-wb-print');
@@ -795,13 +810,29 @@ async function main() {
 				failures.push('print flow did not add the wb-printing body class');
 			}
 
+			// The Save-as-PDF dialog suggests document.title as the filename.
+			const printedFile = await page.evaluate(() => window.__printedTitle);
+			if (printedFile !== expectedFile) {
+				failures.push(`print filename is ${JSON.stringify(printedFile)}, expected ${JSON.stringify(expectedFile)}`);
+			} else {
+				console.log(`[ok] print filename is ${expectedFile}`);
+			}
+
+			// afterprint cleans up the print DOM and restores the tab title.
+			await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+			const restoredTitle = await page.title();
+			if (restoredTitle !== originalTitle) {
+				failures.push(`document.title not restored after print (${JSON.stringify(restoredTitle)} != ${JSON.stringify(originalTitle)})`);
+			} else {
+				console.log('[ok] document.title restored after print');
+			}
+
 			// The core sidebar "Printable version" link opens the same popup —
 			// and must NOT fire window.print(): core's mediawiki.page.ready
 			// binds its OWN `#t-print a` handler that calls it, so the
 			// capture-phase interception must beat it (otherwise the PDF
 			// dialog opens before the contributor can tick the cover-page
 			// checkbox).
-			await page.evaluate(() => document.querySelectorAll('.wb-print-header, .wb-print-cover').forEach((n) => n.remove()));
 			const printedBefore = await page.evaluate(() => window.__printed);
 			await page.click('#t-print a');
 			await page.waitForSelector('.wb-print-popup', { timeout: 10000 });

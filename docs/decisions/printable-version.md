@@ -57,7 +57,14 @@ a **Print** button. On print:
 - a print-only header is injected (or, with the cover option, a centered serif
   cover page with `page-break-after: always` so the content starts on page 2);
 - `body.wb-printing` hides `#firstHeading`, the breadcrumb, and the injected
-  toolbars; `window.print()` runs; `afterprint` cleans up.
+  toolbars; `window.print()` runs; `afterprint` cleans up;
+- **the Save-as-PDF suggested filename** is set from `document.title` for the
+  duration of the print: the namespace-stripped FULL title (`wgTitle`), with
+  whitespace and `/` normalised to `_` and filesystem-illegal characters
+  replaced (`User:Rongzhou/Construction site visit report` →
+  `Rongzhou_Construction_site_visit_report.pdf`). The printed header still
+  uses `wbPrintTitle` (subpage parent dropped); only the filename uses the
+  full title. `afterprint` restores the tab title.
 
 **Ctrl-P (without either entry point) keeps the browser default** — a print
 output cannot be retro-fitted after the fact, and the `wb-printing` class is
