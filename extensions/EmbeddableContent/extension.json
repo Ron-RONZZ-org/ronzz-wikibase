@@ -161,6 +161,12 @@
 		"uploadmeta": {
 			"class": "EmbeddableContent\\Api\\ApiUploadMeta"
 		},
+		"imagefacts": {
+			"class": "EmbeddableContent\\Api\\ApiImageFacts",
+			"services": [
+				"EmbeddableContent.Config"
+			]
+		},
 		"addsource": {
 			"class": "EmbeddableContent\\Api\\ApiAddSource",
 			"services": [
