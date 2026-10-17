@@ -45,6 +45,8 @@ final class ImageItemCreator {
 	 * @param string $label item label (the file name without extension)
 	 * @param string $filePageName "File:Example.jpg" (prefixed, space-normalized)
 	 * @param string|null $license license item id ("Q42"), or null
+	 * @param bool $replaceExistingFacts replace the provided facts on an existing item
+	 * @param string[] $clearFields fact fields to remove on an existing item
 	 * @return string|null created/reused item id, or null when the vocabulary
 	 *   is not configured (image class/property missing) — never fatal
 	 */
@@ -59,7 +61,8 @@ final class ImageItemCreator {
 		string $licenseInfo,
 		string $sourceUrl,
 		string $editSummary,
-		bool $replaceExistingFacts = false
+		bool $replaceExistingFacts = false,
+		array $clearFields = []
 	): ?string {
 		$classes = $config->imageClasses();
 		$classItemId = $classes['image'] ?? null;
@@ -74,7 +77,7 @@ final class ImageItemCreator {
 		$existing = self::findItemIdByLabel( $label );
 		if ( $existing !== null ) {
 			self::assertSitelink( $existing, $filePageName, $user, $editSummary );
-			if ( $replaceExistingFacts ) {
+			if ( $replaceExistingFacts || $clearFields !== [] ) {
 				$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $existing ) );
 				if ( $item instanceof Item ) {
 					self::applyFacts(
@@ -84,7 +87,8 @@ final class ImageItemCreator {
 						$author,
 						$licenseInfo,
 						$sourceUrl,
-						true
+						$replaceExistingFacts,
+						$clearFields
 					);
 					WikibaseRepo::getEntityStore()->saveEntity( $item, $editSummary, $user, EDIT_UPDATE );
 				}
@@ -126,7 +130,7 @@ final class ImageItemCreator {
 				$add( $props['image'], new StringValue( $fileTitle->getFullURL() ) );
 			}
 		}
-		self::applyFacts( $config, $item, $license, $author, $licenseInfo, $sourceUrl, false );
+		self::applyFacts( $config, $item, $license, $author, $licenseInfo, $sourceUrl, false, $clearFields );
 
 		WikibaseRepo::getEntityStore()->saveEntity( $item, $editSummary, $user, EDIT_UPDATE );
 		self::assertSitelink( $item->getId()->getSerialization(), $filePageName, $user, $editSummary );
@@ -138,10 +142,12 @@ final class ImageItemCreator {
 	 *
 	 * Replace mode is for `update-file`: a provided value replaces every
 	 * existing statement for that property; a blank value keeps the current
-	 * statement (no-clobber). The image and instance-of statements are the
-	 * caller's job and are never touched here.
+	 * statement (no-clobber). Clear mode removes every statement for a named
+	 * field even when no value is supplied. The image and instance-of
+	 * statements are the caller's job and are never touched here.
 	 *
 	 * @param bool $replace remove existing statements for each PROVIDED property
+	 * @param string[] $clearFields fields whose statements are removed regardless of value
 	 */
 	private static function applyFacts(
 		EmbeddableContentConfig $config,
@@ -150,47 +156,69 @@ final class ImageItemCreator {
 		string $author,
 		string $licenseInfo,
 		string $sourceUrl,
-		bool $replace
+		bool $replace,
+		array $clearFields = []
 	): void {
 		$props = $config->imagePropertyIds();
-		$guidGenerator = new GuidGenerator();
-		$set = static function ( string $propertyId, $value ) use ( $item, $guidGenerator, $replace ): void {
-			$property = new NumericPropertyId( $propertyId );
-			if ( $replace ) {
-				foreach ( $item->getStatements()->getByPropertyId( $property ) as $existing ) {
-					$item->getStatements()->removeStatementsWithGuid( $existing->getGuid() );
-				}
-			}
-			$guid = $guidGenerator->newGuid( $item->getId() );
-			$item->getStatements()->addStatement( new Statement(
-				new PropertyValueSnak( $property, $value ),
-				null,
-				null,
-				$guid
-			) );
-		};
-
-		if ( $license !== null && $license !== '' && isset( $props['license'] ) ) {
+		$provenance = $config->provenancePropertyIds();
+		$licenseValue = null;
+		if ( $license !== null && $license !== '' ) {
 			try {
 				$licenseItem = WikibaseRepo::getEntityIdParser()->parse( $license );
 				if ( $licenseItem instanceof ItemId ) {
-					$set( $props['license'], new EntityIdValue( $licenseItem ) );
+					$licenseValue = new EntityIdValue( $licenseItem );
 				}
 			} catch ( \Throwable $e ) {
 				// A malformed license value is a form-level problem; the item
 				// still gets created/updated with the rest of the statements.
 			}
 		}
-		foreach ( [ 'imageAuthor' => $author, 'imageLicenseInfo' => $licenseInfo ] as $propKey => $value ) {
-			if ( $value !== '' && isset( $props[$propKey] ) ) {
-				$set( $props[$propKey], new StringValue( mb_substr( $value, 0, 250 ) ) );
+
+		$facts = [
+			'license' => [ $props['license'] ?? null, $licenseValue ],
+			'author' => [
+				$props['imageAuthor'] ?? null,
+				$author !== '' ? new StringValue( mb_substr( $author, 0, 250 ) ) : null,
+			],
+			'licenseInfo' => [
+				$props['imageLicenseInfo'] ?? null,
+				$licenseInfo !== '' ? new StringValue( mb_substr( $licenseInfo, 0, 250 ) ) : null,
+			],
+			'sourceUrl' => [
+				$provenance['sourceUrl'] ?? null,
+				$sourceUrl !== '' ? new StringValue( mb_substr( $sourceUrl, 0, 500 ) ) : null,
+			],
+		];
+		$clear = array_fill_keys( $clearFields, true );
+		$guidGenerator = new GuidGenerator();
+		foreach ( $facts as $field => [ $propertyId, $value ] ) {
+			if ( $propertyId === null ) {
+				continue;
 			}
+			if ( isset( $clear[$field] ) ) {
+				self::removeStatements( $item, $propertyId );
+				continue;
+			}
+			if ( $value === null ) {
+				continue;
+			}
+			if ( $replace ) {
+				self::removeStatements( $item, $propertyId );
+			}
+			$item->getStatements()->addStatement( new Statement(
+				new PropertyValueSnak( new NumericPropertyId( $propertyId ), $value ),
+				null,
+				null,
+				$guidGenerator->newGuid( $item->getId() )
+			) );
 		}
-		if ( $sourceUrl !== '' ) {
-			$provenance = $config->provenancePropertyIds();
-			if ( isset( $provenance['sourceUrl'] ) ) {
-				$set( $provenance['sourceUrl'], new StringValue( mb_substr( $sourceUrl, 0, 500 ) ) );
-			}
+	}
+
+	/** Removes every statement of one property (the mode=update replace/clear step). */
+	private static function removeStatements( Item $item, string $propertyId ): void {
+		$property = new NumericPropertyId( $propertyId );
+		foreach ( $item->getStatements()->getByPropertyId( $property ) as $existing ) {
+			$item->getStatements()->removeStatementsWithGuid( $existing->getGuid() );
 		}
 	}
 

@@ -11,7 +11,8 @@ proves the API counterpart writes the same facts:
 3. POST action=imagefacts with the file title + facts; assert the returned
    item's sitelink and every statement,
 4. POST mode=update with a new licence/author; assert the provided statements
-   were replaced and the blank fields (license info, source URL) were kept,
+   were replaced and the blank fields (license info, source URL) were kept;
+   then clear licenseInfo explicitly and assert only that statement is gone,
 5. cleanup: unlink + delete the item and the File: page.
 
 Usage::
@@ -256,6 +257,22 @@ def main() -> int:
         })
         if AUTHOR in claim_values(item, author_prop):
             raise FlowError("the superseded author statement survived mode=update")
+
+        # Explicit clear: remove the license-info statement, keep the rest.
+        r = api_call(op, args.api_url, {
+            "action": "imagefacts", "filename": file_title, "mode": "update",
+            "clear": "licenseInfo", "token": token, "format": "json",
+        }, post=True)
+        if r.get("imagefacts", {}).get("cleared") != ["licenseInfo"]:
+            raise FlowError(f"clear was not acknowledged: {r!r}")
+        item = fetch_item(op, args.api_url, item_id)
+        if claim_values(item, info_prop):
+            raise FlowError("licenseInfo survived an explicit clear")
+        check_item(item, file_title, {
+            license_prop: license_b,
+            author_prop: updated_author,
+            source_prop: SOURCE_URL,
+        })
 
         print(f"OK imagefacts: {file_title} -> {item_id}")
         if not args.keep:

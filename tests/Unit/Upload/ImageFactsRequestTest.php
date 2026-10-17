@@ -39,4 +39,23 @@ final class ImageFactsRequestTest extends TestCase {
 		$this->assertFalse( ImageFactsRequest::isValidLicenseId( 'CC BY-SA 4.0' ) );
 		$this->assertFalse( ImageFactsRequest::isValidLicenseId( 'q124' ) );
 	}
+
+	public function testParseClearFieldsTrimsAndDeduplicates(): void {
+		$this->assertSame(
+			[ 'license', 'licenseInfo' ],
+			ImageFactsRequest::parseClearFields( ' license, licenseInfo , license , ' )
+		);
+	}
+
+	public function testParseClearFieldsEmpty(): void {
+		$this->assertSame( [], ImageFactsRequest::parseClearFields( '' ) );
+		$this->assertSame( [], ImageFactsRequest::parseClearFields( ' , ' ) );
+	}
+
+	public function testIsClearableField(): void {
+		$this->assertTrue( ImageFactsRequest::isClearableField( 'license' ) );
+		$this->assertTrue( ImageFactsRequest::isClearableField( 'sourceUrl' ) );
+		$this->assertFalse( ImageFactsRequest::isClearableField( 'image' ) );
+		$this->assertFalse( ImageFactsRequest::isClearableField( 'bogus' ) );
+	}
 }

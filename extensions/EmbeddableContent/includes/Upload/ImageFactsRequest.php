@@ -37,4 +37,29 @@ final class ImageFactsRequest {
 	public static function isValidLicenseId( string $id ): bool {
 		return preg_match( '/^Q[1-9]\d*$/', $id ) === 1;
 	}
+
+	/** The fact fields mode=update may clear. */
+	public const CLEARABLE_FIELDS = [ 'license', 'author', 'licenseInfo', 'sourceUrl' ];
+
+	/**
+	 * Parses the API's comma-separated clear list. Returns the trimmed,
+	 * de-duplicated tokens; the caller validates each against
+	 * CLEARABLE_FIELDS with isClearableField().
+	 *
+	 * @return string[]
+	 */
+	public static function parseClearFields( string $value ): array {
+		$fields = [];
+		foreach ( explode( ',', $value ) as $token ) {
+			$token = trim( $token );
+			if ( $token !== '' ) {
+				$fields[] = $token;
+			}
+		}
+		return array_values( array_unique( $fields ) );
+	}
+
+	public static function isClearableField( string $field ): bool {
+		return in_array( $field, self::CLEARABLE_FIELDS, true );
+	}
 }
