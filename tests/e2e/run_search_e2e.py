@@ -124,6 +124,24 @@ def search_html(op, base: str, term: str) -> str:
         return resp.read().decode("utf-8", "replace")
 
 
+def diagnose_search(html: str, qid: str) -> str:
+    """Compact failure context: profile, section markers, result count."""
+    import re
+    profile = re.search(r'name="profile"[^>]*value="([^"]*)"', html)
+    if not profile:
+        profile = re.search(r'value="([^"]*)"[^>]*name="profile"', html)
+    info = re.search(r'data-mw-num-results-total="([^"]*)"', html)
+    profile_value = profile.group(1) if profile else "?"
+    total = info.group(1) if info else "?"
+    flags = {
+        "wb-search-items": "wb-search-items" in html,
+        "entity-link": f"Special:EntityPage/{qid}" in html,
+        "item-title": f"Item:{qid}" in html,
+        "nonefound": "mw-search-nonefound" in html,
+    }
+    return f"profile={profile_value!r} total={total} flags={flags}"
+
+
 def run(args: argparse.Namespace) -> None:
     if not args.password_file:
         raise SearchError("--password-file is required")
@@ -137,6 +155,20 @@ def run(args: argparse.Namespace) -> None:
     qid = create_item(op, args.api_url, csrf(op, args.api_url), label)
     print(f"[ok] scratch item {qid} created ({label!r})")
     try:
+        # First prove the term-store search the hook uses can see the new
+        # item; a miss here isolates the failure to the search index/term
+        # store rather than the Special:Search hook.
+        es = api_call(op, args.api_url, {
+            "action": "entitysearch", "search": term, "language": "en",
+            "limit": "20", "format": "json",
+        })
+        es_ids = [entry.get("id") for entry in es.get("search", [])]
+        if qid not in es_ids:
+            raise SearchError(
+                f"action=entitysearch did not find {qid} for {term!r} "
+                f"(got {es_ids})")
+        print(f"[ok] action=entitysearch finds {qid} for {term!r}")
+
         html = search_html(op, args.base_url, term)
         link = f"Special:EntityPage/{qid}"
         if link not in html:
@@ -144,9 +176,12 @@ def run(args: argparse.Namespace) -> None:
             if f"Item:{qid}" not in html:
                 raise SearchError(
                     f"Special:Search?search={term} did not surface {qid} "
-                    f"(item label {label!r}); the 'Items' section is missing")
+                    f"(item label {label!r}); "
+                    f"{diagnose_search(html, qid)}")
         if "wb-search-items" not in html:
-            raise SearchError("the 'Items' section markup (wb-search-items) is missing")
+            raise SearchError(
+                f"the 'Items' section markup (wb-search-items) is missing; "
+                f"{diagnose_search(html, qid)}")
         if label not in html:
             raise SearchError(f"the item label {label!r} did not render in the search results")
         print(f"[ok] Special:Search surfaced {qid} for the mid-label term {term!r}")
