@@ -115,7 +115,7 @@ final class UploadHooks {
 		// (SpecialUpload::loadRequest), so it must carry name=wpUpload; the
 		// value 'another' distinguishes the click. BeforePageRedirect reads
 		// it and appends ?wbanother=1 + the preserved fields; the
-		// destination-tab + hidden-iframe POST + prefilled-reload behaviour
+		// destination-tab + same-origin fetch POST + prefilled-reload behaviour
 		// is wired by resources/uploadform.js and resources/filepage.js.
 		$descriptor['UploadAnother'] = [
 			'type' => 'submit',

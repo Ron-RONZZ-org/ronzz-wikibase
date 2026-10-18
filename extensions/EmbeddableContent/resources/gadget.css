@@ -79,6 +79,10 @@
 	padding: 0;
 	margin: 0;
 	font: inherit;
+	/* Vector 2022's .mw-editsection sets line-height: 0; an inline-block
+	 * button inherits it and collapses to zero height. Give the control its
+	 * own line box. */
+	line-height: normal;
 	color: #36c;
 	cursor: pointer;
 	text-decoration: none;

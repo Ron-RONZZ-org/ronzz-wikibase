@@ -26,7 +26,9 @@
 		"SmjDisplayAlign": {"value":"left", "description":"Alignment for MathJax.chtml.displayAlign"},
 		"SmjWrapDisplaystyle": {"value":true, "description":"Whether to wrap <math> in displaystyle"},
 		"SmjEnableHtmlAttributes": {"value":false, "description":"Whether to process HTML attributes on <math>"},
-		"SmjConfigByRevision": {"value":[], "description":"Revision-based configuration overrides"}
+		"SmjConfigByRevision": {"value":[], "description":"Revision-based configuration overrides"},
+		"SmjDisableNamespaces": {"value":[], "description":"Namespaces where SimpleMathJax is not loaded (e.g. Wikibase entity pages 120/122)"},
+		"SmjDisablePages": {"value":[], "description":"Page titles where SimpleMathJax is not loaded (e.g. Special:Upload, which has no math)"}
 	},
 	"Hooks": {
 		"ParserFirstCallInit": "SimpleMathJaxHooks::onParserFirstCallInit",

@@ -26,6 +26,10 @@
 	 */
 	function mount( $container, html ) {
 		$container.html( html );
+		// The preview is typeset by KaTeX. SimpleMathJax's page-wide MathJax
+		// scan must not re-process it (the two engines fight over the same
+		// $$…$$ span and MathJax 3.2.2 recurses); mark the whole subtree.
+		$container.find( '*' ).addBack().addClass( 'mathjax_ignore' );
 		mw.embeddableContent.typesetInlineMath( $container[ 0 ] );
 		mw.hook( 'ext.embeddableContent.embedContentAdded' ).fire( $container );
 	}
@@ -39,6 +43,7 @@
 	 * @return {jQuery.Promise<boolean>}
 	 */
 	function render( $container, itemId ) {
+		$container.addClass( 'mathjax_ignore' );
 		var api = new mw.Api();
 		return api.get( {
 			action: 'embed',
@@ -68,7 +73,7 @@
 		return;
 	}
 	mw.loader.using( [ 'mediawiki.api', 'ext.embeddableContent.embed' ] ).then( function () {
-		var $preview = $( '<div class="wb-content-preview"></div>' );
+		var $preview = $( '<div class="wb-content-preview mathjax_ignore"></div>' );
 		var $toolbar = $( '.wb-embed-toolbar' );
 		if ( $toolbar.length > 0 ) {
 			$toolbar.after( $preview );

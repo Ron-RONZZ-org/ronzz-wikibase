@@ -10,7 +10,7 @@ class SimpleMathJaxHooks {
 		global $wgOut, $wgSmjUseCdn, $wgSmjUseChem, $wgSmjDirectMathJax, $wgSmjEnableMenu,
 			$wgSmjDisplayMath, $wgSmjExtraInlineMath, $wgSmjIgnoreHtmlClass,
 			$wgSmjScale, $wgSmjDisplayAlign, $wgSmjWrapDisplaystyle,
-			$wgSmjEnableHtmlAttributes, $wgSmjConfigByRevision;
+			$wgSmjEnableHtmlAttributes, $wgSmjConfigByRevision, $wgSmjDisableNamespaces, $wgSmjDisablePages;
 
 		$config = [
 			"wgSmjUseCdn" => $wgSmjUseCdn,
@@ -48,7 +48,17 @@ class SimpleMathJaxHooks {
 		self::$wrapDisplaystyle = $config["wgSmjWrapDisplaystyle"];
 		self::$enableHtmlAttributes = $config["wgSmjEnableHtmlAttributes"];
 
-		if ( $config["wgSmjDirectMathJax"] !== 'none' ) {
+		// Instance local patch: never load the page-wide MathJax module on the
+		// configured namespaces (Wikibase entity pages, where the content
+		// preview is rendered by KaTeX; MathJax 3 recurses on the injected
+		// $$…$$ span). See VENDORED.md.
+		$title = \MediaWiki\Context\RequestContext::getMain()->getTitle();
+		$disabledPage = $title && in_array( $title->getPrefixedText(), $wgSmjDisablePages, true );
+		if (
+			$config["wgSmjDirectMathJax"] !== 'none' &&
+			!$disabledPage &&
+			( !$title || !in_array( $title->getNamespace(), $wgSmjDisableNamespaces, true ) )
+		) {
 			$wgOut->addModules( [ 'ext.SimpleMathJax' ] );
 		}
 

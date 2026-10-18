@@ -877,8 +877,16 @@
 						}
 					} );
 					$status.hide();
-					// Native submit() bypasses this handler — no loop.
-					$form[ 0 ].submit();
+					var upload = mw.embeddableContent && mw.embeddableContent.upload;
+					if ( upload && typeof upload.submitConverted === 'function' ) {
+						// Special:Upload's fetch submission owns the POST; the form
+						// must not navigate natively.
+						upload.submitConverted();
+					} else {
+						// Add* portrait/logo forms: native submit() bypasses this
+						// handler — no loop.
+						$form[ 0 ].submit();
+					}
 				};
 				fillAndSubmit( 40 );
 			} ).catch( function ( err ) {

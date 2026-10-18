@@ -55,6 +55,11 @@ The user preferred the modern layout.
   width/appearance controls). The custom UI was audited: the toolbars anchor
   on `#firstHeading` and the print interception on `#t-print`, both present in
   `?useskin=vector-2022`; the sitelink tab uses
+  - Vector 2022's `.mw-editsection` sets `line-height: 0`; the custom
+    per-section controls needed an explicit `line-height: normal` in
+    `extensions/EmbeddableContent/resources/gadget.css`, otherwise the
+    `<button>` controls collapse to zero height (found by the production
+    browser E2E).
   `SkinTemplateNavigation::Universal`. A visual QA pass still covers the
   content-page toolbar, File: toolbar, print popup, Special:Upload,
   Add*/Update* forms, forum, search and the gated `RonzzIT:` pages.
@@ -80,6 +85,6 @@ The user preferred the modern layout.
 - `extensions/ThemeToggle/` (`AGENTS.md`, `extension.json`,
   `resources/themeToggle.js`, `resources/themeToggle.css`, `i18n/`)
 - `dev/config/Extensions.php`
-- `docs/decisions/upload-another-iframe.md`
+- `docs/decisions/upload-another-fetch.md`
 - Vector's own `skins.vector.clientPreferences` module (the class/hook
   mechanics reused here)

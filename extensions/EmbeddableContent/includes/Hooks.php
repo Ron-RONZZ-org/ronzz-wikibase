@@ -268,7 +268,7 @@ class Hooks {
 	 *    (wpUpload=another) → ?wbanother=1 + the license/author/license-info
 	 *    values, so the File page (opened in a destination tab by
 	 *    uploadform.js; the POST itself runs in the original tab's hidden
-	 *    iframe) sends the opener back to a fresh, prefilled upload form.
+	 *    fetch) sends the opener back to a fresh, prefilled upload form.
 	 *
 	 * Fires for every redirect; acts only on a Special:Upload form submission
 	 * (identified by the wpUpload marker, present only on that form — the
@@ -334,7 +334,7 @@ class Hooks {
 		// modules make it functional. Without them the combobox is a plain
 		// OOUI widget and the validate button never renders.
 		if ( $title->isSpecial( 'Upload' ) ) {
-			// The hidden-iframe submission (resources/uploadform.js) reads
+			// The fetch submission (resources/uploadform.js) reads
 			// this marker from the response document: a stale CSRF token is
 			// refreshed and the form + selected file are kept, instead of
 			// leaving the user on a "loss of session data" page.
@@ -349,7 +349,7 @@ class Hooks {
 			$out->addModules( 'ext.embeddableContent.uploadmeta' );
 			$out->addModules( 'ext.embeddableContent.entityconfirm' );
 			// Source-field gating, the empty author/license warning and the
-			// hidden-iframe upload submission (2026-10 batch).
+			// same-origin fetch upload submission (2026-10 batch).
 			$out->addModules( 'ext.embeddableContent.uploadform' );
 			// Local-file preview + client-side resize + extension
 			// auto-correction (the same module the Add* portrait/logo

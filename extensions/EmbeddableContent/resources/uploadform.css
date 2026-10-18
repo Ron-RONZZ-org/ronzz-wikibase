@@ -1,5 +1,5 @@
 /**
- * Special:Upload form — hidden-iframe submission, inline errors, and the
+ * Special:Upload form — same-origin fetch submission, inline errors, and the
  * drag-and-drop / paste affordance (resources/uploadform.js).
  */
 
@@ -13,15 +13,6 @@
 	outline: 2px dashed #36c;
 	outline-offset: 4px;
 	background-color: rgba( 51, 102, 204, 0.06 );
-}
-
-/* Hidden same-origin submission target (resources/uploadform.js). */
-.wb-upload-frame {
-	position: absolute;
-	width: 0;
-	height: 0;
-	border: 0;
-	visibility: hidden;
 }
 
 .wb-upload-error {
