@@ -133,13 +133,6 @@ jobs:
           $COMPOSE logs --tail 60 mysql
           exit 1
 
-      # TEMPORARY DEBUG — diagnose the Main-namespace subpages CI failure.
-      - name: Debug Main subpages config
-        run: |
-          $COMPOSE exec -T wikibase php maintenance/run.php eval.php \
-            'var_dump( $wgNamespacesWithSubpages[0] ?? "unset" ); var_dump( \MediaWiki\MediaWikiServices::getInstance()->getNamespaceInfo()->hasSubpages( 0 ) );' || true
-          $COMPOSE exec -T wikibase php -r 'echo file_get_contents("/config/Extensions.php");' | grep -n "NS_MAIN" || true
-
       # Issue follow-up: entity descriptions up to 2000 chars. The term
       # store's wbt_text.wbx_text column is VARBINARY(255) by default — the
       # validator raise (dev/config/Extensions.php) is useless without the
@@ -311,6 +304,24 @@ jobs:
             curl -s -o /dev/null -w "load $(basename $f): %{http_code}\n" -X POST "$SPARQL_URL" --data-urlencode "update=LOAD <file:///tmp/ttl/$(basename $f)>" || true
           done
           $COMPOSE --profile updater up -d wdqs-updater
+
+      # WBS config-order workaround: the image's ExtensionLoaders load
+      # Wikibase/Scribunto from /opt/wbs/WBSConfig.php BEFORE the custom
+      # /config/Extensions.php, and one of them builds NamespaceInfo first.
+      # The dev config sets Main subpages at its top, but that is already too
+      # late for the snapshot here; the image-generated InstanceSettings.php
+      # is loaded before every extension, so add the flag there for the
+      # runtime E2E. Production sets it at the top of its own LocalSettings.
+      - name: Enable Main-namespace subpages (WBS config order)
+        run: |
+          $COMPOSE exec -T -u root wikibase bash -c \
+            'grep -qF "\$wgNamespacesWithSubpages[0] = true;" /config/InstanceSettings.php || printf "\n\$wgNamespacesWithSubpages[0] = true;\n" >> /config/InstanceSettings.php'
+          $COMPOSE restart wikibase
+          for i in $(seq 1 300); do
+            curl -sf -o /dev/null "$API_URL" && break
+            sleep 2
+          done
+          curl -sf "$API_URL" > /dev/null
 
       - name: E2E acceptance (3 embed surfaces, 5 citation styles, SPARQL)
         run: |

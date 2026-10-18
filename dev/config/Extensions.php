@@ -4,6 +4,30 @@
 // image-generated LocalSettings.php. The seed config map is loaded once the
 // seed has emitted it (dev/config/ronzz-wikibase-config.php) — before that,
 // the wiki boots with the extensions present but unconfigured.
+
+// ---- Subpages in EVERY namespace (2026-09-29; Main included 2026-10-18) ----
+// The breadcrumb is namespace-gated, and core's breadcrumb only renders
+// ancestors that EXIST (Skin::subPageSubtitleInternal) — a
+// `Cheatsheet:LinuxCLI/ssh` page shows no "< Cheatsheet:LinuxCLI" link
+// until the parent page exists. NamespaceInfo SNAPSHOTS this config when its
+// service is constructed (ServiceOptions copies the value at construction),
+// so a late hook (e.g. CanonicalNamespaces) cannot change hasSubpages() —
+// the values must be set here, before the service exists. The range covers
+// the instance's namespaces: core 0-15, Forum 110, Item/Property 120-123,
+// TimedText 710-711, Translations 1198-1199, Cheatsheet…Software
+// 2000-2017; extend it when a namespace is registered. Mirrors the
+// production LocalSettings block (RonzzIT:Deployment/Wikibase); the explicit
+// per-namespace lines below are kept for readability.
+// Main is included since 2026-10-18 so content trees such as
+// `Matrix/Practice/Matrix_multiplication` are real subpages.
+// ⚠️ The WBS dev/CI image loads its ExtensionLoaders before this file, and
+// one of them may build NamespaceInfo first — ci.yml therefore also writes
+// the Main flag into the image-generated InstanceSettings.php (loaded before
+// every extension) for the runtime E2E. Production's own LocalSettings sets
+// the flag at the top, before any service is built.
+$wgNamespacesWithSubpages += array_fill_keys( range( 0, 2017 ), true );
+$wgNamespacesWithSubpages[NS_MAIN] = true;
+
 wfLoadExtension( 'EmbeddableContent' );
 wfLoadExtension( 'WikibaseCitation' );
 
@@ -199,24 +223,6 @@ if ( !defined( 'NS_FORUM' ) ) {
 $wgNamespacesWithSubpages[NS_FORUM] = true;
 $wgContentNamespaces[] = NS_FORUM;
 $wgNamespacesToBeSearchedDefault[NS_FORUM] = true;
-
-// ---- Subpages in EVERY namespace (2026-09-29; Main included 2026-10-18) ----
-// The breadcrumb is namespace-gated, and core's breadcrumb only renders
-// ancestors that EXIST (Skin::subPageSubtitleInternal) — a
-// `Cheatsheet:LinuxCLI/ssh` page shows no "< Cheatsheet:LinuxCLI" link
-// until the parent page exists. NamespaceInfo SNAPSHOTS this config when its
-// service is constructed (ServiceOptions copies the value at construction),
-// so a late hook (e.g. CanonicalNamespaces) cannot change hasSubpages() —
-// the values must be set here, before the service exists. The range covers
-// the instance's namespaces: core 0-15, Forum 110, Item/Property 120-123,
-// TimedText 710-711, Translations 1198-1199, Cheatsheet…Software
-// 2000-2017; extend it when a namespace is registered. Mirrors the
-// production LocalSettings block (RonzzIT:Deployment/Wikibase); the explicit
-// per-namespace lines above are kept for readability.
-// Main is included since 2026-10-18 so content trees such as
-// `Matrix/Practice/Matrix_multiplication` are real subpages.
-$wgNamespacesWithSubpages += array_fill_keys( range( 0, 2017 ), true );
-$wgNamespacesWithSubpages[NS_MAIN] = true;
 
 // ---- LanguageBar (automatic languages bar on content pages) ----
 // The bar is injected server-side on article views in these namespaces
