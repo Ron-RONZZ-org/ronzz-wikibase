@@ -15,3 +15,9 @@
  .mw-collapsible-toggle {
     float: left !important;
 }
+
+/* Ensure proper float */
+ .mw-collapsible {
+    float: left !important;
+    display: flow-root;
+}
