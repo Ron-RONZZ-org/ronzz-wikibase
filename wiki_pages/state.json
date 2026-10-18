@@ -141,9 +141,9 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     },
     "Template:Cheatsheet": {
-      "revid": 744,
-      "sha256": "725662a58bcba328a2d165c2706d77f3b8de61d1cd79c2e07c873d820c5a1941",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 10532,
+      "sha256": "366799a5262a35d1bd825def6e543d143bc24f7bdf137f12dc6858d2f2844e5c",
+      "synced_at": "2026-10-18T14:12:25+00:00"
     },
     "Template:CodeSnippet": {
       "revid": 5030,
@@ -166,9 +166,9 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     },
     "Template:DesktopLinux": {
-      "revid": 1564,
-      "sha256": "598ffe0e95479dab4b96bc039bd5d4854b296d6145b142c143ecc8a7710d178f",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 10533,
+      "sha256": "0bfb92ce61abc0eada9f3f432b91870a86d13ba0c291055db4ea53398099bc18",
+      "synced_at": "2026-10-18T14:12:25+00:00"
     },
     "Template:Document": {
       "revid": 9030,
@@ -406,6 +406,6 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     }
   },
-  "updated": "2026-10-18T07:11:08+00:00",
+  "updated": "2026-10-18T14:12:25+00:00",
   "version": 1
 }
