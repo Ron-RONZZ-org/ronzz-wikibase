@@ -4371,7 +4371,12 @@ def main() -> int:
     if args.sweep_only and args.no_sweep:
         parser.error("--sweep-only conflicts with --no-sweep")
     if not args.no_sweep:
-        sweep_scratch(op, api, args.sweep_age_hours, dry_run=args.sweep_dry_run)
+        try:
+            sweep_scratch(op, api, args.sweep_age_hours, dry_run=args.sweep_dry_run)
+        except Exception as exc:  # noqa: BLE001 — the suite itself must still run
+            if args.sweep_only:
+                raise
+            print(f"[warn] pre-run scratch sweep failed: {exc}", file=sys.stderr)
         if args.sweep_only:
             return 0
 
