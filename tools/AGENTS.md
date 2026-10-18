@@ -155,7 +155,7 @@ fixer.
   `docs/decisions/wiki-pages-parity.md`. Unit tests:
   `python3 -m unittest discover -s tools/tests`.
 - **`tools/wiki_content_mirror.py`** — one-way wiki → repo snapshot tool for
-  the public **content** namespaces: Main, Cheatsheets, HowItWorks, FOSS,
+  the public **content** namespaces: Main, Cheatsheet, HowItWorks, FOSS,
   Person, Source, Collective, Software. The **snapshot itself lives in the
   separate public repo `Ron-RONZZ-org/ronzzwikibase-public-mirror`**; this
   repo keeps the tool and its unit tests, and that repo's

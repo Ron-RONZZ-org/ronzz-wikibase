@@ -10,7 +10,7 @@ to the wiki.
 Scope (namespace ids):
 
 - `0` Main
-- `2000` Cheatsheets, `2002` HowItWorks, `2008` FOSS
+- `2000` Cheatsheet, `2002` HowItWorks, `2008` FOSS
 - `2010` Person, `2012` Source, `2014` Collective, `2016` Software
 
 **Gated namespaces are refused**: `2004` RonzzInt and `2006` RonzzIT are
