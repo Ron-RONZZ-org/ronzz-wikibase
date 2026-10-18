@@ -2210,9 +2210,9 @@
     },
     "Ring (mathematical concept)": {
       "path": "Main/Ring (mathematical concept).wiki",
-      "revid": 10332,
-      "sha256": "74909c92f64695923ba9cf9fe3966400d576291fc5f54b30d66728fd2c51afd4",
-      "synced_at": "2026-10-18T07:12:56+00:00"
+      "revid": 10339,
+      "sha256": "933580a4b96443f5c2a9e2abaff58e87e0680adbbfd12b48f1dc304d9bd9f375",
+      "synced_at": "2026-10-18T07:23:26+00:00"
     },
     "Rolle's theorem": {
       "path": "Main/Rolle's theorem.wiki",
@@ -4813,6 +4813,6 @@
       "synced_at": "2026-10-18T07:12:56+00:00"
     }
   },
-  "updated": "2026-10-18T07:12:56+00:00",
+  "updated": "2026-10-18T07:23:26+00:00",
   "version": 1
 }

@@ -64,7 +64,7 @@ $$
 a\cdot_R b=0_R
 $$
 
-then $a,b$ are a pair of '''zero divisor''' in ring $(R,+_R,\cdot_R )$.
+then $a,b$ are a pair of '''zero divisors''' in ring $(R,+_R,\cdot_R )$.
 
 {{Hidden example}}
 In the ring $(\mathbb{Z}/6\mathbb{Z}=\{0,1,2,3,4,5\},a+_Rb=a+b \mod 6; a \cdot_R b=a\cdot b \mod 6$, $2,3$ are a pair of zero divisor as $2 \cdot_R 3= 2\cdot 3 \mod 6 = 0$
