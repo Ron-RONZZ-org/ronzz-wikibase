@@ -1,0 +1,5 @@
+{{Person}}
+
+== Overview ==
+
+American mathematician and author of Nonlinear Dynamics and Chaos, known for work on dynamical systems and network science

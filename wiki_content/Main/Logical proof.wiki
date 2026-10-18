@@ -1,0 +1,224 @@
+Logical proof is the process of applying [[logic]] to prove whether a statement is true or false.
+
+== Direct proof ==
+
+Direct proof consists of identifying a set of true premises, and derive the conclusion based on logical combination and manipulation of those premises.<ref>{{#cite:Q1846}}</ref> It is the formal equivalent of an [[logic#argument|argument]].
+
+''To prove $Q$, identify true statement(s) $P$ as premises, then prove $P \implies Q$.''
+
+In formal language:
+
+$$
+P \land (P \implies Q) \implies Q
+$$
+
+{{Hidden example}}
+Prove that for all odd integers $n$, $n^2$ is odd.
+
+Rewrite in formal language:
+
+$P$ (premise): $\exists k \in Z, n=2k+1$
+$Q$ (desired conclusion): $\exists k_1 \in Z, n^2=2k_1+1$
+Need to prove: $P \implies Q$
+
+$$
+\because n=2k+1 \ \ (P) \\
+\therefore n^2=(2k+1)^2=4k^2+4k+1=2(2k^2+k)+1 \\
+\text{Let} k_1=2k^2+k \in Z, n^2= 2k_1+1, k_1 \in Z\ \ (Q)
+$$
+{{End hidden}}
+
+== Proof by contrapositive ==
+
+''To prove $P \implies Q$, prove $\neg Q \implies \neg P$.''
+
+In formal language:
+
+$$
+P \implies Q \iff \neg Q \implies \neg P
+$$
+
+{{Hidden example}}
+Prove that for integers $a$ and $b$, if $a+b$ is odd, then either $a$ is odd or $b$ is odd, but not both.
+
+Rewrite in formal language:
+
+$P$ (premise): $\exists k \in Z, a+b=2k+1$
+$Q$ (desired conclusion): $Q_1 \oplus Q_2 \iff (Q_1 \lor Q_2)\land \neg(Q_1 \land Q_2)$
+Where $Q_1: $\exists k_1 \in Z, a=2k_1+1 $, $Q_2: \exists k_2 \in Z, b=k_2+1$. 
+
+To prove by contrapositive, start with contrapositive premise $\neg Q$:
+
+$$
+\neg Q \iff \neg (Q_1 \oplus Q_2) \iff \neg ((Q_1 \lor Q_2)\land \neg(Q_1 \land Q_2)) \iff (\neg Q_1 \land \neg Q_2) \lor (Q_1 \land Q_2)
+$$
+
+Which separates into two cases:
+
+1: $\neg Q_1 \land \neg Q_2$
+2: $Q_1 \land Q_2$
+
+In case 1, since an integer can only be even or odd, if $Q_1$, $Q_2$ are not odd, they must be even.
+
+i.e.,
+$$
+\neg Q_1 \iff \forall k_1 \in Z, a \neq 2k_1+1 \iff \exists k_1 \in Z, a = 2k_1 \\
+\neg Q_2 \iff \forall k_2 \in Z, a \neq 2k_2+1 \iff \exists k_2 \in Z, a = 2k_2
+$$
+
+$\therefore a+b=2k_1+2k_2=2(k_1+k_2)$ is even ($\neg P$).
+
+In case 2, 
+$$
+\exists k_1 \in Z, a=2k_1+1 \\
+\exists k_2 \in Z, b=k_2+1
+$$
+
+$\therefore a+b=2k_1+2k_2=2(k_1+k_2+2)$ is even ($\neg P$).
+ 
+We have since proven that $\neg Q \implies \neg P$, hence by logical equivalence $P \implies Q$, i.e., for integers $a$ and $b$, if $a+b$ is odd, then either $a$ is odd or $b$ is odd, but not both.
+{{End hidden}}
+
+== Proof by contradiction ==
+
+''To prove $P$, prove $(\neg P \implies Q) \land \neg Q$''
+
+In formal language:
+
+$$
+(\neg P \implies Q) \land \neg Q \implies P
+$$
+
+{{Hidden example}}
+Prove the pigeon hole principle - if more than $n$ pigeons fly into $n$ pigeon holes, then there is at least one hole with at least 2 pigeons.
+
+Formalise the statements:
+
+Let $m$ be the number of pigeons.
+
+$O_1$(premise 1): $m>n$
+
+$O_2$(premise 2): there are $n$ pigeon holes
+
+$P$: there is at least one hole with at least two pigeons
+
+Therefore:
+
+$$
+\neg P\text{: each hole has at most one pigeons} \\
+\neg P \land O_2 \implies Q: m \leq n \\
+O_1 \implies \neg Q \\
+\therefore P
+$$
+{{End hidden}}
+
+== Disproof by counter-example ==
+
+Any number of examples cannot suffice as logical proof. However, a counter-example is adequate to prove that a general statement is not true.
+
+{{Hidden example}}
+Are all life in sea fishes?
+
+Rewrite in formal language:
+
+$$
+P: \forall x \in \text{sea life}, x \in \text{fish}
+$$
+
+Positive examples:
+
+$$
+x = \text{sharks}, x \in \text{sea life}, x \in \text{fish} \\
+x = \text{clownfishes}, x \in \text{sea life}, x \in \text{fish} \\
+x = \text{rays}, x \in \text{sea life}, x \in \text{fish} \\
+x = \text{cods}, x \in \text{sea life}, x \in \text{fish} \\
+x = \text{tunas}, x \in \text{sea life}, x \in \text{fish} \\
+...
+$$
+
+cannot prove $P$
+
+Yet one counter-example disproves $P$:
+
+$$
+x = \text{whales}, x \in \text{sea life}, x \notin \text{fish}
+$$
+{{End hidden}}
+
+== Proof by case ==
+
+''To prove $Q$, proves that at least one of $\{P_1,P_2,...,P_n\}$ is true, and $\forall k \in \{1,2,...,n\}, P_k \implies Q$
+
+In formal language:
+$$
+(P_1 \lor P_2 \lor ... \lor P_n) \land (\forall k \in \{1,2,...,n\}, P_k \implies Q) \implies Q
+$$
+
+{{Hidden example}}
+Prove that for any integer $n$, $(n^3-n)$ is even.
+
+Rewrite in formal language:
+
+$$
+P \text{(premise)}: n \in N^* \\
+Q \text{(desired conclusion)}: \exists k \in Z, n^3-n=2k
+$$
+
+Since an integer is either even or odd,
+
+$$
+P \implies P_1 \lor P_2 \\
+P_1: \exists k_1 in Z, n=2k_1 \\
+P_2: \exists k_1 in Z, n=2k_1+1
+$$
+
+If $P_1$:
+
+$$
+n^3-n=8k_1^3-2k_1=2(4k_1^3-k_1) \\
+\text{let } k=4k_1^3-K_1 \implies Q
+$$
+
+If $P_2$:
+
+$$
+n^3-n=8k_1^3+12k_1^2+6k_1+1-(2k_1+1)=2(4k_1^3+6k_1^2+2k_1) \\
+\text{let } k=4k_1^3+6k_1^2+2k_1 \implies Q
+$$
+
+Hence $Q$.
+{{End hidden}}
+
+== Natural-formal language translation via equivalent statements ==
+
+The first and highly essential step of constructing formal logic proofs is the translation of natural language statements into formal language.
+
+Sometimes, this requires first rewriting a statement $P$ with equivalent statement $Q$ where $P \iff Q$.
+
+{{Hidden example}}
+Prove there are an infinite number of prime numbers.
+
+P (desired conclusion): There are an infinite number of prime numbers
+Q (equivalent statement): For all positive integers $x$, there exists prime number $y$ where $y>x$
+
+Rewrite $Q$ in formal language:
+
+$$
+Pr(x): N^* \longrightarrow \{0,1\} \\
+Pr(x)=\begin{cases}1 \text{ if x is prime} \\ 0 \text{ otherwise}\end{cases}
+$$
+
+Q: $\forall x \in N^*, \exists y>x,Pr(y)=1$
+
+Then prove Q:
+
+$$
+\forall x \in N^*, z=x!+1 \in N^* \\
+\therefore z=\prod p_n, Pr(p_n)=1 \text{  (all positive integers can be written as a product of prime factors)} \\
+\because \forall k \in \{1,2,...,x\}, z \equiv 1 \neq 0 \pmod{k} \\
+\therefore p_n > x \\
+\text{Let } y=p_n \implies Q
+$$
+
+Since $P \iff Q$, therefore $P$: there are an infinite number of prime numbers.
+{{End hidden}}

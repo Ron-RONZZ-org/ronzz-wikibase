@@ -1,0 +1,55 @@
+'''Rotational motion''' is the motion of a body or system $(S)$ about an axis $L$, such that every point $P \in (S)$ moves along a circular path around $L$.
+
+[[File:Retrogradeorbit.gif|center]]
+
+A rotational motion can be described by an angular velocity $\omega$, and an angular acceleration $\alpha$, which are identical for every $P \in (S)$:
+
+{| class="wikitable"
+! linear quantity !! unit !! rotational equivalent !! unit !! relationship between two (vector notation)
+|-
+| $\vec s$ || $\mathrm{m}$ || $\vec \theta$ || $\mathrm{rad}$ || $\vec s = \vec \theta \times \vec r$
+|-
+| $\vec v$ || $\mathrm{m/s}$ || $\vec \omega$ || $\mathrm{rad/s}$ || $\vec v = \vec \omega \times \vec r$
+|-
+| $\vec a$ || $\mathrm{m/s^2}$ || $\vec \alpha$ || $\mathrm{rad/s^2}$ || $\vec a = \vec \alpha \times \vec r + \vec \omega \times (\vec \omega \times \vec r)$¹
+|}
+
+where $\vec r=\overrightarrow{OP} O \in L$² is the position vector of $P$
+
+<blockquote>
+1:
+$$
+\vec v=\vec\omega\times\vec r
+$$
+
+Differentiate:
+$$
+\vec a=\frac{d}{dt}(\vec\omega\times\vec r)
+=\frac{d\vec\omega}{dt}\times\vec r+\vec\omega\times\frac{d\vec r}{dt}
+=\vec\alpha\times\vec r+\vec\omega\times(\vec v)
+=\vec\alpha\times\vec r+\vec\omega\times(\vec\omega\times\vec r)
+$$
+
+So
+
+$$
+\vec a=\vec\alpha\times\vec r+\vec\omega\times(\vec\omega\times\vec r)
+$$
+</blockquote>
+
+<blockquote>
+2: $\vec \omega \times \vec r = \left\| \vec w \right\| \left\| \vec r \right\| \sin \widehat{\vec w \vec r} \hat k, \hat k = \hat w \times \hat r$. Note $\left\| \vec r \right\| \sin \widehat{\vec w \vec r}=\left\| \overrightarrow{PK} \right\|$, where point $K \in L$ satisifies $PK \bot L$. Therefore, the relationship between $\vec \omega$ and $\vec v$ or $\vec \alpha$ and $\vec a$. depends only on the distance between a point $P$ to its rotational axis $L$. i.e., $O \in L$ can be chosen arbitrarily. 
+
+For convenience of calculation of the cross products, choose $O$ that $OP \bot L$ ($O \equiv K$)
+</blockquote>
+
+== Angular and linear acceleration ==
+
+Recall that 
+
+{{#content:Q2045}}
+
+Here, 
+
+* $\vec\alpha\times\vec r \parallel \vec v$ is called the '''tangential acceleration''', which speeds up or slows down the circular motion.
+* $\vec\omega\times(\vec\omega\times\vec r) \bot L$ is the '''centripetal acceleration''', which keeps $(S)$ in rotation around $L$.

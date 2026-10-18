@@ -1,0 +1,21 @@
+Historiography is the study of historical studies.
+
+Where [[Historical studies]] studies historical events, i.e., what happened in the past, Historiography studies how we study historical events. Here are some questions a historiographer may asks:
+
+* How has the method of historical studies evolved over time?
+* What sources do historians cite?
+* How historical narratives are shaped in different cultures? What biases do they contain?
+
+== Origin of historiography ==
+
+When did historiography begin?
+
+The honest answer is, just as we do not know when historical studies began, we do not know the exact moment when historians started taking a critical look at their field: about their methods, perspectives, and biases. What we do know, is as early as 2 century CE, a certain [[Lucian of Samosata]] has already written [[How History Should Be Written|a whole book]] on the subject, expressing his critical reflection on the methods of historical studies. According to him, history should be written by free and impartial "truth lovers", seeking to accurately document historical events as they happened. Those ideas, banal in our time, were truly new and revolutionary his time, so much so he dedicated an important part of his book to a satirical critique of fellow historians of his era, who were often more interested in public-acclaim and favors from the power than factual accuracy, effectively, writing history as novels. <ref>{{#cite:Q172}}</ref>
+
+== Development of modern historiography ==
+
+For centuries after Lucian's time, historiography stayed on a cold bench. People continue to write history for their own purposes: official historians to please authority who commissioned them, and independent historians to engage their public. Historical facts, were inspiration but not the goal. There was therefore little need for historiography: who cares if we have biases, or the sources employed were not accurate? As long as our audience loves it, it is good history. 
+
+We must wait until the 18th century CE for a documented renewed interest in historiography. [[Edward Gibbon]], for example, emphasised in his [[A History of the Decline and Fall of the Roman Empire]] the importance of historical accuracy, and therefore the importance of critically reflecting on one's own approach to historical studies. Similar attitudes were also expressed by Voltaire, in his [[Histoire de l'empire de Russie sous Pierre le Grand]] and [[Le Siècle de Louis XIV]].
+
+The interest in historiography continued to grow ever since. A century later, [[Karl Marx]] (yes, the same Karl Marx who wrote [[Manifesto of the Communist Party]]) proposed an entirely new method of historical studies based on his historiographic reflections. According to him, the ultimate answer to historiographic concerns, such as inaccurate sources and cultural biases, is to step away from naratives, and reconceive history focusing on material facts: the climate, the geography, the available technology, and the economic conditions, etc.

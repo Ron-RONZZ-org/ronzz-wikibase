@@ -1,0 +1,44 @@
+A mathematical operation used to select or compare indices.
+
+== Mathematical definition ==
+
+=== Classical version ===
+
+$$
+\delta_{ij} =
+\begin{cases}
+1, & i=j,\\
+0, & i\ne j.
+\end{cases}
+$$
+
+=== single-index variant ===
+
+$$
+\delta_n =
+\begin{cases}
+1, & n=0,\\
+0, & n\ne 0.
+\end{cases}
+$$
+
+== Properties ==
+
+=== Symmetry ===
+$$
+\delta_{ij} = \delta_{ji}.
+$$
+
+== Application ==
+
+=== Single out the $i$-th term of a sum ===
+
+$$
+\sum_j \delta_{ij} a_j = a_i.
+$$
+
+=== Identity matrix ===
+
+$$
+I_{ij} = \delta_{ij}.
+$$

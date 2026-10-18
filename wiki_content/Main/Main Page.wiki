@@ -1,0 +1,11 @@
+<strong>Hi, welcome to ronzz.ORG's wikibase.</strong>
+
+If you are visiting us for the first time and would like a short guided tour, consult [[Help:1stVisit]]
+
+If you are a returning user, consider checking out [[Forum:Index|our forum]]!
+
+If you would like to become an external contributor, consult [[Help:JoinUs]]
+
+If you are an existing contributor, consult [[Help:Contributing]]
+
+If you are looking for ronzz.ORG's internal doc, consult [[RonzzInt:Main]] (you must be logged-in as ronzz.ORG user)

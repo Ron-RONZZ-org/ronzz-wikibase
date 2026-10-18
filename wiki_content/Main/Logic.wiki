@@ -1,0 +1,161 @@
+Logic is the process of drawing conclusions from premises via explanation.<ref>{{#cite:Q1837}}</ref>
+
+== Statement ==
+
+In logic, a statement is a sentence that is either true or false.<ref>{{#cite:Q1841}}</ref>
+
+Examples:
+
+* All prime numbers are odd
+* Curry is the national dish of the UK
+* If you are French, you must like baguette
+
+Counterexamples:
+
+* Will it rain today? (question)
+* $f$ is a differentiable function (incomplete : whether $f$ is differentiable depends on the definition of $f$)
+
+A set of statements is said to be '''coherent''' if it is possible for all of them to be simultaneously true.<ref>{{#cite:Q1837}}</ref>
+
+Coherent example:
+
+* I have eaten lunch at 3pm today
+* I am going to dinner soon
+
+Incoerent example:
+
+* I have eaten lunch at 3pm today
+* I have had dinner at 2pm today
+
+<blockquote>
+If we accept the definition of lunch as the 2nd meal of the day, and dinner as the 3rd meal of the day, there is no way that dinner happened before lunch. Therefore, those two statements cannot be simultaneously true.
+</blockquote>
+
+== Argument ==
+
+An argument is an act of applying logic. A typical argument has:<ref>{{#cite:Q1837}}</ref>
+
+* A set of premises, i.e., statements supposed to be true, explicit or implied
+* One or more conclusions. i.e., statements that must be true if all the premises are true
+* Explanation, the process of identifying the premises and inferring the conclusion.
+
+$$\text{Argument: Premises }\underrightarrow{\text{Explanation}}\text{ Conclusions}$$
+
+Example:
+
+France is a democratic country. (conclusion) It holds free and fair elections. (Premise 1, explicit) (Premise 2, implied: Countries that holds free and fair elections are democratic)
+
+== Symbolic logic language ==
+
+German philosopher [[Person:Gottlob Frege|Gottlob Frege]] demonstrated that any natural language sentence can be translated into symbolic formal language,<ref>{{#cite:Q1837}}</ref> which avoids ambiguity and confusion.
+
+To the aim of disambiguition, logicians have developed a formal language, with some standard symbols<ref>{{#cite:Q1840}}</ref>:
+
+{| class="wikitable"
+|-
+! natural language description !! symbolic representation !! katex code
+|-
+| There exists $x$ that (satisfies some property) || $\exists x$ || <code>\exists x</code>
+|-
+| All $x$ satisfies some property || $\forall x$ || <code>\forall x</code>
+|-
+| negation of A (not A) || $\neg A$ || <code>\neg A</code>
+|-
+| conjunction of A and B (A and B) || $A \land B$ || <code>A \land B</code>
+|-
+| disjunction of A and B (A or B) || $A \lor B$ || <code>A \lor B</code>
+|-
+| exclusive or of A and B (A xor B: either A or B but not both) || $A \oplus B$ || <code>A \oplus B</code>
+|-
+| negation of disjunction (A nor B: neither A nor B) || $A \downarrow B$ (equivalently $\neg(A \lor B)$) || <code>A \downarrow B</code> (equivalently <code>\neg(A \lor B)</code>)
+|-
+| negation of conjunction (A nand B: not both A and B) || $A \uparrow B$ (equivalently $\neg(A \land B)$) || <code>A \uparrow B</code> (equivalently <code>\neg(A \land B)</code>)
+|-
+| conditional where A implies B (if A, then B) || $A \implies B$ || <code>A \implies B</code>
+|-
+| biconditional involving A and B (if A then B, if B then A) || $A \iff B$ || <code>A \iff B</code>
+|}
+
+== Truth table ==
+
+Truth table is an aid for assesing the validity of composite statements by analysing the relationship between the composite statement and its substatements.
+
+For instance, to assess whether the statement $P$:"if students work hard in class, they will always get good grades" is true, one can:
+
+First break $P$ down into its substatements and rewrite in formal symbolic logic language:
+
+$$
+\text{A: Students work hard in class}
+\text{B: Students get good grades}
+\text{P:A} \implies \text{B}
+$$
+
+Then construct the truth table:
+
+{| class="wikitable"
+! A !! B !! P: A $\implies$ B
+|-
+| T || T || T
+|-
+| T || F || F
+|-
+| F || T || T
+|-
+| F || F || T
+|}
+
+Therefore, it can be concluded that $P$ is true if and only if there is never a situation where A is true but B is false, i.e., there is never a student that worked hard in class but did not get good grades.
+
+Two composite statements are considered '''logically equivalent''' if they are made up of the same substatements and their truth tables have the exact same value.
+
+For instance, $A\implies B$ is logically equivalent to $\neg A \lor B$:
+
+{| class="wikitable"
+! A !! B !! A $\implies$ B !! $\neg A \lor B$:
+|-
+| T || T || T || T
+|-
+| T || F || F || F
+|-
+| F || T || T || T
+|-
+| F || F || T || T
+|}
+
+Going back to the example of students working hard in class and getting good grades, this means we can prove that "if students work hard in class, they will get good grades" by proving that every student either did not work hard, OR got good grades.
+
+<blockquote>
+Notice $A \implies B$ does NOT imply that $\neg A \implies \neg B$ 
+</blockquote>
+
+=== Formal definition of a truth table ===
+
+$$
+f:\{0,1\}^n \to \{0,1\}^m\\
+T=\{(x,f(x)) \mid x\in\{0,1\}^n\}
+$$
+
+$f$: arbitrary boolean function
+
+$T$: truth table
+
+== Logical equivalence ==
+
+=== De Morgan's laws ===
+
+$$
+\neg (P \land Q) \iff \neg P \lor \neg Q\\
+\neg (P \lor Q) \iff \neg P \land \neg Q
+$$
+<ref>{{#cite:Q1844}}</ref>
+
+=== Double negation is affirmation ===
+
+$$
+\neg \neg P = P
+$$
+<ref>{{#cite:Q1844}}</ref>
+
+== Logical proof ==
+
+See [[logical proof]].

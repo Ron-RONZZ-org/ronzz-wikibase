@@ -1,0 +1,42 @@
+Cauchy-Schwarz inequality states that the [[inner product]] of two vectors is always less or equal to the product of the norms of the two vector in any [[inner product space]].
+
+== Mathematical statement ==
+
+Let $V$ be an [[inner product space]] over $\mathbb{F}$.
+
+$$\forall u,v\in V,\; |\langle u,v\rangle|\le\|u\|\|v\|.$$
+
+Furthermore,
+
+$$|\langle u,v\rangle|=\|u\|\|v\|\iff \exists \lambda\in\mathbb{F},\; u=\lambda v$$
+<ref>{{#cite:Q1921}}</ref>
+
+== Proof ==
+
+If $v=0$, 
+
+$$
+|\langle u,v\rangle| = 0, \|u\|\|v\| = 0 \\
+\therefore |\langle u,v\rangle| = \|u\|\|v\|
+$$
+
+If $v\neq 0$,
+
+Consider the [[Orthogonality#Orthogonal_decomposition|orthogonal decomposition]]
+
+$$u = \frac{\langle u, v \rangle}{\| v \|^2} v + u_2$$
+
+where $u_2\bot v$. 
+
+By the [[Orthogonality#Generalised_Pythagorean_theorem|generalised Pythagorean theorem]],
+
+$$\| u \|^2 = \left\| \frac{\langle u, v \rangle}{\| v \|^2}v \right\|^2 + \| u_2 \|^2 
+= \frac{|\langle u, v \rangle|^2}{\| v \|^2} + \| u_2 \|^2 $$
+
+Since $v\neq 0$:
+
+$$
+\frac{|\langle u, v \rangle|^2}{\| v \|^2} + \| u_2 \|^2 \ge \frac{|\langle u, v \rangle|^2}{\| v \|^2} \\
+\Rightarrow  \| u \|^2 \ge \frac{|\langle u, v \rangle|^2}{\| v \|^2} \\
+\Rightarrow |\langle u,v\rangle|\le\|u\|\|v\|.
+$$

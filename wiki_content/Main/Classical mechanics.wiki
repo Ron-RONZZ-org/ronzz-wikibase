@@ -1,0 +1,157 @@
+Classical mechanics is one framework to the study of [[mechanics]].
+
+== Validity ==
+
+== Vector description ==
+
+Concise description of mechanical systems can be provided with [[vector]]s.
+
+=== Reference frame ===
+
+A reference frame is defined by an origin $O$, and the three unit vectors for each dimension of space: $\overrightarrow{x}$, $\overrightarrow{y}$, and $\overrightarrow{z}$.
+
+It can be noted as:
+
+$$R(O;\overrightarrow{x},\overrightarrow{y},\overrightarrow{z})$$
+
+Conventionally, we choose unit vectors perpendicular to each other ($\overrightarrow{x}\bot\overrightarrow{y}\bot\overrightarrow{z}$), so each spatial direction is independent of another.
+
+=== Objects in the reference frame ===
+
+==== Motion: Position, velocity, accelaration ====
+
+For an object (S) centered at point $P$, its '''position''' relative to reference frame $R$ can be described by its position vector $\overrightarrow{OP}=(\overrightarrow{x_P},\overrightarrow{y_P},\overrightarrow{z_P})$.
+
+Then velocity, defined as the instantaneous change in position with respect to time, is then:
+
+$$\overrightarrow{v_S}=\frac{d \overrightarrow{OP}}{dt}=(\overrightarrow{v_x},\overrightarrow{v_y},\overrightarrow{v_z})$$
+
+Finally, acceleration, defined as the instantaneous change in velocity with respect to time, is then:
+
+$$\overrightarrow{a_S}=\frac{d \overrightarrow{v_S}}{dt}=(\overrightarrow{a_x},\overrightarrow{a_y},\overrightarrow{a_z})$$
+
+==== Mechanical contact: Force and moments ====
+
+Any ''force'' $\overrightarrow{F}$ on object $(S)$ can be decomposed into component forces in each of the three independent spatial direction:
+
+$$\overrightarrow{F}= \overrightarrow{F_x}+\overrightarrow{F_y}+\overrightarrow{F_z}$$
+
+Therefore, it can be described as a vector:
+
+$$\overrightarrow{F}= (F_x,F_y,F_z)$$
+
+where $$F_x=\left\| \overrightarrow{F_x} \right\|$$ and so on.
+
+As a result, if the force $\overrightarrow{F}$ is applied to point $A$ the '''moment''' $M(\overrightarrow{F}\to S)_B$ caused by such force at point $B$ is:
+
+$$\overrightarrow{M}(\overrightarrow{F}\to S)_B=\overrightarrow{BA}\wedge \overrightarrow{F}$$
+
+It can also be decomposed into components along three independent spatial directions:
+
+$$\overrightarrow{M}=(M_x,M_y,M_z)$$
+
+== Key principles ==
+
+=== Newton's 1st law ===
+
+Newton's 1st law describes the phenomenon '''inertia''': when the overall net external force is zero, the velocity of an object is maintained.<ref>{{#cite:Q1761}}</ref>
+
+In vector notation, it can be written as:
+
+{{#content:Q1766}}
+
+The state that $\sum \overrightarrow{F}_{ext}=0$ is known '''mechanical equilibrium'''.
+
+=== Newton's 2nd law ===
+
+Newton's 2nd law describes the relationship between force, mass, and acceleration: the acceleration is proportional to force and the inverse of mass.<ref>{{#cite:Q1761}}</ref>
+
+In vector notation, it can be written as:
+
+{{#content:Q1767}}
+
+=== Newton's 3rd law ===
+
+Newton's 3rd law describes the reciprocity of force: when object $(S1)$ applies a force on object $(S2)$, $(S2)$ must apply a force opposite to $(S1)$ and equal in magnitude.<ref>{{#cite:Q1761}}</ref>
+
+In vector notation, it can be written as:
+
+{{#content:Q1768}}
+
+=== Conservation of momentum ===
+
+For any closed system, the momentum, defined as the product of mass and velocity (m\overrightarrow{v}), is conserved before and after any mechanical interaction within the system (including collision).<ref>{{#cite:Q1761}}</ref>
+
+In vector notation, for a closed system of $n$ objects, the principle can be expressed as:
+
+{{#content:Q1769}}
+
+where $C$ is a constant.
+
+Any change to momentum must be a direct result of an external force $\overrightarrow{F_{ext}}$ acting on a member of the system for a duration $t$. This change in momentum, known as ''impulse'', satisfies the following relationship:
+
+{{#content:Q1770}}
+
+=== Any motion carries kinetic energy ===
+
+The kinetic energy of an object of mass $m$ and velocity $\overrightarrow{v}$ is:
+
+{{#content:Q1771}}
+
+Any change in kinetic energy, is the result of an external force acting over a given distance:<ref>{{#cite:Q1761}}</ref>
+
+{{#content:Q1773}}
+
+=== Conservation of energy ===
+
+In a closed system, energy is conserved. It can be transformed from one form to another, but not created or destroyed:<ref>{{#cite:Q1761}}</ref>
+
+{{#content:Q1772}}
+
+=== Gravity: any two mass attracts ===
+
+Two point masses at points $A$ and $B$ exerts a gravitational force on each other:<ref>{{#cite:Q1761}}</ref>
+
+{{#content:Q1777}}
+
+According to [[shell theorem]], spherically symmetric shapes can be approximated by point masses.
+
+For real-world objects, whose shape may be irregular, if the distance between the object is much larger than the size of a given object ($\left\| \overrightarrow{AB} \right\|\gg R_A$), that object may be approximated as a point mass.
+
+Otherwise, for arbitrary real-world objects:
+
+{{#content:Q1778}}
+
+{| class="wikitable"
+! Symbol !! Meaning
+|-
+| $\mathbf r_A$ || position vector of an infinitesimal piece of body $A$.
+|-
+| $\mathbf r_B$ || position of an infinitesimal piece of body $B$.
+|-
+| $\rho_A(\mathbf r_A), \rho_B(\mathbf r_B)$ || density at those points.
+|-
+| $dV_A=dr_A^3, dV_B=dr_B^3$ || infinitesimal volumes.
+|-
+| $dm_A=\rho_A dV_A$, $dm_B=\rho_B dV_B$ || infinitesimal masses.
+|-
+| $\lvert \mathbf r_B-\mathbf r_A\rvert$ || distance between the two infinitesimal pieces.
+|-
+| $\dfrac{\mathbf r_B-\mathbf r_A}{\lvert \mathbf r_B-\mathbf r_A\rvert^3}$ || unit direction from $A$-piece to $B$-piece, divided by distance squared.
+|}
+
+The potential energy as a result of gravitational attraction is known as [[gravitational potential energy]].
+
+<blockquote>
+See also: [[Two body problem]]
+</blockquote>
+
+== Rotational motion ==
+
+See [[rotational motion]].
+
+== Analytic methods ==
+
+=== Mechanical screws ===
+
+See [[screw theory]].

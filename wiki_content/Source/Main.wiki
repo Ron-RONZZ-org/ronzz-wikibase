@@ -1,0 +1,8 @@
+One page per source (book, article, website, song, film, video, YouTube channel/video, web page), created automatically by [[Special:AddSource]]: the page transcludes a per-class template ({{tl|Book}}, {{tl|ScholarlyArticle}}, {{tl|Website}}, {{tl|Song}}, {{tl|Film}}, {{tl|Video}}, {{tl|YouTubeChannel}}, {{tl|YouTubeVideo}}, {{tl|Webpage}}) whose infobox reads the item's statements at view time (see [[Help:Contributing/semanticDynamicContent]]). Add prose (overview, content) under the infobox.
+
+'''No page for book excerpts''' — an excerpt is part of a book and gets only an item, not a Source: page.
+
+* '''Add a source''': [[Special:AddSource]] (class picker → search/manual → review → create)
+* See also: [[Category:Sources]]
+
+The pages are '''sitelinked''' to their items: edit the item once and every Source: page updates.

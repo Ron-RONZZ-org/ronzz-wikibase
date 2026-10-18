@@ -1,0 +1,99 @@
+This page feeds the '''Examples''' dialog of the [https://query.ronzz.org RonzzWiki Query Service]. Each example is a self-contained SPARQL query against the RonzzWiki data (prefixes must be declared — see [[Cheatsheets:SPARQL]]).
+
+== People ==
+
+=== All people ===
+
+<syntaxhighlight lang="sparql">
+PREFIX wd: <https://wikibase.ronzz.org/entity/>
+PREFIX wdt: <https://wikibase.ronzz.org/prop/direct/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+PREFIX bd: <http://www.bigdata.com/rdf#>
+
+SELECT ?person ?personLabel WHERE {
+  ?person wdt:P1 wd:Q6 .
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en" }
+} LIMIT 50
+</syntaxhighlight>
+
+== Books and sources ==
+
+=== Books with their authors ===
+
+<syntaxhighlight lang="sparql">
+PREFIX wd: <https://wikibase.ronzz.org/entity/>
+PREFIX wdt: <https://wikibase.ronzz.org/prop/direct/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+PREFIX bd: <http://www.bigdata.com/rdf#>
+
+SELECT ?book ?bookLabel ?authorLabel WHERE {
+  ?book wdt:P1 wd:Q9 ;
+        wdt:P6 ?author .
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en" }
+} LIMIT 50
+</syntaxhighlight>
+
+=== Books with their publisher ===
+
+<syntaxhighlight lang="sparql">
+PREFIX wd: <https://wikibase.ronzz.org/entity/>
+PREFIX wdt: <https://wikibase.ronzz.org/prop/direct/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+PREFIX bd: <http://www.bigdata.com/rdf#>
+
+SELECT ?book ?bookLabel ?publisherLabel WHERE {
+  ?book wdt:P1 wd:Q9 ;
+        wdt:P54 ?publisher .
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en" }
+} LIMIT 50
+</syntaxhighlight>
+
+=== Books published after 2000 ===
+
+<syntaxhighlight lang="sparql">
+PREFIX wd: <https://wikibase.ronzz.org/entity/>
+PREFIX wdt: <https://wikibase.ronzz.org/prop/direct/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+PREFIX bd: <http://www.bigdata.com/rdf#>
+
+SELECT ?book ?bookLabel ?date WHERE {
+  ?book wdt:P1 wd:Q9 ;
+        wdt:P8 ?date .
+  FILTER(YEAR(?date) >= 2000)
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en" }
+} ORDER BY DESC(?date) LIMIT 50
+</syntaxhighlight>
+
+== Software ==
+
+=== Free and open-source software with developers and licenses ===
+
+<syntaxhighlight lang="sparql">
+PREFIX wd: <https://wikibase.ronzz.org/entity/>
+PREFIX wdt: <https://wikibase.ronzz.org/prop/direct/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+PREFIX bd: <http://www.bigdata.com/rdf#>
+
+SELECT ?software ?softwareLabel ?developerLabel ?licenseLabel WHERE {
+  ?software wdt:P1 wd:Q179 .
+  OPTIONAL { ?software wdt:P33 ?developer . }
+  OPTIONAL { ?software wdt:P34 ?license . }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en" }
+} LIMIT 50
+</syntaxhighlight>
+
+== Summary ==
+
+=== How many items per class ===
+
+<syntaxhighlight lang="sparql">
+PREFIX wd: <https://wikibase.ronzz.org/entity/>
+PREFIX wdt: <https://wikibase.ronzz.org/prop/direct/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+PREFIX bd: <http://www.bigdata.com/rdf#>
+
+SELECT ?class ?classLabel (COUNT(?item) AS ?count) WHERE {
+  ?item wdt:P1 ?class .
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en" }
+} GROUP BY ?class ?classLabel ORDER BY DESC(?count) LIMIT 20
+</syntaxhighlight>

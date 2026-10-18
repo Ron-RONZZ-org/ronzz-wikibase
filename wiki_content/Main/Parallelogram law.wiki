@@ -1,0 +1,35 @@
+== Euclidean geometry ==
+
+In Euclidean geometry, the parallelogram law states that for any parallelogram:
+
+$$\sum \text{diagonal}^2 = \sum \text{side}^2$$
+
+For example, in parallelogram $ABCD$:
+
+[[File:Parallelogram-law-squares.png|300px|center]]
+
+$$AC^2+BD^2=AB^2+BC^2+CD^2+DA^2$$
+
+Since $AB=CD$ $DA=BC$.
+
+$$AC^2+BD^2=2(AB^2+BC^2)=2(CD^2+DA^2)$$
+
+== Generalisation into vector spaces ==
+
+Let $V$ be an [[inner product space]] over $\mathbb{F}$.
+
+$$\forall u,v\in V,\; \left\| u+v \right\|^2+\left\| u-v \right\|^2=2\left(\left\| u \right\|^2+\left\| v \right\|^2\right).$$
+
+To illustrate this in $\mathbb{R}^2$:
+
+[[File:Parallelogram.jpeg|300px|center]]
+
+=== Proof ===
+
+By direct calculation,
+$$\begin{aligned} 
+\| u+v \|^2 + \| u-v \|^2 &= \langle u+v, u+v \rangle + \langle u-v, u-v \rangle\\ 
+&= \| u \|^2 + \| v \|^2 + \langle u, v \rangle + \langle v, u \rangle + \| u \|^2 + \| v \|^2 
+- \langle u, v \rangle -\langle v, u \rangle\\ 
+&=2(\| u \|^2 + \| v \|^2). 
+\end{aligned}$$

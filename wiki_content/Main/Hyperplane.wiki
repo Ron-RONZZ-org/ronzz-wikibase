@@ -1,0 +1,27 @@
+Let $V$ be a vector space over $\mathbb{F}$.
+
+{{#content:Q2146}}<ref>{{#cite:Q2149}}</ref>
+
+== Properties ==
+
+=== Inner product space ===
+
+If $V$ is an [[inner product space]] over $\mathbb{F}$ and $P$ is a hyperplane of dimension $k$.
+
+$\exists \vec w \in V, b \in \mathbb{F} \Rightarrow \forall \vec u \in P, \langle \vec w, \vec u \rangle =b$
+
+Then $\vec w$ is called the '''normal vector''' of hyperplane $P$.
+
+If it is known that $P=\left\{ \vec p + \sum_{i=1}^{k} \lambda_{i}\vec v_{i}\,  |\, \vec p,\vec v_i \in V,k < \dim(V), \lambda_{i} \in \mathbb{F} \right\}$,
+
+Then $b=\langle \vec w, \vec p \rangle$
+
+It can be equivalently stated that 
+
+$$
+\langle \vec w, \vec u - \vec p \rangle =0
+$$
+
+<blockquote>
+Intuition: recall an [[inner product]] is linear in the first slot and conjugately symmetric
+</blockquote>

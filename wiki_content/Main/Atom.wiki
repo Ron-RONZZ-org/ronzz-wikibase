@@ -1,0 +1,100 @@
+An atom is an extremely small particle. All known matter in the universe are a combination of atoms.
+
+It is made of a small atomic nucleus containing 99.9% of the mass of the atom, and electrons that orbit around the nucleus, behaving as [[quantum particles]].
+
+[[File:Atom.png|center|400px]]
+
+A typical atom has a radius of $30-300 pm$ at 95% probability of electron confinement.<ref>{{#cite:Q1791}}</ref>($1pm=10^{-12}m$). This means, if we consider the boundary of the atom as where the electron has a 95% chance of being found within, the size of an atom compared to a human is like the size of a human compared to the sun.<ref>{{#cite:Q1761}}</ref>
+
+== History ==
+
+The abstract idea of an atom, as an indivisible minimum unit of matter, is first proposed by Greek philosophers in 5th century BCE.<ref>{{#cite:Q1761}}</ref>This idea, however, was largely overshadowed by the alternative proposed by the famous Aristotle, who proposed instead that matter is the association of four fundamental elements: earth, air, fire, and water.<ref>{{#cite:Q1761}}</ref>
+
+The idea of Aristotle became the mostly widely accepted in the European scientific community for 2 000 years, until British meteorologist and teacher John Dalton revisited the idea of an atom in 1803.<ref>{{#cite:Q1793}}</ref>
+
+Since then, scientific understanding of the atom has been updated multiple times:
+
+[[File:Atomic-structure.jpeg]]
+
+== Structure ==
+
+[[File:Atomic-structure-2.png]]
+
+An atom is made of three type of subatomic particles: positively charged protons and electrically neutral neutrons, which make up the atomic nucleus (plural: nuclei), and electrons, which orbit the nucleus in probablistic "quantic clouds".
+
+{| class="wikitable"
+! Particle !! Symbol !! Mass (amu) !! Mass (kg) !! Relative Charge !! Absolute Charge (coulombs) !! Location
+|-
+| proton || $p^+$ || $1.007206$ ||  $1.673 \times 10^{-27}$ || +1 || $+1.602 \times 10^{-19}$ || inside the nucleus
+|-
+| neutron || $n^0$ || $1.008665$ || $1.675 \times 10^{-27}$ || 0 || 0 || inside the nucleus
+|-
+| electron || $e^-$ || $5.45 \times 10^{-4}$ || $9.109 \times 10^{-31}$|| −1 || $-1.602 \times 10^{-19}$ || outside nucleus
+|}
+
+<ref>{{#cite:Q1791}}</ref><ref>{{#cite:Q1793}}</ref>
+
+<blockquote>
+The atomic mass unit (amu) is defined as exactly $\frac{1}{12}$ of the mass of a carbon atom:<ref>{{#cite:Q1793}}</ref>
+$$1\ amu=\frac{1}{12}m_{\text{carbon-12 atom}}$$
+</blockquote>
+
+The atomic nucleus is extremely small. If the atom has the size of a stadium, it would have the size of a pea ($r=10^{-6}R$).<ref>{{#cite:Q1793}}</ref> However, it holds nearly all of the mass of the atom. Therefore, it is incredibly dense, with a density of about $2.3 \times 10^{17} kg\ m^{-3}$.<ref>{{#cite:Q1797}}</ref>. If one manages to capture a plastic water bottle full of atomic nuclei ($500 ml$), then the mass of the water bottle would be that about [https://en.wikipedia.org/wiki/Qinghai_Lake Qinghai Lake], the largest lake in China!
+
+[[File:Qinghai-lake.jpg]]
+
+The atomic nuclei is held together by the [[strong nuclear force]].<ref>{{#cite:Q1793}}</ref>
+
+== Classification ==
+
+=== Elements ===
+
+The chemical and physical properties of atoms depends on the number of protons ($p+$) in its atomic nucleus. Therefore, scientists generally classify atoms by the number of protons in their nuclei:
+
+{| class="wikitable"
+! Number of protons !! Scientific name
+|-
+| 1 || Hydrogen
+|-
+| 2 || Helium
+|-
+| 3 || Lithium
+|-
+| 4 || Beryllium
+|-
+| 5 || Boron
+|-
+| 6 || Carbon
+|-
+| 7 || Nitrogen
+|-
+| 8 || Oxygen
+|-
+| 9 || Fluorine
+|-
+| 10 || Neon
+|}
+
+Each class of atoms with the same number of protons ($p+$) is known as an '''element'''. To date, scientists have identified more than 100 elements.<ref>{{#cite:Q1761}}</ref>
+
+Through experiments, scientists have observed certain periodicity in the property of elements, i.e., certain elements have similar properties despite the difference in the number of protons. To illustrate this periodicity, German chemist [[Person:Julius Lothar Meyer|Julius Lothar Meyer]] and Russian chemist [[Person:Dmitri Mendeleev|Dmitri Mendeleev]] pioneered the [[periodic table]] in the late 19th century.
+
+[[File:Periodic-table.png]]
+
+=== Notation ===
+
+In scientific notation, an atom is noted as:
+
+$$_\text{Number of proton}^\text{Number of protons & neutrons}\text{Element symbol}$$
+
+For example, a carbon atom with 6 protons and 6 neutrons is noted as:
+
+[[File:C-12.png]]
+
+The number of proton is sometimes omitted, as it is implied by the element symbol.
+
+=== Isotropes === 
+
+Since the modern scientific classification of atoms is done according to the number of protons, atoms with different number of neutrons are classified as the same element. They are called '''isotropes'''.
+
+[[File:H-isotropes.png]]

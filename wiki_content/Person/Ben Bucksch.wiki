@@ -1,0 +1,5 @@
+{{Person}}
+
+== Overview ==
+
+Software developer; author of the Thunderbird Autoconfiguration specification

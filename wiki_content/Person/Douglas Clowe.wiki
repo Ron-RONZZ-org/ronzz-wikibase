@@ -1,0 +1,5 @@
+{{Person}}
+
+== Overview ==
+
+American astrophysicist who led the 2006 weak-lensing study of the Bullet Cluster providing direct evidence for dark matter

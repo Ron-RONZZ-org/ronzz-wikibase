@@ -1,0 +1,5 @@
+{{Webpage}}
+
+== Overview ==
+
+Radius and Density of Atomic Nucleus. Nuclear density is the density of the nucleus of an atom, and it is the ratio of mass per unit volume inside the nucleus. Since the atomic nucleus carries most of the atom’s mass and the atomic nucleus is very small compared to the entire atom, the nuclear density is very high.

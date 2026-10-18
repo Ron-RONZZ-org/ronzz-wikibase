@@ -1,0 +1,35 @@
+'''Rolle’s theorem''' states:
+
+If function $f:\mathbb{R} \to \mathbb{R}$ satisfies
+
+# $f$ is continuous on $[a,b]$,
+# $f$ is differentiable on $(a,b)$,
+# $f(a)=f(b)$,
+
+$$
+\exists c\in(a,b), \dot{f}(c)=0.
+$$
+
+== Proof in $\mathbb{R}$ ==
+
+If $f=C, C \in \mathbb{R}$:
+
+$$
+\forall c \in (a,b), \dot{f}(c)=0,
+$$
+
+Else:
+
+Let $L=f(a), f(b)$,
+
+$$
+\exists \{c_k\} \in (a,b): f(c) \neq L
+$$
+
+Since $f$ is continuous on $[a,b]$
+
+$$
+\exists c_1 \in \{c_k\}:f(c_1)=f_{\max}[a,b] \lor f_{\min}[a,b]
+$$
+
+By [[Fermat's theorem in calculus]], $\dot f(c_1)=0$

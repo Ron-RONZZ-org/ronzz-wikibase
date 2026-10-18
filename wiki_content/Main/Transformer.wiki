@@ -1,0 +1,13 @@
+A Transformer is, at the time of writing(2026-08), the most popular architecture for building [[LLM|Large Language Models]].
+
+== Intuition ==
+
+Rongzhou's ''[[User:Rongzhou/Transformer-Intuition|Transformer is a super charged next word prediction algorithm]]'' provides a short intuition for Transformers.
+
+Interestingly, as [[User:Rongzhou/BehindScenes/Transformer-Intuition|the author explains himself]], the story doubles as a live demonstration of Transformers, as parts of the story were co-authored by a Transformer model.
+
+== Mathematical expression ==
+
+== History ==
+
+== See also ==

@@ -1,0 +1,464 @@
+{{Cheatsheet}}
+
+
+Markdown is plain text with a few magic markers that can be rendered into HTML-formatted text. 
+
+New to Markdown? [https://commonmark.org/help/tutorial/ CommonMark interactive tutorial] may interest you.
+
+<blockquote>
+This page is a syntax reference for '''CommonMark''', the standard. GitHub Flavored
+Markdown (GFM) extensions are covered in the [[#GFM extensions|GFM extensions]]
+section.
+</blockquote>
+
+== Basic example: Pancake recipe ==
+
+{| class="wikitable"
+! Markdown source !! Compiled to HTML !! Rendered in the browser
+|-
+|
+<syntaxhighlight lang="markdown" copy>
+# Pancakes
+
+A quick pancake recipe for two.
+
+## Ingredients
+
+- 150 g flour
+- 250 ml milk
+
+## Steps
+
+1. Mix the flour and milk.
+2. Cook the batter in a pan.
+</syntaxhighlight>
+||
+<syntaxhighlight lang="html" copy>
+<h1>Pancakes</h1>
+<p>A quick pancake recipe for two.</p>
+<h2>Ingredients</h2>
+<ul>
+<li>150 g flour</li>
+<li>250 ml milk</li>
+</ul>
+<h2>Steps</h2>
+<ol type="1">
+<li>Mix the flour and milk.</li>
+<li>Cook the batter in a pan.</li>
+</ol>
+</syntaxhighlight>
+||
+<blockquote>
+<p style="font-size:2em;font-weight:bold;">Pancakes</p>
+<p>A quick pancake recipe for two.</p>
+<p style="font-size:1.5em;font-weight:bold;">Ingredients</p>
+<ul>
+<li>150 g flour</li>
+<li>250 ml milk</li>
+</ul>
+<p style="font-size:1.5em;font-weight:bold;">Steps</p>
+<ol>
+<li>Mix the flour and milk.</li>
+<li>Cook the batter in a pan.</li>
+</ol>
+</blockquote>
+|}
+
+== Paragraphs and line breaks ==
+
+* '''Two paragraphs must be separated by a blank line.'''
+* A single newline becomes a space when rendered.
+* For a '''hard linebreak''' within a paragraph, use <syntaxhighlight lang="text" inline>\</syntaxhighlight>
+
+{| class="wikitable"
+
+|
+<syntaxhighlight lang="markdown" copy>
+line one
+line two
+</syntaxhighlight>
+
+Rendered:
+<blockquote>line one line two</blockquote>
+||
+<syntaxhighlight lang="markdown" copy>
+line one\
+line two
+</syntaxhighlight>
+
+Rendered:
+<blockquote>line one<br/>line two</blockquote>
+|}
+
+== Headings ==
+
+One to six <syntaxhighlight lang="markdown" inline>#</syntaxhighlight> markers set the level.
+
+{| class="wikitable"
+! Source !! Level
+|-
+| <syntaxhighlight lang="markdown" inline># Pancakes</syntaxhighlight> || h1
+|-
+| <syntaxhighlight lang="markdown" inline>## Ingredients</syntaxhighlight> || h2
+|-
+| ...||...
+|-
+| <syntaxhighlight lang="markdown" inline>###### Note</syntaxhighlight> || h6
+|}
+
+<blockquote>
+'''A space between the last marker and the text is required:'''
+
+{| class="wikitable"
+! Wrong (no space) !! Right
+|-
+|
+<syntaxhighlight lang="markdown" copy>
+#Pancakes
+</syntaxhighlight>
+
+Rendered: the line stays a paragraph and the <syntaxhighlight lang="text" inline>#</syntaxhighlight> is literal:
+<blockquote>#Pancakes</blockquote>
+||
+<syntaxhighlight lang="markdown" copy>
+# Pancakes
+</syntaxhighlight>
+
+Rendered: a level-1 heading:
+<blockquote>
+<p style="font-size:2em;font-weight:bold;">Pancakes</p>
+</blockquote>
+|}
+</blockquote>
+
+== Emphasis ==
+
+{| class="wikitable"
+! Source !! Rendered
+|-
+| <syntaxhighlight lang="markdown" inline>*italic*</syntaxhighlight> or <syntaxhighlight lang="markdown" inline>_italic_</syntaxhighlight> || <em>italic</em>
+|-
+| <syntaxhighlight lang="markdown" inline>**bold**</syntaxhighlight> or <syntaxhighlight lang="markdown" inline>__bold__</syntaxhighlight> || <strong>bold</strong>
+|-
+| <syntaxhighlight lang="markdown" inline>***both***</syntaxhighlight> || <em><strong>both</strong></em>
+|}
+
+<blockquote>
+'''Emphasis needs word boundaries''' — underscores inside a word are literal, not emphasis:
+
+{| class="wikitable"
+! Source !! Rendered
+|-
+| <syntaxhighlight lang="markdown" copy>foo_bar_baz</syntaxhighlight> || foo_bar_baz (literal, no emphasis)
+|-
+| <syntaxhighlight lang="markdown" copy>*foo bar* baz</syntaxhighlight> || <em>foo bar</em> baz
+|}
+</blockquote>
+
+== Links and images ==
+
+{| class="wikitable"
+! Source !! Rendered
+|-
+| <syntaxhighlight lang="markdown" inline>[CommonMark](https://commonmark.org)</syntaxhighlight> || [https://commonmark.org CommonMark]
+|-
+| <syntaxhighlight lang="markdown" inline>![alt text](image.png)</syntaxhighlight> || [[File:Example.png|alt=alt text|150px]]
+|}
+
+Alternatively to classic links like <syntaxhighlight lang="markdown" inline>[CommonMark](https://commonmark.org)</syntaxhighlight>, you can also use reference-style links, which allow you to refer to the target link with an arbitrary placeholder then declare the equivalence of the placeholder to your target link at the end of the file. This allows you to reuse a link in multiple places without repeating it.
+
+{| class="wikitable"
+! Source !! Rendered
+|-
+| <syntaxhighlight lang="markdown" copy>
+[CommonMark][cm]
+
+... 
+
+[cm]: https://commonmark.org</syntaxhighlight> || [https://commonmark.org CommonMark]
+|}
+
+== Lists ==
+
+=== Unordered ===
+
+The markers <syntaxhighlight lang="markdown" inline>-</syntaxhighlight>, <syntaxhighlight lang="markdown" inline>*</syntaxhighlight> and <syntaxhighlight lang="markdown" inline>+</syntaxhighlight> are interchangeable — the same list, three ways:
+
+{| class="wikitable"
+|
+<syntaxhighlight lang="markdown" copy>
+- fruit
+- veg
+</syntaxhighlight>
+||
+<syntaxhighlight lang="markdown" copy>
+* fruit
+* veg
+</syntaxhighlight>
+||
+<syntaxhighlight lang="markdown" copy>
++ fruit
++ veg
+</syntaxhighlight>
+|}
+
+All three render identically:
+
+<blockquote>
+<ul>
+<li>fruit</li>
+<li>veg</li>
+</ul>
+</blockquote>
+
+For a nested list, indent:
+
+<syntaxhighlight lang="markdown" copy>
+- fruit
+  - apple
+  - pear
+- veg
+</syntaxhighlight>
+
+Rendered:
+
+<blockquote>
+<ul>
+<li>fruit
+<ul>
+<li>apple</li>
+<li>pear</li>
+</ul></li>
+<li>veg</li>
+</ul>
+</blockquote>
+
+'''Note:'''
+
+<blockquote>
+Each indentation level can be either <code>\s\s</code> (2 spaces), <code>\s\s\s\s</code>(4 spaces), or <code>\t</code> (1 tab), depending 
+on the configuration of your markdown renderer. In the majority of cases, 2 spaces work. Verify the docs of your markdown renderer.
+</blockquote>
+
+=== Ordered ===
+
+Numbering starts from the first item's number, whatever you write afterwards:
+
+{| class="wikitable"
+|
+<syntaxhighlight lang="markdown" copy>
+3. Mix the flour and milk.
+4. Cook the batter in a pan.
+</syntaxhighlight>
+||
+<syntaxhighlight lang="markdown" copy>
+3. Mix the flour and milk.
+5. Cook the batter in a pan.
+</syntaxhighlight>
+||
+<syntaxhighlight lang="markdown" copy>
+3. Mix the flour and milk.
+800. Cook the batter in a pan.
+</syntaxhighlight>
+|}
+
+All three render identically — the numbers after the first are ignored:
+
+<blockquote>
+<ol start="3">
+<li>Mix the flour and milk.</li>
+<li>Cook the batter in a pan.</li>
+</ol>
+</blockquote>
+
+<blockquote>
+'''Do not leave a blank line between items''': They will be rendered to give a loose feeling:
+
+{| class="wikitable"
+|
+<syntaxhighlight lang="markdown" copy>
+1. fruit
+1. veg
+</syntaxhighlight>
+
+Rendered:
+<blockquote>
+<ol>
+<li>fruit</li>
+<li>veg</li>
+</ol>
+</blockquote>
+||
+<syntaxhighlight lang="markdown" copy>
+1. fruit
+
+1. veg
+</syntaxhighlight>
+
+Rendered:
+<blockquote>
+<ol>
+<li><p>fruit</p></li>
+<li><p>veg</p></li>
+</ol>
+</blockquote>
+|}
+</blockquote>
+
+== Code ==
+
+'''Inline code''' — backticks; when the code itself contains a backtick, use two backticks:
+
+{| class="wikitable"
+! Source !! Rendered
+|-
+| <syntaxhighlight lang="text" inline>`pip install markdown`</syntaxhighlight> || <syntaxhighlight lang="text" inline>pip install markdown</syntaxhighlight>
+|-
+| <syntaxhighlight lang="text" inline>`` `expr` ``</syntaxhighlight> || <syntaxhighlight lang="text" inline>`expr`</syntaxhighlight>
+|}
+
+'''Fenced blocks''' — three backticks; the word after the opening fence enables syntax highlighting:
+
+<syntaxhighlight lang="text" copy>
+```python
+print("hi")
+```
+</syntaxhighlight>
+
+Rendered:
+
+<syntaxhighlight lang="python" copy>
+print("hi")
+</syntaxhighlight>
+
+<blockquote>
+'''Legacy syntax-indented code blocks:''' Four leading spaces also produce a
+code block, without highlighting:
+
+<syntaxhighlight lang="markdown" copy>
+    print("hi")
+</syntaxhighlight>
+
+Rendered:
+
+<syntaxhighlight lang="text" copy>
+print("hi")
+</syntaxhighlight>
+
+This form is '''not recommended''' — it is easy to break (a blank line ends
+it, and the indentation must change inside lists). Since this used to be the standard for early versions of commonMark, you may still see it in older documents.
+</blockquote>
+
+== Blockquotes ==
+
+Start with <syntaxhighlight lang="markdown" inline>></syntaxhighlight> for a blockquote.
+If you would like to include blank lines within the blockquote, type a line with a single<syntaxhighlight lang="markdown" inline>></syntaxhighlight>:
+
+<syntaxhighlight lang="markdown" copy>
+> quoted line
+>
+> second quoted line
+</syntaxhighlight>
+
+Rendered:
+
+<blockquote>
+quoted line
+
+second quoted line
+</blockquote>
+
+'''Nested quotes''' — <syntaxhighlight lang="markdown" inline>>></syntaxhighlight>:
+
+<syntaxhighlight lang="markdown" copy>
+> outer
+>
+> > inner
+</syntaxhighlight>
+
+Rendered:
+
+<blockquote>
+outer
+
+<blockquote>
+inner
+</blockquote>
+</blockquote>
+
+== GFM extensions ==
+
+GitHub Flavored Markdown (GFM) used on
+GitHub and increasingly elsewhere, extends commonMark syntax with the following additions:
+
+'''Strikethrough''' — two tildes:
+
+{| class="wikitable"
+! Source !! Rendered
+|-
+| <syntaxhighlight lang="markdown" inline>~~struck~~</syntaxhighlight> || <del>struck</del>
+|}
+
+'''Tables''' 
+
+<syntaxhighlight lang="markdown" copy>
+| Left | Center | Right |
+|:-----|:------:|------:|
+| a    | b      | c     |
+</syntaxhighlight>
+
+When rendered, the first column is left-aligned (<syntaxhighlight lang="text" inline>:-----</syntaxhighlight>), the second center-aligned (<syntaxhighlight lang="text" inline>:-----:</syntaxhighlight>) and the third
+right-aligned (<syntaxhighlight lang="text" inline>-----:</syntaxhighlight>):
+
+<blockquote>
+<table>
+<tr><th style="text-align: left;">Left</th><th style="text-align: center;">Center</th><th style="text-align: right;">Right</th></tr>
+<tr><td style="text-align: left;">a</td><td style="text-align: center;">b</td><td style="text-align: right;">c</td></tr>
+</table>
+</blockquote>
+
+'''Task lists'''
+<syntaxhighlight lang="markdown" copy>
+- [x] mix the batter
+- [ ] cook the pancakes
+</syntaxhighlight>
+
+Rendered:
+
+<blockquote>
+☑ mix the batter<br/>
+☐ cook the pancakes
+</blockquote>
+
+== Escaping ==
+
+A backslash makes the next character literal:
+
+{| class="wikitable"
+! Source !! Rendered
+|-
+| <syntaxhighlight lang="markdown" inline>\*not italic\*</syntaxhighlight> || *not italic*
+|-
+| <syntaxhighlight lang="markdown" inline>\# not a heading</syntaxhighlight> || # not a heading
+|}
+
+Also, '''Markdown inside an HTML block is not parsed''' — raw HTML passes through untouched.
+
+<syntaxhighlight lang="markdown" copy>
+<div>
+*bold?* no, raw
+</div>
+</syntaxhighlight>
+
+renders the <syntaxhighlight lang="markdown" inline>*bold?*</syntaxhighlight> literally:
+
+<syntaxhighlight lang="markdown" copy>
+*bold?* yes
+</syntaxhighlight>
+
+== Further reading ==
+
+* [https://spec.commonmark.org/0.30/ CommonMark spec] — the official standard
+* [https://commonmark.org/help/tutorial/ CommonMark interactive tutorial] — the recommended tutorial
+* [https://github.github.com/gfm/ GFM spec] — tables, task lists, strikethrough
+* [https://www.markdownguide.org/ Markdown Guide] — a friendly reference

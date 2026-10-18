@@ -1,0 +1,9 @@
+{{Person}}
+
+== Biography ==
+
+<!-- Life, work, legacy. -->
+
+== Works ==
+
+== See also ==

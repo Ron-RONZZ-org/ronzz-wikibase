@@ -1,0 +1,5 @@
+{{Person}}
+
+== Overview ==
+
+American astronomer who collaborated with Vera Rubin at the Carnegie Institution's Department of Terrestrial Magnetism on measurements of spiral galaxy rotation curves

@@ -1,0 +1,29 @@
+For an object (S), its '''centre of gravity''' $G_g$ is at:
+
+{{#content:Q2041}}
+
+=== Uniform gravitational field ===
+
+In a uniform gravitational field,
+
+$$
+\begin{cases}
+\overrightarrow{OC_g}\times \int_S \vec g(M)\,dm=\int_S \overrightarrow{OM}\times \vec g(M)\,dm \\
+\vec g(M) = \vec g
+\end{cases} \\
+\therefore \overrightarrow{OC_g}\times \vec g \int_S\,dm=\int_S \overrightarrow{OM} \,dm\times \vec g \\
+\overrightarrow{OC_g}\int_S\,dm\times \vec g =\int_S \overrightarrow{OM} \,dm\times \vec g \\
+\overrightarrow{OC_g}\int_S\,dm=\int_S \overrightarrow{OM} \,dm\\
+$$
+
+Recall for the centre of inertia $C$ we have:
+
+{{#content:Q2039}}
+
+Therefore,
+
+$$
+C_g=C
+$$
+
+i.e., the centre of gravity and inertia coincides.

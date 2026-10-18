@@ -1,0 +1,275 @@
+A '''matrix''' (plural: '''matrices''') is a 2-dimensional ordered list of numbers:
+
+$$
+\mathbf{M}_{m \times n} =
+\begin{bmatrix}
+a_{11} & a_{12} & \cdots & a_{1n} \\
+a_{21} & a_{22} & \cdots & a_{2n} \\
+\vdots & \vdots & \ddots & \vdots \\
+a_{m1} & a_{m2} & \cdots & a_{mn}
+\end{bmatrix},
+$$
+where element $a_{ij}$ is in row $i$, column $j$.
+
+It can be therefore written:
+
+$$
+\mathbf{M}_{m \times n} = (a_{ij}),i \in \{1,\dots,m\}, j \in \{1,\dots,n\} 
+$$
+
+== Formal definition ==
+
+Any function satisfying
+
+$$
+\mathbf{M} : \{1,\dots,m\} \times \{1,\dots,n\} \to \mathbb{F}
+$$
+
+is a matrix of '''dimension''' $m \times n$ over [[field (mathematical concept)|field]] $\mathbb{F}$.
+
+== Dimension ==
+
+If a matrix $\mathbb{M}_{m \times n}$ has $m$ rows and $n$ columns, its '''dimension''' is $m \times n$.
+
+Special cases:
+
+{| class="wikitable"
+|-
+! 
+! Known as
+|-
+| $m=n$
+| '''Square matrix'''
+|-
+| $m=1$
+| '''Row vector'''
+|-
+| $n=1$
+| '''Column vector'''
+|}
+
+== [[Binary operation]]s ==
+
+=== Single matrix operations ===
+
+For matrice $\mathbf{A}=(a_{ij}) \in \mathbb{F}$:
+
+{| class="wikitable"
+|-
+! Name
+! Operation
+|-
+| '''scalar multiplication'''
+| $c\mathbf{A} = (c\,a_{ij})$
+|-
+| '''transposition'''
+| $\mathbf{A}^T = (a_{ji})$
+|}
+
+=== Two matrices operations ===
+
+==== Matrix addition/subtraction ====
+
+It is defined for two matrices of '''identical sizes''' $\mathbf{A}_{m \times n}=(a_{ij}), \mathbf{B}_{m \times n}=(b_{ij})\in \mathbb{F}$:
+
+$$
+(\mathbf{A} \pm \mathbf{B})= (a_{ij} \pm b_{ij})
+$$
+
+==== Matrix multiplication ====
+
+It is defined for two matrices of '''compatible sizes''' $\mathbf{A}_{m \times n}=(a_{ij}), \mathbf{B}_{n \times p}=(b_{ij})\in \mathbb{F}$:
+
+$$
+\forall i \in \{1,\dots,m\}, j \in \{1,\dots,p\} \\
+(\mathbf{A}\mathbf{B})_{ij} = \sum_{k=1}^{n} a_{ik} b_{kj}.
+$$
+
+<blockquote>
+Notice that $\mathbf{AB}$ is a $m \times p$ matrix over $\mathbb{F}$
+</blockquote>
+
+== Identity matrix ==
+
+If '''square matrix''' $\mathbf{I}=(a_{ij})$ of dimension $m \times m$ satisfies
+
+$$
+\begin{cases}
+i=j: a_{ij}=1 \\
+i \neq j: a_{ij}=0
+\end{cases}
+$$
+
+then it is an '''identity matrix''' of dimension $m$, denoted $\mathbf{I}_m$.
+
+From the definition of [[#Matrix multiplication]], it can be inferred that
+
+$$
+\mathbf{A}_{m \times n}\mathbf{I}_n = \mathbf{A}_{m \times n} = \mathbf{I}_m\mathbf{A}_{m \times n}
+$$
+
+== Determinant ==
+
+The determinant of matrix $\mathbf{A}=(a_{i,j})$ of dimension $n\times n$ is:
+
+$$
+\det(\mathbf{A})=\sum_{\sigma\in \mathcal{S}_n}\operatorname{sign}(\sigma)\prod_{i=1}^n a_{i,\sigma(i)},
+$$
+
+where $\mathcal{S}_n$ is the [[Permutation#Symmetric_groups|symmetric group of degree n]] and $\operatorname{sign}(\sigma)$ the [[Permutation#Sign_function|sign function]].
+
+{{Hidden example}}
+To calculate the determinant of
+
+$$
+\mathbf{A}=\begin{pmatrix}
+1&2&3\\
+4&5&6\\
+7&8&9
+\end{pmatrix}
+$$
+
+{| class="wikitable center"
+! Permutation !! Sign !! Term
+|-
+| $1,2,3$ || $+1$ || $a_{11}a_{22}a_{33}$
+|-
+| $1,3,2$ || $-1$ || $a_{11}a_{23}a_{32}$
+|-
+| $2,1,3$ || $-1$ || $a_{12}a_{21}a_{33}$
+|-
+| $2,3,1$ || $+1$ || $a_{12}a_{23}a_{31}$
+|-
+| $3,1,2$ || $+1$ || $a_{13}a_{21}a_{32}$
+|-
+| $3,2,1$ || $-1$ || $a_{13}a_{22}a_{31}$
+|}
+
+$$
+\begin{aligned}
+\det(\mathbf{A})
+&=\sum_{\sigma\in \mathcal{S}_n}\operatorname{sign}(\sigma)\prod_{i=1}^n a_{i,\sigma(i)} \\
+&= a_{11}a_{22}a_{33} \\
+&\quad - a_{11}a_{23}a_{32} \\
+&\quad - a_{12}a_{21}a_{33} \\
+&\quad + a_{12}a_{23}a_{31} \\
+&\quad + a_{13}a_{21}a_{32} \\
+&\quad - a_{13}a_{22}a_{31} \\
+&= 0.
+\end{aligned}
+$$
+{{End hidden}}
+
+=== Properties ===
+
+==== Multilinearity ====
+
+The determinant is linear in each row:
+
+Let the rows of $\mathbf{A}$ be $\vec r_1,\dots,\vec r_n$. 
+
+For $1\le i\le n$ and $\vec w\in\mathbb{F}^n$, let $\mathbf{A}_i(\vec w)$ denote the matrix obtained from $\mathbf{A}$ by replacing row $i$ with $\vec w$. 
+
+If row $i$ is replaced by $\alpha\vec u+\beta\vec v$, then
+
+$$
+\det(\mathbf{A}_i(\alpha\vec u+\beta\vec v))
+=
+\alpha\det(\mathbf{A}_i(\vec u))
++
+\beta\det(\mathbf{A}_i(\vec v)).
+$$
+
+{{Hidden proof}}
+Let $\vec u=(u_1,\dots,u_n)$ and $\vec v=(v_1,\dots,v_n)$, $\mathbf{A}_i(\alpha\vec u+\beta\vec v)=(a'_{ij})$
+
+$$
+\Rightarrow a'_{k,j}=
+\begin{cases}
+k=i &: \alpha u_j+\beta v_j,\\[4pt]
+k\ne i &: a_{k,j}.
+\end{cases}\\ \\
+\det(\mathbf{A}_i(\alpha\vec u+\beta\vec v)) \\
+=
+\sum_{\sigma\in \mathcal{S}_n}\operatorname{sign}(\sigma)\prod_{i=1}^n a'_{i,\sigma(i)} \\
+=
+\sum_{\sigma\in\mathcal{S}_n}\operatorname{sign}(\sigma)
+\left(\prod_{k\ne i}a_{k,\sigma(k)}\right)
+(\alpha u_{\sigma(i)}+\beta v_{\sigma(i)})\\
+=\alpha\sum_{\sigma\in\mathcal{S}_n}\operatorname{sign}(\sigma)
+\left(\prod_{k\ne i}a_{k,\sigma(k)}\right)u_{\sigma(i)}+
+\beta\sum_{\sigma\in\mathcal{S}_n}\operatorname{sign}(\sigma)
+\left(\prod_{k\ne i}a_{k,\sigma(k)}\right)v_{\sigma(i)}\\
+=
+\alpha\det(\mathbf{A}_i(\vec u))
++
+\beta\det(\mathbf{A}_i(\vec v)).
+$$
+{{End hidden}}
+
+== Matrix operations in python ==
+
+=== Initialisation ===
+
+<syntaxhighlight lang=python copy>
+import numpy as np # import dependencies: always the 1st step!
+</syntaxhighlight>
+
+The matrices are to be inputted as 2D numpy arrays, so:
+
+$$
+\forall a_{ij} \in \mathbf{A}, \text{a[i][j]}=a_{ij}
+$$
+
+For example, to initialise the identity matrice $\mathbf{I}_3$:
+
+$$
+I=\begin{pmatrix}1&0&0\\0&1&0\\0&0&1\end{pmatrix}
+$$
+
+<syntaxhighlight lang=python copy>
+I=np.array([[1,0,0],[0,1,0],[0,0,1]])
+</syntaxhighlight>
+
+For two matrices $\mathbf{A},\mathbf{B}$ initialised as 2D arrays:
+
+=== Single matrix operations ===
+
+==== Transposition, determinant, comatrix, inverse ====
+
+<syntaxhighlight lang=python copy>
+A_T=A.T # Transpose A: -> 2D nparray: since A is an nparray, nupmy understands what you mean!
+det_A=np.linalg.det(A): -> float
+inverse_A=np.linalg.inv(A): -> 2D nparray
+</syntaxhighlight>
+
+==== Element-wise,column-wise, and row-wise sum ====
+
+<syntaxhighlight lang=python copy>
+sum_A=np.sum(A) # -> float: element-wise sum of A
+column_wise_sum=np.sum(A, axis=0): -> 1D nparray
+row_wise_sum=np.sum(A, axis=1): -> 1D nparray
+</syntaxhighlight>
+
+=== Two matrices operations ===
+
+==== Element-wise operations ====
+
+<syntaxhighlight lang=python copy>
+sum_A_B=np.add(A,B) # A+B
+difference_A_B=np.subtract(A,B) # A-B
+element_wise_product_A_B=np.multiply(A,B) # A \circ B
+quotient_A_B=np.divide(A,B) # A/B
+</syntaxhighlight>
+
+<blockquote>
+Be extremely careful with <code>np.multiply</code>, which gives the '''element-wise product''', NOT the matrix product.
+</blockquote>
+
+==== Matrix operations ====
+
+<syntaxhighlight lang=python copy>
+product_A_B=np.dot(A,B) # A.B
+</syntaxhighlight>
+
+<ref>{{#cite:Q2182}}</ref>

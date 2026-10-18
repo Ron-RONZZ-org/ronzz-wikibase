@@ -1,0 +1,395 @@
+{{HowItWorks}}
+
+'''Thunderbird''' is a free and open-source, cross-platform personal information manager, regrouping email, calendar, contacts, RSS feeds, chat and newsgroups in one application.
+
+== Thunderbird? ==
+
+Thunderbird stands out as a personal information manager with three promises:<ref>{{#cite:Q1486}}</ref>
+
+* '''Privacy''' — "You are not the product." Thunderbird does not collect or sell user data, and users retain ownership of it.
+* '''Freedom''' — Thunderbird is free and open-source software; its license, the Mozilla Public License 2.0, "ensures that it will remain free forever".
+* '''Voice''' — anyone can get involved, and a contributor-elected council keeps Thunderbird "true to its values and mission".
+
+Thunderbird runs on Windows, macOS and Linux.<ref>{{#cite:Q1489}}</ref>
+
+== A short history ==
+
+The history of Thunderbird is marked by four eventful time periods:
+
+=== 9 pre-releases and the 1.0 milestone (2003–2004) ===
+
+The Thunderbird project was founded in 2003 by Mozilla Foundation under the leadership of [[Person:Scott MacGregor|Scott MacGregor]], with the stated goal "to make communicating and collaborating better".<ref>{{#cite:Q1486}}</ref>
+
+The software went through 9 pre-releases (version 0.1-0.9), before reaching the 1.0 milestone at the end of 2004.<ref>{{#cite:Q1497}}</ref>
+
+According to the Mozilla foundation, a few key selling points makes Thunderbird 1.0 stand apart from contemporary alternatives:<ref>{{#cite:Q1489}}</ref>
+
+* '''Cross-platform availability''': Thunderbird 1.0 works right out-of-box for Windows, Mac OS X and Linux;
+* '''Adaptive junk mail controls''': With a dynamic Bayesian filter learning from user action (marking and unmarking emails as spam), the more Thunderbird 1.0 is used, the more accurate its spam filtering becomes;
+* '''High customisability''': With built-in support for custom themes and extensions, user can personalise Thunderbird 1.0 to their taste and even add new functionalities;
+* '''Easy migration''': Sanctioned, guided built-in migration from Outlook, Eudora, and Netscape Communicator, the most popular commercial email clients at the time.
+
+=== Transition to community stewardship (2012–2015) ===
+
+On July 6, 2012, Mozilla chairman [[Person:Mitchell Baker|Mitchell Baker]] announced a new direction: Mozilla's leadership had concluded that "on-going stability is the most important thing" for Thunderbird and that "continued innovation in Thunderbird is not a priority for Mozilla's product efforts".<ref>{{#cite:Q1488}}</ref> Mozilla would provide security updates through an Extended Support Release process, and the community could organize for ongoing development.<ref>{{#cite:Q1488}}</ref>
+
+The Thunderbird project later called the decision "both a blessing and curse": the community kept the project alive and contributed many features, but a volunteer-driven effort without a proper organization accumulated an inconsistent interface and mounting technical debt.<ref>{{#cite:Q1491}}</ref>
+
+In 2014, contributors established the '''Thunderbird Council''', an elected body "functioning much like a board of directors for an open-source project": it oversees funds, approves budgets and shapes the product roadmap.<ref>{{#cite:Q1486}}</ref>
+
+In June 2015, Thunderbird 38, released under the stewardship of the newly-elected Thunderbird Council, started shipping the calendar Lightning extension by default.<ref>{{#cite:Q1498}}</ref>
+
+=== Migration away from Mozilla infrastructure and creation of MZLA Technologies Corporation (2015–2020) ===
+
+In late 2015, Mitchell Baker reopened a discussion about Thunderbird's future. According to him, Mozilla is happy to "disentangle the technical infrastructure" and assist the Thunderbird community, with the Mozilla Foundation serving as fiscal sponsor for donations.<ref>{{#cite:Q1492}}</ref>
+
+In 2017, on the advice of a report by Simon Phipps, former president of the OSI, commissioned by Mozilla, the Thunderbird Council announced that the Mozilla Foundation would remain the project's legal and fiscal home, but Thunderbird would migrate off Mozilla Corporation infrastructure and operate independently to continue serving its "over 25 million users" worldwide.<ref>{{#cite:Q1492}}</ref>
+
+In 2020, the project was transferred to '''MZLA Technologies Corporation''', a new for-profit subsidiary fully-owned by the Mozilla Foundation. Cited reasons include easier recruitment, simpler governance, and possibilities to open commercial partnerships and offer paid services.<ref>{{#cite:Q1487}}</ref> Essentially, the controversial move was justified as a necessary evil to ensure that Thunderbird remains financially sustainable as an open-source project.
+
+=== Supernova rebuild, official Android support, and monthly releases (2023–2026) ===
+
+In February 2023, the Thunderbird project announced plans for a ground-up rework with three objectives:<ref>{{#cite:Q1491}}</ref>  
+
+1. make the code base leaner and remove technical debt;
+2. rebuild the interface from scratch;
+3. switch to a monthly release schedule.
+
+Five months later, in July 2023, Thunderbird 115 "Supernova" shipped. Introducing a card view for the message list, a dynamic unified toolbar, a redesigned application menu, sortable folder modes, a tags view, and improving keyboard and screen-reader accessibility,<ref>{{#cite:Q1490}}</ref> it is "a modernized overhaul of the software, both visually and technically".<ref>{{#cite:Q1490}}</ref> according to its release notice. [[Person:Ryan Sipes|Ryan Sipes]], Thunderbird's Product and Business Development Manager, said the release marked "the beginning of a new era for Thunderbird".<ref>{{#cite:Q1490}}</ref>
+
+In October 2024, Thunderbird Android, developed from K-9 Mail, made its first stable release, further fulfilling the cross-platform promise of Thunderbird.<ref>{{#cite:Q1493}}</ref> As of September 2026, iOS is the only major operating system not yet officially supported by Thunderbird.
+
+Today (2026-09), Thunderbird's release schedule has become extremely regular: one new major version every 4 weeks, and one Extended Support Release per year, typically in July.<ref>{{#cite:Q1495}}</ref> Development of Thunderbird for iOS, described in the July 2026 progress report as the project's "first built from scratch" app, continues actively.<ref>{{#cite:Q1499}}</ref>
+
+== Components and interactions ==
+
+Written in C++, JavaScript, CSS and XHTML,<ref>{{#cite:Q1491}}</ref> Thunderbird is built on the Mozilla platform. As the team describes it: "Thunderbird is literally a bunch of code running on top of Firefox. All the tabs and sections you see in our applications are just browser tabs with a custom user interface."<ref>{{#cite:Q1491}}</ref> The Mozilla platform supplies multi-OS support, the Gecko web renderer, the SpiderMonkey JavaScript engine, as well as security patches and extension support from the Firefox release cycle.<ref>{{#cite:Q1491}}</ref> 
+
+<uml>
+
+@startuml
+!theme bluegray
+title Thunderbird Components and Interactions
+
+' ============= USER INTERFACE =============
+node "Thunderbird UI (mail/ frontend)" {
+  component "Mail window\n(folder pane, message list,\nmessage view)" as MAILWIN
+  component "Compose window" as COMPOSE
+  component "Address book UI" as ABUI
+  component "Calendar UI" as CALUI
+  component "Chat UI" as CHATUI
+}
+
+' ============= APPLICATION LAYER =============
+node "Application layer" {
+  component "mail/ modules & components\n(account setup, cloudfile,\npreferences, MailExtension APIs)" as APPMOD
+  component "Address book backend\n(mailnews/addrbook)" as ABBACK
+}
+
+' ============= ADD-ONS (optional) =============
+node "Add-ons" {
+  component "MailExtensions\n(WebExtensions + Experiments)" as EXT
+}
+
+' ============= PLATFORM LAYER =============
+node "Platform (Firefox / Mozilla platform)" {
+  component "Gecko\n(HTML/CSS rendering)" as GECKO
+  component "SpiderMonkey\n(JavaScript engine)" as SM
+  component "Necko\n(networking)" as NECKO
+}
+
+' ============= BACKEND =============
+node "Backend" {
+  component "mailnews/\n(IMAP, POP3, SMTP,\nNNTP, RSS, message store)" as MAILNEWS
+  component "calendar/\n(CalDAV, iCalendar, iTIP)" as CALBACK
+  component "chat/\n(IRC, XMPP, Matrix)" as CHATPROTO
+}
+
+' ============= STORAGE (inside the profile) =============
+database "Mail folders\n(mbox + index files)" as MBOX
+database "SQLite databases\n(address books abook.sqlite,\ncalendar local.sqlite,\nmessage index global-messages-db.sqlite)" as SQLITE
+
+' ============= EXTERNAL SERVICES =============
+node "External services" {
+  database "Mail servers\n(IMAP / POP3 / SMTP)" as MAILSVR
+  database "Calendar servers\n(CalDAV / WebDAV)" as CALDAVSVR
+  database "Chat servers\n(IRC / XMPP / Matrix)" as CHATSVR
+  database "ISPDB\n(account auto-configuration)" as ISPDB
+  database "addons.thunderbird.net" as AMO
+}
+
+' ============= FLOWS =============
+MAILWIN --> APPMOD : window chrome & logic
+COMPOSE --> APPMOD
+ABUI --> ABBACK : manage contacts
+CALUI --> CALBACK : events & tasks
+CHATUI --> CHATPROTO : conversations
+EXT --> APPMOD : use MailExtension APIs
+EXT --> SM : run JS\n(background & content scripts)
+EXT --> GECKO : render add-on UI
+APPMOD --> GECKO : render UI\n(HTML / XUL)
+APPMOD --> SM : run JS modules
+APPMOD --> MAILNEWS : mail operations
+ABBACK --> SQLITE : store / query contacts
+MAILNEWS --> SQLITE : message index (search)
+MAILNEWS --> MBOX : read / write messages
+CALBACK --> SQLITE : store events & tasks
+MAILNEWS --> NECKO : IMAP / POP3 / SMTP / NNTP
+CALBACK --> NECKO : CalDAV / WebDAV
+CHATPROTO --> NECKO : IRC / XMPP / Matrix
+APPMOD --> NECKO : autoconfig & ISPDB lookups
+NECKO --> MAILSVR : sockets & TLS
+NECKO --> CALDAVSVR : HTTP (CalDAV / WebDAV)
+NECKO --> CHATSVR : sockets / HTTP / WebSocket
+NECKO --> ISPDB : HTTP lookup
+NECKO --> AMO : add-on install / update\n(HTTP downloads)
+
+note right of SQLITE
+  SQLite databases live in the
+  profile directory and back the
+  address books, calendar storage
+  and the global message index.
+end note
+note right of MAILNEWS
+  mailnews/ is the shared Mail and
+  Newsgroups backend. It is also
+  used by SeaMonkey.
+end note
+note right of EXT
+  Optional add-ons consumes
+  dedicated MailExtension APIs
+  provided by the application layer.
+end note
+note right of NECKO
+  Necko is the platform networking
+  library: every connection to an
+  external server (mail, calendar,
+  chat, autoconfig, add-on
+  downloads) goes through it.
+end note
+note right of GECKO
+  Thunderbird's UI is rendered by
+  the same engine that renders
+  web pages in Firefox: Gecko
+end note
+
+@enduml
+</uml>
+
+Every connection to an outside server flows through '''Necko''', the Mozilla platform's networking library: the mail protocol implementations open their sockets through Necko's socket transport service, and HTTP-based traffic (CalDAV, autoconfiguration, add-on downloads) uses its HTTP channels.<ref>{{#cite:Q1516}}</ref>
+
+The profile directory holds the mail folders on disk and several SQLite databases: the address book back end keeps its books in SQLite (abook.sqlite),<ref>{{#cite:Q1510}}</ref> the calendar component stores events in local.sqlite,<ref>{{#cite:Q1512}}</ref> and the global message database (global-messages-db.sqlite) powers message indexing and search.<ref>{{#cite:Q1513}}</ref>
+
+=== Source code organisation ===
+
+Thunderbird's source code repository is split into multiple sub-directories by functionality:<ref>{{#cite:Q1494}}</ref>
+
+* '''mail/''' — the Thunderbird-specific frontend: user interface files, shared JavaScript modules, and components such as the account setup wizard, the address book front end, the composition window, the chat front end and the preferences tab.
+* '''mailnews/''' — "source code specific to the Mail and Newsgroups part of Thunderbird and SeaMonkey": the protocol and storage backend.
+* '''calendar/''' — the calendar component, formerly known as the Lightning extension.
+* '''chat/''' — the chat component, with one subdirectory per protocol; related code also lives in <code>mail/components/im</code>.
+* '''build/''', '''testing/''', '''taskcluster/''' and '''third_party/''' — build, test and vendored-code infrastructure.
+
+=== Addons ===
+
+Since Thunderbird 78 (July 2020 release), all add-ons must be built within Thunderbird's MailExtension framework,<ref>{{#cite:Q1501}}</ref> which uses regular WebExtension technology via standard JavaScript, CSS and HTML. They interact with Thunderbird through dedicated extension APIs, which are generally stable across releases and subjected to user confirmation for access.<ref>{{#cite:Q1496}}</ref>
+
+== Thunderbird in action ==
+
+=== Account setup ===
+
+Creating an account is a wizard flow. The user enters their name, email address and password, and Thunderbird tries to look up the correct server settings automatically:<ref>{{#cite:Q1508}}</ref>
+
+<uml>
+
+@startuml
+!theme bluegray
+title Account setup flow
+
+|#LightGray|User|
+start
+:enters name, email address\nand password;
+|#LightBlue|Thunderbird (account setup wizard)|
+:look up server settings\nfor the email domain[1];
+if (settings found?) then (yes)
+  :prefill IMAP/POP3 and SMTP\nserver settings;
+else (no)
+  :fall back to guessing common\nserver names, then manual entry;
+endif
+:test the connection\n(login check);
+if (successful?) then (yes)
+  :create the account,\nstart fetching mail;
+else (no)
+  :show error, let the user adjust;
+endif
+stop
+
+@enduml
+</uml>
+
+<blockquote>
+[1]: Concretely, the lookup uses a best-effort cascade chain:<ref>{{#cite:Q1508}}</ref>
+
+1. search for a local configuration file in the installation directory (<code>&lt;install-dir&gt;/isp/&lt;domain&gt;.xml</code>), mainly for enterprise deployments;
+2. query the provider's own configuration server, e.g. <code><nowiki>https://autoconfig.</nowiki>&lt;domain&gt;/mail/config-v1.1.xml</code> (preferred) or <code>https://&lt;domain&gt;/.well-known/autoconfig/mail/config-v1.1.xml</code>, then the same URLs over HTTP;
+3. query the '''ISPDB[2]''', the Thunderbird project's central database of server settings (<code>https://autoconfig.thunderbird.net/v1.1/&lt;domain&gt;</code>);
+4. perform a DNS '''MX''' lookup: the mail hoster found in the MX record is itself looked up in the ISPDB;
+5. try common server names such as <code>imap.&lt;domain&gt;</code>, <code>smtp.&lt;domain&gt;</code>, and <code>mail.&lt;domain&gt;</code> and probe for SSL, STARTTLS and encrypted passwords;
+
+If everything fails, Thunderbird asks user to configure the email account manually.
+</blockquote>
+
+<blockquote>
+[2]: '''ISPDB''' is the acronym of the Internet Service Provider Database: a central database hosted by the Thunderbird project, containing server settings for the world's largest ISPs. Most ISPs with a market share of more than 0.1% are included, which lets Thunderbird autoconfigure a large share of users' accounts with no input beyond name, email address and password.<ref>{{#cite:Q1508}}</ref>
+</blockquote>
+
+=== The mail round trip ===
+
+Incoming mail: Thunderbird connects to the server over '''IMAP''' or '''POP3''',<ref>{{#cite:Q1489}}</ref> downloads new messages into the profile, updates the message database, and notifies the interface. Outgoing mail goes out over '''SMTP'''.<ref>{{#cite:Q1489}}</ref> After a successful send, Thunderbird appends a copy of the message to the ''Sent'' folder.<ref>{{#cite:Q1514}}</ref>
+
+<uml>
+
+@startuml
+!theme bluegray
+title Mail round trip (IMAP fetch and SMTP send)
+
+|#LightGreen|Mail server|
+start
+:new message arrives\nfor the account;
+|#LightBlue|Thunderbird|
+:connect over IMAP\n(sync folders, fetch headers/bodies);
+:store messages in the profile,\nupdate the message database;
+:notify the UI\n(unread count, message list update);
+|#LightGray|User|
+:read and reply;
+|#LightBlue|Thunderbird|
+:compose the reply;
+:send it over SMTP;
+:append a copy to the\n"Sent" folder (client-side);
+|#LightGreen|Mail server|
+:deliver the message to the recipient;
+stop
+
+@enduml
+</uml>
+
+=== The calendar round trip ===
+
+Thunderbird's calendar component (formerly the calendar Lightning extension)<ref>{{#cite:Q1494}}</ref> stores events and tasks locally in a SQLite database, the file <code>local.sqlite</code> in the profile.<ref>{{#cite:Q1512}}</ref> Network calendars sync with remote servers over '''CalDAV''' (RFC 4791), using '''iCalendar''' (RFC 5545) as the data format, so the same calendar can be shared across devices and clients.<ref>{{#cite:Q1509}}</ref> Invitations travel by email as .ics attachments, handled with '''iTIP''';<ref>{{#cite:Q1509}}</ref> accepting an invitation adds the event to the calendar and sends the reply back.
+
+<uml>
+
+@startuml
+!theme bluegray
+title Calendar round trip (CalDAV sync and iTIP invitations)
+
+|#LightGreen|CalDAV server|
+start
+:calendar collection\n(events stored as iCalendar);
+|#LightBlue|Thunderbird (calendar/)|
+:sync the collection over CalDAV\n(fetch changes, push local edits);
+:store events locally in\nlocal.sqlite (offline cache);
+:display events and tasks in the UI;
+|#LightGray|User|
+:accept an invitation\nreceived by email;
+|#LightBlue|Thunderbird (calendar/)|
+:parse the .ics attachment (iTIP),\nadd the event to the calendar;
+:send the reply by email\n(accepted / declined);
+|#LightGreen|CalDAV server|
+:update the collection on the next sync;
+stop
+
+@enduml
+</uml>
+
+== Key design decisions ==
+
+=== Thunderbird rides on the Mozilla (Firefox) platform ===
+
+Rather than building from scratch, developers chose to build Thunderbird on top of the Mozilla platform to benefit from its mature ecosystem.<ref>{{#cite:Q1491}}</ref> This decision allows Thunderbird's relatively small team (~15 full-time equivalent) to focus on delivering core functionalities instead of reinventing the wheel.
+
+=== Community governance, corporate backing ===
+
+The Thunderbird project has a unique community-corporate dual-structure. The '''Thunderbird Council''', elected by contributors since 2014, steers strategy and budget,<ref>{{#cite:Q1486}}</ref> whereas MZLA Technologies Corporation, a '''for-profit subsidiary of the not-for-profit Mozilla Foundation''' created in 2020, manages day-to-day development and operations. This dual-structure ensures that while Thunderbird always remains a free and open-source community project, it is free to participate in commercial partnerships and offer optional paid services to finance development.<ref>{{#cite:Q1486}}</ref><ref>{{#cite:Q1487}}</ref>
+
+=== Stable, permission-gated dedicated APIs for add-ons ===
+
+Thunderbird is built from day one to support extensions. Its extensibility has long been a core selling point. However, in older versions, add-ons broke with nearly every release, mostly due to backward incompatible API changes. To mitigate the issue, the project gradually phased in a dedicated '''MailExtensions''' framework based on standard WebExtensions technology, powered by stable, permission-gated APIs dedicated to add-ons since 2018.<ref>{{#cite:Q1496}}</ref> In 2020, with the release of version 78, MailExtensions became the only sanctioned framework for Thunderbird extensions.<ref>{{#cite:Q1501}}</ref>
+
+=== A regular and rapid release schedule ===
+
+Since 2024, Thunderbird adopted Firefox's rapid release model: security and stability patches on demand, typically every two weeks; a new major version every 4 weeks; a new extended support release every year, typically in July.<ref>{{#cite:Q1495}}</ref> The model ensures that new features can roll out rapidly to users without compromising long-term stability for users who value it.
+
+=== Open protocols ensure maximum compatibility ===
+
+Thunderbird is built on open protocols: IMAP, POP3, and SMTP for emails, NNTP and RSS for live feed, CalDAV and iCalendar for calendar, and IRC, XMPP, and Matrix for chat.<ref>{{#cite:Q1489}}</ref><ref>{{#cite:Q1494}}</ref> Its implementation of these standards is tracked on an official supported-standards list,<ref>{{#cite:Q1509}}</ref> making it compatible with any service provider supporting the same open protocols.
+
+=== Uncompromised privacy ===
+
+Thunderbird's privacy stance is uncompromising: "You are not the product". It does not collect user data beyond anonymous usage statistics, and users can opt out at any time.<ref>{{#cite:Q1486}}</ref> This stance, although logically not profitable, earned Thunderbird a solid reputation among privacy-conscious users.
+
+=== A single profile directory facilitates migration ===
+
+All of Thunderbird's data, preferences, mail folders, address books, and the message database, live in a single profile directory, which, on Linux, is <code>~/.thunderbird</code>.  As such, migration to a new machine is as simple as copying the profile directory to the equivalent location on the new machine.<ref>{{#cite:Q1487}}</ref>
+
+== Try it yourself ==
+
+<blockquote>
+Commands verified live on 2026-09-01.
+</blockquote>
+
+<blockquote>
+Example command syntax is based on Linux bash. Windows command syntax is different.
+</blockquote>
+
+<syntaxhighlight lang="bash" copy>
+# What is the latest stable release right now?
+curl -s https://product-details.mozilla.org/1.0/thunderbird_versions.json
+</syntaxhighlight>
+
+Output on 2026-09-01:
+
+<pre>
+{
+    "LATEST_THUNDERBIRD_ALPHA_VERSION": "54.0a2",
+    "LATEST_THUNDERBIRD_DEVEL_VERSION": "156.0b1",
+    "LATEST_THUNDERBIRD_NIGHTLY_VERSION": "157.0a1",
+    "LATEST_THUNDERBIRD_VERSION": "154.0",
+    "THUNDERBIRD_ESR": "140.14.1esr",
+    "THUNDERBIRD_ESR_NEXT": "153.1.1esr"
+}
+</pre>
+
+Install the official Flatpak packaged and maintained by the Thunderbird team:<ref>{{#cite:Q1490}}</ref>
+
+<syntaxhighlight lang="bash" copy>
+# Install from Flathub
+flatpak install flathub org.mozilla.Thunderbird
+</syntaxhighlight>
+
+<syntaxhighlight lang="bash" copy>
+# Launch it
+flatpak run org.mozilla.Thunderbird
+</syntaxhighlight>
+
+Or use your distribution's package, which may be somewhat outdated:
+
+<syntaxhighlight lang="bash" copy>
+# Debian / Ubuntu
+sudo apt install thunderbird
+</syntaxhighlight>
+
+== References ==
+
+<references/>
+
+== Further reading ==
+
+* [https://www.thunderbird.net/ Thunderbird] — the official website
+* [https://blog.thunderbird.net/ The Thunderbird Blog] — release announcements and project news
+* [https://developer.thunderbird.net/ Thunderbird Developer Documentation] — architecture, building, add-ons
+* [https://hg.mozilla.org/comm-central comm-central] — the source repository
+* [https://www.thunderbird.net/en-US/thunderbird/releases/ Thunderbird release notes]
+* [https://support.mozilla.org/products/thunderbird Thunderbird support (SUMO)]
+* [https://roadmaps.thunderbird.net/ Thunderbird roadmaps]
+* [https://www.thunderbird.net/en-US/participate/ Get involved]

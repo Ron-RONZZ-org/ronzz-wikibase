@@ -1,0 +1,5 @@
+{{Person}}
+
+== Overview ==
+
+Canadian astrophysicist who, with Scott Dodelson, proposed in 1994 that sterile neutrinos could constitute dark matter

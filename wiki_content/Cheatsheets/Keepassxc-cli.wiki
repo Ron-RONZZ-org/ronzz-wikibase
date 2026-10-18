@@ -1,0 +1,224 @@
+{{DesktopLinux}}
+
+<code>keepassxc-cli</code> is the command-line client of [[FOSS:KeePassXC|KeePassXC]]: it can open, read and edit the same encrypted <code>.kdbx</code> databases as the desktop application, to manage your secrets from a terminal.
+
+New to it? 
+
+* <code>keepassxc-cli help</code> lists every command
+* <code>keepassxc-cli &lt;command&gt; -h</code> documents one command
+* <code>man keepassxc-cli</code> provides a full reference
+
+== DB ops: <code>db-create, db-info, db-edit, import, export</code> ==
+
+KeePassXC stores all your secrets in encrypted <code>.kdbx</code> files.
+
+<syntaxhighlight lang="bash" copy>
+keepassxc-cli db-create -p db.kdbx                         # create a new database
+keepassxc-cli db-create --set-key-file keyfile db.kdbx     # create a new database protected by a key file
+keepassxc-cli db-info db.kdbx                              # show info on a .kdbx DB
+keepassxc-cli db-edit -p db.kdbx                           # change the master password
+keepassxc-cli db-edit --set-key-file keyfile db.kdbx       # add or replace the key file
+keepassxc-cli db-edit --unset-password db.kdbx             # remove the password encryption
+keepassxc-cli export -f csv db.kdbx > export.csv           # export every secret to csv in clear text
+keepassxc-cli export -f xml db.kdbx > export.xml           # export every secret to xml to be reimported into another .kdbx
+keepassxc-cli import export.xml new.kdbx                   # import from a previously exported .xml into a new database
+</syntaxhighlight>
+
+<blockquote>
+Any file created by <code>export</code> should be considered '''extremely sensitive''', as it contains all your secrets in clear text.
+
+<code>import</code> currently only accepts a <code>.xml</code> file previously exported by KeePassXC.
+</blockquote>
+
+== <code>open</code> DB ==
+
+Once the encrypted <code>.kdbx</code> is set up, <code>open</code> to interact with it.
+
+<syntaxhighlight lang="bash" copy>
+keepassxc-cli open Passwords.kdbx             # will prompt for master password
+keepassxc-cli -k keyfile open Passwords.kdbx  # ...if a key file is also required
+</syntaxhighlight>
+
+This activates a command repl, eliminating the need to retype the master password for each command:
+
+<pre>
+Passwords&gt; ls
+Passwords&gt; show -s Internet/site1
+Passwords&gt; clip -t Internet/site1
+Passwords&gt; close                   # close the current database, stay in the repl
+Passwords&gt; exit                    # exit the repl
+</pre>
+
+<blockquote>
+<code>export</code> and <code>import</code> do not work in the repl.
+
+Every other command works in both forms:
+
+* <code>Passwords&gt; [command]</code> inside the repl
+* <code>keepassxc-cli [command] xxx.kdbx</code> as standalone CLI command
+</blockquote>
+
+== Generate passwords/passphrases ==
+
+=== <code>generate</code> (passwords) ===
+
+<syntaxhighlight lang="bash" copy>
+Passwords> generate                          # 16 characters: lowercase, uppercase, digits
+Passwords> generate -L 24                    # increase length to 24
+Passwords> generate --special                # enable special characters
+Passwords> generate --exclude-similar        # avoid look-alikes such as l, 1 and I
+Passwords> generate -x 'a,b,c'               # exclude individual characters
+Passwords> generate -c 'abcdef1234'          # only from these characters
+Passwords> generate --every-group            # at least one number, one uppercase letter, one lowercase letter, and a special character if enabled
+</syntaxhighlight>
+
+=== <code>estimate</code> (password entropy) ===
+
+<syntaxhighlight lang="bash" copy>
+Passwords> estimate 'some_password'     # entropy of a given password
+Passwords> estimate -a 'some_password'  # -a: advanced analysis
+</syntaxhighlight>
+
+=== <code>diceware</code> (passphrases) ===
+
+<syntaxhighlight lang="bash" copy>
+Passwords> diceware                  # default length: 7 words
+Passwords> diceware -W 5             # 5 words
+Passwords> diceware -w wordlist.txt  # use custom word list
+</syntaxhighlight>
+
+== <code>add, edit, rm, mv</code> entries and <code>mkdir, rmdir</code> ==
+
+<syntaxhighlight lang="bash" copy>
+Passwords> mkdir Internet                          # make a new group
+Passwords> mkdir Internet/Sub                      # make a new subgroup: parent groups must exist
+Passwords> add -u user1 -p Internet/site3          # create a new entry with username (-u) user1, at path Internet/site3, and prompt for password (-p)
+Passwords> add -u user1 -g -L 24 -s Internet/site3 # -g: instead of prompting for password, generate one: legnth 24, special chars included
+Passwords> add -u user1 -g --url https://example.com Internet/site3 # --url: for internet sites, consider specifying the login url for record
+Passwords> edit -u newUser Internet/site3            # update username (-u) of entry Internet/site3 to newUser
+Passwords> edit -t Mail Internet/site3             # rename the entry Internet/site3 to Mail
+Passwords> edit -g Internet/site3                  # generated a new password for entry Internet/site3
+Passwords> mv Internet/site3 Work                  # move an entry to another group
+Passwords> rm Internet/site3                       # delete entry
+Passwords> rmdir Work                              # remove a group
+</syntaxhighlight>
+
+<blockquote>
+Group = folder. Use groups to organise entries.
+</blockquote>
+
+<blockquote>
+<code>-g</code> can be coupled with the same options as the <code>generate</code> command.
+</blockquote>
+
+<blockquote>
+<code>add</code> and <code>edit</code> take similar options.
+</blockquote>
+
+{| class="wikitable"
+! Additional option !! Effect
+|-
+| <code>--notes TEXT</code> || attach notes to an entry; <code>\n</code> becomes a line break
+|}
+
+== <code>ls</code> ==
+
+<syntaxhighlight lang="bash" copy>
+Passwords> ls            # root group: entries, then sub-groups
+Passwords> ls Internet   # one group
+Passwords> ls -R         # recurse into every group
+Passwords> ls -f -R      # one full path per line
+</syntaxhighlight>
+
+== <code>search</code> ==
+
+<syntaxhighlight lang="bash" copy>
+Passwords> search site          # entries matching a term
+Passwords> search 'title:mail'  # field-qualified term
+Passwords> search 'has:totp'    # every entry with TOTP set up
+</syntaxhighlight>
+
+'''search''' — the same query language as in the GUI search box:
+
+{| class="wikitable"
+! Syntax !! Matches
+|-
+| <code>title:</code>, <code>username:</code>, <code>url:</code>, <code>notes:</code>, <code>group:</code>, <code>tag:</code> || one field only; abbreviated forms work (<code>t:</code>, <code>u:</code>, <code>g:</code>, ...)
+|-
+| <code>has:totp</code> || entries with TOTP configured
+|-
+| <code>is:weak</code>, <code>is:expired</code> || weak or expired passwords
+|-
+| <code>!term</code> || excludes the term
+|-
+| <code>+term</code> || exact term only, not as a substring
+|-
+| <code>a&#124;b</code> || either term
+|}
+
+== <code>show</code> entries ==
+
+<syntaxhighlight lang="bash" copy>
+Passwords> show site1                                    # show default fields
+Passwords> show -s Internet/site1                        # -s: reveal protected fields such as password
+Passwords> show -a username -a password Internet/site1   # specific attributes, one per line. use --all for all
+</syntaxhighlight>
+
+{| class="wikitable"
+! Additional option !! Effect
+|-
+| <code>--show-attachments</code> || attachment names and sizes
+|}
+
+<blockquote>
+An entry can be addressed by <code>title</code> alone when that title is unique, otherwise it must be addressed by <code>group-path/title</code>.
+
+<code>ls -f -R</code> prints every valid path.
+</blockquote>
+
+== <code>clip</code> to the clipboard ==
+
+Replace <code>show</code> with <code>clip</code> to copy to the clipboard instead of printing to <code>stdout</code>. In general, the same options stay available
+
+<syntaxhighlight lang="bash" copy>
+Passwords> clip site1              # copy the password; the clipboard is cleared after 10 s
+Passwords> clip -a username site1  # copy any attribute of the entry: username, url, notes, ...
+</syntaxhighlight>
+
+<blockquote>
+On Linux, <code>clip</code> pipes to <code>wl-copy</code> (Wayland) or <code>xclip</code> (X11); without either one it fails with error <code>All clipping programs failed.</code>
+</blockquote>
+
+== TOTP (<code>-t</code>) ==
+
+<blockquote>
+'''Caveat''': Currently, TOTP setup is a GUI-only feature in KeePassXC. <code>keepassxc-cli</code> only supports generating a TOTP from an entry already set up. A workaround to stay in the CLI is to store the oath secret key as password, then use an external TOTP generator such as <code>oathtool --totp --base32 [SECRET_KEY]</code> to generate TOTP.
+</blockquote>
+
+<syntaxhighlight lang="bash" copy>
+Passwords> show -t site1                             # show the current code
+Passwords> clip -t site1                             # copy the code to the clipboard
+Passwords> show -a otp site1                         # show the stored oath secret, to enrol another device, etc.
+</syntaxhighlight>
+
+<blockquote>
+The code is computed locally from the secret stored in the entry and the local system clock time. A drifting system clock would generate invalid codes.
+</blockquote>
+
+== Common errors ==
+
+{| class="wikitable"
+! Message !! Cause and fix
+|-
+| <code>All clipping programs failed.</code> || neither <code>wl-copy</code> nor <code>xclip</code> is installed: install one for <code>clip</code> to work
+|-
+| <code>Could not find entry with path X.</code> || the title is not unique, or the group path is wrong: list the paths with <code>ls -f -R</code>
+|-
+| <code>Attribute "X" not found.</code> || wrong attribute name: list them with <code>show --all</code>
+|}
+
+== For more ==
+
+* [https://keepassxc.org/docs/KeePassXC_UserGuide.html KeePassXC user guide] — the official guide: TOTP setup, search syntax, browser and SSH agent integration
+
+[[Category:LinuxCLI]]

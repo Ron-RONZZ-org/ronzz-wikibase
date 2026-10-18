@@ -1,0 +1,198 @@
+'''The cosmic microwave background''' ('''CMB''') is a faint electromagnetic radiation that permeates the entire universe. It is a relic of the hot, dense, and nearly uniform state in which the [[universe]] began about 13.8 billion years ago.<ref>{{#cite:Q1232}}</ref> Released when the universe had cooled enough to become transparent, a few hundred thousand years after the [[Big Bang theory|Big Bang]], it is the oldest light that can be observed today.
+
+Because the expansion of the universe has stretched the photons of the cosmic microwave background by a factor of about 1100, the radiation is observed today not as visible light but as microwaves, forming a near-perfect blackbody at a temperature of about 2.7 kelvin.<ref>{{#cite:Q1634}}</ref>
+
+The existence of the CMB was predicted in the 1940s as a necessary consequence of the Big Bang. The first observation, by accident, was in 1965 by [[Person:Arno Penzias|Arno Penzias]] and [[Person:Robert Woodrow Wilson|Robert Woodrow Wilson]], two radio astronomers at Bell Telephone Laboratories, while they were trying to minimise noise for their ultra-sensitive satellite communication ground receiver. They were awarded the 1978 Nobel Prize in Physics for the detection.<ref>{{#cite:Q1632}}</ref>
+
+Because the spectrum and spatial pattern of the CMB can be measured with exquisite precision, it has become the single most informative observable in cosmology. Although its temperature is almost perfectly uniform across space, tiny variations of about one part in 100,000 (10 ppm) encode the geometry, composition, age and history of the universe. It is the strongest evidence that the universe is spatially flat, and it anchors the measurement of the abundance of ordinary matter, [[dark matter]] and [[dark energy]].<ref>{{#cite:Q1232}}</ref>
+
+== History ==
+
+=== Prediction ===
+
+In the 1940s, [[Person:George Gamow|George Gamow]] and his collaborators demonstrated that if the universe began in an enormously hot and dense state as suggested by the [[Big Bang theory]], it should still be filled with the radiation left over from that era. [[Person:Ralph Asher Alpher|Ralph Asher Alpher]] and [[Person:Robert Herman|Robert Herman]] further estimated that taking into account the cooling provided by an expanding universe, the temperature of this relic radiation should be only a few kelvins.<ref>{{#cite:Q1633}}</ref> The prediction attracted little attention at the time, and the observation of the radiation was not actively searched for.
+
+=== Accidental discovery (1964–1965) ===
+
+In the early 1960s, a group of physicists led by [[Person:Robert H. Dicke|Robert H. Dicke]] at Princeton University revisited the idea. They began building a small radiometer to look for the CMB at a wavelength of about 3 centimetres. Their progress, however, was superseded by two telecommunication engineers who were not looking for the CMB at all.
+
+[[File:Holmdel Horn Antenna.jpg|thumb|The Holmdel horn antenna at Bell Telephone Laboratories in New Jersey, with which Penzias and Wilson discovered the cosmic microwave background in 1965. Credit: Erik Dunham (CC BY-SA 3.0).]]
+
+In 1964 and 1965, [[Person:Arno Penzias|Arno Penzias]] and [[Person:Robert Woodrow Wilson|Robert Woodrow Wilson]] were using a 20-foot horn-reflector antenna in Holmdel, New Jersey, to measure the faint radio emission of the Milky Way. The antenna had been built for the satellite-communication programme of Bell Telephone Laboratories, and the pair, both radio astronomers at the laboratory's Crawford Hill site, were characterising the sources of microwave noise that would limit such communications: every contribution to the received signal, from the atmosphere, the ground, the antenna and the receiver, had to be understood and subtracted. At a wavelength of 7.35 centimetres (a frequency of 4080 megacycles per second), they found an excess antenna temperature of about 3.5 kelvin that was isotropic, unpolarised, and present at all times of day and year, whatever part of the sky the antenna pointed at.<ref>{{#cite:Q1632}}</ref> They eliminated every source of noise they could think of, even removing a pair of pigeons that had taken up residence in the antenna throat and cleaning away the "white dielectric material" they had left behind, yet the excess remained.
+
+The pair had not set out to test any cosmological prediction and did not at first understand what they had found. In early 1965 Penzias mentioned the persistent hiss to Bernard F. Burke, a radio astronomer at the Massachusetts Institute of Technology, who had heard of the prediction just made by Dicke's group at Princeton, and who put the two teams in contact. Dicke, P. James E. Peebles, Peter G. Roll and David T. Wilkinson visited Holmdel, recognised the excess as the radiation their own radiometer had been built to seek, and the two teams agreed to publish together. Penzias and Wilson reported the measurement in a short, deliberately understated paper, "A Measurement of Excess Antenna Temperature at 4080 Mc/s";<ref>{{#cite:Q1632}}</ref> Dicke's group supplied the cosmological interpretation, "Cosmic Black-Body Radiation", which appeared immediately before it in the same issue of The Astrophysical Journal.<ref>{{#cite:Q1643}}</ref> The radiation became known as the cosmic microwave background.
+
+<blockquote>
+[[Person:Arno Penzias|Arno Penzias]] and [[Person:Robert Woodrow Wilson|Robert Woodrow Wilson]] shared the 1978 Nobel Prize in Physics for their discovery.
+</blockquote>
+
+=== COBE: the spectrum and the fluctuations ===
+
+In 1989, NASA launched its Cosmic Background Explorer (COBE) satellite. It carried three instruments dedicated to the study of the CMB:
+
+* the Far-Infrared Absolute Spectrophotometer (FIRAS), which measured the frequency spectrum of the sky at millimetre and submillimetre wavelengths, comparing it with an internal blackbody reference in order to test how closely the CMB matches a perfect blackbody;
+* the Differential Microwave Radiometer (DMR), which compared the temperature of the CMB in two beams separated by 60 degrees on the sky, at frequencies of 31, 53 and 90 GHz, in order to search for tiny spatial temperature fluctuations;
+* the Diffuse Infrared Background Experiment (DIRBE), which mapped the sky at infrared wavelengths to measure the diffuse infrared background, complementing the CMB measurements at shorter wavelengths.
+
+The analysis of the COBE data produced two landmark results. The FIRAS team, led by [[Person:John C. Mather|John C. Mather]], compared the spectrum of the CMB with an internal blackbody calibrator and showed that it corresponds to a near-perfect blackbody, with any deviation limited to about 50 parts per million of the peak brightness.<ref>{{#cite:Q1634}}</ref> The DMR team, led by [[Person:George F. Smoot|George F. Smoot]], discovered spatial temperature fluctuations at the level of about 10 parts per million of the mean temperature.<ref>{{#cite:Q1635}}</ref>
+
+The COBE results transformed the study of the CMB: the measurement of a near-perfect blackbody spectrum confirmed that the radiation is a relic of a hot, dense, thermalised early universe, while the detection of fluctuations showed that the early universe was not perfectly smooth, providing the seeds from which galaxies and clusters later grew.
+
+<blockquote>
+[[Person:John C. Mather|John C. Mather]] and [[Person:George F. Smoot|George F. Smoot]] shared the 2006 Nobel Prize in Physics for these measurements.
+</blockquote>
+
+=== WMAP and Planck ===
+
+[[File:COBE WMAP Planck comparison (PIA16874).jpg|thumb|upright=1.6|The evolution of CMB maps: COBE (left, 1989), WMAP (centre, 2001) and Planck (right, 2009). Each generation resolved the temperature pattern with greater sensitivity. Credit: NASA/JPL-Caltech/ESA (public domain).]]
+
+Two subsequent space missions, NASA's Wilkinson Microwave Anisotropy Probe (WMAP), launched in 2001, and ESA's Planck satellite, launched in 2009, mapped the temperature and polarisation of the CMB over the entire celestial sphere, with far higher sensitivity and resolution than COBE. The Planck data in particular provided precise determinations of the age of the universe and of the energy content of [[dark energy]], described by a cosmological constant.<ref>{{#cite:Q1232}}</ref>
+
+<uml>
+@startuml
+!theme bluegray
+title Milestones in the study of the cosmic microwave background
+
+rectangle "1948\nAlpher and Herman predict a\nrelic radiation of a few kelvin" as Y1948
+rectangle "1965\nPenzias and Wilson detect\nan isotropic 3.5 K excess" as Y1965
+rectangle "1978\nNobel Prize in Physics\nawarded to\nPenzias and Wilson" as Y1978
+rectangle "1989–1992\nCOBE: blackbody spectrum and\ntemperature fluctuations" as YCOBE
+rectangle "2000\nBOOMERanG resolves the\nfirst acoustic peak" as Y2000
+rectangle "2001–2010\nWMAP maps temperature and\npolarisation" as YWMAP
+rectangle "2009–2018\nPlanck: higher precision mapping\nto determine cosmological parameters\nand the age of the universe" as YPL
+
+Y1948 --> Y1965
+Y1965 --> Y1978
+Y1978 --> YCOBE
+YCOBE --> Y2000
+Y2000 --> YWMAP
+YWMAP --> YPL
+@enduml
+</uml>
+
+== Origin and physical properties ==
+
+=== The surface of last scattering ===
+
+In the hot early universe, matter was ionised: free protons and electrons formed a plasma that scattered photons almost continuously. Radiation was tightly coupled to the matter and could not travel freely.
+
+The universe cooled as it expanded. A few hundred thousand years after the Big Bang, the temperature of the universe had fallen to about 3000 kelvin, and the free electrons combined with protons to form neutral hydrogen. This epoch is known as recombination.
+
+With the charged particles gone, the radiation became free to travel, in whatever direction the cosmic plasma had last scattered it just before recombination. Those photons form the basis of the cosmic microwave background we observe today.
+
+The region from which these photons reach us is called the surface of last scattering. It is not a physical surface but a spherical shell centred on the observer, at a redshift of about 1090, corresponding to a time when the universe was about 380,000 years old and roughly one-thousandth of its present size.<ref>{{#cite:Q1232}}</ref> Since decoupling, the expansion of the universe has stretched the wavelength of each photon by a factor of (1 + ''z''), so that the temperature of the radiation scales with redshift as
+
+{{#content:Q1637}}
+
+where ''T''<sub>0</sub> ≈ 2.7 K is the temperature measured today. Between emission and reception, the CMB photons have travelled almost freely, deflected only slightly by the gravity of intervening matter, an effect known as gravitational lensing.
+
+=== A near-perfect blackbody ===
+
+[[File:CMB spectrum (COBE FIRAS).svg|thumb|upright=1.35|The spectrum of the cosmic microwave background measured by the FIRAS instrument on COBE (points) compared with the theoretical curve of a single-temperature blackbody (solid line); the error bars are too small to be seen. Credit: plot of public-domain NASA COBE data (public domain).]]
+
+A blackbody is an ideal emitter that radiates purely according to its temperature. The spectrum of the cosmic microwave background matches the Planck function, the theoretical spectrum of a blackbody, to extraordinary precision: FIRAS measured it across more than a decade of the spectrum and found the data to be indistinguishable from a blackbody curve, placing tight limits on any deviation.<ref>{{#cite:Q1634}}</ref> In terms of frequency ν, the intensity of a blackbody at temperature ''T'' is given by Planck's law:
+
+{{#content:Q1636}}
+
+where ''h'' is the Planck constant, ''c'' the speed of light, and ''k''<sub>B</sub> the Boltzmann constant. The temperature of the CMB monopole, the sky-averaged value of the radiation, is about 2.7 K, and its spectrum peaks at a wavelength set by Wien's displacement law:
+
+{{#content:Q1638}}
+
+For ''T'' ≈ 2.7 K this gives a peak wavelength of roughly a millimetre, squarely in the microwave band.
+
+That the CMB is a near-perfect blackbody is strongly consistent with the expectations of the hot Big Bang theory. Only radiation that was once in thermal equilibrium with matter in an extremely hot, dense phase can plausibly fill the sky with a blackbody spectrum to this accuracy; steady-state cosmologies, in which the radiation would have to be produced by astrophysical sources, have no natural way of generating it.<ref>{{#cite:Q1634}}</ref>
+
+=== A geometric probe of the universe ===
+
+[[File:Universe-timeline.jpg|thumb|upright=1.6|The history of the universe from the Big Bang to the present. The cosmic microwave background was released at recombination, a few hundred thousand years after the Big Bang (right of centre). Credit: NASA/WMAP Science Team (public domain).]]
+
+The pattern of the CMB also makes it a precise probe of the geometry of the universe. Cosmologists describe densities in terms of the critical density, the density that would just halt the expansion of a spatially flat universe:
+
+{{#content:Q1560}}
+
+where ''H'' is the Hubble parameter and ''G'' the gravitational constant. The ratio of any component's density to the critical density is its density parameter, and the total density parameter of the universe is usually written ''Ω''<sub>total</sub>. The angular scale of the acoustic peaks of the CMB (described below) depends on the total density: in a positively curved universe, features would appear larger than in a flat one, and in a negatively curved universe they would appear smaller. The Planck measurements of the peaks imply a total density parameter of 1 to within a few tenths of a percent, and a curvature density parameter ''Ω''<sub>K</sub> = 0.0007 ± 0.0019, suggesting that the universe is spatially flat.<ref>{{#cite:Q1232}}</ref>
+
+== The anisotropy of the CMB ==
+
+=== The Doppler shift dipole ===
+
+[[File:Planck CMB map.jpg|thumb|upright=1.6|All-sky map of the cosmic microwave background measured by ESA's Planck satellite. The colour differences are temperature fluctuations of about one part in 100,000. Credit: ESA and the Planck Collaboration (CC BY 4.0).]]
+
+The largest apparent departure from uniformity of the CMB is a dipole: observed from Earth, the CMB is slightly hotter in one direction and slightly colder in the opposite one, by a few millikelvin.
+
+The dipole is a result of our own motion: the Solar System is moving at a few hundred kilometres per second relative to the rest frame defined by the CMB, and the resulting Doppler shift makes the radiation slightly hotter in our direction of motion and colder behind us.<ref>{{#cite:Q1635}}</ref>
+
+=== Fluctuations of 10 ppm ===
+
+After adjusting for Doppler effects, the CMB temperature is almost perfectly constant across the sky: the remaining fluctuations, first detected by COBE in 1992, are at the level of about 30 microkelvin, which is about 10 ppm of the mean.<ref>{{#cite:Q1635}}</ref> These fluctuations are the imprints of tiny density variations present in the universe at recombination, the seeds from which galaxies, clusters and the large-scale structure of the cosmos later grew by gravitational instability: slightly denser regions had slightly hotter radiation and, over billions of years, collapsed into the cosmic structures seen today.
+
+=== Polarisation ===
+
+The CMB is faintly polarised at the level of a few microkelvins, because the last scattering of the photons was not isotropic: the quadrupolar pattern of the incoming radiation around each scattering electron imprinted a preferred direction on the scattered light.
+
+=== The angular power spectrum ===
+
+[[File:CMB angular power spectrum (WMAP).svg|thumb|upright=1.5|The angular power spectrum of the CMB temperature anisotropies from three years of WMAP data (points) together with measurements from ground-based and balloon-borne experiments (coloured points); the solid curve is the best-fitting cosmological model. Credit: NASA/WMAP Science Team (public domain).]]
+
+The angular power spectrum provides a statistical description of the fluctuations in the CMB. It is the variance of the spherical-harmonic coefficients C<sub>ℓ</sub> as a function of multipole ℓ, conventionally plotted in the dimensionless form
+
+{{#content:Q1639}}
+
+The power spectrum of the CMB is not flat: it shows a series of peaks and troughs, known as the '''acoustic peaks'''. They arose from sound waves that propagated through the tightly coupled plasma of photons and baryons before recombination, where gravity compressed the overdense regions while radiation pressure pushed back; the oscillations were frozen into the radiation pattern when matter and radiation decoupled.
+
+As interpreted within the standard cosmological model, different features of the power spectrum provide different information about the universe:
+
+* the position of the first peak, at ℓ ≈ 200, is set by the angular size of the sound horizon at recombination, and measures the total density of the universe, pinning down its geometry;
+* the odd–even alternation in the heights of successive peaks measures the baryon density, since baryons load the compressional modes;
+* the overall damping of the peaks at high ℓ, caused by photons diffusing out of small regions during recombination, an effect known as Silk damping, measures the matter density and the thickness of the last scattering surface;
+* the plateau of power at low ℓ, the Sachs–Wolfe effect, reflects the gravitational potential fluctuations and measures the amplitude and tilt of the primordial fluctuation spectrum;
+* gravitational lensing of the CMB by intervening matter slightly smooths the peaks and adds power at small scales, providing a measurement of the growth of cosmic structures.
+
+Fitting the full spectrum together with the polarisation measurements and the lensing signal yields the parameters of the [[standard model of cosmology]], and hence constrains the geometry, contents and age of the universe.<ref>{{#cite:Q1232}}</ref>
+
+<uml>
+@startuml
+!theme bluegray
+title What the features of the CMB angular power spectrum reveal
+
+database "Sachs–Wolfe plateau\n(low multipoles)" as SACHS
+database "First acoustic peak\n(position, ℓ ≈ 200)" as PEAK1
+database "Odd–even peak height\nalternation" as ODD
+database "Damping tail\n(high multipoles)" as TAIL
+database "Gravitational lensing\nof the CMB" as LENS
+
+rectangle "Best fit of the ΛCDM model" as FIT {
+  component "Ω<sub>total</sub> ≈ 1\n(flat geometry)" as GEO
+  component "Ω<sub>b</sub> h²\n(baryon density)" as BAR
+  component "Ω<sub>c</sub> h²\n(cold dark matter density)" as CDM
+  component "A<sub>s</sub> and n<sub>s</sub>\n(primordial fluctuations)" as INI
+  component "σ<sub>8</sub>\n(growth of structure)" as SIG
+}
+
+PEAK1 --> GEO
+ODD --> BAR
+TAIL --> CDM
+SACHS --> INI
+SACHS --> TAIL
+TAIL --> SIG
+LENS --> SIG
+
+note bottom of FIT
+  Together with CMB polarisation, the fit of
+  the ΛCDM model determines the geometry,
+  composition and age of the universe.
+end note
+
+@enduml
+</uml>
+
+== References ==
+
+<references/>
+
+== Further reading ==
+
+* [https://science.nasa.gov/universe/ The Universe], NASA Science
+* [https://map.gsfc.nasa.gov/ Wilkinson Microwave Anisotropy Probe], NASA
+* [https://www.esa.int/Science_Exploration/Space_Science/Planck Planck], European Space Agency
+* [https://arxiv.org/abs/1807.06209 Planck 2018 results. VI. Cosmological parameters], Planck Collaboration (2020)

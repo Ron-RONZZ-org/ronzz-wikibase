@@ -1,0 +1,5 @@
+{{ScholarlyArticle}}
+
+== Overview ==
+
+1994 paper by Scott Dodelson and Lawrence M. Widrow proposing that sterile neutrinos produced in the early universe through oscillations of ordinary neutrinos could constitute dark matter, with masses around the keV scale as warm dark matter

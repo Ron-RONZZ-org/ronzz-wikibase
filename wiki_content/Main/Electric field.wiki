@@ -1,0 +1,28 @@
+The electric field describes the electrostatic potential produced by a charge.
+
+== Point charge ==
+
+For point charge $A$, its field at point $B$ in space is:
+
+{{#content:Q1946|noNote}}
+
+== Continuous charge ==
+
+A charged conductor can be approximated as an infinite number of point charges $dQ$, each creating an electric field at arbitrary point in space $A$:
+
+$$
+\vec E_{dQ \to A} = \frac{1}{4\pi\epsilon0}\frac{Q}{\left\| \overrightarrow{PA} \right\|}\widehat{PA}
+$$
+
+Therefore, the overall electric field at point $A$ is:
+
+$$
+\int \vec E_{dQ} dQ
+$$
+<ref>{{#cite:Q1952}}</ref>
+
+== Application ==
+
+The electrostatic force experienced by a point charge $B$ is:
+
+{{#content:Q1947|noNote}}

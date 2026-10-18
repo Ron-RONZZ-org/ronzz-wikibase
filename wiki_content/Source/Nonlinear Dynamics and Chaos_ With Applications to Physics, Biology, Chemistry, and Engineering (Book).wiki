@@ -1,0 +1,5 @@
+{{Book}}
+
+== Overview ==
+
+Widely used textbook of nonlinear dynamics: qualitative analysis of differential equations, phase portraits, bifurcations, chaos and applications across the sciences.

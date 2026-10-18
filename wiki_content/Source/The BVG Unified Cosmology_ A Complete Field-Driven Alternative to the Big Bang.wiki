@@ -1,0 +1,11 @@
+{{ScholarlyArticle}}
+
+== Abstract ==
+
+''from OpenAlex:''
+
+The BVG Unified Cosmology is a complete field‑driven alternative to the Big Bang model. It is built from a single nonlinear scalar field N(x,t) evolving on a fixed spatial domain. The BVG field obeys a dissipative nonlinear wave equation whose internal dynamics generate all major cosmological observables without requiring spacetime expansion, dark matter, dark energy, or a primordial singularity. This Zenodo release contains four documents that together form the full BVG cosmology: the complete derivations, the BigbangAltview observational mapping, the CoherenceScale analytical and numerical study, and the unified equation with tensor formulation. All materials are presented in continuous scientific narrative form. The BVG field equation is constructed from symmetry principles, dimensional analysis, variational methods, and effective tensor geometry. The core equation contains wave propagation, damping, nonlinear self‑interaction, and gradient‑energy terms. Linearisation yields the dispersion relation:omega^2 + igammaomega + c^2*k^2 = 0From this, the BVG coherence scale is derived. The dominant wavenumber is:k_star = gamma / cand the coherence length is:L_coh = c / gamma This scale is confirmed numerically in 1D, 2D, and 3D simulations, showing that the BVG field naturally selects a finite length scale through the balance of wave propagation and damping.The BVG field reproduces the major observational pillars of cosmology. A Planckian blackbody spectrum arises from the equil…
+
+== Key words ==
+
+BVG Unified Cosmology

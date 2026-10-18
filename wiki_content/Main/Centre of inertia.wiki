@@ -1,0 +1,26 @@
+For an object (S), its '''centre of inertia''' $C$ is at:
+
+{{#content:Q2039}}
+
+In a cartesian coordinate system, it can be equivalently stipulated that:
+
+$$
+\begin{cases}
+x_G=\frac{1}{m}\int_{S}x_{dm} dm \\
+y_G=\frac{1}{m}\int_{S}y_{dm} dm \\
+z_G=\frac{1}{m}\int_{S}z_{dm} dm
+\end{cases}
+$$
+
+== Properties ==
+
+=== Motion ===
+
+The motion of object (S) can be decomposed into:
+
+# the translation of (S) in space
+# the rotation of different parts of (S) according to its centre of inertia
+
+=== Gravity ===
+
+See [[centre of gravity]].

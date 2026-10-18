@@ -1,0 +1,5 @@
+{{Webpage}}
+
+== Overview ==
+
+PaaS provider dotCloud has changed its company name in order to align with the red-hot open source technology it sponsors. Docker, Inc will continue to offer a standalone PaaS product, but is shiftin

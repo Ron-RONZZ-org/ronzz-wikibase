@@ -1,0 +1,7 @@
+{{Person}}
+
+== Biography ==
+
+''from Wikipedia (CC BY-SA 4.0):''
+
+Eric Schopler was a German-born American psychologist whose research into autism led to the foundation of the Treatment and Education of Autistic and Related Communication Handicapped Children (TEACCH) program.

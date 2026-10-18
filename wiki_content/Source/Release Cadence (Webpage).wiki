@@ -1,0 +1,5 @@
+{{Webpage}}
+
+== Overview ==
+
+Thunderbird developer documentation on the release train model: 4-week cycles, monthly releases and yearly ESR

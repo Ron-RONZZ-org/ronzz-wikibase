@@ -1,0 +1,53 @@
+'''The Laplace transform''' is an integral transform that maps a function ''f''(''t''), defined for ''t'' ≥ 0, to a function ''F''(''s'') of a new variable ''s'', by the formula
+
+{{#content:Q1671}}
+
+For functions of exponential order the integral converges whenever the real part of ''s'' is large enough. The transform is named after [[Person:Pierre-Simon Laplace|Pierre-Simon Laplace]] (1749–1827), who used closely related integral transforms in probability theory in the 1780s; its systematic application to differential equations grew out of the operational calculus developed around the turn of the 20th century.
+
+== Linearity and the derivative rule ==
+
+The Laplace transform is linear: the transform of a linear combination is the same combination of the transforms. Its importance for differential equations rests on the derivative rule, by which differentiation in ''t'' becomes multiplication by ''s'', at the price of subtracting the initial value. For the first derivative the rule follows from one integration by parts:
+
+{{#content:Q1672}}
+
+Applying the rule twice gives the second-derivative rule, written for the function ''y''(''t'') of an initial value problem:
+
+{{#content:Q1620}}
+
+The initial values of the problem therefore appear in the transformed equation directly: an initial value problem for ''y'' becomes an algebraic equation for ''Y''(''s''). The final step, recovering ''y'' from ''Y'', uses a table of standard transforms; the most common pairs are:
+
+{{#content:Q1673}}
+
+== Worked example ==
+
+Consider the initial value problem
+
+:''y''″ + ''y'' = 1,  with  ''y''(0) = 0 and ''y''′(0) = 0.
+
+'''Step 1, transform the equation.''' Apply the derivative rules to each term, using the given initial values:
+
+{{#content:Q1651}}
+
+'''Step 2, solve for ''Y''(''s'').''' The equation gives ''Y''(''s'') = 1/[''s''(''s''² + 1)]. To invert with the table, expand this rational function in partial fractions with undetermined coefficients:
+
+{{#content:Q1674}}
+
+Comparing coefficients gives ''A'' = 1, ''B'' = −1 and ''C'' = 0, hence
+
+{{#content:Q1652}}
+
+'''Step 3, invert term by term.''' Using the pairs ''L''{1} = 1/''s'' and ''L''{cos ''t''} = ''s''/(''s''² + 1),
+
+{{#content:Q1610}}
+
+The initial conditions entered automatically in step 1, in contrast with the classical method, in which the constants of the general solution are fixed only at the end. The same procedure also handles forcing terms that are discontinuous or impulsive, since the step function and the Dirac delta have simple transforms, whereas classical methods become cumbersome there. Full treatments of the transform method are found in standard textbooks.<ref>{{#cite:Q1576}}</ref><ref>{{#cite:Q1577}}</ref>
+
+== References ==
+
+<references/>
+
+== Further reading ==
+
+* [https://en.wikipedia.org/wiki/Laplace_transform Laplace transform], Wikipedia
+* [https://mathworld.wolfram.com/LaplaceTransform.html Laplace Transform], Wolfram MathWorld
+* [https://ocw.mit.edu/courses/18-03sc-differential-equations-fall-2011/ 18.03SC Differential Equations], MIT OpenCourseWare

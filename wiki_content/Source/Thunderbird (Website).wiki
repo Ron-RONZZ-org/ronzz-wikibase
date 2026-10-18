@@ -1,0 +1,5 @@
+{{Website}}
+
+== Overview ==
+
+Official website of the Thunderbird project

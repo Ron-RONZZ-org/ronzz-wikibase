@@ -1,0 +1,5 @@
+{{Person}}
+
+== Overview ==
+
+American astronomer (1889–1953) whose observations established the expansion of the universe

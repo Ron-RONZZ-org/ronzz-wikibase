@@ -1,0 +1,95 @@
+== Exercise 1 ==
+
+Calculate (when it exists) the matrix product $M = M_1 M_2$ with:
+
+1.
+$$
+M_1 = \begin{pmatrix} 1 & 2 \\ 3 & 4 \end{pmatrix}, \quad M_2 = \begin{pmatrix} 5 \\ 6 \end{pmatrix}
+$$
+
+2.
+$$
+M_1 = \begin{pmatrix} -2 & 2 & -3 \\ -1 & 1 & 3 \\ 2 & 0 & -1 \end{pmatrix}, \quad M_2 = \begin{pmatrix} 2 \\ 1 \\ -1 \end{pmatrix}
+$$
+
+3.
+$$
+M_1 = \begin{pmatrix} 3 & 4 & 16 \\ 45 & 4 & 0 \end{pmatrix}, \quad M_2 = \begin{pmatrix} 1 \\ 2 \\ 3 \end{pmatrix}
+$$
+
+4.
+$$
+M_1 = \begin{pmatrix} 3 & 2 & 1 & 2 \\ 1 & 4 & 0 & -1 \end{pmatrix}, \quad M_2 = \begin{pmatrix} -3 \\ 1 \\ 2 \\ 1 \end{pmatrix}
+$$
+
+5.
+$$
+M_1 = \begin{pmatrix} 0 & 0 & -1 \\ 2 & 1 & 0 \end{pmatrix}, \quad M_2 = \begin{pmatrix} 1 & 1 \\ 0 & -1 \\ -1 & 2 \end{pmatrix}
+$$
+
+== Exercise 2 ==
+
+Let $A$ and $B$ be two square matrices:
+
+$$
+A = \begin{pmatrix} 2 & -2 & 1 \\ -1 & 0 & 1 \\ 0 & 2 & -2 \end{pmatrix}, \quad B = \begin{pmatrix} 1 & -1 & 0 \\ -2 & 0 & 2 \\ 0 & 1 & -1 \end{pmatrix}
+$$
+
+Calculate the result of the following operations:
+
+1. $\det(A)$, $\det(B)$, $A^T$, $B^T$.
+
+2. $A^{-1}$. Deduce the comatrix of $A$.
+
+Reminder:
+$$
+A^{-1} = \frac{1}{\det(A)} \operatorname{com}(A)
+$$
+
+3. $AB$, $BA$, and $A+B$.
+
+4. $A^2 + AB + BA + B^2$ and $A^2 + 2AB + B^2$ with $A^2 = AA$. Conclude.
+
+== Exercise 3 ==
+
+1. Calculate the scalar product of the vectors
+$$
+\vec{u} = \begin{pmatrix} 7 \\ 6 \\ 3 \end{pmatrix} \quad \text{and} \quad \vec{v} = \begin{pmatrix} 1 \\ -1 \\ 2 \end{pmatrix}
+$$
+using several methods.
+
+2. Calculate the norm of the vector
+$$
+\vec{w} = \begin{pmatrix} 2 \\ 1 \\ -1 \end{pmatrix}
+$$
+using several methods.
+
+== Exercise 4 ==
+
+A mining company operates three deposits and extracts three minerals $A$, $B$, and $C$, whose three main constituents $a$, $b$, and $c$ are identical, but whose grades vary such that:
+
+* 1000 tonnes of $A$ contain 600 tonnes of $a$, 200 tonnes of $b$, and 100 tonnes of $c$.
+* 1000 tonnes of $B$ contain 700 tonnes of $a$, 100 tonnes of $b$, and 150 tonnes of $c$.
+* 1000 tonnes of $C$ contain 700 tonnes of $a$, 150 tonnes of $b$, and 50 tonnes of $c$.
+
+The company must produce in one month 20000 tonnes of $a$, 5000 tonnes of $b$, and 3000 tonnes of $c$, and seeks the respective quantities of the three minerals it must extract.
+
+Let $x$, $y$, and $z$ be the respective quantities of minerals $A$, $B$, and $C$ in thousands of tonnes that must be extracted.
+
+Put the problem in matrix form and determine the quantities of minerals $A$, $B$, and $C$ required to meet the specifications.
+
+== Exercise 5 ==
+
+Let $f$ and $g$ be linear maps from $\mathbb{R}^3$ to $\mathbb{R}^3$ defined in the canonical bases by:
+
+$$
+f(x,y,z) = \begin{cases} x + 3z \\ x + y + 4z \\ 3x + 3z \end{cases}, \quad g(x,y,z) = \begin{cases} x - z \\ y \\ -x + y \end{cases}
+$$
+
+Determine, in matrix form, the following linear maps (in the canonical bases):
+
+1. $p = g \circ f$
+
+2. $q = f \circ g$
+
+3. $m = p \cdot q$

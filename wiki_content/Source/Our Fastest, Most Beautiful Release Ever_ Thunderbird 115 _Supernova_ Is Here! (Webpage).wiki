@@ -1,0 +1,5 @@
+{{Webpage}}
+
+== Overview ==
+
+Thunderbird blog announcement of Thunderbird 115 Supernova, the modernized overhaul of the software

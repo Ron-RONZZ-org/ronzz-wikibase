@@ -1,0 +1,11 @@
+{{Cheatsheet}}
+
+== CLI ==
+
+[[Cheatsheets:LinuxCLI]]
+
+== Desktop Apps ==
+
+[[Cheatsheets:DesktopLinuxFOSS|Pretty-good FOSS]]
+
+[[Category:DesktopLinux]]

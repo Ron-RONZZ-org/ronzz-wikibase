@@ -1,0 +1,7 @@
+{{Person}}
+
+== Biography ==
+
+''from Wikipedia (CC BY-SA 4.0):''
+
+Amy Susan Bruckman is a professor at the Georgia Institute of Technology affiliated with the School of Interactive Computing and the GVU Center. She is best known for her pioneering research in the fields of online communities and the learning sciences. In 1999, she was selected as one of MIT Technology Review's TR100 awardees, honoring 100 remarkable innovators under the age of 35. In 2018, she was elected as an ACM Fellow.

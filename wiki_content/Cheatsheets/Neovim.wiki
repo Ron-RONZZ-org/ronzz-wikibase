@@ -1,0 +1,402 @@
+{{Cheatsheet}}
+
+[[FOSS:Neovim|Neovim]] is a hyperextensible text editor that keeps Vim's modal editing and Vimscript, and adds a Lua configuration API, a built-in LSP client, and treesitter.
+
+New to modal editing? <code>:Tutor</code> is an interactive lesson that takes about half an hour.
+
+<blockquote>
+Examples below assume Neovim 0.11 or newer. To find your config directory, run <code>:echo stdpath("config")</code>: it is usually <code>~/.config/nvim</code> on Linux and macOS, and <code>~/AppData/Local/nvim</code> on Windows.
+</blockquote>
+
+== Basic example: init.lua ==
+
+<syntaxhighlight lang="text" copy>
+~/.config/nvim
+├── init.lua
+└── lua
+    ├── config
+    │   └── lazy.lua
+    └── plugins
+        └── comment.lua
+</syntaxhighlight>
+
+<syntaxhighlight lang="lua" line highlight="2" copy>
+-- ~/.config/nvim/init.lua
+vim.g.mapleader = " "             -- <leader>; must be set before plugins load
+vim.g.maplocalleader = "\\"
+
+vim.opt.number = true             -- absolute line numbers
+vim.opt.relativenumber = true     -- distances from the cursor line
+vim.opt.expandtab = true          -- Tab inserts spaces
+vim.opt.shiftwidth = 2            -- one indent step
+vim.opt.ignorecase = true         -- search is case-insensitive ...
+vim.opt.smartcase = true          -- ... unless the pattern has capitals
+vim.opt.scrolloff = 4             -- keep 4 lines above and below the cursor
+
+vim.keymap.set("n", "<leader>w", "<cmd>w<cr>", { desc = "Save file" })
+
+require("config.lazy")            -- plugin manager, see #Plugins
+</syntaxhighlight>
+
+A config does four things: set options, map keys, define autocommands, and load plugins.
+
+== Modes ==
+
+{| class="wikitable"
+! Mode !! Enter with !! Purpose
+|-
+| Normal || <code>Esc</code> || move around, run operators and commands
+|-
+| Insert || <code>i</code> <code>a</code> <code>I</code> <code>A</code> <code>o</code> <code>O</code> || type at the cursor, after it, at line start, at line end, in a new line below, in a new line above
+|-
+| Visual || <code>v</code> <code>V</code> <code>Ctrl-v</code> || select by character, by line, by block
+|-
+| Replace || <code>R</code> || overwrite characters
+|-
+| Command-line || <code>:</code> <code>/</code> <code>?</code> || Ex commands, search
+|-
+| Terminal || <code>:terminal</code> || run a shell; <code>i</code> to type, <code>Ctrl-\ Ctrl-n</code> back to Normal
+|}
+
+== Operators, motions, text objects ==
+
+A Normal-mode command reads as <code>[count] operator motion</code>: <code>d2w</code> deletes two words. A text object replaces the motion when prefixed with <code>i</code> (inner) or <code>a</code> (around).
+
+{| class="wikitable"
+! Operator !! Effect
+|-
+| <code>d</code> || delete (cut)
+|-
+| <code>c</code> || change: delete, then Insert mode
+|-
+| <code>y</code> || yank (copy)
+|-
+| <code>p</code> <code>P</code> || paste after / before
+|-
+| <code>&gt;</code> <code>&lt;</code> || indent / dedent
+|-
+| <code>gu</code> <code>gU</code> <code>g~</code> || lowercase, uppercase, toggle case
+|-
+| <code>gq</code> || format: rewrap text, or format through the LSP client
+|-
+| <code>=</code> || reindent
+|}
+
+{| class="wikitable"
+! Motion !! Moves
+|-
+| <code>w</code> <code>b</code> <code>e</code> || word forward, back, to its end (<code>W</code> <code>B</code> <code>E</code>: whitespace-delimited)
+|-
+| <code>0</code> <code>^</code> <code>$</code> || column 0, first non-blank, end of line
+|-
+| <code>gg</code> <code>G</code> || first line, last line (<code>42G</code>: line 42)
+|-
+| <code>f{c}</code> <code>t{c}</code> || to / until the next <code>{c}</code> on the line; <code>F</code> <code>T</code> backward, <code>;</code> repeats
+|-
+| <code>%</code> || the matching bracket
+|-
+| <code>{ }</code> || previous / next paragraph
+|-
+| <code>n</code> <code>N</code> || next / previous search match
+|}
+
+{| class="wikitable"
+! Text object !! Selects
+|-
+| <code>iw</code> <code>aw</code> || a word / a word and its whitespace
+|-
+| <code>i"</code> <code>a"</code> || inside / around quotes (<code>'</code> and <code>`</code> too)
+|-
+| <code>i(</code> <code>a(</code> || inside / around parentheses (<code>ib</code>; also <code>[</code> <code>{</code> <code>&lt;</code>)
+|-
+| <code>it</code> <code>at</code> || inside / around an HTML or XML tag
+|-
+| <code>ip</code> <code>ap</code> || inside / around a paragraph
+|}
+
+<syntaxhighlight lang="text" copy>
+ciw     change the word under the cursor
+di"     delete everything inside the double quotes
+da(     delete the parentheses and their contents
+yap     copy the paragraph
+>i{     indent the inside of the braces
+gUiw    uppercase the word
+dG      delete to the end of the file
+</syntaxhighlight>
+
+== Everyday edits ==
+
+<syntaxhighlight lang="text" copy>
+u          undo;  Ctrl-r redo
+.          repeat the last change
+x          delete the character under the cursor
+J          join the line below onto this one
+yyp        duplicate the current line
+gg=G       reindent the whole file
+</syntaxhighlight>
+
+'''Registers and macros'''
+
+<syntaxhighlight lang="text" copy>
+"+y        yank to the system clipboard
+"ayy       yank the line into register a
+"ap        paste register a
+qa         start recording a macro into register a
+q          stop recording
+@a         run macro a;  @@ repeats it;  3@a runs it three times
+</syntaxhighlight>
+
+'''Search and replace'''
+
+<syntaxhighlight lang="text" copy>
+/pattern         search forward;  n and N jump to the next and previous match
+?pattern         search backward
+*                search the word under the cursor
+:nohlsearch      clear the highlight until the next search
+:s/old/new/      replace on the current line
+:%s/old/new/g    replace in the whole file
+:%s/old/new/gc   ... asking for confirmation each time
+</syntaxhighlight>
+
+<blockquote>
+In Visual mode press <code>:</code> to get the range for free: select lines, then <code>:'&lt;,'&gt;s/old/new/g</code> replaces inside the selection only.
+</blockquote>
+
+== Files, buffers, windows, tabs ==
+
+<syntaxhighlight lang="text" copy>
+:e file         edit a file
+:w / :wq        write / write and quit
+:q / :q!        quit / quit and discard changes
+:x              write if changed, then quit
+:e!             reload the file, discarding changes
+:bn / :bp       next / previous buffer
+:bd             close the buffer
+:ls             list open buffers
+:sp file        split the window horizontally
+:vs file        split the window vertically
+Ctrl-w h/j/k/l  move to the window left, below, above, right
+Ctrl-w q        close the window
+:tabnew / gt    new tab / next tab (gT: previous)
+:terminal       terminal in a buffer
+</syntaxhighlight>
+
+<blockquote>
+'''A buffer is not a window.''' <code>:q</code> closes a window and leaves the buffer loaded in memory; <code>:bd</code> unloads the buffer. <code>Ctrl-o</code> and <code>Ctrl-i</code> walk the jump list backwards and forwards.
+</blockquote>
+
+== Configuring in Lua ==
+
+'''Options'''
+
+{| class="wikitable"
+! Form !! Reaches
+|-
+| <code>vim.opt.number = true</code> || any option, converting Lua values to Vim types
+|-
+| <code>vim.o</code> <code>vim.bo</code> <code>vim.wo</code> || global, buffer-local, window-local raw access
+|-
+| <code>vim.g.mapleader = " "</code> || a global variable, here <code>g:mapleader</code>
+|-
+| <code>vim.opt.listchars:append({ space = "·" })</code> || add one entry to a comma-separated option
+|}
+
+<syntaxhighlight lang="lua" copy>
+vim.opt.colorcolumn = "80"
+vim.opt.wrap = false
+vim.o.scrolloff = 4                       -- same as :set scrolloff=4
+vim.wo.number = true                      -- window-local
+vim.bo.commentstring = "// %s"            -- buffer-local
+</syntaxhighlight>
+
+'''Keymaps'''
+
+<syntaxhighlight lang="lua" copy>
+vim.keymap.set("n", "<leader>w", "<cmd>w<cr>", { desc = "Save file" })
+vim.keymap.set({ "n", "v" }, "<leader>y", '"+y', { desc = "Yank to clipboard" })
+vim.keymap.set("i", "jk", "<Esc>", { desc = "Leave insert mode" })
+vim.keymap.set("n", "]d", function() vim.diagnostic.jump({ count = 1 }) end,
+  { desc = "Next diagnostic" })
+vim.keymap.set("n", "<leader>f", vim.lsp.buf.format, { desc = "Format buffer" })
+</syntaxhighlight>
+
+Modes are <code>"n"</code> normal, <code>"i"</code> insert, <code>"v"</code> visual and select, <code>"x"</code> visual only, <code>"t"</code> terminal, <code>""</code> all of them.
+
+<blockquote>
+'''<code>vim.keymap.set</code> differs from Vim's <code>:map</code> in two ways:''' the mapping is silent by default, and <code>{ remap = true }</code> is needed for the right-hand side to expand other mappings. Prefer <code>&lt;cmd&gt;...&lt;cr&gt;</code> over <code>:...&lt;cr&gt;</code>: it does not switch modes and keeps the cursor put.
+</blockquote>
+
+'''Autocommands and user commands'''
+
+<syntaxhighlight lang="lua" copy>
+vim.api.nvim_create_autocmd("BufWritePre", {
+  group = vim.api.nvim_create_augroup("trim_whitespace", { clear = true }),
+  pattern = "*",
+  desc = "Strip trailing whitespace on save",
+  callback = function()
+    local view = vim.fn.winsaveview()
+    vim.cmd([[%s/\s\+$//e]])
+    vim.fn.winrestview(view)              -- put the cursor back
+  end,
+})
+
+vim.api.nvim_create_user_command("Reload", function()
+  vim.cmd.source(vim.fn.stdpath("config") .. "/init.lua")
+end, { desc = "Re-run init.lua" })
+</syntaxhighlight>
+
+== Plugins ==
+
+[https://github.com/folke/lazy.nvim lazy.nvim] installs plugins, lazy-loads them by event, command or keymap, and keeps a lockfile of installed revisions.
+
+<syntaxhighlight lang="lua" copy>
+-- ~/.config/nvim/lua/config/lazy.lua
+local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+if not (vim.uv or vim.loop).fs_stat(lazypath) then
+  vim.fn.system({ "git", "clone", "--filter=blob:none", "--branch=stable",
+    "https://github.com/folke/lazy.nvim.git", lazypath })
+end
+vim.opt.rtp:prepend(lazypath)
+
+require("lazy").setup({ { import = "plugins" } })   -- every file under lua/plugins/
+</syntaxhighlight>
+
+One file per plugin, each returning a spec:
+
+<syntaxhighlight lang="lua" copy>
+-- ~/.config/nvim/lua/plugins/comment.lua
+return {
+  "numToStr/Comment.nvim",
+  event = "VeryLazy",      -- load after startup
+  opts = {},               -- runs require("Comment").setup({})
+}
+</syntaxhighlight>
+
+{| class="wikitable"
+! Spec field !! Effect
+|-
+| <code>opts = {}</code> || passed to the plugin's <code>setup()</code>; the module name is guessed from the repository name
+|-
+| <code>config = function() ... end</code> || full control over setup; use instead of <code>opts</code>
+|-
+| <code>cmd = "Mason"</code> || load when the command is first run
+|-
+| <code>keys = { ... }</code> || load when one of these mappings is first pressed
+|-
+| <code>event = "BufReadPre"</code> || load on an autocommand event, or on <code>"VeryLazy"</code>
+|-
+| <code>ft = "python"</code> || load for a filetype
+|-
+| <code>dependencies = { ... }</code> || plugins to load with it
+|-
+| <code>enabled = false</code> || keep the spec, install nothing
+|-
+| <code>version</code> <code>branch</code> <code>tag</code> || pin a revision
+|}
+
+{| class="wikitable"
+! Command !! Effect
+|-
+| <code>:Lazy</code> || the UI: status, install, update, clean, log
+|-
+| <code>:Lazy update</code> || update every plugin
+|-
+| <code>:Lazy sync</code> || update, install missing plugins, clean removed ones
+|-
+| <code>:Lazy restore</code> || go back to the revisions recorded in the lockfile
+|-
+| <code>:Lazy profile</code> || startup time per plugin
+|-
+| <code>:checkhealth lazy</code> || diagnose the setup
+|}
+
+<blockquote>
+<code>lazy-lock.json</code> records the installed revision of every plugin: commit it to make your setup reproducible. Plugins land in <code>stdpath("data")/lazy</code>, which is why the bootstrap builds the path with <code>vim.fn.stdpath("data")</code> instead of typing <code>~/.local/share/nvim</code>: the tilde is shell shorthand, not something Lua expands.
+</blockquote>
+
+With that spec installed, Comment.nvim toggles comments:
+
+{| class="wikitable"
+! Key !! Effect
+|-
+| <code>gcc</code> || toggle the current line
+|-
+| <code>gc{motion}</code> || toggle a motion: <code>gcap</code>, <code>gcw</code>, <code>gc5j</code>, <code>gci{</code>
+|-
+| <code>gc</code> (Visual) || toggle the selection
+|-
+| <code>gco</code> <code>gcO</code> || add a comment below / above and enter Insert mode
+|-
+| <code>gcA</code> || add a comment at the end of the line
+|-
+| <code>gbc</code> <code>gb{motion}</code> || the same with block comments
+|}
+
+== Built-in LSP ==
+
+Neovim ships the LSP client; the servers themselves (<code>lua-language-server</code>, <code>pyright</code>, <code>clangd</code>, ...) are installed separately and must be on <code>$PATH</code>.
+
+<syntaxhighlight lang="lua" copy>
+-- ~/.config/nvim/lua/config/lsp.lua
+vim.lsp.config("luals", {
+  cmd = { "lua-language-server" },
+  filetypes = { "lua" },
+  root_markers = { ".luarc.json", ".luarc.jsonc", ".git" },
+})
+vim.lsp.enable("luals")            -- start it for matching buffers
+</syntaxhighlight>
+
+{| class="wikitable"
+! Key !! Effect
+|-
+| <code>K</code> || hover for the symbol under the cursor
+|-
+| <code>grn</code> || rename the symbol
+|-
+| <code>gra</code> || code action (Normal and Visual)
+|-
+| <code>grr</code> || references
+|-
+| <code>gri</code> || implementations
+|-
+| <code>gO</code> || document symbols
+|-
+| <code>Ctrl-s</code> (Insert) || signature help
+|-
+| <code>Ctrl-x Ctrl-o</code> (Insert) || LSP completion
+|}
+
+<syntaxhighlight lang="text" copy>
+:checkhealth vim.lsp          is a client attached to this buffer?
+:lua =vim.lsp.get_clients()   list the active clients
+</syntaxhighlight>
+
+<blockquote>
+'''These mappings are bound even when no server is attached:''' pressing <code>grn</code> in a buffer without a client reports that no matching language server was found. Diagnostics, on the other hand, have no default keys; bind <code>vim.diagnostic.open_float</code> and <code>vim.diagnostic.jump</code> yourself, as in [[#Configuring in Lua|Configuring in Lua]].
+</blockquote>
+
+== Built-in commands worth knowing ==
+
+<syntaxhighlight lang="text" copy>
+:Tutor                  interactive Vim lesson
+:help topic             e.g. :help lua-guide, :help vim.keymap.set
+:checkhealth            diagnose config, plugins, LSP, treesitter
+:Inspect                highlight group and treesitter node under the cursor
+:source $MYVIMRC        re-run init.lua
+:luafile %              run the Lua file in the current buffer
+:lua =vim.o.shiftwidth  print a value
+:set shiftwidth?        print an option
+:verbose set shiftwidth?    ... and which file set it
+:messages               read past messages
+:scriptnames            files loaded at startup
+</syntaxhighlight>
+
+== For more ==
+
+* <code>:help</code>: the authoritative manual, available offline
+* [https://neovim.io/doc/user/ Neovim user manual]: the same text online
+* [https://neovim.io/doc/user/lua-guide.html Lua guide]: porting a vimrc to init.lua
+* [https://neovim.io/doc/user/lsp.html LSP documentation]: configs, attach handlers, diagnostics
+* [https://github.com/nvim-lua/kickstart.nvim kickstart.nvim]: a small, commented starting config to read
+* [https://lazy.folke.io/ lazy.nvim documentation]: specs, lazy-loading, debugging
+* [https://github.com/numToStr/Comment.nvim Comment.nvim]: the comment plugin used above

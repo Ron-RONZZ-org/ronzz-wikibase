@@ -1,0 +1,5 @@
+{{Person}}
+
+== Overview ==
+
+Finnish-American software engineer, creator of the Linux kernel and of Git

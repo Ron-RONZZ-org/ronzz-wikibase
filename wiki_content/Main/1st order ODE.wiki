@@ -1,0 +1,198 @@
+'''A first-order ordinary differential equation''' is an ordinary differential equation in which only the first derivative of the unknown function appears. Its general solution carries one arbitrary constant, its solutions can be drawn as a direction field, and wide classes of it are solved by an explicit formula.
+
+== General form ==
+
+Solved for the derivative, a first-order equation reads
+
+{{#content:Q1581}}
+
+where $f$ is a given function of the independent variable $x$ and the unknown $y(x)$; an equation that cannot be solved for $y'$ is written implicitly, $F(x,y,y')=0$. A '''solution''' on an interval is a differentiable function that satisfies the equation at every point of the interval.
+
+One condition selects a single solution, because the general solution carries one arbitrary constant:
+
+{{#content:Q1582}}
+
+Two classes cover most equations met in practice. The equation is '''linear''' when it can be written
+
+{{#content:Q1986}}
+
+with given functions $p(x)$ and $q(x)$; it is '''homogeneous''' when $q(x)=0$, and '''nonlinear''' otherwise. Writing $f(x,y)=M(x,y)/N(x,y)$ puts the same equation into the differential form
+
+{{#content:Q1988}}
+
+in which both variables appear side by side; this is the starting point of the exact method below.<ref>{{#cite:Q1982}}</ref><ref>{{#cite:Q1981}}</ref>
+
+== Direction field ==
+
+At each point $(x,y)$ at which $f$ is defined, the equation prescribes the slope $f(x,y)$ that a solution passing through that point must have. Drawing a short segment of that slope at each point of a grid gives the '''direction field''', and a solution curve is exactly a curve tangent to the field wherever it passes.
+
+[[File:Slope field of exponential growth.png|thumb|Direction field of $dy/dx=y$, with three solution curves. Each segment shows the slope at its location. Credit: jjbeard (public domain).]]
+
+The isoclines, the curves of constant slope, are read directly from the equation and give a quick sketch of the field. For
+
+$$y'=x+y:\qquad f(x,y)=x+y=c \ \Longrightarrow\ y=-x+c$$
+
+the isoclines are the lines of slope $-1$, and the segments drawn along the isocline $y=-x+c$ all have slope $c$.
+
+== Existence and uniqueness ==
+
+Before a formula is sought, one asks whether a solution exists and whether it is unique. If $f$ and $\partial f/\partial y$ are continuous on an open rectangle containing the point $(x_{0},y_{0})$, then the initial value problem has exactly one solution, on some open interval containing $x_{0}$. Each interior point of the domain of continuity therefore lies on exactly one solution curve, which is why a direction field can be followed from a starting point to draw a single solution.
+
+The continuity of $\partial f/\partial y$ cannot be dropped. For
+
+$$y'=y^{2/3},\qquad y(0)=0 \ \Longrightarrow\ y\equiv0 \quad\text{and}\quad y=\frac{x^{3}}{27}\ \ (x\geq0)$$
+
+both functions satisfy the equation and the condition, and
+
+$$\frac{\partial f}{\partial y}=\frac{2}{3}y^{-1/3} \ \text{is unbounded at } y=0$$
+
+so that the theorem says nothing about this point.<ref>{{#cite:Q1982}}</ref>
+
+== Separable equations ==
+
+An equation is '''separable''' when the right-hand side is a product of a function of $x$ alone and a function of $y$ alone. Dividing by $h(y)$ and integrating both sides with respect to $x$ separates the variables:
+
+$$\frac{dy}{dx}=g(x)\,h(y) \ \Longrightarrow\ \frac{1}{h(y)}\frac{dy}{dx}=g(x) \ \Longrightarrow\ \int\frac{1}{h(y)}\frac{dy}{dx}\,dx=\int g(x)\,dx$$
+
+On the left, the substitution $dy=y'\,dx$ reduces the integral to one in $y$ alone:
+
+{{#content:Q1612}}
+
+'''Case $h(y_{0})=0$.''' The division above is invalid wherever $h$ vanishes, and there the constant function $y\equiv y_{0}$ is a solution that the formula misses:
+
+$$y'=y^{2}:\qquad \int\frac{dy}{y^{2}}=\int dx \ \Longrightarrow\ -\frac{1}{y}=x+C \ \Longrightarrow\ y=-\frac{1}{x+C},\qquad y\equiv0$$
+
+{{Hidden example}}
+'''Example: exponential growth and decay.''' A quantity whose rate of change is proportional to its own size, such as an unchecked population or a radioactive sample, obeys
+
+{{#content:Q1584}}
+
+Here $g(t)=k$ and $h(y)=y$, so the variables separate:
+
+$$\int\frac{dy}{y}=\int k\,dt \ \Longrightarrow\ \ln|y|=kt+C_{1} \ \Longrightarrow\ |y|=e^{C_{1}}e^{kt} \ \Longrightarrow\ y=C\,e^{kt}$$
+
+The initial condition $y(0)=y_{0}$ gives $C=y_{0}$:
+
+{{#content:Q1585}}
+
+The sign of $k$ decides the behaviour:
+
+$$
+\begin{cases}
+k>0: & \text{growth, the quantity doubles every } T_{2}=\dfrac{\ln 2}{k} \\
+k<0: & \text{decay, the quantity halves every } T_{1/2}=-\dfrac{\ln 2}{k}
+\end{cases}
+$$<ref>{{#cite:Q1983}}</ref><ref>{{#cite:Q1981}}</ref>
+{{End hidden}}
+
+== Linear equations ==
+
+Multiplying the linear equation $y'+p(x)\,y=q(x)$ by the '''integrating factor''' $\mu(x)=e^{\int p(x)\,dx}$ collapses its left-hand side into a single derivative, since the derivative of that factor is $p(x)$ times itself:
+
+$$\mu(x)=e^{\int p(x)\,dx} \ \Longrightarrow\ \mu'(x)=p(x)\,e^{\int p(x)\,dx}=p(x)\,\mu(x)$$
+
+$$\mu\,y'+\mu\,p\,y=\mu\,y'+\mu'\,y=(\mu\,y)' \ \Longrightarrow\ (\mu\,y)'=\mu(x)\,q(x)$$
+
+Integrating both sides and dividing by $\mu(x)$ gives the general solution of every linear first-order equation:
+
+$$\int(\mu\,y)'\,dx=\int\mu\,q\,dx \ \Longrightarrow\ \mu(x)\,y=\int\mu(x)\,q(x)\,dx+C$$
+
+{{#content:Q1987}}
+
+'''Case $q(x)=0$.''' The homogeneous equation $y'+p(x)\,y=0$ is separable, and its general solution is the second term of the formula above,
+
+$$\frac{C}{\mu(x)}=C\,e^{-\int p(x)\,dx}$$
+
+namely the homogeneous solution $y_{h}$ of the linear equation, while the first term is a particular solution $y_{p}$: the general rule $y=y_{h}+y_{p}$ of linear equations holds ([[Ordinary differential equation]]).
+
+'''Example.''' For
+
+$$y'+y=e^{-x}$$
+
+the coefficients are $p(x)=1$ and $q(x)=e^{-x}$, so $\mu(x)=e^{x}$ and
+
+$$e^{x}y=\int e^{x}e^{-x}\,dx+C=\int 1\,dx+C=x+C \ \Longrightarrow\ y=(x+C)e^{-x}$$
+
+Substitution confirms the result:
+
+$$y=(x+C)e^{-x} \ \Longrightarrow\ y'=e^{-x}-(x+C)e^{-x} \ \Longrightarrow\ y'+y=e^{-x}-(x+C)e^{-x}+(x+C)e^{-x}=e^{-x}$$<ref>{{#cite:Q1981}}</ref><ref>{{#cite:Q1576}}</ref>
+
+== Exact equations ==
+
+In the differential form $M(x,y)\,dx+N(x,y)\,dy=0$ the left-hand side is a total differential when there is a function $F(x,y)$ with $F_{x}=M$ and $F_{y}=N$; the equation is then '''exact''', and its solutions are the level curves of $F$. Since the mixed partial derivatives of $F$ commute,
+
+$$\frac{\partial M}{\partial y}=\frac{\partial F_{x}}{\partial y}=F_{xy}=F_{yx}=\frac{\partial F_{y}}{\partial x}=\frac{\partial N}{\partial x}$$
+
+the test involves $M$ and $N$ alone:
+
+{{#content:Q1989}}
+
+and the solutions are recovered from $F$:
+
+{{#content:Q1990}}
+
+'''Example.''' The equation
+
+$$(2xy-3)\,dx+(x^{2}+4y)\,dy=0$$
+
+is exact, because
+
+$$\frac{\partial M}{\partial y}=2x=\frac{\partial N}{\partial x}$$
+
+Integrating $M$ with respect to $x$ at fixed $y$ leaves an arbitrary function of $y$:
+
+$$F=\int M\,dx=\int(2xy-3)\,dx=x^{2}y-3x+\phi(y)$$
+
+Differentiating in $y$ and comparing with $N$ fixes that function:
+
+$$\frac{\partial F}{\partial y}=x^{2}+\phi'(y)=x^{2}+4y \ \Longrightarrow\ \phi'(y)=4y \ \Longrightarrow\ \phi(y)=2y^{2}$$
+
+so the solutions of the equation are the curves
+
+$$x^{2}y-3x+2y^{2}=C$$
+
+Every separable equation is exact as well. For $y'=g(x)h(y)$ the differential form has $M=g(x)$ and $N=-1/h(y)$, and
+
+$$\frac{\partial M}{\partial y}=0=\frac{\partial N}{\partial x}$$<ref>{{#cite:Q1982}}</ref><ref>{{#cite:Q1576}}</ref>
+
+== Newton's law of cooling ==
+
+An object warmer than its surroundings loses heat at a rate proportional to the temperature gap:
+
+{{#content:Q1586}}
+
+The equation is separable, with $g(t)=-k$ and $h(T)=T-T_{a}$:
+
+$$\int\frac{dT}{T-T_{a}}=-k\int dt \ \Longrightarrow\ \ln|T-T_{a}|=-kt+C_{1} \ \Longrightarrow\ T-T_{a}=C\,e^{-kt}$$
+
+The initial temperature $T(0)=T_{0}$ gives $C=T_{0}-T_{a}$:
+
+$$T(t)=T_{a}+(T_{0}-T_{a})\,e^{-kt}$$
+
+A cup of coffee at $T_{0}=90\,^\circ\mathrm{C}$ in a room at $T_{a}=20\,^\circ\mathrm{C}$, cooling with $k=0.05\ \mathrm{min^{-1}}$, follows
+
+$$T(t)=20+70\,e^{-0.05t} \ \Longrightarrow\ T(10)=20+70\,e^{-0.5}\approx 62\,^\circ\mathrm{C}$$
+
+and reaches $30\,^\circ\mathrm{C}$ after
+
+$$20+70\,e^{-0.05t}=30 \ \Longrightarrow\ e^{-0.05t}=\frac{1}{7} \ \Longrightarrow\ t=\frac{\ln 7}{0.05}\approx 39\ \mathrm{min}$$
+
+The temperature tends to the room temperature $T_{a}$, the stable equilibrium of the equation ([[Qualitative methods]]).<ref>{{#cite:Q1982}}</ref>
+
+== See also ==
+
+* [[Ordinary differential equation]]
+* [[Euler's method]]
+* [[Qualitative methods]]
+* [[Laplace transform]]
+* [[Power series]]
+
+== References ==
+
+<references/>
+
+== Further reading ==
+
+* [https://en.wikipedia.org/wiki/Ordinary_differential_equation Ordinary differential equation], Wikipedia
+* [https://tutorial.math.lamar.edu/classes/de/de.aspx Differential Equations], Paul's Online Math Notes
+* [https://ocw.mit.edu/courses/18-03sc-differential-equations-fall-2011/ 18.03SC Differential Equations], MIT OpenCourseWare

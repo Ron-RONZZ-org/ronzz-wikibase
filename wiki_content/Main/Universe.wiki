@@ -1,0 +1,49 @@
+'''The universe''' is the totality of space and time, together with all the matter and energy they contain. It includes:
+
+* matter and energy, both in the ordinary forms we see around us, and in the "dark" forms, known as [[dark matter]] and [[dark energy]], whose existence is inferred mainly from their gravitational effects. Matter and energy are organised on the largest scales into a structure known as the [[Cosmic web|cosmic web]];
+* [[Spacetime]], the four-dimensional continuum in which matter and energy exist, move and interact.
+
+== Origin of the universe ==
+
+=== The Big Bang theory ===
+
+As of August 2026, the most accepted theory of the origin of the universe is the [[Big Bang Theory|Big Bang]]: which states that the universe began about 13.8 billion years ago in an extremely hot and dense state, and has been expanding and cooling ever since.<ref>{{#cite:Q356}}</ref><ref>{{#cite:Q1232}}</ref>
+
+[[File:Universe-timeline.jpg|thumb|upright=1.8|The history of the universe, from cosmic inflation (far left) to the present day. The expansion first slowed under the pull of gravity, then accelerated as dark energy came to dominate. Credit: NASA/WMAP Science Team (public domain).]]
+
+=== Alternative theories and hypothesis ===
+
+Although The Big Bang theory is by far the most supported, it is not the only scientific theory on the origin of the universe: alternative proposals, such as the ekpyrotic universe theory,<ref>{{#cite:Q360}}</ref> the BVG unified cosmology,<ref>{{#cite:Q389}}</ref> and the bilobular collision model,<ref>{{#cite:Q391}}</ref> are under active research. 
+
+=== Observing the early universe ===
+
+The early universe can be observed today via the [[cosmic microwave background]] (CMB), the light released when the universe had cooled enough to become transparent a few hundred thousand years after its formation.<ref>{{#cite:Q1232}}</ref> 
+
+== The universe today ==
+
+=== The universe is constanly expanding ===
+
+On the largest scales, the distances between galaxies grow with time, and the more distant two galaxies are, the faster they recedes from each other.<ref>{{#cite:Q1527}}</ref> 
+
+The rate of expansion of the universe is described by the [[Hubble-Lemaître]] law.<ref>{{#cite:Q1232}}</ref>
+
+=== The majority of matter and energy in the universe is invisible to us ===
+
+According to the standard model, the universe today consists of:<ref>{{#cite:Q1232}}</ref> 
+
+* about 68% [[dark energy]]
+* about 27% [[dark matter]]
+* about 5% ordinary (baryonic) matter and energy
+
+=== The universe is organised into large-scale structures ===
+
+Matter in our universe is far from spread uniformly: gravity has gathered it into galaxies, groups, and clusters, which in turn form superclusters, walls, and filaments. On the very largest scales these structures arrange themselves into the [[cosmic web]], a pattern of filaments and walls surrounding vast, nearly empty voids, formed as gravitational attraction draws matter into ever larger concentrations.<ref>{{#cite:Q1532}}</ref> 
+
+== References ==
+
+<references/>
+
+== Further reading ==
+
+* [https://science.nasa.gov/universe/ The Universe], NASA Science
+* [https://www.esa.int/Science_Exploration/Space_Science/Planck Planck], European Space Agency

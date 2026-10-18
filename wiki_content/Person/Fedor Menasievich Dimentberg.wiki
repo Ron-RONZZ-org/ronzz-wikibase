@@ -1,0 +1,5 @@
+{{Person}}
+
+== Overview ==
+
+Soviet/Russian physicist and engineer, renowned in machine dynamics, mechanical vibrations, and the theory of spatial mechanisms

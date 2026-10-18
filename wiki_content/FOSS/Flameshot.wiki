@@ -1,0 +1,26 @@
+{{FOSS|logo=[[File:Flameshot-logo.svg|frameless|220px|Logo]]}}
+
+== Overview ==
+
+Flameshot lives up to its official slogan:
+
+<blockquote>
+{{#statements:P42}}
+</blockquote>
+
+== Features ==
+
+* Region / full-screen / window capture via CLI&GUI
+* Built-in annotation tools (draw, highlight, blur, arrow, text)
+* Save, copy to clipboard, or upload to external image hosts
+* Configurable via CLI&GUI
+
+== Alternatives ==
+
+* '''gnome-screenshot''' — simple, GNOME-native
+* '''Spectacle''' — KDE Plasma's screenshot tool
+* '''Ksnip''' — annotation-focused, Windows/Linux
+
+== See also ==
+
+* [[Cheatsheets:DesktopLinuxFOSS]]

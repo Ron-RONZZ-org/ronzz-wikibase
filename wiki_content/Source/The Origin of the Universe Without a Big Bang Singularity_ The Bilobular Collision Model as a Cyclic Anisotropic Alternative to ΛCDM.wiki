@@ -1,0 +1,11 @@
+{{ScholarlyArticle}}
+
+== Abstract ==
+
+''from OpenAlex:''
+
+The Bilobular Collision Model (BCM) is an alternative anisotropic cyclic cosmology framework proposing that the observable universe originated from the near-relativistic collision of two Ultra-Massive Black Holes (UMBHs), each carrying approximately 40% of the previous cosmological cycle's total mass. This concise version presents the model's physical foundations, seven observational constraints compatible with the BCM, and six specific falsifiable predictions testable against ΛCDM with instruments already built or funded. No dark matter particles, dark energy fields, or inflationary mechanisms are required. This is the concise version of the Bilobular Collision Model paper. The full extended version (V4) with complete mathematical derivations and appendices A through F.9 is available at: https://doi.org/10.5281/zenodo.20269096https://orcid.org/0009-0006-1089-9023 The authors welcome correspondence from researchers interested in peer review, collaborative validation, or arXiv endorsement in the fields of cosmology, astrophysics, or theoretical physics. Contact: founder@humansp.org My theory published in 2011: https://www.youtube.com/watch?v=d2J84W0PVvg Suplemento to: Deep Impacts of Asteroids or Comets with Metallic Cores that Penetrate the Earth: https://doi.org/10.5281/zenodo.18204600 https://orcid.org/0009-0006-1089-9023. Contact: founder@humansp.org Part of the Proyecto A.D.A. (Architecture of Survival) series - Preprint 20. A chapter of: Survival Architecture: https://p…
+
+== Key words ==
+
+Bilobular Collision Model|BCM

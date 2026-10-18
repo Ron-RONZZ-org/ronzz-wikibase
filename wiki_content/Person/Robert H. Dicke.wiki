@@ -1,0 +1,5 @@
+{{Person}}
+
+== Overview ==
+
+American physicist (1916–1997), pioneer of experimental cosmology, whose Princeton group re-predicted the cosmic microwave background in the 1960s and recognised the 1965 Penzias–Wilson excess as its detection

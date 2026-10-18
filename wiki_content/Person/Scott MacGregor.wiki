@@ -1,0 +1,5 @@
+{{Person}}
+
+== Overview ==
+
+Software engineer; lead engineer of the early Mozilla Thunderbird project

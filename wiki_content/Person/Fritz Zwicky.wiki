@@ -1,0 +1,5 @@
+{{Person}}
+
+== Overview ==
+
+Swiss astronomer (1898–1974) who, in 1933, first inferred the existence of dark matter from the motions of galaxies in the Coma cluster

@@ -1,0 +1,5 @@
+{{FOSS}}
+
+== Overview ==
+
+Core container engine of Docker: the daemon (dockerd), REST API and CLI for building, running and distributing containers

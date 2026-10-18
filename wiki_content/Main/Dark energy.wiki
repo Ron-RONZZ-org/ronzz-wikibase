@@ -1,0 +1,162 @@
+'''Dark energy''' is a theorised form of energy that explains the accelerating expansion of the [[Universe]]. According to [[the standard model of cosmology]], it is the largest single ingredient of the universe, making up about 68% of the total mass–energy content of the universe.<ref>{{#cite:Q1232}}</ref>
+
+[[File:Universe composition (NOIRLab).jpg|thumb|upright=1.5|Artist's illustration of the composition of the universe: roughly 68% dark energy, 27% dark matter and 5% ordinary matter. Credit: NOIRLab/NSF/AURA/P. Marenfeld (CC BY 4.0).]]
+
+Dark energy, unlike ordinary matter and energy, is not gathered into galaxies and clusters by gravity but spread almost uniformly throughout space. Furthermore, while ordinary matter and energy are diluted by the expansion of the universe, the density of dark energy in space changes very slowly as the universe expands.<ref>{{#cite:Q1542}}</ref> As such, the fraction of dark energy in the content of the universe has grown over time, causing it to increasingly dominate the dynamics of the cosmos.
+
+=== Type Ia supernovae and the return of the cosmological constant ===
+
+The story of the cosmological constant, however, was not over:
+
+With the cosmological constant set to zero, the standard Big Bang models predict that the expansion of the universe must decelerate: gravity pulls every galaxy towards every other, slowing down the expansion initiated by the Big Bang.
+
+For decades, scientists were however unable to measure experimentally the rate of cosmic expansion. This changed in the 1990s, when scientists sufficiently mastered the so-called "'''standard candles'''" method, which measures the expansion history of the universe via objects whose intrinsic brightness is known well enough that their apparent brightness reveals their distance, hence nicknamed "standard candles". A reliable "standard candle" class, it turned out, was Ia supernovae, the explosions of white dwarfs that have accreted matter beyond a critical mass, emitting a remarkably uniform peak brightness. Small remaining differences can be corrected by the width–luminosity relation, which links how fast the supernova fades to how bright it is at its peak.
+
+[[File:SN1994D type Ia supernova.jpg|thumb|The type Ia supernova SN 1994D (bright spot, lower left) in the galaxy NGC 4526, imaged by the Hubble Space Telescope. Credit: NASA/ESA, the Hubble Key Project Team and the High-Z Supernova Search Team (public domain).]]
+
+Two independent teams set out to measure the rate of cosmic expansion in the 1990s with Ia supernovae as standard candles: the High-Z Supernova Search Team, led by [[Person:Adam Riess|Adam Riess]] and [[Person:Brian Schmidt|Brian Schmidt]], and the Supernova Cosmology Project, led by [[Person:Saul Perlmutter|Saul Perlmutter]]. Both expected to observe a deceleration caused by gravity as predicted by standard Big Bang models.
+
+In 1998, the High-Z team reported the analysis of 16 high-redshift type Ia supernovae together with 34 nearby ones. The high-redshift supernovae were on average 10–15% farther away than expected in a low-density universe without a cosmological constant, and the data unanimously favoured eternally expanding models with a currently accelerating cosmic expansion, consistent with a positive cosmological constant (ΩΛ > 0).<ref>{{#cite:Q1540}}</ref> 
+
+One year later, in 1999, the Supernova Cosmology Project published the analysis of 42 type Ia supernovae at redshifts between 0.18 and 0.83, and the data similarly favoured a positive cosmological constant, with 99% confidence.<ref>{{#cite:Q1541}}</ref>
+
+The discovery of an accelerating cosmic expansion was ground-breaking. According to general relativity, ordinary matter and energy cannot provide such a positive cosmological constant. There must exist in this universe, therefore, something beyond ordinary matter and energy. Since scientists were (and are) uncertain of their nature, they decided to call it "'''dark-energy'''".
+
+<blockquote>
+[[Person:Saul Perlmutter|Saul Perlmutter]], [[Person:Brian Schmidt|Brian Schmidt]] and [[Person:Adam Riess|Adam Riess]] shared the 2011 Nobel Prize in Physics.
+</blockquote>
+
+[[File:Universe-timeline.jpg|thumb|upright=1.8|The history of the universe, from the Big Bang to the present day. The expansion first slowed under the pull of matter and radiation, then accelerated as dark energy came to dominate. Credit: NASA/WMAP Science Team (public domain).]]
+
+== The physics of dark energy ==
+
+Under the assumptions of homogeneity and isotropy on large scales, the expansion of the universe is described by the Friedmann equations, which follow from general relativity:
+
+{{#content:Q1543}}
+
+{{#content:Q1544}}
+
+Here ''a'' is the scale factor (the Hubble parameter is H = ȧ/''a''), ''k'' the spatial curvature, ρ the total mass density, ''p'' the pressure, G the gravitational constant, ''c'' the speed of light, and Λ the cosmological constant.
+
+The second equation demonstrates that any fluid with a non-negative pressure, such as ordinary matter (''p'' = 0) or radiation (''p'' = ρ''c''²/3), results in a more negative right-hand side, decelerating the expansion of the universe. The observed acceleration in the rate of expansion of the universe can only be explained by a dominant component with negative pressure satisfying ρ + 3''p''/''c''² < 0. 
+
+Cosmologists characterise each component by its dimensionless equation-of-state parameter
+
+{{#content:Q1545}}
+
+with ''w'' = 0 for non-relativistic matter, ''w'' = 1/3 for radiation, and ''w'' = −1 for a cosmological constant. 
+
+Mathematically, any component with ''w'' < −1/3 contributes to the acceleration of the rate of expansion of the universe. For this component to dominate the energy budget, it must also dilute more slowly than matter.
+
+The simplest component satisfying ''w'' < −1/3 is the cosmological constant itself, which behaves exactly as a fluid of constant energy density
+
+{{#content:Q1546}}
+
+with a constant negative pressure
+
+{{#content:Q1547}}
+
+so that its equation-of-state parameter is exactly
+
+{{#content:Q1548}}
+
+As the universe expands and matter is diluted, such a constant-density component becomes steadily more dominant, explaining why the acceleration of the cosmic expansion began only when the universe was already several billion years old, as dark energy had overtaken matter.<ref>{{#cite:Q1542}}</ref>
+
+== Additional observational evidence ==
+
+=== The cosmic microwave background ===
+
+[[File:WMAP nine-year CMB map.png|thumb|All-sky map of the cosmic microwave background from nine years of NASA's WMAP data; the colour differences are temperature fluctuations of ±200 microkelvin. Credit: NASA/WMAP Science Team (public domain).]]
+
+The cosmic microwave background (CMB) offers an independent measurement of the geometry and content of the universe. The final full-mission Planck measurements, published in 2020, are consistent with a spatially flat universe whose total density is close to the critical density, but in which ordinary and dark matter together contribute only about 31% of that density.<ref>{{#cite:Q1232}}</ref> The remaining roughly 68% must be a smooth component that does not cluster like matter, in agreement with the supernova result: dark energy.<ref>{{#cite:Q1232}}</ref>
+
+=== Large-scale structure and baryon acoustic oscillations ===
+
+Another independent class of evidence comes from the way galaxies are distributed in space. In the hot early universe, matter and light were tightly coupled, and pressure waves, in effect sound waves, rippled outward from every overdense region. When the universe cooled enough for atoms to form, matter and light decoupled, and those ripples froze into the distribution of matter. The consequence is visible today in galaxy surveys: two galaxies are slightly more likely to be separated by one particular distance, about 150 megaparsecs (roughly 500 million light-years), than by any other. Cosmologists call this preferred spacing the baryon acoustic oscillation (BAO) scale. Because its true length is known from the CMB, it acts as a cosmic standard ruler: measuring how this ruler appears in surveys at different distances, and therefore at different times in cosmic history, traces the expansion history of the universe and the competition between the pull of matter and the push of dark energy. Combined with the CMB, these measurements confirm the energy budget inferred from supernovae and pin down the equation of state of dark energy.<ref>{{#cite:Q1232}}</ref>
+
+<uml>
+@startuml
+!theme bluegray
+title Independent probes of cosmic acceleration
+
+database "Type Ia supernovae\nstandardisable candles: apparent\nbrightness vs. redshift" as SNE
+database "Cosmic microwave background\ngeometry of a flat universe with\nonly ≈ 31% matter" as CMB
+database "Baryon acoustic oscillations\nstandard ruler in galaxy\nclustering" as BAO
+
+rectangle "Fit of the ΛCDM model" as FIT {
+  component "ΩΛ ≈ 0.68" as OM
+  component "w ≈ −1" as W
+}
+SNE --> FIT
+CMB --> FIT
+BAO --> FIT
+FIT --> "an accelerating expansion driven\nby a dominant dark energy"
+
+@enduml
+</uml>
+
+== Multiple hypotheses on the nature of dark energy ==
+
+<uml>
+@startuml
+!theme bluegray
+title Three hypotheses on the nature of dark energy
+
+rectangle "Dark energy" as DE
+rectangle "Cosmological constant Λ\n(vacuum energy)" as L
+rectangle "Dynamical dark energy\n(quintessence)" as Q
+rectangle "Modified gravity\n(no new ingredient)" as MG
+
+DE --> L : w = −1, density constant
+DE --> Q : −1 < w < −1/3,\nmight vary with time
+DE --> MG : general relativity is not\nexact on cosmological scales
+
+note bottom of L
+  Simplest option; consistent with all
+  data, but naive vacuum-energy
+  estimates are far too large.
+end note
+note bottom of Q
+  A slowly-rolling scalar field whose
+  density declines as it rolls down
+  its potential.
+end note
+note bottom of MG
+  The acceleration could reveal that
+  gravity itself must be modified at
+  the largest scales.
+end note
+
+@enduml
+</uml>
+
+=== The cosmological constant and the vacuum ===
+
+If dark energy is the cosmological constant, it can be interpreted as the energy of the vacuum: quantum field theory predicts that empty space should carry a vacuum energy that behaves exactly like a cosmological constant. The trouble is its magnitude: naive estimates of the vacuum energy exceed the observed value of Λ by some 120 orders of magnitude, one of the largest discrepancies between theory and observation in physics. This difficulty is known as the cosmological constant problem.<ref>{{#cite:Q1542}}</ref> Because of this problem, many cosmologists suspect that dark energy is more subtle than a bare cosmological constant.<ref>{{#cite:Q1542}}</ref>
+
+=== Quintessence ===
+
+Alternatives propose a dynamical dark energy, in which the acceleration is driven by a slowly-evolving scalar field, called quintessence, whose density declines with time, so that its equation-of-state parameter can differ from −1 and vary over cosmic history.
+
+=== Modified gravity ===
+
+Instead of introducing a new energy component, other physicists argue that the accelerating cosmic expansion signals a breakdown of general relativity on cosmological scales, which would require a modified theory of gravity.
+
+== Current and future probes ==
+
+[[File:DESI on the Mayall 4-meter Telescope.jpg|thumb|The Dark Energy Spectroscopic Instrument (DESI) installed on the Nicholas U. Mayall 4-metre Telescope at Kitt Peak National Observatory. Credit: NOIRLab/KPNO/NSF/AURA/P. Marenfeld (CC BY 4.0).]]
+
+[[File:Euclid spacecraft (ESA artist impression).jpg|thumb|left|Artist's impression of ESA's Euclid space telescope in orbit. Credit: ESA (CC BY-SA 3.0 IGO).]]
+
+As of September 2026, the nature of dark energy remains a core objective of observational cosmology. The Dark Energy Spectroscopic Instrument (DESI) and the European Space Agency's Euclid space telescope are measuring the expansion history of the universe and the growth of cosmic structure over most of cosmic history, and the Nancy Grace Roman Space Telescope, launched in August 2026, is extending the supernova and weak-lensing measurements to much larger samples. The key observable is the equation-of-state parameter ''w'' and its possible variation with time: any deviation from −1 would rule out a pure cosmological constant and point to one of the dynamical alternatives.
+
+== References ==
+
+<references/>
+
+== Further reading ==
+
+* [https://science.nasa.gov/universe/ The Universe], NASA Science
+* [https://www.esa.int/Science_Exploration/Space_Science/Planck Planck], European Space Agency
+* [https://arxiv.org/abs/astro-ph/9805201 Observational Evidence from Supernovae for an Accelerating Universe and a Cosmological Constant], Riess et al. (1998)
+* [https://arxiv.org/abs/astro-ph/9812133 Measurements of Omega and Lambda from 42 High-Redshift Supernovae], Perlmutter et al. (1999)

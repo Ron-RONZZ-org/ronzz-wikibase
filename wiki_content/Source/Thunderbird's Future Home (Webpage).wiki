@@ -1,0 +1,5 @@
+{{Webpage}}
+
+== Overview ==
+
+Thunderbird blog post announcing that the Mozilla Foundation will remain the legal and fiscal home of the Thunderbird project

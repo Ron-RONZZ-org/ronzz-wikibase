@@ -1,0 +1,5 @@
+{{Person}}
+
+== Overview ==
+
+American astronomer (1928–2016) whose measurements of the rotation curves of spiral galaxies, made with W. Kent Ford Jr., provided key evidence for dark matter

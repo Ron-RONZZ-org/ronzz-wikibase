@@ -1,0 +1,5 @@
+{{Webpage}}
+
+== Overview ==
+
+Docker docs page explaining the Docker platform, its client-server architecture and core objects

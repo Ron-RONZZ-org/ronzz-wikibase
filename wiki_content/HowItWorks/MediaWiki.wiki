@@ -1,0 +1,681 @@
+{{HowItWorks}}
+
+'''MediaWiki''' is the free, open-source wiki engine behind tens of thousands of websites — such as Wikipedia, Wikidata<ref>{{#cite:Q1378}}</ref> — and this very site: RonzzWikiBase.
+
+== MediaWiki, a wiki engine ==
+
+A '''Wiki engine''' powers a '''wiki''': a website hosting static pages, usually informative, which contributors can edit within their browser, with every change tracked and reversible. In its most radical form, e.g., Wikipedia, anyone reading the page can make edits, quickly correcting errors and updating pages. 
+
+A wiki engine's most essential job is to store wiki pages in a database, and pull them up for contributors to edit or for the renderer to render pages to HTML for readers on demand. For real-world application, it must also handle authentication, caching, indexing&searching and other auxiliary performance/security needs.
+
+MediaWiki is one of the most well-known wiki engines. Originally built as a summer project by early Wikipedia contributor [[Person:Heinrich Magnus Manske|Magnus Manske]] in 2001 to support a growing Wikipedia,<ref>{{#cite:Q1377}}</ref>, Mediawiki went through multiple full/partial rewrites to become what it is today.<ref>{{#cite:Q1377}}</ref><ref>{{#cite:Q1386}}</ref>
+
+== A short history ==
+
+The history of MediaWiki was intertwined with that of Wikipedia. 
+
+When Wikipedia launched in January 2001, it ran on '''UseModWiki''', an existing wiki engine written in Perl that stored every page as a text file. This worked fine for Wikipedia's scale at the time: an ambitious but still niche startup project that no one knew if it would ever take off. 
+
+To many people's surprise, Wikipedia became an instant hit. In a few months of time, flat-file storage became a performance bottleneck. To improve performance, [[Person:Heinrich Magnus Manske|Magnus Manske]], then a university student studying biochemistry, started building a dedicated engine in his free time over the summer of 2001: a database-driven application written in PHP, backed by MySQL. It was the first iteration of what would become MediaWiki, introducing core features still in use today: custom namespaces with dedicated talk pages, skins, and special pages.<ref>{{#cite:Q1377}}</ref> The community referred to it simply as "the PHP script".<ref>{{#cite:Q1377}}</ref> 
+
+In January 2002, the English Wikipedia switched officially to Magnus's PHP script, and the script became known as "Wikipedia phase II".<ref>{{#cite:Q1377}}</ref>
+
+As Wikipedia continued to grow at an astronomical pace, performance problems returned in a few months. In 2002, [[Person:Lee Daniel Crocker|Lee Daniel Crocker]] rewrote the engine again, calling the new software "Phase III". As he later described it, there "wasn't much time to sit down and properly architect and develop a solution", so he "just reorganised the existing architecture for better performance and hacked all the code".<ref>{{#cite:Q1377}}</ref> Deployed to the English Wikipedia in July 2002, Phase III added a file upload system, side-by-side diffs, and interwiki links.<ref>{{#cite:Q1377}}</ref>
+
+In June 2003, [[Collective:Wikimedia Foundation|Wikimedia Foundation]] was created under the leadership of [[Person:Jimmy Wales|Jimmy Wales]]. As a non-profit organisation, it manages Wikipedia's infrastructure and day-to-day operations.<ref>{{#cite:Q1377}}</ref> In July, '''MediaWiki''', a wordplay by [[Person:Daniel Mayer|Daniel Mayer]] on the Foundation's name.<ref>{{#cite:Q1377}}</ref>, was officially adopted as the name for the software behind Wikipedia. The first release under the new name followed in August 2003.<ref>{{#cite:Q1377}}</ref>
+
+A new volunteer developer brought in a new killer feature: [[Person:Tim Starling|Tim Starling]] added '''templates''' to MediaWiki 1.2 (2004), allowing popular elements to be defined once and used on an infinite number of pages. Version 1.3 (August 2004) then expanded them with parameters, moved them into a dedicated <code>Template</code> namespace, and introduced the MonoBook skin as the new default layout.<ref>{{#cite:Q1377}}</ref><ref>{{#cite:Q1379}}</ref>
+
+Development has continued continuously ever since: the template preprocessor was rewritten in MediaWiki 1.12 (2008);<ref>{{#cite:Q1381}}</ref> the ResourceLoader arrived in MediaWiki 1.17 (2011);<ref>{{#cite:Q1388}}</ref>; the visual editor arrived in 2012; '''Parsoid''', the second-generation parser originally written in Javascript to support the visual editor, was ported to PHP in 2019, with plan to become the default parser for the entire system — the "unified parser" — in version 1.47, scheduled for November 2026.<ref>{{#cite:Q1382}}</ref><ref>{{#cite:Q1077}}</ref><ref>{{#cite:Q1387}}</ref>
+
+Today, MediaWiki as a free software developed in the open by its own community, powers tens of thousands of wikis, private and public, including Wikipedia, Wikidata and this very site.<ref>{{#cite:Q1377}}</ref><ref>{{#cite:Q1386}}</ref><ref>{{#cite:Q1378}}</ref>
+
+== Components and interactions ==
+
+<uml>
+@startuml
+!theme bluegray
+title MediaWiki Core Code Modules & Infrastructure Interactions
+
+' ============= INFRASTRUCTURE NODES =============
+node "Infrastructure" {
+  database "MySQL / MariaDB\n(Revision, Page, User,\nCategory, etc.)" as DB
+  database "Redis / Memcached\n(Object Cache, Sessions,\nParser Cache)" as CACHE
+  node "Swift / Local FS\n(Images, Thumbnails, CSS/JS)" as FS
+}
+
+' ============= STORAGE SERVICES (Abstracted Layers) =============
+package "Storage Services" {
+  component "LoadBalancer\n(DB connection manager)" as LB
+  component "RevisionStore\n(includes/RevisionStore.php)" as RS
+  component "PageStore\n(includes/Storage/PageStore.php)" as PS
+  component "BagOStuff\n(Object cache interface)" as BO
+  component "FileRepo\n(File repository abstraction)" as FR
+}
+
+' ============= CORE DISPATCH & HANDLING =============
+package "Entry Points & Dispatchers" {
+  component "index.php" as INDEX
+  component "api.php" as API
+  component "load.php" as LOAD
+  component "MediaWiki\n(includes/MediaWiki.php)" as MW
+  component "ApiMain\n(includes/api/ApiMain.php)" as APIM
+  component "ResourceLoader\n(includes/ResourceLoader.php)" as RL
+}
+
+' ============= PAGE, CONTENT & PARSING =============
+package "Page & Content" {
+  component "Title\n(includes/Title.php)" as TITLE
+  component "WikiPage / Article\n(includes/page/WikiPage.php)" as WP
+  component "ContentHandler\n(includes/content/ContentHandler.php)" as CH
+  component "Parser\n(includes/parser/Parser.php)" as PARSER
+  component "OutputPage\n(includes/OutputPage.php)" as OUT
+  component "HookContainer\n(includes/HookContainer.php)" as HOOK
+}
+
+' ============= CLIENT =============
+node "Client" {
+  [Browser / HTTP Client] as CLIENT
+}
+
+' ============= FLOWS =============
+' Client to Entry Points
+CLIENT --> INDEX : GET /wiki/Title
+CLIENT --> API : GET /api.php?action=query
+CLIENT --> LOAD : GET /load.php?modules=skins
+
+' Entry Points to Dispatchers
+INDEX --> MW : require + MediaWiki::main()
+API --> APIM : ApiMain::execute()
+LOAD --> RL : ResourceLoader::respond()
+
+' Dispatcher to Page/Title resolution
+MW --> TITLE : Title::newFromRequest()
+MW --> WP : WikiPage::factory( Title )
+APIM --> TITLE : Title::newFromText()
+APIM --> WP : WikiPage::factory()
+
+' Page retrieval from storage
+WP --> PS : getPage() / loadPageData()
+PS --> LB : getConnection( DB_REPLICA )
+LB --> DB : SQL SELECT
+WP --> RS : getRevisionById()
+RS --> LB : getConnection( DB_REPLICA )
+LB --> DB : SQL SELECT
+
+' Content parsing (view action)
+WP --> CH : getContentHandler()
+CH --> PARSER : parse( Content )
+PARSER --> LB : getConnection( DB_REPLICA )\n(for template transclusion)
+PARSER --> BO : get() / set()\n(parser cache)
+PARSER --> HOOK : run( 'ParserBeforeStrip' ) etc.
+
+' Output assembly
+MW --> WP : view() / action=view
+WP --> OUT : addHTML( parsed content )
+OUT --> BO : get() / set()\n(output cache / HTML cache)
+MW --> OUT : output() (send to client)
+
+' API-specific storage
+APIM --> RS : getRevisionInfo()
+APIM --> LB : getConnection( DB_REPLICA )
+
+' ResourceLoader storage
+RL --> FR : getFileContents( style, script )
+FR --> FS : read from filesystem / Swift
+RL --> BO : get() / set()\n(module cache)
+
+' Infrastructure connections
+LB --> DB : (read/write) queries
+BO --> CACHE : set/get/delete
+FR --> FS : read/write images & assets
+
+' Extension hooks (optional cross-cut)
+HOOK --> LB : (extensions may query)
+HOOK --> BO : (extensions may cache)
+HOOK --> FR : (extensions may serve files)
+
+' Notes with actual file paths
+note right of INDEX
+  Actual entry point
+  Handles all web requests
+end note
+note right of MW
+  Core dispatcher; handles
+  actions, permissions, and
+  main request lifecycle
+end note
+note right of RS
+  Manages Revision metadata
+  and blobs (text storage)
+end note
+note right of PARSER
+  Transforms wikitext to HTML;
+  uses cache and DB for templates
+end note
+note right of BO
+  Interface to object cache;
+  used by ParserCache, MessageCache,
+  SessionManager, etc.
+end note
+
+@enduml
+</uml>
+
+== MediaWiki in action ==
+
+There are two core flows in MediaWiki: '''page view''' and '''page write'''.
+
+=== Page view ===
+
+<uml>
+@startuml
+!theme bluegray
+title Page View Flow
+
+|#LightGray|Client|
+start
+:Request page;
+
+|#LightBlue|Web Server|
+:Resolve title\n(check permissions);
+
+|#LightGreen|Cache|
+:Look up rendered\nHTML in cache;
+
+if (cache exist?) then (yes)
+  if (cache_timestamp > last_edit_timestamp?) then (yes)
+  :Retrieve cached HTML;
+  |#LightGray|Client|
+  :Serve cached page;
+  stop
+  else (no)
+  |#LightGreen|Cache|
+  :Purge cache;
+  endif
+else (no)
+endif
+  |#LightYellow|Database|
+  :Load raw wikitext;
+  |#LightPink|Parser|
+  :Preprocess + Convert\nto HTML (Sanitizer);
+  |#LightBlue|Web Server|
+  :Apply Skin & assets;
+  fork
+    |#LightGreen|Cache|
+    :Store rendered output\nto cache for future;
+  fork again
+    |#LightGray|Client|
+    :Serve fresh page;
+  end fork
+  stop
+
+@enduml
+</uml>
+
+
+
+
+=== Page write ===
+
+<uml>
+@startuml
+!theme bluegray
+title Page Edit Flow
+
+|#LightGray|Client|
+start
+:Open edit form\n(load wikitext);
+
+repeat
+  :Modify wikitext;
+  if (Preview / Diff?) then (yes)
+    :Show preview/diff\n(without saving);
+  else (no)
+  endif
+repeat while (Continue editing?) is (yes) -> no
+
+:Submit save;
+
+|#LightBlue|Web Server|
+:Check edit conflict\n(compare revisions);
+
+if (Conflict detected?) then (yes)
+  |#LightGray|Client|
+  :Show merge screen\n(auto-merge unrelated sections*);
+  :Merge & resubmit;
+  |#LightBlue|Web Server|
+  :Re-check (no conflict);
+else (no)
+endif
+
+|#LightYellow|Database|
+fork
+  :Store new revision\n(author, time, summary);
+fork again
+  :Update page history\nand RecentChanges;
+end fork
+
+|#LightGray|Client|
+:Edit complete\n(page updated);
+
+stop
+
+@enduml
+</uml>
+
+<blockquote>
+<nowiki />*: MediaWiki has supported automatic merging of non-interfering edit conflicts since version 1.3 (2004): when someone else saves a change that does not overlap yours, MediaWiki merges the two edits instead of forcing a conflict screen.<ref>{{#cite:Q1379}}</ref>
+</blockquote>
+
+== Key design decisions ==
+
+=== Principal content is created and stored in wikitext ===
+
+MediaWiki stores pages as '''wikitext''' in the database; the rendered HTML exists only as cache.<ref>{{#cite:Q1390}}</ref>
+
+Why?
+
+MediaWiki software is conceived for wikis, which in their most radical form allows editing from anyone, including odd-time readers lacking any computer programming knowledge correcting a spelling mistake. Therefore, an intuitive editing experience is extremely important in MediaWiki.
+
+'''HTML''', the standard markup language for web content, is verbose and hostile to non-programmers. Every element, body text, image, or list elements need tags, usually two, sometimes more. A misplaced or missing tag may prevent the entire page from being rendered correctly. To eliminate the need for direct HTML editing, Wikitext, a lightweight markup language directly parsable into HTML, was created.<ref>{{#cite:Q1390}}</ref>
+
+On MediaWiki instances, users edit wikitext. As frequent editing is expected, it is only natural to also store content in this format, not HTML, to avoid resource-intensive parsing and deparsing on each revision.
+
+
+<uml>
+@startuml
+!theme bluegray
+title Content store as wikitext v. as HTML
+
+actor User
+
+participant Browser
+participant WebServer as Server
+participant Parser
+participant Serializer
+' Safe: no conflict with the keyword
+database DB
+participant Cache
+
+' ============================================================
+' SECTION 1: WIKITEXT STORAGE (current MediaWiki)
+' ============================================================
+== Wikitext Storage ==
+
+' --- Write flow ---
+User -> Browser : Edit page using wikitext: '''Hello World!'''
+Browser -> Server : Submit wikitext: '''Hello World!'''
+Server -> DB : Store wikitext: '''Hello World!'''
+
+' --- Read flow ---
+... Some time later ...
+
+User -> Browser : Request page
+Browser -> Server : GET page
+Server -> DB : Request: Retrieve content
+DB --> Server : '''Hello World!''' (Wikitext format)
+Server -> Parser : '''Hello World!''' (Wikitext format)
+Parser --> Server : "~<b>Hello World!~</b> (HTML format)"
+Server -> Cache : Cache HTML (optional)
+Server --> Browser : Serve HTML
+Browser --> User : Display rendered page: <b>Hello World!</b> 
+
+' --- Cache read flow ---
+... A while later ...
+
+User -> Browser : Request page
+Browser -> Server : GET page
+Server -> Cache : Request: Retrieve content
+Cache --> Server : ~<b>Hello World!~</b> (HTML format)
+Server --> Browser : Serve HTML
+Browser --> User : Display rendered page: <b>Hello World!</b> 
+
+' ============================================================
+' SECTION 2: HTML STORAGE (alternative)
+' ============================================================
+== HTML Storage ==
+
+' --- Write flow ---
+User -> Browser : Edit page using wikitext
+Browser -> Server : Submit content: '''Hello World!''' (Wikitext format)
+Server -> Parser : '''Hello World!''' (Wikitext format)
+Parser --> Server : ~<b>Hello World!~</b> (HTML format)
+Server -> DB : Store HTML: ~<b>Hello World!~</b>
+
+' --- Read flow ---
+... Some time later ...
+
+User -> Browser : Request page
+Browser -> Server : GET page
+Server -> DB : Request: Retrieve content
+DB --> Server : "~<b>Hello World!~</b> (HTML format)"
+Server --> Browser : Serves HTML directly: ~<b>Hello World!~</b> (no parsing)
+Browser --> User : Display rendered page: <b>Hello World!</b> 
+
+' --- Edit flow ---
+... Later, user edits again ...
+
+User -> Browser : Click "Edit" button
+Browser -> Server : Request edit form
+Server -> DB : Request: Retrieve HTML
+DB --> Server : ~<b>Hello World!~</b> (HTML format)
+Server -> Serializer : ~<b>Hello World!~</b> (HTML format)
+Serializer --> Server : '''Hello World!''' (Wikitext format)
+Server --> Browser : Display wikitext for editing: '''Hello World!''' (Wikitext format)
+User -> Browser : Submit updated wikitext: '''Hello again World!''' (Wikitext format)
+... (write flow repeats: parse → store HTML) ...
+
+@enduml
+</uml>
+
+As can be seen in the above diagram, Storing content as wikitext inflicts no performance overhead on repeated read as rendered HTML is cached on first read, ensuring that the content is parsed only once after every new revision, lazily on read.
+
+=== The parser stays stable, always stable ===
+
+The '''MediaWiki parser''', which parses wikitext into HTML, is arguably the most essential part of MediaWiki core. Every single wiki page depends on it. 
+
+As such, any proposed changes to the parser must survive extensive scrutiny before being implemented. The wikitext markup MediaWiki uses descends from earlier wiki engines — notably UseModWiki, which ran Wikipedia before MediaWiki and influenced its markup — and grew organically in response to user demand over the years.<ref>{{#cite:Q1377}}</ref> To this day the MediaWiki-flavoured wikitext has not received a formal specification; the closest thing to one is the parser test suite, which mediawiki.org describes as "the authoritative source for Wikitext markup compatibility testing".<ref>{{#cite:Q1390}}</ref> There is however an unofficial spec, jokingly phrased: "whatever the parser spits out, plus a few hundred test cases".
+
+The solution to the problem was to develop a second parser alongside the primary parser. The second parser, as MediaWiki contributors agreed, would not take on any actual functionality until it is proven reliable. The development of the second parser, '''Parsoid''', began in 2012, originally with the aim of supporting MediaWiki's new visual editor. Originally written in JavaScript (Node.js), it was ported to PHP in 2019.<ref>{{#cite:Q1382}}</ref> At the time of writing (2026-08), Parsoid is planned to become the default parser for the entire MediaWiki system — the "unified parser" — in version 1.47, scheduled for November 2026.<ref>{{#cite:Q1077}}</ref><ref>{{#cite:Q1382}}</ref><ref>{{#cite:Q1387}}</ref>
+
+<uml>
+@startuml
+!theme bluegray
+title Wikitext ~<-> HTML parsing/serialising
+
+'Participants
+actor "Editor" as User
+participant "Browser" as Browser
+participant "Web Server" as Server
+participant "Legacy Parser" as Legacy
+'Parsoid
+participant "Parsoid Parser" as Parser
+participant "Parsoid Serializer" as Serializer
+
+'Parser comparison
+note over Legacy
+  Legacy wikitext parser:
+  no formal spec, grown organically
+  since the 2000s.
+  inofficial spec:
+  "Whatever the parser spits out."
+  Scheduled for deprecation.
+end note
+
+note over Parser, Serializer
+  Parsoid: 2nd-generation parser/serialiser,
+  enables lossless round-trip conversions.
+  Originally JS (2012), ported to PHP (2019).
+  Scheduled to become the unified parser in MW 1.47 (2026-11).
+end note
+
+== Read/preview flow: equivalent for legacy/Parsoid ==
+
+User -> Browser : "Views / edits wikitext"
+
+Browser -> Server : "HTTP GET /wiki/Main"
+note right: Requests page rendering
+
+'Legacy: pre-1.43 behaviour
+Server -> Legacy : "invoke parser (wikitext → HTML)"
+Legacy --> Server : "~<a href='/wiki/Main'>Main~</a>"
+note right: Legacy emits href '/wiki/Main' (display title)
+
+'Parsoid: current behaviour
+Server -> Parser : "invoke Parsoid parser (wikitext → HTML)"
+Parser --> Server : "~<a href='/wiki/Main_Page'>Home~</a>"
+note right: Parsoid emits href '/wiki/Main_Page' (canonical)
+
+Server --> Browser : "HTTP response (HTML string)"
+Browser --> User : "Renders DOM (displays link)"
+
+== Visual+source hybrid editing flow: Parsoid round-trip ==
+
+User -> Browser : "Edits wikitext via UI: ~[[Main Page|Home]]"
+
+Browser -> Server : "HTTP POST /api/parse (wikitext)"
+Server -> Parser : "invoke Parsoid parser"
+Parser --> Server : "~<a href='/wiki/Main_Page'>Home~</a>"
+Server --> Browser : "HTTP response (HTML string)"
+Browser --> User : "Renders DOM preview"
+
+User -> Browser : "Modifies DOM (via JS / WYSIWYG)"
+
+Browser -> Server : "HTTP POST /api/transform (HTML → wikitext)"
+note right: Sends HTML string extracted from DOM
+
+Server -> Serializer : "invoke Parsoid serializer"
+Serializer --> Server : "~[[Main Page|Home]]"
+Server --> Browser : "HTTP response (wikitext)"
+Browser --> User : "Shows converted wikitext"
+
+@enduml
+</uml>
+
+=== Templates, lots of templates ===
+
+Templates let a wiki define something once and reuse it everywhere — a navigation box, a banner, an infobox. A page calls a template with <code><nowiki>{{Name}}</nowiki></code>, and the template's content is expanded into the page at read time.
+
+Template support was introduced in 2004: Tim Starling added templates in MediaWiki 1.2, and version 1.3 (August 2004) expanded them with parameters and moved them out of the MediaWiki: namespace into a dedicated Template namespace.<ref>{{#cite:Q1377}}</ref><ref>{{#cite:Q1379}}</ref> For large instances like Wikipedia, this was transformative: the same boilerplate, which used to be copied onto thousands of articles, now only need to be defined once, making error correction and updates much easier. Over time, templates, as one of the most used features in MediaWiki, were enhanced with programming-like constructs: the ParserFunctions extension provides conditional and expression parser functions such as <syntaxhighlight lang="wikitext" inline>{{#if:…}}</syntaxhighlight> and <syntaxhighlight lang="wikitext" inline>{{#switch:…}}</syntaxhighlight>, turning templates into a miniature — if awkward — programming language.<ref>{{#cite:Q1391}}</ref>
+
+There was however a price to pay: Template-heavy pages became slow to parse, really slow. MediaWiki mitigated the issue in [https://www.mediawiki.org/wiki/Release_notes/1.12 MediaWiki 1.12 (2008)] by [https://www.mediawiki.org/wiki/Release_notes/1.12#Parser_changes_in_1.12 rewriting] the '''preprocessor''': the new two-pass preprocessor parses templates into a tree and skips the branches that are never used, such as the un-taken cases of a <syntaxhighlight lang="wikitext" inline>{{#switch:}}</syntaxhighlight>. Template-heavy pages got much faster, without any change to the markup.<ref>{{#cite:Q1381}}</ref>
+
+Here is a minimal example:
+
+{| class="wikitable"
+! Template code<br><small>to be defined once on <code>Template:Welcome</code></small> !! Include code<br><small>to be written on pages that use it</small> !! Expansion result<br><small>what the reader sees</small>
+|-
+| <syntaxhighlight lang="wikitext" inline>'''Welcome, {{{name|guest}}}!''' {{{message}}}</syntaxhighlight>
+| <syntaxhighlight lang="wikitext" inline>{{Welcome|name=Alice|message=We're glad you're here.}}</syntaxhighlight>
+| '''Welcome, Alice!''' We're glad you're here.
+|}
+
+<blockquote>
+The <syntaxhighlight lang="wikitext" inline>{{{name|guest}}}</syntaxhighlight> syntax gives the parameter a default value: calling <syntaxhighlight lang="wikitext" inline>{{Welcome|message=Welcome back.}}</syntaxhighlight> without a <code>name</code> expands to '''Welcome, guest!''' Welcome back.
+</blockquote>
+
+=== Skins separate content from presentation ===
+
+A '''skin''' is the frame around the content: the header, footer and sidebar, plus the CSS and JavaScript that style them. It allows the same wikitext content, itself containing little formatting information, to be rendered into beautiful webpages for readers.
+
+Skins are as old as MediaWiki itself — the Phase II script of 2001 already supported them. In version 1.3 (August 2004), '''MonoBook''' was introduced as the new default layout.<ref>{{#cite:Q1379}}</ref>
+
+The skin system separates presentation from content. It ensures 3 things:
+
+* '''Uniformity across pages''': The same navigation, branding, and layout are applied to every page without touching the article text. A wiki can change its entire visual identity by swapping a single skin, without touching the actual content of any article.
+* '''User preference''': Registered users can choose their own skin (e.g., MonoBook, Vector, or modern variants) independently of the wiki's default, personalising their experience without impacting others.
+* '''Device adaptation''': Skins allow the same underlying HTML to be styled for desktop, tablet, and mobile differently.
+
+The technical implementation of skins evolved over time. Early skins were built on PHPTAL-based templates; MediaWiki 1.4 (2005) reworked the skin system around the <code>SkinTemplate</code> class and a <code>QuickTemplate</code> system, removing the PHPTAL dependency and giving skins a cleaner, data-oriented interface.<ref>{{#cite:Q1380}}</ref> More recently, version 1.35 (2020) introduced the '''SkinMustache''' class, which allows skins to be defined with logicless Mustache templates, making them easier for front-end developers to customize without touching PHP.<ref>{{#cite:Q1389}}</ref>
+
+The main challenge with complex skins is caching complexity. The same page can look drastically differently depending on which skin is being used, so the cached HTML for one skin cannot be reused for another. As such, large instances allowing arbitrary user skins suffer inevitably from cache fragmentation: a page does not just need to be cached once, but numerous times for each supported skin. Moreover, skins that heavily rely on JavaScript for interactivity (e.g., the sticky header in Vector 2022) must be carefully optimised for loading time: a poorly optimized skin can add hundreds of milliseconds to page rendering, resulting in a sluggish feeling on slower devices.
+
+The skin hooks used to inject custom data into page output also carry a maintenance cost: every hook adds complexity and can break when the skin is updated, making maintenance a challenge for large instances like Wikipedia, which now maintains a tightly controlled set of skins to ensure consistent performance and accessibility across billions of pageviews.
+
+The '''ResourceLoader''', introduced in [https://www.mediawiki.org/wiki/MediaWiki_1.17 MediaWiki 1.17 (2011)], allows skins to declare and load their CSS and JavaScript modules on demand, with minification and concatenation built in, improving performance.<ref>{{#cite:Q1388}}</ref>
+
+=== Extensions plug in; the core stays stable and small ===
+
+MediaWiki's core is deliberately small: it contains the bare-minimum necessary for a running wiki instance. Additional functionalities live in '''extensions'''. They attach to the core through '''hooks''' — places where third-party code can run before, after, or instead of MediaWiki's own behaviour for a given event.<ref>{{#cite:Q1385}}</ref> Some hooks even let an extension add new wikitext syntax of its own.
+
+<uml>
+@startuml
+!theme bluegray
+title MediaWiki Hooks & Extensions
+
+actor User
+participant "MediaWiki Core" as Core
+participant "HookManager" as HM
+participant "Extension" as Ext
+
+User -> Core : Request (e.g., edit page)
+activate Core
+
+Core -> Core : Initialize Parser/Action
+Core -> HM : registerHooks() on extension load
+note right of HM : Extensions attach callbacks\nto specific hooks
+
+Core -> HM : runHook('BeforePageDisplay')
+activate HM
+HM -> Ext : Execute registered callback
+
+alt Extension overrides (return false)
+    Ext --> HM : false
+    HM --> Core : Abort default behavior
+    Core --> User : Custom response
+else Extension continues (return true)
+    Ext --> HM : true
+    HM --> Core : Proceed with core logic
+    Core -> Core : Perform core action (render/save)
+    Core -> HM : runHook('PageSaveComplete')
+    HM -> Ext : Post-execution callback
+    Ext --> HM : true
+    HM --> Core : Done
+    Core --> User : Serve final output
+end
+
+deactivate Core
+@enduml
+</uml>
+
+The hook system allows MediaWiki to respond to user demands rapidly while staying robust. Adding extra functionalities means enhancing existing extensions or writing new ones, not editing the core.
+
+=== Caching, lots of caching ===
+
+PHP has no concept of connection pooling or application memory. Without a proper caching system, PHP backend performance becomes catastrophic at scale, as every request must execute PHP code through the entire program logic.
+
+For optimal performance, MediaWiki uses multiple layers of caches, each sitting at a different point in the request pipeline:<ref>{{#cite:Q1385}}</ref>
+
+<uml>
+@startuml
+!theme bluegray
+title Caching in MediaWiki
+
+actor "Client / Browser" as Client
+
+node "Edge" {
+  component "Reverse Proxy / CDN\n(whole rendered pages)" as CDN
+}
+
+node "Application server (PHP)" {
+  component "Opcode cache\n(compiled PHP bytecode)" as OPCODE
+  component "Web server / index.php" as PHP
+  component "Object cache\n(Memcached / Redis)" as OBJCACHE
+  component "Parser" as PARSER
+}
+
+database "Database\n(MySQL / MariaDB)" as DB
+
+Client --> CDN : GET /wiki/Title
+note right of CDN
+  Layer 1 — reverse proxy (CDN):
+  stores whole rendered pages. A hit
+  serves anonymous readers without
+  booting PHP at all, so most requests
+  never reach the application servers.
+end note
+
+CDN --> Client : hit: cached page, no PHP
+CDN --> PHP : miss: forward request
+
+PHP --> OPCODE : compiled bytecode
+note right of OPCODE
+  Layer 2 — opcode cache:
+  stores compiled PHP bytecode in
+  memory; skips recompiling scripts
+  on every request. Handled
+  automatically by modern PHP.
+end note
+
+PHP --> OBJCACHE : parser cache lookup
+note right of OBJCACHE
+  Layer 3 — object cache (Memcached / Redis):
+  stores parsed page output; avoids
+  re-parsing the same wikitext.
+end note
+
+OBJCACHE --> PHP : hit: parsed HTML
+PHP --> PARSER : miss: parse wikitext
+PARSER --> DB : read wikitext & templates
+PARSER --> OBJCACHE : store parsed output
+PHP --> CDN : store rendered page
+CDN --> Client : serve fresh page
+
+@enduml
+</uml>
+
+The key challenge for caching MediaWiki is staleness. On large public instances like Wikipedia with permissive editing permissions, pages are being edited every second, which means even caches created in the minute may become stale.
+
+To solve the problem, MediaWiki attaches a timestamp to all cached content. At render time, that timestamp is compared with the timestamp of the last revision, and the cached content is only served if the cache is newer than the last revision.<ref>{{#cite:Q1385}}</ref>
+
+== Try it yourself ==
+
+All commands below were verified to work at the time of writing (2026-08-28) against this wiki, which runs MediaWiki 1.46.0.
+
+<syntaxhighlight lang="bash" copy>
+# Which version is this wiki running?
+curl -s "https://wikibase.ronzz.org/api.php?action=query&meta=siteinfo&siprop=general&format=json" | grep -o '"generator":"[^"]*"'
+</syntaxhighlight>
+
+Output:
+
+<pre>
+"generator":"MediaWiki 1.46.0"
+</pre>
+
+<syntaxhighlight lang="bash" copy>
+# See the parser's HTML output for a page (the raw pipeline result, before the skin)
+curl -s "https://wikibase.ronzz.org/api.php?action=parse&page=Main_Page&format=json" | grep -o "<p><strong>[^<]*"
+</syntaxhighlight>
+
+Output:
+
+<pre>
+<p><strong>Hi, welcome to ronzz.ORG's wikibase.
+</pre>
+
+<syntaxhighlight lang="bash" copy>
+# Preview without saving: run a snippet of wikitext through the parser
+curl -sG "https://wikibase.ronzz.org/api.php" --data-urlencode "action=parse" --data-urlencode "text='''Bold''' and ''italic''" --data-urlencode "format=json" | grep -o "<b>.*</i>"
+</syntaxhighlight>
+
+Output:
+
+<pre>
+<b>Bold</b> and <i>italic</i>
+</pre>
+
+<syntaxhighlight lang="bash" copy>
+# Every edit leaves a trace: the last three revisions of Main Page
+curl -s "https://wikibase.ronzz.org/api.php?action=query&prop=revisions&titles=Main_Page&rvprop=timestamp%7Cuser&rvlimit=3&format=json" | grep -oE '"user":"[^"]*"|"timestamp":"[^"]*"'
+</syntaxhighlight>
+
+Output:
+
+<pre>
+"user":"Rongzhou"
+"timestamp":"2026-08-24T14:55:13Z"
+"user":"Rongzhou"
+"timestamp":"2026-08-21T06:08:37Z"
+"user":"Rongzhou"
+"timestamp":"2026-08-19T18:59:55Z"
+</pre>
+
+See the preprocessor stage directly: Visit {{Special:ExpandTemplates}}
+
+* paste <code><nowiki>{{HowItWorks}}</nowiki></code> into the input box and click "Expand" —
+* you see the expanded wikitext, before the parser turns it into HTML.
+
+== References ==
+
+<references/>
+
+== Further reading ==
+
+* [https://www.mediawiki.org/wiki/Manual:MediaWiki_architecture Manual:MediaWiki architecture] — the canonical architecture deep-dive (also a chapter of the Architecture of Open Source Applications book)
+* [https://www.mediawiki.org/wiki/Manual:Contents Manual:Contents] — the technical manual of the software
+* [https://www.mediawiki.org/wiki/MediaWiki MediaWiki] — the software project page
+* [https://www.mediawiki.org/wiki/Manual:Skins Manual:Skins] — skins documentation
+* [https://www.mediawiki.org/wiki/Help:Editing_pages Help:Editing pages] — user documentation for editing
+* [https://www.mediawiki.org/wiki/Help:Edit_conflict Help:Edit conflict] — how conflicts are detected and resolved

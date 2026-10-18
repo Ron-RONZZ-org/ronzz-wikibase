@@ -1,0 +1,5 @@
+{{Webpage}}
+
+== Overview ==
+
+Mozilla Support knowledge base article about the Copies and Folders settings, including where Thunderbird stores sent mail

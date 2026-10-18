@@ -1,0 +1,31 @@
+== Mathematical definition ==
+
+Let $P(x)$ be a mathematical function $P:\mathbb{F} \to \mathbb{F}$
+
+If $P(x)$, through algebraic manipulation, can be written in the form of 
+
+{{#content:Q2150}}
+
+then $P(x)$ is a '''polynomial''' over $\mathbb{F}$. If $P(x) \neq 0$, it has '''degree''' $n$, and $a_n,a_n x^n$ are said to be its '''leading coefficient''' and '''leading term''' respectively.
+
+<blockquote>
+$P(x)=0$ is known as the '''zero polynomial'''. Its degree is customarily defined as $-\infty$. Here's [[#Composition of polynomials|why]].
+</blockquote>
+
+<blockquote>
+$x+x^{\frac{1}{2}}$ is '''not''' a polynomial as $\frac{1}{2}\notin \mathbb{N}$
+</blockquote>
+
+<ref>{{#cite:Q2204}}</ref>
+
+== Properties ==
+
+=== Composition of polynomials ===
+
+If $P_1(x)=P_2(x)+P_3(x)$, then $\deg(P_1)=\max[\deg(P_2),\deg(P_3)]$.
+
+If $P_1(x)=P_2(x)P_3(x)$, then $\deg(P_1)=\deg(P_2)+\deg(P_3)$
+
+<blockquote>
+To avoid breaking this property, it is defined that $P(x)=0$ has degree $-\infty$.
+</blockquote>

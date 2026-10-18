@@ -1,0 +1,49 @@
+A mental disorder is a clinically significant disturbance in a person's cognition, emotional regulation or behaviour.<ref>{{#cite:Q1713}}</ref>
+
+== Criteria == 
+
+According to APA's official diagnostic manual, [[Source:DSM-5-TR_(Book)|DSM-5-TR]], a mental disorder satisfies the following criteria:<ref>{{#cite:Q1713}}</ref>
+
+* reflects dysfunction in the underlying psychological, biological, or developmental process to mental functions;
+* generally associated with distress or significantly altered functioning in social, professional, or other important activities;
+
+The following are generally not considered mental disorders:
+
+* expected response to external stress, such as the loss of a loved one;
+* socially deviant behaviour
+
+== Symptoms ==
+
+The manifested symptoms varies by type of disorder and individual.<ref>{{#cite:Q1713}}</ref>
+
+The following factors can influence the expression and identification of symptoms:<ref>{{#cite:Q1713}}</ref>
+
+* Gender identity,
+* Sex,
+* Cultural reference,
+* Social role
+
+== Classification ==
+
+APA's official diagnostic manual([[Source:DSM-5-TR_(Book)|DSM-5-TR]]) classifies mental disorder into about 20 general categories:
+
+* neurodevelopmental disorder;
+* psychotic disorder, such as the schizophrenic spectrum;
+* bipolar disorder;
+* depressive disorder;
+* anxiety disorder;
+* obsessive-compulsive disorder;
+* disorders related to traumatic experience or other stress factors;
+* dissociative disorder;
+* somatic symptom disorders;
+* feeding and eating disorders;
+* sphincter control disorder;
+* wake-sleep cycle disturbances;
+* sexual dysfunctions;
+* gender dysphoria;
+* disruptive, impulse-control, and conduct disorders;
+* substance-related disorders and addictive disorders;
+* neurocognitive disorder;
+* personality disorder;
+* paraphilic disorders;
+* others

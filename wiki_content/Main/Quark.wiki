@@ -1,0 +1,37 @@
+A quark is a [[fundamental particle]].
+
+== Types ==
+
+In the current standard model of particle physics (2022), there are 6 pairs of quarks and anti-quarks:
+
+{| class="wikitable"
+|+Quarks and Antiquarks
+|-
+! Name !! Symbol !! Antiparticle !! Spin !! Charge !! B !! S !! c !! b !! t !! Mass $(GeV/c^2)$
+|-
+| Up || $u$ || $\bar{u}$ || $1/2$ || $\pm\frac{2}{3}e$ || $\pm\frac{1}{3}$ || $0$ || $0$ || $0$ || $0$ || $0.005$
+|-
+| Down || $d$ || $\bar{d}$ || $1/2$ || $\pm\frac{1}{3}e$ || $\pm\frac{1}{3}$ || $0$ || $0$ || $0$ || $0$ || $0.008$
+|-
+| Strange || $s$ || $\bar{s}$ || $1/2$ || $\pm\frac{1}{3}e$ || $\pm\frac{1}{3}$ || $\pm1$ || $0$ || $0$ || $0$ || $0.50$
+|-
+| Charmed || $c$ || $\bar{c}$ || $1/2$ || $\pm\frac{2}{3}e$ || $\pm\frac{1}{3}$ || $0$ || $\pm1$ || $0$ || $0$ || $1.6$
+|-
+| Bottom || $b$ || $\bar{b}$ || $1/2$ || $\pm\frac{1}{3}e$ || $\pm\frac{1}{3}$ || $0$ || $0$ || $\pm1$ || $0$ || $5$
+|-
+| Top || $t$ || $\bar{t}$ || $1/2$ || $\pm\frac{2}{3}e$ || $\pm\frac{1}{3}$ || $0$ || $0$ || $0$ || $\pm1$ || $173$
+|}
+
+== Discovery ==
+
+The existence of quarks were first hypothesised in the 1960s. The term 'quark' itself was coined by [[Person:Murray Gell-Mann|Murray Gell-Mann]], inspired by [[Person:James Joyce|James Joyce]]'s novel ''Finnegans Wake''.<ref>{{#cite:Q1942}}</ref>
+
+A series of experiments performed at the Stanford Linear Accelerator Center (SLAC) and at CERN around 1970 collided high-energy electrons or neutrinos with protons. Scattering distribution from those experiments is consistent with the existence of small scattering centers in protons with charges $\frac{2}{3}e$ or $-\frac{1}{3}$ and spin $\frac{1}{2}$ , consistent with the hypothesis developed a decade ago.<ref>{{#cite:Q1942}}</ref>
+
+[[File:Proton-electron-scattering-experiment.jpeg|300px|center]]
+
+== Quark confinement ==
+
+To date (2022), no experiment has successfully produced an isolated quark. In current particle interaction models, this is explained by '''quark confinement''', which stipulates that quarks are always confined to a small region of space in groups of two or three. Each quark is completely free to move around in this small space, but cannot simply "stray off" due to the presence of the strong force. A macroscopic analogy is a bola:
+
+[[File:Bola.jpeg|300px|center]]

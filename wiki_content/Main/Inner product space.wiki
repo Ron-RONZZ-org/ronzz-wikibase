@@ -1,0 +1,21 @@
+An inner product space is a [[vector space]] over $\mathbb{F}$ together with an [[inner product]] $\langle \cdot, \cdot \rangle$.
+
+== Example ==
+
+Let $V = \mathbb{F}^n$, $u = (u_1, \ldots, u_n), v = (v_1, \ldots, v_n) \in \mathbb{F}^n$. Then $V$ with
+
+$$
+\langle u, v \rangle = \sum_{i=1}^n u_i \overline{v}_i.
+$$
+
+For $\mathbb{F} = \mathbb{R}$, $\overline{v}_i=v_i$
+
+$$
+u \cdot v = u_1 v_1 + \cdots + u_n v_n.
+$$
+
+== Properties ==
+
+* [[Cauchy-Schwarz inequality]]
+* [[Triangle inequality#Generalisation to vector spaces|Triangle inequality]]
+* [[Parallelogram law#Generalisation into vector spaces|Parallelogram law]]

@@ -1,0 +1,5 @@
+{{ScholarlyArticle}}
+
+== Overview ==
+
+2006 paper by Douglas Clowe and collaborators on the Bullet Cluster (1E 0657-56): weak-lensing maps show the bulk of the mass separated from the X-ray-emitting gas after the collision of two clusters, providing direct evidence that dark matter is a distinct, weakly interacting component

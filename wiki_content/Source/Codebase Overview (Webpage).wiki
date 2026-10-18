@@ -1,0 +1,5 @@
+{{Webpage}}
+
+== Overview ==
+
+High-level overview of the Thunderbird source code and repository layout

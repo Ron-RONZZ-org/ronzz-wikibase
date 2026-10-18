@@ -1,0 +1,7 @@
+{{Person}}
+
+== Biography ==
+
+''from Wikipedia (CC BY-SA 4.0):''
+
+Paul Gordon Hewitt is an American physicist, author, and cartoonist.

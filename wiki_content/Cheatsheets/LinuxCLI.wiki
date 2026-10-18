@@ -1,0 +1,9 @@
+{{DesktopLinux}}
+
+The everyday Linux command line, split by task.
+
+== Pages ==
+
+{{Special:PrefixIndex/Cheatsheets:LinuxCLI/|stripprefix=1|hideredirects=1}}
+
+[[Category:LinuxCLI]]

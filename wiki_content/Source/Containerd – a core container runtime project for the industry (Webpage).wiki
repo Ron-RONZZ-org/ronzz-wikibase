@@ -1,0 +1,7 @@
+{{Webpage}}
+
+== Overview ==
+
+Docker blog post by Solomon Hykes announcing the spin-out of containerd as a standalone project
+
+Wiki: wikibase.ronzz.org

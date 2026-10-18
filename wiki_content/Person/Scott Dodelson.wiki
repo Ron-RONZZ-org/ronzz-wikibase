@@ -1,0 +1,5 @@
+{{Person}}
+
+== Overview ==
+
+American cosmologist who, with Lawrence M. Widrow, proposed in 1994 that sterile neutrinos produced in the early universe could constitute dark matter

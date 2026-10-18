@@ -1,0 +1,5 @@
+{{Person}}
+
+== Overview ==
+
+Thunderbird contributor and release coordinator; former member of the Thunderbird Council

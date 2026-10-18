@@ -1,0 +1,5 @@
+{{Webpage}}
+
+== Overview ==
+
+Procedure for finding a body's area moments of inertia through integration, used to determine the body's resistance to bending (second area moments) or resistance to torsion (polar moment of inertia).

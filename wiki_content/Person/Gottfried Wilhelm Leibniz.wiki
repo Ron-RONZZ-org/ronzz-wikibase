@@ -1,0 +1,5 @@
+{{Person}}
+
+== Overview ==
+
+German philosopher and mathematician who, independently of Newton, developed the calculus and introduced the differential notation

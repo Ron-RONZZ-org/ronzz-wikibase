@@ -1,0 +1,5 @@
+{{Person}}
+
+== Overview ==
+
+Software engineer; longtime Thunderbird contributor and former Thunderbird Council member

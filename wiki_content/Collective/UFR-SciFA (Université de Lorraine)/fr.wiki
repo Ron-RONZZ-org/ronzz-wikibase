@@ -1,0 +1,46 @@
+'''UFR-SciFA (Université de Lorraine)''', en forme longue '''Unité de Formation et de Recherche en Sciences Fondamentales et Appliquées (SciFA)''', est une unité de formation et de recherche (UFR) de l'[[Collective:University of Lorraine|Université de Lorraine]], implantée à Metz.<ref>{{#cite:Q1521}}</ref> En 2026, elle accueille environ 1 700 étudiants et propose 39 parcours de formation, organisés au sein de cinq départements.<ref>{{#cite:Q1521}}</ref><ref>{{#cite:Q1522}}</ref>
+
+== Organisation ==
+
+L'enseignement de l'UFR-SciFA est organisé en cinq départements de formation<ref>{{#cite:Q1522}}</ref> :
+
+* Chimie
+* Langues
+* Physique électronique
+* Sciences de la Vie et de la Terre (SVT)
+* Sciences et Techniques des Activités Physiques et Sportives (STAPS)
+
+L'offre de formation s'étend de la licence au doctorat : 12 licences, dont 4 licences professionnelles, 6 mentions de master (13 parcours) et le doctorat.<ref>{{#cite:Q1522}}</ref> Les enseignements sont assurés par 106 enseignants-chercheurs, 12 enseignants, environ 400 vacataires et 38 personnels BIATSS.<ref>{{#cite:Q1522}}</ref>
+
+== Gouvernance ==
+
+L'UFR-SciFA est administrée par un conseil élu, qui définit la politique de l'unité, vote le budget et fixe l'offre de formation.<ref>{{#cite:Q1522}}</ref> Ce conseil élit ainsi le directeur du composant pour des mandats de cinq ans. 
+
+En 2026, le directeur de l'UFR est David Roth, et le responsable administrative est Stéphanie Guionneaud.<ref>{{#cite:Q1522}}</ref>
+
+== Recherche ==
+
+La recherche à l'UFR-SciFA s'inscrit dans la politique scientifique de l'Université de Lorraine : les enseignants-chercheurs de l'UFR exercent dans des laboratoires partenaires qui servent d'appui à ses formations.<ref>{{#cite:Q1523}}</ref> L'UFR est ainsi adossée à onze laboratoires, réunis autour de cinq thématiques<ref>{{#cite:Q1523}}</ref> :
+
+* automatique, mathématiques, informatique et leurs interactions (AM2I) : CRAN (UMR 7039), LCOMS (EA 7306), LGIPM (EA 3096) ;
+* chimie et physique moléculaires (CPM) : LCP-A2MC (EA 4632), L2CM (UMR 7053), LPCT (UMR 7019) ;
+* matière, matériaux, métallurgie, mécanique (M4) : IJL (UMR 7198), LEM3 (UMR 7239), LMOPS (EA 4423) ;
+* Terre et environnement de Lorraine (OTELo) : LIEC (UMR 7360) ;
+* connaissance, langage, communication, sociétés (CLCS) : 2LPN.
+
+Sur le plan international, la recherche s'appuie sur le partenariat entre le Georgia Institute of Technology (Georgia Tech, Atlanta, États-Unis) et l'Université de Lorraine, soutenu par le CNRS et concrétisé par l'unité mixte internationale (UMI) Georgia Tech-CNRS, implantée sur le technopôle de Metz.<ref>{{#cite:Q1523}}</ref> Fort de plus de trente ans de collaboration ininterrompue, ce partenariat porte sur la photonique et l'optique non linéaire, les nanotechnologies et matériaux avancés, l'informatique et les systèmes intelligents, ainsi que la dynamique et la physique des liquides.<ref>{{#cite:Q1523}}</ref>
+
+== Implantation ==
+
+L'UFR-SciFA est implantée à Metz sur deux sites<ref>{{#cite:Q1521}}</ref> :
+
+* le campus Bridoux, avenue du Général Delestraint (57070 Metz) ;
+* le campus Technopôle, qui réunit l'Institut supérieur d'électronique et d'automatique (ISEA), 7 rue Marconi, et l'Institut de chimie, physique et matériaux (ICPM), boulevard François Arago (57070 Metz).
+
+== Relations internationales ==
+
+L'UFR-SciFA participe à un programme franco-allemand et à 18 accords Erasmus. En plus l'UFR-SciFA a un accord de mobilité étudiante avec la Chengdu Sport University (Chine) et adhère au Student Mobility Agreement du College of Natural and Applied Sciences de l'université de l'Alberta (Canada).<ref>{{#cite:Q1522}}</ref>
+
+== Références ==
+
+<references/>

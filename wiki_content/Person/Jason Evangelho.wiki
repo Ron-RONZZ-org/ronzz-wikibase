@@ -1,0 +1,5 @@
+{{Person}}
+
+== Overview ==
+
+Thunderbird content and social media manager; author of the Thunderbird 115 and 128 release announcements

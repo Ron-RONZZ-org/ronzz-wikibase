@@ -1,0 +1,5 @@
+{{ScholarlyArticle}}
+
+== Overview ==
+
+1948 paper by Ralph Alpher and Robert Herman in which they estimated that the residual radiation left over from the hot early universe would fill the present universe at a temperature of a few kelvin, a prediction of what is now called the cosmic microwave background

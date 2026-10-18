@@ -1,0 +1,17 @@
+In arbitrary $\triangle ABC$,
+
+[[File:Triangle-with-notations.svg|300px|center]]
+
+$$
+\begin{align}
+c^2 &= a^2 + b^2 - 2ab\cos\gamma, \\[3mu]
+a^2 &= b^2+c^2-2bc\cos\alpha, \\[3mu]
+b^2 &= a^2+c^2-2ac\cos\beta.
+\end{align}
+$$
+
+== Proof ==
+
+=== Via the Pythagorean theorem ===
+
+[[File:Law-of-cosines-in-plane-trigonometry.svg|500px]]

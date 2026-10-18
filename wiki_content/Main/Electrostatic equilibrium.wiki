@@ -1,0 +1,32 @@
+A conductor is said to have reached electrostatic equilibrium when its charge distribution becomes stable.
+
+[[File:Electrostatic-induction.svg|500px|center]]
+
+For example, all conductors in the picture above have reached electrostatic equilibrium.
+
+== Properties ==
+
+Consider a solid conductor $(S)$ at electrostatic equilibrium.
+
+By combination of [[Classical_mechanics#Newton's_2nd_law|Newton's 2nd law]] and [[Electric_charge#Electrostatic_force|Coulomb's law]], for any macroscopic charge $A$:
+
+$$\vec a = \frac{Q_A\vec E}{m}$$
+
+By definition of electrostatic equilibrium, 
+
+$$
+\forall A \in (S), \vec a=0 \\
+\therefore \vec E =0 \text{ for every point inside (S)  (1)}
+$$
+
+As a result, if conductor $(S)$ is charged, any charge must be destributed on the surface of $(S)$, $S(S)$, which creates an electric field on $S(S)$. 
+
+This field must satisfy $\vec E \bot S(S)$ at all points. (3) Otherwise, the macroscopic charges would move along the surface.
+
+=== Summary ===
+
+To summarise, the three properties for a conductor at electrostatic equilibrium are:
+
+# $\vec E_{internal}=0$
+# charges may exist only on the surface of the conductor
+# on the surface, $\vec E =0 \lor \vec E \bot \text {surface}$

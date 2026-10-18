@@ -1,0 +1,5 @@
+{{Collective}}
+
+== Overview ==
+
+American software corporation behind Github.com. Part of [[Collective:Microsoft|Microsoft Corporation]] since 2018.

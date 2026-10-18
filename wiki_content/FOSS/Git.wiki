@@ -1,0 +1,5 @@
+{{FOSS}}
+
+== Overview ==
+
+Distributed version control system created by Linus Torvalds in 2005 for Linux kernel development

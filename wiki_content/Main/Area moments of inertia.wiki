@@ -1,0 +1,137 @@
+Area moments of inertia measures a solid's resistance to bending or torsional loads.
+
+For a long, thin solid, such as a beam, moments of force along its cross-sectional axes ($x,y$ axes in the graph below) tend to bend the solid, whereas a moment of force along its length ($z$ axis) tend to twist the body.
+
+[[File:Force-moments-and-bending-torsional-stress.png|400px|center]]
+
+<ref>{{#cite:Q2157}}</ref>
+
+== Bending stress and the second area moment ==
+
+Under bending stress, a beam tends to deform according to some central plane, where there is no tensile or compressive stress, known as the '''neutral surface'''. Both stresses and the moment arm of force increase linearly with the distance from the neutral surface, Hence, the resistance to bending provided by any solid element is directly proportional to its distance from the neutral surface $d$.
+
+[[File:Bending-stress-and-2nd-moment-of-area.png|center]]
+
+For a cross-section, its section of neutral surface is a '''neutral axis''', and its section of a solid element is a surface element. $d$ is then equal to the distance from the surface element to the neutral axis.
+
+To sum up this resistance for the entire cross-section:
+
+{{#content:Q2160}}
+
+$I$ is known as the second area moment, according to axes $xx$ or $yy$ depending on the axis of the force moment.
+
+== Torsion stress and the polar moment of inertia ==
+
+Under torsion stress, a beam tends to deform according to some central axis, where there is no torsional stress, known as the '''neutral axis'''. Both stresses and the moment arm of force increase linearly with the distance from the neutral axis, Hence, the resistance to bending provided by any solid element is directly proportional to its distance from the neutral axis $r$.
+
+[[File:Torsion-stress-and-polar-moment-of-inertia.png|center]]
+
+For a cross-section, its section of neutral axis is a '''neutral point''', and its section of a solid element is a surface element. $r$ is then equal to the distance from the surface element to the neutral point.
+
+To sum up this resistance for the entire cross-section:
+
+$$
+J_zz=\int_{r_min}^{r_max} r^2 dA
+$$
+
+$J_zz$ is known as the '''polar moment of inertia''' of the solid according to axis $zz$
+
+== Calculation ==
+
+=== Second moment of area ===
+
+From the formula
+
+{{#content:Q2160}}
+
+If the neutral axis is $xx$ or $yy$:
+
+$$
+I_{xx}=\int_A x^2 dA
+I_{yy}=\int_A y^2 dA
+$$
+
+To calculate those integrals, we must write $dA$ in terms of $dx$ or $dy$ respectively:
+
+$$
+dA=f(x)dx
+dA=g(y)dy
+$$
+
+Where $f(x),g(y)$ are some functions according to $x$ and $y$ respectively.
+
+=== Polar moment of inertia ===
+
+Since $r^2=x^2+y^2$, 
+
+$$
+J_{zz}=\int_{r_min}^{r_max} r^2 dA=J_zz=\int_{r_min}^{r_max} (x^2+y^2) dA \\
+=\int_{r_min}^{r_max} x^2 dA+\int_{r_min}^{r_max} y^2 dA \\
+=I_{xx}+I_{yy}
+$$
+
+
+=== Examples ===
+
+==== Rectangular cross-section ====
+
+[[File:Rectangle-h-b.png]]
+
+$$
+I_{xx}=\int_A x^2 dA
+dA=hdx
+\therefore I_{xx}=\int_A x^2h dx
+= [\frac{x^3}{3}]^{\frac{b}{2}}_{-\frac{b}{2}}h
+= \frac{1}{12}b^3h
+$$
+
+By symmetry,
+$$
+I_{yy}=\frac{1}{12}h^3b
+$$
+
+$$
+J_{zz}=\frac{1}{12}h^3b+\frac{1}{12}b^3h
+$$
+
+==== Circular cross-section ====
+
+[[File:Circle-x-y-axis-R.png]]
+
+$$
+J_zz=\int_{r_min}^{r_max} r^2 dA
+dA=2\pi r dr
+J_zz=\int_0^{R}r^2\cdot 2\pi r dr
+= 2\pi[\frac{r^4}{4}]^R_0 \\
+= \frac{\pi R^4}{2}
+$$
+
+By symmetry, $I_{xx}=I_{yy}$, hence
+
+$$
+I_{xx}, I_{yy}= \frac{1}{2}J_{zz}=\frac{\pi R^4}{4}
+$$
+
+==== Circular ring ====
+
+[[File:Ring.png]]
+
+The area of a ring is the area of a larger circle minus a smaller one.
+
+From [[#Circular cross-section]], for a circle, 
+
+$$
+J_{zz}= \frac{\pi R^4}{2}
+$$
+
+$$
+J_{zz}(\text{ring})=J_{zz}(\text{larger circle})-J_{zz}(\text{smaller circle}) \\
+= \frac{\pi 3^4}{2}-\frac{\pi 2.5^4}{2} \\
+= 65\text{inch}^4
+$$
+
+By symmetry, $I_{xx}=I_{yy}$, hence
+
+$$
+I_{xx}, I_{yy}= \frac{1}{2}J_{zz}= 42.5 \text{inch}^4
+$$

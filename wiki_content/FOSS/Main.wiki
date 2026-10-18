@@ -1,0 +1,24 @@
+
+<div style="border:1px solid #c8ccd1;background:#f8f9fa;padding:0.5em 1em;margin-bottom:1em;">
+'''FOSS''' — free &amp; open-source software documentation, one page per program. Facts live in the [[Item:|items]]; pages read them at view time.
+</div>
+
+== Adding software ==
+
+The quickest way is '''[[Special:AddSoftware]]''': search Wikidata or GitHub, review the harvested record, and it creates the item, the <code>FOSS:&lt;Name&gt;</code> page and the page↔item link in one go. Prefer the manual path (<code>Special:AddSoftware/manual</code>) when no authority record exists.
+
+The full step-by-step process lives in '''[[FOSS:Contributing]]''' — the namespace contributing guide.
+
+Every software page is built from '''[[Template:FOSS]]''' (banner + infobox) — see [[Help:Contributing/semanticDynamicContent]] for how the infobox reads the item.
+
+== Software ==
+
+{| class="wikitable"
+! Software !! Category !! Notes
+|-
+| [[FOSS:Flameshot]] || Screen capture || Simple, feature-rich screenshot tool for desktop Linux
+|}
+
+== See also ==
+
+* [[Cheatsheets:DesktopLinuxFOSS]] — the desktop-Linux FOSS cheatsheet that links these pages

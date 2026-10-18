@@ -1,0 +1,45 @@
+Let $V$ be a vector space over $\mathbb{F}$.
+
+If:
+
+{{#content:Q2002}}
+
+== Intersection and union ==
+
+For vector subspaces $F,G$ $\in V$
+
+$$
+\vec u \in F \cap G \iff \vec u \in F \land \vec u \in G \text{  intersection}\\
+\vec u \in F \cup G \iff \vec u \in F \lor \vec u \in G \text{  union}
+$$
+
+== Sum ==
+
+For vector subspaces $F,G$ $\in V$
+
+$$
+F+G = \{\vec u + \vec v |\vec u \in F, \vec v \in G \}
+$$
+
+=== Property ===
+
+$$
+\dim(F+G)=\dim(F)+\dim(G)-\dim(F \cap G)
+$$
+
+== Composition ==
+
+$$
+\operatorname{span}\{u_1,\dots,u_n\} = \operatorname{span}\{u_1\} + \cdots + \operatorname{span}\{u_n\}
+$$
+
+for $U=\{u_1,\cdots, u_n\} \in V$.
+
+== Supplementary subspaces ==
+
+For vector subspaces $F,G$ $\in V$, if
+
+* $F+G=E$, and
+* $F \cap G = \{ \vec 0_V \}$
+
+Then $F,G$ are '''supplementary vector subspaces''' of $V$, noted as $E=F \oplus G$

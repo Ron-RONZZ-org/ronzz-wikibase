@@ -1,0 +1,5 @@
+{{Webpage}}
+
+== Overview ==
+
+Thunderbird release notes index listing every version of the application

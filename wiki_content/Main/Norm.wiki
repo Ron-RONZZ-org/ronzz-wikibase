@@ -1,0 +1,46 @@
+In mathematics, a norm is a function in [[vector space|vector spaces]] with certain special properties.
+
+== Conventional definition in inner product spaces ==
+
+By convention, in [[inner product space]] $V$, the norm of a vector $v \in V$, denoted $\left\| v \right\|$, is defined:
+
+$$
+\| v \| = \sqrt{\langle v, v \rangle}
+$$
+
+== Formal definition in all vector spaces ==
+
+Let $V$ be a vector space over $\mathbb{F}$.
+
+Map
+
+$$
+\begin{aligned} 
+\| \cdot \|: V &\to \mathbb{R}\\ 
+v &\mapsto \| v \| 
+\end{aligned}
+$$
+
+is a '''norm''' on $V$ if 3 conditions are satisfied:
+
+* '''Definiteness''': $\forall v\in V,\; \left\| v \right\|=0 \iff v=\vec 0$;
+* '''Homogeneity''': $\forall a\in\mathbb{F},\;\forall v\in V,\; \left\| av \right\|=|a|\left\| v \right\|$;
+* '''Triangle inequality''': $\forall v,w\in V,\; \left\| v+w \right\|\le \left\| v \right\|+\left\| w \right\|$
+<ref>{{#cite:Q1920}}</ref>
+
+<blockquote>
+Notice the conventional definition $\| v \| = \sqrt{\langle v, v \rangle}$ is a special case of the mathematical definition.
+</blockquote>
+
+== Derived properties ==
+
+=== Positive definiteness ===
+
+$$\forall v \in V, \| v \|\ge 0$$
+
+{{Hidden proof}}
+$$
+\| v \| = \frac{1}{2}(2\| v \|)= \frac{1}{2}(\| v \| + \| -v \|) \\
+\stackrel{\text{Triangle inequality}}{\ge} \frac{1}{2}\| v-v \| = 0
+$$
+{{End hidden}}

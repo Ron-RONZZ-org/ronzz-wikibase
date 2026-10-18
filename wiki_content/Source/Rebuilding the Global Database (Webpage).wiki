@@ -1,0 +1,5 @@
+{{Webpage}}
+
+== Overview ==
+
+Mozilla Support knowledge base article explaining the Global Database (global-messages-db.sqlite) used for message indexing and search

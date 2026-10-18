@@ -1,0 +1,72 @@
+'''Electrical charge''' is a fundamental property of matter.
+
+== SI Unit ==
+
+The SI unit of electrical charge is '''Coulomb (C)''', named after French physicist [[Person:Charles Augustine de Coulomb|Charles Augustine de Coulomb]].<ref>{{#cite:Q1934}}</ref>
+
+== Charge of subatomic particles ==
+
+{| class="wikitable"
+! Particle !! Symbol !! Absolute charge (Coulombs) !! Relative charge (to proton)
+|-
+| [[proton]] || $p^+$ || $+1.602 \times 10^{-19}$ || +1
+|-
+| [[neutron]] || $n^0$ || 0 || 0
+|-
+| [[electron]] || $e^-$ || $-1.602 \times 10^{-19}$ || −1
+|}
+
+<ref>{{#cite:Q1791}}</ref><ref>{{#cite:Q1793}}</ref>
+
+== Properties ==
+
+=== Quantisation ===
+
+Any electrical charge is a whole multiple of $e \equiv 1.602 \cdot 10^{-19} C$.<ref>{{#cite:Q1934}}</ref>
+
+i.e.,
+
+$$
+\forall Q, Q=ae, a \in Z
+$$
+
+=== Restricted type ===
+
+A charge must be either positive or negative.<ref>{{#cite:Q1934}}</ref>
+
+Positive and negative charges can cancel each out, therefore the total charge of a system is the algebraic sum of charges of all its elements.<ref>{{#cite:Q1934}}</ref>
+
+i.e.,
+$$
+Q_{system}=\sum Q_{element}
+$$
+
+<blockquote>
+'''Warning''': This does not mean the entire system can be always approximated as a point charge of $\sum Q_{elements}$, as the distribution of charges heavily influence the electrostatic behaviour of a system.
+</blockquote>
+
+=== Conservation ===
+
+Charge can neither be created or destroyed but only transfered. The amount of charge in any closed system is constant.<ref>{{#cite:Q1934}}</ref>
+
+i.e.,
+
+{{#content:Q1938}}
+
+=== Electrostatic force ===
+
+Any charge exert an electrostatic force on any other charge.<ref>{{#cite:Q1934}}</ref>
+
+This phenomenon is described by Coulomb's law:
+
+{{#content:Q1937}}
+
+== Charge density ==
+
+For a thin, long conductor (e.g., electric cable):
+
+$$\text{charge density } \lambda = \frac{dQ}{dL}$$
+
+For a thin surface (e.g., aluminium foil):
+
+$$\text{charge density } \sigma = \frac{dQ}{dA}$$

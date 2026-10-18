@@ -1,0 +1,5 @@
+{{Person|portrait=[[File:Richard-Seroter-portrait.jpg|frameless|220px|Portrait]]}}
+
+== Overview ==
+
+Director of Outbound Product Management at Google Cloud

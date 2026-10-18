@@ -1,0 +1,69 @@
+Philosophy, from Greek ''philosophia'', meaning the love of wisdom, is a discipline of [[humanities]] that seeks to understand the world via rational thinking.
+
+== Branches ==
+
+The main branches of philosophy includes:<ref>{{#cite:Q1834}}</ref>
+
+* [[Metaphysics]], which studies the nature of reality,
+* [[Epistemology]], which studies the nature and scope of knowledge
+* Value thoeries, including
+** [[Ethics]], which studies and evaluates human behaviour
+** [[Aesthetics]], which studies the nature of beauty
+
+== Philosophical methods ==
+
+=== Historical review ===
+
+Fundamental questions on morality and social organisation, such as the definition of "a good life", are of omnitemporal importance. Inspirations for contemporarily-relevant answers to those fundamental questions can often be drawn from arguments made by philosophers in other historical periods.<ref>{{#cite:Q1837}}</ref>
+
+=== Intuition ===
+
+In the philosophical context, applying intuition means trusting that what seems "obviously true" to us, such as "2+2=4" is actually true.<ref>{{#cite:Q1837}}</ref>
+
+René Descartes describes it as "the conception of a clear and attentive mind, which is so easy and distinct that there can be no room for doubt about what we are understanding.<ref>{{#cite:Q1837}}</ref>
+
+=== Common sense ===
+
+In the philosophical context, common sense refers to direct sensory perception shared by many human beings, such as vision, hearing, and smell.<ref>{{#cite:Q1837}}</ref>
+
+Trusting common sense means accepting what we witness as a proof of physical existence, e.g., not doubting the existence of my left hand, which I see and feel, as an illusion of my brain.
+
+=== Conceptual analysis ===
+
+Analysing the definitions of concepts helps clarifying philosophical ideas.<ref>{{#cite:Q1837}}</ref> For example, to investigate the value of democracy, it is helpful to first suggest a definition of democracy.
+
+=== Experimental philosophy ===
+
+Experimental philosophy combines traditional methods of philosophical inquiry, such as intuition and common sense, with modern scientific experiments. It seeks answer to philosophical questions via the intuition and common sense of the participants to the experiment.<ref>{{#cite:Q1837}}</ref>
+
+For instance, to investigate whether the absence of free choice removes moral responsibility, an experimental philosopher may recruit a group of participants representative of the general population, and ask them to evaluate the moral responsibility of individuals in hypothetical scenarios where the free choice is/is not absent.<ref>{{#cite:Q1837}}</ref>
+
+=== Science ===
+
+Philosophy, especially branches like metaphysics and ethics, seeks to understand the nature of the world and human behaviour. Therefore, scientific discoveries in natural science, such as the structure of the universe and the electrochemical process underlying human thinking, can often help philosophers refine their perspectives.<ref>{{#cite:Q1837}}</ref>
+
+=== Logic ===
+
+Logic, the process of deriving conclusions from premises, is one of the most important tool in philosophy.
+
+See [[logic]].
+
+=== Thought experiments ===
+
+Thought experiments concretise abstract ideas and their implications via imaginary scenarios. An thought experiment can often be used to invalidate a hypothesis, if a contradiction or an otherwise absurd conclusion can be drawn from an imaginary scenario<ref>{{#cite:Q1837}}</ref>
+
+A famous thought experiment is performed by [[Person:Galileo Galilei|Galileo Galilei]] to invalidate the historical hypothesis that heavier objects fall faster from height:
+
+''Imagine a heavy stone $H$ and a light stone $L$ tied together. If the heavy stone falls faster than the lighter, then the two stones tied together, $H+L$, should fall slower than $H$ and faster than $L$, since objects moving slower drag on objects moving faster when attached. However, since $H+L$ is heavier than $H$, if heavier objects fall faster, $H+L$ must fall faster than $H$! Since $H+L$ cannot fall faster AND slower than $H$, there is a logic contradiction. The premise, heavy objects fall faster than lighter objects from height, is false.''
+
+=== Reflective equilibrium ===
+
+Reflective equilibrium is an iterative approach to refine general philosophical principles, rules, and theories via judgements on particular cases.<ref>{{#cite:Q1837}}</ref>
+
+For instance, to answer the philosophical question "Is lying wrong?", one may start with the hypothesis that "lying is always wrong", then refine it via a particular case: lying to Nazi troops rounding up Jewish people at the door about the presence of Jewish refugees in one's home can be morally justified, therefore, "lying is wrong, except when it is necessary to prevent harm". 
+
+== Critical analysis ==
+
+An important part of philosophy is the critical analysis of ideas. Philosophical ideas are often imperfect: they may be valid in some scenarios, but not others. Generalizations or inferences unexpected by the original authors may lead to uncomfortable conclusions. What's more, many philosophical answers may have been proposed on the same topic, each with its strength and weaknesses. The best understanding is often via a combination of multiple perspectives and models.<ref>{{#cite:Q1837}}</ref>
+
+To critically analyse an idea, one must identify its logical consequences. For instance, to critically analyse the idea that "past events fully determine the future", one may identify that "free will is an illusion" as a logical consequence.

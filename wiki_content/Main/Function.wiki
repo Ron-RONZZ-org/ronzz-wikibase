@@ -1,0 +1,67 @@
+A '''function''' is a many(one)-to-one map between two [[set|sets]]. 
+
+== Formal definition ==
+
+Let $D_f,C_f,R_f \neq \emptyset$ be [[set|sets]].
+
+If
+
+$$
+\forall x \in D_f: \exists y \in C_f, f(x)=y,
+$$
+
+then $f$ is a function of '''domain''' $D_f$ and '''codomain''' $C_f$, noted as $f: D_f \to C_f$;
+
+Furthermore,
+
+if 
+
+$$
+\forall y \in R_f \subseteq C_f, \exists x \in D_f, f(x)=y,
+$$
+
+then $R_f$ is the '''range''' of $f$;
+
+Lastly,
+
+if 
+
+$$
+\forall y \in R_f: \exists f^{-1}, f^{-1}(y)=x,
+$$
+
+then function $f$ is said to be '''reversible''' and the '''bijection''' of $D$ to $R_f$. $f$ and $f^{-1}$ are said to be '''inverse functions''' of each other.
+
+<blockquote>
+While a function can be many-to-one, a bijection is an one-to-one function of its domain to its range.
+</blockquote>
+
+{{Hidden example}}
+$$
+f(x)=2x^2, x \in \mathbb{R}
+$$
+
+is a function, where $f: \mathbb{R} \to \mathbb{R}$.
+
+It is however not a bijection from $\mathbb{R}$ to $\mathbb{R}$, as $\exists y \in \mathbb{R}, \nexists f^{-1}, f^{-1}(y)=x$, such as $y=-1$
+
+<blockquote>
+Note the range $R_f \subset \mathbb{R}$, as $\exists y \in \mathbb{R}: y \notin R_f$, such as $y=-1$
+</blockquote>
+
+<ref>{{#cite:Q2199}}</ref>
+{{End hidden}}
+
+== Image and preimage ==
+
+Given function $f: A \to B$
+
+If for $A_1 \subseteq A, B_1 \subseteq B$,
+
+$$
+B_1=f(A_1)=\{f(a)|\forall a \in A_1\}
+$$
+
+Then $B_1$ is known as the '''image''' of $A_1$ in $B$ under $f$, and $A_1$ is known as the '''pre-image''' of $B_1$ under $f$, noted $f^{\leftarrow}(B_1)=A_1$
+
+<ref>{{#cite:Q2199}}</ref>
