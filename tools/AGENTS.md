@@ -75,6 +75,24 @@ fixer.
   `~/.config/mediawiki-mcp/ronzz-wikibase.json` (or `--user`/`--password`) —
   never committed, never echoed. Used for the 2026-08-23 migration (179 tags,
   12 pages). Python stdlib only.
+- **`tools/migrate_hidden_blocks.py`** — migrates the legacy
+  `'''Proof''':` / `'''Solution''':` / `'''Example''':` labels (colon inside
+  or outside the bold) to `{{Hidden proof}}` / `{{Hidden solution}}` /
+  `{{Hidden example}}` … `{{End hidden}}` blocks. The body ends at the next
+  heading, next legacy label, an existing Hidden directive, the matching
+  `</blockquote>` (when the label sits inside one), or EOF; labels inside
+  verbatim markup (`<nowiki>`, `<syntaxhighlight>`, `<pre>`, `<math>`, HTML
+  comments) or an existing Hidden block are skipped. Descriptive variants
+  (`'''Proof by induction''':`, `'''Example (homogeneous):'''`) are reported
+  but not rewritten — a human decides whether the descriptor belongs inside
+  the block. Modes: `--audit` (default; exit 1 = pending changes,
+  CI-usable), `--dry-run` (per-page diffs + the descriptive-label list),
+  `--apply` (bot edits, `baserevid`-guarded, summary "Migrate: wrap
+  Proof/Solution/Example blocks in Hidden templates"). Credentials from the
+  mediawiki MCP config (or `--user`/`--password`/`--password-file`) — never
+  committed, never echoed. Used for the 2026-10-18 migration (30 blocks, 15
+  pages). Python stdlib only. Unit tests:
+  `python3 -m unittest discover -s tools/tests`.
 - **`tools/backfill_image_items.py`** — one-off backfill for the
   image-facts-semantics batch: every existing Add\* image file gets its
   sitelinked `image`-class item + the File-page `== License ==` /
@@ -221,3 +239,7 @@ fixer.
   `--apply` without a prior `--dry-run` review; the transform is regex-based
   and deliberately conservative (only tags with `lang=`, no `inline`, no
   `copy`).
+- The Hidden-block migrator (`migrate_hidden_blocks.py`) is likewise a live
+  wiki migration: review `--dry-run` (including the descriptive-label list)
+  before `--apply`. It never nests Hidden blocks and never rewrites labels
+  inside verbatim markup; re-running it is idempotent.
