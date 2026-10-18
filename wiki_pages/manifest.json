@@ -91,6 +91,10 @@
       "path": "MediaWiki/Toolbox.wiki"
     },
     {
+      "title": "Template:Anchor",
+      "path": "Template/Anchor.wiki"
+    },
+    {
       "title": "Template:Bill",
       "path": "Template/Bill.wiki"
     },
@@ -181,6 +185,10 @@
     {
       "title": "Template:Forumthread",
       "path": "Template/Forumthread.wiki"
+    },
+    {
+      "title": "Template:Hidden example",
+      "path": "Template/Hidden example.wiki"
     },
     {
       "title": "Template:Hidden proof",

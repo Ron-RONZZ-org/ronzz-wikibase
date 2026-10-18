@@ -17,7 +17,6 @@
 }
 
 /* Ensure proper float */
- .mw-collapsible {
-    float: left !important;
+ div.mw-collapsible {
     display: flow-root;
 }

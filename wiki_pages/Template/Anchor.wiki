@@ -1,0 +1,9 @@
+<includeonly><span id="{{{1|}}}"></span></includeonly><noinclude>
+'''Usage:''' <code><nowiki>{{anchor|Anchor_name}}</nowiki></code> creates the link target <code>#Anchor_name</code> on the current page.
+
+Use it for sections whose generated heading anchor cannot be linked to, for example a heading containing math: <code>{</code> and <code>}</code> are illegal in page titles, so <code><nowiki>[[Page#Heading_with_$\mathcal{S}_{n}$]]</nowiki></code> is never parsed as a link. The same applies to <code># &lt; &gt; [ ] |</code>.
+
+Place the call at the start of the heading (<code>=== <nowiki>{{anchor|Name}}</nowiki>Heading ===</code>) or at the start of the section body on the same line as the text. A call alone on its own line produces an empty paragraph.
+
+The anchor must not contain spaces or any of <code># &lt; &gt; [ ] | { }</code>. This wiki does not have ParserFunctions, so there is no multi-anchor form: call the template once per anchor.
+</noinclude>

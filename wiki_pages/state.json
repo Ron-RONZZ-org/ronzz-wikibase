@@ -41,9 +41,9 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     },
     "MediaWiki:Common.css": {
-      "revid": 10315,
-      "sha256": "3ccb4ac39cc153260c096311bbc8e147b238b17fe133295ab33353223bdb3bb3",
-      "synced_at": "2026-10-18T06:22:52+00:00"
+      "revid": 10320,
+      "sha256": "df5f45488fad7cd152552562ffd260bbc950e6bceb00bb4c4eb51419f35769f7",
+      "synced_at": "2026-10-18T07:11:07+00:00"
     },
     "MediaWiki:Copyupload-allowed-domains": {
       "revid": 750,
@@ -109,6 +109,11 @@
       "revid": 5,
       "sha256": "37f29eac4a11290a8a603234ead53ececd04906dcd6cca7b461bebe17513547e",
       "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Anchor": {
+      "revid": 10312,
+      "sha256": "b24540c4b13840b543fa15af2b1b253aff7e4733d3b04e6eab776bb3c9f3f67c",
+      "synced_at": "2026-10-18T07:11:07+00:00"
     },
     "Template:Bill": {
       "revid": 9036,
@@ -224,6 +229,11 @@
       "revid": 2692,
       "sha256": "a9fb1fbddfba433b802f5992362469ac3609ffc35313d1c32ad9db62d8a1c8f6",
       "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Hidden example": {
+      "revid": 10316,
+      "sha256": "fed59d14ebd9460bb093e781f5f3bc8836b1a51b6a35085854f9e9e2a0d0409d",
+      "synced_at": "2026-10-18T07:11:07+00:00"
     },
     "Template:Hidden proof": {
       "revid": 10318,
@@ -396,6 +406,6 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     }
   },
-  "updated": "2026-10-18T06:22:52+00:00",
+  "updated": "2026-10-18T07:11:08+00:00",
   "version": 1
 }
