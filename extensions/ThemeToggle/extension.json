@@ -1,0 +1,58 @@
+{
+	"name": "ThemeToggle",
+	"version": "0.1.0",
+	"author": [
+		"ronzz.org"
+	],
+	"url": "https://wikibase.ronzz.org/",
+	"descriptionmsg": "themetoggle-desc",
+	"license-name": "GPL-2.0-or-later",
+	"type": "other",
+	"requires": {
+		"MediaWiki": ">= 1.43.0"
+	},
+	"AutoloadNamespaces": {
+		"MediaWiki\\Extension\\ThemeToggle\\": "includes/"
+	},
+	"Hooks": {
+		"BeforePageDisplay": "main"
+	},
+	"HookHandlers": {
+		"main": {
+			"class": "MediaWiki\\Extension\\ThemeToggle\\Hooks"
+		}
+	},
+	"MessagesDirs": {
+		"ThemeToggle": [
+			"i18n"
+		]
+	},
+	"ResourceModules": {
+		"ext.themeToggle": {
+			"scripts": [
+				"themeToggle.js"
+			],
+			"styles": [
+				"themeToggle.css"
+			],
+			"dependencies": [
+				"mediawiki.api",
+				"mediawiki.notification",
+				"mediawiki.user"
+			],
+			"messages": [
+				"themetoggle-dark",
+				"themetoggle-light",
+				"themetoggle-save-failed"
+			],
+			"targets": [
+				"desktop"
+			]
+		}
+	},
+	"ResourceFileModulePaths": {
+		"localBasePath": "resources",
+		"remoteExtPath": "ThemeToggle/resources"
+	},
+	"manifest_version": 2
+}

@@ -7,6 +7,17 @@
 wfLoadExtension( 'EmbeddableContent' );
 wfLoadExtension( 'WikibaseCitation' );
 
+// ---- Vector 2022 (modern layout) + quick day/night toggle ----
+// The installed Vector extension registers `vector` (legacy 2010) and
+// `vector-2022` (modern) as separate skins. Production switches the default
+// to `vector-2022`; this mirror keeps CI on the same layout so the skin's
+// native night mode and the ThemeToggle button are exercised.
+// ThemeToggle adds the sun/moon quick toggle next to the Appearance menu —
+// it writes the skin's own `vector-theme` client preference (no second
+// theme system).
+wfLoadExtension( 'ThemeToggle' );
+$wgDefaultSkin = 'vector-2022';
+
 // Discussion forum (DPLforum, vendored at extensions/DPLforum). Registers
 // the Forum: (110) / Forum_talk: (111) namespaces via its extension.json.
 wfLoadExtension( 'DPLforum' );
@@ -185,13 +196,13 @@ $wgNamespacesToBeSearchedDefault[NS_FORUM] = true;
 // ---- Subpages in EVERY namespace except Main (2026-09-29) ----
 // The breadcrumb is namespace-gated, and core's breadcrumb only renders
 // ancestors that EXIST (Skin::subPageSubtitleInternal) — a
-// `Cheatsheets:LinuxCLI/ssh` page shows no "< Cheatsheets:LinuxCLI" link
+// `Cheatsheet:LinuxCLI/ssh` page shows no "< Cheatsheet:LinuxCLI" link
 // until the parent page exists. NamespaceInfo SNAPSHOTS this config when its
 // service is constructed (ServiceOptions copies the value at construction),
 // so a late hook (e.g. CanonicalNamespaces) cannot change hasSubpages() —
 // the values must be set here, before the service exists. The range covers
 // the instance's namespaces: core 0-15, Forum 110, Item/Property 120-123,
-// TimedText 710-711, Translations 1198-1199, Cheatsheets…Software
+// TimedText 710-711, Translations 1198-1199, Cheatsheet…Software
 // 2000-2017; extend it when a namespace is registered. Mirrors the
 // production LocalSettings block (RonzzIT:Deployment/Wikibase); the explicit
 // per-namespace lines above are kept for readability.
@@ -203,7 +214,7 @@ $wgNamespacesWithSubpages[NS_MAIN] = false;
 // (extensions/LanguageBar). Entity (Item:/Property:), Template:, Category:,
 // MediaWiki:, Special:, talk, Forum (threads are not translated), and the
 // gated RonzzIT:/RonzzInt: namespaces are deliberately excluded. The list
-// uses raw namespace ids because the Cheatsheets (2000) / HowItWorks (2002)
+// uses raw namespace ids because the Cheatsheet (2000) / HowItWorks (2002)
 // namespaces are a production LocalSettings-only change and are not defined
 // in this dev/CI config; the ids are inert here. Mirrors the production
 // LocalSettings.php block (see RonzzIT:Deployment/Wikibase on the instance).

@@ -12,10 +12,13 @@ The WBS image requires a configuration volume at `/config` (host dir
 `dev/config/`). On first boot it generates `InstanceSettings.php` +
 `LocalSettings.php` there; the generated `LocalSettings.php` loads
 `dev/config/Extensions.php`, which enables our extensions (EmbeddableContent,
-WikibaseCitation, vendored DPLforum, vendored Diagrams) and — once
-the seed has emitted it — the seed config map
-(`dev/config/ronzz-wikibase-config.php`). A `jobrunner` container shares the
-config volume (the WBS image requires it).
+WikibaseCitation, vendored DPLforum, vendored Diagrams, ThemeToggle) and —
+once the seed has emitted it — the seed config map
+(`dev/config/ronzz-wikibase-config.php`). The dev stack also mirrors
+production's modern Vector 2022 default (`$wgDefaultSkin = 'vector-2022'`), so
+the ThemeToggle sun/moon button and the skin's native day/night theme are
+exercised. A `jobrunner` container shares the config volume (the WBS image
+requires it).
 
 ## Quick start (local)
 

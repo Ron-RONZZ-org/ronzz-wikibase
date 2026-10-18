@@ -27,7 +27,9 @@ Self-hosted **Wikibase** (structured-data wiki, the software behind Wikidata) on
   see `docs/decisions/csv-table-embed.md`); **Pyodide4MediaWiki** (house
   extension, client-side Python execution of `class="pyodide"` code blocks via
   Pyodide/WASM — `extensions/Pyodide4MediaWiki/` — see
-  `docs/decisions/pyodide4mediawiki.md`)
+  `docs/decisions/pyodide4mediawiki.md`); **ThemeToggle** (house extension,
+  Vector 2022 sun/moon quick toggle for the skin's native day/night theme —
+  `extensions/ThemeToggle/` — see `docs/decisions/vector-2022-theme-toggle.md`)
 - seed/ (bootstrap orchestrator), tools/, tests/, dev/ (CI stack)
 - `wiki_pages/` — the tracked production `MediaWiki:` / `Template:` page
   mirror (manifest + state + `tools/wiki_pages.py`; see
@@ -106,7 +108,13 @@ citation duplication + class-suffix strip, the AddMath Note `$$…$$` preview
 fix, the defensive AddPerson date normalization, bookExcerpt language
 inheritance from the parent book, the content-page "Add section" action, and
 the label/description fallback that makes `fr`/`eo`-only items visible in the
-search results and on their Item: pages).
+search results and on their Item: pages),
+`upload-another-iframe.md` (the "upload another" destination tab + hidden
+same-origin iframe POST; inline error recovery, file preservation, CSRF
+refresh), `vector-2022-theme-toggle.md` (Vector 2022 as the default skin +
+the sun/moon quick toggle using the native `vector-theme` preference), and
+`namespace-rename-cheatsheet.md` (`Cheatsheets` → `Cheatsheet`, namespace
+alias as the redirect-equivalent, sitelink and content-link updates).
 
 Later content-page UX: `section-controls-and-editor.md` (each per-section
 control in its own `[ ]` bracket pair + "Add section below"/"Delete section",
