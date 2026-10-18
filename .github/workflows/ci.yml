@@ -133,6 +133,13 @@ jobs:
           $COMPOSE logs --tail 60 mysql
           exit 1
 
+      # TEMPORARY DEBUG — diagnose the Main-namespace subpages CI failure.
+      - name: Debug Main subpages config
+        run: |
+          $COMPOSE exec -T wikibase php maintenance/run.php eval.php \
+            'var_dump( $wgNamespacesWithSubpages[0] ?? "unset" ); var_dump( \MediaWiki\MediaWikiServices::getInstance()->getNamespaceInfo()->hasSubpages( 0 ) );' || true
+          $COMPOSE exec -T wikibase php -r 'echo file_get_contents("/config/Extensions.php");' | grep -n "NS_MAIN" || true
+
       # Issue follow-up: entity descriptions up to 2000 chars. The term
       # store's wbt_text.wbx_text column is VARBINARY(255) by default — the
       # validator raise (dev/config/Extensions.php) is useless without the
