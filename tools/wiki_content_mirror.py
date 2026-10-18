@@ -248,6 +248,11 @@ def run(args: argparse.Namespace) -> int:
         existing = None
         if dest.is_file() and not args.full:
             existing = dest.read_text(encoding="utf-8")
+        old_path = state["pages"].get(title, {}).get("path")
+        if old_path and old_path != path:
+            print(f"[move] {title}: {old_path} -> {path}")
+            if not args.dry_run:
+                remove_file(root, old_path)
         if args.full or existing != content:
             written.append(title)
             print(f"[write] {title} -> {path}")
