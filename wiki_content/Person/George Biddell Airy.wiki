@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-English mathematician and astronomer

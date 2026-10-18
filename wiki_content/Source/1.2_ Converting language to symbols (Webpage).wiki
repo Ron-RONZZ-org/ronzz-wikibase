@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-As we have already begun to do, we will use letters to represent (possibly variable) logical statements and substatements.

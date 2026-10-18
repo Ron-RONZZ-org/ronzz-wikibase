@@ -1,5 +1,0 @@
-{{Collective}}
-
-== Overview ==
-
-Wholly owned subsidiary of the Mozilla Foundation that develops and distributes Thunderbird

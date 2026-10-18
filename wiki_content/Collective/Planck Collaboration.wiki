@@ -1,5 +1,0 @@
-{{Collective|logo=[[File:European_Space_Agency-logo.png|frameless|220px|Logo]]}}
-
-== Overview ==
-
-Team of scientist working together to process and interpret data gathered by former ESA space observatory

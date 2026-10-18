@@ -1,5 +1,0 @@
-{{FOSS}}
-
-== Overview ==
-
-Free and open-source cross-platform email client and personal information manager, developed by MZLA Technologies Corporation

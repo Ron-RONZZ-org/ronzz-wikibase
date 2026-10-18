@@ -1,7 +1,0 @@
-{{Person}}
-
-== Biography ==
-
-''from Wikipedia (CC BY-SA 4.0):''
-
-Sir Robert Stawell Ball was an Irish astronomer who founded the screw theory. He was Royal Astronomer of Ireland at Dunsink Observatory.

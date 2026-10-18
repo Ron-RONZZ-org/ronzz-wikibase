@@ -1,5 +1,0 @@
-{{ScholarlyArticle}}
-
-== Overview ==
-
-1965 paper by Arno Penzias and Robert W. Wilson reporting an isotropic, persistent excess antenna temperature of about 3.5 K at 4.08 GHz measured with the Holmdel horn antenna, subsequently identified as the cosmic microwave background

@@ -1,5 +1,0 @@
-{{Book}}
-
-== Overview ==
-
-The reference book on Git, second edition, by Scott Chacon and Ben Straub, published by Apress

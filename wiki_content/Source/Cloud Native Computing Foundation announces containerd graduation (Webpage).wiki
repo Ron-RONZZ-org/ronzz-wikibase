@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-CNCF announcement that containerd is the fifth project to graduate, following Kubernetes, Prometheus, Envoy, and CoreDNS

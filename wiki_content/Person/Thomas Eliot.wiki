@@ -1,7 +1,0 @@
-{{Person}}
-
-== Biography ==
-
-''from Wikipedia (CC BY-SA 4.0):''
-
-Thomas Stearns Eliot was a poet, essayist and playwright. He was a leading figure of modernist poetry in the English language where he altered the art through his use of pessimistic language, writing style, and verse structure. Awarded the 1948 Nobel Prize in Literature, he is considered one of the greatest poets of the English language. He is also noted for his critical essays, which often re-evaluated long-held cultural beliefs.

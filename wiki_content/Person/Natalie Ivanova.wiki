@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-Thunderbird community and content team member; author of the "Celebrating 20 Years of Thunderbird" post

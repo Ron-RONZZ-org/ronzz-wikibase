@@ -1,5 +1,0 @@
-{{Website}}
-
-== Overview ==
-
-Official blog of Docker, Inc.

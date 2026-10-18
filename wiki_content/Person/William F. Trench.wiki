@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-American mathematician at Trinity University, author of the textbook Elementary Differential Equations with Boundary Value Problems

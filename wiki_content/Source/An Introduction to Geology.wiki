@@ -1,9 +1,0 @@
-{{Book}}
-
-== Overview ==
-
-<!-- What this source is and where it comes from. -->
-
-== Content ==
-
-== See also ==

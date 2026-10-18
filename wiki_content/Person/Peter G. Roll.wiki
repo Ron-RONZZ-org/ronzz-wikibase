@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-American experimental physicist who, as a member of Robert Dicke's group at Princeton, co-authored the 1965 paper 'Cosmic Black-Body Radiation' interpreting the microwave background discovered by Penzias and Wilson

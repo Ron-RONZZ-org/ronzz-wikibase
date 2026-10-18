@@ -1,5 +1,0 @@
-{{Collective}}
-
-== Overview ==
-
-Non-profit organization that stewards the Mozilla project; parent of the Mozilla Corporation and of MZLA Technologies Corporation

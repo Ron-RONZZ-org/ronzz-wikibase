@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-This page explains the periodic table's organization by atomic number and properties, with elements grouped by similarities. Developed by Mendeleev, it identifies metals, nonmetals, and semimetals, …

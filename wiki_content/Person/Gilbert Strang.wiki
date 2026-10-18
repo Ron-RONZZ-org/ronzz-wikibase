@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-American mathematician at the Massachusetts Institute of Technology, co-author of the OpenStax Calculus textbooks

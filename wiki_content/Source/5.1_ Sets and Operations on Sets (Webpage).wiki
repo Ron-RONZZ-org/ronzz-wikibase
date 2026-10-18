@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-We have used logical operators (conjunction, disjunction, negation) to form new statements from existing statements. In a similar manner, there are several ways to create new sets from sets that have …

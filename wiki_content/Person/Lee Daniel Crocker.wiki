@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-American programmer who rewrote the Wikipedia software as "Phase III" in 2002

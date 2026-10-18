@@ -1,5 +1,0 @@
-{{ScholarlyArticle}}
-
-== Overview ==
-
-We present cosmological parameter results from the final full-mission Planck measurements of the cosmic microwave background (CMB) anisotropies, combining information from the temperature and polarization maps and the lensing reconstruction.

@@ -1,5 +1,0 @@
-{{Collective}}
-
-== Overview ==
-
-Non-profit technology consortium that hosts open-source projects including the CNCF and the Open Container Initiative

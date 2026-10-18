@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-Japanese software engineer, lead maintainer of Git since July 2005

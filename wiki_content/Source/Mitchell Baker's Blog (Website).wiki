@@ -1,5 +1,0 @@
-{{Website}}
-
-== Overview ==
-
-Personal blog of Mitchell Baker, co-founder of the Mozilla Project

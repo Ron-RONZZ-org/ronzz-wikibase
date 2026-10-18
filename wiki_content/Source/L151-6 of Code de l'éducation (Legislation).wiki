@@ -1,5 +1,0 @@
-{{Law}}
-
-== Text ==
-
-{{#content:}}

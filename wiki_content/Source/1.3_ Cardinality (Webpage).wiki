@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-One of the set traits that will be useful to us in distinguishing between algebraic structures is cardinality.

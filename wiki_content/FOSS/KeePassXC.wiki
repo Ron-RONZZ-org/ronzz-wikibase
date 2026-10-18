@@ -1,5 +1,0 @@
-{{FOSS}}
-
-== Overview ==
-
-cross-platform, offline password manager storing credentials in encrypted KDBX databases; ships a command-line client, keepassxc-cli

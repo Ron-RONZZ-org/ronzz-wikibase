@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-The first commit to the git.git repository, made by Linus Torvalds on 2005-04-07

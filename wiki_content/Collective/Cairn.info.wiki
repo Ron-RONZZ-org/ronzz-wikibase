@@ -1,5 +1,0 @@
-{{Collective|logo=[[File:Cairn.info-logo.svg|frameless|220px|Logo]]}}
-
-== Overview ==
-
-Web portal for scientific publications in French

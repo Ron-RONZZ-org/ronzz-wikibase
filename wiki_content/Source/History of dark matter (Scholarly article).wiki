@@ -1,5 +1,0 @@
-{{ScholarlyArticle}}
-
-== Overview ==
-
-2018 review by Gianfranco Bertone and Dan Hooper of the history of dark matter, from early dynamical evidence in clusters and galaxy rotation curves to gravitational microlensing constraints on baryonic dark matter (MACHOs) and modern particle candidates

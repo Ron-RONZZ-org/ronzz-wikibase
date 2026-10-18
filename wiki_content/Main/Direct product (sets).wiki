@@ -1,7 +1,0 @@
-If $A_i:i=1,2, \ldots, n$ are [[set|sets]], their '''direct product'''
-
-$$
-\begin{equation*} A_1\times A_2 \times \cdots \times A_n=\{(a_1, a_2 \ldots, a_n): a_i \in A_i\}; \end{equation*}
-$$
-
-<ref>{{#cite:Q2194}}</ref>

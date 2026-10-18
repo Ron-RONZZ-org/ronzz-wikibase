@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-American mathematician, co-author of the textbook Elementary Differential Equations and Boundary Value Problems

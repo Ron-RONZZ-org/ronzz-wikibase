@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-Thunderbird blog announcement that the project moves to MZLA Technologies Corporation, a wholly owned subsidiary of the Mozilla Foundation

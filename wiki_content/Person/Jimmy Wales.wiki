@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-Co-founder of Wikipedia and founder of the Wikimedia Foundation

@@ -1,5 +1,0 @@
-{{Website}}
-
-== Overview ==
-
-Official documentation website of Docker

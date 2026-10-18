@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-Release notes of Thunderbird 78, which introduced built-in OpenPGP and made MailExtensions the only supported add-on type

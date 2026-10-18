@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-English physicist and mathematician who formulated the laws of motion and universal gravitation and, independently of Leibniz, developed the calculus

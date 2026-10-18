@@ -1,5 +1,0 @@
-{{ScholarlyArticle}}
-
-== Overview ==
-
-1998 paper by the High-Z Supernova Search Team: 16 high-redshift and 34 nearby type Ia supernovae place the high-redshift distances on average 10–15% farther than expected without a cosmological constant, favouring a positive cosmological constant and a currently accelerating expansion

@@ -1,5 +1,0 @@
-{{FOSS}}
-
-== Overview ==
-
-Open-source project providing a library of components and a framework for assembling custom container-based systems; the open base of Docker

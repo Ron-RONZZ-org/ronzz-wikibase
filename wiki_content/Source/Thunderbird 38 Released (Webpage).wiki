@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-Thunderbird blog announcement of Thunderbird 38, which ships calendaring (Lightning) by default

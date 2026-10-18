@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-Professor of mathematics at Mount Royal University, Canada

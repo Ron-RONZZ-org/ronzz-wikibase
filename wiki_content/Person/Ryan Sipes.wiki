@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-Product and business development manager at MZLA Technologies Corporation (Thunderbird)

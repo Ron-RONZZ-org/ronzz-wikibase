@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-Thunderbird's about page: mission, values, community and organization

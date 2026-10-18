@@ -1,5 +1,0 @@
-{{ScholarlyArticle}}
-
-== Overview ==
-
-1933 paper by Fritz Zwicky on the redshifts of extragalactic nebulae: applying the virial theorem to the Coma cluster he found its galaxies move too fast for the visible mass, inferring the presence of large amounts of non-luminous ("dark") matter, usually cited as the first evidence for dark matter

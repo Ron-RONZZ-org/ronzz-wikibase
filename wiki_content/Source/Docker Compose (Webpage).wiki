@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-Docker docs page about Compose, the tool for defining and running multi-container applications

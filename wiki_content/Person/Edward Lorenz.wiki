@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-American mathematician and meteorologist, pioneer of chaos theory

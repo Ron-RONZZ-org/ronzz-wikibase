@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-Thunderbird developer documentation on add-ons: WebExtensions technology, MailExtensions and Experiment APIs

@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-Thunderbird mobile progress report for July 2026, covering work on the iOS app

@@ -129,23 +129,32 @@ password, update the `WIKI_SYNC_BOT_PASS` secret.
   `ronzz-it-runbooks`).
 - Content pages — see the one-way mirror below.
 
-### 6. Content mirror (one-way)
+### 6. Content mirror (one-way, separate repo)
 
-`tools/wiki_content_mirror.py` copies the public **content** namespaces into
-`wiki_content/` (Main, Cheatsheets, HowItWorks, FOSS, Person, Source,
-Collective, Software). It is deliberately **one-way**: it never writes to the
-wiki, so it cannot overwrite on-wiki authoring, and the wiki remains the
-single source of truth.
+The public **content** namespaces (Main, Cheatsheets, HowItWorks, FOSS,
+Person, Source, Collective, Software) are mirrored into the dedicated
+[`Ron-RONZZ-org/ronzzwikibase-public-mirror`](https://github.com/Ron-RONZZ-org/ronzzwikibase-public-mirror)
+repository, **not** this one. The code/config repo keeps the tool
+(`tools/wiki_content_mirror.py`); the snapshot repo keeps the data and runs
+the workflow. This keeps the 15-minute content commits out of the code
+history while preserving a git-backed, searchable snapshot.
 
+It is deliberately **one-way**: it never writes to the wiki, so it cannot
+overwrite on-wiki authoring, and the wiki remains the single source of truth.
+
+- The mirror repo's `.github/workflows/mirror.yml` clones this repo
+  (`--depth=1`), runs the tool with `--dir . --state state.json --prune`, and
+  commits changes with `[skip ci]` every 15 minutes.
 - Incremental: the tool lists titles, fetches current `revid`s, and downloads
   only pages whose revid/path changed. `--full` refetches everything.
-- `wiki_content/state.json` records `{path, revid, sha256, synced_at}`.
+- `<mirror>/state.json` records `{path, revid, sha256, synced_at}`.
 - Deletions are reported as orphans; `--prune` removes the file (git history
-  retains it).
-- The gated `RonzzIT:`/`RonzzInt:` namespaces are **refused** — this repo is
-  public and those pages belong to the private `ronzz-it-runbooks` mirror.
-- `.github/workflows/wiki-content.yml` runs every 15 minutes and commits
-  changes with `[skip ci]`. `ci.yml` ignores `wiki_content/**`.
+  retains it). A mass prune over 10% is refused without `--force-prune`.
+- The gated `RonzzIT:`/`RonzzInt:` namespaces are **refused** — the mirror
+  repo is public and those pages belong to the private `ronzz-it-runbooks`
+  mirror.
+- `--dir` is required, so a local tool run cannot accidentally write into the
+  code checkout.
 
 ## Consequences
 
@@ -156,17 +165,17 @@ single source of truth.
   surface as a red workflow + issue.
 - `ci.yml` ignores `wiki_pages/**` (content, not code); the sync workflow is
   the gate for those files.
-- The content mirror gives the repo an offline, searchable snapshot of the
-  public pages and a per-edit git history, without making those pages a
-  write surface.
+- The content mirror gives the **mirror repo** an offline, searchable
+  snapshot of the public pages and a per-edit git history, without making
+  those pages a write surface or polluting this repo's history.
 - If the bot password leaks, rotate it; the repo itself contains no secrets.
 
 ## References
 
 - `wiki_pages/manifest.json`, `wiki_pages/state.json`, `wiki_pages/README.md`
 - `tools/wiki_pages.py`, `tools/tests/test_wiki_pages.py`
-- `wiki_content/README.md`, `wiki_content/state.json`
 - `tools/wiki_content_mirror.py`, `tools/tests/test_wiki_content_mirror.py`
-- `.github/workflows/wiki-pages.yml`, `.github/workflows/wiki-content.yml`
+- `.github/workflows/wiki-pages.yml`
+- `Ron-RONZZ-org/ronzzwikibase-public-mirror` (README, `state.json`, `mirror.yml`)
 - `docs/decisions/upload-enhancements.md` (the excluded generated citation
   maps), `extensions/WikibaseCitation/maintenance/importCitationMap.php`

@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-OCI page describing the initiative, its three specifications and the donation of runc

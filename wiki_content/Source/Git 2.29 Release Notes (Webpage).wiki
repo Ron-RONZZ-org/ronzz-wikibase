@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-Official release notes for Git 2.29.0, marking SHA-256 object format support as experimental

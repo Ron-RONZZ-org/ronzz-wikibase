@@ -1,5 +1,0 @@
-{{ScholarlyArticle}}
-
-== Overview ==
-
-1999 paper by the Supernova Cosmology Project: magnitude–redshift data for 42 type Ia supernovae at redshifts 0.18–0.83 indicate that the cosmological constant is non-zero and positive with 99% confidence

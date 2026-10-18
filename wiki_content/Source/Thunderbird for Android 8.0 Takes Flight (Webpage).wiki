@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-Thunderbird blog announcement of the first stable release of Thunderbird for Android, built from K-9 Mail

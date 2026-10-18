@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-Docker docs page explaining what containers are and how they compare with virtual machines

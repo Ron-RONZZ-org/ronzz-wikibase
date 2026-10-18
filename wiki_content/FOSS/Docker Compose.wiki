@@ -1,5 +1,0 @@
-{{FOSS}}
-
-== Overview ==
-
-Tool for defining and running multi-container applications from a single YAML configuration file

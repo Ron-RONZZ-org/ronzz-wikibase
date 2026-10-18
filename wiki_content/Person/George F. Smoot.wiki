@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-American astrophysicist and cosmologist (born 1945) who led the COBE DMR team whose maps revealed the tiny temperature anisotropies of the cosmic microwave background; shared the 2006 Nobel Prize in Physics

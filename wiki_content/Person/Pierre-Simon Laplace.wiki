@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-French mathematician, physicist and astronomer

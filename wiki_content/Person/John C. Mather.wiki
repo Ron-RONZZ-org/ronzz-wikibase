@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-American astrophysicist and cosmologist (born 1946) who led the COBE FIRAS team whose measurements showed that the cosmic microwave background has a near-perfect blackbody spectrum; shared the 2006 Nobel Prize in Physics

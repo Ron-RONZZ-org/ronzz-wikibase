@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-Mozilla Support knowledge base article on creating calendars in Thunderbird, describing local.sqlite storage and network calendars

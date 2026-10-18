@@ -13,13 +13,11 @@ on:
       # Wiki page content is sync-managed (wiki-pages.yml); editing it does
       # not exercise the PHP/stack CI.
       - 'wiki_pages/**'
-      - 'wiki_content/**'
   pull_request:
     paths-ignore:
       - '**/*.md'
       - 'LICENSE'
       - 'wiki_pages/**'
-      - 'wiki_content/**'
   workflow_dispatch:
 
 # The integration job runs a full wikibase-docker stack (MW 1.46 + WDQS) —

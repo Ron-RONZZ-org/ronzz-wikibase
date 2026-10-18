@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-Docker docs page explaining the build context, the set of files a build can access, and the .dockerignore file

@@ -1,3 +1,0 @@
-Large Language Models (LLMs) are [[artificial intelligence]] systems trained via [[machine learning]] to generate text in response to [[natural language]] prompts.
-
-At the time of writing (2026-08), the most widely adopted LLMs are [[Transformer]] models.

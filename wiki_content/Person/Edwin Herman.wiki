@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-American mathematician at the University of Wisconsin–Stevens Point, co-author of the OpenStax Calculus textbooks

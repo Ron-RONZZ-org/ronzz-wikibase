@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-American astronomer, co-author with Vera Rubin and W. Kent Ford Jr. of the 1980 study of rotation curves of 21 Sc galaxies

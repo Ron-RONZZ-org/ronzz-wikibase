@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-Thunderbird developer documentation listing the standards implemented or supported by the Thunderbird family of applications

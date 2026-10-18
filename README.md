@@ -131,12 +131,16 @@ The v1 plan lives in
   test), `add-copy-to-syntaxhighlight.py` (block-mode `<syntaxhighlight>`
   `copy` standardizer), `wiki_pages.py` (two-way `MediaWiki:`/`Template:`
   sync, auto-discovering new interface pages) and `wiki_content_mirror.py`
-  (one-way public-content snapshot).
+  (one-way public-content snapshot tool, run by the separate
+  [`ronzzwikibase-public-mirror`](https://github.com/Ron-RONZZ-org/ronzzwikibase-public-mirror)
+  repo).
 - `wiki_pages/` — git mirror of the interface pages (`manifest.json` allowlist
-  + `state.json`), synced hourly from production and pushed on merge.
-- `wiki_content/` — generated, read-only snapshot of the public content
-  namespaces (Main, Cheatsheets, HowItWorks, FOSS, Person, Source, Collective,
-  Software), refreshed every 15 minutes. Do not edit by hand.
+  + `state.json`), synced hourly from production and pushed on merge. This is
+  the two-way config surface and stays here.
+- Content pages are mirrored **outside this repo** in
+  [`ronzzwikibase-public-mirror`](https://github.com/Ron-RONZZ-org/ronzzwikibase-public-mirror)
+  (generated, refreshed every 15 minutes; do not edit by hand) so the code
+  history is not polluted by content sync commits.
 - `tests/` — PHPUnit unit tests (pure-PHP logic, no MediaWiki runtime) and the
   `tests/e2e/` suites against a seeded live instance: `run_e2e.py`
   (acceptance + XSS) and `run_pages_e2e.py` (issue-#7 page flows:

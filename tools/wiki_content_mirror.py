@@ -3,8 +3,9 @@
 
 `tools/wiki_pages.py` tracks the *interface* pages (`MediaWiki:` / `Template:`)
 two-way. This tool is the read-only companion for **content** pages: it copies
-the public content namespaces into `wiki_content/` so the repo has an offline,
-searchable, diffable snapshot. It never writes to the wiki.
+the public content namespaces into a mirror directory (`--dir`) so the
+snapshot repository has an offline, searchable, diffable copy. It never writes
+to the wiki.
 
 Scope (namespace ids):
 
@@ -26,21 +27,23 @@ Sync model:
   mirror (the file lives in git history, so nothing is lost); a mass prune of
   more than 10% of the mirror is refused unless `--force-prune` (a transient
   partial listing must not wipe it);
-- `wiki_content/state.json` records `{path, revid, sha256, synced_at}` per
-  page; the next run is incremental from it.
+- `<dir>/state.json` records `{path, revid, sha256, synced_at}` per page; the
+  next run is incremental from it.
 
-Paths: `wiki_content/<Namespace>/<Title>.wiki` (`Main/` for the main
+Paths: `<dir>/<Namespace>/<Title>.wiki` (`Main/` for the main
 namespace); subpages become directories; filesystem-illegal characters are
 replaced with `_`. Two titles that map to the same path abort the run.
 
 Usage::
 
-    python3 tools/wiki_content_mirror.py --dry-run     # show the delta
-    python3 tools/wiki_content_mirror.py --prune       # update the mirror
-    python3 tools/wiki_content_mirror.py --full        # refetch every page
+    python3 tools/wiki_content_mirror.py --dir /path/to/mirror --dry-run
+    python3 tools/wiki_content_mirror.py --dir /path/to/mirror --prune
+    python3 tools/wiki_content_mirror.py --dir /path/to/mirror --full
 
-The automated schedule is `.github/workflows/wiki-content.yml` (every 15
-minutes, auto-committed with `[skip ci]`). Python stdlib only.
+The snapshot is committed to the separate
+``Ron-RONZZ-org/ronzzwikibase-public-mirror`` repository; its
+``.github/workflows/mirror.yml`` runs this tool with ``--dir . --state
+state.json`` every 15 minutes. Python stdlib only.
 
 License: GPL-2.0-or-later
 """
@@ -57,7 +60,6 @@ from pathlib import Path, PurePosixPath
 from wiki_pages_lib import SyncError, WikiApi, now_iso, sha256
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_DIR = ROOT / "wiki_content"
 DEFAULT_WIKI = "https://wikibase.ronzz.org"
 DEFAULT_NAMESPACES = [0, 2000, 2002, 2008, 2010, 2012, 2014, 2016]
 GATED_NAMESPACES = {2004, 2006}  # RonzzInt / RonzzIT — private mirror only
@@ -302,8 +304,8 @@ def main(argv: list[str] | None = None) -> int:
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--dir", default=str(DEFAULT_DIR),
-                        help=f"mirror root (default: {DEFAULT_DIR})")
+    parser.add_argument("--dir", required=True,
+                        help="mirror root (the scheduled run passes the mirror repo root)")
     parser.add_argument("--state", default=None,
                         help="state file (default: <dir>/state.json)")
     parser.add_argument("--namespace", action="append", type=int, metavar="NS",

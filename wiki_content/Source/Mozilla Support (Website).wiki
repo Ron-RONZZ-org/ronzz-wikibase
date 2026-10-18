@@ -1,5 +1,0 @@
-{{Website}}
-
-== Overview ==
-
-Official support and knowledge base website of Mozilla (SUMO), hosting Thunderbird help articles

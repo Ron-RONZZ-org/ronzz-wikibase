@@ -1,5 +1,0 @@
-{{ScholarlyArticle}}
-
-== Overview ==
-
-1980 paper by Vera Rubin, W. Kent Ford Jr. and Norbert Thonnard measuring optical rotation curves of 21 Sc spiral galaxies, showing they stay flat to the last measured point, far beyond where the visible light falls off — key evidence that spiral galaxies are embedded in dark matter halos

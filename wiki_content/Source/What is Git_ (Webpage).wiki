@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-Pro Git book, chapter 1.3: snapshots vs. deltas, local operations, integrity, the three states

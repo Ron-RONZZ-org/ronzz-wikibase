@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-American attorney and technology executive; co-founder and longtime leader of the Mozilla Project

@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-Thunderbird blog post explaining why the interface is being rebuilt from scratch: technical debt, the Firefox-based architecture and the 3-year objectives

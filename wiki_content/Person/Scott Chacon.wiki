@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-Software developer, co-author of the Pro Git book and co-founder of GitHub

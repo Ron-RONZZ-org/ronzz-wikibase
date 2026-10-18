@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-German mathematician

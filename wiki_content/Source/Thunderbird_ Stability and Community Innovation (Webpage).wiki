@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-Mitchell Baker's 2012 post announcing that Mozilla would focus Thunderbird on stability and move development to a community-driven model

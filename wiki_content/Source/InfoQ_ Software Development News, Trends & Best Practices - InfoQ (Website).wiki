@@ -1,3 +1,0 @@
-{{Website}}
-
-Helping dev teams adopt new technologies and practices. Written by software engineers. Read by over 1.5 million developers worldwide.

@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-Thunderbird source documentation describing how email protocol implementations (e.g. IMAP) interact with the platform networking layer

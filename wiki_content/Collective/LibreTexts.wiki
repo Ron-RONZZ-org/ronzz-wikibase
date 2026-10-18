@@ -1,5 +1,0 @@
-{{Collective|logo=[[File:LibreTexts-logo.png|frameless|220px|Logo]]}}
-
-== Overview ==
-
-open access educational resource collection

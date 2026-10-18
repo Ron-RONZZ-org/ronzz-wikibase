@@ -1,5 +1,0 @@
-{{Website}}
-
-== Overview ==
-
-Official press release and announcement blog of Mozilla

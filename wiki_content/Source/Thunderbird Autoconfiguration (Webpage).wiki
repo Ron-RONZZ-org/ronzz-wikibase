@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-Specification of Thunderbird's account autoconfiguration mechanisms, written by its author Ben Bucksch

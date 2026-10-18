@@ -1,5 +1,0 @@
-A linear equation can be rewritten into the general form:
-
-{{#content:Q1955}}
-
-If $b=0$, the equation is said to be '''homogeneous'''.

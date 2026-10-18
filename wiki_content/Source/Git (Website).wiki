@@ -1,5 +1,0 @@
-{{Website}}
-
-== Overview ==
-
-Official Git website: binary releases, documentation, and the Pro Git book

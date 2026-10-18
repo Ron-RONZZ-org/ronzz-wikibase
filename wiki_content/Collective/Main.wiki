@@ -1,6 +1,0 @@
-One page per collective (organization, company, band, agency, institution, team, party…), created automatically by [[Special:AddCollective]]: the page transcludes {{tl|Collective}}, whose infobox reads the item's statements at view time (see [[Help:Contributing/semanticDynamicContent]]). Add prose (overview, history, members) under the infobox.
-
-* '''Add a collective''': [[Special:AddCollective]] (name search → review → create; the class — private/public company, non-profit, governmental agency, music band, educational institution, research institute, political party, trade union, religious organization, sports team, … — is inferred from Wikidata and adjustable)
-* See also: [[Category:Collectives]]
-
-The pages are '''sitelinked''' to their items: edit the item once and every Collective: page updates.

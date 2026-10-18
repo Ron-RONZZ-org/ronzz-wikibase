@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-Docker docs page about the BuildKit builder backend and the LLB format

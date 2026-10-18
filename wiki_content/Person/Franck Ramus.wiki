@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-French cognitive scientist

@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-French mathematician whose rigorous existence theorems founded the modern theory of differential equations

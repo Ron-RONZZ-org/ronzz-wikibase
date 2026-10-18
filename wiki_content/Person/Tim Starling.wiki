@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-Software developer and long-time MediaWiki core developer; introduced templates in MediaWiki 1.2

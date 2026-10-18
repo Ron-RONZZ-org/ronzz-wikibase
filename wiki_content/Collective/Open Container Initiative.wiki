@@ -1,5 +1,0 @@
-{{Collective}}
-
-== Overview ==
-
-Open governance project under the Linux Foundation that creates open industry standards for container formats and runtimes

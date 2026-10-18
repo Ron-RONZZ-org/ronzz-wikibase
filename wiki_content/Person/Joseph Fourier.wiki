@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-French mathematician and physicist; derived the heat equation and solved it with trigonometric series, founding Fourier analysis.

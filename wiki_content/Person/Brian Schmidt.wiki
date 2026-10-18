@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-American-born Australian astrophysicist (born 1967) who shared the 2011 Nobel Prize in Physics for the discovery of the accelerating expansion of the universe

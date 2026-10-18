@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-GitHub Blog index of Git release coverage, including Git Merge 2025 celebrating 20 years of Git

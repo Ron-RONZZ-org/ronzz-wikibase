@@ -1,7 +1,0 @@
-{{FOSS}}
-
-== Overview ==
-
-Command-line tool for spawning and running containers according to the OCI specification; the reference implementation of the OCI runtime spec
-
-Wiki: wikibase.ronzz.org

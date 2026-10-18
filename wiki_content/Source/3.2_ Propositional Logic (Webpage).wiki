@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-A proposition is simply a statement. Propositional logic studies the ways statements can interact with each other. It is important to remember that propositional logic does not really care about the …

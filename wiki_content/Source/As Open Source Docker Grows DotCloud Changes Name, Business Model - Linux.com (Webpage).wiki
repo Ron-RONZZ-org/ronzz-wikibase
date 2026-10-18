@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-DotCloud, Inc. is changing its name to Docker, Inc. This change is more than just a new name or new website. Since releasing Docker in March, we have seen it become not just a rapidly growing open source project, but also the center of a vibrant ecosystem that is …

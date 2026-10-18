@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-Early Wikipedia volunteer who coined the name "MediaWiki" in 2003

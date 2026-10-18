@@ -1,7 +1,0 @@
-{{Person}}
-
-== Biography ==
-
-''from Wikipedia (CC BY-SA 4.0):''
-
-James Augustine Aloysius Joyce was an Irish novelist, poet, and literary critic. He contributed to the modernist movement and is regarded among the most influential and important writers of the 20th century. Joyce's novel Ulysses (1922) is a landmark in which the episodes of Homer's Odyssey are paralleled in a variety of literary styles, particularly stream of consciousness. His other well-known works include the short-story collection Dubliners (1914) and the novels A Portrait of the Artist as a Young Man (1916) and Finnegans Wake (1939). His other writings include two books of poetry, a play, correspondence, and occasional journalism.

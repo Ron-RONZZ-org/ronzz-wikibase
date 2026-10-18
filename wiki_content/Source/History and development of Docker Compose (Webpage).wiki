@@ -1,5 +1,0 @@
-{{Webpage}}
-
-== Overview ==
-
-Docker docs page covering the history of the Compose CLI and Compose file formats

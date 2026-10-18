@@ -1,5 +1,0 @@
-{{Book}}
-
-== Overview ==
-
-CK-12 Foundation calculus textbook covering limits, derivatives, integration, series and differential equations

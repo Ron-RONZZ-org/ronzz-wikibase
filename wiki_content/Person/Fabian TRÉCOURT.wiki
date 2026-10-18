@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-French journalist specialised in science of humanity

@@ -1,5 +1,0 @@
-{{FOSS}}
-
-== Overview ==
-
-Modern build subsystem of Docker Engine, based on the LLB graph format; the default builder backend for Docker

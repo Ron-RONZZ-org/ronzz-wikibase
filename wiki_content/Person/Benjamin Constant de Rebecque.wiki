@@ -1,8 +1,0 @@
-{{Person}}
-
-{{languages}}
-== Biography ==
-
-''from Wikipedia (CC BY-SA 4.0):''
-
-Henri-Benjamin Constant de Rebecque, or simply Benjamin Constant, was a Swiss and French political thinker, activist and writer on political theory and religion.

@@ -1,6 +1,0 @@
-One page per person, created automatically by [[Special:AddPerson]]: the page transcludes {{tl|Person}}, whose infobox reads the item's statements at view time (see [[Help:Contributing/semanticDynamicContent]]). Add prose (biography, works) under the infobox.
-
-* '''Add a person''': [[Special:AddPerson]] (name, ORCID, VIAF or ISNI search → review → create)
-* See also: [[Category:People]]
-
-The pages are '''sitelinked''' to their items: edit the item once (or via [[Special:EntityPage]]) and every Person: page updates. {{#statements:}} without <code>from=</code> renders this page's own sitelinked item — so the infobox needs no argument.

@@ -154,21 +154,27 @@ fixer.
   `.github/workflows/wiki-pages.yml`; see
   `docs/decisions/wiki-pages-parity.md`. Unit tests:
   `python3 -m unittest discover -s tools/tests`.
-- **`tools/wiki_content_mirror.py`** — one-way wiki → repo snapshot of the
-  public **content** namespaces (`wiki_content/`): Main, Cheatsheets,
-  HowItWorks, FOSS, Person, Source, Collective, Software. It never writes to
-  the wiki; the wiki stays the source of truth. Each run lists namespace
-  titles, fetches the current `revid`s, and downloads content **only for
-  pages whose revid/path changed** (`--full` refetches everything);
-  `wiki_content/state.json` records `{path, revid, sha256, synced_at}`.
-  Deletions are reported as orphans and removed with `--prune` (git history
-  keeps the old revision). Paths are `wiki_content/<Namespace>/<Title>.wiki`
-  (main namespace → `Main/`, subpages → directories, illegal characters
-  replaced, case-insensitive path collisions abort). **Gated `RonzzIT:` /
-  `RonzzInt:` namespaces are refused** — this repo is public and those are
-  mirrored by `ronzz-it-runbooks`. The automated 15-minute schedule is
-  `.github/workflows/wiki-content.yml` (auto-commit `[skip ci]`). Python
-  stdlib only. Unit tests: `python3 -m unittest discover -s tools/tests`.
+- **`tools/wiki_content_mirror.py`** — one-way wiki → repo snapshot tool for
+  the public **content** namespaces: Main, Cheatsheets, HowItWorks, FOSS,
+  Person, Source, Collective, Software. The **snapshot itself lives in the
+  separate public repo `Ron-RONZZ-org/ronzzwikibase-public-mirror`**; this
+  repo keeps the tool and its unit tests, and that repo's
+  `.github/workflows/mirror.yml` clones this one and runs the tool with
+  `--dir . --state state.json --prune` every 15 minutes (auto-commit
+  `[skip ci]`). `--dir` is required, so a local run can never accidentally
+  write into this checkout. It never writes to the wiki; the wiki stays the
+  source of truth. Each run lists namespace titles, fetches the current
+  `revid`s, and downloads content **only for pages whose revid/path changed**
+  (`--full` refetches everything); `<dir>/state.json` records
+  `{path, revid, sha256, synced_at}`. Deletions are reported as orphans and
+  removed with `--prune` (git history keeps the old revision); a mass prune
+  over 10% is refused without `--force-prune`. Paths are
+  `<dir>/<Namespace>/<Title>.wiki` (main namespace → `Main/`, subpages →
+  directories, illegal characters replaced, case-insensitive path collisions
+  abort). **Gated `RonzzIT:` / `RonzzInt:` namespaces are refused** — the
+  mirror repo is public and those are mirrored by `ronzz-it-runbooks`.
+  Python stdlib only. Unit tests:
+  `python3 -m unittest discover -s tools/tests`.
 - **`tools/usertools/libretexts2wikitext.py`** — converts a LibreTexts page into a
   `.wiki` draft for this wiki. LibreTexts runs MindTouch, not MediaWiki (no
   `action=raw`; the `@api/deki` REST API is token-gated), so it fetches the

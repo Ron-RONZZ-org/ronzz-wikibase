@@ -1,5 +1,0 @@
-{{Person}}
-
-== Overview ==
-
-Canadian-American physicist and cosmologist (born 1935) who, as a member of Robert Dicke's group at Princeton, co-authored the 1965 paper 'Cosmic Black-Body Radiation' interpreting the microwave background discovered by Penzias and Wilson; 2019 Nobel laureate in Physics

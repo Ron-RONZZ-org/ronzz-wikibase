@@ -1,5 +1,0 @@
-{{Book}}
-
-== Overview ==
-
-Standard undergraduate textbook covering the theory, solution methods, numerical methods and applications of ordinary differential equations, boundary value problems and an introduction to partial differential equations.
