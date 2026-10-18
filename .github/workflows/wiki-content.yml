@@ -35,21 +35,38 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Mirror content
-        run: python3 tools/wiki_content_mirror.py --prune --report /tmp/mirror-report.md
-
-      - name: Commit mirrored changes
+      - name: Mirror and commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          python3 tools/wiki_content_mirror.py --prune --report /tmp/mirror-report.md
           git add wiki_content
           if git diff --cached --quiet; then
             echo "no content changes to commit"
             exit 0
           fi
           git commit -m "chore(wiki-content): mirror production content [skip ci]"
-          git pull --rebase origin main
-          git push
+          # A manual push can land between checkout and push. Restart from the
+          # latest main and re-run the (idempotent) mirror instead of rebasing
+          # the generated state.json.
+          for attempt in 1 2 3; do
+            if git push origin main; then
+              exit 0
+            fi
+            echo "push raced with another commit; retrying ($attempt/3)"
+            git fetch origin main
+            git reset --hard origin/main
+            python3 tools/wiki_content_mirror.py --prune --report /tmp/mirror-report.md
+            git add wiki_content
+            if git diff --cached --quiet; then
+              echo "no content changes after retry"
+              exit 0
+            fi
+            git commit -m "chore(wiki-content): mirror production content [skip ci]"
+            sleep 5
+          done
+          echo "could not commit the mirror after 3 attempts" >&2
+          exit 1
 
       - name: Publish summary
         if: always()

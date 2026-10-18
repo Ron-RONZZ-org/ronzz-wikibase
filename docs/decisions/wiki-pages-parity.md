@@ -82,6 +82,12 @@ A state-only commit uses `GITHUB_TOKEN` (no recursive workflow run), and a
 no-op pull does not rewrite `state.json`, so the hourly job does not create
 empty commits.
 
+Both commit steps use a **reset-and-retry** loop instead of
+`git pull --rebase`: on a rejected push they `git fetch` + `git reset --hard
+origin/main` and re-run the (idempotent) sync tool. A manual push that lands
+between checkout and commit otherwise conflicts on the generated
+`state.json` — observed 2026-10-18 (run 39106911340).
+
 ### 4. Bot and rights
 
 A dedicated **`RonzzWikiSync`** account (groups `bot` + `interface-admin`)
