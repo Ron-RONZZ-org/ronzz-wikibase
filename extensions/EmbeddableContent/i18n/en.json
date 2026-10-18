@@ -350,6 +350,7 @@
 	"embeddablecontent-sitelink-tab-set": "This page is linked to item $1",
 	"embeddablecontent-sitelink-tab-unset": "This page is not linked to an item — click to link it",
 	"embeddablecontent-addsection": "Add section",
+	"embeddablecontent-userpagetitle-by": "by",
 	"embeddablecontent-appendsection-title": "Add section: $1",
 	"embeddablecontent-appendsection-summary-default": "Added a section",
 	"embeddablecontent-appendsection-below-title": "Add section below: $1",

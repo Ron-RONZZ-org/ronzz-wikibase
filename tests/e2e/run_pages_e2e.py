@@ -3714,11 +3714,40 @@ def flow_print_module(op, base: str, api: str) -> None:
         if f'"wbPrintTitle":"{leaf}"' not in body:
             raise FlowError(f"{title} does not carry wbPrintTitle={leaf!r} "
                             f"(namespace/subpage strip regression)")
+        if "ext.embeddableContent.userpagetitle" not in body:
+            raise FlowError(f"{title} does not load ext.embeddableContent.userpagetitle")
+        if f'"title":"{leaf}"' not in body or '"user":"PrintE2E"' not in body:
+            raise FlowError(f"{title} does not carry the wbUserPageTitle config")
+        if "by @PrintE2E" not in body:
+            raise FlowError(f"{title} H1 does not render '<title> by @PrintE2E'")
         print(f"[ok] print module wired: {title} -> wbPrintTitle={leaf!r}")
+        print(f"[ok] user subpage title wired: {title} -> '<title> by @PrintE2E'")
     finally:
         api_call(op, api, {"action": "delete", "title": title, "token": token,
                            "reason": "page-flow E2E cleanup (run_pages_e2e.py)",
                            "format": "json"}, post=True)
+
+
+def flow_main_namespace_subpages(op, api: str) -> None:
+    """Main-namespace subpages (read-only parse probe, no page needed).
+
+    While `$wgNamespacesWithSubpages[NS_MAIN]` was false, {{SUBPAGENAME}}
+    returned the full title; with the flag enabled it resolves the leaf.
+    """
+    data = api_call(op, api, {
+        "action": "parse",
+        "title": "Matrix/Practice/Matrix_multiplication",
+        "text": "{{SUBPAGENAME}}",
+        "contentmodel": "wikitext",
+        "format": "json",
+    })
+    html = ((data.get("parse") or {}).get("text") or {}).get("*", "")
+    if "Matrix_multiplication" not in html:
+        raise FlowError(
+            "Main namespace subpages are not enabled: {{SUBPAGENAME}} on "
+            "Matrix/Practice/Matrix_multiplication did not resolve to the leaf"
+        )
+    print("[ok] Main namespace subpages enabled ({{SUBPAGENAME}})")
 
 
 def delete_item(op, api: str, qid: str) -> None:
@@ -5448,6 +5477,9 @@ def main() -> int:
         #       subpage-parent strip and the module load. The client-side
         #       popup/cover/authors flow is covered by run_wiki_ux_e2e.mjs.
         flow_print_module(op, base, api)
+
+        # 3a1c. Main-namespace subpages (the Matrix/Practice tree).
+        flow_main_namespace_subpages(op, api)
 
         # 3a2. AddCollective logo (issue follow-up): the optional logo
         #     uploads as File:<label>-logo.png (AddSoftware pattern) with a

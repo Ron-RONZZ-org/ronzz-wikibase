@@ -714,6 +714,18 @@
 				"mobile"
 			]
 		},
+		"ext.embeddableContent.userpagetitle": {
+			"scripts": [
+				"userpagetitle.js"
+			],
+			"styles": [
+				"userpagetitle.css"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
 		"ext.embeddableContent.print": {
 			"scripts": [
 				"print.js"

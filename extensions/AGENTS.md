@@ -1503,11 +1503,12 @@ report). See `SimpleMathJax/VENDORED.md`.
   language/additionalLanguages/labelLanguage fields from the parent book's
   `language` statement(s) + label term language at FORM LOAD when the parent
   is known (the `?parent=` deep link or a previous submit); `youtubeVideo`
-  is out of scope. (d) **Content-page "Add section"** —
-  `Hooks::addSectionAction` inserts a `views['addsection']` link
-  (`action=edit&section=new`) between Edit/View source and View history on
-  content pages (core only renders it for talk pages / `__NEWSECTIONLINK__`);
-  i18n `embeddablecontent-addsection` (en/fr/eo). (e) **Label/description
+  is out of scope. (d) **"Add section" page action** —
+  `Hooks::addSectionAction` inserts the `appendsection` view
+  (`ca-appendsection`, `?action=appendsection`) between Edit/View source and
+  View history on classic article pages (core only renders its own
+  `addsection` item for talk pages / `__NEWSECTIONLINK__`); i18n
+  `embeddablecontent-addsection` (en/fr/eo). (e) **Label/description
   fallback** — `Hooks::onMediaWikiServices` decorates Wikibase's
   `LanguageFallbackChainFactory` (repo + client, when present) so the term
   chain appends the instance `fallbackLanguages` (`[en, fr, eo, mul]` for an
@@ -1563,6 +1564,22 @@ report). See `SimpleMathJax/VENDORED.md`.
   production does not, so guard any non-core `NS_*` constant with `defined()`
   (the unguarded use in `isClassicArticleTitle` fataled every page render on
   the 2026-10-15 deploy; fixed by the follow-up hotfix).
+  **Again updated (2026-10-18, Vector 2022)**: the view key/class is
+  `appendsection`/`ca-appendsection` — not `addsection`/`ca-addsection` —
+  because `SkinVector22::removeAddTopicButton()` strips the latter from the
+  Views menu and substitutes a title-bar button heading to core
+  `section=new`. The section controls now prefer an explicit `{{anchor|…}}`
+  empty span over the generated heading id (`resources/sectionactions.js`).
+
+- **Userspace subpage titles (ADR `docs/decisions/userspace-title.md`)**:
+  `User:<name>/<subpage>` renders its H1 as `<subpage> by @<name>`
+  (`Hooks::applyUserPageTitle` sets the server title; the `by` message is
+  `embeddablecontent-userpagetitle-by` in the page language;
+  `resources/userpagetitle.js` wraps `@<name>` in a link to
+  `User:<name>`). Root user pages and non-view requests keep the real title;
+  nested subpages keep the full remainder (`A/B by @User`); the breadcrumb
+  is unchanged. Pure split in `Spec/UserPageTitle`, unit-tested; module
+  `ext.embeddableContent.userpagetitle` + `userpagetitle.css`.
 
 ### WikibaseCitation
 

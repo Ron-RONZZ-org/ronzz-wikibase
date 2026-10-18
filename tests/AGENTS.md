@@ -30,7 +30,11 @@ plus the Playwright browser UX suite for the query GUI (query.ronzz.org).
   `API-created page` prefixes with an embedded unix timestamp older than
   `--sweep-age-hours`, default 6 h) so a cancelled run cannot leak debris;
   `--sweep-only [--sweep-dry-run]` runs just that sweep. Cleanup failures now
-  fail the suite (previously they only printed a warning).
+  fail the suite (previously they only printed a warning). The printable-
+  version fixture (`flow_print_module`) also asserts the Userspace title
+  wiring (`wbUserPageTitle` config, module load, `<title> by @PrintE2E`), and
+  `flow_main_namespace_subpages` proves `{{SUBPAGENAME}}` resolves on
+  `Matrix/Practice/Matrix_multiplication` (read-only parse).
 - **`tests/e2e/run_forum_e2e.py`** — DPLforum forum: `Forum:` namespace
   registration (NS 110/111) + a board's `<forum>` listing showing a created
   thread; **self-cleaning** (deletes its scratch board/thread pages).
@@ -106,7 +110,12 @@ plus the Playwright browser UX suite for the query GUI (query.ronzz.org).
   class select are alphabetical (the latter with human labels); the
   Special:Upload file picker is gated on the File radio, an empty
   Author/License warns (cancellable), and "upload another" opens the upload
-  in a new tab. Zero tolerance for page/console errors.
+  in a new tab. It also covers the Vector 2022 page action (the **visible**
+  `#ca-appendsection` Views item — not only the `#ca-more-appendsection`
+  clone — and no Vector `#ca-addsection` `section=new` substitute), the
+  explicit `{{anchor|…}}` section mention/URL, the `User:` subpage H1
+  (`<leaf> by @<user>` + author link), and a read-only Main-namespace
+  `{{SUBPAGENAME}}` probe. Zero tolerance for page/console errors.
 - **`tests/e2e/run_query_gui_e2e.py`** — HTTP-level acceptance for the
   query.ronzz.org frontend stack (read-only): bare `wd:`/`wdt:` prefixes
   (the store's `prefixes.conf`) and explicit `PREFIX` clauses both return

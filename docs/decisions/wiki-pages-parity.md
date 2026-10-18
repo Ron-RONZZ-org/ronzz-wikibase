@@ -95,8 +95,11 @@ with a bot password carrying `basic, editpage, createeditmovepage,
 editsiteconfig, highvolume`. The `editsiteconfig` grant is the one that
 covers `editsitecss`/`editsitejs` (needed for `MediaWiki:Common.css`).
 Credentials live only in the `WIKI_SYNC_BOT_USER` / `WIKI_SYNC_BOT_PASS`
-GitHub secrets. The account is dedicated to this workflow, and the tool
-refuses non-manifest titles.
+GitHub secrets. **`WIKI_SYNC_BOT_USER` must carry the bot-password login form
+`RonzzWikiSync@GitHub`** — MediaWiki bot passwords authenticate as
+`User@AppId`; the bare account name fails with "Incorrect username or
+password" even when the password is right (verified 2026-10-18). The account
+is dedicated to this workflow, and the tool refuses non-manifest titles.
 
 `editsiteconfig` can edit site JS (XSS vector): the account is not used
 interactively, the workflow only runs the allowlisted sync tool, and the
@@ -111,12 +114,18 @@ php maintenance/run.php createAndPromote.php --bot --interface-admin \
 php maintenance/run.php createBotPassword.php RonzzWikiSync '<32-char-secret>' \
   --appid=GitHub \
   --grants=basic,editpage,createeditmovepage,editsiteconfig,highvolume
-gh secret set WIKI_SYNC_BOT_USER --repo Ron-RONZZ-org/ronzz-wikibase
-gh secret set WIKI_SYNC_BOT_PASS --repo Ron-RONZZ-org/ronzz-wikibase
+gh secret set WIKI_SYNC_BOT_USER --repo Ron-RONZZ-org/ronzz-wikibase \
+  --body 'RonzzWikiSync@GitHub'
+gh secret set WIKI_SYNC_BOT_PASS --repo Ron-RONZZ-org/ronzz-wikibase \
+  < /path/to/generated-pass
 ```
 
-Rotate: `invalidateBotPasswords.php --user=RonzzWikiSync`, recreate the bot
-password, update the `WIKI_SYNC_BOT_PASS` secret.
+Rotate: `invalidateBotPasswords.php --user=RonzzWikiSync` **then delete the
+`bot_passwords` row** (`invalidate` nulls the hash but keeps the row, so
+re-creating the same `GitHub` appid fails), recreate the bot password
+(capture the generated secret without printing it), update the
+`WIKI_SYNC_BOT_PASS` secret, and verify with
+`gh workflow run wiki-pages.yml -f mode=login`.
 
 ### 5. What is not tracked (two-way)
 

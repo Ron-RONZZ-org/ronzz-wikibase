@@ -114,10 +114,19 @@ class WikiApi:
             post=True,
         ).get("login", {})
         if result.get("result") != "Success":
-            raise SyncError(f"login failed: {result.get('reason', result)}")
+            hint = ""
+            if "@" not in user:
+                hint = (" (bot-password logins use the 'User@AppId' form, "
+                        "e.g. RonzzWikiSync@GitHub)")
+            raise SyncError(f"login failed: {result.get('reason', result)}{hint}")
         self.csrf_token = self._open(
             {"action": "query", "meta": "tokens", "type": "csrf", "format": "json"}
         )["query"]["tokens"]["csrftoken"]
+
+    def whoami(self) -> str:
+        """The authenticated user name (call after login)."""
+        data = self._open({"action": "query", "meta": "userinfo", "format": "json"})
+        return (data.get("query", {}).get("userinfo", {}) or {}).get("name", "")
 
     def _csrf(self) -> str:
         if self.csrf_token is None:

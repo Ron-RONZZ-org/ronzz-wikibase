@@ -60,6 +60,14 @@ The user preferred the modern layout.
     `extensions/EmbeddableContent/resources/gadget.css`, otherwise the
     `<button>` controls collapse to zero height (found by the production
     browser E2E).
+  - `SkinVector22::removeAddTopicButton()` strips the `ca-addsection` Views
+    item and substitutes a title-bar button pointing at core
+    `action=edit&section=new`. The append action therefore uses the distinct
+    `appendsection` key / `ca-appendsection` class, which keeps it in the
+    visible Views row and out of that substitution.
+  - The section copy controls prefer an explicit `{{anchor|…}}` span over the
+    generated heading id (math headings), and Copy URL URL-encodes the
+    fragment.
   `SkinTemplateNavigation::Universal`. A visual QA pass still covers the
   content-page toolbar, File: toolbar, print popup, Special:Upload,
   Add*/Update* forms, forum, search and the gated `RonzzIT:` pages.

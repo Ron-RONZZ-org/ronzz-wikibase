@@ -399,7 +399,11 @@ async function main() {
 		// [edit] link; the "Add section" action opens an Edit-like form whose
 		// save APPENDS to the page (no new heading, no subject, no minor edit).
 		const sectionTitle = `Section UX ${Date.now()}`;
-		const sectionText = '== First section ==\n\nBody one.\n\n== Second section ==\n\nBody two.';
+		// The third heading carries an explicit anchor before a math heading:
+		// MediaWiki adds a legacy escaped span for the `$…$` id AND our anchor
+		// span, exactly the Permutation#sign_composition shape.
+		const sectionText = '== First section ==\n\nBody one.\n\n== Second section ==\n\n'
+			+ 'Body two.\n\n=== <span id="my_anchor"></span>Anchored $x$ ===\n\nBody three.';
 		await page.waitForFunction(() => window.mw && window.mw.loader && typeof window.mw.loader.using === 'function');
 		await page.evaluate(async ([title, text]) => {
 			await new Promise((r) => mw.loader.using('mediawiki.api', r));
@@ -411,16 +415,28 @@ async function main() {
 			await page.goto(`${BASE_URL}/wiki/${encodeURIComponent(sectionTitle.replace(/ /g, '_'))}`,
 				{ waitUntil: 'domcontentloaded', timeout: 60000 });
 			await page.waitForSelector('.mw-editsection #wb-section-copymention-First_section', { timeout: 15000 });
+			// The append action must survive Vector 2022's add-topic hijack:
+			// it must be the VISIBLE Views-row item (`#ca-appendsection`), not
+			// only the low-resolution More clone (`#ca-more-appendsection`),
+			// and Vector must not have re-rendered its `section=new` button.
 			const addSection = await page.evaluate(() => {
-				const link = [ ...document.querySelectorAll(
-					'a#ca-addsection, a.ca-addsection, #ca-addsection a, #ca-more-addsection a, #ca-addsection-sticky-header'
-				) ].find((a) => (a.getAttribute('href') || '').includes('action=appendsection'));
-				return link ? { href: link.getAttribute('href') } : null;
+				const main = document.querySelector('#ca-appendsection a');
+				const more = document.querySelector('#ca-more-appendsection a');
+				const link = main || more;
+				return {
+					href: link ? link.getAttribute('href') : null,
+					visible: !!main && main.getClientRects().length > 0,
+					vectorButton: !!document.querySelector('#ca-addsection'),
+				};
 			});
-			if (!addSection) {
+			if (!addSection.href || !addSection.href.includes('action=appendsection')) {
 				failures.push('editable content page is missing a working "Add section" action (action=appendsection)');
+			} else if (!addSection.visible) {
+				failures.push('the "Add section" action is only in the More overflow, not the visible Views row');
+			} else if (addSection.vectorButton) {
+				failures.push('Vector 2022 still renders its own action=edit&section=new "Add section" button');
 			} else {
-				console.log('[ok] editable content page offers the "Add section" action (action=appendsection)');
+				console.log('[ok] editable content page offers the visible "Add section" action (action=appendsection)');
 			}
 			// The four per-section controls, each inside the [edit] link and
 			// wrapped in its own [ ] bracket pair.
@@ -459,6 +475,29 @@ async function main() {
 				failures.push(`section copy-url copied ${JSON.stringify(sectionUrl)}, expected an absolute URL ending in #First_section`);
 			} else {
 				console.log('[ok] section copy-url copies the absolute section URL');
+			}
+
+			// Explicit `{{anchor|…}}` (the Permutation#sign_composition case):
+			// the section controls must use the anchor span, not the
+			// unlinkable id MediaWiki generates from the `$x$` heading.
+			await page.waitForSelector('.mw-editsection #wb-section-copymention-my_anchor', { timeout: 15000 });
+			await page.click('.mw-editsection #wb-section-copymention-my_anchor');
+			const anchorMention = await page.evaluate(() => navigator.clipboard.readText());
+			const expectedAnchorMention = await page.evaluate(() => {
+				const snippet = mw.config.get('wbReferenceSnippet');
+				return String(snippet).replace(/\]\]\s*$/, '') + '#my_anchor|';
+			});
+			if (anchorMention !== expectedAnchorMention) {
+				failures.push(`explicit-anchor copy-mention copied ${JSON.stringify(anchorMention)}, expected ${JSON.stringify(expectedAnchorMention)}`);
+			} else {
+				console.log('[ok] section copy-mention uses the explicit anchor span');
+			}
+			await page.click('.mw-editsection #wb-section-copyurl-my_anchor');
+			const anchorUrl = await page.evaluate(() => navigator.clipboard.readText());
+			if (!/^https?:\/\/.+#my_anchor$/.test(anchorUrl)) {
+				failures.push(`explicit-anchor copy-url copied ${JSON.stringify(anchorUrl)}, expected an absolute URL ending in #my_anchor`);
+			} else {
+				console.log('[ok] section copy-url uses the explicit anchor span');
 			}
 
 			// The append flow IS the built-in edit surface: the wpTextbox1
@@ -868,6 +907,33 @@ async function main() {
 				{ waitUntil: 'domcontentloaded', timeout: 60000 });
 			await page.waitForSelector('#ca-wb-print', { timeout: 15000 });
 
+			// Userspace subpage title: `<leaf> by @<user>` with the author
+			// linked to the user page (the server sets the text; JS adds <a>).
+			const h1Leaf = printTitle.split('/').pop();
+			await page.waitForSelector('#firstHeading .wb-userpage-by a', { timeout: 15000 });
+			const userHeading = await page.evaluate(() => {
+				const h1 = document.getElementById('firstHeading');
+				const link = h1.querySelector('.wb-userpage-by a');
+				return {
+					text: h1.textContent.replace(/\s+/g, ' ').trim(),
+					// Absolute, resolved URL (works for /wiki/… and index.php).
+					href: link ? link.href : '',
+					label: link ? link.textContent : '',
+				};
+			});
+			const expectedHeading = `${h1Leaf} by @${USER}`;
+			const authorOk = userHeading.href.includes(`/wiki/User:${USER}`)
+				|| userHeading.href.includes(`title=User:${USER}`);
+			if (userHeading.text !== expectedHeading) {
+				failures.push(`user page H1 is ${JSON.stringify(userHeading.text)}, expected ${JSON.stringify(expectedHeading)}`);
+			} else if (!authorOk) {
+				failures.push(`user page author link is ${JSON.stringify(userHeading.href)}, expected User:${USER}`);
+			} else if (userHeading.label !== `@${USER}`) {
+				failures.push(`user page author label is ${JSON.stringify(userHeading.label)}, expected @${USER}`);
+			} else {
+				console.log('[ok] user subpage H1 is "<title> by @<user>" with a linked author');
+			}
+
 			// The button joins the shared .wb-embed-toolbar row (this page is
 			// not a content page → the 'embed' surface).
 			if (await page.locator('.wb-embed-toolbar #ca-wb-print').count() !== 1) {
@@ -1120,6 +1186,25 @@ async function main() {
 					`Source:${legislationLabel} (Legislation)`,
 				]).catch(() => {});
 			}
+		}
+
+		// --- Main-namespace subpages -------------------------------------
+		// Read-only parse probe: no page needs to exist. With Main subpages
+		// enabled, the magic word resolves to the leaf; while `NS_MAIN` was
+		// excluded it returned the full title.
+		const subpageProbe = await api({
+			action: 'parse',
+			title: 'Matrix/Practice/Matrix_multiplication',
+			text: '{{SUBPAGENAME}}',
+			contentmodel: 'wikitext',
+			format: 'json',
+		});
+		const subpageHtml = subpageProbe
+			&& subpageProbe.parse && subpageProbe.parse.text && subpageProbe.parse.text['*'];
+		if (!subpageHtml || !subpageHtml.includes('Matrix_multiplication')) {
+			failures.push('Main namespace subpages are not enabled ({{SUBPAGENAME}} did not resolve)');
+		} else {
+			console.log('[ok] Main namespace subpages are enabled ({{SUBPAGENAME}})');
 		}
 	} finally {
 		await browser.close();

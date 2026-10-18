@@ -337,6 +337,7 @@
 	"embeddablecontent-sitelink-tab-set": "Cette page est liée à l'élément $1",
 	"embeddablecontent-sitelink-tab-unset": "Cette page n'est liée à aucun élément — cliquez pour la lier",
 	"embeddablecontent-addsection": "Ajouter une section",
+	"embeddablecontent-userpagetitle-by": "par",
 	"embeddablecontent-appendsection-title": "Ajouter une section : $1",
 	"embeddablecontent-appendsection-summary-default": "Ajout d'une section",
 	"embeddablecontent-appendsection-below-title": "Ajouter une section ci-dessous : $1",

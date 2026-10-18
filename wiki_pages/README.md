@@ -27,8 +27,11 @@ python3 tools/wiki_pages.py verify
 # Take production changes into the working tree
 python3 tools/wiki_pages.py pull
 
+# Verify the bot credentials without writing (prints the logged-in user)
+python3 tools/wiki_pages.py login --user RonzzWikiSync@GitHub --password-file /path/to/pass
+
 # Send repo changes to production (needs the sync bot login)
-python3 tools/wiki_pages.py push --user RonzzWikiSync --password-file /path/to/pass
+python3 tools/wiki_pages.py push --user RonzzWikiSync@GitHub --password-file /path/to/pass
 
 # Resolve a conflict explicitly
 python3 tools/wiki_pages.py resolve --accept-prod   # keep the wiki
@@ -37,6 +40,9 @@ python3 tools/wiki_pages.py resolve --accept-repo   # keep the repo
 
 Every command except `push`/`resolve --accept-repo` is anonymous. Push uses
 `WIKI_SYNC_BOT_USER` / `WIKI_SYNC_BOT_PASS` (or `--user`/`--password-file`).
+**Bot passwords log in with the `User@AppId` form** — the secret must be
+`RonzzWikiSync@GitHub`, not the bare account name (a bare name fails with
+"Incorrect username or password" even when the password is correct).
 
 ## Sync rules
 

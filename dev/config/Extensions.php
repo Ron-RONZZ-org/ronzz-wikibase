@@ -200,7 +200,7 @@ $wgNamespacesWithSubpages[NS_FORUM] = true;
 $wgContentNamespaces[] = NS_FORUM;
 $wgNamespacesToBeSearchedDefault[NS_FORUM] = true;
 
-// ---- Subpages in EVERY namespace except Main (2026-09-29) ----
+// ---- Subpages in EVERY namespace (2026-09-29; Main included 2026-10-18) ----
 // The breadcrumb is namespace-gated, and core's breadcrumb only renders
 // ancestors that EXIST (Skin::subPageSubtitleInternal) — a
 // `Cheatsheet:LinuxCLI/ssh` page shows no "< Cheatsheet:LinuxCLI" link
@@ -213,8 +213,10 @@ $wgNamespacesToBeSearchedDefault[NS_FORUM] = true;
 // 2000-2017; extend it when a namespace is registered. Mirrors the
 // production LocalSettings block (RonzzIT:Deployment/Wikibase); the explicit
 // per-namespace lines above are kept for readability.
+// Main is included since 2026-10-18 so content trees such as
+// `Matrix/Practice/Matrix_multiplication` are real subpages.
 $wgNamespacesWithSubpages += array_fill_keys( range( 0, 2017 ), true );
-$wgNamespacesWithSubpages[NS_MAIN] = false;
+$wgNamespacesWithSubpages[NS_MAIN] = true;
 
 // ---- LanguageBar (automatic languages bar on content pages) ----
 // The bar is injected server-side on article views in these namespaces
