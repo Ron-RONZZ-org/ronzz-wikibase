@@ -32,9 +32,11 @@ plus the Playwright browser UX suite for the query GUI (query.ronzz.org).
   `--sweep-only [--sweep-dry-run]` runs just that sweep. Cleanup failures now
   fail the suite (previously they only printed a warning). The printable-
   version fixture (`flow_print_module`) also asserts the Userspace title
-  wiring (`wbUserPageTitle` config, module load, `<title> by @PrintE2E`), and
-  `flow_main_namespace_subpages` proves `{{SUBPAGENAME}}` resolves on
-  `Matrix/Practice/Matrix_multiplication` (read-only parse).
+  wiring (`wbUserPageTitle` config, module load, `<title> by @PrintE2E`).
+  The Main-namespace subpage runtime check is in the production browser E2E
+  (the WBS dev stack builds `NamespaceInfo` before `Extensions.php`, so the
+  dev flag cannot apply there); its config mirror is guarded by
+  `tools/tests/test_instance_config.py`.
 - **`tests/e2e/run_forum_e2e.py`** — DPLforum forum: `Forum:` namespace
   registration (NS 110/111) + a board's `<forum>` listing showing a created
   thread; **self-cleaning** (deletes its scratch board/thread pages).
@@ -115,7 +117,9 @@ plus the Playwright browser UX suite for the query GUI (query.ronzz.org).
   clone — and no Vector `#ca-addsection` `section=new` substitute), the
   explicit `{{anchor|…}}` section mention/URL, the `User:` subpage H1
   (`<leaf> by @<user>` + author link), and a read-only Main-namespace
-  `{{SUBPAGENAME}}` probe. Zero tolerance for page/console errors.
+  `{{SUBPAGENAME}}` probe (production — the WBS dev stack cannot apply the
+  subpage flag before its `NamespaceInfo` snapshot). Zero tolerance for
+  page/console errors.
 - **`tests/e2e/run_query_gui_e2e.py`** — HTTP-level acceptance for the
   query.ronzz.org frontend stack (read-only): bare `wd:`/`wdt:` prefixes
   (the store's `prefixes.conf`) and explicit `PREFIX` clauses both return

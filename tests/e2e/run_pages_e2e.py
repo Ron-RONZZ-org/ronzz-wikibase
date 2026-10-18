@@ -3728,28 +3728,6 @@ def flow_print_module(op, base: str, api: str) -> None:
                            "format": "json"}, post=True)
 
 
-def flow_main_namespace_subpages(op, api: str) -> None:
-    """Main-namespace subpages (read-only parse probe, no page needed).
-
-    While `$wgNamespacesWithSubpages[NS_MAIN]` was false, {{SUBPAGENAME}}
-    returned the full title; with the flag enabled it resolves the leaf.
-    """
-    data = api_call(op, api, {
-        "action": "parse",
-        "title": "Matrix/Practice/Matrix_multiplication",
-        "text": "{{SUBPAGENAME}}",
-        "contentmodel": "wikitext",
-        "format": "json",
-    })
-    html = ((data.get("parse") or {}).get("text") or {}).get("*", "")
-    if "Matrix_multiplication" not in html:
-        raise FlowError(
-            "Main namespace subpages are not enabled: {{SUBPAGENAME}} on "
-            "Matrix/Practice/Matrix_multiplication did not resolve to the leaf"
-        )
-    print("[ok] Main namespace subpages enabled ({{SUBPAGENAME}})")
-
-
 def delete_item(op, api: str, qid: str) -> None:
     csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
     token = csrf["query"]["tokens"]["csrftoken"]
@@ -5477,9 +5455,6 @@ def main() -> int:
         #       subpage-parent strip and the module load. The client-side
         #       popup/cover/authors flow is covered by run_wiki_ux_e2e.mjs.
         flow_print_module(op, base, api)
-
-        # 3a1c. Main-namespace subpages (the Matrix/Practice tree).
-        flow_main_namespace_subpages(op, api)
 
         # 3a2. AddCollective logo (issue follow-up): the optional logo
         #     uploads as File:<label>-logo.png (AddSoftware pattern) with a

@@ -21,10 +21,10 @@
 // Main is included since 2026-10-18 so content trees such as
 // `Matrix/Practice/Matrix_multiplication` are real subpages.
 // ⚠️ The WBS dev/CI image loads its ExtensionLoaders before this file, and
-// one of them may build NamespaceInfo first — ci.yml therefore also writes
-// the Main flag into the image-generated InstanceSettings.php (loaded before
-// every extension) for the runtime E2E. Production's own LocalSettings sets
-// the flag at the top, before any service is built.
+// one of them may build NamespaceInfo first, so the image's runtime may not
+// see this flag. Production's own LocalSettings sets it at the top, before
+// any service; `tools/tests/test_instance_config.py` guards this mirror and
+// the production `run_wiki_ux_e2e.mjs` probe verifies the live behaviour.
 $wgNamespacesWithSubpages += array_fill_keys( range( 0, 2017 ), true );
 $wgNamespacesWithSubpages[NS_MAIN] = true;
 

@@ -305,23 +305,6 @@ jobs:
           done
           $COMPOSE --profile updater up -d wdqs-updater
 
-      # WBS config-order workaround: the image's ExtensionLoaders load
-      # Wikibase/Scribunto from /opt/wbs/WBSConfig.php BEFORE the custom
-      # /config/Extensions.php, and one of them builds NamespaceInfo first.
-      # The dev config sets Main subpages at its top, but that is already too
-      # late for the snapshot here; the image-generated InstanceSettings.php
-      # is loaded before every extension, so add the flag there for the
-      # runtime E2E. Production sets it at the top of its own LocalSettings.
-      - name: Enable Main-namespace subpages (WBS config order)
-        run: |
-          $COMPOSE exec -T -u root wikibase bash -c \
-            'grep -qF "\$wgNamespacesWithSubpages[0] = true;" /config/InstanceSettings.php || printf "\n\$wgNamespacesWithSubpages[0] = true;\n" >> /config/InstanceSettings.php'
-          # InstanceSettings.php is required on every request; do NOT restart
-          # the container here — the WBS bootstrap would regenerate the file.
-          # Give opcache a moment to notice the new mtime.
-          sleep 3
-          curl -sf "$API_URL" > /dev/null
-
       - name: E2E acceptance (3 embed surfaces, 5 citation styles, SPARQL)
         run: |
           python3 tests/e2e/run_e2e.py check \
