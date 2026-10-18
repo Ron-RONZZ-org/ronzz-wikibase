@@ -3842,7 +3842,18 @@ def sweep_scratch(op, api: str, age_hours: float, dry_run: bool) -> tuple[int, i
         return len(stale_pages), len(stale_items)
 
     for title in stale_pages:
-        delete_page_and_item(op, api, title)
+        try:
+            delete_linked_item(op, api, title)
+        except Exception as exc:  # noqa: BLE001 — reported, page delete still runs
+            print(f"  ! sweep item cleanup failed for {title}: {exc}")
+        try:
+            csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+            token = csrf["query"]["tokens"]["csrftoken"]
+            api_call(op, api, {"action": "delete", "title": title, "token": token,
+                               "reason": "page-flow E2E sweep (run_pages_e2e.py)",
+                               "format": "json"}, post=True)
+        except Exception as exc:  # noqa: BLE001 — reported
+            print(f"  ! sweep page cleanup failed for {title}: {exc}")
     for qid in stale_items:
         try:
             delete_item(op, api, qid)
