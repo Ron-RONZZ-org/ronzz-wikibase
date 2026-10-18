@@ -41,6 +41,10 @@ Every command except `push`/`resolve --accept-repo` is anonymous. Push uses
 ## Sync rules
 
 - Only `manifest.json` titles are ever written.
+- `pull` auto-discovers new `MediaWiki:` / `Template:` pages: a title that
+  exists on the wiki but not in the manifest is added and pulled in the same
+  run (pass `--no-discover` to skip). Existing entries, paths and `model`
+  overrides are never changed by discovery.
 - A page that changed on **both** sides since the last sync is a conflict:
   the tool exits 3, writes a report, and writes nothing. The hourly workflow
   opens/updates a `wiki-sync-conflict` issue.

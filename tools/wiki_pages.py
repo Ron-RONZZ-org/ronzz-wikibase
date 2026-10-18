@@ -35,7 +35,6 @@ License: GPL-2.0-or-later
 import argparse
 import json
 import os
-import re
 import sys
 from pathlib import Path
 
@@ -63,13 +62,16 @@ from wiki_pages_lib import (
     compute_status,
     conflict_report,
     content_model,
+    discover_entries,
     load_manifest,
     load_state,
+    merge_manifest_entries,
     now_iso,
     path_for_title,
     read_repo_text,
     sha256,
     state_for,
+    write_manifest,
     write_report,
     write_repo_text,
     write_state,
@@ -134,6 +136,19 @@ def refuse(rows: list[dict], args: argparse.Namespace) -> int:
 
 
 def cmd_pull(api: WikiApi, manifest: dict, state: dict, args: argparse.Namespace) -> int:
+    if not getattr(args, "no_discover", False):
+        entries = discover_entries(api, DEFAULT_NAMESPACES, DEFAULT_EXCLUDE)
+        added = merge_manifest_entries(manifest, entries)
+        if added:
+            for title in added:
+                print(f"[discover] new interface page: {title}")
+            if args.dry_run:
+                print(f"[discover] would add {len(added)} page(s) to the manifest")
+            else:
+                write_manifest(
+                    DEFAULT_MANIFEST if args.manifest is None else Path(args.manifest),
+                    manifest,
+                )
     rows = build_rows(api, manifest, state, args.only)
     # Transactional refusal: a conflict or a one-sided deletion blocks the
     # whole pull, so the repo is never left half-synced.
@@ -312,23 +327,12 @@ def cmd_resolve(api: WikiApi, manifest: dict, state: dict, args: argparse.Namesp
     return EXIT_OK
 
 def cmd_discover(api: WikiApi, args: argparse.Namespace) -> int:
-    exclude = re.compile(args.exclude)
-    pages = []
-    for namespace in args.namespaces:
-        for title in api.allpages(namespace):
-            if exclude.search(title):
-                continue
-            entry = {"title": title, "path": path_for_title(title)}
-            model = content_model(title)
-            if model:
-                entry["model"] = model
-            pages.append(entry)
+    pages = discover_entries(api, args.namespaces, args.exclude)
     manifest = {"wiki": args.wiki or DEFAULT_WIKI, "pages": pages}
     text = json.dumps(manifest, indent=2, ensure_ascii=False) + "\n"
     if args.write:
         path = DEFAULT_MANIFEST if args.manifest is None else Path(args.manifest)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
+        write_manifest(path, manifest)
         print(f"[ok] wrote {len(pages)} pages to {path}")
     else:
         print(text)
@@ -372,7 +376,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser = argparse.ArgumentParser(description="Two-way wiki page sync")
     sub = parser.add_subparsers(dest="command", required=True)
-    for name in ("pull", "push", "verify", "status"):
+    pull = sub.add_parser("pull", parents=[common])
+    pull.add_argument(
+        "--no-discover",
+        action="store_true",
+        help="do not auto-add new MediaWiki:/Template: pages to the manifest",
+    )
+    for name in ("push", "verify", "status"):
         sub.add_parser(name, parents=[common])
     resolve = sub.add_parser("resolve", parents=[common])
     resolve.add_argument("--accept-prod", action="store_true")

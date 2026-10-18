@@ -141,15 +141,34 @@ fixer.
   `status` / `verify` (read-only drift checks, anonymous), `pull` (wiki →
   repo files + state), `push` (repo → wiki, `baserevid`-guarded),
   `resolve --accept-prod|--accept-repo` (explicit conflict resolution), and
-  `discover` (list namespace pages as a manifest). The state machine never
-  auto-deletes and refuses the whole operation when both sides changed since
-  the last synchronized state (exit 3 + a conflict report). Only titles in
-  `wiki_pages/manifest.json` are writable. Push/resolve use
+  `discover` (list namespace pages as a manifest). `pull` **auto-discovers**
+  new `MediaWiki:`/`Template:` pages (default on; `--no-discover` opts out):
+  it merges missing titles into `manifest.json` (never drops or reorders an
+  existing entry, so manual `model` overrides survive), then pulls them in
+  the same run — a new template is tracked without a manifest edit. The
+  state machine never auto-deletes and refuses the whole operation when both
+  sides changed since the last synchronized state (exit 3 + a conflict
+  report). Only titles in `wiki_pages/manifest.json` are writable. Push/resolve use
   `WIKI_SYNC_BOT_USER` / `WIKI_SYNC_BOT_PASS` (or `--user`/`--password-file`);
   credentials are never printed. The automated schedule/commit workflow is
   `.github/workflows/wiki-pages.yml`; see
   `docs/decisions/wiki-pages-parity.md`. Unit tests:
   `python3 -m unittest discover -s tools/tests`.
+- **`tools/wiki_content_mirror.py`** — one-way wiki → repo snapshot of the
+  public **content** namespaces (`wiki_content/`): Main, Cheatsheets,
+  HowItWorks, FOSS, Person, Source, Collective, Software. It never writes to
+  the wiki; the wiki stays the source of truth. Each run lists namespace
+  titles, fetches the current `revid`s, and downloads content **only for
+  pages whose revid/path changed** (`--full` refetches everything);
+  `wiki_content/state.json` records `{path, revid, sha256, synced_at}`.
+  Deletions are reported as orphans and removed with `--prune` (git history
+  keeps the old revision). Paths are `wiki_content/<Namespace>/<Title>.wiki`
+  (main namespace → `Main/`, subpages → directories, illegal characters
+  replaced, case-insensitive path collisions abort). **Gated `RonzzIT:` /
+  `RonzzInt:` namespaces are refused** — this repo is public and those are
+  mirrored by `ronzz-it-runbooks`. The automated 15-minute schedule is
+  `.github/workflows/wiki-content.yml` (auto-commit `[skip ci]`). Python
+  stdlib only. Unit tests: `python3 -m unittest discover -s tools/tests`.
 - **`tools/usertools/libretexts2wikitext.py`** — converts a LibreTexts page into a
   `.wiki` draft for this wiki. LibreTexts runs MindTouch, not MediaWiki (no
   `action=raw`; the `@api/deki` REST API is token-gated), so it fetches the

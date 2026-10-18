@@ -171,5 +171,46 @@ class ManifestTest(unittest.TestCase):
         self.assertIn(wp.sha256("repo")[:12], report)
 
 
+class FakeAllPagesApi:
+    def __init__(self, pages: dict[int, list[str]]) -> None:
+        self.pages = pages
+
+    def allpages(self, namespace: int) -> list[str]:
+        return self.pages.get(namespace, [])
+
+
+class AutoDiscoverTest(unittest.TestCase):
+    def test_merge_adds_only_missing_titles_and_sorts(self):
+        manifest = {"pages": [{"title": "Template:B", "path": "Template/B.wiki"}]}
+        added = wp.merge_manifest_entries(manifest, [
+            {"title": "Template:A", "path": "Template/A.wiki"},
+            {"title": "Template:B", "path": "Template/B.wiki"},
+        ])
+        self.assertEqual(["Template:A"], added)
+        self.assertEqual(
+            ["Template:A", "Template:B"],
+            [entry["title"] for entry in manifest["pages"]],
+        )
+
+    def test_merge_keeps_existing_entry_verbatim(self):
+        existing = {"title": "MediaWiki:Common.css",
+                    "path": "MediaWiki/Common.css", "model": "css"}
+        manifest = {"pages": [existing]}
+        wp.merge_manifest_entries(manifest, [
+            {"title": "MediaWiki:Common.css", "path": "MediaWiki/Other.css"},
+        ])
+        self.assertEqual(existing, manifest["pages"][0])
+
+    def test_discover_excludes_generated_citation_maps(self):
+        api = FakeAllPagesApi({8: [
+            "MediaWiki:Licenses",
+            "MediaWiki:Citation-type-map.json",
+        ]})
+        entries = wp.discover_entries(api, [8], wp.DEFAULT_EXCLUDE)
+        self.assertEqual(["MediaWiki:Licenses"],
+                         [entry["title"] for entry in entries])
+        self.assertEqual("MediaWiki/Licenses.wiki", entries[0]["path"])
+
+
 if __name__ == "__main__":
     unittest.main()

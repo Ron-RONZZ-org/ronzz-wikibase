@@ -59,7 +59,11 @@ tool has no ad-hoc title argument.
 `.github/workflows/wiki-pages.yml`, concurrency group `wiki-pages-sync`:
 
 - **hourly (`0 * * * *`)**: `pull` — wiki changes are written into the repo
-  and auto-committed to `main` by `github-actions[bot]` with `[skip ci]`;
+  and auto-committed to `main` by `github-actions[bot]` with `[skip ci]`.
+  The pull **auto-discovers** new `MediaWiki:`/`Template:` pages: missing
+  titles are merged into `manifest.json` (never dropping or reordering an
+  existing entry) and pulled in the same run, so a new template is tracked
+  without a manual manifest edit. `--no-discover` opts out;
 - **push to `main` touching `wiki_pages/`**: `push` — repo changes are
   written to the wiki, then the new revisions are committed to
   `state.json`;
@@ -108,7 +112,7 @@ gh secret set WIKI_SYNC_BOT_PASS --repo Ron-RONZZ-org/ronzz-wikibase
 Rotate: `invalidateBotPasswords.php --user=RonzzWikiSync`, recreate the bot
 password, update the `WIKI_SYNC_BOT_PASS` secret.
 
-### 5. What is not tracked
+### 5. What is not tracked (two-way)
 
 - `MediaWiki:Citation-property-map.json`, `Citation-type-map.json`,
   `Citation-source-property-map.json`, `Citation-source-type-map.json` —
@@ -117,6 +121,25 @@ password, update the `WIKI_SYNC_BOT_PASS` secret.
 - User pages, talk pages, category pages and the gated `RonzzIT:`/
   `RonzzInt:` runbook pages (the latter are mirrored separately by
   `ronzz-it-runbooks`).
+- Content pages — see the one-way mirror below.
+
+### 6. Content mirror (one-way)
+
+`tools/wiki_content_mirror.py` copies the public **content** namespaces into
+`wiki_content/` (Main, Cheatsheets, HowItWorks, FOSS, Person, Source,
+Collective, Software). It is deliberately **one-way**: it never writes to the
+wiki, so it cannot overwrite on-wiki authoring, and the wiki remains the
+single source of truth.
+
+- Incremental: the tool lists titles, fetches current `revid`s, and downloads
+  only pages whose revid/path changed. `--full` refetches everything.
+- `wiki_content/state.json` records `{path, revid, sha256, synced_at}`.
+- Deletions are reported as orphans; `--prune` removes the file (git history
+  retains it).
+- The gated `RonzzIT:`/`RonzzInt:` namespaces are **refused** — this repo is
+  public and those pages belong to the private `ronzz-it-runbooks` mirror.
+- `.github/workflows/wiki-content.yml` runs every 15 minutes and commits
+  changes with `[skip ci]`. `ci.yml` ignores `wiki_content/**`.
 
 ## Consequences
 
@@ -127,12 +150,17 @@ password, update the `WIKI_SYNC_BOT_PASS` secret.
   surface as a red workflow + issue.
 - `ci.yml` ignores `wiki_pages/**` (content, not code); the sync workflow is
   the gate for those files.
+- The content mirror gives the repo an offline, searchable snapshot of the
+  public pages and a per-edit git history, without making those pages a
+  write surface.
 - If the bot password leaks, rotate it; the repo itself contains no secrets.
 
 ## References
 
 - `wiki_pages/manifest.json`, `wiki_pages/state.json`, `wiki_pages/README.md`
 - `tools/wiki_pages.py`, `tools/tests/test_wiki_pages.py`
-- `.github/workflows/wiki-pages.yml`
+- `wiki_content/README.md`, `wiki_content/state.json`
+- `tools/wiki_content_mirror.py`, `tools/tests/test_wiki_content_mirror.py`
+- `.github/workflows/wiki-pages.yml`, `.github/workflows/wiki-content.yml`
 - `docs/decisions/upload-enhancements.md` (the excluded generated citation
   maps), `extensions/WikibaseCitation/maintenance/importCitationMap.php`

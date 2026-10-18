@@ -221,6 +221,48 @@ class WikiApi:
             if not cont:
                 return titles
 
+    def fetch_revids(self, titles: list[str]) -> dict[str, int]:
+        """title -> current revision id (no content); batch of 50 per request."""
+        revids: dict[str, int] = {}
+        for start in range(0, len(titles), 50):
+            chunk = titles[start:start + 50]
+            data = self._open(
+                {
+                    "action": "query",
+                    "prop": "revisions",
+                    "rvprop": "ids",
+                    "rvslots": "main",
+                    "titles": "|".join(chunk),
+                    "formatversion": "2",
+                    "format": "json",
+                }
+            )
+            for page in data.get("query", {}).get("pages", []):
+                if page.get("missing") or page.get("invalid"):
+                    continue
+                revisions = page.get("revisions") or []
+                if revisions:
+                    revids[page["title"]] = int(revisions[0]["revid"])
+        return revids
+
+    def namespace_names(self) -> dict[int, str]:
+        """Namespace id -> canonical/localized name (main namespace = '')."""
+        data = self._open(
+            {
+                "action": "query",
+                "meta": "siteinfo",
+                "siprop": "namespaces",
+                "formatversion": "2",
+                "format": "json",
+            }
+        )
+        raw = data.get("query", {}).get("namespaces", {})
+        namespaces = raw.values() if isinstance(raw, dict) else raw
+        return {
+            int(namespace["id"]): namespace["name"]
+            for namespace in namespaces
+        }
+
 
 # ------------------------------------------------------------------- manifest
 
@@ -250,6 +292,52 @@ def load_manifest(path: Path) -> dict:
         paths.add(rel)
     data.setdefault("wiki", DEFAULT_WIKI)
     return data
+
+
+def discover_entries(
+    api: WikiApi, namespaces: list[int], exclude: str
+) -> list[dict]:
+    """Manifest entries for the given namespaces (generated ``Citation-*`` excluded)."""
+    pattern = re.compile(exclude)
+    entries: list[dict] = []
+    for namespace in namespaces:
+        for title in api.allpages(namespace):
+            if pattern.search(title):
+                continue
+            entry = {"title": title, "path": path_for_title(title)}
+            model = content_model(title)
+            if model:
+                entry["model"] = model
+            entries.append(entry)
+    return entries
+
+
+def merge_manifest_entries(manifest: dict, entries: list[dict]) -> list[str]:
+    """Append entries whose title is not tracked yet; returns the added titles.
+
+    Never removes or reorders existing entries (the manifest keeps any manual
+    ``model``/path overrides); a manifest is re-sorted by title only when
+    something was actually added.
+    """
+    known = {entry["title"] for entry in manifest["pages"]}
+    added: list[str] = []
+    for entry in entries:
+        if entry["title"] in known:
+            continue
+        manifest["pages"].append(entry)
+        known.add(entry["title"])
+        added.append(entry["title"])
+    if added:
+        manifest["pages"].sort(key=lambda entry: entry["title"])
+    return added
+
+
+def write_manifest(path: Path, manifest: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
 
 
 def load_state(path: Path) -> dict:

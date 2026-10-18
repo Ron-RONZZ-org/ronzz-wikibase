@@ -1,0 +1,59 @@
+name: Wiki content mirror
+
+# One-way wiki -> repo snapshot of the public content namespaces
+# (Main, Cheatsheets, HowItWorks, FOSS, Person, Source, Collective, Software).
+# Gated RonzzIT:/RonzzInt: namespaces are refused by the tool: this repo is
+# public and those pages are mirrored by ronzz-it-runbooks instead.
+#
+# Incremental: the tool compares each page's current revid with
+# wiki_content/state.json and downloads only changed pages. `--prune` removes
+# files for pages deleted on the wiki (git history keeps the old revision).
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: wiki-content-mirror
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Mirror content
+        run: python3 tools/wiki_content_mirror.py --prune --report /tmp/mirror-report.md
+
+      - name: Commit mirrored changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wiki_content
+          if git diff --cached --quiet; then
+            echo "no content changes to commit"
+            exit 0
+          fi
+          git commit -m "chore(wiki-content): mirror production content [skip ci]"
+          git pull --rebase origin main
+          git push
+
+      - name: Publish summary
+        if: always()
+        run: |
+          if [ -f /tmp/mirror-report.md ]; then
+            cat /tmp/mirror-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
