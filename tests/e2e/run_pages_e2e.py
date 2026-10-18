@@ -20,9 +20,16 @@ Usage::
         [--keep] [--person "Grace Hopper"] [--doi 10.1371/journal.pbio.2001414] \\
         [--collective "The Beatles"]
 
+    # heal debris from an interrupted previous run, then exit
+    python3 tests/e2e/run_pages_e2e.py --user SeedBot \\
+        --password-file seed/.seedbot.pass --sweep-only [--sweep-dry-run]
+
 Exit code 0 = all flows passed. Items created by this run are DELETED at the
-end (create-or-skip makes re-runs safe; --keep retains them). Requires a
-user with sysop rights (for cleanup) and edit rights (SeedBot / CIAdmin).
+end (create-or-skip makes re-runs safe; --keep retains them). An automatic
+pre-run sweep deletes E2E scratch pages/items older than 6 h (see
+--sweep-age-hours / --no-sweep), so a cancelled run does not leak debris;
+cleanup failures now fail the suite instead of only printing a warning.
+Requires a user with sysop rights (delete) and edit rights (SeedBot / CIAdmin).
 
 License: GPL-2.0-or-later
 """
@@ -34,6 +41,7 @@ import base64
 import http.cookiejar
 import json
 import re
+import signal
 import sys
 import time
 import urllib.error
@@ -41,6 +49,23 @@ import urllib.parse
 import urllib.request
 
 UA = "ronzz-wikibase-pages-e2e/1.0"
+
+# Scratch names this suite has used over time. The pre-run sweep deletes
+# pages/items matching these prefixes when their embedded unix timestamp is
+# older than --sweep-age-hours, so an interrupted run does not leak debris.
+SCRATCH_PREFIXES = (
+    "Page-flow E2E ",
+    "Manual E2E ",
+    "Example Domain (E2E ",
+    "PR42 verify ",
+    "API-created page ",
+)
+SCRATCH_TS_RE = re.compile(r"(\d{10})")
+CONTENT_NAMESPACES = (0, 2000, 2002, 2008, 2010, 2012, 2014, 2016)
+
+# Auxiliary items created by create_api_item() (publisher, court, license,
+# …). They have no classic page, so the page-title cleanup would miss them.
+CREATED_ITEMS: list[str] = []
 
 
 class FlowError(Exception):
@@ -3098,7 +3123,9 @@ def create_api_item(op, api: str, label: str) -> str:
     }, post=True)
     if "entity" not in r:
         raise FlowError(f"wbeditentity(new=item) failed: {r}")
-    return r["entity"]["id"]
+    qid = r["entity"]["id"]
+    CREATED_ITEMS.append(qid)
+    return qid
 
 
 def flow_addsource_api(op, base: str, api: str, website_parent: str, author: str,
@@ -3717,6 +3744,114 @@ def delete_page_and_item(op, api: str, title: str) -> None:
         print(f"  ! cleanup failed for {title}: {exc}")
 
 
+def scratch_local_title(title: str) -> str:
+    """The title without a namespace prefix (E2E names are namespace-local)."""
+    return title.split(":", 1)[-1] if ":" in title else title
+
+
+def is_scratch_title(title: str) -> bool:
+    local = scratch_local_title(title)
+    return any(local.startswith(prefix) for prefix in SCRATCH_PREFIXES)
+
+
+def scratch_epoch(title: str) -> int | None:
+    """The trailing unix timestamp embedded in a scratch title, if any."""
+    matches = SCRATCH_TS_RE.findall(title)
+    return int(matches[-1]) if matches else None
+
+
+def is_stale_scratch(title: str, cutoff: float) -> bool:
+    epoch = scratch_epoch(title)
+    return epoch is not None and epoch < cutoff
+
+
+def list_content_titles(op, api: str) -> list[str]:
+    titles: list[str] = []
+    for namespace in CONTENT_NAMESPACES:
+        cont = None
+        while True:
+            params = {"action": "query", "list": "allpages",
+                      "apnamespace": namespace, "aplimit": 500, "format": "json"}
+            if cont:
+                params["apcontinue"] = cont
+            data = api_call(op, api, params)
+            titles += [page["title"] for page in data["query"]["allpages"]]
+            cont = data.get("continue", {}).get("apcontinue")
+            if not cont:
+                break
+        time.sleep(0.2)
+    return titles
+
+
+def list_items(op, api: str) -> dict[str, tuple[str, bool]]:
+    """qid -> (english label, has a sitelink)."""
+    ids: list[str] = []
+    cont = None
+    while True:
+        params = {"action": "query", "list": "allpages",
+                  "apnamespace": 120, "aplimit": 500, "format": "json"}
+        if cont:
+            params["apcontinue"] = cont
+        data = api_call(op, api, params)
+        ids += [page["title"].split(":", 1)[-1] for page in data["query"]["allpages"]]
+        cont = data.get("continue", {}).get("apcontinue")
+        if not cont:
+            break
+    items: dict[str, tuple[str, bool]] = {}
+    for start in range(0, len(ids), 50):
+        data = api_call(op, api, {
+            "action": "wbgetentities", "ids": "|".join(ids[start:start + 50]),
+            "props": "labels|sitelinks", "languages": "en", "format": "json",
+        })
+        for qid, entity in data.get("entities", {}).items():
+            label = (entity.get("labels", {}).get("en", {}) or {}).get("value", "")
+            items[qid] = (label, bool(entity.get("sitelinks")))
+        time.sleep(0.2)
+    return items
+
+
+def sweep_scratch(op, api: str, age_hours: float, dry_run: bool) -> tuple[int, int]:
+    """Delete E2E scratch pages/items older than `age_hours`.
+
+    Runs before the suite so an interrupted previous run (or a pre-cleanup
+    historical leak) is healed. Only names with a parsable unix timestamp are
+    touched; auxiliary items (no sitelink) are matched by label.
+    """
+    cutoff = time.time() - age_hours * 3600
+    titles = list_content_titles(op, api)
+    stale_pages = [title for title in titles
+                   if is_scratch_title(title) and is_stale_scratch(title, cutoff)]
+    items = list_items(op, api)
+    stale_items = [qid for qid, (label, linked) in items.items()
+                   if not linked and is_scratch_title(label)
+                   and is_stale_scratch(label, cutoff)]
+
+    print(f"[sweep] {len(stale_pages)} stale page(s), {len(stale_items)} stale "
+          f"auxiliary item(s) older than {age_hours:g}h")
+    for title in stale_pages[:20]:
+        print(f"  - page {title}")
+    if len(stale_pages) > 20:
+        print(f"  … {len(stale_pages) - 20} more page(s)")
+    for qid in stale_items[:20]:
+        print(f"  - item {qid} ({items[qid][0]})")
+    if len(stale_items) > 20:
+        print(f"  … {len(stale_items) - 20} more item(s)")
+
+    if dry_run:
+        print("[sweep] dry-run: nothing deleted")
+        return len(stale_pages), len(stale_items)
+
+    for title in stale_pages:
+        delete_page_and_item(op, api, title)
+    for qid in stale_items:
+        try:
+            delete_item(op, api, qid)
+        except Exception as exc:  # noqa: BLE001 — best-effort, reported
+            print(f"  ! sweep failed for {qid}: {exc}")
+    print(f"[sweep] deleted {len(stale_pages)} page(s) + {len(stale_items)} item(s)")
+    return len(stale_pages), len(stale_items)
+
+
 def flow_content_label_defaults(op, base: str) -> None:
     """The v1 content pages prefill the label field with the parenthetical
     class disambiguation (the AddSource label convention): "(quotation)",
@@ -4200,6 +4335,14 @@ def main() -> int:
     parser.add_argument("--user", default="SeedBot")
     parser.add_argument("--password-file", required=True)
     parser.add_argument("--keep", action="store_true", help="retain the created test items")
+    parser.add_argument("--sweep-only", action="store_true",
+                        help="delete stale E2E scratch pages/items and exit")
+    parser.add_argument("--sweep-dry-run", action="store_true",
+                        help="with --sweep-only, list what would be deleted")
+    parser.add_argument("--sweep-age-hours", type=float, default=6.0,
+                        help="only sweep scratch names older than this (default: 6)")
+    parser.add_argument("--no-sweep", action="store_true",
+                        help="skip the automatic pre-run scratch sweep")
     parser.add_argument("--person", default="Grace Hopper")
     parser.add_argument("--author", default="Grace Hopper",
                         help="free-text author for the AddSource author search flow")
@@ -4210,6 +4353,10 @@ def main() -> int:
     parser.add_argument("--software", default="Flameshot")
     args = parser.parse_args()
 
+    # Module-level trackers are cleared so an imported main() (tests) is clean.
+    CREATED_ITEMS.clear()
+    CREATED_CLASSIC_PAGES.clear()
+
     base = args.base_url.rstrip("/")
     api = args.api_url or base + "/api.php"
     password = open(args.password_file).read().strip()
@@ -4217,6 +4364,16 @@ def main() -> int:
     op = make_opener(base)
     login(op, api, args.user, password)
     print(f"[ok] logged in as {args.user}")
+
+    # A cancelled/interrupted run must still execute the cleanup `finally`.
+    signal.signal(signal.SIGTERM, lambda signum, _frame: sys.exit(128 + signum))
+
+    if args.sweep_only and args.no_sweep:
+        parser.error("--sweep-only conflicts with --no-sweep")
+    if not args.no_sweep:
+        sweep_scratch(op, api, args.sweep_age_hours, dry_run=args.sweep_dry_run)
+        if args.sweep_only:
+            return 0
 
     # resolve the vocabulary (instance-specific ids) by exact label
     def resolve(label: str, etype: str) -> str:
@@ -4276,6 +4433,7 @@ def main() -> int:
 
     created: list[str] = []
     created_pages: list[str] = []
+    cleanup_failures: list[str] = []
     # Monotonic id counter: only items created ABOVE this id were made by
     # this run (create-or-skip reuses older items — those must not be
     # deleted). allpages sorts titles LEXICALLY ("Q99" > "Q180"), so the
@@ -5779,20 +5937,28 @@ def main() -> int:
             created_pages.append(collective_page)
     finally:
         if not args.keep:
-            for page in created_pages + CREATED_CLASSIC_PAGES:
+            for page in dict.fromkeys(created_pages + CREATED_CLASSIC_PAGES):
                 try:
                     csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
                     token = csrf["query"]["tokens"]["csrftoken"]
                     api_call(op, api, {"action": "delete", "title": page, "token": token,
                                        "reason": "page-flow E2E cleanup (run_pages_e2e.py)", "format": "json"},
                              post=True)
-                except Exception as exc:  # noqa: BLE001 — best-effort cleanup
+                except Exception as exc:  # noqa: BLE001 — reported after the finally
+                    cleanup_failures.append(f"page {page}: {exc}")
                     print(f"  ! cleanup failed for {page}: {exc}")
-            for qid in created:
+            for qid in dict.fromkeys(created + CREATED_ITEMS):
                 try:
                     delete_item(op, api, qid)
-                except Exception as exc:  # noqa: BLE001 — best-effort cleanup
+                except Exception as exc:  # noqa: BLE001 — reported after the finally
+                    cleanup_failures.append(f"item {qid}: {exc}")
                     print(f"  ! cleanup failed for {qid}: {exc}")
+
+    if cleanup_failures:
+        raise FlowError(
+            f"cleanup incomplete for {len(cleanup_failures)} object(s) — "
+            "the next run's pre-flight sweep will retry them"
+        )
 
     print("\nPage-flow E2E: all checks passed.")
     return 0

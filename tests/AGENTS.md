@@ -24,7 +24,13 @@ plus the Playwright browser UX suite for the query GUI (query.ronzz.org).
   recur.
 - **`tests/e2e/run_pages_e2e.py`** — issue-#7 page flows:
   `Special:AddPerson` / `AddSource` / `AddCollective` + the AddQuotation
-  form; **self-cleaning** (removes what it creates).
+  form; **self-cleaning** (removes what it creates). An automatic pre-run
+  **sweep** deletes stale scratch pages/items (matching the known
+  `Page-flow E2E` / `Manual E2E` / `Example Domain (E2E` / `PR42 verify` /
+  `API-created page` prefixes with an embedded unix timestamp older than
+  `--sweep-age-hours`, default 6 h) so a cancelled run cannot leak debris;
+  `--sweep-only [--sweep-dry-run]` runs just that sweep. Cleanup failures now
+  fail the suite (previously they only printed a warning).
 - **`tests/e2e/run_forum_e2e.py`** — DPLforum forum: `Forum:` namespace
   registration (NS 110/111) + a board's `<forum>` listing showing a created
   thread; **self-cleaning** (deletes its scratch board/thread pages).
