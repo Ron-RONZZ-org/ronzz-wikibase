@@ -69,6 +69,13 @@ $wgSmjDisplayAlign = 'center';
 // drops ALL tag attributes otherwise — a display=block tag would silently
 // render as inline).
 $wgSmjEnableHtmlAttributes = true;
+// Instance local patch: no page-wide MathJax on Wikibase entity pages (120/
+// 122) — their content preview is rendered by KaTeX; MathJax recurses on
+// the injected $$…$$ span. Mirrors production (RonzzIT:Deployment/Wikibase).
+$wgSmjDisableNamespaces = [ 120, 122 ];
+// Special:Upload has no math; skipping the page-wide MathJax there avoids a
+// double tex-chtml.js load on that Special page.
+$wgSmjDisablePages = [ 'Special:Upload' ];
 
 // Issue #24 (cite-by-QID): `{{#cite:Q42}}` inside `<ref>` needs the stock
 // Cite extension. The WBS image does not bundle Cite — the CI / local stack

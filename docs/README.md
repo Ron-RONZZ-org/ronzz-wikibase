@@ -109,9 +109,8 @@ fix, the defensive AddPerson date normalization, bookExcerpt language
 inheritance from the parent book, the content-page "Add section" action, and
 the label/description fallback that makes `fr`/`eo`-only items visible in the
 search results and on their Item: pages),
-`upload-another-iframe.md` (the "upload another" destination tab + hidden
-same-origin iframe POST; inline error recovery, file preservation, CSRF
-refresh), `vector-2022-theme-toggle.md` (Vector 2022 as the default skin +
+`upload-another-fetch.md` (the "upload another" destination tab + same-origin
+fetch POST; inline error recovery, file preservation, CSRF refresh), `vector-2022-theme-toggle.md` (Vector 2022 as the default skin +
 the sun/moon quick toggle using the native `vector-theme` preference), and
 `namespace-rename-cheatsheet.md` (`Cheatsheets` → `Cheatsheet`, namespace
 alias as the redirect-equivalent, sitelink and content-link updates).

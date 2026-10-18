@@ -65,6 +65,26 @@ Upgrade = re-vendor the upstream tag + bump `tools/install-mathjax.sh`'s
 MathJax pin only if the new upstream requires it. Do not modify the vendored
 `src/` without a documented reason.
 
+## Local patch — disable on Wikibase entity pages
+
+**Modified files**: `extension.json` (+`SmjDisableNamespaces` config),
+`SimpleMathJaxHooks.php` (skip `$wgOut->addModules('ext.SimpleMathJax')` when
+the parser title's namespace is listed).
+
+**Why**: Wikibase Item:/Property: pages render their content preview with the
+extension's KaTeX helper. The page-wide MathJax scan sees the injected
+`$$…$$` span too and MathJax 3.2.2 recurses (`RangeError: Maximum call stack
+size exceeded` in `tex-chtml.js`; the `No version information available for
+component [tex]/autoload` warning accompanies it). The preview module also
+marks its subtree `mathjax_ignore`; the namespace list keeps the page-wide
+module off entirely.
+
+**Config**: `$wgSmjDisableNamespaces = [ 120, 122 ];` (Item/Property) and
+`$wgSmjDisablePages = [ 'Special:Upload' ];` (a page with no math; the
+page-wide MathJax script was loaded twice there) in `LocalSettings.php` /
+`dev/config/Extensions.php`. Content pages keep SimpleMathJax; the other
+Special: pages (including `Special:Embed`) keep it for rich quotation math.
+
 ## Local patch — quote guard for `''`/`'''` inside `$…$` math
 
 **Modified files** (vs upstream tag `v0.9.0`, `6fe10e18`): `extension.json`

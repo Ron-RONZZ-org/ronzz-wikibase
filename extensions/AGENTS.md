@@ -1227,11 +1227,10 @@ report). See `SimpleMathJax/VENDORED.md`.
   `wbuploadcopy`/`wbanother` + the preserved fields to the destination File
   page, `resources/uploadform.js` gates the file picker on the "Source
   filename" (File) radio, opens a **destination tab** for "another" and
-  submits the POST through a **hidden same-origin iframe in the original
-  tab**; `resources/filepage.js` signals the opener back to a fresh,
+  submits the POST through a **same-origin fetch in the original tab**; `resources/filepage.js` signals the opener back to a fresh,
   prefilled upload form on success. On failure the destination tab closes,
   the server error is shown inline, the selected file/fields are kept and a
-  stale CSRF token is refreshed (ADR `docs/decisions/upload-another-iframe.md`).
+  stale CSRF token is refreshed (ADR `docs/decisions/upload-another-fetch.md`).
   **Clipboard-blocked copy fallback (2026-09-28):** a page-load
   clipboard write is not allowed without a user gesture (Firefox rejects it,
   Chromium only auto-grants a focused tab), so `filepage.js` attempts the
@@ -1241,15 +1240,15 @@ report). See `SimpleMathJax/VENDORED.md`.
   `SimpleMathJax/VENDORED.md` for the companion quote-guard
   paragraph-break fix (the `Atom#Elements` bold regression).
 
-- **Oct-2026 upload-another recovery (ADR `docs/decisions/upload-another-iframe.md`)**:
+- **Oct-2026 upload-another recovery (ADR `docs/decisions/upload-another-fetch.md`)**:
   the "Submit and upload another image from same author" flow no longer
   POSTs into the pre-opened blank tab (which could lose the MediaWiki
   session and show `session_fail_preview`). `resources/uploadform.js` posts
-  through a hidden same-origin `#wbuploadframe` iframe in the original tab,
+  through a same-origin `fetch` POST in the original tab,
   keeps the form/file on failure, shows the server error inline, refreshes a
   stale CSRF token via `action=query&meta=tokens&type=csrf`, and closes the
   destination tab. `Hooks::onBeforePageDisplay` adds the
-  `wb-upload-token-failed` body class the iframe reader uses;
+  `wb-upload-token-failed` body class the response reader uses;
   `resources/uploadmeta.js` fires `embeddableContent.uploadmeta.failed` when
   its Wikimedia blob conversion aborts; `filepage.js` renders an explicit
   "Upload another from same author" link for a reopened File: page.

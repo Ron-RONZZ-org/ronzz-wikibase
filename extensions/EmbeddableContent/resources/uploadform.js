@@ -7,14 +7,16 @@
  *     too. Core's own radio-change handler keeps both in sync afterwards.
  *  2. Empty Author / License warning — on submit, warn (cancellable) when
  *     either field is empty; the user may still upload.
- *  3. Upload submission through a HIDDEN SAME-ORIGIN IFRAME in THIS tab.
- *     The form is never submitted into a newly opened top-level window: a
- *     POST from a fresh blank tab can lose the MediaWiki session (the
- *     "loss of session data" / session_fail_preview error). The iframe keeps
- *     the POST in the current page's session, so on failure the page does not
- *     navigate and the file input, author, license and every other field stay
- *     intact. On success the current tab goes to the File: page (normal
- *     "Upload") or the pre-opened destination tab does ("upload another").
+ *  3. Upload submission through a SAME-ORIGIN `fetch` POST in THIS tab.
+ *     The form is never submitted into a newly opened top-level window (a
+ *     fresh blank tab can lose the MediaWiki session) and never into a
+ *     hidden iframe (Special:Upload responses carry X-Frame-Options: DENY,
+ *     so the iframe cannot load either the error page or the File: page).
+ *     The fetch keeps the POST in the current page's session, so on failure
+ *     the page does not navigate and the file input, author, license and
+ *     every other field stay intact. On success the current tab goes to the
+ *     File: page (normal "Upload") or the pre-opened destination tab does
+ *     ("upload another").
  *
  *     "Submit and upload another image from same author" additionally opens a
  *     DESTINATION TAB on click (the user gesture guarantees it is not blocked).
@@ -24,6 +26,11 @@
  *     here; a stale CSRF token is refreshed so the user can retry immediately.
  *     A duplicate/exists warning falls back to the normal warning page.
  *
+ *     uploadmeta.js's Wikimedia URL → browser-blob conversion calls the
+ *     shared mw.embeddableContent.upload.submitConverted() hook instead of
+ *     natively submitting the form, so the converted file also rides the
+ *     fetch POST.
+ *
  *  4. Drag-and-drop / clipboard paste — dropping an image onto the source
  *     file area (or pasting one) switches the source to "Source filename"
  *     and fills the file input, firing `change` so the shared
@@ -32,22 +39,21 @@
 ( function () {
 	'use strict';
 
-	var IFRAME_NAME = 'wbuploadframe';
 	var DESTINATION_WINDOW_NAME = 'wbuploadanother';
 
 	/** The form being enhanced, resolved once on DOM ready. */
 	var $form = null;
-	var $iframe = null;
 	var $error = null;
 	var $status = null;
 	var formAction = '';
 
-	/** State of the hidden-iframe submission. */
+	/** State of the fetch submission. */
 	var uploadInProgress = false;
-	var expectedUpload = false;
 	var conversionInProgress = false;
 	var uploadmetaFailed = false;
+	var fetchInProgress = false;
 	var pendingDestinationWindow = null;
+	var lastSubmitter = null;
 
 	/**
 	 * Resolve an HTMLForm field NAME to its real <input> (php-mode id, an
@@ -174,16 +180,6 @@
 		}
 	}
 
-	function isFileUrl( url ) {
-		try {
-			var u = new URL( url, window.location.href );
-			return /\/File:/.test( u.pathname ) ||
-				/[?&]title=File:/.test( u.search );
-		} catch ( e ) {
-			return false;
-		}
-	}
-
 	/** Refresh the form's CSRF token from the current session. */
 	function refreshToken() {
 		return new mw.Api().get( {
@@ -216,14 +212,12 @@
 			return null;
 		}
 		try {
-			var message = mw.message( 'embeddablecontent-upload-uploading' ).escaped();
-			w.document.open();
-			w.document.write(
-				'<!doctype html><html><head><meta charset="utf-8"><title>' + message +
-				'</title></head><body style="font-family:sans-serif;padding:2em;color:#202122;">' +
-				message + '</body></html>'
-			);
-			w.document.close();
+			var message = mw.msg( 'embeddablecontent-upload-uploading' );
+			w.document.title = message;
+			w.document.body.textContent = message;
+			w.document.body.style.fontFamily = 'sans-serif';
+			w.document.body.style.padding = '2em';
+			w.document.body.style.color = '#202122';
 		} catch ( e ) {
 			// The tab is still usable even if the placeholder could not be written.
 		}
@@ -254,8 +248,8 @@
 	/** Reset everything after an aborted conversion or a failure. */
 	function cancelPendingUpload() {
 		uploadInProgress = false;
-		expectedUpload = false;
 		conversionInProgress = false;
+		fetchInProgress = false;
 		setStatus( '' );
 		closeDestination();
 	}
@@ -264,8 +258,8 @@
 		var destination = pendingDestinationWindow;
 		pendingDestinationWindow = null;
 		uploadInProgress = false;
-		expectedUpload = false;
 		conversionInProgress = false;
+		fetchInProgress = false;
 		setStatus( '' );
 		if ( destination && !destination.closed ) {
 			try {
@@ -280,16 +274,16 @@
 
 	function finishFailure( content ) {
 		uploadInProgress = false;
-		expectedUpload = false;
 		conversionInProgress = false;
+		fetchInProgress = false;
 		setStatus( '' );
 		closeDestination();
 		showError( content );
-		// A retry must go back through the hidden iframe.
-		$form.attr( 'target', IFRAME_NAME );
+		// A retry must go back through the fetch handler.
+		$form.attr( 'target', '_self' );
 	}
 
-	/** @return {boolean} whether the response page is a duplicate/exists warning. */
+	/** @return {boolean} whether the response document is a duplicate/exists warning. */
 	function isWarningPage( doc ) {
 		return !!doc.querySelector(
 			'input[name="wpUploadIgnoreWarning"], .mw-destfile-warning'
@@ -327,8 +321,8 @@
 			.on( 'click', function () {
 				clearError();
 				$form.attr( 'target', '_self' );
-				// Native submit() bypasses uploadmeta's conversion: the file
-				// is already stashed server-side, so the warning page loads
+				// Native submit() bypasses fetch/uploadmeta: the file is
+				// already stashed server-side, so the warning page loads
 				// without re-fetching or re-converting anything.
 				$form[ 0 ].submit();
 			} );
@@ -336,43 +330,12 @@
 		return $box;
 	}
 
-	/** Handle the hidden iframe's completed navigation. */
-	function handleIframeLoad() {
-		if ( !expectedUpload && !uploadInProgress ) {
-			return;
-		}
-		var doc = null;
-		var url = '';
-		try {
-			doc = $iframe[ 0 ].contentDocument;
-			url = $iframe[ 0 ].contentWindow.location.href;
-		} catch ( e ) {
-			doc = null;
-			url = '';
-		}
-		// The iframe starts at about:blank; wait for the actual response.
-		if ( !url || url === 'about:blank' ) {
-			return;
-		}
-
-		expectedUpload = false;
-		conversionInProgress = false;
-
-		if ( isLoginUrl( url ) ) {
-			finishFailure( makeMessageBox( mw.msg( 'embeddablecontent-upload-logged-out' ) ) );
-			return;
-		}
-		if ( !isUploadUrl( url ) ) {
-			// The upload redirects to the File: page on success.
-			if ( isFileUrl( url ) || !doc ) {
-				finishSuccess( url );
-				return;
-			}
-			finishFailure( makeMessageBox( mw.msg( 'embeddablecontent-upload-failed-generic' ) ) );
-			return;
-		}
+	/** Handle the parsed response document of a failed fetch POST. */
+	function handleResponseDoc( doc ) {
 		if ( !doc || !doc.body ) {
-			finishFailure( makeMessageBox( mw.msg( 'embeddablecontent-upload-failed-generic' ) ) );
+			finishFailure( makeMessageBox(
+				mw.msg( 'embeddablecontent-upload-failed-generic' )
+			) );
 			return;
 		}
 		if ( doc.body.classList.contains( 'wb-upload-token-failed' ) ) {
@@ -403,27 +366,66 @@
 		);
 	}
 
+	/** POST the form with fetch, keeping the page (and file) in place on failure. */
+	function startFetchSubmit() {
+		if ( fetchInProgress ) {
+			return;
+		}
+		fetchInProgress = true;
+		uploadInProgress = true;
+		setStatus( mw.msg( 'embeddablecontent-upload-uploading' ) );
+		$form.attr( 'target', '_self' );
+
+		var form = $form[ 0 ];
+		var data;
+		try {
+			data = new FormData( form );
+		} catch ( e ) {
+			finishFailure( makeMessageBox( mw.msg( 'embeddablecontent-upload-failed-generic' ) ) );
+			return;
+		}
+
+		// FormData omits submit buttons. Add the clicked one (the only way
+		// core processes an upload) unless uploadmeta replicated it already.
+		var submitter = lastSubmitter ||
+			form.querySelector( 'input[type="submit"][name="wpUpload"], button[type="submit"][name="wpUpload"]' );
+		if ( submitter && submitter.name ) {
+			data.delete( submitter.name );
+			data.append( submitter.name, submitter.value || '1' );
+		}
+
+		fetch( formAction, {
+			method: 'POST',
+			body: data,
+			credentials: 'same-origin',
+			redirect: 'follow'
+		} ).then( function ( response ) {
+			var url = response.url;
+			if ( isLoginUrl( url ) ) {
+				finishFailure( makeMessageBox( mw.msg( 'embeddablecontent-upload-logged-out' ) ) );
+				return;
+			}
+			if ( !isUploadUrl( url ) ) {
+				// The upload redirects to the File: page on success.
+				finishSuccess( url );
+				return;
+			}
+			return response.text().then( function ( html ) {
+				var doc = new DOMParser().parseFromString( html, 'text/html' );
+				handleResponseDoc( doc );
+			} );
+		} ).catch( function () {
+			finishFailure( makeMessageBox( mw.msg( 'embeddablecontent-upload-failed-generic' ) ) );
+		} );
+	}
+
 	mw.loader.using( 'mediawiki.notification' ).then( function () {
 		$form = $( '#mw-upload-form' );
 		if ( $form.length === 0 ) {
 			return;
 		}
 		formAction = $form.attr( 'action' ) || window.location.href;
-
-		// Hidden same-origin submission target. `allow-same-origin` lets us
-		// read the response document; scripts/styles are irrelevant to us.
-		$iframe = $( '<iframe>' )
-			.attr( {
-				name: IFRAME_NAME,
-				id: IFRAME_NAME,
-				title: '',
-				'aria-hidden': 'true',
-				sandbox: 'allow-same-origin'
-			} )
-			.addClass( 'wb-upload-frame' )
-			.on( 'load', handleIframeLoad )
-			.appendTo( document.body );
-		$form.attr( 'target', IFRAME_NAME );
+		$form.attr( 'target', '_self' );
 
 		$error = $( '<div>' )
 			.attr( { id: 'wb-upload-error', role: 'alert', 'aria-live': 'assertive' } )
@@ -435,6 +437,14 @@
 			.addClass( 'wb-upload-status' )
 			.hide()
 			.insertAfter( $error );
+
+		// uploadmeta.js's async Wikimedia blob conversion must hand the
+		// completed form to the fetch path instead of natively submitting it.
+		mw.embeddableContent = mw.embeddableContent || {};
+		mw.embeddableContent.upload = mw.embeddableContent.upload || {};
+		mw.embeddableContent.upload.submitConverted = function () {
+			startFetchSubmit();
+		};
 
 		// 1. Source-field gating (initial state; core keeps it in sync after
 		// a radio change).
@@ -452,8 +462,7 @@
 		}
 
 		// 2 + 3. Submit-button click: warn first, then open the destination
-		// tab for "upload another". The POST itself always goes through the
-		// hidden iframe in THIS tab.
+		// tab for "upload another". The POST itself is the fetch in THIS tab.
 		$form.on( 'click', 'input[type="submit"], button[type="submit"]', function ( e ) {
 			// The warning-recovery form's Cancel/Re-upload button must never
 			// be blocked by the empty-field warning.
@@ -482,36 +491,26 @@
 				return;
 			}
 			clearError();
-			$form.attr( 'target', IFRAME_NAME );
-			expectedUpload = true;
-			conversionInProgress = false;
+			lastSubmitter = this;
+			$form.attr( 'target', '_self' );
 			uploadmetaFailed = false;
 			pendingDestinationWindow = this.id === 'wpUploadAnother' ?
 				openDestination() :
 				null;
 		} );
 
-		// Show progress as soon as the browser actually submits. uploadmeta.js
-		// may prevent the first submit to convert a Wikimedia URL into a
-		// browser-supplied blob; its native resubmit bypasses this handler,
-		// so expectedUpload/iframe-load still complete the flow.
+		// e.preventDefault() stops the native navigation; the fetch above
+		// owns the submission. uploadmeta.js may prevent the first submit to
+		// convert a Wikimedia URL into a browser-supplied blob; its
+		// submitConverted() hook resumes the fetch afterwards.
 		$form.on( 'submit', function ( e ) {
 			if ( e.isDefaultPrevented() ) {
-				// uploadmeta.js prevented the first submit to convert a
-				// Wikimedia URL. It either resubmits natively (the iframe load
-				// completes the flow) or fires the failed hook, which restores
-				// the form. A synchronous conversion error has ALREADY fired
-				// the hook by now — do not re-disable the buttons in that case.
-				if ( uploadmetaFailed ) {
-					uploadmetaFailed = false;
-				} else {
-					conversionInProgress = true;
-				}
+				conversionInProgress = true;
 				return;
 			}
+			e.preventDefault();
 			conversionInProgress = false;
-			uploadInProgress = true;
-			setStatus( mw.msg( 'embeddablecontent-upload-uploading' ) );
+			startFetchSubmit();
 		} );
 
 		// uploadmeta.js reports its own conversion errors; close the empty

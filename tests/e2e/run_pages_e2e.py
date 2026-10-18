@@ -2870,7 +2870,7 @@ def flow_filepage_module_source(op, base: str) -> None:
 
 def flow_uploadform_module_source(op, base: str) -> None:
     """Special:Upload form behaviour is JS-side (source gating, the
-    cancellable empty author/license warning, the hidden-iframe submission,
+    cancellable empty author/license warning, the same-origin fetch POST,
     the upload-another destination tab, inline error recovery and the CSRF
     token refresh) — assert the served module source."""
     _, body = page_get(op, base,
@@ -2879,8 +2879,8 @@ def flow_uploadform_module_source(op, base: str) -> None:
         raise FlowError("uploadform module: file-source disable sync missing")
     if "window.confirm" not in body:
         raise FlowError("uploadform module: empty author/license warning missing")
-    if "wbuploadframe" not in body or "sandbox" not in body:
-        raise FlowError("uploadform module: hidden same-origin iframe submission missing")
+    if "new FormData" not in body or "fetch(" not in body or "submitConverted" not in body:
+        raise FlowError("uploadform module: same-origin fetch submission missing")
     if "wb-upload-token-failed" not in body or "refreshToken" not in body:
         raise FlowError("uploadform module: stale-CSRF-token detection/refresh missing")
     if "wb-upload-error" not in body:
@@ -5791,7 +5791,7 @@ def main() -> int:
               "(copy-on-upload, upload-another opener reload)")
         flow_uploadform_module_source(op, base)
         print("[ok] uploadform module source: file-source gating, empty-field warning, "
-              "hidden-iframe submission, inline error + token refresh")
+              "same-origin fetch submission, inline error + token refresh")
         flow_themetoggle_module_source(op, base)
         print("[ok] ThemeToggle module source: Vector 2022 sun/moon button + "
               "vector-theme persistence")
