@@ -1,0 +1,19 @@
+/**
+ * Userspace subpage H1 (resources/userpagetitle.js).
+ *
+ * "by @user" is secondary to the page title: muted, normal weight, while the
+ * author link keeps the skin's progressive link colour. Codex tokens cover
+ * Vector 2022 day/night; the fallbacks keep legacy Vector readable.
+ */
+.wb-userpage-by {
+	color: var( --color-subtle, #54595d );
+	font-weight: normal;
+}
+
+.wb-userpage-by a {
+	color: var( --color-progressive, #36c );
+}
+
+.wb-userpage-by a:hover {
+	color: var( --color-progressive--hover, #3056a9 );
+}

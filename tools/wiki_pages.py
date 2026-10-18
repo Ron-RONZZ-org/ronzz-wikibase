@@ -24,6 +24,7 @@ Subcommands::
     status    per-page status table (also --json)
     resolve   --accept-prod | --accept-repo for conflicting pages
     discover  list the wiki's MediaWiki:/Template: pages as manifest JSON
+    login     verify the bot credentials and print the authenticated user
 
 Reads (pull/verify/status) are anonymous. Push/resolve need a bot login:
 `--user` / `--password-file`, or WIKI_SYNC_BOT_USER / WIKI_SYNC_BOT_PASS.
@@ -326,6 +327,16 @@ def cmd_resolve(api: WikiApi, manifest: dict, state: dict, args: argparse.Namesp
         write_state(DEFAULT_STATE if args.state is None else Path(args.state), state)
     return EXIT_OK
 
+def cmd_login(api: WikiApi, args: argparse.Namespace) -> int:
+    """Verify the configured bot credentials without touching any page."""
+    login_from_args(api, args)
+    user = api.whoami()
+    if not user:
+        raise SyncError("logged in, but the API did not report a user name")
+    print(f"[ok] logged in as {user}")
+    return EXIT_OK
+
+
 def cmd_discover(api: WikiApi, args: argparse.Namespace) -> int:
     pages = discover_entries(api, args.namespaces, args.exclude)
     manifest = {"wiki": args.wiki or DEFAULT_WIKI, "pages": pages}
@@ -382,7 +393,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="do not auto-add new MediaWiki:/Template: pages to the manifest",
     )
-    for name in ("push", "verify", "status"):
+    for name in ("push", "verify", "status", "login"):
         sub.add_parser(name, parents=[common])
     resolve = sub.add_parser("resolve", parents=[common])
     resolve.add_argument("--accept-prod", action="store_true")
@@ -400,6 +411,8 @@ def main(argv: list[str] | None = None) -> int:
         api = make_api(args)
         if args.command == "discover":
             return cmd_discover(api, args)
+        if args.command == "login":
+            return cmd_login(api, args)
         manifest = load_manifest(DEFAULT_MANIFEST if args.manifest is None else Path(args.manifest))
         state = load_state(DEFAULT_STATE if args.state is None else Path(args.state))
         if args.command == "pull":

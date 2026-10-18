@@ -1,6 +1,6 @@
-# Decision: Subpages in every namespace except Main
+# Decision: Subpages in every namespace (Main included)
 
-- **Status**: Accepted (Sep 29 2026)
+- **Status**: Accepted (Sep 29 2026; Main included Oct 18 2026)
 - **Scope**: `wikibase.ronzz.org` — the `/`-based page hierarchy and the
   breadcrumb link at the top of a subpage
 - **Decider**: Rongzhou (`ron@ronzz.org`)
@@ -20,12 +20,19 @@ HowItWorks, RonzzIT/RonzzInt, FOSS, Person, Source, Collective, Software,
 Forum) while Main, File, Category, Item, Property, TimedText and most talk
 namespaces stayed flat. This is easy to forget when a namespace is added.
 
+Main was deliberately excluded in the first pass. Nested content trees such as
+`Matrix/Practice/Matrix_multiplication` need it: without the flag the title is
+a flat page and `{{SUBPAGENAME}}` returns the whole title. Only two Main
+titles contained `/` at the switch (`French Literature/fr`,
+`Matrix/Practice/Matrix_multiplication`), and neither depends on
+`{{SUBPAGENAME}}`, so the change is safe.
+
 ## Decision
 
-1. **Enable subpages in every namespace except Main by setting
+1. **Enable subpages in every namespace, Main included, by setting
    `$wgNamespacesWithSubpages` directly in `LocalSettings.php`** (mirrored in
    the dev/CI config `dev/config/Extensions.php`): `array_fill_keys( range( 0,
-   2017 ), true )`, then `NS_MAIN = false`.
+   2017 ), true )`, then `NS_MAIN = true` (explicit for readability).
    ⚠️ **A late hook cannot do this.** `NamespaceInfo` snapshots the config
    when its service is constructed — `ServiceOptions` copies the option
    values into a private array at construction — so a `CanonicalNamespaces`
@@ -43,11 +50,19 @@ namespaces stayed flat. This is easy to forget when a namespace is added.
 3. **`Cheatsheets:LinuxCLI`** is the first application: a real landing page
    for the three existing `Cheatsheets:LinuxCLI/{FileOps,SysOps,ssh}`
    subpages, plus a `Category:LinuxCLI` (subcategory of `Category:Cheatsheets`).
+4. **Main-namespace trees** grow by creating pages with `/` in the title
+   (`Matrix`, then `Matrix/Practice`, then
+   `Matrix/Practice/Matrix_multiplication`). The hierarchy is title-derived;
+   the parent page is ordinary content, not configuration. The breadcrumb
+   appears on a child once its parent page exists.
 
 ## Consequences
 
 - Breadcrumbs appear on the existing subpages once the parent page exists;
   no page titles change.
+- Main-namespace titles containing `/` are now subpages: `{{SUBPAGENAME}}`
+  returns the leaf (e.g. `Matrix_multiplication`), and `{{BASEPAGENAME}}`
+  returns the parent (`Matrix/Practice`). Pages without `/` are unaffected.
 - New namespaces automatically get subpages (no per-namespace line to add).
 - `Category:` / `File:` / `Item:` subpages are enabled too — harmless
   (`Item:` titles are `Q…`; the flag only matters for `/` titles).

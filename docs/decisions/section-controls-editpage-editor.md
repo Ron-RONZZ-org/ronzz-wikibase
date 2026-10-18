@@ -45,7 +45,12 @@ page. This covers `Main`, `Help`, `Cheatsheets`, `HowItWorks`, `FOSS`,
   content-page-only).
 - `Hooks::addSectionAction()` (the "Add section" page action) now anchors on
   `isClassicArticleTitle()` instead of `isContentPage()`. The Sitelink tab
-  keeps its original content-page + non-entity gate.
+  keeps its original content-page + non-entity gate. The view key is
+  **`appendsection`** (class `ca-appendsection`), not `addsection`:
+  Vector 2022's `SkinVector22::removeAddTopicButton()` removes the
+  `ca-addsection` item from the Views menu and substitutes its own title-bar
+  button pointing at core `section=new`. The distinct key keeps the append
+  action in the visible Views row (and in the low-resolution More clone).
 
 ### 2. The append editor IS core's edit surface
 
@@ -87,7 +92,18 @@ The append flow keeps its blank-Summary auto-inference
 section that vanished while the form was open (a racing edit) degrades to a
 page-end append with a logged warning.
 
-### 3. Removed
+### 3. Explicit `{{anchor|…}}` targets
+
+`resources/sectionactions.js` now prefers an explicit anchor inside the
+heading over the generated heading id. MediaWiki inserts its own empty
+legacy `<span id>` when a heading id contains characters that cannot appear
+in a fragment (math: `$ \ { } [ ] | < >`); `Template:Anchor` adds one empty
+span per anchor **after** it. The control uses the last such span
+(`Permutation#sign_composition` instead of the unlinkable
+`$\operatorname{sign}(…)$` id). Without an explicit anchor the heading id is
+used as before; Copy URL URL-encodes the fragment.
+
+### 4. Removed
 
 - `resources/sectionform.js` and the `ext.embeddableContent.sectionform`
   module (the bespoke `action=parse` Preview) — replaced by the editor's own

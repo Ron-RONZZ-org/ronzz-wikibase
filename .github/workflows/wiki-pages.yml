@@ -26,7 +26,7 @@ on:
       mode:
         description: 'Sync operation'
         type: choice
-        options: [status, verify, pull, push]
+        options: [status, verify, pull, push, login]
         default: status
 
 permissions:

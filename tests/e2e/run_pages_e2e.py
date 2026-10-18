@@ -3714,7 +3714,14 @@ def flow_print_module(op, base: str, api: str) -> None:
         if f'"wbPrintTitle":"{leaf}"' not in body:
             raise FlowError(f"{title} does not carry wbPrintTitle={leaf!r} "
                             f"(namespace/subpage strip regression)")
+        if "ext.embeddableContent.userpagetitle" not in body:
+            raise FlowError(f"{title} does not load ext.embeddableContent.userpagetitle")
+        if f'"title":"{leaf}"' not in body or '"user":"PrintE2E"' not in body:
+            raise FlowError(f"{title} does not carry the wbUserPageTitle config")
+        if "by @PrintE2E" not in body:
+            raise FlowError(f"{title} H1 does not render '<title> by @PrintE2E'")
         print(f"[ok] print module wired: {title} -> wbPrintTitle={leaf!r}")
+        print(f"[ok] user subpage title wired: {title} -> '<title> by @PrintE2E'")
     finally:
         api_call(op, api, {"action": "delete", "title": title, "token": token,
                            "reason": "page-flow E2E cleanup (run_pages_e2e.py)",

@@ -24,9 +24,12 @@
  * (and loads this module) on the same content-page branch as the page-level
  * toolbar.
  *
- * The section anchor is the heading's `id` — MediaWiki already normalizes it
- * (spaces → underscores, special characters encoded), so it is valid both in
- * a wikitext `#…` fragment and in a URL.
+ * The section anchor is the explicit `{{anchor|…}}` target when the heading
+ * carries one, otherwise the heading's `id`. MediaWiki normalizes either form
+ * (spaces → underscores), so it is valid both in a wikitext `#…` fragment and
+ * in a URL. A heading whose generated id contains math/formatting characters
+ * (`$ \ { } [ ] | < >`) also carries a legacy escaped `<span id>`; the
+ * explicit anchor spans follow it, so the LAST empty span is the useful one.
  */
 ( function () {
 	'use strict';
@@ -71,6 +74,48 @@
 	}
 
 	/**
+	 * The explicit `{{anchor|…}}` target inside a heading, if any.
+	 *
+	 * MediaWiki prepends its own empty legacy anchor span when the heading id
+	 * contains characters that cannot appear in a link (e.g. the math heading
+	 * `<h4 id="$\operatorname{sign}(…)$"><span id=".24.5C…"></span>`).
+	 * `Template:Anchor` then adds one empty span per anchor, so the explicit
+	 * anchor(s) follow the legacy span: prefer the LAST empty span whose id
+	 * differs from the heading id. A single span on a linkable heading is an
+	 * explicit anchor; a single span on an escaped heading is the legacy id.
+	 *
+	 * @param {jQuery} $heading
+	 * @return {?string}
+	 */
+	function explicitAnchor( $heading ) {
+		var headingId = $heading.attr( 'id' ) || '';
+		var candidates = [];
+		$heading.find( 'span[id]' ).each( function () {
+			var $span = $( this );
+			if ( $span.children().length > 0 || $span.text() !== '' ) {
+				return;
+			}
+			if ( this.id && this.id !== headingId ) {
+				candidates.push( this.id );
+			}
+		} );
+		if ( candidates.length === 0 ) {
+			return null;
+		}
+		if ( candidates.length > 1 ) {
+			// The legacy escaped span comes first; the explicit anchors follow.
+			return candidates[ candidates.length - 1 ];
+		}
+		// A single span is the explicit anchor when the heading id is linkable;
+		// when the heading id needs escaping, the lone span is MediaWiki's
+		// legacy encoded id — keep the heading-id fallback instead.
+		if ( /[\\${}\[\]|<>]/.test( headingId ) ) {
+			return null;
+		}
+		return candidates[ 0 ];
+	}
+
+	/**
 	 * The heading anchor of one `.mw-editsection`. MW 1.43+ wraps the heading:
 	 * `<div class="mw-heading"><h2 id="Anchor">…</h2><span class="mw-editsection">…</span></div>`;
 	 * the id sits on the heading element (older markup) or, defensively, on
@@ -85,8 +130,14 @@
 		if ( $heading.length === 0 ) {
 			$heading = $edit.prevAll( 'h1, h2, h3, h4, h5, h6' ).first();
 		}
-		if ( $heading.length && $heading.attr( 'id' ) ) {
-			return $heading.attr( 'id' );
+		if ( $heading.length ) {
+			var explicit = explicitAnchor( $heading );
+			if ( explicit ) {
+				return explicit;
+			}
+			if ( $heading.attr( 'id' ) ) {
+				return $heading.attr( 'id' );
+			}
 		}
 		if ( $wrapper.length && $wrapper.attr( 'id' ) ) {
 			return $wrapper.attr( 'id' );
@@ -180,7 +231,7 @@
 				'wb-section-copyurl-' + anchor,
 				'embeddablecontent-section-copyurl',
 				'embeddablecontent-section-copyurl-hint',
-				pageUrlBase + '#' + anchor
+				pageUrlBase + '#' + encodeURIComponent( anchor )
 			) ) );
 
 			var number = sectionNumber( $edit );

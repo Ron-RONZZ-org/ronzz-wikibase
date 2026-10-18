@@ -169,6 +169,13 @@ class Hooks {
 	 * Skipped when the page already carries the core action, when the user
 	 * cannot edit, or when there is no edit action to anchor to.
 	 *
+	 * The view key/class must NOT be `addsection`/`ca-addsection`: Vector 2022's
+	 * `SkinVector22::removeAddTopicButton()` strips that item from the Views
+	 * menu and replaces it with its own title-bar button pointing at core
+	 * `action=edit&section=new`. A distinct `appendsection` key keeps this
+	 * append action in the visible Views row (and lets the skin clone it into
+	 * the low-resolution More menu).
+	 *
 	 * @param array<string,array<string,mixed>> &$links
 	 */
 	private static function addSectionAction(
@@ -185,7 +192,7 @@ class Hooks {
 			return;
 		}
 		$action = [
-			'class' => 'ca-addsection',
+			'class' => 'ca-appendsection',
 			'text' => $skin->msg( 'embeddablecontent-addsection' )->text(),
 			'icon' => 'speechBubbleAdd',
 			'href' => $title->getLocalURL( 'action=appendsection' ),
@@ -203,7 +210,7 @@ class Hooks {
 		foreach ( $links['views'] as $key => $value ) {
 			$views[$key] = $value;
 			if ( $key === $anchor ) {
-				$views['addsection'] = $action;
+				$views['appendsection'] = $action;
 			}
 		}
 		$links['views'] = $views;
@@ -320,6 +327,12 @@ class Hooks {
 		if ( $title === null ) {
 			return;
 		}
+
+		// Userspace subpage title: `User:Rongzhou/Pretty good Linux` renders
+		// as "Pretty good Linux by @Rongzhou" (the author link is added by
+		// resources/userpagetitle.js; the server text is the no-JS fallback
+		// and the correct <title>).
+		self::applyUserPageTitle( $out, $title );
 
 		// Printable-version enhancements on every existing article page
 		// (namespace/subpage-stripped title + centered authors + the
@@ -565,6 +578,49 @@ class Hooks {
 				. Html::rawElement( 'ul', [], $items )
 			)
 		);
+	}
+
+	/**
+	 * Render a Userspace subpage H1 as "<subpage> by @<user>": the root
+	 * segment is the author (the username), the rest is the page title. The
+	 * author is a real link (added client-side — OutputPage's page-title
+	 * sanitizer allows only formatting tags, not <a>); the server-side
+	 * setPageTitle() gives no-JS readers the same text and fixes the
+	 * browser <title>. Root user pages (`User:Rongzhou`) and non-view
+	 * requests (edit/history/raw) are left alone.
+	 */
+	private static function applyUserPageTitle(
+		OutputPage $out,
+		\MediaWiki\Title\Title $title
+	): void {
+		if ( $title->getNamespace() !== NS_USER || !$title->isSubpage() ) {
+			return;
+		}
+		// The H1 is only the article view; edit/history/diff must keep the
+		// real page title.
+		if ( !$out->isArticle() ) {
+			return;
+		}
+		$parts = \EmbeddableContent\Spec\UserPageTitle::split( $title->getText() );
+		if ( $parts === null ) {
+			return;
+		}
+		$userTitle = \MediaWiki\Title\Title::newFromText( 'User:' . $parts['user'] );
+		if ( $userTitle === null ) {
+			return;
+		}
+		$by = wfMessage( 'embeddablecontent-userpagetitle-by' )
+			->inLanguage( $title->getPageLanguage() )
+			->text();
+		$out->setPageTitle( $parts['title'] . ' ' . $by . ' @' . $parts['user'] );
+		$out->addJsConfigVars( 'wbUserPageTitle', [
+			'title' => $parts['title'],
+			'by' => $by,
+			'user' => $parts['user'],
+			'url' => $userTitle->getLocalURL(),
+			'exists' => $userTitle->isKnown(),
+		] );
+		$out->addModules( 'ext.embeddableContent.userpagetitle' );
 	}
 
 	/**
