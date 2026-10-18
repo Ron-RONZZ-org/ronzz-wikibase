@@ -654,7 +654,8 @@
 				"embeddablecontent-file-copylink",
 				"embeddablecontent-file-copylink-hint",
 				"embeddablecontent-gadget-copied",
-				"embeddablecontent-upload-copyembed-notice"
+				"embeddablecontent-upload-copyembed-notice",
+				"embeddablecontent-upload-another-next"
 			],
 			"targets": [
 				"desktop",
@@ -783,13 +784,24 @@
 				"uploadform.css"
 			],
 			"dependencies": [
-				"mediawiki.notification"
+				"ext.embeddableContent.uploadmeta",
+				"mediawiki.api",
+				"mediawiki.notification",
+				"mediawiki.user",
+				"mediawiki.util"
 			],
 			"messages": [
 				"embeddablecontent-upload-author",
 				"embeddablecontent-upload-license",
 				"embeddablecontent-upload-missing-confirm",
-				"embeddablecontent-upload-drop-unsupported"
+				"embeddablecontent-upload-drop-unsupported",
+				"embeddablecontent-upload-uploading",
+				"embeddablecontent-upload-failed-generic",
+				"embeddablecontent-upload-session-refreshed",
+				"embeddablecontent-upload-logged-out",
+				"embeddablecontent-upload-review-warning",
+				"embeddablecontent-upload-review",
+				"embeddablecontent-upload-close-tab"
 			],
 			"targets": [
 				"desktop",

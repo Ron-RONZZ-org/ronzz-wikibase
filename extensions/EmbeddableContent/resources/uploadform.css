@@ -1,6 +1,6 @@
 /**
- * Special:Upload form — drag-and-drop / paste affordance
- * (resources/uploadform.js).
+ * Special:Upload form — hidden-iframe submission, inline errors, and the
+ * drag-and-drop / paste affordance (resources/uploadform.js).
  */
 
 .wb-upload-drop-hint {
@@ -13,4 +13,37 @@
 	outline: 2px dashed #36c;
 	outline-offset: 4px;
 	background-color: rgba( 51, 102, 204, 0.06 );
+}
+
+/* Hidden same-origin submission target (resources/uploadform.js). */
+.wb-upload-frame {
+	position: absolute;
+	width: 0;
+	height: 0;
+	border: 0;
+	visibility: hidden;
+}
+
+.wb-upload-error {
+	margin: 0.75em 0;
+}
+
+.wb-upload-error:focus {
+	outline: none;
+}
+
+.wb-upload-error .cdx-message {
+	margin: 0;
+}
+
+.wb-upload-status {
+	margin: 0.75em 0;
+	color: #54595d;
+}
+
+.wb-upload-review-btn {
+	margin-left: 0.75em;
+	padding: 0.25em 0.75em;
+	font: inherit;
+	cursor: pointer;
 }
