@@ -316,11 +316,10 @@ jobs:
         run: |
           $COMPOSE exec -T -u root wikibase bash -c \
             'grep -qF "\$wgNamespacesWithSubpages[0] = true;" /config/InstanceSettings.php || printf "\n\$wgNamespacesWithSubpages[0] = true;\n" >> /config/InstanceSettings.php'
-          $COMPOSE restart wikibase
-          for i in $(seq 1 300); do
-            curl -sf -o /dev/null "$API_URL" && break
-            sleep 2
-          done
+          # InstanceSettings.php is required on every request; do NOT restart
+          # the container here — the WBS bootstrap would regenerate the file.
+          # Give opcache a moment to notice the new mtime.
+          sleep 3
           curl -sf "$API_URL" > /dev/null
 
       - name: E2E acceptance (3 embed surfaces, 5 citation styles, SPARQL)
