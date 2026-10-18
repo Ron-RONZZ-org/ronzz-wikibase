@@ -61,8 +61,9 @@ titles contained `/` at the switch (`French Literature/fr`,
 - Breadcrumbs appear on the existing subpages once the parent page exists;
   no page titles change.
 - Main-namespace titles containing `/` are now subpages: `{{SUBPAGENAME}}`
-  returns the leaf (e.g. `Matrix_multiplication`), and `{{BASEPAGENAME}}`
-  returns the parent (`Matrix/Practice`). Pages without `/` are unaffected.
+  returns the leaf title text (e.g. `Matrix multiplication`; the URL form uses
+  underscores), and `{{BASEPAGENAME}}` returns the parent
+  (`Matrix/Practice`). Pages without `/` are unaffected.
 - New namespaces automatically get subpages (no per-namespace line to add).
 - `Category:` / `File:` / `Item:` subpages are enabled too — harmless
   (`Item:` titles are `Q…`; the flag only matters for `/` titles).

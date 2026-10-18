@@ -1201,7 +1201,9 @@ async function main() {
 		});
 		const subpageHtml = subpageProbe
 			&& subpageProbe.parse && subpageProbe.parse.text && subpageProbe.parse.text['*'];
-		if (!subpageHtml || !subpageHtml.includes('Matrix_multiplication')) {
+		// {{SUBPAGENAME}} returns the title text form (spaces, not the URL
+		// underscores used in the title parameter).
+		if (!subpageHtml || !subpageHtml.includes('Matrix multiplication')) {
 			failures.push('Main namespace subpages are not enabled ({{SUBPAGENAME}} did not resolve)');
 		} else {
 			console.log('[ok] Main namespace subpages are enabled ({{SUBPAGENAME}})');
