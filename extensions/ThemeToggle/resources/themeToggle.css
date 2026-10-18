@@ -1,0 +1,123 @@
+/**
+ * Vector 2022 quick day/night toggle (resources/themeToggle.js).
+ * The button uses the skin's Codex button classes; only the icon sizing and
+ * spacing need local rules.
+ */
+
+.wb-theme-toggle {
+	margin: 0 0.25em;
+}
+
+.wb-theme-toggle-icon {
+	display: inline-flex;
+	width: 20px;
+	height: 20px;
+	align-items: center;
+	justify-content: center;
+}
+
+.wb-theme-toggle-icon svg {
+	width: 20px;
+	height: 20px;
+}
+
+@media screen {
+/*
+ * Dark-mode refinements for the instance's custom UI.
+ *
+ * Vector 2022's native night mode supplies the palette (the Codex tokens
+ * below); these rules replace the extension-owned surfaces' hard-coded light
+ * chrome (toolbars, upload previews, popups, infobox banners) so they follow
+ * the theme instead of staying bright on a dark page.
+ *
+ * `skin-theme-clientpref-os` needs the media query: the class alone does not
+ * mean dark (it follows the operating system).
+ */
+html.skin-theme-clientpref-night .wb-embed,
+html.skin-theme-clientpref-night .wb-embed-toolbar,
+html.skin-theme-clientpref-night .wb-embed-toolbar-btn,
+html.skin-theme-clientpref-night .wb-embed-toolbar-lang,
+html.skin-theme-clientpref-night .wb-embed-toolbar-style,
+html.skin-theme-clientpref-night .wb-content-page-toolbar .wb-embed-toolbar-btn,
+html.skin-theme-clientpref-night .wb-uploadcopy-notice,
+html.skin-theme-clientpref-night .wb-uploadmeta-status,
+html.skin-theme-clientpref-night .wb-uploadmeta-preview,
+html.skin-theme-clientpref-night .wb-image-preview,
+html.skin-theme-clientpref-night .wb-entity-confirm,
+html.skin-theme-clientpref-night .wb-addsource-labelpreview,
+html.skin-theme-clientpref-night .wb-label-preview,
+html.skin-theme-clientpref-night .wb-citation-popup-widget,
+html.skin-theme-clientpref-night .wb-citation-popup-preview,
+html.skin-theme-clientpref-night .wb-content-preview,
+html.skin-theme-clientpref-night .wb-addmore-preview,
+html.skin-theme-clientpref-night .wb-print-cover,
+html.skin-theme-clientpref-night .wb-deletesection-preview,
+html.skin-theme-clientpref-night .wb-math-preview-box,
+html.skin-theme-clientpref-night .wb-math-preview-content,
+html.skin-theme-clientpref-night .wb-math-preview-note,
+html.skin-theme-clientpref-night .wb-print-popup {
+	background-color: var(--background-color-interactive-subtle, #202122);
+	color: var(--color-base, #eaecf0);
+	border-color: var(--border-color-base, #72777d);
+}
+
+html.skin-theme-clientpref-night .wb-embed-toolbar-btn:hover,
+html.skin-theme-clientpref-night .wb-embed-toolbar-lang:hover,
+html.skin-theme-clientpref-night .wb-embed-toolbar-style:hover {
+	background-color: var(--background-color-interactive, #27292d);
+}
+
+html.skin-theme-clientpref-night .mw-parser-output [style*="background:#f8f9fa"] {
+	background-color: var(--background-color-interactive-subtle, #202122) !important;
+}
+
+html.skin-theme-clientpref-night .mw-parser-output [style*="border:1px solid #c8ccd1"],
+html.skin-theme-clientpref-night .mw-parser-output [style*="border:1px solid #a2a9b1"] {
+	border-color: var(--border-color-subtle, #54595d) !important;
+}
+
+@media (prefers-color-scheme: dark) {
+	html.skin-theme-clientpref-os .wb-embed,
+	html.skin-theme-clientpref-os .wb-embed-toolbar,
+	html.skin-theme-clientpref-os .wb-embed-toolbar-btn,
+	html.skin-theme-clientpref-os .wb-embed-toolbar-lang,
+	html.skin-theme-clientpref-os .wb-embed-toolbar-style,
+	html.skin-theme-clientpref-os .wb-content-page-toolbar .wb-embed-toolbar-btn,
+	html.skin-theme-clientpref-os .wb-uploadcopy-notice,
+	html.skin-theme-clientpref-os .wb-uploadmeta-status,
+	html.skin-theme-clientpref-os .wb-uploadmeta-preview,
+	html.skin-theme-clientpref-os .wb-image-preview,
+	html.skin-theme-clientpref-os .wb-entity-confirm,
+	html.skin-theme-clientpref-os .wb-addsource-labelpreview,
+	html.skin-theme-clientpref-os .wb-label-preview,
+	html.skin-theme-clientpref-os .wb-citation-popup-widget,
+	html.skin-theme-clientpref-os .wb-citation-popup-preview,
+	html.skin-theme-clientpref-os .wb-content-preview,
+	html.skin-theme-clientpref-os .wb-addmore-preview,
+	html.skin-theme-clientpref-os .wb-print-cover,
+	html.skin-theme-clientpref-os .wb-deletesection-preview,
+	html.skin-theme-clientpref-os .wb-math-preview-box,
+	html.skin-theme-clientpref-os .wb-math-preview-content,
+	html.skin-theme-clientpref-os .wb-math-preview-note,
+	html.skin-theme-clientpref-os .wb-print-popup {
+		background-color: var(--background-color-interactive-subtle, #202122);
+		color: var(--color-base, #eaecf0);
+		border-color: var(--border-color-base, #72777d);
+	}
+
+	html.skin-theme-clientpref-os .wb-embed-toolbar-btn:hover,
+	html.skin-theme-clientpref-os .wb-embed-toolbar-lang:hover,
+	html.skin-theme-clientpref-os .wb-embed-toolbar-style:hover {
+		background-color: var(--background-color-interactive, #27292d);
+	}
+
+	html.skin-theme-clientpref-os .mw-parser-output [style*="background:#f8f9fa"] {
+		background-color: var(--background-color-interactive-subtle, #202122) !important;
+	}
+
+	html.skin-theme-clientpref-os .mw-parser-output [style*="border:1px solid #c8ccd1"],
+	html.skin-theme-clientpref-os .mw-parser-output [style*="border:1px solid #a2a9b1"] {
+		border-color: var(--border-color-subtle, #54595d) !important;
+	}
+}
+}

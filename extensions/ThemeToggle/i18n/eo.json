@@ -1,0 +1,13 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		],
+		"description": "Rapida taga/nokta baskulo por la Vector 2022 etoso.",
+		"license-name": "GPL-2.0-or-later"
+	},
+	"themetoggle-desc": "Rapida taga/nokta baskulo por la Vector 2022 etoso",
+	"themetoggle-dark": "Ŝalti al malluma reĝimo",
+	"themetoggle-light": "Ŝalti al hela reĝimo",
+	"themetoggle-save-failed": "La etosa prefero ne povis esti konservita; ĝi validas nur por ĉi tiu paĝo."
+}

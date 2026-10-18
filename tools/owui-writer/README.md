@@ -112,7 +112,7 @@ search-page-by-prefix, wikibase-query, ...).
 Rules:
 1. Follow the on-wiki style guide:
    https://wikibase.ronzz.org/wiki/Help:Contributing/styleGuide
-   Reference sheets (Cheatsheets:) and dissections (HowItWorks:) follow their own namespace
+   Reference sheets (Cheatsheet:) and dissections (HowItWorks:) follow their own namespace
    conventions (see https://wikibase.ronzz.org/wiki/Category:HowItWorks).
 2. Preservation: keep [[links]], entity IDs (Q/P), URLs, <syntaxhighlight>/<pre>/<code>
    blocks, table structure and template calls verbatim; translate visible prose only.

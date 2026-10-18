@@ -13,9 +13,11 @@
  *    the upload form: copy `[[File:xxx]]` here, where the FINAL file name is
  *    known (the submit-time field may be empty/un-normalized);
  *  - ?wbanother=1 — the "Submit and upload another image from same author"
- *    button was used: this page is the NEW TAB; send the opener (the upload
- *    form) back to a fresh form with the license/author/license-info fields
- *    preserved (they ride wblicense/wbauthor/wblicenseinfo).
+ *    button was used: this page is the DESTINATION TAB. Send the opener
+ *    (the tab that still holds the upload form) back to a fresh form with
+ *    the license/author/license-info fields preserved (they ride
+ *    wblicense/wbauthor/wblicenseinfo), and render an explicit same-author
+ *    hand-off link for when the opener is gone.
  * Both params are one-shot and stripped from the URL afterwards.
  *
  * BROWSER CLIPBOARD LIMIT: a page-load clipboard write is not allowed without
@@ -130,16 +132,9 @@
 
 		// Upload hand-off (one-shot params appended by BeforePageRedirect).
 		var params = new URLSearchParams( window.location.search );
-		if ( params.get( 'wbuploadcopy' ) === '1' ) {
-			// Best-effort automatic copy; a blocked write falls back to a
-			// visible one-click notice (no gesture on a fresh page load).
-			copyText( snippet ).then( function ( ok ) {
-				if ( !ok ) {
-					showCopyNotice( snippet );
-				}
-			} );
-		}
-		if ( params.get( 'wbanother' ) === '1' && window.opener && !window.opener.closed ) {
+
+		/** The prefilled Special:Upload query for the next same-author file. */
+		function handoffQuery() {
 			var query = {};
 			[ [ 'wblicense', 'wpLicense' ], [ 'wbauthor', 'wpUploadAuthor' ],
 				[ 'wblicenseinfo', 'wpUploadLicenseInfo' ],
@@ -151,10 +146,43 @@
 						query[ pair[ 1 ] ] = value;
 					}
 				} );
-			try {
-				window.opener.location.href = mw.util.getUrl( 'Special:Upload', query );
-			} catch ( e ) {
-				// Cross-origin opener (never on this instance) — ignore.
+			return query;
+		}
+
+		if ( params.get( 'wbuploadcopy' ) === '1' ) {
+			// Best-effort automatic copy; a blocked write falls back to a
+			// visible one-click notice (no gesture on a fresh page load).
+			copyText( snippet ).then( function ( ok ) {
+				if ( !ok ) {
+					showCopyNotice( snippet );
+				}
+			} );
+		}
+		if ( params.get( 'wbanother' ) === '1' ) {
+			// The destination tab's opener is the tab that held the upload
+			// form. Send it back to a fresh, prefilled form so it is ready
+			// for the next image.
+			if ( window.opener && !window.opener.closed ) {
+				try {
+					window.opener.location.href = mw.util.getUrl( 'Special:Upload', handoffQuery() );
+				} catch ( e ) {
+					// Cross-origin opener (never on this instance) — ignore.
+				}
+			}
+			// Fallback for a directly-opened / reopened File: page: make the
+			// same-author hand-off an explicit, clickable link.
+			var $anotherToolbar = $( '.wb-file-toolbar' ).first();
+			if ( $anotherToolbar.length ) {
+				$anotherToolbar.append(
+					$( '<a>' )
+						.attr( {
+							href: mw.util.getUrl( 'Special:Upload', handoffQuery() ),
+							target: '_blank',
+							rel: 'noopener'
+						} )
+						.addClass( 'wb-embed-toolbar-btn' )
+						.text( mw.msg( 'embeddablecontent-upload-another-next' ) )
+				);
 			}
 		}
 		if ( params.get( 'wbuploadcopy' ) === '1' || params.get( 'wbanother' ) === '1' ) {

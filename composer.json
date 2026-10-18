@@ -20,7 +20,8 @@
 			"CodeBlockSpaces\\": "extensions/CodeBlockSpaces/includes/",
 			"MediaWiki\\Extension\\GeoGebra\\": "extensions/GeoGebra/src/",
 			"MediaWiki\\Extension\\CSVTable\\": "extensions/CSVTable/src/",
-			"MediaWiki\\Extension\\Pyodide4MediaWiki\\": "extensions/Pyodide4MediaWiki/src/"
+			"MediaWiki\\Extension\\Pyodide4MediaWiki\\": "extensions/Pyodide4MediaWiki/src/",
+			"MediaWiki\\Extension\\ThemeToggle\\": "extensions/ThemeToggle/includes/"
 		}
 	},
 	"autoload-dev": {

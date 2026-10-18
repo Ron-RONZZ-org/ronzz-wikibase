@@ -13,10 +13,16 @@
  *     alphabetical;
  *   - Special:Upload — the file picker is disabled unless the "Source
  *     filename" (File) radio is selected; an empty Author/License shows a
- *     cancellable warning; the "Submit and upload another" button carries
- *     name=wpUpload value=another and opens the upload in a new tab; a
- *     `wbsourcetype` param restores the remembered source radio; a dropped
- *     or pasted image fills the picker + switches to File;
+ *     cancellable warning; the form submits through a hidden same-origin
+ *     iframe; the "Submit and upload another" button carries
+ *     name=wpUpload value=another and opens a destination tab, while the
+ *     POST runs in the original tab; a stale CSRF token shows the error
+ *     inline, refreshes the token, keeps the selected file and closes the
+ *     destination tab; a `wbsourcetype` param restores the remembered source
+ *     radio; a dropped or pasted image fills the picker + switches to File;
+ *   - Vector 2022 + ThemeToggle — the sun/moon button next to the Appearance
+ *     menu switches the native day/night theme and the choice survives a
+ *     reload;
  *   - Printable version — a "Print this page" button opens the print popup
  *     (cover-page option); the printed title drops the namespace + subpage
  *     parent, the cover carries the centered title + authors, and the core
@@ -197,6 +203,42 @@ async function main() {
 			failures.push('print button is not inside the content-page toolbar on a content page');
 		} else {
 			console.log('[ok] print button joins the content-page toolbar row');
+		}
+
+		// --- Vector 2022 + ThemeToggle ---------------------------------
+		// The quick sun/moon toggle lives next to the Appearance menu. The
+		// choice must survive a reload (anonymous users persist it in the
+		// core client-preference cookie).
+		const isVector2022 = await page.evaluate(() =>
+			document.body.classList.contains('skin-vector-2022'));
+		if (isVector2022) {
+			await page.waitForSelector('#wb-theme-toggle', { timeout: 15000 });
+			if (await page.locator('.vector-user-links-main #wb-theme-toggle').count() !== 1) {
+				failures.push('ThemeToggle button is not in the Vector 2022 user links');
+			}
+			const before = await page.evaluate(() =>
+				document.documentElement.classList.contains('skin-theme-clientpref-night'));
+			await page.click('#wb-theme-toggle');
+			const after = await page.evaluate(() =>
+				document.documentElement.classList.contains('skin-theme-clientpref-night'));
+			if (after === before) {
+				failures.push('ThemeToggle did not change the effective theme');
+			}
+			await page.reload({ waitUntil: 'domcontentloaded' });
+			await page.waitForSelector('#wb-theme-toggle', { timeout: 15000 });
+			const persisted = await page.evaluate(() =>
+				document.documentElement.classList.contains('skin-theme-clientpref-night'));
+			if (persisted !== after) {
+				failures.push('ThemeToggle choice did not persist across a reload');
+			} else {
+				console.log('[ok] ThemeToggle switches the Vector 2022 day/night theme and persists');
+			}
+			// Restore day mode for the rest of the suite.
+			if (persisted) {
+				await page.click('#wb-theme-toggle');
+			}
+		} else {
+			console.log('[skip] Vector 2022 is not the active skin (ThemeToggle checks skipped)');
 		}
 
 		// Content-page "Add section" action: a logged-in editor gets an action
@@ -715,24 +757,85 @@ async function main() {
 			console.log('[ok] Special:Upload warns (cancellable) on empty Author/License');
 		}
 
+		// The form submits through a hidden same-origin iframe, not a new
+		// top-level window: a failed upload must not navigate this tab away.
+		await page.waitForSelector('#wbuploadframe', { timeout: 15000 });
+		const uploadFrameState = await page.evaluate(() => ({
+			frame: !!document.querySelector('#wbuploadframe'),
+			target: (document.querySelector('#mw-upload-form') || {}).target || '',
+		}));
+		if (!uploadFrameState.frame || uploadFrameState.target !== 'wbuploadframe') {
+			failures.push(`Special:Upload hidden iframe/target missing (frame=${uploadFrameState.frame}, target=${uploadFrameState.target})`);
+		} else {
+			console.log('[ok] Special:Upload submits through the hidden iframe');
+		}
+
 		// "Submit and upload another": the button carries name=wpUpload
-		// value=another and opens the upload in a new tab (window.open), so
-		// the current tab stays on the form.
+		// value=another, opens the destination tab synchronously and submits
+		// the form through the hidden iframe. Force a stale CSRF token so the
+		// server returns the session-failure form: the destination tab must
+		// close, the error must appear inline, and the file must survive.
 		const anotherName = await page.locator('#wpUploadAnother').getAttribute('name');
 		const anotherValue = await page.locator('#wpUploadAnother').getAttribute('value');
 		if (anotherName !== 'wpUpload' || anotherValue !== 'another') {
 			failures.push(`"upload another" button carries name=${anotherName} value=${anotherValue}, expected wpUpload/another`);
 		}
+		await page.evaluate(async () => {
+			const canvas = document.createElement('canvas');
+			canvas.width = 2;
+			canvas.height = 2;
+			canvas.getContext('2d').fillRect(0, 0, 2, 2);
+			const blob = await new Promise((r) => canvas.toBlob(r, 'image/png'));
+			const dt = new DataTransfer();
+			dt.items.add(new File([blob], 'token-failure.png', { type: 'image/png' }));
+			const fileRadio = document.querySelector('#wpSourceTypeFile');
+			fileRadio.checked = true;
+			fileRadio.dispatchEvent(new Event('change', { bubbles: true }));
+			const input = document.querySelector('#wpUploadFile');
+			input.disabled = false;
+			input.files = dt.files;
+			input.dispatchEvent(new Event('change', { bubbles: true }));
+			document.querySelector('#wpEditToken').value = 'invalid-token';
+		});
 		dialogAction = 'accept';
 		const popupPromise = page.waitForEvent('popup', { timeout: 10000 }).catch(() => null);
 		await page.click('#wpUploadAnother');
 		const popup = await popupPromise;
 		if (!popup) {
-			failures.push('"upload another" did not open the upload in a new tab');
-		} else {
-			console.log('[ok] "upload another" opens the upload in a new tab');
-			await popup.close();
+			failures.push('"upload another" did not open the destination tab');
 		}
+		await page.waitForSelector('#wb-upload-error', { state: 'visible', timeout: 20000 }).catch(() => {});
+		const failedUpload = await page.evaluate(() => ({
+			url: location.href,
+			error: (document.querySelector('#wb-upload-error') || {}).innerText || '',
+			files: (document.querySelector('#wpUploadFile') || {}).files?.length || 0,
+			token: (document.querySelector('#wpEditToken') || {}).value || '',
+		}));
+		if (!failedUpload.url.includes('Special:Upload')) {
+			failures.push('a failed "upload another" navigated the original tab away');
+		}
+		if (!failedUpload.error) {
+			failures.push('a failed "upload another" did not show an inline error');
+		}
+		if (failedUpload.files !== 1) {
+			failures.push(`a failed "upload another" lost the selected file (files=${failedUpload.files})`);
+		}
+		if (!failedUpload.token || failedUpload.token === 'invalid-token') {
+			failures.push('a stale CSRF token was not refreshed after the session failure');
+		}
+		if (popup && !popup.isClosed()) {
+			failures.push('the destination tab stayed open after the failed upload');
+			await popup.close().catch(() => {});
+		} else if (popup) {
+			console.log('[ok] a failed "upload another" closes the destination tab and keeps the file');
+		}
+		await page.evaluate(() => {
+			const input = document.querySelector('#wpUploadFile');
+			if (input) {
+				input.value = '';
+				input.dispatchEvent(new Event('change', { bubbles: true }));
+			}
+		});
 
 		// --- Printable version: clean title + authors + cover popup ------
 		// A scratch User: subpage exercises the namespace + subpage-parent

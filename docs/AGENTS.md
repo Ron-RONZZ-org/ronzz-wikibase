@@ -18,7 +18,7 @@ deployed, how to operate it, and why it is designed the way it is.
   services, access control, uploads/media, CLI ops) moved to the gated wiki on
   2026-08-20**: `RonzzIT:Wikibase`, `RonzzIT:Wikibase/Reference`,
   `RonzzIT:Wikibase/CLI` (wikibase.ronzz.org, `it` group). On-wiki dev
-  cheatsheets live in the `Cheatsheets:` namespace (issue #20,
+  cheatsheets live in the `Cheatsheet:` namespace (issue #20,
   LocalSettings-only change) and technology dissections in the `HowItWorks:`
   namespace (issue #23, same mechanism, NS 2002) — incl. search behaviour
   (both namespaces searchable via `Special:Search`; API `list=search`

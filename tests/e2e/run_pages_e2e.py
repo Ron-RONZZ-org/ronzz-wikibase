@@ -2859,6 +2859,8 @@ def flow_filepage_module_source(op, base: str) -> None:
         raise FlowError("filepage module: upload hand-off params missing")
     if "window.opener.location.href" not in body:
         raise FlowError("filepage module: upload-another opener reload missing")
+    if "embeddablecontent-upload-another-next" not in body:
+        raise FlowError("filepage module: explicit upload-another link missing")
     # The clipboard write on page load is blocked without a user gesture
     # (Firefox rejects it outright; Chromium needs the tab focused) — the
     # hand-off must fall back to a visible one-click copy notice.
@@ -2867,17 +2869,39 @@ def flow_filepage_module_source(op, base: str) -> None:
 
 
 def flow_uploadform_module_source(op, base: str) -> None:
-    """Special:Upload form behaviour (2026-09 UX batch) is JS-side (source
-    gating, the cancellable empty author/license warning, the upload-another
-    new tab) — assert the served module source."""
+    """Special:Upload form behaviour is JS-side (source gating, the
+    cancellable empty author/license warning, the hidden-iframe submission,
+    the upload-another destination tab, inline error recovery and the CSRF
+    token refresh) — assert the served module source."""
     _, body = page_get(op, base,
         "/load.php?modules=ext.embeddableContent.uploadform&lang=en&skin=vector&debug=true")
     if "wpUploadFile" not in body or "wpSourceTypeFile" not in body:
         raise FlowError("uploadform module: file-source disable sync missing")
     if "window.confirm" not in body:
         raise FlowError("uploadform module: empty author/license warning missing")
+    if "wbuploadframe" not in body or "sandbox" not in body:
+        raise FlowError("uploadform module: hidden same-origin iframe submission missing")
+    if "wb-upload-token-failed" not in body or "refreshToken" not in body:
+        raise FlowError("uploadform module: stale-CSRF-token detection/refresh missing")
+    if "wb-upload-error" not in body:
+        raise FlowError("uploadform module: inline error display missing")
     if "wpUploadAnother" not in body or "window.open" not in body:
-        raise FlowError("uploadform module: upload-another new-tab wiring missing")
+        raise FlowError("uploadform module: upload-another destination-tab wiring missing")
+
+
+def flow_themetoggle_module_source(op, base: str) -> None:
+    """Vector 2022 quick theme toggle. The button and the client-preference
+    writes are JS-side; assert the served module source and that a Vector
+    2022 page loads the module."""
+    _, body = page_get(op, base,
+        "/load.php?modules=ext.themeToggle&lang=en&skin=vector-2022&debug=true")
+    if "wb-theme-toggle" not in body or "skin-theme-clientpref-" not in body:
+        raise FlowError("themetoggle module: button / theme-class wiring missing")
+    if "vector-theme" not in body or "saveOption" not in body:
+        raise FlowError("themetoggle module: vector-theme persistence missing")
+    _, page = page_get(op, base, "/wiki/Main_Page")
+    if "ext.themeToggle" not in page:
+        raise FlowError("Vector 2022 page does not load ext.themeToggle")
 
 
 def flow_osmsuggest_module_source(op, base: str) -> None:
@@ -5766,8 +5790,11 @@ def main() -> int:
         print("[ok] filepage module source: inline copy buttons + upload hand-off "
               "(copy-on-upload, upload-another opener reload)")
         flow_uploadform_module_source(op, base)
-        print("[ok] uploadform module source: file-source gating + empty-field warning "
-              "+ upload-another new tab")
+        print("[ok] uploadform module source: file-source gating, empty-field warning, "
+              "hidden-iframe submission, inline error + token refresh")
+        flow_themetoggle_module_source(op, base)
+        print("[ok] ThemeToggle module source: Vector 2022 sun/moon button + "
+              "vector-theme persistence")
         flow_osmsuggest_module_source(op, base)
         print("[ok] osmsuggest module source: Nominatim search + node|way|relation value form")
         flow_entityconfirm_module_source(op, base)

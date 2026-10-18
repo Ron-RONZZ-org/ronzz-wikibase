@@ -28,6 +28,14 @@ Plus **Pyodide4MediaWiki** (a standalone house extension): a code block marked
 with `class="pyodide"` (typically a `<syntaxhighlight lang="python"
 class="pyodide">`) gains a Run button and an output panel and executes Python
 **in the reader's browser** via Pyodide (CPython/WASM) — no server execution.
+
+Plus **ThemeToggle** (a standalone house extension): a sun/moon quick toggle
+next to the Vector 2022 Appearance menu. It writes the skin's own
+`vector-theme` client preference (logged-in users via `action=options`,
+anonymous users via `mw.user.clientPrefs`) and toggles the same
+`skin-theme-clientpref-*` classes as the Appearance menu — no filter-based
+dark mode, no separate palette. See `ThemeToggle/AGENTS.md` +
+`../docs/decisions/vector-2022-theme-toggle.md`.
 The distribution is installed per environment by `tools/install-pyodide.sh`
 (pinned core + sha256-checked wheels, gitignored) and served from the wiki's
 own origin. See `Pyodide4MediaWiki/AGENTS.md` +
@@ -1218,9 +1226,13 @@ report). See `SimpleMathJax/VENDORED.md`.
   resubmit); `Hooks::onBeforePageRedirect` hands off
   `wbuploadcopy`/`wbanother` + the preserved fields to the destination File
   page, `resources/uploadform.js` gates the file picker on the "Source
-  filename" (File) radio and opens the upload in a new tab for "another",
-  and `resources/filepage.js` signals the opener back to a fresh, prefilled
-  upload form. **Clipboard-blocked copy fallback (2026-09-28):** a page-load
+  filename" (File) radio, opens a **destination tab** for "another" and
+  submits the POST through a **hidden same-origin iframe in the original
+  tab**; `resources/filepage.js` signals the opener back to a fresh,
+  prefilled upload form on success. On failure the destination tab closes,
+  the server error is shown inline, the selected file/fields are kept and a
+  stale CSRF token is refreshed (ADR `docs/decisions/upload-another-iframe.md`).
+  **Clipboard-blocked copy fallback (2026-09-28):** a page-load
   clipboard write is not allowed without a user gesture (Firefox rejects it,
   Chromium only auto-grants a focused tab), so `filepage.js` attempts the
   copy best-effort and, on failure, renders a persistent one-click
@@ -1228,6 +1240,19 @@ report). See `SimpleMathJax/VENDORED.md`.
   en/fr/eo) — the copy can never be silently forced on page load. See
   `SimpleMathJax/VENDORED.md` for the companion quote-guard
   paragraph-break fix (the `Atom#Elements` bold regression).
+
+- **Oct-2026 upload-another recovery (ADR `docs/decisions/upload-another-iframe.md`)**:
+  the "Submit and upload another image from same author" flow no longer
+  POSTs into the pre-opened blank tab (which could lose the MediaWiki
+  session and show `session_fail_preview`). `resources/uploadform.js` posts
+  through a hidden same-origin `#wbuploadframe` iframe in the original tab,
+  keeps the form/file on failure, shows the server error inline, refreshes a
+  stale CSRF token via `action=query&meta=tokens&type=csrf`, and closes the
+  destination tab. `Hooks::onBeforePageDisplay` adds the
+  `wb-upload-token-failed` body class the iframe reader uses;
+  `resources/uploadmeta.js` fires `embeddableContent.uploadmeta.failed` when
+  its Wikimedia blob conversion aborts; `filepage.js` renders an explicit
+  "Upload another from same author" link for a reopened File: page.
 
 - **Rich content + math note + content-page reference toolbar (ADR
   `docs/decisions/rich-content-and-math-note.md` +
@@ -1640,7 +1665,7 @@ report). See `SimpleMathJax/VENDORED.md`.
   static-translation switcher (`{{Languages}}`) is included by default on
   every content page — `Hooks::onOutputPageBeforeHTML` prepends it at render
   time on article views in `$wgLanguageBarNamespaces` (the instance sets
-  Main/Help/Cheatsheets/HowItWorks/FOSS/Person/Source/Collective/Software;
+  Main/Help/Cheatsheet/HowItWorks/FOSS/Person/Source/Collective/Software;
   entity, Template, Category, MediaWiki, Special, talk, Forum and the gated
   RonzzIT:/RonzzInt: namespaces are excluded). It skips a page already
   rendering a bar (an explicit `{{Languages}}`), a `/fr`/`/eo` translation

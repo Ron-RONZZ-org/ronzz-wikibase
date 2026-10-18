@@ -769,6 +769,8 @@
 			var known = lastMeta[ cfg.urlField ] || {};
 			if ( known.fileSize && known.fileSize > MAX_BLOB_BYTES ) {
 				$status.text( mw.msg( 'embeddablecontent-uploadmeta-bytesize' ) ).show();
+				// uploadform.js uses this to close its pre-opened destination tab.
+				mw.hook( 'embeddableContent.uploadmeta.failed' ).fire();
 				e.preventDefault();
 				return false;
 			}
@@ -818,6 +820,7 @@
 					if ( !$file.length ) {
 						if ( tries <= 0 ) {
 							$status.text( mw.msg( 'embeddablecontent-uploadmeta-browserfetch-failed' ) ).show();
+							mw.hook( 'embeddableContent.uploadmeta.failed' ).fire();
 							return;
 						}
 						setTimeout( function () { fillAndSubmit( tries - 1 ); }, 50 );
@@ -880,6 +883,7 @@
 				fillAndSubmit( 40 );
 			} ).catch( function ( err ) {
 				$status.text( String( err && err.message ? err.message : mw.msg( 'embeddablecontent-uploadmeta-browserfetch-failed' ) ) ).show();
+				mw.hook( 'embeddableContent.uploadmeta.failed' ).fire();
 			} );
 			return false;
 		} );

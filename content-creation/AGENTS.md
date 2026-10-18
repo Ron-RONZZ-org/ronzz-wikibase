@@ -83,11 +83,11 @@ Deployment context: see [repo root AGENTS.md](../AGENTS.md) for the ronzz-wikiba
     rendered example, use a styled paragraph instead:
     `<p style="font-size:2em;font-weight:bold;">` (inline `style` survives
     the sanitizer; heading tags don't). See
-    https://wikibase.ronzz.org/wiki/Cheatsheets:Markdown#Basic_example:_Pancake_recipe
+    https://wikibase.ronzz.org/wiki/Cheatsheet:Markdown#Basic_example:_Pancake_recipe
     — the browser column uses styled paragraphs.
   - **`<input type="checkbox">` is escaped** — task-list visuals render as
     literal text. Use ☑/☐ glyphs plus a one-line note. See
-    https://wikibase.ronzz.org/wiki/Cheatsheets:Markdown#GFM_extensions.
+    https://wikibase.ronzz.org/wiki/Cheatsheet:Markdown#GFM_extensions.
   - **Don't write `<tbody>`** — it leaks as literal text; MediaWiki adds
     its own `<tbody>` to a raw `<table>`.
   - **`<code>` inside `<pre>` is escaped** — use a bare `<pre>` for a
@@ -100,8 +100,8 @@ Deployment context: see [repo root AGENTS.md](../AGENTS.md) for the ronzz-wikiba
     at the top and keep the page as syntax reference.
   - **Don't duplicate a sibling cheatsheet** — if another page covers the
     syntax you need, link it and document only what's unique (see
-    https://wikibase.ronzz.org/wiki/Cheatsheets:Quarto, whose intro defers
-    all Markdown syntax to Cheatsheets:markdown).
+    https://wikibase.ronzz.org/wiki/Cheatsheet:Quarto, whose intro defers
+    all Markdown syntax to Cheatsheet:markdown).
   - **Generic content, not instance-coupled** — write against a well-known
     public reference (Wikidata); instance-specific facts (endpoints,
     prefixes, property IDs) belong on the instance's own page (e.g.
@@ -113,11 +113,11 @@ Deployment context: see [repo root AGENTS.md](../AGENTS.md) for the ronzz-wikiba
     reader sees it (a rendered table, list or styled block), not the raw
     intermediate form. When the conversion chain matters (source →
     compiled → rendered), show the stages side by side in one table (see
-    https://wikibase.ronzz.org/wiki/Cheatsheets:Markdown#Basic_example:_Pancake_recipe).
+    https://wikibase.ronzz.org/wiki/Cheatsheet:Markdown#Basic_example:_Pancake_recipe).
   - **Keep source and result distinguishable** — show source blocks plain
     so their syntax markers stay visible, and the result in its rendered
     form; if both look alike, the reader cannot tell them apart (see
-    https://wikibase.ronzz.org/wiki/Cheatsheets:Markdown#Code — the
+    https://wikibase.ronzz.org/wiki/Cheatsheet:Markdown#Code — the
     fenced-block example).
   - **Verify every example live before writing it** — run the query against
     the endpoint; IDs, counts and outputs change and must be current
@@ -126,12 +126,12 @@ Deployment context: see [repo root AGENTS.md](../AGENTS.md) for the ronzz-wikiba
     (and its wrong result) next to the fixed one, both **inside** the
     `<blockquote>`, as a Source/Result table (negative row + positive row)
     rather than prose (see
-    https://wikibase.ronzz.org/wiki/Cheatsheets:Markdown#Emphasis and
-    https://wikibase.ronzz.org/wiki/Cheatsheets:SPARQL#FILTER).
+    https://wikibase.ronzz.org/wiki/Cheatsheet:Markdown#Emphasis and
+    https://wikibase.ronzz.org/wiki/Cheatsheet:SPARQL#FILTER).
   - **Notes live under the construct they concern** — place each gotcha in
     the section that covers the construct, never grouped at the page end
-    (see https://wikibase.ronzz.org/wiki/Cheatsheets:Markdown#Emphasis and
-    https://wikibase.ronzz.org/wiki/Cheatsheets:Markdown#Escaping). The
+    (see https://wikibase.ronzz.org/wiki/Cheatsheet:Markdown#Emphasis and
+    https://wikibase.ronzz.org/wiki/Cheatsheet:Markdown#Escaping). The
     `<blockquote>` already signals "note" — don't write the word "Gotcha"
     on the page.
   - **Compare with without/with side-by-side** — for modifiers (DISTINCT,
@@ -141,12 +141,12 @@ Deployment context: see [repo root AGENTS.md](../AGENTS.md) for the ronzz-wikiba
     spellings of a construct produce the same result, put the variants side
     by side in N columns and show a single rendered result underneath;
     elide irrelevant rows with `| ...||...|` (see
-    https://wikibase.ronzz.org/wiki/Cheatsheets:Markdown#Lists — the
+    https://wikibase.ronzz.org/wiki/Cheatsheet:Markdown#Lists — the
     marker and numbering tables).
   - **Subsections for construct families** — split a family of related
     constructs into `===` subsections so the TOC nests and each construct
     gets room to breathe (see
-    https://wikibase.ronzz.org/wiki/Cheatsheets:Markdown#Lists —
+    https://wikibase.ronzz.org/wiki/Cheatsheet:Markdown#Lists —
     subsections Unordered / Ordered).
   - **One running example, established at the top** — reuse it throughout
     the page so readers build familiarity.
@@ -155,7 +155,7 @@ Deployment context: see [repo root AGENTS.md](../AGENTS.md) for the ronzz-wikiba
   - **Use real entity IDs, verified at authoring time** (P1 = instance of,
     Q1 = Spike test item — see Constraints and Invariants).
 - **Technology dissections (`HowItWorks:` namespace)** — the explanatory
-  layer that parallels the Cheatsheets reference layer (issue #23): sheets
+  layer that parallels the Cheatsheet reference layer (issue #23): sheets
   assume the reader knows the topic ("quick ref"); dissections assume **no
   prior knowledge** and explain the mechanism:
   - **Parts → flow → why**: name the components and their roles first, then
@@ -176,7 +176,7 @@ Deployment context: see [repo root AGENTS.md](../AGENTS.md) for the ronzz-wikiba
     table inside `<blockquote>`, placed under the construct they concern
     (see https://wikibase.ronzz.org/wiki/HowItWorks:MediaWiki#Gotchas_&_myths).
   - **Cross-link to the reference layer** — sheet = syntax, dissection =
-    machinery (e.g. `Cheatsheets:SPARQL` ↔ a future `HowItWorks:WDQS`).
+    machinery (e.g. `Cheatsheet:SPARQL` ↔ a future `HowItWorks:WDQS`).
   - **Hub is `HowItWorks:Main`** redirecting to `Category:HowItWorks`; the
     category description carries the index table (technology / what it
     dissects / audience).

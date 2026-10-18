@@ -1,5 +1,5 @@
 <div style="border:1px solid #c8ccd1;background:#f8f9fa;padding:0.5em 1em;margin-bottom:1em;">
-'''Quick reference for smart people''' — part of our [[Cheatsheets:DesktopLinux | Linux cheatsheets collection]].
+'''Quick reference for smart people''' — part of our [[Cheatsheet:DesktopLinux | Linux cheatsheets collection]].
 </div>
 <includeonly>[[Category:Cheatsheets]]</includeonly>
 

@@ -1,0 +1,13 @@
+{
+	"@metadata": {
+		"authors": [
+			"ronzz.org"
+		],
+		"description": "Bascule rapide jour/nuit pour l'habillage Vector 2022.",
+		"license-name": "GPL-2.0-or-later"
+	},
+	"themetoggle-desc": "Bascule rapide jour/nuit pour l'habillage Vector 2022",
+	"themetoggle-dark": "Passer en mode sombre",
+	"themetoggle-light": "Passer en mode clair",
+	"themetoggle-save-failed": "La préférence de thème n'a pas pu être enregistrée ; elle ne s'applique qu'à cette page."
+}

@@ -30,8 +30,8 @@ class MirrorPathTest(unittest.TestCase):
 
     def test_subpage_becomes_directory(self):
         self.assertEqual(
-            "Cheatsheets/SPARQL/Examples.wiki",
-            wm.mirror_path("Cheatsheets", "Cheatsheets:SPARQL/Examples"),
+            "Cheatsheet/SPARQL/Examples.wiki",
+            wm.mirror_path("Cheatsheet", "Cheatsheet:SPARQL/Examples"),
         )
 
     def test_illegal_characters_are_replaced(self):
@@ -52,11 +52,11 @@ class MirrorPathTest(unittest.TestCase):
 class PathMapTest(unittest.TestCase):
 
     def test_builds_title_to_path(self):
-        entries = [("Set", ""), ("Cheatsheets:SPARQL", "Cheatsheets")]
+        entries = [("Set", ""), ("Cheatsheet:SPARQL", "Cheatsheet")]
         self.assertEqual(
             {
                 "Set": "Main/Set.wiki",
-                "Cheatsheets:SPARQL": "Cheatsheets/SPARQL.wiki",
+                "Cheatsheet:SPARQL": "Cheatsheet/SPARQL.wiki",
             },
             wm.build_path_map(entries),
         )
@@ -141,7 +141,7 @@ class NamespaceGuardTest(unittest.TestCase):
             wm.ensure_public_namespaces([9999], {0: ""})
 
     def test_public_namespaces_pass(self):
-        wm.ensure_public_namespaces([0, 2000], {0: "", 2000: "Cheatsheets"})
+        wm.ensure_public_namespaces([0, 2000], {0: "", 2000: "Cheatsheet"})
 
 
 class RemoveFileTest(unittest.TestCase):

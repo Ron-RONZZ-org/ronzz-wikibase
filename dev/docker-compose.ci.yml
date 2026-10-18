@@ -52,6 +52,7 @@ services:
       - ../extensions/GeoGebra:/var/www/html/extensions/GeoGebra:ro
       - ../extensions/CSVTable:/var/www/html/extensions/CSVTable:ro
       - ../extensions/Pyodide4MediaWiki:/var/www/html/extensions/Pyodide4MediaWiki:ro
+      - ../extensions/ThemeToggle:/var/www/html/extensions/ThemeToggle:ro
     depends_on:
       mysql:
         condition: service_healthy
