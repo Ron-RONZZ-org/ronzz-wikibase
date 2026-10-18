@@ -58,8 +58,9 @@ The user preferred the modern layout.
   `SkinTemplateNavigation::Universal`. A visual QA pass still covers the
   content-page toolbar, File: toolbar, print popup, Special:Upload,
   Add*/Update* forms, forum, search and the gated `RonzzIT:` pages.
-- `ThemeToggle` is loaded only on `vector-2022`; legacy users keep the stock
-  skin and no button.
+- `ThemeToggle` is registered on the Vector skins; its JS no-ops unless the
+  page is `skin-vector-2022`, so legacy users keep the stock skin and no
+  button.
 - The runbook's skin section and the stack table are corrected (modern default,
   legacy as an explicit `?useskin=vector` alternative).
 

@@ -3,13 +3,14 @@
 ## Purpose
 
 `extensions/ThemeToggle` adds a **sun/moon quick toggle** for the Vector 2022
-day/night theme. It is loaded only on the `vector-2022` skin and does not
+day/night theme. It is loaded on the Vector skins (`vector-2022` and `vector`); the client
+module no-ops unless the body carries `skin-vector-2022`. It does not
 introduce a second theme system.
 
 ## How it works
 
-- `BeforePageDisplay` (`includes/Hooks.php`) adds `ext.themeToggle` when the
-  skin name is `vector-2022`.
+- `BeforePageDisplay` (`includes/Hooks.php`) adds `ext.themeToggle` on the
+  Vector skins; the JS checks `body.skin-vector-2022`.
 - `resources/themeToggle.js` inserts a Codex icon button before the Vector
   2022 Appearance menu in the header.
 - The button reads the **effective** theme from the

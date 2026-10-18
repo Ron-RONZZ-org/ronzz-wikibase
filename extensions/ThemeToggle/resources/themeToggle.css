@@ -61,6 +61,12 @@ html.skin-theme-clientpref-night .wb-print-popup {
 	border-color: var(--border-color-base, #72777d);
 }
 
+html.skin-theme-clientpref-night .wb-embed-toolbar-btn:hover,
+html.skin-theme-clientpref-night .wb-embed-toolbar-lang:hover,
+html.skin-theme-clientpref-night .wb-embed-toolbar-style:hover {
+	background-color: var(--background-color-interactive, #27292d);
+}
+
 html.skin-theme-clientpref-night .mw-parser-output [style*="background:#f8f9fa"] {
 	background-color: var(--background-color-interactive-subtle, #202122) !important;
 }
@@ -97,6 +103,12 @@ html.skin-theme-clientpref-night .mw-parser-output [style*="border:1px solid #a2
 		background-color: var(--background-color-interactive-subtle, #202122);
 		color: var(--color-base, #eaecf0);
 		border-color: var(--border-color-base, #72777d);
+	}
+
+	html.skin-theme-clientpref-os .wb-embed-toolbar-btn:hover,
+	html.skin-theme-clientpref-os .wb-embed-toolbar-lang:hover,
+	html.skin-theme-clientpref-os .wb-embed-toolbar-style:hover {
+		background-color: var(--background-color-interactive, #27292d);
 	}
 
 	html.skin-theme-clientpref-os .mw-parser-output [style*="background:#f8f9fa"] {
