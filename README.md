@@ -127,7 +127,16 @@ The v1 plan lives in
 - `seed/` — instance bootstrap orchestrator (`seed_instance.py`), API client,
   dogfood entities, config/report emission, self-verification (idempotent,
   exact-label skip).
-- `tools/` — manifest generators + `fetch-smoke.php` (live provider smoke test) + `add-copy-to-syntaxhighlight.py` (enforces the on-wiki standard that every block-mode `<syntaxhighlight>` carries `copy`; `--audit`/`--dry-run`/`--apply`).
+- `tools/` — manifest generators, `fetch-smoke.php` (live provider smoke
+  test), `add-copy-to-syntaxhighlight.py` (block-mode `<syntaxhighlight>`
+  `copy` standardizer), `wiki_pages.py` (two-way `MediaWiki:`/`Template:`
+  sync, auto-discovering new interface pages) and `wiki_content_mirror.py`
+  (one-way public-content snapshot).
+- `wiki_pages/` — git mirror of the interface pages (`manifest.json` allowlist
+  + `state.json`), synced hourly from production and pushed on merge.
+- `wiki_content/` — generated, read-only snapshot of the public content
+  namespaces (Main, Cheatsheets, HowItWorks, FOSS, Person, Source, Collective,
+  Software), refreshed every 15 minutes. Do not edit by hand.
 - `tests/` — PHPUnit unit tests (pure-PHP logic, no MediaWiki runtime) and the
   `tests/e2e/` suites against a seeded live instance: `run_e2e.py`
   (acceptance + XSS) and `run_pages_e2e.py` (issue-#7 page flows:
