@@ -25,6 +25,26 @@ HTML;
 		);
 	}
 
+	public function testRawParserAfterTidyShapeUsesDataMwAnchor(): void {
+		// MW 1.46's ParserAfterTidy output has no id/legacy span yet: the
+		// anchor rides data-mw-anchor and the output transform adds the rest.
+		$html = <<<'HTML'
+<h3 data-mw-anchor="Symmetric_groups_$\mathcal{S}_{n}$" data-mw-fallback-anchor="Symmetric_groups_.24.5Cmathcal.7BS.7D_.7Bn.7D.24">Symmetric groups $\mathcal{S}_{n}$<mw:editsection page="X" section="1">edit</mw:editsection></h3>
+HTML;
+		$out = HeadingAnchors::inject( $html );
+		$this->assertStringContainsString(
+			'<span class="wb-section-auto-anchor" id="Symmetric_groups"></span>Symmetric groups',
+			$out
+		);
+	}
+
+	public function testRawShapeExplicitAnchorIsLeftAlone(): void {
+		$html = <<<'HTML'
+<h3 data-mw-anchor="Anchored_$x$" data-mw-fallback-anchor="Anchored_.24x.24"><span id="my_anchor"></span>Anchored $x$<mw:editsection page="X" section="1">edit</mw:editsection></h3>
+HTML;
+		$this->assertSame( $html, HeadingAnchors::inject( $html ) );
+	}
+
 	public function testExplicitAnchorIsLeftAlone(): void {
 		$html = <<<'HTML'
 <h3 id="Anchored_$x$"><span id="Anchored_.24x.24"></span><span id="my_anchor"></span>Anchored $x$</h3>

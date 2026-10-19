@@ -10,18 +10,22 @@ namespace EmbeddableContent\Spec;
  * `# < > [ ] | { }`), so `[[Page#anchor]]` links copied from the per-section
  * controls resolve in the initial HTML — no JavaScript required.
  *
- * MediaWiki already emits an empty legacy `<span id="…">` right after the
- * heading id when the id needs the legacy fragment encoding (`$`, `\`, `{`,
- * `}`, …). An explicit `{{anchor|…}}` span follows it. This pass only acts
- * when there is no explicit anchor: it computes the automatic anchor
- * (`Spec\SectionAnchor`) from the heading id and inserts the span AFTER the
- * legacy one, so the existing section-control rule ("last empty span wins")
- * picks the explicit anchor when present and the automatic one otherwise.
+ * MediaWiki 1.46's `ParserAfterTidy` output carries the heading anchor in
+ * `data-mw-anchor` (the final `id` attribute and the empty legacy
+ * `<span id="…">` are added later by the output transform). Older/parsed
+ * shapes carry the `id` and the legacy span directly. This pass supports
+ * both: it reads the anchor from `data-mw-anchor` (preferred) or `id`, skips
+ * a heading that already has an explicit `{{anchor|…}}` empty span, and
+ * inserts the automatic span into the heading content (after an
+ * already-rendered legacy span when the input is the final `id` shape). The
+ * section-control JS is class-scoped, so the explicit anchor still wins
+ * regardless of DOM order.
  *
  * The heading's own id is never changed, so previously working links keep
  * working; the automatic span is an additional alias. Ids are unique
  * case-insensitively (MediaWiki's T12721 rule), so a collision with any id
- * already on the page gets `_2`, `_3`, … .
+ * already on the page (`id`, `data-mw-anchor`, `data-mw-fallback-anchor`)
+ * gets `_2`, `_3`, … .
  *
  * Pure HTML transform (no MediaWiki runtime), unit-tested.
  *
@@ -65,10 +69,10 @@ final class HeadingAnchors {
 		$level = $match[1];
 		$attributes = $match[2];
 		$content = $match[3];
-		if ( preg_match( '/\bid="([^"]*)"/i', $attributes, $idMatch ) !== 1 ) {
+		$headingId = self::headingAnchor( $attributes );
+		if ( $headingId === null ) {
 			return $match[0];
 		}
-		$headingId = self::decode( $idMatch[1] );
 		$anchor = SectionAnchor::fromHeadingId( $headingId );
 		if ( $anchor === '' || $anchor === $headingId ) {
 			return $match[0];
@@ -98,6 +102,21 @@ final class HeadingAnchors {
 	}
 
 	/**
+	 * The heading anchor as it will appear in the final DOM: MediaWiki 1.46's
+	 * raw ParserAfterTidy markup carries it in `data-mw-anchor`, while the
+	 * final/output-transformed markup uses `id`.
+	 */
+	private static function headingAnchor( string $attributes ): ?string {
+		if ( preg_match( '/\bdata-mw-anchor="([^"]*)"/i', $attributes, $match ) === 1 ) {
+			return self::decode( $match[1] );
+		}
+		if ( preg_match( '/\bid="([^"]*)"/i', $attributes, $match ) === 1 ) {
+			return self::decode( $match[1] );
+		}
+		return null;
+	}
+
+	/**
 	 * @return string[] the decoded ids of every empty `<span id>` in the heading
 	 */
 	private static function emptySpans( string $content ): array {
@@ -121,18 +140,26 @@ final class HeadingAnchors {
 	}
 
 	/**
-	 * Every id already present on the page, lowercased for MediaWiki's
-	 * case-insensitive id uniqueness.
+	 * Every id already present on the page — `id`, plus the raw-shape
+	 * `data-mw-anchor` / `data-mw-fallback-anchor` that become ids in the
+	 * final DOM — lowercased for MediaWiki's case-insensitive id uniqueness.
 	 *
 	 * @return array<string,bool>
 	 */
 	private static function collectIds( string $html ): array {
 		$used = [];
-		if ( preg_match_all( '/\bid="([^"]*)"/i', $html, $matches ) === false ) {
+		if ( preg_match_all(
+			'/\b(?:id|data-mw-anchor|data-mw-fallback-anchor)="([^"]*)"/i',
+			$html,
+			$matches
+		) === false ) {
 			return $used;
 		}
 		foreach ( $matches[1] as $id ) {
-			$used[ strtolower( self::decode( $id ) ) ] = true;
+			$id = self::decode( $id );
+			if ( $id !== '' ) {
+				$used[ strtolower( $id ) ] = true;
+			}
 		}
 		return $used;
 	}

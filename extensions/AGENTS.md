@@ -758,9 +758,10 @@ report). See `SimpleMathJax/VENDORED.md`.
   it strips balanced `$…$` (keeping the math when the heading is math only)
   and replaces `# < > [ ] | { }` with `_`; `Spec\HeadingAnchors` (pure, run
   from `Hooks::onParserAfterTidy`) injects `<span
-  class="wb-section-auto-anchor" id="…">` after MediaWiki's legacy escaped
-  span for headings WITHOUT an explicit `{{anchor}}` (the heading's own id is
-  unchanged; new ids dedupe `_2`/`_3` case-insensitively).
+  class="wb-section-auto-anchor" id="…">` for headings WITHOUT an explicit
+  `{{anchor}}` — it reads `data-mw-anchor` in MW 1.46's raw ParserAfterTidy
+  markup and `id` in the final markup (the heading's own id is unchanged; new
+  ids dedupe `_2`/`_3` case-insensitively).
   `resources/sectionactions.js` prefers explicit `{{anchor}}` → automatic
   anchor → heading id, so the per-section mention/URL work on math headings
   without a hand-written anchor. Separately, `Spec\MentionSnippet` lowercases
