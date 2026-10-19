@@ -199,45 +199,6 @@ async function main() {
 			}
 		}
 
-		// The explicit opt-out: a Main-namespace page in the hidden
-		// Category:Proper name keeps its capital initial. The category is
-		// created idempotently (the ephemeral CI stack has no wiki_pages
-		// content; production already has it) and the scratch page is deleted.
-		const properNameTitle = `ProperNameUX${Date.now()}`;
-		await page.evaluate(async (title) => {
-			await new Promise((r) => mw.loader.using('mediawiki.api', r));
-			const api = new mw.Api();
-			try {
-				await api.postWithToken('csrf', {
-					action: 'edit', title: 'Category:Proper name', text: '__HIDDENCAT__', createonly: true,
-				});
-			} catch (e) { /* already exists — fine */ }
-			await api.postWithToken('csrf', {
-				action: 'edit', title, text: '[[Category:Proper name]]', createonly: true,
-			});
-		}, properNameTitle);
-		try {
-			await page.goto(`${BASE_URL}/wiki/${encodeURIComponent(properNameTitle)}`,
-				{ waitUntil: 'domcontentloaded', timeout: 60000 });
-			await page.waitForSelector('#ca-wb-content-copymention', { timeout: 15000 });
-			await page.locator('#ca-wb-content-copymention').click();
-			const copiedRef = await page.evaluate(() => navigator.clipboard.readText());
-			const expected = `[[${properNameTitle}]]`;
-			if (copiedRef !== expected) {
-				failures.push(`copy-mention on a Category:Proper name page copied ${JSON.stringify(copiedRef)}, expected ${expected}`);
-			} else {
-				console.log(`[ok] Category:Proper name keeps the capital initial (${properNameTitle})`);
-			}
-		} finally {
-			await page.waitForFunction(() => window.mw && window.mw.loader && typeof window.mw.loader.using === 'function');
-			await page.evaluate(async (title) => {
-				await new Promise((r) => mw.loader.using('mediawiki.api', r));
-				try {
-					await new mw.Api().postWithToken('csrf', { action: 'delete', title, format: 'json' });
-				} catch (e) { /* best-effort cleanup */ }
-			}, properNameTitle).catch(() => {});
-		}
-
 		// The "Print this page" button joins the CONTENT-page toolbar row
 		// (wbPrintToolbar='content') together with mention/citation — one row.
 		await page.goto(`${BASE_URL}/wiki/Main_Page`, { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -431,6 +392,46 @@ async function main() {
 		// evaluate uses.
 		await page.waitForFunction(() =>
 			window.mw && window.mw.loader && typeof window.mw.loader.using === 'function');
+
+		// The explicit opt-out (requires the login above): a Main-namespace
+		// page in the hidden Category:Proper name keeps its capital initial.
+		// The category is created idempotently (the ephemeral CI stack has no
+		// wiki_pages content; production already has it) and the scratch page
+		// is deleted.
+		const properNameTitle = `ProperNameUX${Date.now()}`;
+		await page.evaluate(async (title) => {
+			await new Promise((r) => mw.loader.using('mediawiki.api', r));
+			const api = new mw.Api();
+			try {
+				await api.postWithToken('csrf', {
+					action: 'edit', title: 'Category:Proper name', text: '__HIDDENCAT__', createonly: true,
+				});
+			} catch (e) { /* already exists — fine */ }
+			await api.postWithToken('csrf', {
+				action: 'edit', title, text: '[[Category:Proper name]]', createonly: true,
+			});
+		}, properNameTitle);
+		try {
+			await page.goto(`${BASE_URL}/wiki/${encodeURIComponent(properNameTitle)}`,
+				{ waitUntil: 'domcontentloaded', timeout: 60000 });
+			await page.waitForSelector('#ca-wb-content-copymention', { timeout: 15000 });
+			await page.locator('#ca-wb-content-copymention').click();
+			const copiedRef = await page.evaluate(() => navigator.clipboard.readText());
+			const expected = `[[${properNameTitle}]]`;
+			if (copiedRef !== expected) {
+				failures.push(`copy-mention on a Category:Proper name page copied ${JSON.stringify(copiedRef)}, expected ${expected}`);
+			} else {
+				console.log(`[ok] Category:Proper name keeps the capital initial (${properNameTitle})`);
+			}
+		} finally {
+			await page.waitForFunction(() => window.mw && window.mw.loader && typeof window.mw.loader.using === 'function');
+			await page.evaluate(async (title) => {
+				await new Promise((r) => mw.loader.using('mediawiki.api', r));
+				try {
+					await new mw.Api().postWithToken('csrf', { action: 'delete', title, format: 'json' });
+				} catch (e) { /* best-effort cleanup */ }
+			}, properNameTitle).catch(() => {});
+		}
 
 		// --- Section copy controls + "Add section" append flow -----------
 		// A scratch content page with two headings: the per-section "Copy
