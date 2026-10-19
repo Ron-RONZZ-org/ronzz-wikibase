@@ -24,12 +24,17 @@
  * (and loads this module) on the same content-page branch as the page-level
  * toolbar.
  *
- * The section anchor is the explicit `{{anchor|…}}` target when the heading
- * carries one, otherwise the heading's `id`. MediaWiki normalizes either form
- * (spaces → underscores), so it is valid both in a wikitext `#…` fragment and
- * in a URL. A heading whose generated id contains math/formatting characters
- * (`$ \ { } [ ] | < >`) also carries a legacy escaped `<span id>`; the
- * explicit anchor spans follow it, so the LAST empty span is the useful one.
+ * The section anchor preference is:
+ *   1. an explicit `{{anchor|…}}` target (the contributor's choice);
+ *   2. the automatic anchor the server injects for a heading whose generated
+ *      id contains math or an illegal fragment character
+ *      (`Spec\HeadingAnchors`, `<span class="wb-section-auto-anchor">`);
+ *   3. the heading's own `id`.
+ * MediaWiki normalizes all three (spaces → underscores), so they are valid
+ * both in a wikitext `#…` fragment and in a URL. A heading whose generated
+ * id contains math/formatting characters (`$ \ { } [ ] | < >`) also carries
+ * a legacy escaped `<span id>`; the explicit/anchor spans follow it, so the
+ * LAST non-automatic empty span is the explicit one.
  */
 ( function () {
 	'use strict';
@@ -83,6 +88,8 @@
 	 * anchor(s) follow the legacy span: prefer the LAST empty span whose id
 	 * differs from the heading id. A single span on a linkable heading is an
 	 * explicit anchor; a single span on an escaped heading is the legacy id.
+	 * The server-injected automatic anchor (`wb-section-auto-anchor`) is a
+	 * fallback, not an explicit choice, so it is skipped here.
 	 *
 	 * @param {jQuery} $heading
 	 * @return {?string}
@@ -92,6 +99,9 @@
 		var candidates = [];
 		$heading.find( 'span[id]' ).each( function () {
 			var $span = $( this );
+			if ( $span.hasClass( 'wb-section-auto-anchor' ) ) {
+				return;
+			}
 			if ( $span.children().length > 0 || $span.text() !== '' ) {
 				return;
 			}
@@ -116,6 +126,19 @@
 	}
 
 	/**
+	 * The automatic anchor the server injected for a heading whose generated
+	 * id cannot be used in a fragment (math / illegal characters). Scoped
+	 * class, so an explicit `{{anchor}}` always remains the first choice.
+	 *
+	 * @param {jQuery} $heading
+	 * @return {?string}
+	 */
+	function autoAnchor( $heading ) {
+		var $span = $heading.find( 'span.wb-section-auto-anchor[id]' ).last();
+		return $span.length > 0 && $span.attr( 'id' ) ? $span.attr( 'id' ) : null;
+	}
+
+	/**
 	 * The heading anchor of one `.mw-editsection`. MW 1.43+ wraps the heading:
 	 * `<div class="mw-heading"><h2 id="Anchor">…</h2><span class="mw-editsection">…</span></div>`;
 	 * the id sits on the heading element (older markup) or, defensively, on
@@ -134,6 +157,10 @@
 			var explicit = explicitAnchor( $heading );
 			if ( explicit ) {
 				return explicit;
+			}
+			var auto = autoAnchor( $heading );
+			if ( auto ) {
+				return auto;
 			}
 			if ( $heading.attr( 'id' ) ) {
 				return $heading.attr( 'id' );

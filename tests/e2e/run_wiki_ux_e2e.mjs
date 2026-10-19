@@ -177,11 +177,11 @@ async function main() {
 		// --- classic content page: "Copy internal mention" ---------------
 		// The toolbar is inline inside the title (the File: page pattern) and
 		// copies a [[Page name]] internal link. In the Main namespace the
-		// first letter is lowercased unless the title is a proper name
-		// (every word capitalized): "Main Page" stays as-is, while
-		// "Classical mechanics" becomes [[classical mechanics]].
+		// first letter is lowercased (sentence case) UNLESS the page is in
+		// Category:Proper name — "Classical mechanics" becomes
+		// [[classical mechanics]], while a categorised page keeps its
+		// capital initial.
 		const mentionCases = [
-			[ 'Main_Page', '[[Main Page]]' ],
 			[ 'Classical_mechanics', '[[classical mechanics]]' ],
 		];
 		for ( const [ pageName, expected ] of mentionCases ) {
@@ -197,6 +197,45 @@ async function main() {
 			} else {
 				console.log(`[ok] content-page copy-mention button copies ${expected} (${pageName})`);
 			}
+		}
+
+		// The explicit opt-out: a Main-namespace page in the hidden
+		// Category:Proper name keeps its capital initial. The category is
+		// created idempotently (the ephemeral CI stack has no wiki_pages
+		// content; production already has it) and the scratch page is deleted.
+		const properNameTitle = `ProperNameUX${Date.now()}`;
+		await page.evaluate(async (title) => {
+			await new Promise((r) => mw.loader.using('mediawiki.api', r));
+			const api = new mw.Api();
+			try {
+				await api.postWithToken('csrf', {
+					action: 'edit', title: 'Category:Proper name', text: '__HIDDENCAT__', createonly: true,
+				});
+			} catch (e) { /* already exists — fine */ }
+			await api.postWithToken('csrf', {
+				action: 'edit', title, text: '[[Category:Proper name]]', createonly: true,
+			});
+		}, properNameTitle);
+		try {
+			await page.goto(`${BASE_URL}/wiki/${encodeURIComponent(properNameTitle)}`,
+				{ waitUntil: 'domcontentloaded', timeout: 60000 });
+			await page.waitForSelector('#ca-wb-content-copymention', { timeout: 15000 });
+			await page.locator('#ca-wb-content-copymention').click();
+			const copiedRef = await page.evaluate(() => navigator.clipboard.readText());
+			const expected = `[[${properNameTitle}]]`;
+			if (copiedRef !== expected) {
+				failures.push(`copy-mention on a Category:Proper name page copied ${JSON.stringify(copiedRef)}, expected ${expected}`);
+			} else {
+				console.log(`[ok] Category:Proper name keeps the capital initial (${properNameTitle})`);
+			}
+		} finally {
+			await page.waitForFunction(() => window.mw && window.mw.loader && typeof window.mw.loader.using === 'function');
+			await page.evaluate(async (title) => {
+				await new Promise((r) => mw.loader.using('mediawiki.api', r));
+				try {
+					await new mw.Api().postWithToken('csrf', { action: 'delete', title, format: 'json' });
+				} catch (e) { /* best-effort cleanup */ }
+			}, properNameTitle).catch(() => {});
 		}
 
 		// The "Print this page" button joins the CONTENT-page toolbar row
@@ -401,9 +440,15 @@ async function main() {
 		const sectionTitle = `Section UX ${Date.now()}`;
 		// The third heading carries an explicit anchor before a math heading:
 		// MediaWiki adds a legacy escaped span for the `$…$` id AND our anchor
-		// span, exactly the Permutation#sign_composition shape.
+		// span, exactly the Permutation#sign_composition shape. The later
+		// headings cover the automatic anchors: mixed math (stripped), math
+		// only (normalised math kept), and plain text (the generated id is
+		// already linkable).
 		const sectionText = '== First section ==\n\nBody one.\n\n== Second section ==\n\n'
-			+ 'Body two.\n\n=== <span id="my_anchor"></span>Anchored $x$ ===\n\nBody three.';
+			+ 'Body two.\n\n=== <span id="my_anchor"></span>Anchored $x$ ===\n\nBody three.\n\n'
+			+ '=== Math heading $x$ ===\n\nBody four.\n\n'
+			+ '=== $\\mathcal{S}_{n}$ ===\n\nBody five.\n\n'
+			+ '=== Plain heading ===\n\nBody six.';
 		await page.waitForFunction(() => window.mw && window.mw.loader && typeof window.mw.loader.using === 'function');
 		await page.evaluate(async ([title, text]) => {
 			await new Promise((r) => mw.loader.using('mediawiki.api', r));
@@ -498,6 +543,110 @@ async function main() {
 				failures.push(`explicit-anchor copy-url copied ${JSON.stringify(anchorUrl)}, expected an absolute URL ending in #my_anchor`);
 			} else {
 				console.log('[ok] section copy-url uses the explicit anchor span');
+			}
+
+			// Automatic anchors: a mixed-math heading WITHOUT an explicit
+			// {{anchor}} gets the server-injected normalised span, and both
+			// copy controls use it.
+			await page.waitForSelector('.mw-editsection #wb-section-copymention-Math_heading', { timeout: 15000 });
+			const autoMixed = await page.evaluate(() => {
+				const span = document.querySelector('span.wb-section-auto-anchor#Math_heading');
+				const heading = span ? span.closest('h1,h2,h3,h4,h5,h6') : null;
+				return { exists: !!span, headingId: heading ? heading.id : null };
+			});
+			if (!autoMixed.exists) {
+				failures.push('a mixed-math heading has no automatic anchor (expected span.wb-section-auto-anchor#Math_heading)');
+			} else if (autoMixed.headingId !== 'Math_heading_$x$') {
+				failures.push(`the automatic anchor is not inside the math heading (heading id ${JSON.stringify(autoMixed.headingId)})`);
+			} else {
+				console.log('[ok] mixed-math heading gets the automatic anchor Math_heading');
+			}
+			await page.click('.mw-editsection #wb-section-copymention-Math_heading');
+			const autoMention = await page.evaluate(() => navigator.clipboard.readText());
+			const expectedAutoMention = await page.evaluate(() => {
+				const snippet = mw.config.get('wbReferenceSnippet');
+				return String(snippet).replace(/\]\]\s*$/, '') + '#Math_heading|';
+			});
+			if (autoMention !== expectedAutoMention) {
+				failures.push(`automatic-anchor copy-mention copied ${JSON.stringify(autoMention)}, expected ${JSON.stringify(expectedAutoMention)}`);
+			} else {
+				console.log('[ok] section copy-mention uses the automatic anchor');
+			}
+			await page.click('.mw-editsection #wb-section-copyurl-Math_heading');
+			const autoUrl = await page.evaluate(() => navigator.clipboard.readText());
+			if (!/^https?:\/\/.+#Math_heading$/.test(autoUrl)) {
+				failures.push(`automatic-anchor copy-url copied ${JSON.stringify(autoUrl)}, expected an absolute URL ending in #Math_heading`);
+			} else {
+				console.log('[ok] section copy-url uses the automatic anchor');
+			}
+
+			// Math-only heading: the math is kept (normalised) because
+			// stripping it would leave no anchor, and the control uses it.
+			const mathOnly = await page.evaluate(() => {
+				const heading = [ ...document.querySelectorAll( 'h1,h2,h3,h4,h5,h6' ) ]
+					.find((h) => h.id.includes('\\mathcal{S}'));
+				const span = heading ? heading.querySelector('span.wb-section-auto-anchor') : null;
+				return { headingId: heading ? heading.id : null, auto: span ? span.id : null };
+			});
+			if (!mathOnly.auto) {
+				failures.push('the math-only heading has no automatic anchor');
+			} else if (/[{}[\]|<>#]/.test(mathOnly.auto)) {
+				failures.push(`the math-only automatic anchor still has an illegal fragment character: ${JSON.stringify(mathOnly.auto)}`);
+			} else {
+				console.log(`[ok] math-only heading keeps the normalised math anchor (${mathOnly.auto})`);
+				const clicked = await page.evaluate((id) => {
+					const button = document.getElementById('wb-section-copymention-' + id);
+					if (!button) {
+						return false;
+					}
+					button.click();
+					return true;
+				}, mathOnly.auto);
+				await page.waitForTimeout(100);
+				if (!clicked) {
+					failures.push(`the math-only heading has no copy-mention control (anchor ${JSON.stringify(mathOnly.auto)})`);
+				} else {
+					const mathMention = await page.evaluate(() => navigator.clipboard.readText());
+					const expectedMathMention = await page.evaluate((anchor) => {
+						const snippet = mw.config.get('wbReferenceSnippet');
+						return String(snippet).replace(/\]\]\s*$/, '') + '#' + anchor + '|';
+					}, mathOnly.auto);
+					if (mathMention !== expectedMathMention) {
+						failures.push(`math-only copy-mention copied ${JSON.stringify(mathMention)}, expected ${JSON.stringify(expectedMathMention)}`);
+					} else {
+						console.log('[ok] math-only section copy-mention uses the normalised math anchor');
+					}
+				}
+			}
+
+			// A plain heading needs no alias: the generated id is used and no
+			// automatic span is injected.
+			await page.waitForSelector('.mw-editsection #wb-section-copymention-Plain_heading', { timeout: 15000 });
+			const plain = await page.evaluate(() => {
+				const heading = [ ...document.querySelectorAll( 'h1,h2,h3,h4,h5,h6' ) ]
+					.find((h) => h.id === 'Plain_heading');
+				return {
+					exists: !!heading,
+					auto: !!(heading && heading.querySelector('span.wb-section-auto-anchor')),
+				};
+			});
+			if (!plain.exists || plain.auto) {
+				failures.push('a plain heading must use its generated id (no automatic anchor span)');
+			} else {
+				console.log('[ok] plain heading keeps its generated id (no automatic anchor)');
+			}
+
+			// An explicit {{anchor}} heading must not also receive an automatic
+			// span (the explicit anchor wins).
+			const explicitHasAuto = await page.evaluate(() => {
+				const heading = [ ...document.querySelectorAll( 'h1,h2,h3,h4,h5,h6' ) ]
+					.find((h) => h.querySelector('span#my_anchor'));
+				return !!(heading && heading.querySelector('span.wb-section-auto-anchor'));
+			});
+			if (explicitHasAuto) {
+				failures.push('an explicit {{anchor}} heading also received an automatic anchor');
+			} else {
+				console.log('[ok] explicit {{anchor}} wins; no automatic anchor is injected');
 			}
 
 			// The append flow IS the built-in edit surface: the wpTextbox1

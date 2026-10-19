@@ -743,8 +743,8 @@ report). See `SimpleMathJax/VENDORED.md`.
   `content-page-reference-toolbar.md`)**: the ordinary content-page toolbar
   renders "Copy internal mention" (the renamed "Copy internal reference" —
   the snippet is resolved by the pure `Spec\MentionSnippet`: `[[Page name]]`
-  with the Main-namespace first letter lowercased unless the title is a
-  proper name; other namespaces kept) and "Copy citation", which opens the
+  with the Main-namespace first letter lowercased unless the page is in
+  `Category:Proper name`; other namespaces kept) and "Copy citation", which opens the
   citation popup for the PAGE itself (`action=citation&page=<title>` — type
   `webpage`, title + canonical URL + last-revision date, no author,
   `PageCitationBuilder` + `CitationEngine::renderPage`). The item citation
@@ -752,6 +752,25 @@ report). See `SimpleMathJax/VENDORED.md`.
   URL` wins) and its LAST-edition year (the latest `date`), and the source
   type map maps `web page` → `webpage` (re-publish the citation maps on
   deploy).
+- **Automatic section anchors + `Category:Proper name` (ADR
+  `docs/decisions/section-auto-anchors-and-proper-name-category.md`)**:
+  `Spec\SectionAnchor` (pure) derives a linkable anchor from a heading id —
+  it strips balanced `$…$` (keeping the math when the heading is math only)
+  and replaces `# < > [ ] | { }` with `_`; `Spec\HeadingAnchors` (pure, run
+  from `Hooks::onParserAfterTidy`) injects `<span
+  class="wb-section-auto-anchor" id="…">` after MediaWiki's legacy escaped
+  span for headings WITHOUT an explicit `{{anchor}}` (the heading's own id is
+  unchanged; new ids dedupe `_2`/`_3` case-insensitively).
+  `resources/sectionactions.js` prefers explicit `{{anchor}}` → automatic
+  anchor → heading id, so the per-section mention/URL work on math headings
+  without a hand-written anchor. Separately, `Spec\MentionSnippet` lowercases
+  the Main-namespace first letter unless the page is in the hidden
+  `Category:Proper name` (the old "every word uppercase" heuristic is gone);
+  `Hooks::wireSectionControls` reads `OutputPage::getCategories()`. Deploy =
+  extension rsync + php-fpm restart + **parser cache purge** (ParserAfterTidy
+  output changed) + the category page/backfill on-wiki. Tests:
+  `SectionAnchorTest`/`HeadingAnchorsTest`/`MentionSnippetTest` +
+  `run_wiki_ux_e2e.mjs`.
 - **Autofill confirm + Special:Update\* pages (autofill-confirm-update
   batch, ADR `docs/decisions/autofill-confirm-update.md`)**: entity-typed
   fields auto-filled from fetched source data (license on Special:Upload /

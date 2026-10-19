@@ -10,10 +10,11 @@ namespace EmbeddableContent\Spec;
  * resource module that renders the button.
  *
  * The snippet is a plain internal link `[[Page name]]`. In the MAIN
- * namespace the first letter is lowercased (sentence case) UNLESS the title
- * is a proper name — "every word starts with an uppercase letter"
- * ("Albert Einstein", "Main Page", a single capitalised word). Titles in
- * every other namespace are left exactly as the page title reads
+ * namespace the first letter is lowercased (sentence case) UNLESS the page
+ * is in Category:Proper name — the explicit opt-out that replaced the old
+ * "every word starts with an uppercase letter" heuristic (which kept every
+ * capitalised single word, e.g. "Permutation"). Titles in every other
+ * namespace are left exactly as the page title reads
  * (`Help:Contributing`, never `help:Contributing`).
  *
  * MediaWiki's capital-links rule makes the first letter of a Main-namespace
@@ -25,37 +26,31 @@ namespace EmbeddableContent\Spec;
 final class MentionSnippet {
 
 	/**
+	 * The category that keeps a Main-namespace title's capital initial
+	 * (the page must be a member; the category page itself is hidden).
+	 */
+	public const PROPER_NAME_CATEGORY = 'Proper name';
+
+	/**
 	 * @param string $prefixedText the page's prefixed title (e.g. "Main Page",
 	 *  "Help:Contributing")
 	 * @param bool $isMainNamespace whether the page lives in the Main namespace
+	 * @param bool $isProperName whether the page is in Category:Proper name
 	 * @return string the `[[…]]` snippet, or '' for an empty title
 	 */
-	public static function fromPrefixedTitle( string $prefixedText, bool $isMainNamespace ): string {
+	public static function fromPrefixedTitle(
+		string $prefixedText,
+		bool $isMainNamespace,
+		bool $isProperName = false
+	): string {
 		$text = trim( $prefixedText );
 		if ( $text === '' ) {
 			return '';
 		}
-		if ( $isMainNamespace && !self::isProperName( $text ) ) {
+		if ( $isMainNamespace && !$isProperName ) {
 			$text = self::lowercaseFirstLetter( $text );
 		}
 		return '[[' . $text . ']]';
-	}
-
-	/**
-	 * True when every whitespace-separated word begins with an uppercase
-	 * letter — the proper-name signal that suppresses the lowercasing.
-	 */
-	private static function isProperName( string $text ): bool {
-		$words = preg_split( '/\s+/u', $text, -1, PREG_SPLIT_NO_EMPTY );
-		if ( $words === false || $words === [] ) {
-			return false;
-		}
-		foreach ( $words as $word ) {
-			if ( preg_match( '/^\p{Lu}/u', $word ) !== 1 ) {
-				return false;
-			}
-		}
-		return true;
 	}
 
 	/**

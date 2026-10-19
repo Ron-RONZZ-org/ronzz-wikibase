@@ -41,8 +41,9 @@ Two distinct citation targets exist:
 - The old "Copy internal reference" button is renamed **"Copy internal
   mention"**; its snippet is resolved server-side by the pure
   `Spec\MentionSnippet` (`[[Page name]]`, Main-namespace first letter
-  lowercased unless the title is a proper name; other namespaces kept) — see
-  `content-page-reference-toolbar.md`.
+  lowercased unless the page is in `Category:Proper name`; other namespaces
+  kept) — see `content-page-reference-toolbar.md` and
+  `section-auto-anchors-and-proper-name-category.md`.
 - A **"Copy citation"** button is added; it opens the shared citation popup
   for the PAGE (`wbCitePage`), not a sitelinked item.
 

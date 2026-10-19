@@ -1,6 +1,8 @@
 # Decision: classic content-page action toolbar ("Copy internal mention")
 
-- **Status**: Accepted (Oct 1 2026; renamed + normalized Oct 7 2026)
+- **Status**: Accepted (Oct 1 2026; renamed + normalized Oct 7 2026; the
+  proper-name rule replaced by `Category:Proper name` on Oct 19 2026 — see
+  `section-auto-anchors-and-proper-name-category.md`)
 - **Scope**: `wikibase.ronzz.org` — ordinary content pages (Main, Help,
   Cheatsheets, HowItWorks, …), `includes/Hooks.php` + a new
   `resources/contentpagetoolbar.js`
@@ -32,9 +34,10 @@ copies the page's `[[…]]` snippet to the clipboard.
   `ext.embeddableContent.contentpagetoolbar`.
 - `Spec\MentionSnippet` (pure, unit-tested) builds `[[Page name]]`: in the
   **Main namespace** the first letter is lowercased (sentence case) UNLESS
-  the title is a proper name — every word starting with an uppercase letter
-  ("Albert Einstein", "Main Page", a single capitalised word). Titles in
-  every other namespace are left exactly as the page title reads
+  the page is in **`Category:Proper name`** — the explicit opt-out added
+  Oct 19 2026, which replaced the old "every word starts uppercase"
+  heuristic (that kept every capitalised single word, e.g. `Permutation`).
+  Titles in every other namespace are left exactly as the page title reads
   (`Help:Contributing`). MediaWiki's capital-links rule makes the Main
   first letter case-insensitive, so the lowercased form resolves identically.
 - `resources/contentpagetoolbar.js` renders the button with the same
@@ -56,5 +59,6 @@ copies the page's `[[…]]` snippet to the clipboard.
 - No DB / vocabulary / config-map change.
 - Regression coverage: `run_wiki_ux_e2e.mjs` asserts the button is inline
   in the title and copies the normalized snippet byte-for-byte
-  (`[[Main Page]]` — proper name; `[[classical mechanics]]` — sentence case),
-  and `MentionSnippetTest` covers the normalization rule.
+  (`[[classical mechanics]]` — sentence case; a `Category:Proper name`
+  scratch page keeps its capital initial), and `MentionSnippetTest` covers
+  the normalization rule.

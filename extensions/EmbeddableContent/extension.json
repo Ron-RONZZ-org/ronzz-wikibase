@@ -236,6 +236,7 @@
 		"BeforePageRedirect": "main",
 		"SkinTemplateNavigation::Universal": "main",
 		"ParserFirstCallInit": "main",
+		"ParserAfterTidy": "main",
 		"UploadFormInitDescriptor": "upload",
 		"UploadFormSourceDescriptors": "upload",
 		"UploadForm:BeforeProcessing": "upload",

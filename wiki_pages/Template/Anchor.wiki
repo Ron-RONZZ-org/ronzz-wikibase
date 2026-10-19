@@ -1,9 +1,17 @@
 <includeonly><span id="{{{1|}}}"></span></includeonly><noinclude>
 '''Usage:''' <code><nowiki>{{anchor|Anchor_name}}</nowiki></code> creates the link target <code>#Anchor_name</code> on the current page.
 
-Use it for sections whose generated heading anchor cannot be linked to, for example a heading containing math: <code>{</code> and <code>}</code> are illegal in page titles, so <code><nowiki>[[Page#Heading_with_$\mathcal{S}_{n}$]]</nowiki></code> is never parsed as a link. The same applies to <code># &lt; &gt; [ ] |</code>.
+'''Every heading already gets a link target automatically.''' A heading that mixes text and math is normalised: the <code>$…$</code> math is dropped (a heading that is ONLY math keeps it), and the characters that cannot appear in a fragment — <code># &lt; &gt; [ ] | { }</code> — become <code>_</code>. So this needs no template call:
+
+<code><nowiki>=== Symmetric groups $\mathcal{S}_{n}$ ===</nowiki></code> → <code><nowiki>[[Page#Symmetric_groups]]</nowiki></code>
+
+The section's <code>[Copy internal mention]</code> and <code>[Copy URL]</code> use that anchor.
+
+Use this template when you want a different, readable anchor — especially for a math-only heading or a long heading. It '''wins''' over the automatic anchor:
+
+<code><nowiki>=== {{anchor|sign composition}} $\operatorname{sign}(\sigma_1 \circ \sigma_2)$ ===</nowiki></code> → <code><nowiki>[[Permutation#sign composition]]</nowiki></code>
+
+The anchor must not contain any of <code># &lt; &gt; [ ] | { }</code>; prefer <code>_</code> instead of spaces (the automatic anchors use it). This wiki does not have ParserFunctions, so there is no multi-anchor form: call the template once per anchor.
 
 Place the call at the start of the heading (<code>=== <nowiki>{{anchor|Name}}</nowiki>Heading ===</code>) or at the start of the section body on the same line as the text. A call alone on its own line produces an empty paragraph.
-
-The anchor must not contain spaces or any of <code># &lt; &gt; [ ] | { }</code>. This wiki does not have ParserFunctions, so there is no multi-anchor form: call the template once per anchor.
 </noinclude>
