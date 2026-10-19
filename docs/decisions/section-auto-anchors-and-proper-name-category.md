@@ -36,13 +36,16 @@ Two editor-facing link conventions were manual:
     math, because stripping it would leave no anchor at all;
   - replace `# < > [ ] | { }` with `_`, collapse runs of `_`, trim `_`.
 - **`Spec\HeadingAnchors`** (pure, unit-tested) runs from
-  `Hooks::onParserAfterTidy`. For each `<h1>`–`<h6>` whose generated id needs
-  normalisation and that has **no explicit `{{anchor}}`**, it injects
-  `<span class="wb-section-auto-anchor" id="…"></span>` **after** MediaWiki's
-  legacy escaped span (the explicit-anchor span shape). The heading's own id
-  is never changed, so existing links keep working; the auto span is an
-  additional alias. New ids are deduplicated case-insensitively (`_2`, `_3`,
-  …) against every id already on the page.
+  `Hooks::onParserAfterTidy`. For each `<h1>`–`<h6>` whose generated anchor
+  needs normalisation and that has **no explicit `{{anchor}}`**, it injects
+  `<span class="wb-section-auto-anchor" id="…"></span>` into the heading
+  content (after MediaWiki's legacy escaped span when the final `id` shape
+  already carries one; MW 1.46's raw `ParserAfterTidy` shape carries the
+  anchor in `data-mw-anchor` and adds the `id`/legacy span in the output
+  transform). The heading's own id is never changed, so existing links keep
+  working; the auto span is an additional alias. New ids are deduplicated
+  case-insensitively (`_2`, `_3`, …) against every id already on the page
+  (`id`, `data-mw-anchor`, `data-mw-fallback-anchor`).
 - **`resources/sectionactions.js`** preference: explicit `{{anchor}}` →
   automatic anchor → generated heading id. The explicit anchor stays the
   contributor's override; both copy controls (mention and URL) use the same
