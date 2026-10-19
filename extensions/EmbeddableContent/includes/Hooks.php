@@ -655,11 +655,30 @@ class Hooks {
 	}
 
 	/**
+	 * Adds the automatic section anchors to the parsed HTML: a heading whose
+	 * generated id contains math or an illegal fragment character gets an
+	 * empty `<span id="…">` derived by Spec\SectionAnchor, so the per-section
+	 * "Copy internal mention" / "Copy URL" controls can link to it without a
+	 * hand-written `{{anchor}}` (an explicit anchor still wins).
+	 *
+	 * `ParserAfterTidy` is the same point CodeBlockSpaces uses: the heading
+	 * markup and MediaWiki's legacy escaped span already exist, and the parser
+	 * cache stores the transformed HTML. Changing this pass requires a parser
+	 * cache purge on deploy.
+	 */
+	public static function onParserAfterTidy( Parser $parser, string &$text ): void {
+		$text = \EmbeddableContent\Spec\HeadingAnchors::inject( $text );
+	}
+
+	/**
 	 * The per-section controls (Copy internal mention / Copy URL / Add section
 	 * below / Delete section), loaded next to each heading's `[edit]` link on
 	 * every classic article page. `wbReferenceSnippet` is the server-resolved
 	 * `[[Page name]]` the section "Copy internal mention" control reuses
 	 * (Spec\MentionSnippet, the same snippet the page-level button copies).
+	 * A Main-namespace page in Category:Proper name keeps its capital initial
+	 * (the category is the explicit opt-out; every other Main title is
+	 * sentence-cased and resolves identically).
 	 */
 	private static function wireSectionControls(
 		OutputPage $out,
@@ -669,7 +688,12 @@ class Hooks {
 			'wbReferenceSnippet',
 			\EmbeddableContent\Spec\MentionSnippet::fromPrefixedTitle(
 				$title->getPrefixedText(),
-				$title->getNamespace() === NS_MAIN
+				$title->getNamespace() === NS_MAIN,
+				in_array(
+					\EmbeddableContent\Spec\MentionSnippet::PROPER_NAME_CATEGORY,
+					$out->getCategories(),
+					true
+				)
 			)
 		);
 		$out->addModules( 'ext.embeddableContent.sectionactions' );
