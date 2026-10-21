@@ -47,6 +47,9 @@ any checkout before booting the dev stack, and on the server after rsyncing
 the extension (see `RonzzIT:Runbook/Wikibase`). `resources/MathJax/` is
 gitignored (root `.gitignore`).
 
+MathJax 4.1.3 and `@mathjax/mathjax-newcm-font@4.1.3` are **Apache-2.0**
+(permissive, compatible with the repo's GPL-2.0-or-later).
+
 ### Why MathJax 4 (the `\overline` fix)
 
 MathJax 3's CHTML output draws `\overline`/`\underline` with a single

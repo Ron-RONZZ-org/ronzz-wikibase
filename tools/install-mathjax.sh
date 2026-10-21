@@ -139,9 +139,9 @@ if [ "$actual" != "$FONT_SENTINEL_SHA256" ]; then
 fi
 
 # Replace the previous install (v3 used an es5/ tree; v4 has a different
-# layout, so a plain overlay would leave stale files behind). staging/main is
-# inside a mktemp dir, so this rename is atomic on the same filesystem only if
-# it succeeds — a cross-device move falls back to the copy below.
+# layout, so a plain overlay would leave stale files behind). mktemp usually
+# lives on /tmp, which may be a different filesystem: the rename then fails
+# with EXDEV and the copy fallback installs the staged tree instead.
 rm -rf -- "$dest_dir"
 if ! mv "${staging}/main" "$dest_dir" 2>/dev/null; then
 	install -d -m 0755 "$dest_dir"
