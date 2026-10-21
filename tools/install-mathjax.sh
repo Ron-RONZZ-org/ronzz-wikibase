@@ -96,7 +96,7 @@ font_tmp="$(mktemp)"
 staging="$(mktemp -d)"
 trap 'rm -rf -- "$staging"; rm -f -- "$main_tmp" "$font_tmp"' EXIT
 
-if ! curl -fsSL -o "$main_tmp" "$MATHJAX_URL"; then
+if ! curl -fsSL --retry 5 --retry-delay 5 --connect-timeout 60 -o "$main_tmp" "$MATHJAX_URL"; then
 	echo "install-mathjax.sh: download failed: $MATHJAX_URL" >&2
 	exit 1
 fi
@@ -107,7 +107,7 @@ if [ "$actual" != "$MATHJAX_TARBALL_SHA256" ]; then
 	exit 1
 fi
 
-if ! curl -fsSL -o "$font_tmp" "$FONT_URL"; then
+if ! curl -fsSL --retry 5 --retry-delay 5 --connect-timeout 60 -o "$font_tmp" "$FONT_URL"; then
 	echo "install-mathjax.sh: download failed: $FONT_URL" >&2
 	exit 1
 fi

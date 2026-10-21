@@ -73,7 +73,7 @@ echo "install-geogebra.sh: installing GeoGebra ${GEOGEBRA_VERSION} → ${dest}/G
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
 
-if ! curl -fsSL -o "$tmp" "$BUNDLE_URL"; then
+if ! curl -fsSL --retry 5 --retry-delay 5 --connect-timeout 60 -o "$tmp" "$BUNDLE_URL"; then
 	echo "install-geogebra.sh: download failed: $BUNDLE_URL" >&2
 	exit 1
 fi
