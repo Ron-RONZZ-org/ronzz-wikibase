@@ -15,6 +15,7 @@ use MediaWiki\Html\Html;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Output\OutputPage;
 use MediaWiki\Parser\Parser;
+use MediaWiki\ResourceLoader\Context;
 use MediaWiki\Skin\SkinTemplate;
 use MediaWiki\SpecialPage\SpecialPage;
 use MediaWiki\Specials\SpecialSearch;
@@ -320,6 +321,27 @@ class Hooks {
 			return;
 		}
 		$redirect = wfAppendQuery( $redirect, $params );
+	}
+
+	/**
+	 * Point the Vector 2022 / Minerva typeahead at the classic-page client.
+	 *
+	 * Two problems made the dropdown useless on this instance: the skin's
+	 * default client calls the REST search route (/rest.php/v1/search/title),
+	 * which is not routed here (it 404s as a normal page), and Wikibase's
+	 * `enableEntitySearchUI` (now disabled) replaced it with an entity-only
+	 * client. `ext.embeddableContent.searchclient` implements the same client
+	 * interface over `action=opensearch` (page titles); entity labels stay in
+	 * the Special:Search "Items" section.
+	 *
+	 * Wikibase's own SkinPageReadyConfig hook returns early when
+	 * enableEntitySearchUI is false, so this assignment always runs.
+	 */
+	public static function onSkinPageReadyConfig( Context $context, array &$config ): bool {
+		if ( in_array( $context->getSkin(), [ 'vector-2022', 'minerva' ], true ) ) {
+			$config['searchModule'] = 'ext.embeddableContent.searchclient';
+		}
+		return true;
 	}
 
 	public static function onBeforePageDisplay( OutputPage $out, $skin ): void {

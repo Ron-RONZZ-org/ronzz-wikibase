@@ -635,10 +635,15 @@ report). See `SimpleMathJax/VENDORED.md`.
   prefix-only and is used by the comboboxes, not `Special:Search`. The
   section renders label + description + a `Special:EntityPage/Q…` link and a
   small `search.css` module; no CirrusSearch/Elasticsearch needed. The
-  on-type dropdown itself stays core `opensearch` (classic page titles):
+  on-type dropdown itself suggests **classic page titles**:
   `$wgWBRepoSettings['enableEntitySearchUI'] = false` (2026-10-21) removes
-  Wikibase's entity-only typeahead replacement — entities are surfaced by the
-  results-page section, not the suggestion box.
+  Wikibase's entity-only typeahead replacement, and
+  `ext.embeddableContent.searchclient` (set as the `searchModule` by
+  `Hooks::onSkinPageReadyConfig`) implements the Vector 2022 client over
+  `action=opensearch` — the skin's default client calls the unrouted
+  `/rest.php/v1/search/title` route (404) and cannot be used. The client
+  excludes the entity namespaces; entities are surfaced by the results-page
+  section, not the suggestion box.
 - **Add* form fixes batch (ADR `docs/decisions/add-forms-fixes-2026-09.md`)**:
   (a) **Combobox search is case-insensitive** (above) — `action=entitysearch`
   now `CONVERT`s the term column, so `APACHE`/`aPaChE` find "Apache License

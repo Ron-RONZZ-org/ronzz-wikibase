@@ -306,8 +306,10 @@ async function main() {
 		// classic page and must NOT call wbsearchentities.
 		{
 			const wbEntityRequests = [];
+			const openSearchRequests = [];
 			const recordWb = (req) => {
 				if (req.url().includes('wbsearchentities')) wbEntityRequests.push(req.url());
+				if (/[?&]action=opensearch(&|$)/.test(req.url())) openSearchRequests.push(req.url());
 			};
 			page.on('request', recordWb);
 			try {
@@ -328,8 +330,10 @@ async function main() {
 			}
 			if (wbEntityRequests.length > 0) {
 				failures.push(`${wbEntityRequests.length} wbsearchentities request(s) fired — the entity search UI is still enabled (expected classic-page opensearch only)`);
+			} else if (openSearchRequests.length === 0) {
+				failures.push('typeahead did not call action=opensearch (the classic-page search client is not wired)');
 			} else {
-				console.log('[ok] typeahead uses classic-page suggestions (no wbsearchentities)');
+				console.log('[ok] typeahead uses action=opensearch classic-page suggestions (no wbsearchentities)');
 			}
 		}
 

@@ -87,4 +87,21 @@ search namespaces. Item pages do not appear there (their titles are
 only — exactly the requested split: entities remain in the Special:Search
 "Items" section below the results, which is unaffected. Regression check:
 `run_wiki_ux_e2e.mjs` types a page-title fragment and asserts a classic-page
-suggestion plus the absence of `wbsearchentities` requests.
+suggestion, an `action=opensearch` request and the absence of
+`wbsearchentities` requests.
+
+### 2026-10-21 follow-up 2 — the skin's default client needs a custom module
+
+Vector 2022's default typeahead client calls the REST search route
+(`/rest.php/v1/search/title`). This wiki does not route `rest.php`: the
+request falls through to the normal page controller and 404s
+(`Rest.php/v1/search/title` rendered as a page), so with Wikibase's entity
+client disabled the dropdown was stuck on "Loading search suggestions".
+`ext.embeddableContent.searchclient` (`resources/searchclient/`) is now the
+`searchModule` for Vector 2022 / Minerva via
+`Hooks::onSkinPageReadyConfig`: it implements the Vector client interface
+(`fetchByTitle`/`loadMore`) over `action=opensearch` for the reader's
+`searchNs*` namespaces, minus the entity namespaces (`Item:`/`Property:`).
+The module is lazy-loaded by the skin on focus; `loadMore` returns an empty
+page (opensearch has no continuation). The E2E now also asserts the
+`action=opensearch` request.

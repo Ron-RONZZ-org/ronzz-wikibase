@@ -233,6 +233,7 @@
 	"Hooks": {
 		"MediaWikiServices": "main",
 		"BeforePageDisplay": "main",
+		"SkinPageReadyConfig": "main",
 		"BeforePageRedirect": "main",
 		"SkinTemplateNavigation::Universal": "main",
 		"ParserFirstCallInit": "main",
@@ -537,10 +538,10 @@
 			"dependencies": [
 				"ext.embeddableContent.toolbar"
 			],
- "messages": [
-  "embeddablecontent-update-button",
-  "embeddablecontent-update-content-button"
- ],
+			"messages": [
+				"embeddablecontent-update-button",
+				"embeddablecontent-update-content-button"
+			],
 			"targets": [
 				"desktop",
 				"mobile"
@@ -758,6 +759,20 @@
 		"ext.embeddableContent.search": {
 			"styles": [
 				"search.css"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.searchclient": {
+			"packageFiles": [
+				"searchclient/init.js",
+				"searchclient/searchClient.js"
+			],
+			"dependencies": [
+				"mediawiki.api",
+				"mediawiki.user"
 			],
 			"targets": [
 				"desktop",
