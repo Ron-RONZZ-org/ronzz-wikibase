@@ -37,5 +37,16 @@
 		"OutputPageBeforeHTML": "main",
 		"ParserFirstCallInit": "main"
 	},
+	"ResourceModules": {
+		"ext.LanguageBar.styles": {
+			"styles": [
+				"resources/languages-bar.css"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		}
+	},
 	"manifest_version": 2
 }

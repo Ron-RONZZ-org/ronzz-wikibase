@@ -1,0 +1,15 @@
+/**
+ * The languages bar (LanguageBar::compose()).
+ *
+ * Uses the skin's Codex theme tokens with light-mode fallbacks, so the bar
+ * follows Light / Dark / OS-dark instead of staying a light island. The old
+ * inline `background:#f8f9fa` style ignored the theme entirely (and sat
+ * outside `.mw-parser-output`, where the ThemeToggle dark rules look).
+ */
+.languages-bar {
+	border: 1px solid var(--border-color-subtle, #a2a9b1);
+	background-color: var(--background-color-neutral-subtle, #f8f9fa);
+	color: var(--color-base, #202122);
+	padding: 0.3em 1em;
+	margin: 0 0 1em;
+}

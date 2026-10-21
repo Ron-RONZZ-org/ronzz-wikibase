@@ -26,8 +26,8 @@ final class LanguageBar {
 	/** CSS class of the bar (also the marker the injection checks for). */
 	public const BAR_CLASS = 'languages-bar';
 
-	/** Inline styling of the bar — kept identical to the historical template. */
-	public const BAR_STYLE = 'border:1px solid #a2a9b1;background:#f8f9fa;padding:0.3em 1em;margin:0 0 1em;';
+	/** ResourceLoader module that styles the bar (theme-aware). */
+	public const STYLES_MODULE = 'ext.LanguageBar.styles';
 
 	/** Static translation languages: code => autonym shown in the bar. */
 	public const TRANSLATION_LANGUAGES = [
@@ -45,7 +45,7 @@ final class LanguageBar {
 	 * @param string[] $links pre-rendered, already-escaped <a> elements
 	 */
 	public static function compose( string $label, array $links ): string {
-		return '<div class="' . self::BAR_CLASS . '" style="' . self::BAR_STYLE . '">'
+		return '<div class="' . self::BAR_CLASS . '">'
 			. '<p><b>' . htmlspecialchars( $label, ENT_QUOTES ) . ':</b> '
 			. implode( ' · ', $links )
 			. '</p></div>';

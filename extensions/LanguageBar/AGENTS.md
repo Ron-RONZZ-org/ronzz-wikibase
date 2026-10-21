@@ -21,9 +21,14 @@ workflow is archived/inert) or with UniversalLanguageSelector.
 ## How it works
 
 - `LanguageBar::compose()` (pure) assembles the markup:
-  `<div class="languages-bar" style="…"><p><b>{label}:</b> {links}</p></div>`,
+  `<div class="languages-bar"><p><b>{label}:</b> {links}</p></div>`,
   matching the historical `Template:Languages` rendering (the `<p>` is the
-  parser's paragraph wrapping).
+  parser's paragraph wrapping). The bar is styled by the
+  `ext.LanguageBar.styles` module (`resources/languages-bar.css`) with Codex
+  theme tokens (`--background-color-neutral-subtle`, `--border-color-subtle`,
+  `--color-base`) and light-mode fallbacks, so it follows Light/Dark/OS-dark.
+  The module is added by BOTH the hook (`$out->addModuleStyles`) and the
+  parser function (`$parser->getOutput()->addModuleStyles`).
 - `LanguageBar::buildHtml()` (MW-bound) renders the three links — the page
   itself (`English`, as a self-link), `Page/fr` (`français`) and `Page/eo`
   (`Esperanto`). The language names are autonyms and are not translated; the
@@ -54,6 +59,9 @@ talk, and the gated `RonzzIT:`/`RonzzInt:` namespaces are excluded.
   translation invitation — ParserFunctions is not installed).
 - Keep `LanguageBar::compose()` in sync with the `Template:Languages`
   rendering contract; the parser function and the hook share it.
+- The bar must not carry an inline `style=` — that bypasses the theme (the
+  old `background:#f8f9fa` stayed light in Dark mode). Style changes go in
+  `resources/languages-bar.css` using theme tokens.
 - Do not put this logic in EmbeddableContent — it is unrelated (translation
   navigation, not content embedding).
 
@@ -77,4 +85,5 @@ talk, and the gated `RonzzIT:`/`RonzzInt:` namespaces are excluded.
 
 - i18n changes must ship all three languages (en/fr/eo).
 - The extension has no database, seed, manifest or config-map surface — a
-  deploy is a file rsync + `wfLoadExtension` + a php-fpm restart/cache purge.
+  deploy is a file rsync + `wfLoadExtension` + a php-fpm restart/cache purge
+  (the ResourceLoader module registration + stylesheet are APCu-cached).
