@@ -299,6 +299,40 @@ async function main() {
 			}
 		}
 
+		// --- sitewide typeahead: classic pages, not entities ---------------
+		// Wikibase's enableEntitySearchUI replaces Vector's page-title
+		// typeahead with wbsearchentities (entities only). The instance
+		// disables it, so typing a page-title fragment must suggest the
+		// classic page and must NOT call wbsearchentities.
+		{
+			const wbEntityRequests = [];
+			const recordWb = (req) => {
+				if (req.url().includes('wbsearchentities')) wbEntityRequests.push(req.url());
+			};
+			page.on('request', recordWb);
+			try {
+				await page.goto(`${BASE_URL}/wiki/Main_Page`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+				const searchInput = page.locator('#searchInput');
+				await searchInput.waitFor({ timeout: 20000 });
+				await searchInput.click();
+				await searchInput.fill('Main Pa');
+				await page.waitForFunction(() => {
+					const menu = document.querySelector('.cdx-typeahead-search__menu, .cdx-menu');
+					return menu && /Main Page/.test(menu.textContent);
+				}, { timeout: 20000 });
+				console.log('[ok] typeahead suggests the classic page "Main Page"');
+			} catch (e) {
+				failures.push(`typeahead did not suggest the classic page: ${e.message}`);
+			} finally {
+				page.off('request', recordWb);
+			}
+			if (wbEntityRequests.length > 0) {
+				failures.push(`${wbEntityRequests.length} wbsearchentities request(s) fired — the entity search UI is still enabled (expected classic-page opensearch only)`);
+			} else {
+				console.log('[ok] typeahead uses classic-page suggestions (no wbsearchentities)');
+			}
+		}
+
 		// The "Add section" page action is editor-only: check it on the
 		// scratch content page AFTER the login below (an anonymous visitor on
 		// the protected Main_Page legitimately has no edit action).

@@ -634,7 +634,11 @@ report). See `SimpleMathJax/VENDORED.md`.
   labels were invisible to the site search box; `wbsearchentities` is
   prefix-only and is used by the comboboxes, not `Special:Search`. The
   section renders label + description + a `Special:EntityPage/Q…` link and a
-  small `search.css` module; no CirrusSearch/Elasticsearch needed.
+  small `search.css` module; no CirrusSearch/Elasticsearch needed. The
+  on-type dropdown itself stays core `opensearch` (classic page titles):
+  `$wgWBRepoSettings['enableEntitySearchUI'] = false` (2026-10-21) removes
+  Wikibase's entity-only typeahead replacement — entities are surfaced by the
+  results-page section, not the suggestion box.
 - **Add* form fixes batch (ADR `docs/decisions/add-forms-fixes-2026-09.md`)**:
   (a) **Combobox search is case-insensitive** (above) — `action=entitysearch`
   now `CONVERT`s the term column, so `APACHE`/`aPaChE` find "Apache License
