@@ -145,3 +145,28 @@ Sitelink tab reads the sitelink table directly, so it is correct immediately.
   title limit still yields the item-only fallback.
 - No backfill of items created before this change (the update flow heals a
   missing page on the next edit, as before).
+
+## Follow-up (2026-10-21) — empty vocabulary classes in the combobox scope
+
+The `publisher` and `scholarly journal` classes were created with the
+vocabulary but have **zero items**: existing publishers are `organization`
+items (e.g. Les Belles Lettres, Q362) and no journal item exists. Their
+comboboxes were scoped to the empty class, so typing showed no suggestions —
+the Publisher field was a no-op (the reported "publisher combobox does not
+suggest anything"). The scope is now a **union**:
+
+- publisher → `publisher` class **+ all agent classes** (a publisher is an
+  organization; the field help already points at `Special:AddCollective`);
+- journal → `scholarly journal` class **+ all source classes** (a journal is a
+  periodical; existing periodical-like items are source-class items).
+
+The union is built by `SpecialAddSource::mergedClassScope()` (empty ids
+dropped, deduped) and rides the same `wbClasses` widget data, so
+`action=entitysearch` filters as before. No vocabulary/config-map change; the
+E2E asserts the rendered scope includes both classes
+(`flow_entity_scope_contains`).
+
+The **Author(s)** field was re-verified: it is already scoped to the agent
+classes (person, organization, group of humans + the organization subclasses)
+and filters correctly; `Special:AddPerson` has no author combobox (its
+"Portrait author" is a free-text P61 field).

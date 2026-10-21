@@ -312,7 +312,10 @@ report). See `SimpleMathJax/VENDORED.md`.
   + `(label)` (the place-of-birth OSM shape — Nominatim combobox + hidden
   label, `{{#osm-place:jurisdiction}}`), `case number`, `patent number`
   (P1246), `report number`, `legislation number`. The seed emits a
-  `domainClasses` map, and every entity combobox is now **class-scoped**:
+  `domainClasses` map, and every entity combobox is now **class-scoped**
+  (with a union fallback where the vocabulary class has no items yet — see
+  the 2026-10-21 follow-up: publisher = publisher + agent classes, journal =
+  scholarly journal + source classes):
   `action=entitysearch` takes a `classes=Q…|Q…` filter (over-fetch + PHP
   `instance-of` filter, bounded), the shared `Fields\OOUIComboboxField` emits
   `data-wb-classes`, `Fields\EntityCombobox` is the one builder (the four

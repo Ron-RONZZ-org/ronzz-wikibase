@@ -1618,9 +1618,17 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		} elseif ( $harvested !== '' ) {
 			$default = $harvested;
 		}
+		// A journal is a periodical but the instance has no journal items
+		// classified under the `scholarly journal` class (Q1731 was created
+		// with the vocabulary, never used): include the source classes too,
+		// so an existing periodical-like item can actually be picked. The
+		// submitted value is validated as an item id by the flow service.
 		$field = EntityCombobox::spec(
 			'embeddablecontent-source-field-journal',
-			$this->classScope( $this->config->scholarlyJournalClass() ),
+			$this->mergedClassScope(
+				$this->classScope( $this->config->scholarlyJournalClass() ),
+				array_values( $this->config->sourceClasses() )
+			),
 			false,
 			[
 				'default' => $default,
@@ -1669,9 +1677,16 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		} elseif ( $harvested !== '' ) {
 			$default = $harvested;
 		}
+		// Publishers in the current data are organizations (the publisher
+		// class Q1730 has no items), so the scope must include the agent
+		// classes as well — otherwise the combobox searches a class with
+		// zero members and never suggests anything.
 		$field = EntityCombobox::spec(
 			'embeddablecontent-field-publisher',
-			$this->classScope( $this->config->publisherClass() ),
+			$this->mergedClassScope(
+				$this->classScope( $this->config->publisherClass() ),
+				$this->agentClassIds()
+			),
 			false,
 			[
 				'default' => $default,
@@ -1682,6 +1697,20 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			$field['help'] .= ' ' . $help;
 		}
 		return $field;
+	}
+
+	/**
+	 * Union of several class scopes: empty ids dropped, order kept, deduped.
+	 * The entitysearch filter accepts a pipe-separated list, so a field whose
+	 * vocabulary class exists but has no items can also match the class(es)
+	 * the existing items actually carry (e.g. publishers are organizations,
+	 * journals are currently source classes).
+	 *
+	 * @param string[] ...$scopes
+	 * @return string[]
+	 */
+	private function mergedClassScope( array ...$scopes ): array {
+		return array_values( array_unique( array_filter( array_merge( ...$scopes ) ) ) );
 	}
 
 	/**
