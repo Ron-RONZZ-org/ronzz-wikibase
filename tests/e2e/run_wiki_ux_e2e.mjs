@@ -245,6 +245,60 @@ async function main() {
 			console.log('[skip] Vector 2022 is not the active skin (ThemeToggle checks skipped)');
 		}
 
+		// --- AddSource "Final label" preview readability in dark mode -----
+		// The preview must use theme tokens: hard-coded #202122 text on the
+		// themed (dark) surface made the final label invisible (the "Final
+		// label rendered blank" report).
+		if (isVector2022) {
+			await page.goto(`${BASE_URL}/wiki/Special:AddSource/document/manual`,
+				{ waitUntil: 'domcontentloaded', timeout: 60000 });
+			const titleInput = page.locator('input[name="wptitle"]');
+			try {
+				await titleInput.waitFor({ timeout: 20000 });
+				// Force night, fill the title, then compare the preview text
+				// and surface colours.
+				const nightNow = () => page.evaluate(() =>
+					document.documentElement.classList.contains('skin-theme-clientpref-night'));
+				if (!await nightNow()) {
+					await page.click('#wb-theme-toggle');
+				}
+				await titleInput.fill('Dark label preview E2E');
+				await page.waitForTimeout(400);
+				const contrast = await page.evaluate(() => {
+					const textEl = document.querySelector('.wb-label-preview-text');
+					const boxEl = document.querySelector('.wb-label-preview');
+					if (!textEl || !boxEl) return null;
+					const rgb = (css) => (css.match(/\d+/g) || []).slice(0, 3).map(Number);
+					const lum = ([r, g, b]) => {
+						const f = (v) => {
+							v /= 255;
+							return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+						};
+						return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+					};
+					const text = getComputedStyle(textEl).color;
+					const bg = getComputedStyle(boxEl).backgroundColor;
+					const [l1, l2] = [lum(rgb(text)), lum(rgb(bg))].sort((a, b) => b - a);
+					return {
+						text, bg,
+						value: textEl.textContent,
+						ratio: (l1 + 0.05) / (l2 + 0.05)
+					};
+				});
+				if (!contrast || !contrast.value.includes('Dark label preview E2E') || contrast.ratio < 3) {
+					failures.push(`label preview unreadable in dark mode: ${JSON.stringify(contrast)}`);
+				} else {
+					console.log(`[ok] label preview readable in dark mode (contrast ${contrast.ratio.toFixed(1)}:1)`);
+				}
+				// Restore day mode for the remaining checks.
+				if (await nightNow()) {
+					await page.click('#wb-theme-toggle');
+				}
+			} catch (e) {
+				failures.push(`label preview dark-mode check failed: ${e.message}`);
+			}
+		}
+
 		// The "Add section" page action is editor-only: check it on the
 		// scratch content page AFTER the login below (an anonymous visitor on
 		// the protected Main_Page legitimately has no edit action).

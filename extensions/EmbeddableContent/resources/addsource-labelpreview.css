@@ -16,30 +16,35 @@
 	min-width: 12em;
 }
 
+/* Theme-aware: Codex tokens with light-mode fallbacks. Hard-coded colours
+ * made the preview unreadable in Vector 2022 dark mode — the surface was
+ * remapped to a dark background while the text stayed #202122 (invisible,
+ * reported as "Final label rendered blank"). */
 .wb-label-preview {
 	display: inline-flex;
 	align-items: baseline;
 	gap: 0.4em;
-	background: #f8f9fa;
-	border: 1px solid #a2a9b1;
-	border-left: 3px solid #36c;
+	background-color: var(--background-color-interactive-subtle, #f8f9fa);
+	border: 1px solid var(--border-color-base, #a2a9b1);
+	border-left: 3px solid var(--color-progressive, #36c);
 	border-radius: 2px;
 	padding: 0.3em 0.6em;
 	font-size: 0.9em;
 	line-height: 1.4;
 	align-self: flex-end;
 	margin-bottom: 2px;
+	color: var(--color-base, #202122);
 }
 
 .wb-label-preview-label {
 	font-size: 0.78em;
-	color: #72777d;
+	color: var(--color-subtle, #72777d);
 	text-transform: uppercase;
 	letter-spacing: 0.03em;
 	white-space: nowrap;
 }
 
 .wb-label-preview-text {
-	color: #202122;
+	color: var(--color-base, #202122);
 	overflow-wrap: anywhere;
 }
