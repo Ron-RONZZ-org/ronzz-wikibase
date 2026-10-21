@@ -48,5 +48,9 @@
 			]
 		}
 	},
+	"ResourceFileModulePaths": {
+		"localBasePath": "",
+		"remoteExtPath": "LanguageBar"
+	},
 	"manifest_version": 2
 }
