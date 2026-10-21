@@ -1,5 +1,13 @@
 mw.hook( 'wikipage.content' ).add( function ( $content ) {
 window.MathJax = {
+  // MathJax 4 serves the NewCM font data from a separate package; the
+  // installer puts it under resources/MathJax/fonts (see
+  // tools/install-mathjax.sh). Without fontPath the loader would fall back
+  // to a CDN package path — never allowed on this instance.
+  output: {
+    font: 'mathjax-newcm',
+    fontPath: mw.config.get('wgExtensionAssetsPath') + '/SimpleMathJax/resources/MathJax/fonts'
+  },
   tex: {
     inlineMath: mw.config.get('wgSmjExtraInlineMath').concat([['[math]','[/math]']]),
     displayMath: mw.config.get('wgSmjDisplayMath'),
@@ -115,6 +123,19 @@ window.MathJax = {
     }
   },
   options: {
+    // MathJax 4 enables semantic enrichment + speech + Braille by default
+    // (and loads the SRE worker/mathmaps). Keep the v3 behaviour instead:
+    // assistive MathML only, no speech attributes (they also make the
+    // rendered HTML ~9x larger). The menu settings control the combined
+    // component's accessibility extensions.
+    menuOptions: {
+      settings: {
+        enrich: false,
+        speech: false,
+        braille: false,
+        assistiveMml: true
+      }
+    },
     ignoreHtmlClass: mw.config.get('wgSmjIgnoreHtmlClass'),
     processHtmlClass: "mathjax_process|smj-container"
   },
@@ -137,8 +158,8 @@ window.MathJax = {
 (function () {
   var script = document.createElement('script');
   script.src = mw.config.get('wgSmjUseCdn')
-    ? 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js'
-    : mw.config.get('wgExtensionAssetsPath') + '/SimpleMathJax/resources/MathJax/es5/tex-chtml.js';
+    ? 'https://cdn.jsdelivr.net/npm/mathjax@4/tex-chtml.js'
+    : mw.config.get('wgExtensionAssetsPath') + '/SimpleMathJax/resources/MathJax/tex-chtml.js';
   script.async = true;
   document.head.appendChild(script);
 })();

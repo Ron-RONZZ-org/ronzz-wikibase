@@ -1543,6 +1543,32 @@ def flow_combobox_scope_data(op, base: str, field: str, class_id: str) -> None:
     print(f"[ok] combobox scope rides widget data: {field} -> {class_id}")
 
 
+def flow_entity_scope_contains(op, base: str, page: str, field: str,
+                                required: list[str]) -> None:
+    """A combobox whose vocabulary class exists but has no items must also
+    accept the class the existing items actually carry: publishers are
+    organizations (the `publisher` class Q1730 is empty) and journals are
+    currently source-class items (the `scholarly journal` class Q1731 is
+    empty). Assert the rendered widget scope is the required union."""
+    _, body = page_get(op, base, page)
+    m = re.search(r"id='mw-input-wp" + re.escape(field)
+                  + r"'[^>]*data-ooui='([^']*)'", body)
+    if not m:
+        raise FlowError(f"{page}: no infusable widget for {field}")
+    raw = m.group(1)
+    scope = re.search(r'"wbClasses":"([^"]*)"', raw)
+    if not scope:
+        raise FlowError(f"{page}: {field} widget has no wbClasses scope: {raw[:200]!r}")
+    ids = scope.group(1).split("|")
+    missing = [class_id for class_id in required if class_id not in ids]
+    if missing:
+        raise FlowError(
+            f"{page}: {field} scope lacks {missing} (got {ids}); the empty "
+            "vocabulary class must be unioned with the classes in use")
+    print(f"[ok] combobox scope union: {field} -> {len(ids)} classes "
+          f"(includes {', '.join(required)})")
+
+
 def flow_update_software_prefill(op, base: str, qid: str, developer_qid: str,
                                  lexer: str) -> None:
     """Special:UpdateSoftware/<qid> prefills the entity comboboxes + the
@@ -4477,6 +4503,19 @@ def main() -> int:
     #     then suggested "The Linux Foundation").
     os_class = resolve("operating system", "item")
     flow_combobox_scope_data(op, base, "operatingSystem", os_class)
+
+    # 0c. Publisher / journal comboboxes: their vocabulary classes exist but
+    #     have zero items, so the scope must also include the classes the
+    #     existing items carry (publishers are organizations; journals are
+    #     currently source classes). Without the union the dropdown was a
+    #     no-op (typing showed no suggestions).
+    publisher_class = resolve("publisher", "item")
+    journal_class = resolve("scholarly journal", "item")
+    organization_class = resolve("organization", "item")
+    flow_entity_scope_contains(op, base, "/wiki/Special:AddSource/document/manual",
+                               "publisher", [publisher_class, organization_class])
+    flow_entity_scope_contains(op, base, "/wiki/Special:AddSource/scholarlyArticle/manual",
+                               "journal", [journal_class, website_class])
 
     created: list[str] = []
     created_pages: list[str] = []

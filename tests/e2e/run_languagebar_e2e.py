@@ -51,8 +51,7 @@ BAR_DIV_RE = re.compile( r'<div class="languages-bar".*?</div>', re.S )
 # A manual copy of the bar markup (tests the hook's already-present skip
 # without depending on the on-wiki template existing).
 MANUAL_BAR = (
-    '<div class="languages-bar" '
-    'style="border:1px solid #a2a9b1;background:#f8f9fa;padding:0.3em 1em;margin:0 0 1em;">'
+    '<div class="languages-bar">'
     '<p><b>Languages:</b> manual</p></div>\n'
 )
 
@@ -171,6 +170,28 @@ def count_bars(body: str) -> int:
     return body.count(BAR_MARKER)
 
 
+def assert_styles_module(op, base: str) -> None:
+    """The bar's theme-aware stylesheet is served (Codex tokens, not the old
+    hard-coded #f8f9fa inline style)."""
+    path = ("/load.php?lang=en&modules=ext.LanguageBar.styles"
+            "&only=styles&skin=vector-2022")
+    try:
+        with op.open(base + path, timeout=60) as resp:
+            if resp.status != 200:
+                raise FlowError(
+                    f"ext.LanguageBar.styles returned HTTP {resp.status}")
+            css = resp.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as exc:
+        raise FlowError(
+            f"ext.LanguageBar.styles returned HTTP {exc.code}") from exc
+    if ".languages-bar" not in css:
+        raise FlowError(f"ext.LanguageBar.styles has no .languages-bar rule: {css[:300]!r}")
+    if "var(--" not in css:
+        raise FlowError(
+            f"ext.LanguageBar.styles does not use theme variables: {css[:300]!r}")
+    print("[ok] ext.LanguageBar.styles served (theme-aware .languages-bar rule)")
+
+
 def check_extension_loaded(op, api: str) -> None:
     r = api_call(op, api, {
         "action": "query", "meta": "siteinfo", "siprop": "extensions", "format": "json",
@@ -190,6 +211,11 @@ def assert_bar(body: str, page: str, *, fr_red: bool, eo_red: bool) -> None:
     if match is None:
         raise FlowError(f"{page}: languages-bar div not found in the rendered page")
     bar = match.group(0)
+    opening_tag = bar.split(">", 1)[0]
+    if "style=" in opening_tag:
+        raise FlowError(
+            f"{page}: languages-bar still carries an inline style (must use "
+            f"ext.LanguageBar.styles): {opening_tag!r}")
     if not re.search(r"<b>(Languages|Langues|Lingvoj):</b>", bar):
         raise FlowError(f"{page}: bar label missing or not localized: {bar[:200]!r}")
     if "mw-selflink selflink" not in bar or ">English<" not in bar:
@@ -227,6 +253,8 @@ def languagebar_flow(op, api: str, base: str, keep: bool) -> None:
     created: list[str] = []
 
     try:
+        assert_styles_module(op, base)
+
         # 1. Main namespace — the hook injects the bar; both links red.
         create_page(op, api, main_page, "LanguageBar E2E scratch page.\n",
                     "LanguageBar E2E scratch (run_languagebar_e2e.py)")

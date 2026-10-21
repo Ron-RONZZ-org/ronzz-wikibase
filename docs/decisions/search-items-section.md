@@ -74,3 +74,17 @@ CONTAINS search:
 - `tests/e2e/run_search_e2e.py`
 - `docs/decisions/foss-software-page-split.md` (the `action=entitysearch`
   rationale)
+
+## Follow-up (2026-10-21) — the on-type dropdown goes back to classic pages
+
+Wikibase's `enableEntitySearchUI` (default `true`) replaces Vector 2022's
+page-title typeahead with `action=wbsearchentities&type=item`: the dropdown
+suggested entities only and never classic pages. The instance now sets
+`$wgWBRepoSettings['enableEntitySearchUI'] = false` (dev config + production
+LocalSettings), restoring core `action=opensearch` suggestions over the user's
+search namespaces. Item pages do not appear there (their titles are
+`Item:Q…`, which do not match labels), so the dropdown shows classic pages
+only — exactly the requested split: entities remain in the Special:Search
+"Items" section below the results, which is unaffected. Regression check:
+`run_wiki_ux_e2e.mjs` types a page-title fragment and asserts a classic-page
+suggestion plus the absence of `wbsearchentities` requests.

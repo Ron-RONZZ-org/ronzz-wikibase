@@ -89,7 +89,7 @@ the instance.
 | Wiki platform | MediaWiki 1.46 + Wikibase (repo), self-hosted at wikibase.ronzz.org |
 | Query service | WDQS (Blazegraph SPARQL 0.3.156) |
 | Database | MySQL / MariaDB |
-| Custom extensions | EmbeddableContent (D3 + issue #7), WikibaseCitation (D4), LanguageBar (automatic `{{Languages}}` bar on content pages), CodeBlockSpaces (restores literal spaces inside `<pre>`/`<code>` — reverts core's French-space armoring for code) — standalone, never forks of Wikibase; DPLforum (vendored third-party forum, `extensions/DPLforum/`) + InputBox (vendored, thread-creation field, `extensions/InputBox/`); Diagrams (vendored third-party diagram extension — PlantUML/GraphViz/Mscgen server-side + Mermaid client-side, `extensions/Diagrams/`); SimpleMathJax (vendored third-party inline-LaTeX math — `$…$`/`$$…$$`/`<math>` typeset client-side by MathJax 3, `extensions/SimpleMathJax/`) — see their `VENDORED.md`; GeoGebra (interactive `[[File:x.ggb]]` worksheets — a house media handler rendering a sandboxed cross-origin player iframe, `extensions/GeoGebra/`); CSVTable (uploaded `[[File:x.csv]]` rendered as a wikitable — a house media handler, `extensions/CSVTable/`); Pyodide4MediaWiki (client-side Python execution of `class="pyodide"` code blocks via Pyodide/WASM — a house extension, `extensions/Pyodide4MediaWiki/`); ThemeToggle (Vector 2022 sun/moon quick toggle for the skin's native day/night theme — a house extension, `extensions/ThemeToggle/`) |
+| Custom extensions | EmbeddableContent (D3 + issue #7), WikibaseCitation (D4), LanguageBar (automatic `{{Languages}}` bar on content pages), CodeBlockSpaces (restores literal spaces inside `<pre>`/`<code>` — reverts core's French-space armoring for code) — standalone, never forks of Wikibase; DPLforum (vendored third-party forum, `extensions/DPLforum/`) + InputBox (vendored, thread-creation field, `extensions/InputBox/`); Diagrams (vendored third-party diagram extension — PlantUML/GraphViz/Mscgen server-side + Mermaid client-side, `extensions/Diagrams/`); SimpleMathJax (vendored third-party inline-LaTeX math — `$…$`/`$$…$$`/`<math>` typeset client-side by MathJax 4, `extensions/SimpleMathJax/`) — see their `VENDORED.md`; GeoGebra (interactive `[[File:x.ggb]]` worksheets — a house media handler rendering a sandboxed cross-origin player iframe, `extensions/GeoGebra/`); CSVTable (uploaded `[[File:x.csv]]` rendered as a wikitable — a house media handler, `extensions/CSVTable/`); Pyodide4MediaWiki (client-side Python execution of `class="pyodide"` code blocks via Pyodide/WASM — a house extension, `extensions/Pyodide4MediaWiki/`); ThemeToggle (Vector 2022 sun/moon quick toggle for the skin's native day/night theme — a house extension, `extensions/ThemeToggle/`) |
 | Seed/tooling | Python 3 (stdlib only) |
 | Unit tests | PHPUnit 10 (pure-PHP) + Python `unittest` |
 | E2E | Python suites in `tests/e2e/` (curl the live endpoints) |
@@ -114,9 +114,9 @@ the instance.
   (urllib, json, csv, argparse) — no pip dependencies.
 - Vendored third-party frontend assets live in
   `extensions/EmbeddableContent/resources/` (KaTeX, highlight.js, CSL styles) —
-  never re-fetch from CDNs at runtime. SimpleMathJax's MathJax 3 assets
-  (~24 MB) are NOT committed — installed per environment by
-  `tools/install-mathjax.sh` (pinned sha256-checked tarball; also never a
+  never re-fetch from CDNs at runtime. SimpleMathJax's MathJax 4 assets + NewCM font
+  (~22 MB) are NOT committed — installed per environment by
+  `tools/install-mathjax.sh` (pinned sha256-checked tarballs; also never a
   runtime CDN — `$wgSmjUseCdn = false`). The **GeoGebra app bundle**
   (`tools/install-geogebra.sh`, pinned official bundle, ~48 MB) is likewise
   not committed — the app is non-commercial-licensed and served from the

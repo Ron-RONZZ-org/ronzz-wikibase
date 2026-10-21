@@ -24,10 +24,9 @@ final class LanguageBarTest extends TestCase {
 		$html = LanguageBar::compose( 'Languages', [ '<a>English</a>', '<a>français</a>' ] );
 
 		$this->assertStringContainsString( 'class="languages-bar"', $html );
-		$this->assertStringContainsString(
-			'style="border:1px solid #a2a9b1;background:#f8f9fa;padding:0.3em 1em;margin:0 0 1em;"',
-			$html
-		);
+		// Styling lives in ext.LanguageBar.styles (theme-aware Codex tokens),
+		// not in a hard-coded inline light-mode style.
+		$this->assertStringNotContainsString( 'style=', $html );
 		// The historical template renders its wikitext line paragraph-wrapped.
 		$this->assertStringContainsString( '<p><b>Languages:</b> ', $html );
 		$this->assertStringContainsString( '<a>English</a> · <a>français</a>', $html );

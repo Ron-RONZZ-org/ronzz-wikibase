@@ -8,6 +8,12 @@
  *   - `$e^{i\pi}+1=0$` (inline) and `$$…$$` (display) on a scratch page
  *     produce MathJax CHTML `<mjx-container>` output — the client-side
  *     rendering contract of the $…$ delimiters
+ *   - the page runs MathJax **4** and `\overline` renders through the v4
+ *     repeated-extender mechanism (`mjx-spacer` of U+2015 bars) — the
+ *     regression guard for the v3 "invisible overline" bug
+ *     (mathjax/MathJax#2701/#2795/#3357)
+ *   - assistive MathML is present (the v3 accessibility profile, no
+ *     semantic/speech attributes)
  *   - a code block (`<syntaxhighlight>`) containing `$` stays untouched
  *     (MathJax skips pre/code — the currency/code false-positive guard)
  *   - zero tolerance for page errors and console errors
@@ -158,14 +164,55 @@ async function main() {
 		// MathJax typesets asynchronously after load — wait for CHTML output.
 		await page.waitForSelector('mjx-container', { timeout: 30000 });
 		const containers = await page.locator('mjx-container').count();
-		if (containers < 2) {
-			failures.push(`expected >= 2 MathJax containers ($...$ inline + $$...$$ display), found ${containers}`);
+		if (containers < 3) {
+			failures.push(`expected >= 3 MathJax containers ($...$ inline + $$...$$ display + overline), found ${containers}`);
 		} else {
 			console.log(`[ok] MathJax rendered ${containers} mjx-container elements`);
 		}
 
+		// The instance runs MathJax 4 (v4 fixes the invisible \overline).
+		const mathjaxVersion = await page.evaluate(() => window.MathJax && window.MathJax.version);
+		if (!/^4\./.test(String(mathjaxVersion))) {
+			failures.push(`expected MathJax 4.x, got ${mathjaxVersion} — the v4 assets/loader are not deployed`);
+		} else {
+			console.log(`[ok] MathJax ${mathjaxVersion} loaded`);
+		}
+
+		// \overline must use v4's repeated-extender mechanism: an <mjx-spacer>
+		// carrying U+2015 bars inside a stretchy-h wrapper. v3 produced a
+		// single CSS-scaled glyph that could disappear at some zoom levels.
+		const overline = await page.evaluate(() => {
+			for (const c of document.querySelectorAll('mjx-container')) {
+				if (!c.textContent.replace(/\s+/g, '').includes('v,u')) continue;
+				const spacer = c.querySelector('mjx-spacer');
+				if (spacer) {
+					return { text: spacer.textContent, width: spacer.getBoundingClientRect().width };
+				}
+			}
+			return null;
+		});
+		if (!overline || !overline.text.includes('\u2015') || !(overline.width > 0)) {
+			failures.push(`overline did not render through the v4 extender mechanism: ${JSON.stringify(overline)}`);
+		} else {
+			console.log(`[ok] \\overline rendered (mjx-spacer ${overline.text.length} bars, ${overline.width.toFixed(1)}px wide)`);
+		}
+
+		// The v4 config keeps the v3 accessibility profile: assistive MathML,
+		// no semantic/speech attributes (which bloat each formula ~9x).
+		const a11y = await page.evaluate(() => ({
+			amml: document.querySelectorAll('mjx-assistive-mml').length,
+			semantic: document.querySelectorAll('[data-semantic-speech]').length,
+		}));
+		if (a11y.amml < 2) {
+			failures.push(`expected >= 2 mjx-assistive-mml elements, found ${a11y.amml}`);
+		} else if (a11y.semantic !== 0) {
+			failures.push(`semantic/speech attributes are enabled (${a11y.semantic}); the v4 config should keep the v3 profile`);
+		} else {
+			console.log(`[ok] assistive MathML present (${a11y.amml}), no semantic/speech attributes`);
+		}
+
 		// Multiline display math: a top-level `\\` must render as TWO rows
-		// (the server wraps it in \begin{gathered}); MathJax 3 renders a
+		// (the server wraps it in \begin{gathered}); MathJax renders a
 		// bare top-level `\\` as a space, so an unwrapped block is one row.
 		const multilineRows = await page.evaluate(() => {
 			for (const c of document.querySelectorAll('mjx-container')) {

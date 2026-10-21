@@ -38,6 +38,12 @@ set -euo pipefail
 
 GEOGEBRA_VERSION="5.4.930.2"
 BUNDLE_URL="https://download.geogebra.org/installers/5.4/geogebra-math-apps-bundle-5-4-930-2.zip"
+# CI mirror (a GitHub release asset pinned to this version): the upstream host
+# is intermittently unreachable from GitHub-hosted runners (2026-10-21: six
+# 60s connect timeouts while the same URL served HTTP 206 from a workstation).
+# Try the mirror first; the upstream URL remains the fallback. Either download
+# is verified against the same BUNDLE_SHA256.
+BUNDLE_MIRROR_URL="https://github.com/Ron-RONZZ-org/ronzz-wikibase/releases/download/assets-geogebra-5.4.930.2/geogebra-math-apps-bundle-5-4-930-2.zip"
 BUNDLE_SHA256="7e0b7b1dc51cebe1675de15fd296d8ebe7f49e407567656351af42e29f55c871"
 DEPLOYGGB_SHA256="7894ce225cfccf81940c8b35a6b6c4960db5169cb842c20cf99d5877997a335a"
 WEB3D_NOCACHE_SHA256="bdb5e15da87efbc5c39f40a16eec708fa0f085b0211ee601668bfc6625b00d4b"
@@ -73,8 +79,16 @@ echo "install-geogebra.sh: installing GeoGebra ${GEOGEBRA_VERSION} → ${dest}/G
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
 
-if ! curl -fsSL -o "$tmp" "$BUNDLE_URL"; then
-	echo "install-geogebra.sh: download failed: $BUNDLE_URL" >&2
+download_bundle() {
+	# Force IPv4: a preferred-but-unreachable AAAA record caused connect
+	# timeouts on the runners.
+	curl -4 -fsSL --retry 3 --retry-delay 5 --connect-timeout 60 -o "$tmp" "$1"
+}
+
+if ! download_bundle "$BUNDLE_MIRROR_URL" && ! download_bundle "$BUNDLE_URL"; then
+	echo "install-geogebra.sh: download failed from both mirrors:" >&2
+	echo "  $BUNDLE_MIRROR_URL" >&2
+	echo "  $BUNDLE_URL" >&2
 	exit 1
 fi
 

@@ -29,6 +29,14 @@ Collective, Software). `Template:Languages` becomes a thin wrapper around the
 extension's `{{#languagebar:}}` parser function, so the automatic bar and an
 explicit template call share one markup definition.
 
+The bar's styling is a ResourceLoader module
+(`ext.LanguageBar.styles`, `resources/languages-bar.css`) using the skin's
+Codex theme tokens (`--background-color-neutral-subtle`,
+`--border-color-subtle`, `--color-base`) with light-mode fallbacks — it
+follows Light/Dark/OS-dark. The bar previously carried an inline
+`background:#f8f9fa`, which ignored the theme (Vector 2022 dark mode kept a
+light island; hit 2026-10-21).
+
 The hook skips a page whose HTML already renders a bar (an explicit
 `{{Languages}}`), a `/fr`/`/eo` translation copy (which carries the
 `{{Translation}}` banner), and diffs. Entity (`Item:`/`Property:`),

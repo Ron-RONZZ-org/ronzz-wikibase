@@ -47,6 +47,7 @@ final class Hooks {
 		}
 		$services = MediaWikiServices::getInstance();
 		$label = wfMessage( 'languagebar-label' )->text();
+		$out->addModuleStyles( LanguageBar::STYLES_MODULE );
 		$text = LanguageBar::buildHtml( $title, $title, $services->getLinkRenderer(), $label ) . $text;
 		self::$injected = true;
 	}
@@ -57,6 +58,7 @@ final class Hooks {
 	 */
 	public static function onParserFirstCallInit( Parser $parser ): void {
 		$parser->setFunctionHook( 'languagebar', static function ( Parser $parser, ...$args ): array {
+			$parser->getOutput()->addModuleStyles( [ LanguageBar::STYLES_MODULE ] );
 			return LanguageBar::renderFromParser( $parser, $args );
 		} );
 	}

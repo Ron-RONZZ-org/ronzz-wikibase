@@ -20,7 +20,7 @@ Options evaluated (MW 1.46):
 
 | Option | Verdict |
 |--------|---------|
-| **Extension:SimpleMathJax** (jmnote, v0.9.0, MIT, MW ≥ 1.43, no DB) | **Chosen.** Actively maintained (0.8.8 Dec 2025; 0.9.0 Aug 2026). Renders MathJax 3 client-side; `$wgSmjExtraInlineMath = [['$','$']]` enables `$…$` in prose and `$wgSmjDisplayMath` `$$…$$` block math; `<math>`/`<chem>` tags work too (server-side inert markers). MathJax's `skipHtmlTags` (`pre`/`code`/…) keeps code blocks literal. Small (8 runtime files, no composer deps) → plain file-copy install like DPLforum/Diagrams. |
+| **Extension:SimpleMathJax** (jmnote, v0.9.0, MIT, MW ≥ 1.43, no DB) | **Chosen.** Actively maintained (0.8.8 Dec 2025; 0.9.0 Aug 2026). Renders MathJax client-side; `$wgSmjExtraInlineMath = [['$','$']]` enables `$…$` in prose and `$wgSmjDisplayMath` `$$…$$` block math; `<math>`/`<chem>` tags work too (server-side inert markers). MathJax's `skipHtmlTags` (`pre`/`code`/…) keeps code blocks literal. Small (8 runtime files, no composer deps) → plain file-copy install like DPLforum/Diagrams. |
 | **MediaWiki Math extension** (`<math>` tags only) | The maintained standard, but its syntax is `<math>…</math>` — no `$…$` authoring. Rejected against the clarified requirement (its `mathjax` mode would not deliver `$…$`). |
 | **Extension:MathJax** (xeyownt, v1.1, 2019) | Explicitly **unmaintained** on mediawiki.org; v1.1 disabled single-`$` support; pre-extension.json parser hooks. Rejected. |
 | **House-written parser hook** for `$…$` | Reinventing SimpleMathJax (delimiter safety, escapes, diff/summary skipping, revision config) — against the repo rule to prefer maintained libraries. |
@@ -33,12 +33,21 @@ Options evaluated (MW 1.46):
    Runtime files only, never modified (upgrade = re-vendor). Upstream
    `LICENSE` is MIT (its `extension.json` declares GPL-2.0+ — discrepancy
    documented in VENDORED.md, both compatible with the repo's GPL-2.0-or-later).
-2. **MathJax 3.2.2 is self-hosted, never a CDN** (repo rule). The ~24 MB
-   `es5/` asset tree is **not committed** — `tools/install-mathjax.sh`
-   installs it (pinned, sha256-checked npm tarball) into
-   `extensions/SimpleMathJax/resources/MathJax/es5/` in every environment
-   (CI runner host before the stack boots; dev checkout; production after
-   rsync), mirroring the PlantUML jar pattern.
+2. **MathJax 4.1.3 is self-hosted, never a CDN** (repo rule). The ~22 MB
+   component tree and its NewCM font data are **not committed** —
+   `tools/install-mathjax.sh` installs them (two pinned, sha256-checked npm
+   tarballs) into `extensions/SimpleMathJax/resources/MathJax/` and
+   `resources/MathJax/fonts/chtml/` in every environment (CI runner host
+   before the stack boots; dev checkout; production after rsync), mirroring
+   the PlantUML jar pattern.
+   **Why 4.x (the `\overline` fix)**: MathJax 3's CHTML stretched-extender
+   mechanism drops the overline/underline at some browser zoom levels and in
+   Firefox print (`mathjax/MathJax#2701`, `#2795`, `#3357`); v4.0 replaced
+   it with repeated extender copies and is the upstream fix (the SVG-output
+   switch is only a workaround). The extension's JS points at the v4
+   `tex-chtml.js`, sets `output.font`/`fontPath`, and keeps the v3
+   accessibility profile (assistive MathML, no semantic/speech bloat) via
+   `options.menuOptions.settings`.
 3. **Syntax enabled on every page** (config in `dev/config/Extensions.php`,
    mirrored in production LocalSettings):
    - `$…$` inline, `$$…$$` display (centered), `<math>…</math>` as the

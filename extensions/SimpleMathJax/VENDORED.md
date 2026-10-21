@@ -23,22 +23,44 @@ are intentionally not vendored.
 
 ## MathJax assets — installed, never committed
 
-The extension renders math client-side with **MathJax 3**, whose `es5/`
-build (~24 MB unpacked) lives at `resources/MathJax/es5/` (the upstream git
-submodule). This repo does **not** commit those assets — like the pinned
-PlantUML jar (`tools/install-plantuml.sh`), they are installed into each
-environment (dev/CI/production) by:
+The extension renders math client-side with **MathJax 4.1.3**, whose
+combined-component tree (~20 MB unpacked) lives at `resources/MathJax/`
+(the upstream git submodule) and whose font data comes from the separate
+`@mathjax/mathjax-newcm-font` package under
+`resources/MathJax/fonts/chtml/` (~2.4 MB). This repo does **not** commit
+those assets — like the pinned PlantUML jar
+(`tools/install-plantuml.sh`), they are installed into each environment
+(dev/CI/production) by:
 
 ```bash
 tools/install-mathjax.sh
 ```
 
-which fetches the **pinned** `mathjax@3.2.2` npm tarball (sha256-checked)
-and extracts `package/es5/` into
-`extensions/SimpleMathJax/resources/MathJax/es5/`. Run it on the host of any
-checkout before booting the dev stack, and on the server after rsyncing the
-extension (see `RonzzIT:Runbook/Wikibase`). `resources/MathJax/` is
+which fetches the **pinned** `mathjax@4.1.3` and
+`@mathjax/mathjax-newcm-font@4.1.3` npm tarballs (both sha256-checked),
+extracts the MathJax package into
+`extensions/SimpleMathJax/resources/MathJax/` and the CHTML font tree into
+`extensions/SimpleMathJax/resources/MathJax/fonts/chtml/`. The script
+verifies `tex-chtml.js` + a font sentinel and replaces the whole generated
+tree (a v3 install used `es5/`; the layouts differ). Run it on the host of
+any checkout before booting the dev stack, and on the server after rsyncing
+the extension (see `RonzzIT:Runbook/Wikibase`). `resources/MathJax/` is
 gitignored (root `.gitignore`).
+
+MathJax 4.1.3 and `@mathjax/mathjax-newcm-font@4.1.3` are **Apache-2.0**
+(permissive, compatible with the repo's GPL-2.0-or-later).
+
+### Why MathJax 4 (the `\overline` fix)
+
+MathJax 3's CHTML output draws `\overline`/`\underline` with a single
+CSS-scaled extender glyph; at some browser zoom levels/device pixel ratios
+the line falls below one device pixel and is not painted (invisible
+overline, also missing in Firefox print). Upstream tracks this as
+[mathjax/MathJax#2701](https://github.com/mathjax/MathJax/issues/2701),
+[#2795](https://github.com/mathjax/MathJax/issues/2795) and
+[#3357](https://github.com/mathjax/MathJax/issues/3357) and fixed it in
+**v4.0** by changing the stretched-glyph mechanism to repeated copies.
+v4 is therefore the long-term fix, not the SVG-output workaround.
 
 ## Syntax (enabled on every page)
 
@@ -65,6 +87,29 @@ Upgrade = re-vendor the upstream tag + bump `tools/install-mathjax.sh`'s
 MathJax pin only if the new upstream requires it. Do not modify the vendored
 `src/` without a documented reason.
 
+## Local patch — MathJax 4 (output + accessibility)
+
+**Modified file**: `resources/ext.SimpleMathJax.js`.
+
+**Why**: MathJax 4 needs the font package path (the font data is no longer
+bundled with the library), and it enables semantic enrichment + speech +
+Braille in every combined component by default — which loads the SRE
+worker/mathmaps and adds large `data-semantic-*` attributes to the output
+(one formula: ~27 KB of HTML versus ~3 KB). The instance keeps the v3
+accessibility/weight profile: assistive MathML only.
+
+**Config**:
+
+- `output: { font: 'mathjax-newcm', fontPath: '<assets>/SimpleMathJax/resources/MathJax/fonts' }`
+- `options.menuOptions.settings = { enrich: false, speech: false, braille: false, assistiveMml: true }`
+- local script URL `…/resources/MathJax/tex-chtml.js` (v4 layout; no `es5/`);
+  the CDN branch (unused — `$wgSmjUseCdn = false`) points at
+  `mathjax@4/tex-chtml.js`.
+
+**Verified**: v4.1.3 renders inline/display/tag math, the instance's custom
+macros (`\R`, `\unicodeInt`, …), `gathered` multiline blocks and TeX primes;
+`\overline` renders through the new repeated-extender mechanism.
+
 ## Local patch — disable on Wikibase entity pages
 
 **Modified files**: `extension.json` (+`SmjDisableNamespaces` config),
@@ -72,10 +117,11 @@ MathJax pin only if the new upstream requires it. Do not modify the vendored
 the parser title's namespace is listed).
 
 **Why**: Wikibase Item:/Property: pages render their content preview with the
-extension's KaTeX helper. The page-wide MathJax scan sees the injected
-`$$…$$` span too and MathJax 3.2.2 recurses (`RangeError: Maximum call stack
-size exceeded` in `tex-chtml.js`; the `No version information available for
-component [tex]/autoload` warning accompanies it). The preview module also
+extension's KaTeX helper. The page-wide MathJax scan also sees the injected
+`$$…$$` span and re-typesets it (on MathJax 3.2.2 this recursed —
+`RangeError: Maximum call stack size exceeded` in `tex-chtml.js`, with the
+`No version information available for component [tex]/autoload` warning).
+The preview module also
 marks its subtree `mathjax_ignore`; the namespace list keeps the page-wide
 module off entirely.
 
@@ -141,7 +187,7 @@ merges a version containing it.
 this pass first, then the quote guard) + the new file
 `SimpleMathJaxMultiline.php` (+ its `extension.json` autoload entry).
 
-**Why**: MathJax 3 does **not** break a line at a top-level `\\` — at the top
+**Why**: MathJax does **not** break a line at a top-level `\\` — at the top
 level of a math expression the `\\` control sequence produces an empty
 `<mspace>` (a space), so `$$a \\ b$$` renders on ONE line. This is
 MathJax's documented design (multiline display math must use an environment

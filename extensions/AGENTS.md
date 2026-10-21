@@ -72,11 +72,16 @@ LaTeX math — see `SimpleMathJax/VENDORED.md` for provenance and
 `../docs/decisions/inline-latex-math.md` for the choice rationale). Same
 rules: upstream code, do not modify, upgrade = re-vendor. It typesets
 `$…$` (inline) / `$$…$$` (display) / `<math>…</math>` **client-side** with
-**MathJax 3**, served locally (`$wgSmjUseCdn = false`) from
-`extensions/SimpleMathJax/resources/MathJax/es5/` — the ~24 MB asset tree is
-**not committed**; install it per environment with `tools/install-mathjax.sh`
-(pinned, sha256-checked npm tarball), on the host of a dev/CI checkout
-before the stack boots and on the server after rsync. The server never
+**MathJax 4.1.3**, served locally (`$wgSmjUseCdn = false`) from
+`extensions/SimpleMathJax/resources/MathJax/` with its NewCM font data under
+`resources/MathJax/fonts/chtml/` — the ~22 MB tree is **not committed**;
+install it per environment with `tools/install-mathjax.sh` (two pinned,
+sha256-checked npm tarballs), on the host of a dev/CI checkout before the
+stack boots and on the server after rsync. v4.1.3 (not v3) fixes the
+CHTML stretched-extender bug that hid `\overline`/`\underline` at some zoom
+levels and in Firefox print (`mathjax/MathJax#2701`, `#2795`, `#3357`); the
+extension's JS sets `output.font`/`fontPath` and keeps the v3 accessibility
+profile (assistive MathML only) via `options.menuOptions.settings`. The server never
 builds HTML from the TeX (inert `[math]…[/math]` markers for the tags; `$…$`
 content is plain escaped page text), so the XSS surface stays server-side
 inert. KaTeX rendering of the structured math-snippet items (`Special:AddMath`
@@ -99,7 +104,7 @@ upstream merges it.
 **Multiline display math (2026-09-28):** a second documented patch
 (`SimpleMathJaxMultiline`, same `InternalParseBeforeLinks` handler, runs
 first) wraps a DISPLAY span whose content carries a **top-level `\\`** in
-`\begin{gathered}…\end{gathered}` — MathJax 3 renders a top-level `\\` as a
+`\begin{gathered}…\end{gathered}` — MathJax renders a top-level `\\` as a
 space, not a line break, so `$$a \\ b$$` collapsed to one line (the
 `Logical_proof` report). A `\\` inside an environment or braced group is
 left alone (those already break lines). The same pass strips **per-line
@@ -307,7 +312,10 @@ report). See `SimpleMathJax/VENDORED.md`.
   + `(label)` (the place-of-birth OSM shape — Nominatim combobox + hidden
   label, `{{#osm-place:jurisdiction}}`), `case number`, `patent number`
   (P1246), `report number`, `legislation number`. The seed emits a
-  `domainClasses` map, and every entity combobox is now **class-scoped**:
+  `domainClasses` map, and every entity combobox is now **class-scoped**
+  (with a union fallback where the vocabulary class has no items yet — see
+  the 2026-10-21 follow-up: publisher = publisher + agent classes, journal =
+  scholarly journal + source classes):
   `action=entitysearch` takes a `classes=Q…|Q…` filter (over-fetch + PHP
   `instance-of` filter, bounded), the shared `Fields\OOUIComboboxField` emits
   `data-wb-classes`, `Fields\EntityCombobox` is the one builder (the four
@@ -626,7 +634,11 @@ report). See `SimpleMathJax/VENDORED.md`.
   labels were invisible to the site search box; `wbsearchentities` is
   prefix-only and is used by the comboboxes, not `Special:Search`. The
   section renders label + description + a `Special:EntityPage/Q…` link and a
-  small `search.css` module; no CirrusSearch/Elasticsearch needed.
+  small `search.css` module; no CirrusSearch/Elasticsearch needed. The
+  on-type dropdown itself stays core `opensearch` (classic page titles):
+  `$wgWBRepoSettings['enableEntitySearchUI'] = false` (2026-10-21) removes
+  Wikibase's entity-only typeahead replacement — entities are surfaced by the
+  results-page section, not the suggestion box.
 - **Add* form fixes batch (ADR `docs/decisions/add-forms-fixes-2026-09.md`)**:
   (a) **Combobox search is case-insensitive** (above) — `action=entitysearch`
   now `CONVERT`s the term column, so `APACHE`/`aPaChE` find "Apache License

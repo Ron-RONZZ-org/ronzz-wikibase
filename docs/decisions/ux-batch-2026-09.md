@@ -120,3 +120,17 @@ gone; chooser buttons/snippet builders shipped; label-preview wiring on
 sourcecite config; parser-function scratch pages where the CI stack lacks
 templates). Browser-level behaviour (clicks, clipboard) verified live at
 deploy.
+
+## Follow-up (2026-10-21) — label preview must follow the theme
+
+The "Final label" preview shipped with hard-coded colours
+(`background:#f8f9fa`, `border:#a2a9b1`, text `#202122`). ThemeToggle's night
+rules remap the preview SURFACE (it is in the extension-owned list) but not
+the child text, so in Vector 2022 dark mode the final label was
+`rgb(32,33,34)` on `rgb(32,33,34)` — invisible, reported as "the Final label
+preview rendered blank". `resources/addsource-labelpreview.css` now uses the
+Codex theme tokens (`--background-color-interactive-subtle`,
+`--border-color-base`, `--color-base`, `--color-subtle`,
+`--color-progressive`) with light-mode fallbacks, so the preview follows
+Light/Dark/OS-dark. The browser UX suite asserts a >= 3:1 contrast ratio on
+`Special:AddSource/document/manual` in night mode.

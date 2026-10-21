@@ -265,6 +265,14 @@ $wgWBClientSettings['changesDatabase'] = false;
 // VARBINARY(2000) (see the CI ALTER step + the runbook deploy sequence).
 $wgWBRepoSettings['string-limits']['multilang']['length'] = 2000;
 
+// ---- Site search suggestions: classic pages, not entity labels ----
+// Mirrors production LocalSettings.php. Wikibase's enableEntitySearchUI
+// replaces Vector 2022's page-title typeahead with wbsearchentities (entity
+// items only), so the on-type dropdown never suggested classic pages.
+// Disabling it restores core opensearch (page titles); the Special:Search
+// "Items" section (EmbeddableContent) still surfaces entity labels.
+$wgWBRepoSettings['enableEntitySearchUI'] = false;
+
 // ---- Issue #35: source files (books etc.) on the upload allow-list ----
 // Mirrors the production LocalSettings.php addition (see
 // RonzzIT:Deployment/Wikibase on the instance). Needed in dev/CI so the

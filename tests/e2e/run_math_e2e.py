@@ -19,7 +19,7 @@ instance):
    - the page carries the `ext.SimpleMathJax` module and the client config
      (`wgSmjUseCdn:false` → self-hosted MathJax; `wgSmjExtraInlineMath` →
      the `$…$` delimiter pair),
-3. the self-hosted MathJax 3 assets return HTTP 200 (installed by
+3. the self-hosted MathJax 4 assets + NewCM font return HTTP 200 (installed by
    `tools/install-mathjax.sh` into
    `extensions/SimpleMathJax/resources/MathJax/` — never a CDN),
 4. cleanup: the scratch page is deleted (self-cleaning).
@@ -231,7 +231,7 @@ def assert_apostrophe_guard(op, api: str) -> None:
 
 
 def assert_multiline_display(op, api: str) -> None:
-    """A top-level `\\\\` in display math is wrapped in `gathered` (MathJax 3
+    """A top-level `\\\\` in display math is wrapped in `gathered` (MathJax
     renders a top-level `\\\\` as a space, not a line break); an environment
     that already breaks lines (`cases`) is left untouched."""
     wrapped = api_parse_wikitext(op, api, "$$a = b \\\\ c = d$$")
@@ -294,21 +294,25 @@ def assert_page_contract(body: str, title: str) -> None:
 
 
 def assert_assets(op, base: str) -> None:
-    # The MathJax 3 es5 build must be served by the wiki itself (no CDN).
-    path = "/extensions/SimpleMathJax/resources/MathJax/es5/tex-chtml.js"
-    try:
-        with op.open(base + path, timeout=60) as resp:
-            if resp.status != 200:
-                raise FlowError(
-                    f"MathJax asset {path} returned HTTP {resp.status} — run "
-                    "tools/install-mathjax.sh in the checkout (CI/dev) or on the "
-                    "server (production) first")
-    except urllib.error.HTTPError as exc:
-        raise FlowError(
-            f"MathJax asset {path} returned HTTP {exc.code} — run "
-            "tools/install-mathjax.sh in the checkout (CI/dev) or on the "
-            "server (production) first") from exc
-    print(f"[ok] self-hosted MathJax asset served (HTTP 200): {path}")
+    # The MathJax 4 component + the NewCM font data must be served by the
+    # wiki itself (no CDN). The font file is the installer's sentinel.
+    for path in (
+        "/extensions/SimpleMathJax/resources/MathJax/tex-chtml.js",
+        "/extensions/SimpleMathJax/resources/MathJax/fonts/chtml/woff2/mjx-ncm-n.woff2",
+    ):
+        try:
+            with op.open(base + path, timeout=60) as resp:
+                if resp.status != 200:
+                    raise FlowError(
+                        f"MathJax asset {path} returned HTTP {resp.status} — run "
+                        "tools/install-mathjax.sh in the checkout (CI/dev) or on the "
+                        "server (production) first")
+        except urllib.error.HTTPError as exc:
+            raise FlowError(
+                f"MathJax asset {path} returned HTTP {exc.code} — run "
+                "tools/install-mathjax.sh in the checkout (CI/dev) or on the "
+                "server (production) first") from exc
+        print(f"[ok] self-hosted MathJax asset served (HTTP 200): {path}")
 
 
 def cleanup(op, api: str, page: str, keep: bool) -> None:
