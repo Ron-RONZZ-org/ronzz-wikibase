@@ -86,6 +86,8 @@ Display: $$\\int_0^1 x^2 \\, dx$$
 
 Multiline: $$a = b \\\\ c = d$$
 
+Overline: $\\overline{\\langle v, u \\rangle}$
+
 Code stays literal:
 <syntaxhighlight lang="bash">
 price=\$5.00
