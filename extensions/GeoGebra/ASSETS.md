@@ -12,6 +12,7 @@ tools/install-geogebra.sh [--force] [--dest DIR]
 | | |
 |---|---|
 | Upstream | GeoGebra Math Apps Bundle — https://download.geogebra.org/package/geogebra-math-apps-bundle |
+| CI mirror (release asset) | https://github.com/Ron-RONZZ-org/ronzz-wikibase/releases/tag/assets-geogebra-5.4.930.2 (`tools/install-geogebra.sh` tries it first; upstream is the fallback; same sha256) |
 | Version | `5.4.930.2` (`geogebra-math-apps-bundle-5-4-930-2.zip`) |
 | Bundle sha256 | `7e0b7b1dc51cebe1675de15fd296d8ebe7f49e407567656351af42e29f55c871` |
 | `deployggb.js` sha256 | `7894ce225cfccf81940c8b35a6b6c4960db5169cb842c20cf99d5877997a335a` |
@@ -34,8 +35,11 @@ web3d-only install self-heals). The other codebases in the bundle (`web/`,
 The GeoGebra Math Apps Bundle's own `README.txt` states: *"You are free to
 copy, distribute and transmit GeoGebra for non-commercial purposes."* The
 ronzz.org instance is a personal/community, non-commercial wiki. The bundle is
-**fetched from geogebra.org by the install script and never redistributed in
-this repo** (the same pattern as the MathJax assets and the PlantUML jar).
+**fetched by the install script** from geogebra.org, or from the repo's
+pinned **CI mirror release asset** when GitHub-hosted runners cannot reach the
+upstream host; it is **never committed to the repo tree** (the same pattern as
+the MathJax assets and the PlantUML jar). GeoGebra's licence explicitly permits
+non-commercial copying/distribution.
 The extension code itself is GPL-2.0-or-later; the GeoGebra app is **not**
 GPL and must not be committed.
 
