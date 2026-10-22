@@ -13,16 +13,7 @@
 ( function () {
 	'use strict';
 
-	function getToolbar() {
-		var $toolbar = $( '.wb-embed-toolbar' );
-		if ( $toolbar.length === 0 ) {
-			$toolbar = $( '<div class="wb-embed-toolbar"></div>' );
-			$( '#firstHeading' ).after( $toolbar );
-		}
-		return $toolbar;
-	}
-
-	mw.loader.using( 'oojs-ui' ).then( function () {
+	mw.loader.using( [ 'oojs-ui', 'ext.embeddableContent.toolbar' ] ).then( function () {
 		var url = mw.config.get( 'wbUpdateBasicInfoUrl' );
 		if ( !url || $( '#firstHeading' ).length === 0 ) {
 			return;
@@ -36,7 +27,7 @@
 		// primitive keeps it first in the row (rank 10) regardless of which
 		// module renders first.
 		mw.embeddableContent.toolbar.add(
-			getToolbar(),
+			mw.embeddableContent.toolbar.getRow(),
 			$( '<a class="wb-embed-toolbar-btn wb-update-basic-btn"></a>' )
 				.attr( 'href', url )
 				.text( mw.msg( labelKey ) ),

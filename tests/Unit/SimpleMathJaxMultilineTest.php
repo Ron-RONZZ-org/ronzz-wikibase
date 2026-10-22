@@ -10,10 +10,12 @@ require_once __DIR__ . '/../../extensions/SimpleMathJax/SimpleMathJaxQuotes.php'
 require_once __DIR__ . '/../../extensions/SimpleMathJax/SimpleMathJaxMultiline.php';
 
 /**
- * Pure-PHP tests for the SimpleMathJax multiline-display patch: MathJax 3
+ * Pure-PHP tests for the SimpleMathJax multiline-display patch: MathJax
  * renders a top-level `\\` as a space, so a display span carrying one is
  * wrapped in `\begin{gathered}…\end{gathered}` (environments that already
- * break lines are left alone).
+ * break lines are left alone). A top-level `\tag{…}` switches the wrapper to
+ * `\begin{gather}…\end{gather}` — MathJax forbids `\tag` inside the inner
+ * `gathered` environment.
  *
  * @license GPL-2.0-or-later
  */
@@ -60,6 +62,23 @@ final class SimpleMathJaxMultilineTest extends TestCase {
 				'$$\\begin{aligned}a &= b \\\\ c &= d\\end{aligned}$$',
 			],
 			'logical proof block' => [ $logicalInput, $logicalExpected ],
+			// A top-level `\tag{…}` is only allowed in a taggable OUTER
+			// environment: wrap in `gather`, never `gathered` (the
+			// Cubic_spline_interpolation report).
+			'top-level tag uses gather' => [
+				'$$a = b \\\\ c = d \\tag{1}$$',
+				'$$\\begin{gather}a = b \\\\ c = d \\tag{1}\\end{gather}$$',
+			],
+			'top-level starred tag uses gather' => [
+				'$$a = b \\\\ c = d \\tag*{1}$$',
+				'$$\\begin{gather}a = b \\\\ c = d \\tag*{1}\\end{gather}$$',
+			],
+			// A `\tag` inside a braced group is not a top-level tag: the
+			// wrapper stays `gathered`.
+			'tag inside a braced group stays gathered' => [
+				'$$\\text{\\tag{x}} \\\\ a = b$$',
+				'$$\\begin{gathered}\\text{\\tag{x}} \\\\ a = b\\end{gathered}$$',
+			],
 			// A top-level environment FOLLOWED by a top-level break is still
 			// multiline — wrap the whole content.
 			'environment plus top-level break' => [
@@ -106,5 +125,15 @@ final class SimpleMathJaxMultilineTest extends TestCase {
 		$twice = \SimpleMathJaxMultiline::wrapMultilineDisplayMath( $once, self::DISPLAY );
 		$this->assertSame( $once, $twice );
 		$this->assertSame( '$$\\begin{gathered}a \\\\ b\\end{gathered}$$', $once );
+	}
+
+	public function testGatherWrapIsIdempotent(): void {
+		$once = \SimpleMathJaxMultiline::wrapMultilineDisplayMath(
+			'$$a \\\\ b \\tag{1}$$',
+			self::DISPLAY
+		);
+		$twice = \SimpleMathJaxMultiline::wrapMultilineDisplayMath( $once, self::DISPLAY );
+		$this->assertSame( $once, $twice );
+		$this->assertSame( '$$\\begin{gather}a \\\\ b \\tag{1}\\end{gather}$$', $once );
 	}
 }

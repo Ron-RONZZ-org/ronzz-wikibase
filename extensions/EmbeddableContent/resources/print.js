@@ -292,20 +292,18 @@
 	 * sibling toolbar modules reuse it (the same create-or-reuse contract
 	 * they use themselves), so the print button lands in ONE row with the
 	 * other page actions regardless of module load order (print loads first).
+	 * The block row is the shared toolbar primitive's getRow(), which inserts
+	 * it below the page-title chrome — never after `#firstHeading` (a flex
+	 * item in Vector 2022's titlebar).
 	 */
 	function getToolbar() {
-		var contentSurface = mw.config.get( 'wbPrintToolbar' ) === 'content';
-		var selector = contentSurface ? '.wb-content-page-toolbar' : '.wb-embed-toolbar';
-		var $toolbar = $( selector ).first();
-		if ( $toolbar.length > 0 ) {
-			return $toolbar;
+		if ( mw.config.get( 'wbPrintToolbar' ) !== 'content' ) {
+			return mw.embeddableContent.toolbar.getRow();
 		}
-		if ( contentSurface ) {
+		var $toolbar = $( '.wb-content-page-toolbar' ).first();
+		if ( $toolbar.length === 0 ) {
 			$toolbar = $( '<span class="wb-content-page-toolbar"></span>' );
 			$( '#firstHeading' ).append( $toolbar );
-		} else {
-			$toolbar = $( '<div class="wb-embed-toolbar"></div>' );
-			$( '#firstHeading' ).after( $toolbar );
 		}
 		return $toolbar;
 	}

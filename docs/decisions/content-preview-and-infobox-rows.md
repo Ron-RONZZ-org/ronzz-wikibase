@@ -57,9 +57,15 @@ the previous plain-text rendering — the preview never goes blank.
 `.wb-content-preview` container directly below the `.wb-embed-toolbar` row,
 and fires `ext.embeddableContent.embedContentAdded` so `math.js` / `code.js`
 (re-)render the injected KaTeX / highlighted code. The toolbar ordering is
-order-independent: when the toolbar does not exist yet the preview inserts
-after `#firstHeading`, and the toolbar modules later insert themselves with
-`.after('#firstHeading')`, landing above the preview.
+order-independent through the shared `toolbar.getRow()` primitive: it
+creates-or-reuses the `.wb-embed-toolbar` row and both it and the preview are
+inserted **immediately before `#bodyContent`**, below the whole page-title
+chrome. **Superseded placement (2026-10-22)**: the original code inserted
+after `#firstHeading`; Vector 2022 puts that h1 inside the flex
+`.vector-page-titlebar`, so the preview became a flex item beside the title
+and a long expression squeezed the heading to one character per line (the
+`Item:Q2274` report). Do not reintroduce `.after('#firstHeading')` for these
+block elements.
 
 `math.js` / `code.js` now expose the re-render on the
 `ext.embeddableContent.embedContentAdded` hook; `code.js` skips

@@ -52,8 +52,11 @@ The user preferred the modern layout.
 - The site gets a maintained, accessible night mode with correct images,
   tables, code blocks and OOXML/Codex components.
 - The visible layout changes (sticky header, main menu, new table of contents,
-  width/appearance controls). The custom UI was audited: the toolbars anchor
-  on `#firstHeading` and the print interception on `#t-print`, both present in
+  width/appearance controls). The custom UI was audited: the inline toolbars
+  append to `#firstHeading`, the block toolbar/preview rows insert just before
+  `#bodyContent` (never after `#firstHeading`, which Vector 2022 wraps in the
+  flex `.vector-page-titlebar` — the Item:Q2274 title-squeeze fix), and the
+  print interception targets `#t-print`, all present in
   `?useskin=vector-2022`; the sitelink tab uses
   - Vector 2022's `.mw-editsection` sets `line-height: 0`; the custom
     per-section controls needed an explicit `line-height: normal` in

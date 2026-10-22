@@ -233,7 +233,9 @@ def assert_apostrophe_guard(op, api: str) -> None:
 def assert_multiline_display(op, api: str) -> None:
     """A top-level `\\\\` in display math is wrapped in `gathered` (MathJax
     renders a top-level `\\\\` as a space, not a line break); an environment
-    that already breaks lines (`cases`) is left untouched."""
+    that already breaks lines (`cases`) is left untouched. A top-level
+    `\\tag{}` must use `gather` — `gathered` is an inner environment where
+    MathJax rejects tags."""
     wrapped = api_parse_wikitext(op, api, "$$a = b \\\\ c = d$$")
     if "\\begin{gathered}" not in wrapped or "\\end{gathered}" not in wrapped:
         raise FlowError(
@@ -242,12 +244,23 @@ def assert_multiline_display(op, api: str) -> None:
     if "a = b \\\\ c = d" not in wrapped:
         raise FlowError(f"wrapped display math lost its content: {wrapped[:300]!r}")
 
+    tagged = api_parse_wikitext(
+        op, api, "$$a = b \\\\ c = d \\tag{1}$$")
+    if "\\begin{gather}" not in tagged or "\\end{gather}" not in tagged:
+        raise FlowError(
+            "a top-level \\tag in multiline display math was not wrapped in "
+            f"\\begin{{gather}} (rejected inside gathered): {tagged[:300]!r}")
+    if "\\begin{gathered}" in tagged:
+        raise FlowError(
+            f"a \\tag content was wrongly wrapped in gathered: {tagged[:300]!r}")
+
     cases = api_parse_wikitext(op, api, "$$\\begin{cases}1 \\\\ 0\\end{cases}$$")
     if "\\begin{gathered}" in cases:
         raise FlowError(
             f"a cases environment that already breaks lines was re-wrapped: {cases[:300]!r}")
 
-    print("[ok] multiline display math: top-level \\\\ wrapped in gathered, cases untouched")
+    print("[ok] multiline display math: top-level \\\\ wrapped in gathered, "
+          "\\tag uses gather, cases untouched")
 
 
 def assert_server_markers(body: str, title: str) -> None:

@@ -204,8 +204,18 @@ outside every braced group, so content that already breaks lines
 delimiter search is shared with the quote guard
 (`SimpleMathJaxQuotes::findClose`, now public) — same MathJax `FindTeX`
 semantics (braced groups, control sequences, blank-line stop). The pass is
-idempotent (a wrapped span's `\\` is inside `gathered`, so a second run does
-not re-wrap).
+idempotent (a wrapped span's `\\` is inside the outer environment, so a second
+run does not re-wrap).
+
+**Tagged equations (2026-10-22)**: `\tag{…}` is only allowed in a taggable
+**outer** environment — inside the inner `gathered` it throws
+`\tag not allowed in gathered environment` (the `Cubic_spline_interpolation`
+report). When the content carries a **top-level `\tag`**, the pass therefore
+wraps it in `\begin{gather}…\end{gather}` (the outer, taggable form) instead;
+plain multiline content keeps `gathered`. Idempotent for both environments.
+Verified against the MathJax ams implementation: `gathered`+`\tag` yields a
+`merror`, while `gather`+`\tag` renders an `mlabeledtr` with the tag (and
+`\tag` at the top level of display math works without any wrapper).
 
 **Leading-blank strip (2026-09-29)**: the same pass removes per-line leading
 blanks from every display span. A wikitext line that begins with a space is
@@ -217,10 +227,11 @@ shown (the `Sandbox:Temp` report — an indented continuation line under a
 
 **Testing**: pure-PHP unit tests `tests/Unit/SimpleMathJaxMultilineTest.php`
 (the reported block, `cases`/`aligned` untouched, braced-group `\\`
-untouched, inline untouched, idempotency), a server-side assertion in
-`tests/e2e/run_math_e2e.py` (the wrapped `\begin{gathered}` appears in the
-rendered HTML) and a browser assertion in `tests/e2e/run_math_ux_e2e.mjs`
-(a `\\` block renders two MathJax rows, not one).
+untouched, inline untouched, idempotency, `\tag` → `gather`), a server-side
+assertion in `tests/e2e/run_math_e2e.py` (the wrapped `\begin{gathered}` /
+`\begin{gather}` appears in the rendered HTML) and a browser assertion in
+`tests/e2e/run_math_ux_e2e.mjs` (a `\\` block renders two MathJax rows, not
+one; a tagged block renders its `(2)` tag without an error).
 
 **Status**: house patch (not (yet) proposed upstream — the upstream quote
 guard PR covers the companion change only). On re-vendor, re-apply or drop.

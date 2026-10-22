@@ -320,7 +320,8 @@
 			"dependencies": [
 				"mediawiki.api",
 				"mediawiki.notification",
-				"ext.embeddableContent.entityactions"
+				"ext.embeddableContent.entityactions",
+				"ext.embeddableContent.toolbar"
 			],
 			"targets": [
 				"desktop"
@@ -395,7 +396,8 @@
 			"dependencies": [
 				"mediawiki.api",
 				"ext.embeddableContent.embed",
-				"ext.embeddableContent.inlinekatex"
+				"ext.embeddableContent.inlinekatex",
+				"ext.embeddableContent.toolbar"
 			],
 			"targets": [
 				"desktop",

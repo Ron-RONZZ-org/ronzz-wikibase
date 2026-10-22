@@ -19,7 +19,14 @@
  *   50  Copy citation
  *   60  Print this page
  *
- * Exposes: mw.embeddableContent.toolbar.{ ORDER, add, sort }.
+ * The block row lives directly before `#bodyContent` — i.e. below the whole
+ * page-title chrome. Vector 2022 puts `#firstHeading` inside
+ * `.vector-page-titlebar` (a flex row), so `$('#firstHeading').after(row)`
+ * made the row a flex item BESIDE the title: a long content preview then
+ * squeezed the h1 to one letter per line (the Item:Q2274 report).
+ *
+ * Exposes:
+ *   mw.embeddableContent.toolbar.{ ORDER, add, sort, insertBelowTitle, getRow }.
  */
 ( function () {
 	'use strict';
@@ -72,6 +79,50 @@
 		return $control;
 	}
 
+	/**
+	 * Insert a block-level node directly below the page-title chrome: just
+	 * before `#bodyContent` in Vector 2022 (below the titlebar AND the page-tab
+	 * bar, outside the editable content container) and in legacy Vector (right
+	 * after the h1). Never insert after `#firstHeading` itself — in Vector 2022
+	 * that is a flex item inside `.vector-page-titlebar` and squeezes the title.
+	 *
+	 * @param {jQuery} $node
+	 * @return {jQuery} $node
+	 */
+	function insertBelowTitle( $node ) {
+		var $body = $( '#bodyContent' );
+		if ( $body.length > 0 ) {
+			$body.before( $node );
+		} else {
+			$( '#firstHeading' ).after( $node );
+		}
+		return $node;
+	}
+
+	/**
+	 * The shared block toolbar row, created on first use. Found among the
+	 * siblings preceding `#bodyContent` (so a dialog-local `.wb-embed-toolbar`
+	 * — the Add* success popup — is never mistaken for the page row).
+	 *
+	 * @return {jQuery}
+	 */
+	function getRow() {
+		var $body = $( '#bodyContent' );
+		var $row = $body.length > 0
+			? $body.prevAll( '.wb-embed-toolbar' ).first()
+			: $( '.wb-embed-toolbar' ).first();
+		if ( $row.length === 0 ) {
+			$row = insertBelowTitle( $( '<div class="wb-embed-toolbar"></div>' ) );
+		}
+		return $row;
+	}
+
 	mw.embeddableContent = mw.embeddableContent || {};
-	mw.embeddableContent.toolbar = { ORDER: ORDER, add: add, sort: sort };
+	mw.embeddableContent.toolbar = {
+		ORDER: ORDER,
+		add: add,
+		sort: sort,
+		insertBelowTitle: insertBelowTitle,
+		getRow: getRow
+	};
 }() );

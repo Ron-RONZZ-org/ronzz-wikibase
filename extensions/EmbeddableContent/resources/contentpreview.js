@@ -4,7 +4,10 @@
  * see them — so the server sets wbContentPreviewItem (the Q-id, only for
  * items classified under a content class) and this module fetches the
  * in-wiki preview variant (action=embed&preview=1) and injects it directly
- * BELOW the entity toolbar (.wb-embed-toolbar).
+ * BELOW the entity toolbar (.wb-embed-toolbar), both inserted below the
+ * page-title chrome (not after `#firstHeading`, which Vector 2022 wraps in a
+ * flex titlebar — the long preview squeezed the title to one character per
+ * line; the Item:Q2274 report).
  *
  * For a quotation the preview shows the ORIGINAL text, the reader-language
  * translation when one exists, and the attribution line; for a math item it
@@ -72,14 +75,16 @@
 	if ( !item || $( '#firstHeading' ).length === 0 ) {
 		return;
 	}
-	mw.loader.using( [ 'mediawiki.api', 'ext.embeddableContent.embed' ] ).then( function () {
+	mw.loader.using( [
+		'mediawiki.api',
+		'ext.embeddableContent.embed',
+		'ext.embeddableContent.toolbar'
+	] ).then( function () {
 		var $preview = $( '<div class="wb-content-preview mathjax_ignore"></div>' );
-		var $toolbar = $( '.wb-embed-toolbar' );
-		if ( $toolbar.length > 0 ) {
-			$toolbar.after( $preview );
-		} else {
-			$( '#firstHeading' ).after( $preview );
-		}
+		// getRow() creates the shared row on first use and inserts it below
+		// the title chrome; the preview follows it. Whichever module runs
+		// first, the row stays above the preview.
+		mw.embeddableContent.toolbar.getRow().after( $preview );
 		render( $preview, item );
 	} );
 }() );

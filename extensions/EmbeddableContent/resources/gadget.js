@@ -36,27 +36,20 @@
 		entityId = titleText;
 	}
 
-	/**
-	 * The shared toolbar row under the page title: created on first use by
-	 * whichever module runs first (this one or updatebutton.js), reused by
-	 * the other — the buttons always end up in the same flex row.
-	 */
-	function getToolbar() {
-		var $toolbar = $( '.wb-embed-toolbar' );
-		if ( $toolbar.length === 0 ) {
-			$toolbar = $( '<div class="wb-embed-toolbar"></div>' );
-			$( '#firstHeading' ).after( $toolbar );
-		}
-		return $toolbar;
-	}
-
-	mw.loader.using( [ 'mediawiki.api', 'mediawiki.notification' ] ).then( function () {
+	mw.loader.using( [
+		'mediawiki.api',
+		'mediawiki.notification',
+		'ext.embeddableContent.toolbar'
+	] ).then( function () {
 		if ( !entityId || $( '#firstHeading' ).length === 0 ) {
 			return;
 		}
 		// The controls append to the shared row; updatebutton.js prepends the
 		// primary "Update basic information" / "Edit content" button, so it
 		// stays first.
-		mw.embeddableContent.entityActions.attach( getToolbar(), entityId );
+		mw.embeddableContent.entityActions.attach(
+			mw.embeddableContent.toolbar.getRow(),
+			entityId
+		);
 	} );
 }() );
