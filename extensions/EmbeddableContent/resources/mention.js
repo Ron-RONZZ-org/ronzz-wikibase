@@ -15,20 +15,6 @@
 ( function () {
 	'use strict';
 
-	/**
-	 * The shared toolbar row under the page title: created on first use
-	 * (the gadget's own getToolbar does not run on these pages unless the
-	 * item is embeddable), styled by gadget.css.
-	 */
-	function getToolbar() {
-		var $toolbar = $( '.wb-embed-toolbar' );
-		if ( $toolbar.length === 0 ) {
-			$toolbar = $( '<div class="wb-embed-toolbar"></div>' );
-			$( '#firstHeading' ).after( $toolbar );
-		}
-		return $toolbar;
-	}
-
 	function copyText( text ) {
 		var done = function () {
 			mw.notify( mw.msg( 'embeddablecontent-gadget-copied' ) );
@@ -83,7 +69,7 @@
 		// Ranked by the shared toolbar primitive: after "Copy internal
 		// citation" (when present), before "Copy embed code".
 		mw.embeddableContent.toolbar.add(
-			getToolbar(),
+			mw.embeddableContent.toolbar.getRow(),
 			$button,
 			mw.embeddableContent.toolbar.ORDER.mention
 		);

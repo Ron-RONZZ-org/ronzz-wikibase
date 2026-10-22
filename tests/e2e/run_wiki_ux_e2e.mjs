@@ -389,14 +389,26 @@ async function main() {
 					return {
 						embed: el ? el.querySelectorAll('.wb-embed').length : 0,
 						below,
+						// The regression (Item:Q2274, Vector 2022): the preview
+						// and toolbar were inserted after #firstHeading, i.e.
+						// INSIDE the flex .vector-page-titlebar, squeezing the
+						// title to one letter per line. They must live below the
+						// title chrome (before #bodyContent).
+						previewInTitlebar: !!(el && el.closest('.vector-page-titlebar')),
+						toolbarInTitlebar: !!(toolbar && toolbar.closest('.vector-page-titlebar')),
+						previewInBodyContent: !!(el && el.closest('#bodyContent')),
 					};
 				});
 				if (preview.embed === 0) {
 					failures.push('Item: content preview did not render the embed fragment');
 				} else if (!preview.below) {
 					failures.push('Item: content preview is not below the entity toolbar');
+				} else if (preview.previewInTitlebar || preview.toolbarInTitlebar) {
+					failures.push('Item: content preview/toolbar is inside the Vector 2022 titlebar (it must sit below the page-title chrome)');
+				} else if (preview.previewInBodyContent) {
+					failures.push('Item: content preview is inside #bodyContent (it must stay outside the editable content container)');
 				} else {
-					console.log(`[ok] ${mathItem.id} renders the embed preview below the entity toolbar`);
+					console.log(`[ok] ${mathItem.id} renders the embed preview below the entity toolbar and the page-title chrome`);
 				}
 			} catch (e) {
 				failures.push('Item: content preview block never appeared');

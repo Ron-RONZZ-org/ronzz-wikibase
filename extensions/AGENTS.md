@@ -1062,8 +1062,9 @@ report). See `SimpleMathJax/VENDORED.md`.
   `Special:UpdateSource` overrides `applyLabelSuffix()=false` so updates
   keep the stored label as-is. (d) **Item toolbar one row + citation format
   chooser** — `updatebutton.js` and `gadget.js` share one
-  `.wb-embed-toolbar` flex row (create-or-reuse `getToolbar()`, update
-  button prepends); copy citation gains an APA (default)/Vancouver/BibTeX/
+  `.wb-embed-toolbar` flex row (create-or-reuse
+  `mw.embeddableContent.toolbar.getRow()`, update button prepends); copy
+  citation gains an APA (default)/Vancouver/BibTeX/
   RIS selector (`wb-embed-toolbar-style`), fetched lazily and cached per
   format (the APA probe doubles as the first text).
 - **Content-page "Add more" + label prefill (ADR
@@ -1423,7 +1424,8 @@ report). See `SimpleMathJax/VENDORED.md`.
   loads `ext.embeddableContent.contentpreview`
   (`resources/contentpreview.js`, `wbContentPreviewItem`): it fetches
   `action=embed` and injects the framed fragment into `.wb-content-preview`
-  directly below `.wb-embed-toolbar` (order-independent insertion), then
+  directly below `.wb-embed-toolbar` (order-independent insertion via the
+  shared `toolbar.getRow()`), then
   fires `ext.embeddableContent.embedContentAdded` — `math.js`/`code.js` now
   (re-)render on that hook (`code.js` skips already-highlighted blocks).
   (c) **`{{#statement-row:Label|property}}`** (magic word `statement-row`,
@@ -1524,10 +1526,17 @@ report). See `SimpleMathJax/VENDORED.md`.
   detached. `updatebutton.js`, `entityactions.js` (embed/citation/internal
   citation), `mention.js`, `sourcecite.js`, `contentpagetoolbar.js`,
   `print.js` and `addmore.js` all route through it, and the Add\* success popup
-  row shares the same ranks. No server/config change; deploy = extension rsync
-  + php-fpm restart. Regression: `run_wiki_ux_e2e.mjs` asserts the DOM order
-  on a provision `Source:` page (all six) and   on a Main-namespace content page
-  (mention → citation → print).
+  row shares the same ranks. **Placement (2026-10-22)**: `getRow()` /
+  `insertBelowTitle()` insert the block row (and the content preview) just
+  before `#bodyContent` — below the whole title chrome. Do NOT insert after
+  `#firstHeading`: Vector 2022 wraps it in the flex `.vector-page-titlebar`,
+  so the row became a flex item beside the title and a long preview squeezed
+  the h1 to one character per line (the Item:Q2274 report). No server/config
+  change; deploy = extension rsync + php-fpm restart. Regression:
+  `run_wiki_ux_e2e.mjs` asserts the DOM order on a provision `Source:` page
+  (all six), on a Main-namespace content page (mention → citation → print),
+  and that the Item-page preview + toolbar sit below the title chrome and
+  outside `.vector-page-titlebar`/`#bodyContent`.
 
 - **Oct-2026 bug + language batch (ADR `docs/decisions/wiki-bug-fixes-2026-10.md`)**:
   (a) **AddMath Note `$$…$$` preview** — `resources/inlinekatex.js`

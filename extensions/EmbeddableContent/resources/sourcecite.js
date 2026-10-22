@@ -14,28 +14,15 @@
 ( function () {
 	'use strict';
 
-	/**
-	 * The shared toolbar row under the page title: created on first use
-	 * (the gadget's own getToolbar does not run on Source pages — they are
-	 * not entity pages), styled by gadget.css.
-	 */
-	function getToolbar() {
-		var $toolbar = $( '.wb-embed-toolbar' );
-		if ( $toolbar.length === 0 ) {
-			$toolbar = $( '<div class="wb-embed-toolbar"></div>' );
-			$( '#firstHeading' ).after( $toolbar );
-		}
-		return $toolbar;
-	}
-
 	mw.loader.using( 'ext.embeddableContent.entityactions' ).then( function () {
 		var qid = mw.config.get( 'wbInternalCiteItem' );
 		if ( !qid || !/^Q[1-9]\d*$/.test( qid ) || $( '#firstHeading' ).length === 0 ) {
 			return;
 		}
-		getToolbar().append(
+		var $row = mw.embeddableContent.toolbar.getRow();
+		$row.append(
 			mw.embeddableContent.entityActions.internalCitationControls( qid )
 		);
-		mw.embeddableContent.toolbar.sort( getToolbar() );
+		mw.embeddableContent.toolbar.sort( $row );
 	} );
 }() );
