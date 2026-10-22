@@ -86,6 +86,8 @@ Display: $$\\int_0^1 x^2 \\, dx$$
 
 Multiline: $$a = b \\\\ c = d$$
 
+Tagged multiline: $$p = q \\\\ r = s \\tag{2}$$
+
 Overline: $\\overline{\\langle v, u \\rangle}$
 
 Code stays literal:
@@ -229,6 +231,33 @@ async function main() {
 			failures.push(`multiline display math rendered ${multilineRows} table row(s), expected >= 2 — the top-level \\\\ was not wrapped in gathered`);
 		} else {
 			console.log(`[ok] multiline display math rendered ${multilineRows} rows`);
+		}
+
+		// A top-level \tag in multiline math must typeset, not error: the
+		// server wraps it in \begin{gather} (a taggable outer environment);
+		// \begin{gathered} would render "\\tag not allowed in gathered
+		// environment" and no tag.
+		const tagged = await page.evaluate(() => {
+			for (const c of document.querySelectorAll('mjx-container')) {
+				const t = c.textContent.replace(/\s+/g, '');
+				if (t.includes('p=q') && t.includes('r=s')) {
+					return {
+						rows: c.querySelectorAll('mjx-mtr').length,
+						tag: t.includes('(2)'),
+						error: /not allowed in .* environment|Erroneous nesting/i.test(c.textContent),
+					};
+				}
+			}
+			return null;
+		});
+		if (!tagged) {
+			failures.push('tagged multiline display math did not render a MathJax container');
+		} else if (tagged.error) {
+			failures.push('tagged multiline display math rendered a MathJax error (\\tag rejected by the wrapper environment)');
+		} else if (tagged.rows < 2 || !tagged.tag) {
+			failures.push(`tagged multiline display math rendered ${tagged.rows} row(s), tag=${tagged.tag}; expected >= 2 rows and the (2) tag`);
+		} else {
+			console.log(`[ok] tagged multiline display math rendered ${tagged.rows} rows with tag (2)`);
 		}
 
 		// The code block must NOT have been typeset (MathJax skips pre/code).

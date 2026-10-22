@@ -97,6 +97,12 @@ Options evaluated (MW 1.46):
   which has no alignment column — a leftover `&` alignment tab in a block
   with no explicit environment fails with "Misplaced &". Use an explicit
   `\begin{aligned}…\end{aligned}` for alignment, or none.
+- **`\tag{}` is supported in multiline display math** (2026-10-22). A
+  top-level `\tag{…}` makes the multiline pass wrap the block in the outer,
+  taggable `gather` environment instead of the inner `gathered` (MathJax
+  reports "\tag not allowed in gathered environment" otherwise). Verified
+  with the MathJax ams implementation; the rendered output carries the
+  `(n)` tag on its row. A single-line `$$…\tag{…}$$` needs no wrapper.
 - **Maintenance**: single-maintainer upstream — pinned vendored copy +
   VENDORED.md + install-script pin; re-vendor on upstream releases.
 

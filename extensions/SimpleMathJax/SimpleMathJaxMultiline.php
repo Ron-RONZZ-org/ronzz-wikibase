@@ -11,13 +11,17 @@
  * write the top-level `\\` form (standard LaTeX), so this pass wraps a
  * display span whose content carries a top-level `\\` in
  * `\begin{gathered}…\end{gathered}` — the centered multiline environment —
- * before MathJax sees it.
+ * before MathJax sees it. When the same content carries a top-level
+ * `\tag{…}`, the wrapper is `\begin{gather}…\end{gather}` instead: MathJax
+ * permits `\tag` only in a taggable OUTER environment, and reports
+ * "\\tag not allowed in gathered environment" inside `gathered`.
  *
- * A `\\` is "top-level" when it is neither inside a `\begin{env}…\end{env}`
- * environment nor inside a braced group; those already break lines
- * themselves (`cases`, `aligned`, …) and are left untouched. The delimiter
- * search is the quote guard's (`SimpleMathJaxQuotes::findClose`), so braced
- * groups, control sequences and the blank-line stop behave identically.
+ * A `\\` / `\tag` is "top-level" when it is neither inside a
+ * `\begin{env}…\end{env}` environment nor inside a braced group; those
+ * already break lines themselves (`cases`, `aligned`, …) and are left
+ * untouched. The delimiter search is the quote guard's
+ * (`SimpleMathJaxQuotes::findClose`), so braced groups, control sequences and
+ * the blank-line stop behave identically.
  *
  * The pass ALSO strips per-line leading blanks from every display span: a
  * wikitext line that begins with a space is MediaWiki's preformatted-text
@@ -33,8 +37,15 @@
 class SimpleMathJaxMultiline {
 
 	/**
-	 * Wrap every display-math span whose content has a top-level `\\` in
-	 * `\begin{gathered}…\end{gathered}`.
+	 * Wrap every display-math span whose content has a top-level `\\` in a
+	 * multiline environment.
+	 *
+	 * `gathered` is the default (a centered inner environment). When the
+	 * content also carries a top-level `\tag{…}`, `gather` is used instead:
+	 * MathJax only allows `\tag` in a taggable OUTER environment, so
+	 * `\begin{gathered}…\tag{1}…\end{gathered}` throws
+	 * "\\tag not allowed in gathered environment" (the Cubic_spline_interpolation
+	 * report).
 	 *
 	 * @param string $text wikitext/parser text to scan
 	 * @param array[] $displayDelims list of [open, close] display pairs
@@ -72,9 +83,13 @@ class SimpleMathJaxMultiline {
 				if ( $end !== -1 ) {
 					$content = substr( $text, $i + $oL, $end - $i - $oL - strlen( $close ) );
 					$content = self::stripLineIndent( $content );
-					$out .= self::hasTopLevelLineBreak( $content )
-						? '\begin{gathered}' . $content . '\end{gathered}'
-						: $content;
+					$scan = self::scanTopLevel( $content );
+					if ( $scan['lineBreak'] ) {
+						$environment = $scan['tag'] ? 'gather' : 'gathered';
+						$content = '\begin{' . $environment . '}' . $content
+							. '\end{' . $environment . '}';
+					}
+					$out .= $content;
 					$out .= $close;
 					$i = $end;
 				} else {
@@ -107,10 +122,15 @@ class SimpleMathJaxMultiline {
 	}
 
 	/**
-	 * Whether the display content carries a `\\` outside every environment
-	 * and braced group.
+	 * Scan the display content for the two top-level markers that decide the
+	 * wrapper environment: a `\\` line break and a `\tag{…}` command, both
+	 * outside every environment and braced group.
+	 *
+	 * @return array{lineBreak:bool, tag:bool}
 	 */
-	private static function hasTopLevelLineBreak( string $content ): bool {
+	private static function scanTopLevel( string $content ): array {
+		$lineBreak = false;
+		$tag = false;
 		$len = strlen( $content );
 		$envDepth = 0;
 		$braceDepth = 0;
@@ -132,10 +152,18 @@ class SimpleMathJaxMultiline {
 				}
 				if ( $i + 1 < $len && $content[$i + 1] === '\\' ) {
 					if ( $envDepth === 0 && $braceDepth === 0 ) {
-						return true;
+						$lineBreak = true;
 					}
 					$i += 2;
 					continue;
+				}
+				if (
+					$envDepth === 0 && $braceDepth === 0
+					&& substr( $content, $i, 4 ) === '\tag'
+					&& ( $i + 4 >= $len || preg_match( '/[A-Za-z]/', $content[$i + 4] ) !== 1 )
+				) {
+					// `\tag{…}` / `\tag*{…}` — not a longer control sequence.
+					$tag = true;
 				}
 				$i += 2; // control sequence / escape: backslash + one char
 				continue;
@@ -147,6 +175,6 @@ class SimpleMathJaxMultiline {
 			}
 			$i++;
 		}
-		return false;
+		return [ 'lineBreak' => $lineBreak, 'tag' => $tag ];
 	}
 }

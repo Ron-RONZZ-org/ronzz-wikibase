@@ -111,6 +111,10 @@ left alone (those already break lines). The same pass strips **per-line
 leading blanks** from display spans: a wikitext line starting with a space
 is core's preformatted-text marker (`<pre>`), which splits the `$$…$$` span
 across block elements and stops MathJax rendering (the `Sandbox:Temp`
+report). **Tagged equations (2026-10-22):** a top-level `\tag{…}` forces the
+wrapper to `\begin{gather}…\end{gather}` instead — MathJax permits `\tag`
+only in a taggable OUTER environment and errors with "`\\tag` not allowed in
+gathered environment" inside `gathered` (the `Cubic_spline_interpolation`
 report). See `SimpleMathJax/VENDORED.md`.
 
 ## Purpose and Expected Behavior
