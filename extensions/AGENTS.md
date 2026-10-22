@@ -1527,16 +1527,20 @@ report). See `SimpleMathJax/VENDORED.md`.
   citation), `mention.js`, `sourcecite.js`, `contentpagetoolbar.js`,
   `print.js` and `addmore.js` all route through it, and the Add\* success popup
   row shares the same ranks. **Placement (2026-10-22)**: `getRow()` /
-  `insertBelowTitle()` insert the block row (and the content preview) just
-  before `#bodyContent` — below the whole title chrome. Do NOT insert after
-  `#firstHeading`: Vector 2022 wraps it in the flex `.vector-page-titlebar`,
-  so the row became a flex item beside the title and a long preview squeezed
-  the h1 to one character per line (the Item:Q2274 report). No server/config
-  change; deploy = extension rsync + php-fpm restart. Regression:
-  `run_wiki_ux_e2e.mjs` asserts the DOM order on a provision `Source:` page
-  (all six), on a Main-namespace content page (mention → citation → print),
-  and that the Item-page preview + toolbar sit below the title chrome and
-  outside `.vector-page-titlebar`/`#bodyContent`.
+  `insertBelowTitle()` insert the block row (and the content preview) INSIDE
+  `#bodyContent`, immediately before `#mw-content-text` — below the whole
+  title chrome. Do NOT insert after `#firstHeading`: Vector 2022 wraps it in
+  the flex `.vector-page-titlebar`, so the row became a flex item beside the
+  title and a long preview squeezed the h1 to one character per line (the
+  Item:Q2274 report). Neither may the row be a SIBLING of `#bodyContent`:
+  `main#content` is a CSS grid in Vector 2022, and an unplaced child lands in
+  the spare column, squeezing the content column (found live on the first
+  deploy). No server/config change; deploy = extension rsync + php-fpm
+  restart. Regression: `run_wiki_ux_e2e.mjs` asserts the DOM order on a
+  provision `Source:` page (all six), on a Main-namespace content page
+  (mention → citation → print), and that the Item-page preview + toolbar
+  sit inside `#bodyContent` before `#mw-content-text`, never in
+  `.vector-page-titlebar`, with an unsqueezed title.
 
 - **Oct-2026 bug + language batch (ADR `docs/decisions/wiki-bug-fixes-2026-10.md`)**:
   (a) **AddMath Note `$$…$$` preview** — `resources/inlinekatex.js`

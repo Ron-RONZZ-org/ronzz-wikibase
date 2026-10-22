@@ -380,35 +380,53 @@ async function main() {
 			await page.goto(`${BASE_URL}/wiki/Item:${mathItem.id}`, { waitUntil: 'domcontentloaded', timeout: 60000 });
 			try {
 				await page.waitForSelector('.wb-content-preview', { timeout: 20000 });
+				// The preview content is fetched asynchronously — wait for the
+				// embed fragment before measuring the layout.
+				await page.waitForSelector('.wb-content-preview .wb-embed', { timeout: 20000 });
 				const preview = await page.evaluate(() => {
 					const el = document.querySelector('.wb-content-preview');
 					const toolbar = document.querySelector('.wb-embed-toolbar');
-					const below = toolbar && el
-						? (toolbar.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+					const contentText = document.querySelector('#mw-content-text');
+					const h1 = document.querySelector('#firstHeading');
+					const rect = h1.getBoundingClientRect();
+					const lineHeight = parseFloat(getComputedStyle(h1).lineHeight) || 0;
+					const beforeContentText = contentText && el
+						? (el.compareDocumentPosition(contentText) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
 						: false;
 					return {
 						embed: el ? el.querySelectorAll('.wb-embed').length : 0,
-						below,
-						// The regression (Item:Q2274, Vector 2022): the preview
-						// and toolbar were inserted after #firstHeading, i.e.
-						// INSIDE the flex .vector-page-titlebar, squeezing the
-						// title to one letter per line. They must live below the
-						// title chrome (before #bodyContent).
+						below: toolbar && el
+							? (toolbar.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0
+							: false,
+						// The regressions (Item:Q2274, Vector 2022): (a) the
+						// preview/toolbar inserted after #firstHeading were flex
+						// items INSIDE .vector-page-titlebar; (b) a sibling of
+						// #bodyContent landed in the wrong CSS-grid column and
+						// squeezed the content column. They must live inside
+						// #bodyContent, before #mw-content-text.
 						previewInTitlebar: !!(el && el.closest('.vector-page-titlebar')),
 						toolbarInTitlebar: !!(toolbar && toolbar.closest('.vector-page-titlebar')),
 						previewInBodyContent: !!(el && el.closest('#bodyContent')),
+						beforeContentText,
+						h1Width: Math.round(rect.width),
+						h1Height: Math.round(rect.height),
+						h1LineHeight: Math.round(lineHeight),
 					};
 				});
+				const titleSqueezed = preview.h1LineHeight > 0
+					&& preview.h1Height > preview.h1LineHeight * 3;
 				if (preview.embed === 0) {
 					failures.push('Item: content preview did not render the embed fragment');
 				} else if (!preview.below) {
 					failures.push('Item: content preview is not below the entity toolbar');
 				} else if (preview.previewInTitlebar || preview.toolbarInTitlebar) {
 					failures.push('Item: content preview/toolbar is inside the Vector 2022 titlebar (it must sit below the page-title chrome)');
-				} else if (preview.previewInBodyContent) {
-					failures.push('Item: content preview is inside #bodyContent (it must stay outside the editable content container)');
+				} else if (!preview.previewInBodyContent || !preview.beforeContentText) {
+					failures.push('Item: content preview/toolbar is not inside #bodyContent before #mw-content-text (wrong Vector 2022 grid column)');
+				} else if (titleSqueezed || preview.h1Width < 250) {
+					failures.push(`Item: page title is squeezed (${preview.h1Width}px wide, ${preview.h1Height}px tall, line-height ${preview.h1LineHeight}px)`);
 				} else {
-					console.log(`[ok] ${mathItem.id} renders the embed preview below the entity toolbar and the page-title chrome`);
+					console.log(`[ok] ${mathItem.id} renders the embed preview below the entity toolbar; title ${preview.h1Width}x${preview.h1Height}`);
 				}
 			} catch (e) {
 				failures.push('Item: content preview block never appeared');
