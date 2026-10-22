@@ -19,11 +19,14 @@
  *   50  Copy citation
  *   60  Print this page
  *
- * The block row lives directly before `#bodyContent` — i.e. below the whole
- * page-title chrome. Vector 2022 puts `#firstHeading` inside
- * `.vector-page-titlebar` (a flex row), so `$('#firstHeading').after(row)`
- * made the row a flex item BESIDE the title: a long content preview then
- * squeezed the h1 to one letter per line (the Item:Q2274 report).
+ * The block row lives INSIDE `#bodyContent`, immediately before
+ * `#mw-content-text` — below the whole page-title chrome. Vector 2022 puts
+ * `#firstHeading` inside `.vector-page-titlebar` (a flex row), so
+ * `$('#firstHeading').after(row)` made the row a flex item BESIDE the title:
+ * a long content preview then squeezed the h1 to one letter per line (the
+ * Item:Q2274 report). A sibling of `#bodyContent` is equally wrong: the
+ * Vector 2022 `main#content` is a CSS grid, so an unplaced child lands in the
+ * spare column and squeezes the content column.
  *
  * Exposes:
  *   mw.embeddableContent.toolbar.{ ORDER, add, sort, insertBelowTitle, getRow }.
@@ -80,37 +83,49 @@
 	}
 
 	/**
-	 * Insert a block-level node directly below the page-title chrome: just
-	 * before `#bodyContent` in Vector 2022 (below the titlebar AND the page-tab
-	 * bar, outside the editable content container) and in legacy Vector (right
-	 * after the h1). Never insert after `#firstHeading` itself — in Vector 2022
-	 * that is a flex item inside `.vector-page-titlebar` and squeezes the title.
+	 * Insert a block-level node below the page-title chrome.
+	 *
+	 * The node goes INSIDE `#bodyContent`, immediately before
+	 * `#mw-content-text` (fallback: at the top of `#bodyContent`). It must NOT
+	 * be inserted after `#firstHeading` — Vector 2022 wraps that h1 in the flex
+	 * `.vector-page-titlebar`, so the node becomes a flex item beside the title
+	 * and a long preview squeezes the heading to one letter per line.
+	 * Nor may it be a sibling of `#bodyContent`: `main#content` is a CSS GRID
+	 * in Vector 2022, and an unplaced child lands in the spare grid column,
+	 * squeezing the whole content column (found live on the first deploy of
+	 * this fix).
 	 *
 	 * @param {jQuery} $node
 	 * @return {jQuery} $node
 	 */
 	function insertBelowTitle( $node ) {
+		var $contentText = $( '#mw-content-text' );
+		if ( $contentText.length > 0 ) {
+			$contentText.before( $node );
+			return $node;
+		}
 		var $body = $( '#bodyContent' );
 		if ( $body.length > 0 ) {
-			$body.before( $node );
-		} else {
-			$( '#firstHeading' ).after( $node );
+			$body.prepend( $node );
+			return $node;
 		}
+		$( '#firstHeading' ).after( $node );
 		return $node;
 	}
 
 	/**
-	 * The shared block toolbar row, created on first use. Found among the
-	 * siblings preceding `#bodyContent` (so a dialog-local `.wb-embed-toolbar`
-	 * — the Add* success popup — is never mistaken for the page row).
+	 * The shared block toolbar row, created on first use. Found inside
+	 * `#bodyContent` before `#mw-content-text`, so a dialog-local
+	 * `.wb-embed-toolbar` (the Add* success popup) is never mistaken for the
+	 * page row.
 	 *
 	 * @return {jQuery}
 	 */
 	function getRow() {
-		var $body = $( '#bodyContent' );
-		var $row = $body.length > 0
-			? $body.prevAll( '.wb-embed-toolbar' ).first()
-			: $( '.wb-embed-toolbar' ).first();
+		var $contentText = $( '#mw-content-text' );
+		var $row = $contentText.length > 0
+			? $contentText.prevAll( '.wb-embed-toolbar' ).first()
+			: $( '#bodyContent' ).children( '.wb-embed-toolbar' ).first();
 		if ( $row.length === 0 ) {
 			$row = insertBelowTitle( $( '<div class="wb-embed-toolbar"></div>' ) );
 		}

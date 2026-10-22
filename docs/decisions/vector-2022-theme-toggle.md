@@ -53,10 +53,12 @@ The user preferred the modern layout.
   tables, code blocks and OOXML/Codex components.
 - The visible layout changes (sticky header, main menu, new table of contents,
   width/appearance controls). The custom UI was audited: the inline toolbars
-  append to `#firstHeading`, the block toolbar/preview rows insert just before
-  `#bodyContent` (never after `#firstHeading`, which Vector 2022 wraps in the
-  flex `.vector-page-titlebar` — the Item:Q2274 title-squeeze fix), and the
-  print interception targets `#t-print`, all present in
+  append to `#firstHeading`, the block toolbar/preview rows insert inside
+  `#bodyContent` before `#mw-content-text` (never after `#firstHeading` —
+  `.vector-page-titlebar` is flex — nor as a sibling of `#bodyContent` —
+  `main#content` is a grid; both squeeze the title/content column, the
+  Item:Q2274 fix), and the print interception targets `#t-print`, all present
+  in
   `?useskin=vector-2022`; the sitelink tab uses
   - Vector 2022's `.mw-editsection` sets `line-height: 0`; the custom
     per-section controls needed an explicit `line-height: normal` in

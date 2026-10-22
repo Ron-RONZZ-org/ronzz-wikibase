@@ -59,12 +59,15 @@ and fires `ext.embeddableContent.embedContentAdded` so `math.js` / `code.js`
 (re-)render the injected KaTeX / highlighted code. The toolbar ordering is
 order-independent through the shared `toolbar.getRow()` primitive: it
 creates-or-reuses the `.wb-embed-toolbar` row and both it and the preview are
-inserted **immediately before `#bodyContent`**, below the whole page-title
-chrome. **Superseded placement (2026-10-22)**: the original code inserted
-after `#firstHeading`; Vector 2022 puts that h1 inside the flex
-`.vector-page-titlebar`, so the preview became a flex item beside the title
-and a long expression squeezed the heading to one character per line (the
-`Item:Q2274` report). Do not reintroduce `.after('#firstHeading')` for these
+inserted **inside `#bodyContent`, immediately before `#mw-content-text`** —
+below the whole page-title chrome. **Superseded placements (2026-10-22)**:
+the original code inserted after `#firstHeading`; Vector 2022 puts that h1
+inside the flex `.vector-page-titlebar`, so the preview became a flex item
+beside the title and a long expression squeezed the heading to one character
+per line (the `Item:Q2274` report). A sibling of `#bodyContent` is equally
+wrong — `main#content` is a CSS grid in Vector 2022, so an unplaced child
+lands in the spare column and squeezes the content column (caught by the live
+verification of the first fix). Do not reintroduce either form for these
 block elements.
 
 `math.js` / `code.js` now expose the re-render on the
