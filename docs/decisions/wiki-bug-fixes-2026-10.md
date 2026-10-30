@@ -62,6 +62,11 @@ new `resources/datefields.js` (loaded on Add/UpdatePerson) rewrites every
 date widget to strict `Y-m-d` on submit — a no-op for a canonical value,
 clearing a value that cannot be parsed at all.
 
+**Superseded (October 2026)**: the date widgets were replaced by signed text
+fields (`YYYY-MM-DD` / `-YYYY-MM-DD` for BCE), so `resources/datefields.js`
+and the `addmodule` call were removed. See
+`docs/decisions/add-ux-batch-2026-10.md` §4.
+
 ## 4. AddSource child language inheritance (bookExcerpt)
 
 **Report**: a book excerpt should default its source language and label

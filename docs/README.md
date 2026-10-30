@@ -131,3 +131,9 @@ Wikibase item labels through the shared CONTAINS term search),
 to the selected class — book also accepts literary works), and
 `wiki-pages-parity.md` (two-way repo ↔ production sync for
 `MediaWiki:`/`Template:` pages, with conflict detection and a dedicated bot).
+
+October 2026 Add\* UX batch: `add-ux-batch-2026-10.md` (the append editor
+redirects to the section just added; the AddQuotation "Attributed to"
+typeahead is scoped to agent classes; house CSS uses Codex theme tokens; BCE
+dates are signed `-YYYY-MM-DD` values stored with the Julian calendar model;
+the metadata-only `transcript` source class).
