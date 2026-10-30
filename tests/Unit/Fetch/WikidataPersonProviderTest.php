@@ -89,6 +89,36 @@ final class WikidataPersonProviderTest extends TestCase {
 		$this->assertCount( 1, $nested );
 	}
 
+	public function testByWikidataIdHarvestsBceDates(): void {
+		// Q868 (Gautama Buddha) stores its dates as negative-year TimeValues;
+		// the harvest must keep the sign (384 BCE, not 384 CE).
+		$http = ( new FakeHttpClient() )->onJson( 'action=wbgetentities&ids=Q868', [
+			'entities' => [
+				'Q868' => [
+					'labels' => [ 'en' => [ 'value' => 'Gautama Buddha' ] ],
+					'descriptions' => [],
+					'claims' => [
+						'P569' => [ [ 'mainsnak' => [ 'datavalue' => [
+							'value' => [ 'time' => '-0384-00-00T00:00:00Z' ],
+						] ] ] ],
+						'P570' => [ [ 'mainsnak' => [ 'datavalue' => [
+							'value' => [ 'time' => '-0322-00-00T00:00:00Z' ],
+						] ] ] ],
+					],
+					'sitelinks' => [],
+					'aliases' => [],
+				],
+			],
+		] );
+		$provider = new WikidataPersonProvider( $http );
+
+		$record = $provider->byWikidataId( 'Q868' );
+
+		$this->assertNotNull( $record );
+		$this->assertSame( '-0384-01-01', $record->dateOfBirth );
+		$this->assertSame( '-0322-01-01', $record->dateOfDeath );
+	}
+
 	public function testByOrcidUsesSparqlThenHarvest(): void {
 		$http = ( new FakeHttpClient() )
 			->onJson( 'query.wikidata.org', [

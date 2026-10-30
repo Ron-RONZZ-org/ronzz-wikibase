@@ -742,7 +742,9 @@ trait UpdateExternalEntityFlow {
 	}
 
 	/**
-	 * Day-precision time statement as "YYYY-MM-DD" ('' when none/other).
+	 * Day-precision time statement as a signed "YYYY-MM-DD" ('' when
+	 * none/other). A BCE date keeps its leading minus (`-0384-01-01`), the
+	 * form value the AddPerson/UpdatePerson text fields now use.
 	 */
 	protected function timeValueForProperty( Item $item, ?string $propertyId ): string {
 		if ( $propertyId === null ) {

@@ -518,18 +518,6 @@
 				"mobile"
 			]
 		},
-		"ext.embeddableContent.datefields": {
-			"scripts": [
-				"datefields.js"
-			],
-			"dependencies": [
-				"oojs-ui"
-			],
-			"targets": [
-				"desktop",
-				"mobile"
-			]
-		},
 		"ext.embeddableContent.updatebutton": {
 			"scripts": [
 				"updatebutton.js"

@@ -405,15 +405,6 @@ class Hooks {
 			$out->addModules( 'ext.embeddableContent.osmsuggest' );
 		}
 
-		// AddPerson/UpdatePerson also carry `date`-typed fields. The OOUI
-		// DateInputWidget keeps a loosely-parseable non-`YYYY-MM-DD` value
-		// verbatim, so a raw time prefill could reach the server and fail
-		// HTMLDateTimeField validation; the module normalizes the value to
-		// `YYYY-MM-DD` on submit (the date-of-birth report).
-		if ( $title->isSpecial( 'AddPerson' ) || $title->isSpecial( 'UpdatePerson' ) ) {
-			$out->addModules( 'ext.embeddableContent.datefields' );
-		}
-
 		// File: pages — the "Copy internal embed code" / "Copy direct link"
 		// buttons rendered inline to the right of the file-name title, plus
 		// the upload hand-off (a File: page that is a Special:Upload

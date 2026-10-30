@@ -336,6 +336,35 @@ class SemanticEntityFlowServiceTest extends TestCase {
 		$this->assertFalse( $item->getDescriptions()->hasTermForLanguage( 'en' ) );
 	}
 
+	public function testPersonBceDateWritesNegativeJulianTime(): void {
+		$service = $this->makeService();
+		$record = [
+			'givenName' => 'Siddhartha', 'familyName' => 'Gautama',
+			'dateOfBirth' => '-0384-01-01',
+		];
+		$this->assertNull( $service->prepare( 'person', $record, true ) );
+		$specs = $service->statementSpecs( 'person', $record );
+		$this->assertInstanceOf( TimeValue::class, $specs['P50'] );
+		$this->assertSame( '-0384-01-01T00:00:00Z', $specs['P50']->getTime() );
+		$this->assertSame( TimeValue::PRECISION_DAY, $specs['P50']->getPrecision() );
+		$this->assertSame(
+			'http://www.wikidata.org/entity/Q1985786',
+			$specs['P50']->getCalendarModel()
+		);
+	}
+
+	public function testPersonRejectsAnInvalidSignedDate(): void {
+		$service = $this->makeService();
+		$record = [
+			'givenName' => 'Ada', 'familyName' => 'Lovelace',
+			'dateOfBirth' => '-0384-13-01',
+		];
+		$this->assertStringContainsString(
+			'is not YYYY-MM-DD',
+			(string)$service->prepare( 'person', $record, true )
+		);
+	}
+
 	public function testApplyUpdateKeepsTermLanguageWhenBlank(): void {
 		$service = $this->makeService();
 		$item = $service->buildItem( 'person', [
