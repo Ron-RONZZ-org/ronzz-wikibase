@@ -245,8 +245,21 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		// item-id fields are class-scoped entity search+autofill comboboxes
 		// (the shared Fields\EntityCombobox builder); the submitted value
 		// stays an item id (parseOptionalItemId unchanged).
-		$entityCombobox = static function ( string $messageKey, bool $required, bool $multi = false ): array {
-			return EntityCombobox::spec( $messageKey, [], $multi, [
+		//
+		// `attributedTo` is the author/performer — a person, organization,
+		// group or other agent — so its suggestions are scoped to the
+		// instance's agent classes. Without the scope, typing a name suggested
+		// every item on the instance (e.g. a `document` source item such as
+		// Q2413). The `source` field stays unscoped: it points at a source,
+		// not an agent.
+		$agentClassIds = array_values( $this->config->agentClasses() );
+		$entityCombobox = static function (
+			string $messageKey,
+			bool $required,
+			bool $multi = false,
+			array $classIds = []
+		): array {
+			return EntityCombobox::spec( $messageKey, $classIds, $multi, [
 				'required' => $required,
 				'help-message' => $multi
 					? 'embeddablecontent-entityid-multiple-hint'
@@ -254,7 +267,12 @@ abstract class SpecialAddContentItem extends SpecialPage {
 			] );
 		};
 		$fields += [
-			'attributedTo' => $entityCombobox( 'embeddablecontent-add-attributedto', $this->getKind() === 'quotation' ),
+			'attributedTo' => $entityCombobox(
+				'embeddablecontent-add-attributedto',
+				$this->getKind() === 'quotation',
+				false,
+				$agentClassIds
+			),
 			'sourceUrl' => [
 				'type' => 'url',
 				'label-message' => 'embeddablecontent-add-sourceurl',
