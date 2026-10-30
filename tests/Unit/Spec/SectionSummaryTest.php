@@ -46,6 +46,16 @@ final class SectionSummaryTest extends TestCase {
 		$this->assertNull( SectionSummary::infer( '' ) );
 	}
 
+	public function testTopmostHeadingReturnsTheHeadingText(): void {
+		$this->assertSame(
+			'Vandermonde',
+			SectionSummary::topmostHeading( "Intro.\n\n== Vandermonde ==\n\n=== Nested ===\n" )
+		);
+		$this->assertSame( 'Title', SectionSummary::topmostHeading( "= Title =\n" ) );
+		$this->assertNull( SectionSummary::topmostHeading( "Just prose.\n" ) );
+		$this->assertNull( SectionSummary::topmostHeading( '' ) );
+	}
+
 	public function testMismatchedEqualsFollowsCoreGrammar(): void {
 		// Core's grammar backtracks the opening run, so `== A =` is an H1
 		// whose text is `= A` (verified against action=parse). The inferred

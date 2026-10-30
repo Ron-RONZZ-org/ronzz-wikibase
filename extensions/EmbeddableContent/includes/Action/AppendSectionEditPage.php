@@ -135,6 +135,15 @@ class AppendSectionEditPage extends EditPage {
 	 * Keep the auto-inferred Summary: with a blank Summary the revision
 	 * comment defaults to the section-edit convention built from the topmost
 	 * heading of the typed block (see Spec\SectionSummary).
+	 *
+	 * On a successful save, also point the post-edit redirect at the newly
+	 * added section: core's `EditPage` only derives a `sectionanchor` for its
+	 * own `section=new` / `section=<n>` saves, while this action posts a
+	 * whole-page edit (`section` stays empty) — so a plain append used to
+	 * land at the top of the view page. The anchor comes from the typed
+	 * block's topmost heading; when the block has no heading, the target
+	 * section's own heading is used instead. A page-end append with no
+	 * heading has no anchor (there is nothing to focus).
 	 */
 	public function attemptSave( &$resultDetails = false ) {
 		if ( trim( $this->summary ) === '' ) {
@@ -144,7 +153,45 @@ class AppendSectionEditPage extends EditPage {
 					->inContentLanguage()
 					->text();
 		}
-		return parent::attemptSave( $resultDetails );
+		$status = parent::attemptSave( $resultDetails );
+		// `sectionanchor` is only present on the success paths; never invent
+		// one for an error/preview render.
+		if ( is_array( $resultDetails ) && array_key_exists( 'sectionanchor', $resultDetails ) ) {
+			$anchor = $this->addedSectionAnchor();
+			if ( $anchor !== '' ) {
+				$resultDetails['sectionanchor'] = $anchor;
+			}
+		}
+		return $status;
+	}
+
+	/**
+	 * The redirect fragment of the section the contributor just added, in the
+	 * form core uses for post-edit redirects (`#` + urlencoded anchor).
+	 * Returns '' when no heading can be resolved (a page-end append without a
+	 * heading).
+	 */
+	private function addedSectionAnchor(): string {
+		$heading = SectionSummary::topmostHeading( (string)$this->textbox1 );
+		if ( $heading === null && $this->targetSection > 0 ) {
+			$current = $this->getCurrentContent();
+			if ( $current instanceof TextContent ) {
+				$section = $current->getSection( $this->targetSection );
+				if ( $section instanceof TextContent ) {
+					$heading = SectionSummary::topmostHeading( $section->getText() );
+				}
+			}
+		}
+		if ( $heading === null || $heading === '' ) {
+			return '';
+		}
+		$name = MediaWikiServices::getInstance()
+			->getParserFactory()
+			->getMainInstance()
+			->guessSectionNameFromWikiText( $heading );
+		// Core's PageEditingHelper::guessSectionName urlencodes the fragment
+		// for HTTP redirects (Chrome double-escapes an unencoded one).
+		return '#' . urlencode( mb_substr( $name, 1 ) );
 	}
 
 	/**
