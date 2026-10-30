@@ -299,6 +299,98 @@ async function main() {
 			}
 		}
 
+		// --- audited house surfaces readable in dark mode ------------------
+		// House CSS must use Codex tokens (tests/Unit/ThemeTokensTest guards
+		// the source); this checks the rendered contrast of the surfaces the
+		// night theme remaps — the AddPerson place-of-birth banner was the
+		// reported invisible-text case.
+		if (isVector2022) {
+			await page.goto(`${BASE_URL}/wiki/Special:AddPerson/manual`,
+				{ waitUntil: 'domcontentloaded', timeout: 60000 });
+			try {
+				const nightNow = () => page.evaluate(() =>
+					document.documentElement.classList.contains('skin-theme-clientpref-night'));
+				if (!await nightNow()) {
+					await page.click('#wb-theme-toggle');
+				}
+				await page.evaluate(async () => {
+					await new Promise((r) => mw.loader.using([
+						'ext.embeddableContent.embed',
+						'ext.embeddableContent.uploadmeta',
+						'ext.embeddableContent.gadget',
+						'ext.embeddableContent.sitelinktab',
+					], r));
+					const host = document.createElement('div');
+					host.id = 'wb-theme-audit-fixture';
+					host.innerHTML = `
+						<div class="wb-entity-confirm"><span class="wb-entity-confirm-line">confirm</span></div>
+						<div class="wb-uploadmeta-preview"><span class="wb-uploadmeta-size">size</span></div>
+						<div class="wb-embed"><span class="wb-embed-footer">footer</span></div>
+						<div class="wb-math-preview-box"><div class="wb-math-preview-title">title</div></div>
+						<div class="wb-embed-toolbar"><button type="button" class="wb-embed-toolbar-btn">button</button></div>
+						<div class="wb-citation-popup-preview">citation</div>`;
+					document.body.appendChild(host);
+				});
+				const checks = await page.evaluate(() => {
+					const rgb = (css) => (String(css).match(/\d+/g) || []).slice(0, 3).map(Number);
+					const lum = ([r, g, b]) => {
+						const f = (v) => {
+							v /= 255;
+							return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+						};
+						return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+					};
+					const effectiveBg = (el) => {
+						let node = el;
+						while (node) {
+							const bg = getComputedStyle(node).backgroundColor;
+							if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
+								return bg;
+							}
+							node = node.parentElement;
+						}
+						return getComputedStyle(document.body).backgroundColor || '#fff';
+					};
+					const pairs = [
+						['.wb-entity-confirm-line', '.wb-entity-confirm'],
+						['.wb-uploadmeta-size', '.wb-uploadmeta-preview'],
+						['.wb-embed-footer', '.wb-embed'],
+						['.wb-math-preview-title', '.wb-math-preview-box'],
+						['.wb-embed-toolbar-btn', '.wb-embed-toolbar-btn'],
+						['.wb-citation-popup-preview', '.wb-citation-popup-preview'],
+					];
+					return pairs.map(([sel, bgSel]) => {
+						const el = document.querySelector('#wb-theme-audit-fixture ' + sel);
+						if (!el) return { sel, missing: true };
+						const bgEl = bgSel === sel ? el : document.querySelector('#wb-theme-audit-fixture ' + bgSel);
+						const text = getComputedStyle(el).color;
+						const bg = effectiveBg(bgEl || el);
+						const [l1, l2] = [lum(rgb(text)), lum(rgb(bg))].sort((a, b) => b - a);
+						return { sel, text, bg, ratio: (l1 + 0.05) / (l2 + 0.05) };
+					});
+				});
+				let auditOk = true;
+				for (const c of checks) {
+					if (c.missing) {
+						auditOk = false;
+						failures.push(`dark-mode audit fixture missing ${c.sel}`);
+					} else if (c.ratio < 3) {
+						auditOk = false;
+						failures.push(`dark-mode contrast too low for ${c.sel}: ${JSON.stringify(c)}`);
+					}
+				}
+				if (auditOk) {
+					console.log('[ok] audited house surfaces readable in dark mode');
+				}
+				await page.evaluate(() => document.getElementById('wb-theme-audit-fixture')?.remove());
+				if (await nightNow()) {
+					await page.click('#wb-theme-toggle');
+				}
+			} catch (e) {
+				failures.push(`dark-mode audit failed: ${e.message}`);
+			}
+		}
+
 		// --- sitewide typeahead: classic pages, not entities ---------------
 		// Wikibase's enableEntitySearchUI replaces Vector's page-title
 		// typeahead with wbsearchentities (entities only). The instance
@@ -848,6 +940,22 @@ async function main() {
 				failures.push('"Add section below" did not insert below the First section');
 			} else {
 				console.log('[ok] Add section below inserts below the target section');
+			}
+			// The post-save redirect must focus the section just added.
+			const addBelowHash = await page.evaluate(() => location.hash);
+			if (addBelowHash !== '#Added_sub') {
+				failures.push(`Add section below redirect hash ${JSON.stringify(addBelowHash)} != "#Added_sub"`);
+			}
+			const addedInView = await page.evaluate(() => {
+				const el = document.getElementById('Added_sub');
+				if (!el) return false;
+				const rect = el.getBoundingClientRect();
+				return rect.top >= -5 && rect.top < window.innerHeight;
+			});
+			if (!addedInView) {
+				failures.push('the page did not scroll to the newly added section');
+			} else {
+				console.log('[ok] Add section below scrolls to the new section (#Added_sub)');
 			}
 			const subComment = await page.evaluate(async (title) => {
 				await new Promise((r) => mw.loader.using('mediawiki.api', r));
