@@ -17,7 +17,7 @@
 .wb-uploadmeta-status {
 	margin-top: 0.25em;
 	font-size: 0.875em;
-	color: #72777d;
+	color: var(--color-subtle, #72777d);
 }
 
 .wb-uploadmeta-preview {
@@ -27,7 +27,7 @@
 .wb-uploadmeta-preview img {
 	max-width: 220px;
 	max-height: 220px;
-	border: 1px solid #c8ccd1;
+	border: 1px solid var(--border-color-subtle, #c8ccd1);
 	border-radius: 2px;
 	padding: 2px;
 }
@@ -35,10 +35,10 @@
 .wb-uploadmeta-preview .wb-uploadmeta-fileicon {
 	display: inline-block;
 	padding: 0.5em 0.9em;
-	border: 1px solid #c8ccd1;
+	border: 1px solid var(--border-color-subtle, #c8ccd1);
 	border-radius: 4px;
-	background: #f8f9fa;
-	color: #54595d;
+	background: var(--background-color-neutral-subtle, #f8f9fa);
+	color: var(--color-subtle, #54595d);
 	font-size: 0.875em;
 	font-weight: bold;
 	letter-spacing: 0.05em;
@@ -48,13 +48,13 @@
 .wb-uploadmeta-preview .wb-uploadmeta-size {
 	margin-top: 0.25em;
 	font-size: 0.875em;
-	color: #54595d;
+	color: var(--color-subtle, #54595d);
 }
 
 .wb-uploadmeta-size-note {
 	margin-top: 0.25em;
 	font-size: 0.875em;
-	color: #72777d;
+	color: var(--color-subtle, #72777d);
 }
 
 /* Entity-field autofill confirmation banner (autofill-confirm flow): the
@@ -65,17 +65,17 @@
 .wb-entity-confirm {
 	margin-top: 0.5em;
 	padding: 0.5em 0.75em;
-	border: 1px solid #a2a9b1;
-	border-inline-start: 3px solid #36c;
+	border: 1px solid var(--border-color-base, #a2a9b1);
+	border-inline-start: 3px solid var(--color-progressive, #36c);
 	border-radius: 2px;
-	background: #f8f9fa;
+	background: var(--background-color-neutral-subtle, #f8f9fa);
 	font-size: 0.875em;
 	line-height: 1.4;
 }
 
 .wb-entity-confirm-line {
 	display: block;
-	color: #202122;
+	color: var(--color-base, #202122);
 }
 
 .wb-entity-confirm-actions {
@@ -86,9 +86,9 @@
 
 .wb-entity-confirm button {
 	/* Match OOUI's small progressive button. */
-	border: 1px solid #36c;
-	background: #36c;
-	color: #fff;
+	border: 1px solid var(--color-progressive, #36c);
+	background: var(--color-progressive, #36c);
+	color: var(--color-inverted, #fff);
 	border-radius: 2px;
 	padding: 0.25em 0.9em;
 	font-size: 0.875em;
@@ -96,18 +96,18 @@
 }
 
 .wb-entity-confirm button.wb-entity-confirm-no {
-	border-color: #a2a9b1;
-	background: #f8f9fa;
-	color: #202122;
+	border-color: var(--border-color-base, #a2a9b1);
+	background: var(--background-color-neutral-subtle, #f8f9fa);
+	color: var(--color-base, #202122);
 }
 
 .wb-entity-confirm button:hover {
-	background: #447ff5;
+	background: var(--color-progressive--hover, #447ff5);
 }
 
 .wb-entity-confirm button.wb-entity-confirm-no:hover {
-	background: #ffffff;
-	border-color: #72777d;
+	background: var(--background-color-base, #ffffff);
+	border-color: var(--border-color-base, #72777d);
 }
 
 /* File: reuse (mode=existing) — thumbnail preview under the search
@@ -120,7 +120,7 @@
 .wb-file-preview img {
 	max-width: 220px;
 	height: auto;
-	border: 1px solid #c8ccd1;
+	border: 1px solid var(--border-color-subtle, #c8ccd1);
 	padding: 2px;
-	background: #fff;
+	background: var(--background-color-base, #fff);
 }

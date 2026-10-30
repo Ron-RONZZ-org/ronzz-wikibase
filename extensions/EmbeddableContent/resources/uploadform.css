@@ -4,15 +4,15 @@
  */
 
 .wb-upload-drop-hint {
-	color: #54595d;
+	color: var(--color-subtle, #54595d);
 	font-size: 90%;
 }
 
 /* Highlight the Source-filename row while an image is dragged over it. */
 .wb-upload-drop-active {
-	outline: 2px dashed #36c;
+	outline: 2px dashed var(--color-progressive, #36c);
 	outline-offset: 4px;
-	background-color: rgba( 51, 102, 204, 0.06 );
+	background-color: var(--background-color-progressive-subtle, rgba( 51, 102, 204, 0.06 ));
 }
 
 .wb-upload-error {
@@ -29,7 +29,7 @@
 
 .wb-upload-status {
 	margin: 0.75em 0;
-	color: #54595d;
+	color: var(--color-subtle, #54595d);
 }
 
 .wb-upload-review-btn {

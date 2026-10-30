@@ -11,7 +11,7 @@
 }
 
 .csv-table-error {
-	color: #b32424;
+	color: var(--color-error, #b32424);
 	font-style: italic;
 }
 

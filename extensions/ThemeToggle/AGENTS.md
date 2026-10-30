@@ -32,6 +32,11 @@ introduce a second theme system.
   specific icon-module class name.
 - Do not add a competing `darkmode` preference: the Appearance menu, this
   button and the server must all read `vector-theme`.
+- The instance's own CSS must use Codex theme tokens with light-mode fallbacks
+  (`var(--color-base, #202122)`, …) rather than hard-coded palette values;
+  `tests/Unit/ThemeTokensTest` fails on a new colour literal in the audited
+  files. This extension's `themeToggle.css` only remaps surfaces that cannot
+  carry a token themselves.
 
 ## Tests
 
