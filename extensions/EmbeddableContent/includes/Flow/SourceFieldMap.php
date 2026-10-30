@@ -50,6 +50,9 @@ final class SourceFieldMap {
 		'map',
 		'presentation',
 		'dataset',
+		// A written record of spoken/audiovisual content (metadata-only: the
+		// transcript itself is linked through the access field).
+		'transcript',
 		// Catch-all (historical texts, inscriptions, …).
 		'text',
 		// A particular clause/provision of a legislation (child of
@@ -177,6 +180,11 @@ final class SourceFieldMap {
 		'map' => [ 'title', 'description', 'language', 'additionalLanguages', 'otherLanguage', 'labelLanguage', 'authors', 'publisher', 'year', 'url', 'accessUrl', 'wikidataId' ],
 		'presentation' => [ 'title', 'description', 'language', 'additionalLanguages', 'otherLanguage', 'labelLanguage', 'authors', 'year', 'url', 'wikidataId' ],
 		'dataset' => [ 'title', 'description', 'language', 'additionalLanguages', 'otherLanguage', 'labelLanguage', 'authors', 'publisher', 'year', 'url', 'accessUrl', 'wikidataId' ],
+		// A transcript: a written record of spoken/audiovisual content. The
+		// transcript itself is an external resource — the access field links
+		// the URL/download/file; no publisher/URL/Wikidata field (the
+		// requested metadata-only shape, similar to `document`).
+		'transcript' => [ 'title', 'description', 'language', 'additionalLanguages', 'otherLanguage', 'labelLanguage', 'authors', 'year', 'accessUrl' ],
 		// Catch-all: any text — historical texts, inscriptions, documents of
 		// uncertain nature.
 		'text' => [ 'title', 'description', 'language', 'additionalLanguages', 'otherLanguage', 'labelLanguage', 'authors', 'year', 'url', 'accessUrl', 'wikidataId' ],

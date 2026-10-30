@@ -49,6 +49,8 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		// Zotero-aligned batch without a usable authority provider.
 		'document', 'manuscript', 'patent', 'legalCase', 'legislation',
 		'bill', 'treaty', 'interview', 'map', 'presentation', 'dataset',
+		// A transcript: metadata-only (the text is an external access resource).
+		'transcript',
 		// Catch-all: no authority covers an arbitrary historical text.
 		'text',
 		// A legal provision of a legislation: no external authority.
@@ -1287,6 +1289,13 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				$fields += $this->urlFieldSpec( $record );
 				$fields += $this->accessFieldSpec( $record );
 				break;
+			case 'transcript':
+				// Metadata-only: title/description/language/authors come from the
+				// shared base; a transcript has a date and an access link (URL,
+				// download or self-hosted file) — no publisher/URL/Wikidata field.
+				$fields += $this->issuedYearFieldSpec( $record );
+				$fields += $this->accessFieldSpec( $record );
+				break;
 			case 'text':
 				// Catch-all: a free-form text — only the facts the editor
 				// actually knows (title is the sole required field).
@@ -1959,6 +1968,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		'map' => 'Map',
 		'presentation' => 'Presentation',
 		'dataset' => 'Dataset',
+		'transcript' => 'Transcript',
 		'text' => 'Text',
 		'law' => 'Law',
 	];

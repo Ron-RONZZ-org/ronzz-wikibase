@@ -22,5 +22,6 @@
 	"map": "map",
 	"presentation": "speech",
 	"dataset": "dataset",
+	"transcript": "document",
 	"text": "document"
 }

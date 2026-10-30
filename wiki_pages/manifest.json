@@ -299,6 +299,10 @@
       "path": "Template/Thesis.wiki"
     },
     {
+      "title": "Template:Transcript",
+      "path": "Template/Transcript.wiki"
+    },
+    {
       "title": "Template:Translation",
       "path": "Template/Translation.wiki"
     },

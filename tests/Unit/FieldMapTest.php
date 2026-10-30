@@ -118,6 +118,24 @@ class FieldMapTest extends TestCase {
 		}
 	}
 
+	public function testSourceTranscriptClassContract(): void {
+		// A transcript is metadata-only: title, description, language group,
+		// author, year and access — the transcript itself is the access
+		// resource. No publisher/URL/Wikidata field.
+		$this->assertContains( 'transcript', SourceFieldMap::CLASS_KEYS );
+		$fields = SourceFieldMap::fieldsForClass( 'transcript' );
+		foreach (
+			[ 'title', 'description', 'language', 'additionalLanguages', 'otherLanguage',
+				'labelLanguage', 'authors', 'year', 'accessUrl' ] as $field
+		) {
+			$this->assertContains( $field, $fields, "transcript must expose $field" );
+		}
+		foreach ( [ 'publisher', 'url', 'wikidataId' ] as $field ) {
+			$this->assertNotContains( $field, $fields, "transcript must NOT expose $field" );
+		}
+		$this->assertSame( [ 'title' ], SourceFieldMap::requiredOnCreate( 'transcript' ) );
+	}
+
 	public function testSourceTextCatchAllClass(): void {
 		$this->assertContains( 'text', SourceFieldMap::CLASS_KEYS );
 		$fields = SourceFieldMap::fieldsForClass( 'text' );
