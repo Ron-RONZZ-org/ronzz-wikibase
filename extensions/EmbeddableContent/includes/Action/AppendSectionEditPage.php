@@ -153,11 +153,16 @@ class AppendSectionEditPage extends EditPage {
 					->inContentLanguage()
 					->text();
 		}
+		// Capture the TYPED block before core saves: `internalAttemptSave()`
+		// replaces `$this->textbox1` with the assembled whole-page text, so
+		// reading it afterwards would pick the page's first heading instead of
+		// the section just added.
+		$addedHeading = SectionSummary::topmostHeading( (string)$this->textbox1 );
 		$status = parent::attemptSave( $resultDetails );
 		// `sectionanchor` is only present on the success paths; never invent
 		// one for an error/preview render.
 		if ( is_array( $resultDetails ) && array_key_exists( 'sectionanchor', $resultDetails ) ) {
-			$anchor = $this->addedSectionAnchor();
+			$anchor = $this->addedSectionAnchor( $addedHeading );
 			if ( $anchor !== '' ) {
 				$resultDetails['sectionanchor'] = $anchor;
 			}
@@ -171,8 +176,7 @@ class AppendSectionEditPage extends EditPage {
 	 * Returns '' when no heading can be resolved (a page-end append without a
 	 * heading).
 	 */
-	private function addedSectionAnchor(): string {
-		$heading = SectionSummary::topmostHeading( (string)$this->textbox1 );
+	private function addedSectionAnchor( ?string $heading ): string {
 		if ( $heading === null && $this->targetSection > 0 ) {
 			$current = $this->getCurrentContent();
 			if ( $current instanceof TextContent ) {
