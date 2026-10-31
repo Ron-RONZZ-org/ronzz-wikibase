@@ -372,8 +372,8 @@
     },
     "Template:Transcript": {
       "revid": 11857,
-      "sha256": "7410fd850209468b9c58194439e53e572e4edfd7b212875c3233a48f6f0efaec",
-      "synced_at": "2026-10-31T10:08:45+00:00"
+      "sha256": "1d234fd56b189c39b6fffbe03dd4dc10f0acd282f68d60d24b17ed9adce7c317",
+      "synced_at": "2026-10-31T10:09:08+00:00"
     },
     "Template:Translation": {
       "revid": 813,
@@ -411,6 +411,6 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     }
   },
-  "updated": "2026-10-31T10:08:45+00:00",
+  "updated": "2026-10-31T10:09:08+00:00",
   "version": 1
 }
