@@ -52,6 +52,17 @@ final class EmbeddableContentConfigTest extends TestCase {
 		);
 	}
 
+	public function testSourceClassesIncludeTheTranscriptKey(): void {
+		$config = new EmbeddableContentConfig( self::BASE + [
+			'sourceClasses' => [ 'transcript' => 'Q59', 'book' => 'Q9' ],
+		] );
+
+		$this->assertSame(
+			[ 'book' => 'Q9', 'transcript' => 'Q59' ],
+			$config->sourceClasses()
+		);
+	}
+
 	public function testSourceClassSearchClassesFallsBackToAlignedSingleClass(): void {
 		$config = new EmbeddableContentConfig( self::BASE + [
 			'sourceClassByWikidata' => [
