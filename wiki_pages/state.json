@@ -370,6 +370,11 @@
       "sha256": "d6780e0eb4e3acd9e449d787d250ca5d8ca31c3ae21f4f080c11112c0f0e7977",
       "synced_at": "2026-10-17T12:18:01+00:00"
     },
+    "Template:Transcript": {
+      "revid": 11857,
+      "sha256": "7410fd850209468b9c58194439e53e572e4edfd7b212875c3233a48f6f0efaec",
+      "synced_at": "2026-10-31T10:08:45+00:00"
+    },
     "Template:Translation": {
       "revid": 813,
       "sha256": "ddc8353662629cc7649e9cd847f8e4255baed9060d6964cb6ac74988be6fd3f1",
@@ -406,6 +411,6 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     }
   },
-  "updated": "2026-10-19T12:24:16+00:00",
+  "updated": "2026-10-31T10:08:45+00:00",
   "version": 1
 }
