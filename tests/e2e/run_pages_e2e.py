@@ -1840,7 +1840,7 @@ def flow_source_picker_route(op, base: str) -> str:
     for label in ("Newspaper article", "Magazine article", "Conference paper",
                   "Report", "Document", "Thesis", "Patent", "Legal case",
                   "Legislation", "Treaty", "Interview", "Map", "Presentation",
-                  "Dataset"):
+                  "Dataset", "Transcript"):
         if label not in body:
             raise FlowError(f"class picker missing the {label!r} class")
     # Alphabetical order (the requested sort): the OOUI radio options are
@@ -3937,6 +3937,35 @@ def flow_content_label_defaults(op, base: str) -> None:
         print(f"[ok] Special:{page} label default {expected!r}")
 
 
+def flow_attributed_to_scope(op, base: str, api: str) -> None:
+    """The AddQuotation "Attributed to" combobox is scoped to the instance's
+    agent classes (person + organization/group/collective kinds), so source
+    items are never suggested (the Q2413 "document" report). Typed Q-ids still
+    work — only the typeahead is filtered."""
+    _, body = page_get(op, base, "/wiki/Special:AddQuotation")
+    m = re.search(r"id='mw-input-wpattributedTo'[^>]*data-ooui='([^']*)'", body, re.S)
+    if not m:
+        m = re.search(r'id="mw-input-wpattributedTo"[^>]*data-ooui="([^"]*)"', body, re.S)
+    if not m:
+        raise FlowError("AddQuotation: the attributedTo OOUI widget was not found")
+    raw = m.group(1).replace("&quot;", '"').replace("&#39;", "'")
+    scopes = re.findall(r'"wbClasses":"([^"]*)"', raw)
+    if not scopes:
+        raise FlowError("AddQuotation: attributedTo has no wbClasses scope")
+    ids = [item for item in scopes[0].split("|") if item]
+    person_class = resolve_label(op, api, "person", "item")
+    organization_class = resolve_label(op, api, "organization", "item")
+    book_class = resolve_label(op, api, "book", "item")
+    if person_class not in ids:
+        raise FlowError(f"AddQuotation: attributedTo scope {ids} lacks the person class {person_class}")
+    if organization_class not in ids:
+        raise FlowError(
+            f"AddQuotation: attributedTo scope {ids} lacks the organization class {organization_class}")
+    if book_class in ids:
+        raise FlowError(f"AddQuotation: attributedTo scope {ids} includes the book class {book_class}")
+    print(f"[ok] AddQuotation attributed-to scope: agent classes only ({len(ids)} ids)")
+
+
 def flow_addmath_preview_wiring(op, base: str) -> None:
     """Special:AddMath renders the KaTeX live-preview box and loads the
     addmath module (delimiter auto-strip + the renderer's error message).
@@ -4615,6 +4644,21 @@ def main() -> int:
         print(f"[ok] AddPerson/manual -> {person_manual}: birth/death dates + places "
               f"(with display labels), deceased toggle, official website")
 
+        # 1b-bce. A BCE date (signed form value) must be stored as a negative
+        #        TimeValue with the Julian calendar model — the Q868 report
+        #        (384 BCE was silently written as 384 CE).
+        bce_label = f"Page-flow E2E BCE person {int(time.time())}"
+        bce_person = track(flow_manual(op, base, api, "AddPerson", bce_label, person_class, {
+            "wpdateOfBirth": "-0384-01-01",
+        }))
+        bce_claims, _ = entity_claims(op, api, bce_person)
+        bce_birth = first_value(bce_claims, date_of_birth_prop)
+        if not isinstance(bce_birth, dict) or bce_birth.get("time") != "-0384-01-01T00:00:00Z":
+            raise FlowError(f"{bce_person} BCE date-of-birth statement wrong: {bce_birth!r}")
+        if bce_birth.get("calendarmodel") != "http://www.wikidata.org/entity/Q1985786":
+            raise FlowError(f"{bce_person} BCE date does not use the Julian calendar model: {bce_birth!r}")
+        print(f"[ok] AddPerson/manual BCE -> {bce_person}: -0384-01-01 (Julian)")
+
         # 1b0b. The {{#osm-place:birth}} parser function renders the stored
         #     label (not the raw OSM id) linked to the OSM map — the
         #     Template:Person cell the follow-up ships.
@@ -4983,6 +5027,31 @@ def main() -> int:
         assert claims.get(attributed_to_prop) is None, \
             f"{text_item} unexpectedly carries an author statement"
         print(f"[ok] AddSource/text manual -> {text_item}: title-only creation, no authors")
+
+        # 2g5b. AddSource transcript class: metadata-only (title, description,
+        #       language, author, year, access) — the transcript itself is an
+        #       external access resource. A Source: page transcludes
+        #       Template:Transcript.
+        transcript_class = resolve("transcript", "item")
+        transcript_label = f"Page-flow E2E transcript {int(time.time())}"
+        transcript_item = track(flow_source_class_manual(op, base, api, "transcript", {
+            "wptitle": transcript_label,
+            "wpauthors": person,
+            "wpissuedYear": "2024",
+            "wpaccessMode": "url",
+            "wpaccessUrl": "https://example.org/transcript",
+        }))
+        claims, _ = entity_claims(op, api, transcript_item)
+        assert first_value(claims, instance_of) == transcript_class, \
+            f"{transcript_item} instance-of != transcript"
+        assert first_value(claims, attributed_to_prop) == person, \
+            f"{transcript_item} author statement missing/wrong"
+        assert first_value(claims, resolve("date", "property")).get("time", "").startswith("+2024"), \
+            f"{transcript_item} year statement missing/wrong"
+        assert first_value(claims, resolve("access URL", "property")) == "https://example.org/transcript", \
+            f"{transcript_item} access URL statement missing/wrong"
+        print(f"[ok] AddSource/transcript manual -> {transcript_item}: "
+              f"class + author + year + access")
 
         # 2g6. AddSource language fields: `language` is the source's CITABLE
         #      language metadata; the item label/description term language is
@@ -5867,6 +5936,7 @@ def main() -> int:
         # Unique label per run: create-or-skip would otherwise reuse a stale
         # quotation from an earlier (failed) run and fail the assertions.
         flow_content_label_defaults(op, base)
+        flow_attributed_to_scope(op, base, api)
         flow_addmath_preview_wiring(op, base)
         quote_label = f"Page-flow E2E quotation {args.person} {int(time.time())}"
         quotation = track(flow_quotation(op, base, api, quote_label, "An E2E test quotation.", person))

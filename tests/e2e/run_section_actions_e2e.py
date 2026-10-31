@@ -364,6 +364,22 @@ def section_action_flow(op, api: str, base: str, keep: bool) -> None:
             raise FlowError(f"page-end append lost existing content:\n{text!r}")
         print("[ok] action=appendsection appends to the page end, preserving content")
 
+        # 1b. The post-save redirect focuses the NEW section: a page-end
+        #     append whose block starts with a heading redirects to that
+        #     heading's fragment (the append editor keeps core's empty
+        #     `section`, so before this fix the redirect had no anchor).
+        anchor_url, anchor_resp = submit_form(
+            op, base, rendered_path(title) + "?action=appendsection", "wpTextbox1",
+            append_save_fields("== Tail section ==\n\nTail body.", "E2E tail section"))
+        if not anchor_url.endswith("#Tail_section"):
+            raise FlowError(
+                "page-end append did not redirect to the new section "
+                f"(final url {anchor_url}):\n{response_diagnostic(anchor_resp)}")
+        rendered = page_get(op, base, rendered_path(title))
+        if 'id="Tail_section"' not in rendered and "id='Tail_section'" not in rendered:
+            raise FlowError("the appended heading has no Tail_section id in the rendered page")
+        print("[ok] page-end append redirects to the new section (#Tail_section)")
+
         # 2. Show preview renders ONLY the typed section — never the whole
         #    article — without saving. (The page-level "Add section" action
         #    and the per-heading controls share AppendSectionEditPage.)
@@ -424,6 +440,10 @@ def section_action_flow(op, api: str, base: str, keep: bool) -> None:
             raise FlowError(f"'Add section below' disturbed the surrounding sections:\n{text!r}")
         if comment != "/* Sub */":
             raise FlowError(f"auto-summary comment {comment!r} != '/* Sub */'")
+        if not below_url.endswith("#Sub"):
+            raise FlowError(
+                "'Add section below' did not redirect to the added heading "
+                f"(final url {below_url})")
         print("[ok] Add section below inserts below the section + auto-infers the summary")
 
         # 5. Delete section (confirmation page shows the text, save removes it).

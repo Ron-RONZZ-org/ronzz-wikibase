@@ -249,6 +249,8 @@ class EmbeddableContentConfig {
 			'report', 'document', 'thesis', 'manuscript', 'patent',
 			'legalCase', 'legislation', 'bill', 'treaty',
 			'interview', 'map', 'presentation', 'dataset',
+			// A written record of spoken/audiovisual content (metadata-only).
+			'transcript',
 			// Catch-all (historical texts, inscriptions, …).
 			'text',
 			// A particular clause/provision of a legislation.

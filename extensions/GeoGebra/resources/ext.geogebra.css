@@ -2,15 +2,15 @@
 .ggb-embed {
 	display: block;
 	max-width: 100%;
-	border: 1px solid #c8ccd1;
+	border: 1px solid var(--border-color-subtle, #c8ccd1);
 	border-radius: 2px;
-	background: #fff;
+	background: var(--background-color-base, #fff);
 }
 
 .ggb-embed-fallback {
 	display: inline-block;
 	padding: 0.4em 0.8em;
-	border: 1px solid #c8ccd1;
+	border: 1px solid var(--border-color-subtle, #c8ccd1);
 	border-radius: 2px;
-	background: #f8f9fa;
+	background: var(--background-color-neutral-subtle, #f8f9fa);
 }

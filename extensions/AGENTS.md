@@ -1548,11 +1548,11 @@ report). See `SimpleMathJax/VENDORED.md`.
   display before `$…$`/`\(…\)` inline; an unbalanced opener is skipped whole),
   fixing the note where the inner `$…$` was rendered and the outer `$` left
   literal (`addmath.js` `renderNotePlain` and `contentpreview.js` share the
-  helper). (b) **Date fields** — `resources/datefields.js` (Add/UpdatePerson)
-  rewrites every date widget to strict `YYYY-MM-DD` on submit (the OOUI
-  DateInputWidget keeps a loosely-parsed raw time verbatim), and
-  `UpdateExternalEntityFlow::timeValueForProperty` normalizes year/month
-  `00`→`01` (matching the harvest). (c) **bookExcerpt language inheritance**
+  helper). (b) **Date fields** — `UpdateExternalEntityFlow::timeValueForProperty`
+  normalizes year/month `00`→`01` (matching the harvest). The
+  `resources/datefields.js` date-widget normalizer of this batch was
+  **superseded** by the signed text fields in the October 2026 Add\* UX batch
+  (`add-ux-batch-2026-10.md` §4); the widget module is removed. (c) **bookExcerpt language inheritance**
   — `SpecialAddSource::inheritBookExcerptLanguage` defaults the
   language/additionalLanguages/labelLanguage fields from the parent book's
   `language` statement(s) + label term language at FORM LOAD when the parent
@@ -1634,6 +1634,28 @@ report). See `SimpleMathJax/VENDORED.md`.
   nested subpages keep the full remainder (`A/B by @User`); the breadcrumb
   is unchanged. Pure split in `Spec/UserPageTitle`, unit-tested; module
   `ext.embeddableContent.userpagetitle` + `userpagetitle.css`.
+
+- **October 2026 Add\* UX batch (ADR
+  `../docs/decisions/add-ux-batch-2026-10.md`)**: (a) **the append editor
+  redirects to the new section** — `AppendSectionEditPage::attemptSave` sets
+  `$resultDetails['sectionanchor']` from the typed block's topmost heading
+  (`SectionSummary::topmostHeading`), falling back to the target section's
+  heading; a heading-less page-end append has no anchor. (b) **AddQuotation's
+  "Attributed to" typeahead is scoped to the agent classes**
+  (`EntityCombobox` + `$config->agentClasses()`), so source items (the Q2413
+  `document`) are never suggested; typed Q-ids still work, `source` stays
+  unscoped. (c) **house CSS uses Codex theme tokens** — the `.wb-entity-confirm-line`
+  fixed `#202122` was invisible on the night-theme remapped banner; the
+  audited files now use `var(…, fallback)` and `tests/Unit/ThemeTokensTest`
+  fails on a new hard-coded colour. (d) **BCE dates are signed day strings**
+  (`YYYY-MM-DD` / `-YYYY-MM-DD`): the date widgets became text fields,
+  `WikidataCore::timeValue` keeps the sign, `WikibaseTime` validates/parses
+  it, and `SemanticEntityFlowService` writes a negative TimeValue with the
+  proleptic Julian calendar model (Q1985786); `resources/datefields.js` is
+  removed. (e) **new `transcript` source class** (manual-only, metadata-only:
+  title/description/language/authors/year/access; CSL `document`;
+  `Template:Transcript`). Deploy = re-seed (new class + config map) + citation
+  map import + wiki-page sync + message/objectcache/parser purges.
 
 ### WikibaseCitation
 

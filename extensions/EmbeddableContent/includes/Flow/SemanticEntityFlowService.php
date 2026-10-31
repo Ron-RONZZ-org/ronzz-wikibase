@@ -8,6 +8,7 @@ use DataValues\StringValue;
 use DataValues\TimeValue;
 use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\Spec\EntityLabelText;
+use EmbeddableContent\Spec\WikibaseTime;
 use Wikibase\DataModel\DataValue;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
@@ -126,8 +127,8 @@ final class SemanticEntityFlowService {
 
 		foreach ( [ 'dateOfBirth', 'dateOfDeath' ] as $dateField ) {
 			$date = trim( (string)( $record[$dateField] ?? '' ) );
-			if ( $date !== '' && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date ) !== 1 ) {
-				return "{$dateField} \"{$date}\" is not YYYY-MM-DD.";
+			if ( $date !== '' && !WikibaseTime::isSignedDay( $date ) ) {
+				return "{$dateField} \"{$date}\" is not YYYY-MM-DD (or -YYYY-MM-DD for BCE).";
 			}
 		}
 		foreach ( [ 'officialWebsite', 'sourceCodeRepository', 'documentationUrl' ] as $urlField ) {
@@ -221,8 +222,8 @@ final class SemanticEntityFlowService {
 				}
 				foreach ( [ 'dateOfBirth' => 'dateOfBirth', 'dateOfDeath' => 'dateOfDeath' ] as $field => $key ) {
 					$date = trim( (string)( $record[$field] ?? '' ) );
-					if ( $date !== '' && isset( $person[$key] ) && preg_match( '/^(\d{4})-(\d{2})-(\d{2})$/', $date, $m ) === 1 ) {
-						$specs[$person[$key]] = $this->dayTime( $m );
+					if ( $date !== '' && isset( $person[$key] ) && WikibaseTime::isSignedDay( $date ) ) {
+						$specs[$person[$key]] = $this->dayTime( $date );
 					}
 				}
 				foreach ( [ 'placeOfBirthOsm' => 'placeOfBirthOsm', 'placeOfDeathOsm' => 'placeOfDeathOsm' ] as $field => $key ) {
@@ -472,12 +473,32 @@ final class SemanticEntityFlowService {
 		return $labels !== [] ? 'fictional character in ' . implode( ', ', $labels ) : '';
 	}
 
-	private function dayTime( array $m ): TimeValue {
+	/**
+	 * A day-precision TimeValue from a signed day string. BCE dates use the
+	 * proleptic Julian calendar model (the Wikidata convention for dates
+	 * before 1582, `Q1985786`); CE dates keep the instance's existing
+	 * proleptic Gregorian model (`Q1985727`).
+	 */
+	private function dayTime( string $date ): TimeValue {
+		$parts = WikibaseTime::parts( $date );
+		if ( $parts === null ) {
+			throw new \InvalidArgumentException( "invalid day date \"{$date}\"" );
+		}
+		$sign = $parts['negative'] ? '-' : '+';
+		$calendar = $parts['negative']
+			? 'http://www.wikidata.org/entity/Q1985786'
+			: 'http://www.wikidata.org/entity/Q1985727';
 		return new TimeValue(
-			sprintf( '+%04d-%02d-%02dT00:00:00Z', (int)$m[1], (int)$m[2], (int)$m[3] ),
+			sprintf(
+				'%s%04d-%02d-%02dT00:00:00Z',
+				$sign,
+				$parts['year'],
+				$parts['month'],
+				$parts['day']
+			),
 			0, 0, 0,
 			TimeValue::PRECISION_DAY,
-			'http://www.wikidata.org/entity/Q1985727'
+			$calendar
 		);
 	}
 

@@ -375,20 +375,33 @@ class WikidataCore {
 	}
 
 	/**
-	 * First time value of a claim as "YYYY-MM-DD" (day precision preserved,
-	 * else the year with -00-00), or null. The date-of-birth/death review
-	 * fields prefill from this string.
+	 * First time value of a claim as a SIGNED "YYYY-MM-DD" (day precision
+	 * preserved, else the year with -00-00; a BCE date keeps its leading
+	 * minus), or null. The date-of-birth/death review fields prefill from this
+	 * string.
+	 *
+	 * Wikidata stores BCE dates with a negative year (`-0384-00-00T…`, e.g.
+	 * Gautama Buddha Q868). Dropping the sign turned 384 BCE into 384 CE; the
+	 * signed form is what the AddPerson/UpdatePerson text fields accept.
 	 */
 	public function timeValue( array $claims, string $propertyId ): ?string {
 		foreach ( $claims[$propertyId] ?? [] as $claim ) {
 			$time = $claim['mainsnak']['datavalue']['value']['time'] ?? null;
-			if ( is_string( $time ) && preg_match( '/^[+-](\d{4})(?:-(\d{2}))?(?:-(\d{2}))?/', $time, $m ) === 1 ) {
-				$month = $m[2] ?? '00';
-				$day = $m[3] ?? '00';
-				// Normalize '00' placeholders so the date widget accepts it.
+			if ( is_string( $time )
+				&& preg_match( '/^([+-])(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?/', $time, $m ) === 1
+			) {
+				$month = $m[3] ?? '00';
+				$day = $m[4] ?? '00';
+				// Normalize '00' placeholders so the form field accepts it.
 				$month = $month === '00' ? '01' : $month;
 				$day = $day === '00' ? '01' : $day;
-				return sprintf( '%04d-%s-%s', (int)$m[1], $month, $day );
+				return sprintf(
+					'%s%04d-%s-%s',
+					$m[1] === '-' ? '-' : '',
+					(int)$m[2],
+					$month,
+					$day
+				);
 			}
 		}
 		return null;

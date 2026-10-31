@@ -32,4 +32,29 @@ class WikibaseTimeTest extends TestCase {
 		$this->assertNull( WikibaseTime::isoDay( 'nonsense' ) );
 	}
 
+	public function testBceTimeKeepsTheSign(): void {
+		$this->assertSame( '-0384-01-01', WikibaseTime::isoDay( '-0384-00-00T00:00:00Z' ) );
+		$this->assertSame( '-0384-01-01', WikibaseTime::isoDay( '-0384-01-01T00:00:00Z' ) );
+	}
+
+	public function testSignedDayValidation(): void {
+		$this->assertTrue( WikibaseTime::isSignedDay( '1970-01-01' ) );
+		$this->assertTrue( WikibaseTime::isSignedDay( '-0384-01-01' ) );
+		$this->assertFalse( WikibaseTime::isSignedDay( '-0000-01-01' ) );
+		$this->assertFalse( WikibaseTime::isSignedDay( '0384-13-01' ) );
+		$this->assertFalse( WikibaseTime::isSignedDay( '0384-00-01' ) );
+		$this->assertFalse( WikibaseTime::isSignedDay( 'nonsense' ) );
+	}
+
+	public function testPartsParsesTheSignAndDate(): void {
+		$this->assertSame(
+			[ 'negative' => true, 'year' => 384, 'month' => 1, 'day' => 1 ],
+			WikibaseTime::parts( '-0384-01-01' )
+		);
+		$this->assertSame(
+			[ 'negative' => false, 'year' => 1970, 'month' => 12, 'day' => 31 ],
+			WikibaseTime::parts( '1970-12-31' )
+		);
+	}
+
 }

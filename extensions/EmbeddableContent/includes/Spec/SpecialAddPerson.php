@@ -219,9 +219,12 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 		+ $this->labelLanguageFieldSpec( $record )
 		+ [
 			'dateOfBirth' => [
-				'type' => 'date',
+				'type' => 'text',
 				'label-message' => 'embeddablecontent-field-dateofbirth',
 				'default' => (string)( $record['dateOfBirth'] ?? '' ),
+				'placeholder' => 'YYYY-MM-DD',
+				'help-message' => 'embeddablecontent-field-date-help',
+				'maxlength' => 12,
 			],
 			'placeOfBirthOsm' => $this->osmPlaceFieldSpec(
 				'placeOfBirthOsm',
@@ -235,9 +238,12 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 				'default' => $deceased,
 			],
 			'dateOfDeath' => [
-				'type' => 'date',
+				'type' => 'text',
 				'label-message' => 'embeddablecontent-field-dateofdeath',
 				'default' => (string)( $record['dateOfDeath'] ?? '' ),
+				'placeholder' => 'YYYY-MM-DD',
+				'help-message' => 'embeddablecontent-field-date-help',
+				'maxlength' => 12,
 				'hide-if' => [ '!==', 'deceased', '1' ],
 			],
 			'placeOfDeathOsm' => $this->osmPlaceFieldSpec(
@@ -431,6 +437,15 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 	 * @return string|null error message, or null to proceed
 	 */
 	protected function beforeCreate( array &$record ): ?string {
+		// Birth/death dates are signed day strings: `YYYY-MM-DD` (CE) or
+		// `-YYYY-MM-DD` (BCE). The flow service validates them too, but a
+		// form-level error is clearer than the generic create failure.
+		foreach ( [ 'dateOfBirth', 'dateOfDeath' ] as $field ) {
+			$date = trim( (string)( $record[$field] ?? '' ) );
+			if ( $date !== '' && !\EmbeddableContent\Spec\WikibaseTime::isSignedDay( $date ) ) {
+				return $this->msg( 'embeddablecontent-field-date-invalid' )->text();
+			}
+		}
 		// OSM places: a filled-in field must carry a Nominatim-picked
 		// node/way/relation id — a raw place name (e.g. an unpicked
 		// harvested label) is a form error, never a silent drop.

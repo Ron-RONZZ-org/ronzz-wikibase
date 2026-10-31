@@ -10,9 +10,9 @@
 }
 
 .wb-embed-toolbar-btn {
-	border: 1px solid #a2a9b1;
-	background: #f8f9fa;
-	color: #202122;
+	border: 1px solid var(--border-color-base, #a2a9b1);
+	background: var(--background-color-neutral-subtle, #f8f9fa);
+	color: var(--color-base, #202122);
 	border-radius: 2px;
 	padding: 4px 12px;
 	font-size: 0.9em;
@@ -20,14 +20,14 @@
 }
 
 .wb-embed-toolbar-btn:hover {
-	background: #ffffff;
-	border-color: #72777d;
+	background: var(--background-color-base, #ffffff);
+	border-color: var(--border-color-base, #72777d);
 }
 
 .wb-embed-toolbar select {
-	border: 1px solid #a2a9b1;
-	background: #f8f9fa;
-	color: #202122;
+	border: 1px solid var(--border-color-base, #a2a9b1);
+	background: var(--background-color-neutral-subtle, #f8f9fa);
+	color: var(--color-base, #202122);
 	border-radius: 2px;
 	padding: 4px 6px;
 	font-size: 0.9em;
@@ -83,7 +83,7 @@
 	 * button inherits it and collapses to zero height. Give the control its
 	 * own line box. */
 	line-height: normal;
-	color: #36c;
+	color: var(--color-progressive, #36c);
 	cursor: pointer;
 	text-decoration: none;
 }
@@ -103,8 +103,8 @@
 	max-height: 24em;
 	overflow: auto;
 	padding: 0.5em;
-	background: #f8f9fa;
-	border: 1px solid #eaecf0;
+	background: var(--background-color-neutral-subtle, #f8f9fa);
+	border: 1px solid var(--border-color-subtle, #eaecf0);
 	white-space: pre-wrap;
 }
 
@@ -112,9 +112,9 @@
  * user gesture, so when the automatic copy fails the File: page shows a
  * persistent one-click notice with the snippet. */
 .wb-uploadcopy-notice {
-	border: 1px solid #a2a9b1;
-	border-left: 4px solid #36c;
-	background: #f8f9fa;
+	border: 1px solid var(--border-color-base, #a2a9b1);
+	border-left: 4px solid var(--color-progressive, #36c);
+	background: var(--background-color-neutral-subtle, #f8f9fa);
 	padding: 8px 12px;
 	margin: 0 0 12px;
 }
@@ -132,15 +132,15 @@
 .wb-citation-popup-preview {
 	margin: 0.6em 0;
 	padding: 0.5em;
-	background: #f8f9fa;
-	border: 1px solid #eaecf0;
+	background: var(--background-color-neutral-subtle, #f8f9fa);
+	border: 1px solid var(--border-color-subtle, #eaecf0);
 	white-space: pre-wrap;
 	word-break: break-word;
 	max-width: 42em;
 }
 
 .wb-citation-popup-error {
-	color: #b32424;
+	color: var(--color-error, #b32424);
 }
 
 .wb-citation-popup-actions {

@@ -186,6 +186,9 @@ SOURCE_CLASS_KINDS = {
     "map": "map",
     "presentation": "presentation",
     "dataset": "dataset",
+    # A written record of spoken/audiovisual content (metadata-only source;
+    # the transcript itself is linked via the access URL/file).
+    "transcript": "transcript",
     # Catch-all (historical texts, inscriptions, …).
     "text": "text",
     # A particular clause/provision of a legislation (child of legislation).

@@ -33,10 +33,17 @@ final class SectionSummary {
 	private const CLOSE = ' */';
 
 	/**
-	 * @param string $content the submitted wikitext
-	 * @return string|null the inferred summary comment, or null with no heading
+	 * The TOPMOST heading text in wikitext (the heading with the fewest `=`
+	 * signs), or null when there is no heading. The text is returned WITHOUT
+	 * the surrounding `=` runs and without leading/trailing whitespace, but
+	 * with any inline markup exactly as core keeps it — the append editor
+	 * uses it to build the post-save redirect anchor (the same heading the
+	 * auto-summary is derived from).
+	 *
+	 * @param string $content wikitext
+	 * @return string|null the heading text, or null with no (non-empty) heading
 	 */
-	public static function infer( string $content ): ?string {
+	public static function topmostHeading( string $content ): ?string {
 		$bestLevel = 7;
 		$bestText = null;
 		foreach ( explode( "\n", $content ) as $line ) {
@@ -49,7 +56,16 @@ final class SectionSummary {
 				$bestText = trim( $matches[2] );
 			}
 		}
-		if ( $bestText === null || $bestText === '' ) {
+		return $bestText === null || $bestText === '' ? null : $bestText;
+	}
+
+	/**
+	 * @param string $content the submitted wikitext
+	 * @return string|null the inferred summary comment, or null with no heading
+	 */
+	public static function infer( string $content ): ?string {
+		$bestText = self::topmostHeading( $content );
+		if ( $bestText === null ) {
 			return null;
 		}
 		// Keep the delimiters even when the heading is longer than the comment
