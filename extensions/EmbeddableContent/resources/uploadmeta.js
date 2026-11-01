@@ -117,6 +117,94 @@
 	}
 
 	/**
+	 * True when the URL is a Wikimedia FILE DESCRIPTION PAGE — an HTML page
+	 * (`…/wiki/File:X`, `…/wiki/Special:FilePath/X`) rather than the file's
+	 * own bytes. Mirrors the PHP WikimediaFileUrl::isFilePage().
+	 */
+	function isFilePage( url ) {
+		var u;
+		try {
+			u = new URL( url );
+		} catch ( e ) {
+			return false;
+		}
+		if ( !isWikimediaHost( u.hostname ) ) {
+			return false;
+		}
+		var path = u.pathname || '';
+		return /^\/wiki\/File:[^/]+$/i.test( path ) ||
+			/^\/wiki\/Special:FilePath\/[^/]+$/i.test( path );
+	}
+
+	/**
+	 * The `imageinfo` query target for a Wikimedia URL — `{ api, title }` —
+	 * or null when the URL is not a file reference. Mirrors the PHP
+	 * WikimediaFileUrl::fileQuery(): a file DESCRIPTION page queries its OWN
+	 * wiki's API (it resolves a Commons file AND a locally hosted one); a
+	 * CDN URL (upload.wikimedia.org / thumb.wikimedia.org) queries Commons.
+	 */
+	function imageInfoTarget( url ) {
+		var title = extractFileTitle( url );
+		if ( !title ) {
+			return null;
+		}
+		var u;
+		try {
+			u = new URL( url );
+		} catch ( e ) {
+			return null;
+		}
+		var host = String( u.hostname || '' ).toLowerCase();
+		if ( host === 'upload.wikimedia.org' || /\.upload\.wikimedia\.org$/.test( host ) ||
+			host === 'thumb.wikimedia.org' || /\.thumb\.wikimedia\.org$/.test( host )
+		) {
+			return { api: 'https://commons.wikimedia.org/w/api.php', title: title };
+		}
+		if ( isFilePage( url ) ) {
+			return { api: 'https://' + host + '/w/api.php', title: title };
+		}
+		return null;
+	}
+
+	/**
+	 * The DIRECT bytes URL for a URL the user pasted: a Wikimedia FILE
+	 * DESCRIPTION PAGE is HTML, so query its wiki API for `imageinfo.url`
+	 * (the CORS-open read path, from the residential IP); every other URL
+	 * (a CDN file, a non-Wikimedia host) is already the bytes URL. `cached`
+	 * is the URL captured by an earlier Validate of the same field/URL —
+	 * skips the lookup. Mirrors the PHP
+	 * UploadMetadataFetcher::resolveDirectFileUrl(); falls back to the input
+	 * URL on any failure (the text/html guard then reports the problem).
+	 */
+	function resolveBytesUrl( url, cached ) {
+		if ( cached ) {
+			return Promise.resolve( cached );
+		}
+		if ( !isFilePage( url ) ) {
+			return Promise.resolve( url );
+		}
+		var target = imageInfoTarget( url );
+		if ( !target ) {
+			return Promise.resolve( url );
+		}
+		var apiUrl = target.api + '?origin=*&action=query&prop=imageinfo' +
+			'&iiprop=url%7Cmime&format=json&formatversion=2&titles=' +
+			encodeURIComponent( target.title );
+		return fetch( apiUrl ).then( function ( r ) {
+			if ( !r.ok ) {
+				throw new Error( 'HTTP ' + r.status );
+			}
+			return r.json();
+		} ).then( function ( data ) {
+			var info = ( data.query && data.query.pages && data.query.pages[ 0 ] &&
+				data.query.pages[ 0 ].imageinfo ) ? data.query.pages[ 0 ].imageinfo[ 0 ] : null;
+			return info && info.url ? String( info.url ) : url;
+		} ).catch( function () {
+			return url;
+		} );
+	}
+
+	/**
 	 * Percent-decodes one URL path segment and normalizes the title
 	 * (underscores -> spaces, collapsed). `decodeURIComponent` is wrapped:
 	 * a malformed sequence throws URIError and must fall back to the raw
@@ -552,8 +640,8 @@
 		var mime = meta.mime ? String( meta.mime ).split( ';' )[ 0 ].trim().toLowerCase() : '';
 		var isImage = mime.indexOf( 'image/' ) === 0;
 		if ( isImage ) {
-			if ( meta.thumbUrl || meta.sourceUrl ) {
-				html += '<img src="' + mw.html.escape( meta.thumbUrl || meta.sourceUrl ) + '" alt="" loading="lazy">';
+			if ( meta.thumbUrl || meta.fileUrl || meta.sourceUrl ) {
+				html += '<img src="' + mw.html.escape( meta.thumbUrl || meta.fileUrl || meta.sourceUrl ) + '" alt="" loading="lazy">';
 			}
 		} else if ( meta.mime ) {
 			// File-type icon: a small badge with the canonical extension
@@ -614,14 +702,21 @@
 		};
 
 		var promise;
-		var title = extractFileTitle( url );
-		if ( title ) {
-			// Wikimedia: the browser queries the Commons API directly
-			// (origin=* — CORS-open, residential IP). Server fallback if
-			// the browser path fails.
-			var apiUrl = 'https://commons.wikimedia.org/w/api.php?origin=*&action=query' +
-				'&prop=imageinfo&iiprop=extmetadata%7Csize%7Curl%7Cmime&format=json&formatversion=2&titles=' +
-				encodeURIComponent( title );
+		// A Wikimedia file DESCRIPTION page (/wiki/File:X) queries its OWN
+		// wiki's API (it resolves a Commons file AND a locally hosted one);
+		// a CDN URL queries Commons (imageInfoTarget mirrors
+		// WikimediaFileUrl::fileQuery).
+		var target = imageInfoTarget( url );
+		if ( target ) {
+			// Wikimedia: the browser queries the API directly (origin=* —
+			// CORS-open, residential IP). Server fallback if the browser
+			// path fails. iiurlwidth makes imageinfo return `thumburl` (the
+			// preview); `url` is the file's own bytes — a DESCRIPTION page
+			// URL would render as a broken <img>.
+			var apiUrl = target.api + '?origin=*&action=query' +
+				'&prop=imageinfo&iiprop=extmetadata%7Csize%7Curl%7Cmime' +
+				'&iiurlwidth=640&format=json&formatversion=2&titles=' +
+				encodeURIComponent( target.title );
 			promise = fetch( apiUrl ).then( function ( r ) {
 				if ( !r.ok ) {
 					throw new Error( 'HTTP ' + r.status );
@@ -631,7 +726,7 @@
 				var info = ( data.query && data.query.pages && data.query.pages[ 0 ] &&
 					data.query.pages[ 0 ].imageinfo ) ? data.query.pages[ 0 ].imageinfo[ 0 ] : null;
 				if ( !info ) {
-					throw new Error( 'no imageinfo for ' + title );
+					throw new Error( 'no imageinfo for ' + target.title );
 				}
 				var ext = info.extmetadata || {};
 				return {
@@ -646,6 +741,10 @@
 					fileSize: info.size || null,
 					mime: info.mime || null,
 					thumbUrl: info.thumburl || null,
+					// The file's own bytes (`url`, never `descriptionurl`) —
+					// read from the same response, so the submit-time blob
+					// fallback needs no second API call after a Validate.
+					fileUrl: info.url || null,
 					sourceUrl: url,
 					warnings: []
 				};
@@ -779,11 +878,24 @@
 			// input, switch the mode radio, resubmit.
 			e.preventDefault();
 			$status.text( mw.msg( 'embeddablecontent-uploadmeta-validating' ) ).show();
-			// An SVG THUMBNAIL is a raster rendition of the vector original:
-			// uploading the PNG under the ".svg" destination name is a MIME
-			// mismatch (and scales worse). Fetch the original SVG instead.
-			var blobUrl = originalSvgUrl( url ) || url;
-			fetch( blobUrl ).then( function ( r ) {
+			// A Wikimedia FILE DESCRIPTION PAGE (/wiki/File:X) is HTML, not
+			// the file: resolve the direct bytes URL first (skipped when the
+			// Validate above already captured it — one API call at most).
+			var cached = ( lastMeta[ cfg.urlField ] &&
+				lastMeta[ cfg.urlField ].sourceUrl === url )
+				? lastMeta[ cfg.urlField ].fileUrl
+				: null;
+			// Named here (not const in the closure) so the resubmit below
+			// records the URL the bytes actually came from.
+			var blobUrl = null;
+			resolveBytesUrl( url, cached ).then( function ( direct ) {
+				// An SVG THUMBNAIL is a raster rendition of the vector
+				// original: uploading the PNG under the ".svg" destination
+				// name is a MIME mismatch (and scales worse). Fetch the
+				// original SVG instead.
+				blobUrl = originalSvgUrl( direct ) || direct;
+				return fetch( blobUrl );
+			} ).then( function ( r ) {
 				if ( !r.ok ) {
 					throw new Error( 'HTTP ' + r.status );
 				}
@@ -908,6 +1020,15 @@
 	// mirror of the PHP CommonsMetadataParser::extensionForMime).
 	mw.embeddableContent = mw.embeddableContent || {};
 	mw.embeddableContent.extensionForMime = extensionForMime;
+	// Exposed for the browser E2E (tests/e2e/run_wiki_ux_e2e.mjs): the
+	// Wikimedia file-page resolution the Validate preview + the submit-time
+	// blob fallback use (the PHP mirror lives in WikimediaFileUrl /
+	// UploadMetadataFetcher).
+	mw.embeddableContent.uploadmeta = {
+		isFilePage: isFilePage,
+		imageInfoTarget: imageInfoTarget,
+		resolveBytesUrl: resolveBytesUrl
+	};
 
 	mw.loader.using( 'oojs-ui' ).then( function () {
 		wireAll();

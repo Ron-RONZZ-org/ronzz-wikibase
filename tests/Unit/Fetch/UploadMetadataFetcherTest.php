@@ -164,10 +164,14 @@ final class UploadMetadataFetcherTest extends TestCase {
 		$this->assertNotSame( [], $meta->warnings );
 	}
 
-	public function testWikimediaUrlResolvesThroughCommonsApi(): void {
-		$png = base64_decode( self::PNG_BODY );
-		$transport = static function ( string $url, float $timeout ) use ( $png ): array {
-			if ( strpos( $url, 'commons.wikimedia.org' ) !== false ) {
+	public function testWikimediaFilePageResolvesThroughItsOwnWikiApi(): void {
+		// A `/wiki/File:X` URL is an HTML DESCRIPTION page: the metadata is
+		// read from THAT wiki's API (which resolves a Commons file AND a
+		// locally hosted one), never from Commons directly.
+		$captured = null;
+		$transport = static function ( string $url, float $timeout ) use ( &$captured ): array {
+			$captured = $url;
+			if ( strpos( $url, 'https://en.wikipedia.org/w/api.php' ) === 0 ) {
 				return [
 					'status' => 200,
 					'headers' => [ 'content-type' => [ 'application/json' ] ],
@@ -179,6 +183,7 @@ final class UploadMetadataFetcherTest extends TestCase {
 									'height' => 800,
 									'size' => 98765,
 									'mime' => 'image/jpeg',
+									'url' => 'https://upload.wikimedia.org/wikipedia/commons/8/85/X.jpg',
 									'thumburl' => 'https://upload.wikimedia.org/thumb.jpg',
 									'descriptionurl' => 'https://commons.wikimedia.org/wiki/File:X.jpg',
 									'extmetadata' => [
@@ -192,7 +197,7 @@ final class UploadMetadataFetcherTest extends TestCase {
 					] ),
 				];
 			}
-			throw new \RuntimeException( 'transport should only hit commons' );
+			throw new \RuntimeException( 'transport should only hit the file page own wiki' );
 		};
 
 		$fetcher = new UploadMetadataFetcher( $transport );
@@ -203,7 +208,58 @@ final class UploadMetadataFetcherTest extends TestCase {
 		$this->assertSame( 'The example image', $meta->description );
 		$this->assertSame( 1200, $meta->width );
 		$this->assertSame( 98765, $meta->fileSize );
+		// The DIRECT bytes URL (imageinfo.url) — the description page URL is
+		// HTML and must never be handed to the uploader.
+		$this->assertSame(
+			'https://upload.wikimedia.org/wikipedia/commons/8/85/X.jpg',
+			$meta->fileUrl
+		);
 		$this->assertSame( 'https://en.wikipedia.org/wiki/File:X.jpg', $meta->sourceUrl );
+		// iiurlwidth makes imageinfo return `thumburl` for the preview.
+		$this->assertStringContainsString( 'iiurlwidth=640', $captured );
+	}
+
+	public function testResolveDirectFileUrlUsesTheFilePageOwnWiki(): void {
+		$captured = null;
+		$transport = static function ( string $url, float $timeout ) use ( &$captured ): array {
+			$captured = $url;
+			return [
+				'status' => 200,
+				'headers' => [ 'content-type' => [ 'application/json' ] ],
+				'body' => json_encode( [
+					'query' => [ 'pages' => [ [ 'imageinfo' => [ [
+						'url' => 'https://upload.wikimedia.org/wikipedia/commons/0/00/Flag.svg',
+						'mime' => 'image/svg+xml',
+					] ] ] ] ],
+				] ),
+			];
+		};
+
+		$fetcher = new UploadMetadataFetcher( $transport );
+		$direct = $fetcher->resolveDirectFileUrl(
+			'https://en.wikipedia.org/wiki/File:Flag.svg'
+		);
+
+		$this->assertSame( 'https://upload.wikimedia.org/wikipedia/commons/0/00/Flag.svg', $direct );
+		$this->assertStringContainsString( 'https://en.wikipedia.org/w/api.php', $captured );
+		$this->assertStringContainsString( 'titles=File%3AFlag.svg', $captured );
+	}
+
+	public function testResolveDirectFileUrlIsANoOpForCdnAndForeignUrls(): void {
+		$called = false;
+		$transport = static function ( string $url, float $timeout ) use ( &$called ): array {
+			$called = true;
+			return [ 'status' => 200, 'headers' => [], 'body' => '{}' ];
+		};
+
+		$fetcher = new UploadMetadataFetcher( $transport );
+		// A CDN URL is already the file's bytes; a non-Wikimedia URL is
+		// none of this helper's business — neither may trigger a request.
+		$this->assertNull( $fetcher->resolveDirectFileUrl(
+			'https://upload.wikimedia.org/wikipedia/commons/8/85/X.jpg'
+		) );
+		$this->assertNull( $fetcher->resolveDirectFileUrl( 'https://example.com/X.jpg' ) );
+		$this->assertFalse( $called );
 	}
 
 	public function testWikimediaUrlWithMissingTitleFallsBackToProbe(): void {

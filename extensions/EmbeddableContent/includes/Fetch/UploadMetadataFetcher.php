@@ -57,9 +57,9 @@ final class UploadMetadataFetcher {
 		// it); an already-ASCII host is unchanged.
 		$url = SsrfGuard::asciiUrl( $url );
 
-		// Wikimedia special handling: the Commons API yields the author,
-		// license and description directly. Best-effort — the generic probe
-		// is the fallback when no title can be extracted.
+		// Wikimedia special handling: the file's OWN wiki API yields the
+		// author, license, description AND the direct file URL. Best-effort
+		// — the generic probe is the fallback when no title can be extracted.
 		if ( WikimediaFileUrl::isWikimediaHost( $url ) ) {
 			// An SVG THUMBNAIL is a raster rendition of the vector original:
 			// its metadata reports image/png while the destination name
@@ -68,23 +68,66 @@ final class UploadMetadataFetcher {
 			// metadata there — the browser blob path fetches the same URL for
 			// the bytes (resources/uploadmeta.js mirrors the helper).
 			$url = WikimediaFileUrl::originalSvgUrl( $url ) ?? $url;
-			$query = WikimediaFileUrl::commonsQuery( $url );
+			$query = WikimediaFileUrl::fileQuery( $url );
 			if ( $query !== null ) {
-				$meta = $this->commonsImageInfo( $query['api'], $query['title'], $url, $timeout );
+				$meta = $this->fileImageInfo( $query['api'], $query['title'], $url, $timeout );
 				if ( $meta !== null ) {
 					return $meta;
 				}
 			}
+			// The API answered without imageinfo (a missing file) or the
+			// call failed: fall back to the generic probe as before. The
+			// BYTES path does not depend on this metadata — the browser blob
+			// fallback and ImageUploadHelper::uploadFromUrl resolve the
+			// direct URL themselves (resolveDirectFileUrl).
 		}
 
 		return $this->probeGeneric( $url, $timeout );
 	}
 
 	/**
-	 * Commons `imageinfo` (extmetadata|size) for a file title, or null when
-	 * the API call fails or the title is missing.
+	 * The DIRECT URL of a Wikimedia file's bytes (`imageinfo.url`), or null
+	 * when the URL is not a Wikimedia FILE DESCRIPTION PAGE or the lookup
+	 * fails.
+	 *
+	 * `https://…/wiki/File:X` is an HTML description page — fetching it
+	 * yields text/html, which the uploader rejects (and which the browser
+	 * blob fallback must never hand to the form). The upload bytes path
+	 * resolves it through the file's own wiki API first; a CDN URL is
+	 * already direct and a non-Wikimedia URL is returned untouched by the
+	 * caller. Mirrored client-side (resources/uploadmeta.js
+	 * `resolveBytesUrl`).
 	 */
-	private function commonsImageInfo( string $api, string $title, string $sourceUrl, float $timeout ): ?ImageMetadata {
+	public function resolveDirectFileUrl( string $url, float $timeout = 8.0 ): ?string {
+		if ( !WikimediaFileUrl::isFilePage( $url ) ) {
+			return null;
+		}
+		$query = WikimediaFileUrl::fileQuery( $url );
+		if ( $query === null ) {
+			return null;
+		}
+		try {
+			$data = $this->getJson( $query['api'], [
+				'action' => 'query',
+				'prop' => 'imageinfo',
+				'iiprop' => 'url|mime',
+				'format' => 'json',
+				'formatversion' => 2,
+				'titles' => $query['title'],
+			], $timeout );
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+		$direct = $data['query']['pages'][0]['imageinfo'][0]['url'] ?? null;
+		return is_string( $direct ) && $direct !== '' ? $direct : null;
+	}
+
+	/**
+	 * `imageinfo` (extmetadata|size|url|mime) for a file title, read from
+	 * the file's own wiki API, or null when the call fails or the title is
+	 * missing.
+	 */
+	private function fileImageInfo( string $api, string $title, string $sourceUrl, float $timeout ): ?ImageMetadata {
 		try {
 			$data = $this->getJson( $api, [
 				'action' => 'query',
@@ -93,6 +136,10 @@ final class UploadMetadataFetcher {
 				// imageinfo payload carries no MIME type and the validate
 				// preview cannot distinguish images from other file types.
 				'iiprop' => 'extmetadata|size|url|mime',
+				// `thumburl` is only returned when a width is asked for; the
+				// validate preview shows it (a DESCRIPTION page URL would
+				// render as a broken <img>).
+				'iiurlwidth' => 640,
 				'format' => 'json',
 				'formatversion' => 2,
 				'titles' => $title,
@@ -116,6 +163,7 @@ final class UploadMetadataFetcher {
 			fileSize: $meta->fileSize,
 			mime: $meta->mime,
 			thumbUrl: $meta->thumbUrl,
+			fileUrl: $meta->fileUrl,
 			sourceUrl: $sourceUrl,
 			warnings: []
 		);
@@ -175,7 +223,8 @@ final class UploadMetadataFetcher {
 		return new ImageMetadata(
 			name: null, description: null, author: null, licenseLabel: null,
 			credit: null, width: $width, height: $height, fileSize: $fileSize,
-			mime: $mime, thumbUrl: null, sourceUrl: $url, warnings: $warnings
+			mime: $mime, thumbUrl: null, fileUrl: null, sourceUrl: $url,
+			warnings: $warnings
 		);
 	}
 
@@ -430,8 +479,8 @@ final class UploadMetadataFetcher {
 	}
 
 	/**
-	 * JSON GET for the Commons API (the CORS-open read path is for browsers;
-	 * the server reads it directly through the same endpoint).
+	 * JSON GET for a Wikimedia wiki API (the CORS-open read path is for
+	 * browsers; the server reads it directly through the same endpoint).
 	 *
 	 * @return array<string,mixed>
 	 */

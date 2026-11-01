@@ -29,6 +29,13 @@ final class ImageMetadata {
 		public readonly ?int $fileSize,
 		public readonly ?string $mime,
 		public readonly ?string $thumbUrl,
+		/**
+		 * The DIRECT URL of the file's bytes (Wikimedia `imageinfo.url`), or
+		 * null when unknown. A Wikimedia file DESCRIPTION page URL is HTML,
+		 * not the file — the browser blob fetch and the server-side
+		 * UploadFromUrl resolve this field first.
+		 */
+		public readonly ?string $fileUrl,
 		public readonly string $sourceUrl,
 		public readonly array $warnings
 	) {
@@ -47,6 +54,7 @@ final class ImageMetadata {
 			fileSize: null,
 			mime: null,
 			thumbUrl: null,
+			fileUrl: null,
 			sourceUrl: $url,
 			warnings: [ $warning ]
 		);
@@ -65,6 +73,7 @@ final class ImageMetadata {
 			'fileSize' => $this->fileSize,
 			'mime' => $this->mime,
 			'thumbUrl' => $this->thumbUrl,
+			'fileUrl' => $this->fileUrl,
 			'sourceUrl' => $this->sourceUrl,
 			'warnings' => $this->warnings,
 		];

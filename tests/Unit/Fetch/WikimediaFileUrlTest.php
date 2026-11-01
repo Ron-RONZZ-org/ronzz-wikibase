@@ -141,11 +141,50 @@ final class WikimediaFileUrlTest extends TestCase {
 		$this->assertSame( $expected, WikimediaFileUrl::originalSvgUrl( $url ) );
 	}
 
-	public function testCommonsQuery(): void {
-		$query = WikimediaFileUrl::commonsQuery( 'https://en.wikipedia.org/wiki/File:Einstein_1947.jpg' );
-		$this->assertSame( 'https://commons.wikimedia.org/w/api.php', $query['api'] );
+	/** @return array<string,array{string,bool}> */
+	public static function filePageProvider(): array {
+		return [
+			'wiki-file' => [ 'https://en.wikipedia.org/wiki/File:Einstein_1947.jpg', true ],
+			'special-filepath' => [ 'https://en.wikipedia.org/wiki/Special:FilePath/Einstein_1947.jpg', true ],
+			'inline-article-page' => [ 'https://en.wikipedia.org/wiki/Albert_Einstein', false ],
+			// A CDN URL is the file itself, not a description page.
+			'upload-original' => [
+				'https://upload.wikimedia.org/wikipedia/commons/8/85/Example.jpg',
+				false,
+			],
+			'not-wikimedia' => [ 'https://example.com/wiki/File:X.jpg', false ],
+		];
+	}
+
+	/** @dataProvider filePageProvider */
+	public function testIsFilePage( string $url, bool $expected ): void {
+		$this->assertSame( $expected, WikimediaFileUrl::isFilePage( $url ) );
+	}
+
+	public function testFileQueryUsesTheFilePageOwnWiki(): void {
+		// A `/wiki/File:X` URL is an HTML DESCRIPTION page: querying its own
+		// wiki resolves a Commons file AND a locally hosted (non-free) one —
+		// the Commons API cannot see the latter.
+		$query = WikimediaFileUrl::fileQuery( 'https://en.wikipedia.org/wiki/File:Einstein_1947.jpg' );
+		$this->assertSame( 'https://en.wikipedia.org/w/api.php', $query['api'] );
 		$this->assertSame( 'File:Einstein 1947.jpg', $query['title'] );
 
-		$this->assertNull( WikimediaFileUrl::commonsQuery( 'https://example.com/x.jpg' ) );
+		$commons = WikimediaFileUrl::fileQuery( 'https://commons.wikimedia.org/wiki/File:Example.svg' );
+		$this->assertSame( 'https://commons.wikimedia.org/w/api.php', $commons['api'] );
+	}
+
+	public function testFileQueryUsesCommonsForCdnUrls(): void {
+		// A CDN URL names no wiki of its own (a `…/wikipedia/en/…` path IS a
+		// local file, but the path alone cannot tell) — Commons answers.
+		$query = WikimediaFileUrl::fileQuery(
+			'https://upload.wikimedia.org/wikipedia/commons/8/85/Example.jpg'
+		);
+		$this->assertSame( 'https://commons.wikimedia.org/w/api.php', $query['api'] );
+		$this->assertSame( 'File:Example.jpg', $query['title'] );
+	}
+
+	public function testFileQueryIsNullForNonFileUrls(): void {
+		$this->assertNull( WikimediaFileUrl::fileQuery( 'https://en.wikipedia.org/wiki/Albert_Einstein' ) );
+		$this->assertNull( WikimediaFileUrl::fileQuery( 'https://example.com/x.jpg' ) );
 	}
 }

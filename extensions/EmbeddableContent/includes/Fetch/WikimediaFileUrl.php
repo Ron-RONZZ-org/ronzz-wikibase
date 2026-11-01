@@ -162,20 +162,63 @@ final class WikimediaFileUrl {
 	}
 
 	/**
-	 * The Commons API endpoint for a URL's file title, or null when no title
-	 * can be extracted. Metadata for Wikimedia files is always read from
-	 * COMMONS (upload.wikimedia.org serves the shared repository; the
-	 * language wikis' File: pages for free images redirect there).
+	 * True when the URL is a Wikimedia FILE DESCRIPTION PAGE — an HTML page
+	 * (`…/wiki/File:X`, `…/wiki/Special:FilePath/X`) rather than the file's
+	 * own bytes. Fetching such a URL returns text/html, so the upload path
+	 * must resolve the direct file URL first (UploadMetadataFetcher::
+	 * resolveDirectFileUrl / the browser `resolveBytesUrl` mirror).
+	 */
+	public static function isFilePage( string $url ): bool {
+		if ( !self::isWikimediaHost( $url ) ) {
+			return false;
+		}
+		$path = (string)( parse_url( $url, PHP_URL_PATH ) ?? '' );
+		return preg_match( '#^/wiki/File:[^/]+$#i', $path ) === 1
+			|| preg_match( '#^/wiki/Special:FilePath/[^/]+$#i', $path ) === 1;
+	}
+
+	/**
+	 * The API endpoint that serves `imageinfo` for a Wikimedia URL, or null
+	 * when no file title can be extracted:
+	 *
+	 *  - a file DESCRIPTION PAGE queries its OWN wiki's API — that resolves
+	 *    a Commons-hosted file AND a locally hosted one (a non-free file on
+	 *    en.wikipedia lives at `upload.wikimedia.org/wikipedia/en/…`, which
+	 *    the Commons API cannot see);
+	 *  - a CDN URL (`upload.wikimedia.org`, `thumb.wikimedia.org`) has no
+	 *    wiki of its own in the URL — the shared repository's API (Commons)
+	 *    answers for the file title.
+	 */
+	public static function fileApi( string $url ): ?string {
+		if ( !self::isWikimediaHost( $url ) ) {
+			return null;
+		}
+		$host = strtolower( (string)( parse_url( $url, PHP_URL_HOST ) ?? '' ) );
+		if ( $host === 'upload.wikimedia.org' || str_ends_with( $host, '.upload.wikimedia.org' )
+			|| $host === 'thumb.wikimedia.org' || str_ends_with( $host, '.thumb.wikimedia.org' )
+		) {
+			return 'https://commons.wikimedia.org/w/api.php';
+		}
+		if ( self::isFilePage( $url ) ) {
+			return 'https://' . $host . '/w/api.php';
+		}
+		return null;
+	}
+
+	/**
+	 * The `imageinfo` query target for a URL (the API endpoint + the decoded
+	 * file title), or null when the URL is not a Wikimedia file reference.
 	 *
 	 * @return array{api: string, title: string}|null
 	 */
-	public static function commonsQuery( string $url ): ?array {
+	public static function fileQuery( string $url ): ?array {
+		$api = self::fileApi( $url );
 		$title = self::fileTitle( $url );
-		if ( $title === null ) {
+		if ( $api === null || $title === null ) {
 			return null;
 		}
 		return [
-			'api' => 'https://commons.wikimedia.org/w/api.php',
+			'api' => $api,
 			'title' => $title,
 		];
 	}
