@@ -137,14 +137,24 @@ class SpecialChildItemsOf extends SpecialPage {
 	 * it exists (a YouTube video has a Source: page), the Item page
 	 * otherwise (a book excerpt creates no classic page). Label fallback:
 	 * the en label, then the item id.
+	 *
+	 * The item→page direction is `SiteLinkLookup::getSiteLinksForItem()`:
+	 * `getLinkForItemId()` does NOT exist in this Wikibase version, and the
+	 * old call sat inside this try/catch, so the classic-page branch was
+	 * silently dead and every child linked to Item:.
 	 */
 	private function childLink( string $qid, string $label ): string {
 		try {
-			$link = WikibaseRepo::getStore()->newSiteLinkStore()->getLinkForItemId( new ItemId( $qid ) );
-			$pageName = (string)( $link['pageName'] ?? '' );
-			$title = Title::newFromText( $pageName );
-			if ( $title !== null && $title->exists() ) {
-				return $this->getLinkRenderer()->makeLink( $title, $label !== '' ? $label : $qid );
+			$links = WikibaseRepo::getStore()->newSiteLinkStore()
+				->getSiteLinksForItem( new ItemId( $qid ) );
+			foreach ( $links as $link ) {
+				if ( $link->getSiteId() !== 'wikibase' ) {
+					continue;
+				}
+				$title = Title::newFromText( $link->getPageName() );
+				if ( $title !== null && $title->exists() ) {
+					return $this->getLinkRenderer()->makeLink( $title, $label !== '' ? $label : $qid );
+				}
 			}
 		} catch ( \Throwable $e ) {
 			// fall through to the Item link
