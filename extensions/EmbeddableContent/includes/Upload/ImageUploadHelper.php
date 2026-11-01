@@ -6,6 +6,7 @@ namespace EmbeddableContent\Upload;
 
 use EmbeddableContent\Content\FragmentSanitizer;
 use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\Fetch\UploadMetadataFetcher;
 use EmbeddableContent\Fetch\WikimediaFileUrl;
 use EmbeddableContent\Fields\EntityCombobox;
 use EmbeddableContent\Spec\EntityLabelText;
@@ -461,6 +462,13 @@ final class ImageUploadHelper {
 		if ( !UploadFromUrl::isAllowed( $user ) ) {
 			return null;
 		}
+		// A Wikimedia `/wiki/File:X` URL is an HTML DESCRIPTION PAGE, not the
+		// file: UploadFromUrl would fetch text/html and reject it (the
+		// reported "fetches metadata but not image"). Resolve the direct
+		// bytes URL through the file's own wiki API first — the browser blob
+		// fallback resolves it too (resources/uploadmeta.js); this covers
+		// JS-off and the Add*/Update* server-side URL path.
+		$url = ( new UploadMetadataFetcher() )->resolveDirectFileUrl( $url ) ?? $url;
 		// A Wikimedia SVG THUMBNAIL URL is a raster rendition of the vector
 		// original: fetching it would upload a PNG under the ".svg"
 		// destination name (filetype-mime-mismatch) and scale worse. Fetch

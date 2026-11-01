@@ -54,6 +54,10 @@ final class CommonsMetadataParser {
 			fileSize: isset( $imageInfo['size'] ) ? (int)$imageInfo['size'] : null,
 			mime: isset( $imageInfo['mime'] ) ? (string)$imageInfo['mime'] : null,
 			thumbUrl: isset( $imageInfo['thumburl'] ) ? (string)$imageInfo['thumburl'] : null,
+			// `url` is the file's OWN bytes (the original on the CDN);
+			// `descriptionurl` is the HTML File: page. The upload bytes path
+			// needs the former.
+			fileUrl: isset( $imageInfo['url'] ) ? (string)$imageInfo['url'] : null,
 			sourceUrl: (string)( $imageInfo['descriptionurl'] ?? '' ),
 			warnings: []
 		);

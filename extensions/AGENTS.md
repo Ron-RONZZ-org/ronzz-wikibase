@@ -1657,6 +1657,46 @@ report). See `SimpleMathJax/VENDORED.md`.
   `Template:Transcript`). Deploy = re-seed (new class + config map) + citation
   map import + wiki-page sync + message/objectcache/parser purges.
 
+- **Nov-2026 entity-page toolbar parity (ADR
+  `docs/decisions/mention-and-quotation-attribution.md` §Item-page toolbar
+  parity)**: an `Item:` page whose item is sitelinked to a classic per-kind
+  page (`Source:`/`Person:`/`Collective:`/`FOSS:`/`Software:`) now renders the
+  same "Copy internal mention" button as that page —
+  `Hooks::classicPageTitleForItem()` resolves the item's `wikibase` sitelink
+  via `SiteLinkLookup::getSiteLinksForItem()` (namespace + existence
+  checked), and the Item branch calls `wireMentionButton()` with the CLASSIC
+  title, so the copied snippet is `[[Person:Carl David Anderson|Carl David
+  Anderson]]` (italic on `Source:`), never `[[Item:Q…]]`. An item with no
+  classic page (quotation/math/code, API-created) renders none. The mention
+  tooltip is now "Copies a link to the entity's page …" (en/fr/eo). Same
+  batch: new `Spec/ItemPageTitle::forItem()` is the ONE item→page resolver
+  (`getSiteLinksForItem()`); four sites called the nonexistent
+  `getLinkForItemId()` inside `Throwable` catches and silently degraded —
+  `SpecialChildItemsOf::childLink()` linked every child to `Item:`, and
+  `QuotationLookup::invalidateClassicPages()` /
+  `ChildItemLookup::invalidateParentPages()` never invalidated the parent
+  page. Deploy = extension rsync + php-fpm + a message/localisation purge
+  (changed i18n text).
+
+- **Nov-2026 Wikimedia file DESCRIPTION page uploads (ADR
+  `docs/decisions/wikimedia-file-page-upload.md`)**: a pasted
+  `…/wiki/File:X` URL is an HTML description page — metadata validated but
+  the image never uploaded (the blob fallback fetched HTML; `UploadFromUrl`
+  rejected it). `WikimediaFileUrl` gains `isFilePage()` + `fileApi()` /
+  `fileQuery()` (a file page queries its OWN wiki's API — Commons AND
+  locally hosted non-free files; a CDN URL still queries Commons, and
+  `commonsQuery()` is renamed `fileQuery()`). `ImageMetadata` gains `fileUrl`
+  (`imageinfo.url`, exposed on `action=uploadmeta`); `UploadMetadataFetcher`
+  requests `iiurlwidth=640` (the preview thumb) and adds
+  `resolveDirectFileUrl()` (file pages only; a no-op, no request, for CDN /
+  foreign URLs); `ImageUploadHelper::uploadFromUrl()` resolves the direct URL
+  before `originalSvgUrl()`/`UploadFromUrl` (covers JS-off). The
+  `resources/uploadmeta.js` mirror (`isFilePage`/`imageInfoTarget`/
+  `resolveBytesUrl`, exposed on `mw.embeddableContent.uploadmeta`) uses the
+  same-wiki API, previews `thumbUrl || fileUrl || sourceUrl`, and resolves at
+  submit time (cached from Validate; one API call at most). No
+  vocabulary/config/DB change; deploy = extension rsync + php-fpm restart.
+
 ### WikibaseCitation
 
 

@@ -61,6 +61,22 @@ pages' classic pages (old + new parent on re-parent; best-effort
 `Title::invalidateCache`, exception-safe) via
 `ChildItemLookup::invalidateParentPages`.
 
+### 4. Item→page link fix (Nov 2026)
+
+`childLink()` used `SiteLinkLookup::getLinkForItemId()`, which **does not
+exist** in this Wikibase version. The call sat inside a
+`try/catch ( Throwable )`, so the undefined-method `Error` was swallowed and
+the classic-page branch was silently dead — every child linked to `Item:`
+even when its `Source:` page existed. The same dead call in §3's
+`ChildItemLookup::invalidateParentPages()` (and in the quotation listing's
+`QuotationLookup::invalidateClassicPages()`) meant the parent-page cache
+invalidation never ran either, so a new child/quotation could stay hidden
+until the parser-cache TTL.
+
+Both now route through `Spec\ItemPageTitle::forItem()` (the one item→page
+resolver, also used by the Item page's "Copy internal mention" button). The
+bookExcerpt case is unchanged (it has no page → `Item:` link).
+
 ## Consequences
 
 - Book and YouTube-channel Source pages self-link to a live, always-current

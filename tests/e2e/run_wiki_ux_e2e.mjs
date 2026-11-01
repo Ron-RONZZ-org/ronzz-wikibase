@@ -1024,6 +1024,83 @@ async function main() {
 		await page.goto(`${BASE_URL}/wiki/Special:Upload`, { waitUntil: 'domcontentloaded', timeout: 60000 });
 		await page.waitForSelector('#mw-upload-form', { timeout: 15000 });
 
+		// --- Wikimedia FILE PAGE URL resolution (uploadmeta) --------------
+		// A `…/wiki/File:X` URL is an HTML DESCRIPTION page, not the file:
+		// the shared module must resolve the file's own bytes URL through
+		// the wiki API before fetching (the reported "fetches metadata but
+		// not image"), and a CDN URL or a Validate-cached URL must not be
+		// resolved again. The API is stubbed (no live Wikimedia call).
+		{
+			await page.waitForFunction(() =>
+				window.mw && window.mw.loader && typeof window.mw.loader.using === 'function');
+			const directUrl = 'https://upload.wikimedia.org/wikipedia/commons/0/00/Standard_Model_of_Elementary_Particles.svg';
+			const cachedUrl = 'https://upload.wikimedia.org/wikipedia/commons/9/96/Cached.svg';
+			const imageInfoRequests = [];
+			await page.route('**/w/api.php**', async (route) => {
+				const u = new URL(route.request().url());
+				if (u.searchParams.get('action') === 'query'
+					&& (u.searchParams.get('prop') || '') === 'imageinfo') {
+					imageInfoRequests.push(u.host + u.pathname + '?' + u.searchParams.toString());
+					await route.fulfill({
+						status: 200,
+						contentType: 'application/json',
+						headers: { 'access-control-allow-origin': '*' },
+						body: JSON.stringify({
+							query: {
+								pages: [ {
+									imageinfo: [ {
+										url: directUrl,
+										mime: 'image/svg+xml',
+										width: 1390,
+										height: 1330,
+										size: 92303,
+										thumburl: 'https://upload.wikimedia.org/thumb.png',
+									} ],
+								} ],
+							},
+						}),
+					});
+					return;
+				}
+				await route.continue();
+			});
+			try {
+				const resolved = await page.evaluate(async ([filePageUrl, cdnUrl, cached]) => {
+					await new Promise((r) => mw.loader.using('ext.embeddableContent.uploadmeta', r));
+					const api = mw.embeddableContent.uploadmeta;
+					return {
+						filePage: api.isFilePage(filePageUrl),
+						cdnPage: api.isFilePage(cdnUrl),
+						targetApi: (api.imageInfoTarget(filePageUrl) || {}).api || '',
+						direct: await api.resolveBytesUrl(filePageUrl),
+						cdn: await api.resolveBytesUrl(cdnUrl),
+						cached: await api.resolveBytesUrl(filePageUrl, cached),
+					};
+				}, [
+					'https://en.wikipedia.org/wiki/File:Standard_Model_of_Elementary_Particles.svg',
+					'https://upload.wikimedia.org/wikipedia/commons/0/00/X.svg',
+					cachedUrl,
+				]);
+				if (!resolved.filePage || resolved.cdnPage) {
+					failures.push(`uploadmeta isFilePage wrong (file page=${resolved.filePage}, cdn=${resolved.cdnPage})`);
+				} else if (resolved.targetApi !== 'https://en.wikipedia.org/w/api.php') {
+					failures.push(`uploadmeta queried ${JSON.stringify(resolved.targetApi)}, expected the file page's own wiki API`);
+				} else if (resolved.direct !== directUrl) {
+					failures.push(`uploadmeta resolved a File: page to ${JSON.stringify(resolved.direct)}, expected the direct file URL`);
+				} else if (resolved.cdn !== 'https://upload.wikimedia.org/wikipedia/commons/0/00/X.svg') {
+					failures.push('uploadmeta rewrote a direct CDN URL');
+				} else if (resolved.cached !== cachedUrl) {
+					failures.push('uploadmeta ignored the Validate-cached direct URL');
+				} else if (imageInfoRequests.length !== 1) {
+					failures.push(`uploadmeta made ${imageInfoRequests.length} imageinfo requests, expected exactly 1 (cached/CDN resolve without a lookup)`);
+				} else {
+					console.log('[ok] uploadmeta resolves a Wikipedia File: page to the direct file URL (one API call; cache/CDN no-ops)');
+				}
+			} finally {
+				await page.unroute('**/w/api.php**');
+			}
+		}
+
 		// Source gating: Url is the fresh-load default → the file picker is
 		// disabled; selecting the File radio enables it.
 		if (await page.locator('#wpUploadFile').isEnabled()) {

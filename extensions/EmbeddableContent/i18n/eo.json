@@ -481,7 +481,7 @@
 	"embeddablecontent-sourcecite-button": "Kopii la internan citaĵon",
 	"embeddablecontent-sourcecite-hint": "Kopias <ref>{{#cite:$1}}</ref> — algluu ĝin en vikian paĝon por citi ĉi tiun fonton",
 	"embeddablecontent-mention-button": "Kopii la internan mencion",
-	"embeddablecontent-mention-hint": "Kopias ligilon al ĉi tiu paĝo — algluu ĝin sur iun ajn vikian paĝon por mencii la enton",
+	"embeddablecontent-mention-hint": "Kopias ligilon al la paĝo de la ento — algluu ĝin sur iun ajn vikian paĝon por mencii la enton",
 	"embeddablecontent-file-copyembed": "Kopii la internan enig-kodon",
 	"embeddablecontent-file-copyembed-hint": "Kopias [[File:…]] — algluu ĝin en vikian paĝon por enigi ĉi tiun dosieron",
 	"embeddablecontent-file-copylink": "Kopii la rektan ligilon",

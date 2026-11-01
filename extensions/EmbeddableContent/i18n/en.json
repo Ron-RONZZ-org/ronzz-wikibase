@@ -494,7 +494,7 @@
 	"embeddablecontent-sourcecite-button": "Copy internal citation",
 	"embeddablecontent-sourcecite-hint": "Copies <ref>{{#cite:$1}}</ref> — paste it on a wiki page to cite this source",
 	"embeddablecontent-mention-button": "Copy internal mention",
-	"embeddablecontent-mention-hint": "Copies a link to this page — paste it on any wiki page to mention the entity",
+	"embeddablecontent-mention-hint": "Copies a link to the entity's page — paste it on any wiki page to mention the entity",
 	"embeddablecontent-file-copyembed": "Copy internal embed code",
 	"embeddablecontent-file-copyembed-hint": "Copies [[File:…]] — paste it on a wiki page to embed this file",
 	"embeddablecontent-file-copylink": "Copy direct link",
