@@ -2841,8 +2841,17 @@ def flow_uploadmeta_module_source(op, base: str) -> None:
     if "function originalSvgUrl" not in body:
         raise FlowError("uploadmeta module: SVG-thumbnail original-URL helper missing "
                         "(PNG rendition uploaded under a .svg destination name)")
-    if "originalSvgUrl( url ) || url" not in body:
+    # Nov 2026: the submit-time path resolves a Wikimedia FILE DESCRIPTION
+    # page (an HTML page) to the file's own bytes URL first, and THEN applies
+    # the SVG-thumbnail rule — the resolved URL is what is fetched.
+    if "originalSvgUrl( direct ) || direct" not in body:
         raise FlowError("uploadmeta module: blob fallback does not resolve SVG thumbnails")
+    if "resolveBytesUrl" not in body or "function isFilePage" not in body:
+        raise FlowError("uploadmeta module: Wikimedia file-page resolution missing "
+                        "(a /wiki/File:X description page is HTML, not the image)")
+    if "iiurlwidth=640" not in body:
+        raise FlowError("uploadmeta module: imageinfo does not request a preview width "
+                        "(no thumburl -> the preview falls back to the HTML page URL)")
     if "wbUploadmetaSourceType" not in body:
         raise FlowError("uploadmeta module: original-source marker missing "
                         "(source radio reset on the converted-upload error)")
