@@ -67,10 +67,15 @@ pages' classic pages (old + new parent on re-parent; best-effort
 exist** in this Wikibase version. The call sat inside a
 `try/catch ( Throwable )`, so the undefined-method `Error` was swallowed and
 the classic-page branch was silently dead — every child linked to `Item:`
-even when its `Source:` page existed. It now resolves the page through
-`getSiteLinksForItem()`, the same contract the Item page's "Copy internal
-mention" button uses (`Hooks::classicPageTitleForItem`). The bookExcerpt
-case is unchanged (it has no page → `Item:` link).
+even when its `Source:` page existed. The same dead call in §3's
+`ChildItemLookup::invalidateParentPages()` (and in the quotation listing's
+`QuotationLookup::invalidateClassicPages()`) meant the parent-page cache
+invalidation never ran either, so a new child/quotation could stay hidden
+until the parser-cache TTL.
+
+Both now route through `Spec\ItemPageTitle::forItem()` (the one item→page
+resolver, also used by the Item page's "Copy internal mention" button). The
+bookExcerpt case is unchanged (it has no page → `Item:` link).
 
 ## Consequences
 

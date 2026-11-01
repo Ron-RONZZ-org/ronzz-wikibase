@@ -5,9 +5,6 @@ declare( strict_types = 1 );
 namespace EmbeddableContent\Spec;
 
 use EmbeddableContent\EmbeddableContentConfig;
-use MediaWiki\Title\Title;
-use Wikibase\DataModel\Entity\ItemId;
-use Wikibase\Repo\WikibaseRepo;
 
 /**
  * MediaWiki-bound facade for the source-quotation listing (issue #79): runs
@@ -140,9 +137,7 @@ final class QuotationLookup {
 				continue;
 			}
 			try {
-				$link = WikibaseRepo::getStore()->newSiteLinkStore()
-					->getLinkForItemId( new ItemId( $itemId ) );
-				$title = Title::newFromText( (string)( $link['pageName'] ?? '' ) );
+				$title = ItemPageTitle::forItem( $itemId );
 				if ( $title !== null && $title->exists() ) {
 					$title->invalidateCache();
 				}

@@ -63,10 +63,12 @@ embed/citation — and the "Copy internal mention" button was the one missing
 control (`Item:Q2512` had no mention button although its
 `Person:Carl David Anderson` page did).
 
-- `Hooks::classicPageTitleForItem()` resolves the item's `wikibase` sitelink
-  over `SiteLinkLookup::getSiteLinksForItem()` and accepts it only when the
-  page is in a classic per-kind namespace **and exists**; the Item branch
-  then calls the existing `wireMentionButton()` with that CLASSIC title.
+- `Spec\ItemPageTitle::forItem()` is the ONE item→page resolver
+  (`SiteLinkLookup::getSiteLinksForItem()` — `getLinkForItemId()` does not
+  exist in this Wikibase version). `Hooks::classicPageTitleForItem()` accepts
+  its title only when the page is in a classic per-kind namespace **and
+  exists**; the Item branch then calls the existing `wireMentionButton()`
+  with that CLASSIC title.
   The copied snippet is therefore `[[Person:Carl David Anderson|Carl David Anderson]]`
   (italic on `Source:`), never `[[Item:Q2512]]`.
 - An item with **no** classic page (a quotation/math/code item, an
@@ -74,11 +76,15 @@ control (`Item:Q2512` had no mention button although its
   page to link to.
 - The mention tooltip wording became "Copies a link to the entity's page …"
   (en/fr/eo), accurate on both surfaces.
-- Side finding fixed in the same batch: `Special:ChildItemsOf`'s
-  `childLink()` called `SiteLinkStore::getLinkForItemId()`, which does not
-  exist in this Wikibase version; the `try/catch` swallowed the `Error`, so
-  the classic-page branch was silently dead and every child linked to
-  `Item:`. It now uses `getSiteLinksForItem()` too.
+- Side findings fixed in the same batch: four sites called the nonexistent
+  `SiteLinkStore::getLinkForItemId()` inside `try/catch ( Throwable )`
+  blocks, so each silently degraded — `Special:ChildItemsOf`'s `childLink()`
+  linked every child to `Item:` (the classic-page branch was dead), and
+  `QuotationLookup::invalidateClassicPages()` /
+  `ChildItemLookup::invalidateParentPages()` never invalidated the classic
+  page (the parser-cache dependency only covers item-revision changes, so a
+  new quotation / child could stay hidden until the cache TTL). All four
+  route through `ItemPageTitle::forItem()` now.
 
 ## Consequences
 

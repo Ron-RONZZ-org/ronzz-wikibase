@@ -1669,10 +1669,14 @@ report). See `SimpleMathJax/VENDORED.md`.
   Anderson]]` (italic on `Source:`), never `[[Item:Q…]]`. An item with no
   classic page (quotation/math/code, API-created) renders none. The mention
   tooltip is now "Copies a link to the entity's page …" (en/fr/eo). Same
-  batch: `Spec/SpecialChildItemsOf::childLink()` called the nonexistent
-  `getLinkForItemId()` (the `Throwable` catch hid it; every child linked to
-  `Item:`) — now `getSiteLinksForItem()`. Deploy = extension rsync +
-  php-fpm + a message/localisation purge (changed i18n text).
+  batch: new `Spec/ItemPageTitle::forItem()` is the ONE item→page resolver
+  (`getSiteLinksForItem()`); four sites called the nonexistent
+  `getLinkForItemId()` inside `Throwable` catches and silently degraded —
+  `SpecialChildItemsOf::childLink()` linked every child to `Item:`, and
+  `QuotationLookup::invalidateClassicPages()` /
+  `ChildItemLookup::invalidateParentPages()` never invalidated the parent
+  page. Deploy = extension rsync + php-fpm + a message/localisation purge
+  (changed i18n text).
 
 - **Nov-2026 Wikimedia file DESCRIPTION page uploads (ADR
   `docs/decisions/wikimedia-file-page-upload.md`)**: a pasted

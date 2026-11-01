@@ -5,7 +5,6 @@ declare( strict_types = 1 );
 namespace EmbeddableContent\Spec;
 
 use EmbeddableContent\EmbeddableContentConfig;
-use MediaWiki\Title\Title;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\DataModel\Entity\NumericPropertyId;
@@ -147,9 +146,7 @@ final class ChildItemLookup {
 				continue;
 			}
 			try {
-				$link = WikibaseRepo::getStore()->newSiteLinkStore()
-					->getLinkForItemId( new ItemId( $itemId ) );
-				$title = Title::newFromText( (string)( $link['pageName'] ?? '' ) );
+				$title = ItemPageTitle::forItem( $itemId );
 				if ( $title !== null && $title->exists() ) {
 					$title->invalidateCache();
 				}

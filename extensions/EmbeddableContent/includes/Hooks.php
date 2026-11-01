@@ -753,23 +753,11 @@ class Hooks {
 	 * data page (`[[Item:Q2512]]`).
 	 */
 	private static function classicPageTitleForItem( string $itemId ): ?\MediaWiki\Title\Title {
-		try {
-			$links = WikibaseRepo::getStore()->newSiteLinkStore()
-				->getSiteLinksForItem( new ItemId( $itemId ) );
-		} catch ( \Throwable $e ) {
+		$title = \EmbeddableContent\Spec\ItemPageTitle::forItem( $itemId );
+		if ( $title === null || !self::isClassicEntityNamespace( $title->getNamespace() ) ) {
 			return null;
 		}
-		foreach ( $links as $link ) {
-			if ( $link->getSiteId() !== 'wikibase' ) {
-				continue;
-			}
-			$title = \MediaWiki\Title\Title::newFromText( $link->getPageName() );
-			if ( $title === null || !self::isClassicEntityNamespace( $title->getNamespace() ) ) {
-				return null;
-			}
-			return $title->exists() ? $title : null;
-		}
-		return null;
+		return $title->exists() ? $title : null;
 	}
 
 	/**
