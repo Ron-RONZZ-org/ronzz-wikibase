@@ -76,7 +76,9 @@ catch-all class, and the `bool|string` return-type fix),
 combobox class scope, `Special:UpdateSoftware` prefill, page-title
 normalization, `Special:NewItem` Main-namespace pages),
 `classic-page-toolbar.md` (the classic per-kind pages render the same action
-toolbar as the Item: page), `csv-table-embed.md` (uploaded CSV rendered as a
+toolbar as the Item: page; the Item page also gains the "Copy internal
+mention" button linking to the classic page — `mention-and-quotation-attribution.md`
+§Item-page toolbar parity), `csv-table-embed.md` (uploaded CSV rendered as a
 wikitable via `[[File:data.csv]]` + the existing-extension survey),
 `wiki-bug-fixes-2026-09c.md` (OpenAlex author name split, the clipboard-blocked
 upload-copy fallback, and the multiline-display-math `gathered` wrap),
@@ -111,7 +113,10 @@ inheritance from the parent book, the content-page "Add section" action, and
 the label/description fallback that makes `fr`/`eo`-only items visible in the
 search results and on their Item: pages),
 `upload-another-fetch.md` (the "upload another" destination tab + same-origin
-fetch POST; inline error recovery, file preservation, CSRF refresh), `vector-2022-theme-toggle.md` (Vector 2022 as the default skin +
+fetch POST; inline error recovery, file preservation, CSRF refresh),
+`wikimedia-file-page-upload.md` (a Wikipedia/Wikimedia `File:` DESCRIPTION
+page URL resolves to the file's own bytes through its wiki API — metadata
+AND image; own-wiki API, `imageinfo.url`, the preview thumb), `vector-2022-theme-toggle.md` (Vector 2022 as the default skin +
 the sun/moon quick toggle using the native `vector-theme` preference), and
 `namespace-rename-cheatsheet.md` (`Cheatsheets` → `Cheatsheet`, namespace
 alias as the redirect-equivalent, sitelink and content-link updates).

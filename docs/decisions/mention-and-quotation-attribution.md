@@ -36,6 +36,9 @@ source.
   right**; otherwise it appends to the row.
 - The button is scoped to the five **classic** namespaces (not `Item:` pages,
   where the link target would be `Item:Q…`, not a content page).
+  **Updated (Nov 2026)**: the `Item:` page of an item sitelinked to one of
+  those classic pages now renders the SAME button — see
+  "Item-page toolbar parity" below.
 
 ### `{{#content:}}` quotation attribution
 
@@ -51,6 +54,31 @@ source.
   parser-cache dependencies, so editing them re-renders every consumer page.
 - Scope is `{{#content:}}` only; the embed surfaces (`Special:Embed`,
   `action=embed`, `Special:QuotationsOf`) keep their framed chrome.
+
+### Item-page toolbar parity (Nov 2026)
+
+The Item: page of a person/source/collective (or FOSS/software) item lists
+the same action toolbar as its classic page — update, internal citation,
+embed/citation — and the "Copy internal mention" button was the one missing
+control (`Item:Q2512` had no mention button although its
+`Person:Carl David Anderson` page did).
+
+- `Hooks::classicPageTitleForItem()` resolves the item's `wikibase` sitelink
+  over `SiteLinkLookup::getSiteLinksForItem()` and accepts it only when the
+  page is in a classic per-kind namespace **and exists**; the Item branch
+  then calls the existing `wireMentionButton()` with that CLASSIC title.
+  The copied snippet is therefore `[[Person:Carl David Anderson|Carl David Anderson]]`
+  (italic on `Source:`), never `[[Item:Q2512]]`.
+- An item with **no** classic page (a quotation/math/code item, an
+  API-created item) renders no mention button: there is no reader-facing
+  page to link to.
+- The mention tooltip wording became "Copies a link to the entity's page …"
+  (en/fr/eo), accurate on both surfaces.
+- Side finding fixed in the same batch: `Special:ChildItemsOf`'s
+  `childLink()` called `SiteLinkStore::getLinkForItemId()`, which does not
+  exist in this Wikibase version; the `try/catch` swallowed the `Error`, so
+  the classic-page branch was silently dead and every child linked to
+  `Item:`. It now uses `getSiteLinksForItem()` too.
 
 ## Consequences
 
@@ -73,4 +101,8 @@ source.
 - `tests/e2e/run_pages_e2e.py` — `flow_classic_page_toolbar` asserts the
   mention wiring (`wbMentionLink` = the page title, `wbMentionItalic` true on
   Source / false otherwise, the module loaded, and `wbMentionLabel` free of
-  the trailing parenthetical class suffix) on every created classic page.
+  the trailing parenthetical class suffix) on every created classic page;
+  `flow_item_page_mention` asserts the same wiring on the item's `Item:`
+  page with `wbMentionLink` = the classic page title, and
+  `flow_item_page_no_mention` asserts a quotation item's Item page renders
+  none.
