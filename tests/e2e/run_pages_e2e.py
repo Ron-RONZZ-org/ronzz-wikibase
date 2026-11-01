@@ -4395,6 +4395,53 @@ def flow_classic_page_toolbar(op, base: str, page_title: str, qid: str,
           + " + copy internal mention")
 
 
+def flow_item_page_mention(op, base: str, page_title: str, qid: str,
+                           expect_italic: bool) -> None:
+    """Entity-page toolbar parity (Nov 2026): the Item: page of an item
+    sitelinked to a classic per-kind page carries the SAME "Copy internal
+    mention" wiring as that classic page — wbMentionLink is the CLASSIC page
+    title (the readable page the mention links to, never Item:Q…),
+    wbMentionLabel the item label and wbMentionItalic the Source-page rule.
+    The button itself is JS-rendered (resources/mention.js)."""
+    _, body = page_get(op, base, "/wiki/Item:" + qid)
+    if "ext.embeddableContent.mention" not in body:
+        raise FlowError(
+            f"Item:{qid}: missing the copy-internal-mention wiring: {find_error(body)}")
+    m_link = re.search(r'"wbMentionLink"\s*:\s*"([^"]*)"', body)
+    if not m_link or m_link.group(1) != page_title:
+        raise FlowError(
+            f"Item:{qid}: wbMentionLink mismatch "
+            f"({m_link.group(1) if m_link else 'missing'}), expected the classic "
+            f"page {page_title!r}: {find_error(body)}")
+    m_label = re.search(r'"wbMentionLabel"\s*:\s*"([^"]*)"', body)
+    if not m_label or not m_label.group(1).strip():
+        raise FlowError(f"Item:{qid}: missing/empty wbMentionLabel: {find_error(body)}")
+    if m_label.group(1).rstrip().endswith(")"):
+        raise FlowError(
+            f"Item:{qid}: wbMentionLabel still carries the parenthetical class "
+            f"suffix: {m_label.group(1)!r}")
+    m_italic = re.search(r'"wbMentionItalic"\s*:\s*(true|false)', body)
+    expected_italic = "true" if expect_italic else "false"
+    if m_italic is None or m_italic.group(1) != expected_italic:
+        raise FlowError(
+            f"Item:{qid}: wbMentionItalic is "
+            f"{m_italic.group(1) if m_italic else 'missing'}, expected {expected_italic}")
+    print(f"[ok] Item:{qid} toolbar mentions the classic page {page_title}")
+
+
+def flow_item_page_no_mention(op, base: str, qid: str) -> None:
+    """An item with NO classic per-kind page (a quotation, an API-created
+    item) must not render a mention button: there is no readable page to
+    link to, and the old behaviour (a link to Item:Q…) is deliberately out
+    of scope."""
+    _, body = page_get(op, base, "/wiki/Item:" + qid)
+    if "wbMentionLink" in body or "ext.embeddableContent.mention" in body:
+        raise FlowError(
+            f"Item:{qid}: rendered the mention wiring although the item has no "
+            f"classic page: {find_error(body)}")
+    print(f"[ok] Item:{qid} (no classic page) renders no mention button")
+
+
 def flow_child_items_listing(op, base: str, api: str, book_qid: str,
                              excerpt_qid: str, excerpt_label: str) -> None:
     """The child-items listing (Special:ChildItemsOf), the source-children
@@ -5417,6 +5464,8 @@ def main() -> int:
         flow_source_cite_button(op, base, webpage_page, subdomain_child)
         flow_classic_page_toolbar(op, base, webpage_page, subdomain_child,
                                   "UpdateSource", expect_source_cite=True)
+        flow_item_page_mention(op, base, webpage_page, subdomain_child,
+                               expect_italic=True)
 
         # 2j1c. The Item: page of a source-class item ALSO carries the
         #     "Copy internal citation" wiring (not only its Source: classic
@@ -5931,6 +5980,7 @@ def main() -> int:
         flow_sitelink_tab(op, base, api, foss_page, software)
         flow_classic_page_toolbar(op, base, foss_page, software,
                                   "UpdateSoftware", expect_source_cite=False)
+        flow_item_page_mention(op, base, foss_page, software, expect_italic=False)
 
         # 4. v1 content form — Special:AddQuotation with provenance.
         # Unique label per run: create-or-skip would otherwise reuse a stale
@@ -5940,6 +5990,7 @@ def main() -> int:
         flow_addmath_preview_wiring(op, base)
         quote_label = f"Page-flow E2E quotation {args.person} {int(time.time())}"
         quotation = track(flow_quotation(op, base, api, quote_label, "An E2E test quotation.", person))
+        flow_item_page_no_mention(op, base, quotation)
         claims, label = entity_claims(op, api, quotation)
         assert first_value(claims, instance_of) == quotation_class, \
             f"{quotation} instance-of != quotation content"

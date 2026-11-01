@@ -473,6 +473,19 @@ class Hooks {
 
 		self::wireItemToolbar( $out, $entityId->getSerialization() );
 
+		// Entity-page toolbar parity with the classic per-kind pages: an item
+		// whose `wikibase` sitelink points at a classic per-kind page
+		// (Source:/Person:/Collective:/FOSS:/Software:) renders the SAME
+		// "Copy internal mention" button. The copied link TARGETS that
+		// classic page (the reader-facing page), never Item:Q… — which is
+		// why the item→page lookup lives here instead of reusing wgTitle.
+		// An item with no classic page (a quotation, an API-created item)
+		// renders nothing: there is no page to mention.
+		$classicTitle = self::classicPageTitleForItem( $entityId->getSerialization() );
+		if ( $classicTitle !== null ) {
+			self::wireMentionButton( $out, $classicTitle, $entityId->getSerialization() );
+		}
+
 		// Content items (quotation / math / code-snippet) carry NO classic
 		// page — render their embed fragment directly below the toolbar, so
 		// the Item page shows the actual content next to its statements.
@@ -729,6 +742,37 @@ class Hooks {
 	}
 
 	/**
+	 * The classic per-kind page sitelinked to an item, or null when the item
+	 * has no `wikibase` sitelink, the sitelink points outside the classic
+	 * per-kind namespaces (a Main-namespace page, …), or the page does not
+	 * exist.
+	 *
+	 * Used by the Item: page's "Copy internal mention" button: the mention
+	 * must copy a link to the human-readable classic page
+	 * (`[[Person:Carl David Anderson|Carl David Anderson]]`), never to the
+	 * data page (`[[Item:Q2512]]`).
+	 */
+	private static function classicPageTitleForItem( string $itemId ): ?\MediaWiki\Title\Title {
+		try {
+			$links = WikibaseRepo::getStore()->newSiteLinkStore()
+				->getSiteLinksForItem( new ItemId( $itemId ) );
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+		foreach ( $links as $link ) {
+			if ( $link->getSiteId() !== 'wikibase' ) {
+				continue;
+			}
+			$title = \MediaWiki\Title\Title::newFromText( $link->getPageName() );
+			if ( $title === null || !self::isClassicEntityNamespace( $title->getNamespace() ) ) {
+				return null;
+			}
+			return $title->exists() ? $title : null;
+		}
+		return null;
+	}
+
+	/**
 	 * Whether the namespace is a Wikibase entity namespace (Item:/Property:).
 	 * Entity pages have their own toolbar wiring (or none); they must not get
 	 * the classic content-page toolbar.
@@ -793,11 +837,14 @@ class Hooks {
 	}
 
 	/**
-	 * The "Copy internal mention" button on the classic per-kind pages: it
-	 * copies a piped internal link to the page, `[[<page>|<item label>]]`
-	 * (italic on Source: pages, `''[[Source:Beloved (Book)|Beloved]]''`).
-	 * Rendered in the shared toolbar; resources/mention.js places it to the
-	 * right of the "Copy internal citation" button on source pages.
+	 * The "Copy internal mention" button on the classic per-kind pages AND
+	 * on the Item: page of an item sitelinked to one (toolbar parity — the
+	 * Item page passes the CLASSIC title, so the mention links to the
+	 * readable page, not to Item:Q…). It copies a piped internal link to the
+	 * page, `[[<page>|<item label>]]` (italic on Source: pages,
+	 * `''[[Source:Beloved (Book)|Beloved]]''`). Rendered in the shared
+	 * toolbar; resources/mention.js places it to the right of the "Copy
+	 * internal citation" button on source pages.
 	 *
 	 * The label is the item's English label (the page title basis), falling
 	 * back to the page text when the item has none. Any trailing
