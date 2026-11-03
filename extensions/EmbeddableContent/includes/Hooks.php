@@ -319,15 +319,29 @@ class Hooks {
 		&$query,
 		&$ret
 	) {
-		// A null $text is MediaWiki's "use the default caption" signal —
-		// exactly the unpiped-link case. A pipe (even the pipe trick) has
-		// already chosen a caption and must be left alone.
-		if ( $text !== null || !$target instanceof \MediaWiki\Linker\LinkTarget ) {
+		if ( !$target instanceof \MediaWiki\Linker\LinkTarget ) {
 			return;
 		}
 		if ( $linkRenderer instanceof \MediaWiki\Linker\LinkRenderer
 			&& $linkRenderer->isForComment()
 		) {
+			return;
+		}
+		// The parser PRE-FILLS the default caption as the link text for an
+		// unpiped link ("[[Person:Edwin Hubble]]" arrives as the plain string
+		// "Person:Edwin Hubble", not null); other LinkRenderer callers pass
+		// null. Treat either as "no explicit caption" — a pipe has chosen a
+		// different caption and must be left alone. The fragment is part of
+		// the parser's default text.
+		$defaultCaption = $target->getPrefixedText();
+		if ( $target->hasFragment() ) {
+			$defaultCaption .= '#' . $target->getFragment();
+		}
+		$caption = $text;
+		if ( $caption instanceof HtmlArmor ) {
+			$caption = HtmlArmor::getHtml( $caption );
+		}
+		if ( $caption !== null && $caption !== $defaultCaption ) {
 			return;
 		}
 		$namespace = $target->getNamespace();
