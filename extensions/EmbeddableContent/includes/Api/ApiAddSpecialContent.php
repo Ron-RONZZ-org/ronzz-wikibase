@@ -23,7 +23,8 @@ use Wikibase\Repo\WikibaseRepo;
  * Special:AddQuotation / AddMath / AddCodeSnippet, driven by
  * SpecialContentFieldMap. Content items create no classic page.
  *
- * Create (no qid): kind + label + content (+ attributedTo for quotations).
+ * Create (no qid): kind + label + content (+ attributedTo OR source for
+ * quotations; a single-author source supplies the author).
  * Update (qid): replaces the statements for the fields provided, keeps
  * everything else (no-clobber), never changes the class.
  *
@@ -73,6 +74,30 @@ class ApiAddSpecialContent extends ApiBase {
 				continue;
 			}
 			$record[$field] = $value;
+		}
+
+		// A blank quotation author is inherited from a single-author source;
+		// a multi-author source asks the caller to choose instead of guessing.
+		if ( $creating && $kind === 'quotation' ) {
+			$inheritError = \EmbeddableContent\Spec\QuotationSourceAuthor::inherit(
+				$record,
+				WikibaseRepo::getEntityLookup(),
+				$this->config->provenancePropertyIds()['attributedTo'] ?? null,
+				static function ( string $source, string $error ): void {
+					\MediaWiki\Logger\LoggerFactory::getInstance( 'EmbeddableContent' )->warning(
+						'QuotationSourceAuthor: could not load source {source}: {error}',
+						[ 'source' => $source, 'error' => $error ]
+					);
+				}
+			);
+			if ( $inheritError === \EmbeddableContent\Spec\QuotationSourceAuthor::ERROR_MULTIPLE_AUTHORS ) {
+				$this->dieWithError(
+					new RawMessage(
+						$this->msg( 'embeddablecontent-add-error-source-multiple-authors' )->text()
+					),
+					'multiple_authors'
+				);
+			}
 		}
 
 		$error = $this->flow->prepare( $kind, $record, $creating );

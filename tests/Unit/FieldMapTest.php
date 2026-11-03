@@ -213,7 +213,19 @@ class FieldMapTest extends TestCase {
 				$this->assertTrue( SpecialContentFieldMap::acceptsField( $kind, $field ) );
 			}
 		}
-		$this->assertContains( 'attributedTo', SpecialContentFieldMap::requiredOnCreate( 'quotation' ) );
+		// A quotation needs an author OR a source; the either-or rule is the
+		// separate requiredAnyOf contract (the flow service enforces it).
+		$this->assertNotContains( 'attributedTo', SpecialContentFieldMap::requiredOnCreate( 'quotation' ) );
+		$this->assertSame(
+			[ [ 'attributedTo', 'source' ] ],
+			SpecialContentFieldMap::requiredAnyOf( 'quotation' )
+		);
+		foreach ( SpecialContentFieldMap::requiredAnyOf( 'quotation' ) as $group ) {
+			foreach ( $group as $field ) {
+				$this->assertTrue( SpecialContentFieldMap::acceptsField( 'quotation', $field ) );
+			}
+		}
+		$this->assertSame( [], SpecialContentFieldMap::requiredAnyOf( 'math' ) );
 	}
 
 	public function testSpecialContentNoteIsMathOnly(): void {

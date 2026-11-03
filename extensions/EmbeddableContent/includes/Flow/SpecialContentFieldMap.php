@@ -78,11 +78,17 @@ final class SpecialContentFieldMap {
 	 * @return string[] required on create (never on update)
 	 */
 	public static function requiredOnCreate( string $kind ): array {
-		$required = [ 'label', 'content' ];
-		if ( $kind === 'quotation' ) {
-			// The form requires the attribution for quotations.
-			$required[] = 'attributedTo';
-		}
-		return $required;
+		return [ 'label', 'content' ];
+	}
+
+	/**
+	 * Groups of fields where at least ONE member is required on create.
+	 * A quotation needs an author OR a source; when only a single-author
+	 * source is given the author is inherited (QuotationSourceAuthor).
+	 *
+	 * @return string[][]
+	 */
+	public static function requiredAnyOf( string $kind ): array {
+		return $kind === 'quotation' ? [ [ 'attributedTo', 'source' ] ] : [];
 	}
 }

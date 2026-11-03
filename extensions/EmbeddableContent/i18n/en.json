@@ -545,5 +545,22 @@
 	"embeddablecontent-childitems-label-youtubeVideo": "YouTube videos",
 	"embeddablecontent-childitems-label-webpage": "Web pages",
 	"embeddablecontent-childitems-label-law": "Legal provisions",
-	"special-childitemsof": "Child items of a source"
+	"special-childitemsof": "Child items of a source",
+	"embeddablecontent-upload-url-wait": "Fetching the file from the URL… This may take a while.",
+	"embeddablecontent-orphan-item-delete-reason": "Orphaned item: its wiki page $1 was deleted and it had no statements, description or aliases.",
+	"embeddablecontent-collision-title": "Possible duplicate item",
+	"embeddablecontent-collision-body": "An item with the label '''$1''' already exists as [[Item:$2]]. Creating this item would collide with it.",
+	"embeddablecontent-collision-current": "Its current sitelink points at '''$1'''.",
+	"embeddablecontent-collision-no-sitelink": "It currently has no sitelink.",
+	"embeddablecontent-collision-target": "The new page is '''$1'''.",
+	"embeddablecontent-collision-reuse": "Reuse the existing item and move its sitelink to the new page",
+	"embeddablecontent-collision-reuse-nopage": "Reuse the existing item",
+	"embeddablecontent-collision-delete": "Delete the existing item ($1) and create a new one",
+	"embeddablecontent-collision-duplicate": "Create a duplicate item named \"$1\"",
+	"embeddablecontent-collision-reuse-summary": "Reused the existing item for $1",
+	"embeddablecontent-collision-delete-reason": "Replaced by a new item during an Add* collision ($1)",
+	"embeddablecontent-collision-delete-forbidden": "You do not have permission to delete the existing item.",
+	"embeddablecontent-collision-page-failed": "The classic page could not be created.",
+	"embeddablecontent-add-attributedto-help": "Optional when a source is selected — a source with exactly one author is inherited. If the source has several authors, pick one here.",
+	"embeddablecontent-add-error-source-multiple-authors": "The source has multiple authors. Please specify the author in the “Attributed to” field."
 }

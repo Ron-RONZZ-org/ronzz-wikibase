@@ -1203,6 +1203,43 @@ async function main() {
 			console.log('[ok] drag-and-drop onto the source area fills the picker + switches to File');
 		}
 
+		// Source toggle: switching to URL closes the local-file preview; a
+		// stale URL preview/status is cleared when File is selected again.
+		await page.check('#wpSourceTypeurl');
+		const filePreviewAfterUrl = await page.evaluate(() => {
+			const el = document.querySelector('.wb-image-preview');
+			return el ? { text: el.textContent.trim(), display: getComputedStyle(el).display } : null;
+		});
+		if (filePreviewAfterUrl && filePreviewAfterUrl.display !== 'none' && filePreviewAfterUrl.text !== '') {
+			failures.push('switching to the URL source left the local-file preview visible');
+		}
+		await page.evaluate(() => {
+			const preview = document.querySelector('.wb-uploadmeta-preview');
+			if (preview) {
+				preview.innerHTML = '<span>stale URL preview</span>';
+				preview.style.display = '';
+			}
+			const status = document.querySelector('.wb-uploadmeta-status');
+			if (status) {
+				status.textContent = 'stale URL status';
+				status.style.display = '';
+			}
+		});
+		await page.check('#wpSourceTypeFile');
+		const urlPreviewAfterFile = await page.evaluate(() => {
+			const preview = document.querySelector('.wb-uploadmeta-preview');
+			const status = document.querySelector('.wb-uploadmeta-status');
+			return {
+				preview: preview ? preview.innerHTML : '',
+				status: status ? status.textContent : '',
+			};
+		});
+		if (urlPreviewAfterFile.preview !== '' || urlPreviewAfterFile.status !== '') {
+			failures.push(`switching to the file source left the URL preview/status (${JSON.stringify(urlPreviewAfterFile)})`);
+		} else {
+			console.log('[ok] source toggle clears the deselected source preview');
+		}
+
 		// Reset, then the clipboard-paste path (the same setFile contract).
 		await page.evaluate(() => {
 			const input = document.querySelector('#wpUploadFile');

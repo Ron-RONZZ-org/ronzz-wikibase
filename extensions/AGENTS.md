@@ -1359,13 +1359,13 @@ report). See `SimpleMathJax/VENDORED.md`.
   aliases (ADR `docs/decisions/mention-and-quotation-attribution.md`,
   `docs/decisions/fictional-character-alias.md`)**: (a) every classic per-kind
   page (`Source:`/`Person:`/`Collective:`/`FOSS:`/`Software:`) gains a "Copy
-  internal mention" button — `Hooks::wireMentionButton` sets
-  `wbMentionLink`/`wbMentionLabel`/`wbMentionItalic` and loads
-  `ext.embeddableContent.mention` (`resources/mention.js`), which copies
-  `[[<page>|<item label>]]` (italic on `Source:`) and sits to the right of the
-  "Copy internal citation" button when present. The display label drops a
-  trailing parenthetical class suffix (`LabelSanitizer::stripParentheticalSuffix()`,
-  `Beloved (Book)` → `Beloved`); the link target keeps the full page title.
+  internal mention" button — `Hooks::wireMentionButton` sets `wbMentionLink`
+  and loads `ext.embeddableContent.mention` (`resources/mention.js`), which
+  copies the bare `[[<page>]]` and sits to the right of the "Copy internal
+  citation" button when present. `Hooks::onHtmlPageLinkRendererBegin` renders
+  an UNPIPED classic-namespace link with the namespace stripped (and Source
+  italicised); `Spec/InternalMention` owns those rules. Piped links keep
+  their caption.
   (b) `{{#content:}}` quotations
   gain an attribution line `-author, ''[[Source:page|label]]''` below the
   payload — `ContentWikitext::quotationAttribution` (pure) assembled in
@@ -1978,3 +1978,35 @@ report). See `SimpleMathJax/VENDORED.md`.
 - i18n changes must ship all three languages (en/fr/eo).
 - Manifest changes are data, not code: review them like schema migrations
   (they feed D1 importers and the seed's exact-label skip).
+
+### Nov 2026 smart-mention / collision / upload batch
+
+- **Smart internal mention** (ADR
+  `docs/decisions/nov-2026-smart-mentions-collisions-uploads.md`):
+  `Hooks::onHtmlPageLinkRendererBegin` rewrites only UNPIPED links to the
+  five classic namespaces (caption = `Title::getText()`, Source wrapped in
+  `<i>`), skips comment-rendered links, and leaves piped/self links alone.
+  `mention.js` copies `[[<page>]]`. No `wbMentionLabel`/`wbMentionItalic`.
+- **Add\* exact-label collision**: `Spec/CollisionFinder` detects an existing
+  exact-label item whose `wikibase` sitelink points at a different page
+  (the class-filtered duplicate guard cannot see an unclassified item). The
+  browser routes to `<token>/collision` with reuse/delete/duplicate
+  (`Spec/LabelSuffix`); the API returns `{ collision: 1, collisionOf, … }`
+  and accepts `collisionAction=reuse|delete|duplicate`. A target page
+  already owned by another item keeps the existing duplicate/link-confirm
+  flow. `confirmDuplicate=1` uses the next suffix when an exact label
+  exists.
+- **Orphan cleanup**: `Hooks::onPageDeleteComplete` (Main namespace) deletes
+  the sitelinked item only when it has no statements/description/aliases and
+  its only sitelink is the deleted page (`Flow/OrphanItemDeleter`).
+- **Upload UX**: URL-mode uploads arm a 1 s delayed modal overlay
+  (`uploadform.js`); the source toggle clears the deselected source's
+  preview (`mw.embeddableContent.uploadImage.clearPreview/refresh`).
+- **GIF**: `$wgMaxAnimatedGifArea = 60 MP` in production and the dev mirror;
+  stale static GIF thumbs must be regenerated after the config change.
+- **AddQuotation attribution**: `attributedTo` is optional; the flow errors
+  only when both `attributedTo` and `source` are blank. `Spec/QuotationSourceAuthor`
+  inherits a single-author source, rejects a multi-author source with a
+  "specify the author" error, and accepts a source without an author. The
+  canonical contract exposes `requiredAnyOf`; the pinned MCP contract and
+  tools were regenerated.

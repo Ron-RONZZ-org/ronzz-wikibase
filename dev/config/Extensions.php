@@ -307,6 +307,15 @@ $wgMaxUploadSize = [
 	'url' => 100 * 1024 * 1024,
 ];
 
+// ---- Animated GIF thumbnails ----
+// MediaWiki freezes a GIF thumbnail to its first frame when the total frame
+// area exceeds $wgMaxAnimatedGifArea (default 12.5 MP). The instance's
+// animations (Bohr atom, Cepheid, heat equation) are 21–31 MP and rendered
+// static. Match the instance's 60 MP $wgMaxImageArea (production mirrors
+// this pair in LocalSettings.php; see RonzzIT:Deployment/Wikibase).
+$wgMaxImageArea = 60000000;
+$wgMaxAnimatedGifArea = $wgMaxImageArea;
+
 if ( file_exists( __DIR__ . '/ronzz-wikibase-config.php' ) ) {
 	require_once __DIR__ . '/ronzz-wikibase-config.php';
 }

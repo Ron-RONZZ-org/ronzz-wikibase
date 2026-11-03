@@ -533,6 +533,22 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			$this->executeComplete( $parts[2] );
 			return;
 		}
+		// Exact-label collision warning (the base-class route, class-scoped):
+		// /<classKey>/<token>/collision — the three recovery options POST
+		// back to the same URL.
+		if ( ( $parts[2] ?? '' ) === 'collision' && $second !== '' ) {
+			if ( $this->getRequest()->wasPosted() ) {
+				$result = $this->onCollisionSubmit( $second );
+				if ( is_string( $result ) && $result !== '' ) {
+					$this->getOutput()->addHTML(
+						\MediaWiki\Html\Html::errorBox( htmlspecialchars( $result ) )
+					);
+				}
+				return;
+			}
+			$this->executeCollision( $second );
+			return;
+		}
 		// Duplication-guard confirms (the base-class routes, class-scoped):
 		// /<classKey>/<token>/duplicate/<index>/<Qid> (search-pick) and
 		// /<classKey>/<token>/duplicate/<Qid> (create-gate POST).
@@ -834,6 +850,73 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		return $this->applyLabelSuffix() ? $this->disambiguatedTitle( $title ) : $title;
 	}
 
+	/** The Source create-or-skip lookup runs in the record's label language. */
+	protected function collisionLabelLanguage( array $record ): string {
+		return \EmbeddableContent\Flow\SourceFlowService::termLanguage( $record );
+	}
+
+	/** The reused source item's label is written in the record's label language. */
+	protected function reuseLabelLanguage( array $record ): string {
+		return \EmbeddableContent\Flow\SourceFlowService::termLanguage( $record );
+	}
+
+	/**
+	 * The duplicate suffix goes BEFORE the class suffix:
+	 * "The Hobbit (2) (Book)", never "The Hobbit (Book) (2)".
+	 */
+	protected function labelWithDuplicateSuffix( array $record, string $suffix ): string {
+		$label = $this->primaryLabel( $record );
+		if ( $suffix === '' || !$this->applyLabelSuffix() ) {
+			return $label . $suffix;
+		}
+		$classSuffix = $this->sourceLabelSuffix();
+		if ( $classSuffix !== '' && str_ends_with( $label, $classSuffix ) ) {
+			return substr( $label, 0, -strlen( $classSuffix ) ) . $suffix . $classSuffix;
+		}
+		return $label . $suffix;
+	}
+
+	/**
+	 * The next free suffix for the base TITLE, checking the final label with
+	 * the class suffix inserted before it.
+	 */
+	protected function nextDuplicateSuffix( array $record ): string {
+		$base = LabelSanitizer::stripMarkup( trim( (string)( $record['title'] ?? '' ) ) );
+		$classSuffix = $this->sourceLabelSuffix();
+		if ( $base === '' ) {
+			// A derived label (law): no separate base title to suffix.
+			$base = $this->primaryLabel( $record );
+			$classSuffix = '';
+		}
+		$language = $this->reuseLabelLanguage( $record );
+		$namespace = $this->pageNamespaceForRecord( $record );
+		return LabelSuffix::nextSuffix(
+			$base,
+			function ( string $suffix ) use ( $base, $classSuffix, $language, $namespace ): bool {
+				$label = $base . $suffix . $classSuffix;
+				if ( ItemLabelLookup::findIdByLabel( $label, $language ) !== null ) {
+					return true;
+				}
+				$title = $namespace !== null ? PageTitle::fromLabel( $label, $namespace ) : null;
+				return $title !== null && $title->exists();
+			}
+		);
+	}
+
+	/**
+	 * Reuse the existing source item's statements through the shared source
+	 * flow (the same update path Special:UpdateSource uses).
+	 */
+	protected function applyFlowUpdate( Item $item, array $record, string $classItemId ): void {
+		$classKey = \EmbeddableContent\Flow\SourceFieldMap::apiKey( $this->currentClassKey );
+		$flowRecord = $this->flowRecord( $record );
+		$error = $this->sourceFlow()->prepare( $classKey, $flowRecord, false );
+		if ( $error !== null ) {
+			throw new \RuntimeException( $error );
+		}
+		$this->sourceFlow()->applyUpdate( $classKey, $item, $flowRecord );
+	}
+
 	/**
 	 * Whether the class disambiguation suffix (" (Book)", " (Website)", …)
 	 * applies to the label. True on the AddSource flows; Special:UpdateSource
@@ -876,7 +959,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 * The " (Class label)" disambiguation suffix for the current class, or ''
 	 * when no class is selected (the class-picker root page).
 	 */
-	private function sourceLabelSuffix(): string {
+	protected function sourceLabelSuffix(): string {
 		if ( $this->currentClassKey === null || !isset( $this->config->sourceClasses()[$this->currentClassKey] ) ) {
 			return '';
 		}
@@ -2703,10 +2786,14 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			throw new \RuntimeException( $error );
 		}
 		$label = $this->sourceFlow()->labelFor( $classKey, $flowRecord );
+		$labelSuffix = (string)( $record['labelSuffix'] ?? '' );
+		$labelWithSuffix = $labelSuffix !== ''
+			? $this->labelWithDuplicateSuffix( $record, $labelSuffix )
+			: $label;
 
 		if ( !$forceCreate ) {
 			$existing = $this->findItemIdByLabel(
-				$label,
+				$labelWithSuffix,
 				\EmbeddableContent\Flow\SourceFlowService::termLanguage( $flowRecord )
 			);
 			if ( $existing !== null ) {
@@ -2715,6 +2802,12 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		}
 
 		$item = $this->sourceFlow()->buildItem( $classKey, $flowRecord );
+		if ( $labelSuffix !== '' ) {
+			$item->setLabel(
+				\EmbeddableContent\Flow\SourceFlowService::termLanguage( $flowRecord ),
+				$labelWithSuffix
+			);
+		}
 
 		// Import reference (harvested records): every statement but the
 		// instance-of one carries the authority URL + retrieval date.
@@ -2730,7 +2823,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		$store = WikibaseRepo::getEntityStore();
 		$store->saveEntity(
 			$item,
-			$this->msg( 'embeddablecontent-extcreate-edit-summary', $label )->inContentLanguage()->text(),
+			$this->msg( 'embeddablecontent-extcreate-edit-summary', $labelWithSuffix )->inContentLanguage()->text(),
 			$this->getUser(),
 			EDIT_NEW
 		);
@@ -2740,7 +2833,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		\EmbeddableContent\Flow\StatementGuidAssigner::ensureGuids( $item, new \Wikibase\DataModel\Services\Statement\GuidGenerator() );
 		$store->saveEntity(
 			$item,
-			$this->msg( 'embeddablecontent-extcreate-edit-summary', $label )->inContentLanguage()->text(),
+			$this->msg( 'embeddablecontent-extcreate-edit-summary', $labelWithSuffix )->inContentLanguage()->text(),
 			$this->getUser(),
 			EDIT_UPDATE
 		);

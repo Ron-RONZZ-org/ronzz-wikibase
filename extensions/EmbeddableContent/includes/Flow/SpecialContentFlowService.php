@@ -35,7 +35,7 @@ final class SpecialContentFlowService {
 
 	public const ERROR_TITLE_REQUIRED = 'label is required when creating a content item.';
 	public const ERROR_PAYLOAD_REQUIRED = 'content is required when creating a content item.';
-	public const ERROR_ATTRIBUTION_REQUIRED = 'attributedTo is required for quotations.';
+	public const ERROR_ATTRIBUTION_REQUIRED = 'attributedTo or source is required for quotations.';
 
 	/**
 	 * @param \Closure(string $messageKey, string[] $params): string $message
@@ -76,6 +76,18 @@ final class SpecialContentFlowService {
 					if ( $required === 'content' ) {
 						return self::ERROR_PAYLOAD_REQUIRED;
 					}
+					return self::ERROR_ATTRIBUTION_REQUIRED;
+				}
+			}
+			foreach ( SpecialContentFieldMap::requiredAnyOf( $kind ) as $group ) {
+				$present = false;
+				foreach ( $group as $field ) {
+					if ( isset( $provided[$field] ) ) {
+						$present = true;
+						break;
+					}
+				}
+				if ( !$present ) {
 					return self::ERROR_ATTRIBUTION_REQUIRED;
 				}
 			}

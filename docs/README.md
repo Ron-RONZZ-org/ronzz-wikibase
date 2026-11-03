@@ -142,3 +142,13 @@ redirects to the section just added; the AddQuotation "Attributed to"
 typeahead is scoped to agent classes; house CSS uses Codex theme tokens; BCE
 dates are signed `-YYYY-MM-DD` values stored with the Julian calendar model;
 the metadata-only `transcript` source class).
+
+Nov 2026 smart-mention / collision / upload batch:
+`nov-2026-smart-mentions-collisions-uploads.md` (unpiped classic-namespace
+mentions render the bare entity name and Source: is italic; the "Copy
+internal mention" button copies the bare link; Add* exact-label collisions
+offer reuse/delete/duplicate in the browser and return a `collision` result
+from `addsemanticentity`/`addsource`; URL uploads show a delayed loading
+overlay and the source toggle clears the deselected preview; animated GIF
+thumbnails up to 60 MP; orphan Main-page items are deleted with their page;
+AddQuotation inherits a single-author source when the author is blank).

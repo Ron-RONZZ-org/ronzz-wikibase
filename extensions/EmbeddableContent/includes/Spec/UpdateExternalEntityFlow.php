@@ -313,8 +313,8 @@ trait UpdateExternalEntityFlow {
 		$aliases = SemanticEntityFlowService::splitAliases( (string)( $record['alias'] ?? '' ) );
 		if ( $aliases !== [] ) {
 			$item->setAliases( $newLanguage, $aliases );
-			if ( $newLanguage !== $oldLanguage && $item->getAliases()->hasGroupForLanguage( $oldLanguage ) ) {
-				$item->getAliases()->removeByLanguage( $oldLanguage );
+			if ( $newLanguage !== $oldLanguage && $item->getAliasGroups()->hasGroupForLanguage( $oldLanguage ) ) {
+				$item->getAliasGroups()->removeByLanguage( $oldLanguage );
 			}
 		}
 

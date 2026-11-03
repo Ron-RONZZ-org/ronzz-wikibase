@@ -41,14 +41,32 @@ class SpecialContentFlowServiceTest extends TestCase {
 		);
 	}
 
-	public function testQuotationRequiresLabelContentAndAttribution(): void {
+	public function testQuotationRequiresLabelContentAndAuthorOrSource(): void {
 		$service = $this->makeService();
 		$noLabel = [ 'content' => 'hi' ];
 		$this->assertSame( SpecialContentFlowService::ERROR_TITLE_REQUIRED, $service->prepare( 'quotation', $noLabel, true ) );
 		$noPayload = [ 'label' => 'x' ];
 		$this->assertSame( SpecialContentFlowService::ERROR_PAYLOAD_REQUIRED, $service->prepare( 'quotation', $noPayload, true ) );
-		$noAttribution = [ 'label' => 'x', 'content' => 'hi' ];
-		$this->assertSame( SpecialContentFlowService::ERROR_ATTRIBUTION_REQUIRED, $service->prepare( 'quotation', $noAttribution, true ) );
+		$neither = [ 'label' => 'x', 'content' => 'hi' ];
+		$this->assertSame( SpecialContentFlowService::ERROR_ATTRIBUTION_REQUIRED, $service->prepare( 'quotation', $neither, true ) );
+
+		$authorOnly = [ 'label' => 'x', 'content' => 'hi', 'attributedTo' => 'Q6' ];
+		$this->assertNull( $service->prepare( 'quotation', $authorOnly, true ) );
+		$sourceOnly = [ 'label' => 'x', 'content' => 'hi', 'source' => 'Q10' ];
+		$this->assertNull(
+			$service->prepare( 'quotation', $sourceOnly, true ),
+			'a quotation with a source but no author must be accepted'
+		);
+		$both = [ 'label' => 'x', 'content' => 'hi', 'attributedTo' => 'Q6', 'source' => 'Q10' ];
+		$this->assertNull( $service->prepare( 'quotation', $both, true ) );
+	}
+
+	public function testQuotationSourceOnlyHasNoAuthorStatement(): void {
+		$service = $this->makeService();
+		$record = [ 'label' => 'x', 'content' => 'hi', 'source' => 'Q10' ];
+		$specs = $service->statementSpecs( 'quotation', $record );
+		$this->assertArrayNotHasKey( 'P6', $specs );
+		$this->assertArrayHasKey( 'P28', $specs );
 	}
 
 	public function testMathStripsDelimitersAndEscapesPayload(): void {

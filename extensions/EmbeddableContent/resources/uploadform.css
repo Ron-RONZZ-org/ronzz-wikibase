@@ -38,3 +38,61 @@
 	font: inherit;
 	cursor: pointer;
 }
+
+/* URL-mode upload: a delayed modal while an external fetch is running
+ * (resources/uploadform.js shows it after 1 s). The overlay blocks pointer
+ * events, so the Upload button cannot be clicked again. */
+.wb-upload-loading {
+	position: fixed;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: var( --background-color-backdrop-light, rgba( 255, 255, 255, 0.65 ) );
+}
+
+.wb-upload-loading-box {
+	min-width: 18em;
+	max-width: 32em;
+	padding: 1.25em 1.5em;
+	border-radius: 4px;
+	background: var( --background-color-base, #fff );
+	color: var( --color-base, #202122 );
+	box-shadow: 0 2px 8px 0 var( --box-shadow-color-alpha-base, rgba( 0, 0, 0, 0.06 ) ),
+		0 0 16px 0 var( --box-shadow-color-alpha-base, rgba( 0, 0, 0, 0.06 ) );
+	text-align: center;
+}
+
+.wb-upload-loading-text {
+	margin: 0.75em 0 0;
+}
+
+.wb-upload-loading-bar {
+	height: 4px;
+	overflow: hidden;
+	border-radius: 2px;
+	background: var( --background-color-progressive-subtle, #eaf3ff );
+}
+
+.wb-upload-loading-bar::after {
+	content: '';
+	display: block;
+	width: 40%;
+	height: 100%;
+	background: var( --color-progressive, #36c );
+	animation: wb-upload-loading-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes wb-upload-loading-slide {
+	0% {
+		transform: translateX( -100% );
+	}
+
+	100% {
+		transform: translateX( 350% );
+	}
+}

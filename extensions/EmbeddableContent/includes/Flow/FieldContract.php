@@ -23,7 +23,7 @@ namespace EmbeddableContent\Flow;
 final class FieldContract {
 
 	/** Bumped when the document's SHAPE changes (not when a field is added). */
-	public const VERSION = 1;
+	public const VERSION = 2;
 
 	/**
 	 * @return array<string,mixed>
@@ -37,7 +37,8 @@ final class FieldContract {
 					'kinds' => self::entries(
 						SpecialContentFieldMap::KINDS,
 						[ SpecialContentFieldMap::class, 'fieldsForKind' ],
-						[ SpecialContentFieldMap::class, 'requiredOnCreate' ]
+						[ SpecialContentFieldMap::class, 'requiredOnCreate' ],
+						[ SpecialContentFieldMap::class, 'requiredAnyOf' ]
 					),
 				],
 				'citation-source' => [
@@ -69,15 +70,28 @@ final class FieldContract {
 	 * @param string[] $keys
 	 * @param callable(string): string[] $fields
 	 * @param callable(string): string[] $required
-	 * @return array<string,array{fields:string[],requiredOnCreate:string[]}>
+	 * @param callable(string): string[][]|null $requiredAnyOf
+	 * @return array<string,array<string,mixed>>
 	 */
-	private static function entries( array $keys, callable $fields, callable $required ): array {
+	private static function entries(
+		array $keys,
+		callable $fields,
+		callable $required,
+		?callable $requiredAnyOf = null
+	): array {
 		$out = [];
 		foreach ( $keys as $key ) {
-			$out[$key] = [
+			$entry = [
 				'fields' => array_values( $fields( $key ) ),
 				'requiredOnCreate' => array_values( $required( $key ) ),
 			];
+			if ( $requiredAnyOf !== null ) {
+				$anyOf = array_values( $requiredAnyOf( $key ) );
+				if ( $anyOf !== [] ) {
+					$entry['requiredAnyOf'] = $anyOf;
+				}
+			}
+			$out[$key] = $entry;
 		}
 		return $out;
 	}

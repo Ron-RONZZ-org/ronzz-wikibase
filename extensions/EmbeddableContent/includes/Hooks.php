@@ -10,15 +10,20 @@ use EmbeddableContent\ParserFunctions\ItemImage;
 use EmbeddableContent\ParserFunctions\QuotationsOf;
 use EmbeddableContent\ParserFunctions\SourceAccess;
 use EmbeddableContent\Search\EntityTermSearch;
-use EmbeddableContent\Spec\EntityLabelText;
+use EmbeddableContent\Spec\InternalMention;
 use MediaWiki\Html\Html;
 use MediaWiki\MediaWikiServices;
+use MediaWiki\Logging\ManualLogEntry;
 use MediaWiki\Output\OutputPage;
+use MediaWiki\Page\ProperPageIdentity;
 use MediaWiki\Parser\Parser;
+use MediaWiki\Permissions\Authority;
 use MediaWiki\ResourceLoader\Context;
+use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Skin\SkinTemplate;
 use MediaWiki\SpecialPage\SpecialPage;
 use MediaWiki\Specials\SpecialSearch;
+use Wikimedia\HtmlArmor\HtmlArmor;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\DataModel\Entity\Property;
@@ -263,6 +268,83 @@ class Hooks {
 			$user,
 			$flags
 		);
+	}
+
+	/**
+	 * Main-namespace page deletion: remove the auto-created item when the
+	 * page was its only content (no statements/descriptions/aliases, and the
+	 * deleted page is its only sitelink). The item created by PageItemCreator
+	 * is exactly that shell; an item with authored data is left alone.
+	 *
+	 * @param ProperPageIdentity $page
+	 * @param Authority $deleter
+	 * @param string $reason
+	 * @param int $pageID
+	 * @param RevisionRecord $deletedRev
+	 * @param ManualLogEntry $logEntry
+	 * @param int $archivedRevisionCount
+	 */
+	public static function onPageDeleteComplete(
+		ProperPageIdentity $page,
+		Authority $deleter,
+		string $reason,
+		int $pageID,
+		RevisionRecord $deletedRev,
+		ManualLogEntry $logEntry,
+		int $archivedRevisionCount
+	): void {
+		\EmbeddableContent\Flow\OrphanItemDeleter::handle( $page, $deleter, $reason );
+	}
+
+	/**
+	 * Smart internal mention: an UNPIPED link to a classic per-kind page
+	 * renders the bare entity name — `[[Person:Edwin Hubble]]` shows
+	 * "Edwin Hubble", not "Person:Edwin Hubble" — and a Source: link is
+	 * additionally italicised. Piped links keep the author's explicit
+	 * caption; comment-rendered links (edit summaries) are untouched.
+	 *
+	 * @param \MediaWiki\Linker\LinkRenderer $linkRenderer
+	 * @param \MediaWiki\Linker\LinkTarget $target
+	 * @param string|HtmlArmor|null &$text
+	 * @param array &$customAttribs
+	 * @param array &$query
+	 * @param string &$ret
+	 * @return bool|void
+	 */
+	public static function onHtmlPageLinkRendererBegin(
+		$linkRenderer,
+		$target,
+		&$text,
+		&$customAttribs,
+		&$query,
+		&$ret
+	) {
+		// A null $text is MediaWiki's "use the default caption" signal —
+		// exactly the unpiped-link case. A pipe (even the pipe trick) has
+		// already chosen a caption and must be left alone.
+		if ( $text !== null || !$target instanceof \MediaWiki\Linker\LinkTarget ) {
+			return;
+		}
+		if ( $linkRenderer instanceof \MediaWiki\Linker\LinkRenderer
+			&& $linkRenderer->isForComment()
+		) {
+			return;
+		}
+		$namespace = $target->getNamespace();
+		if ( !InternalMention::isClassicNamespace( $namespace ) ) {
+			return;
+		}
+		$caption = $target->getText();
+		if ( $caption === '' ) {
+			return;
+		}
+		if ( InternalMention::isSourceNamespace( $namespace ) ) {
+			$text = new HtmlArmor(
+				'<i>' . htmlspecialchars( $caption, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) . '</i>'
+			);
+			return;
+		}
+		$text = $caption;
 	}
 
 	/**
@@ -828,16 +910,11 @@ class Hooks {
 	 * The "Copy internal mention" button on the classic per-kind pages AND
 	 * on the Item: page of an item sitelinked to one (toolbar parity — the
 	 * Item page passes the CLASSIC title, so the mention links to the
-	 * readable page, not to Item:Q…). It copies a piped internal link to the
-	 * page, `[[<page>|<item label>]]` (italic on Source: pages,
-	 * `''[[Source:Beloved (Book)|Beloved]]''`). Rendered in the shared
-	 * toolbar; resources/mention.js places it to the right of the "Copy
-	 * internal citation" button on source pages.
-	 *
-	 * The label is the item's English label (the page title basis), falling
-	 * back to the page text when the item has none. Any trailing
-	 * class-disambiguation parenthetical (" (Book)") is dropped from the
-	 * DISPLAY label only — the link target stays the full page title.
+	 * readable page, not to Item:Q…). It copies a plain internal link,
+	 * `[[<page>]]`; the rendered caption is the smart mention (namespace
+	 * stripped, Source italicised) via onHtmlPageLinkRendererBegin.
+	 * Rendered in the shared toolbar; resources/mention.js places it to the
+	 * right of the "Copy internal citation" button on source pages.
 	 */
 	private static function wireMentionButton(
 		OutputPage $out,
@@ -845,35 +922,7 @@ class Hooks {
 		string $itemId
 	): void {
 		$out->addJsConfigVars( 'wbMentionLink', $title->getPrefixedText() );
-		// The display label drops the class-disambiguation suffix the
-		// AddSource flow appends ("Méditations poétiques (Book)" → "Méditations
-		// poétiques"); the LINK still targets the full page title.
-		$out->addJsConfigVars(
-			'wbMentionLabel',
-			\EmbeddableContent\Spec\LabelSanitizer::stripParentheticalSuffix(
-				self::itemLabel( $itemId ) ?? $title->getText()
-			)
-		);
-		$out->addJsConfigVars(
-			'wbMentionItalic',
-			defined( 'NS_SOURCE' ) && $title->getNamespace() === NS_SOURCE
-		);
 		$out->addModules( 'ext.embeddableContent.mention' );
-	}
-
-	/**
-	 * The item's label (English preferred, then any language), or null when
-	 * it has none. Uses the guarded EntityLabelText — the AddSource language
-	 * field can leave an item with a non-English label only, and an unguarded
-	 * getByLanguage( 'en' ) would 500 the classic-page render.
-	 */
-	private static function itemLabel( string $itemId ): ?string {
-		try {
-			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
-		} catch ( \Throwable $e ) {
-			return null;
-		}
-		return $item instanceof Item ? EntityLabelText::of( $item ) : null;
 	}
 
 	/**

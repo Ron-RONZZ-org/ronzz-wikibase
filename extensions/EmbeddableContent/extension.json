@@ -244,6 +244,8 @@
 		"UploadForm:getInitialPageText": "upload",
 		"UploadComplete": "upload",
 		"PageSaveComplete": "main",
+		"PageDeleteComplete": "main",
+		"HtmlPageLinkRendererBegin": "main",
 		"SpecialSearchResultsAppend": "main"
 	},
 	"ResourceModules": {
@@ -806,7 +808,8 @@
 				"mediawiki.api",
 				"mediawiki.notification",
 				"mediawiki.user",
-				"mediawiki.util"
+				"mediawiki.util",
+				"ext.embeddableContent.uploadimage"
 			],
 			"messages": [
 				"embeddablecontent-upload-author",
@@ -819,7 +822,8 @@
 				"embeddablecontent-upload-logged-out",
 				"embeddablecontent-upload-review-warning",
 				"embeddablecontent-upload-review",
-				"embeddablecontent-upload-close-tab"
+				"embeddablecontent-upload-close-tab",
+				"embeddablecontent-upload-url-wait"
 			],
 			"targets": [
 				"desktop",
