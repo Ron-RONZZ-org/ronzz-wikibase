@@ -377,4 +377,24 @@ class SemanticEntityFlowServiceTest extends TestCase {
 		$this->assertTrue( $item->getLabels()->hasTermForLanguage( 'fr' ) );
 		$this->assertFalse( $item->getLabels()->hasTermForLanguage( 'en' ) );
 	}
+
+	public function testApplyUpdateMovesAliasesWithTheLabelLanguage(): void {
+		$service = $this->makeService();
+		$item = new Item( new ItemId( 'Q1' ) );
+		$item->setLabel( 'en', 'Old name' );
+		$item->setAliases( 'en', [ 'Old alias' ] );
+
+		$service->applyUpdate( 'person', $item, [
+			'givenName' => 'New',
+			'familyName' => 'Name',
+			'labelLanguage' => 'fr',
+			'alias' => 'Nouvel alias',
+		] );
+
+		// getAliasGroups() is the data-model 9.6/9.7-compatible accessor; the
+		// old getAliases() call fataled on production (no such method).
+		$groups = $item->getAliasGroups();
+		$this->assertFalse( $groups->hasGroupForLanguage( 'en' ) );
+		$this->assertTrue( $groups->hasGroupForLanguage( 'fr' ) );
+	}
 }

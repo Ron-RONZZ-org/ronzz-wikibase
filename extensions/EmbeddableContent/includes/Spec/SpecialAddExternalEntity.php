@@ -16,7 +16,6 @@ use MediaWiki\HTMLForm\HTMLForm;
 use MediaWiki\SpecialPage\SpecialPage;
 use MediaWiki\Status\Status;
 use MediaWiki\Title\Title;
-use Wikimedia\Rdbms\DBError;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
@@ -24,7 +23,6 @@ use Wikibase\DataModel\Services\Statement\GuidGenerator;
 use Wikibase\DataModel\Snak\PropertyValueSnak;
 use Wikibase\DataModel\Snak\SnakList;
 use Wikibase\DataModel\Statement\Statement;
-use Wikibase\Lib\TermIndexEntry;
 use Wikibase\Repo\WikibaseRepo;
 
 /**
@@ -187,6 +185,21 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// never collide with a token): /<token>/duplicate/<index>/<Qid> is
 		// the search-pick early warning; /<token>/duplicate/<Qid> is the
 		// create-gate confirm whose [No, create it anyway] POSTs back here.
+		// /<token>/collision is the exact-label collision warning (the
+		// class-filtered duplicate guard cannot see an unclassified item).
+		if ( ( $parts[1] ?? '' ) === 'collision' ) {
+			if ( $this->getRequest()->wasPosted() ) {
+				$result = $this->onCollisionSubmit( $first );
+				if ( is_string( $result ) && $result !== '' ) {
+					$this->getOutput()->addHTML(
+						\MediaWiki\Html\Html::errorBox( htmlspecialchars( $result ) )
+					);
+				}
+				return;
+			}
+			$this->executeCollision( $first );
+			return;
+		}
 		if ( ( $parts[1] ?? '' ) === 'duplicate' ) {
 			if ( ( $parts[3] ?? '' ) !== '' && preg_match( '/^Q[1-9]\d*$/i', (string)$parts[3] ) === 1 ) {
 				$this->executeDuplicatePick( $first, (int)$parts[2], strtoupper( (string)$parts[3] ) );
@@ -765,7 +778,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 * @return bool|string
 	 */
 	private function createItemAndRedirect( array $record, string $classItemId, string $token, bool $forceCreate = false ): bool|string {
-		if ( trim( $this->primaryLabel( $record ) ) === '' ) {
+		if ( trim( $this->primaryLabelWithSuffix( $record ) ) === '' ) {
 			return $this->msg( 'embeddablecontent-add-error-required' )->text();
 		}
 		// Duplication guard (final gate): an identical external id / URL or
@@ -780,10 +793,31 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 				$this->setTokenValue( $dupToken, ':pending', [
 					'record' => $record,
 					'classItemId' => $classItemId,
+					'token' => $token,
 					'duplicate' => $duplicate,
 				] );
 				$this->getOutput()->redirect(
 					$this->stepTitle( $dupToken . '/duplicate/' . $duplicate['itemId'] )->getFullURL()
+				);
+				return true;
+			}
+
+			// Exact-label collision (the class-filtered duplicate guard
+			// cannot see an unclassified item): warn with the three recovery
+			// options instead of silently reusing the item and failing to
+			// move its sitelink. A target page already owned by another item
+			// stays with the existing duplicate/link-confirm flow.
+			$collision = $this->findCollision( $record );
+			if ( $collision !== null ) {
+				$collisionToken = \MWCryptRand::generateHex( 16 );
+				$this->setTokenValue( $collisionToken, ':pending', [
+					'record' => $record,
+					'classItemId' => $classItemId,
+					'token' => $token,
+					'collision' => $collision,
+				] );
+				$this->getOutput()->redirect(
+					$this->stepTitle( $collisionToken . '/collision' )->getFullURL()
 				);
 				return true;
 			}
@@ -827,6 +861,310 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		}
 		$this->redirectToItem( $itemId );
 		return true;
+	}
+
+	// ------------------------------------------------------------- collision
+	// The exact-label collision the class-filtered duplicate guard cannot
+	// see (an UNCLASSIFIED item — the AddCollective Q2655 report): the item
+	// exists, so create-or-skip would reuse it silently, but its existing
+	// sitelink points at another page and the new classic page would be left
+	// unlinked. The warning offers three explicit recoveries instead.
+
+	/**
+	 * The record's primary label plus the duplicate suffix (when set).
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function primaryLabelWithSuffix( array $record ): string {
+		return $this->labelWithDuplicateSuffix(
+			$record,
+			(string)( $record['labelSuffix'] ?? '' )
+		);
+	}
+
+	/**
+	 * The label with a given duplicate suffix. The default appends it; the
+	 * AddSource override inserts it before the " (Book)" class suffix.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function labelWithDuplicateSuffix( array $record, string $suffix ): string {
+		$label = $this->primaryLabel( $record );
+		return $suffix !== '' ? $label . $suffix : $label;
+	}
+
+	/** The term language the create-or-skip lookup uses. */
+	protected function collisionLabelLanguage( array $record ): string {
+		return 'en';
+	}
+
+	/** The term language the reused item's label is written under. */
+	protected function reuseLabelLanguage( array $record ): string {
+		return (string)( $record['labelLanguage'] ?? 'en' );
+	}
+
+	/**
+	 * The exact-label collision for this record, or null.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,mixed>|null
+	 */
+	protected function findCollision( array $record ): ?array {
+		return CollisionFinder::find(
+			$this->primaryLabelWithSuffix( $record ),
+			$this->collisionLabelLanguage( $record ),
+			$this->pageTitleForRecord( $record )
+		);
+	}
+
+	/**
+	 * The next free duplicate suffix (` (2)`, ` (3)`, …) for this record.
+	 * The default appends it to the primary label; AddSource inserts it
+	 * before its class-disambiguation suffix.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function nextDuplicateSuffix( array $record ): string {
+		$base = $this->primaryLabel( $record );
+		$language = $this->reuseLabelLanguage( $record );
+		$namespace = $this->pageNamespaceForRecord( $record );
+		return LabelSuffix::nextSuffix(
+			$base,
+			function ( string $suffix ) use ( $base, $language, $namespace ): bool {
+				$label = $base . $suffix;
+				if ( ItemLabelLookup::findIdByLabel( $label, $language ) !== null ) {
+					return true;
+				}
+				$title = $namespace !== null ? PageTitle::fromLabel( $label, $namespace ) : null;
+				return $title !== null && $title->exists();
+			}
+		);
+	}
+
+	/**
+	 * Applies the new record to an existing item through the same flow the
+	 * create path uses. Default: the semantic-entity flow; AddSource
+	 * overrides with its own service.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function applyFlowUpdate( Item $item, array $record, string $classItemId ): void {
+		$flowKind = $this->semanticFlowKindKey();
+		if ( $flowKind === null ) {
+			return;
+		}
+		$flowRecord = $this->semanticFlowRecord(
+			$flowKind,
+			$this->withChosenClass( $record, $classItemId )
+		);
+		$error = $this->semanticFlow()->prepare( $flowKind, $flowRecord, false );
+		if ( $error !== null ) {
+			throw new \RuntimeException( $error );
+		}
+		$this->semanticFlow()->applyUpdate( $flowKind, $item, $flowRecord );
+	}
+
+	/**
+	 * Reuses the existing item: applies the record, moves its `wikibase`
+	 * sitelink to the new page, and saves. The old page keeps existing but
+	 * becomes unlinked.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function reuseExistingItem( string $itemId, array $record, string $classItemId ): void {
+		$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
+		if ( !$item instanceof Item ) {
+			throw new \RuntimeException( "The existing item {$itemId} could not be loaded." );
+		}
+		$this->applyFlowUpdate( $item, $record, $classItemId );
+		// The Add* label conventions (generated name, class suffix) live on
+		// the form; set the label explicitly after the flow update.
+		$label = $this->primaryLabelWithSuffix( $record );
+		if ( $label !== '' ) {
+			$item->setLabel( $this->reuseLabelLanguage( $record ), $label );
+		}
+		$title = $this->pageTitleForRecord( $record );
+		if ( $title !== null ) {
+			$item->getSiteLinkList()->setNewSiteLink( 'wikibase', $title->getPrefixedText() );
+		}
+		WikibaseRepo::getEntityStore()->saveEntity(
+			$item,
+			$this->msg( 'embeddablecontent-collision-reuse-summary', $label )->inContentLanguage()->text(),
+			$this->getUser(),
+			EDIT_UPDATE
+		);
+		if ( $title !== null ) {
+			WikibaseRepo::getStore()->newSiteLinkStore()->saveLinksOfItem( $item );
+		}
+	}
+
+	/** The shared collision warning + three recovery forms. */
+	protected function executeCollision( string $token ): void {
+		$pending = $this->getTokenValue( $token, ':pending' );
+		if ( !is_array( $pending ) || !isset( $pending['record'], $pending['collision'] ) ) {
+			$this->showExpired();
+			return;
+		}
+		$record = $pending['record'];
+		$collision = $pending['collision'];
+		if ( !is_array( $record ) || !is_array( $collision ) ) {
+			$this->showExpired();
+			return;
+		}
+		$this->setHeaders();
+		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-collision-title' )->text() );
+		$itemId = (string)( $collision['itemId'] ?? '' );
+		$label = (string)( $collision['label'] ?? $itemId );
+		$currentSitelink = isset( $collision['currentSitelink'] ) && $collision['currentSitelink'] !== null
+			? (string)$collision['currentSitelink']
+			: null;
+		$targetTitle = isset( $collision['targetTitle'] ) && $collision['targetTitle'] !== null
+			? (string)$collision['targetTitle']
+			: null;
+		$suffix = $this->nextDuplicateSuffix( $record );
+		$duplicateLabel = $this->labelWithDuplicateSuffix( $record, $suffix );
+		$csrf = $this->getContext()->getCsrfTokenSet()->getToken()->toString();
+		$actionUrl = $this->stepTitle( $token . '/collision' )->getFullURL();
+
+		$body = '<p>' . $this->msg(
+			'embeddablecontent-collision-body',
+			LabelSanitizer::stripMarkup( $label ),
+			$itemId
+		)->parse() . '</p>';
+		$body .= $currentSitelink !== null
+			? '<p>' . $this->msg( 'embeddablecontent-collision-current', $currentSitelink )->parse() . '</p>'
+			: '<p>' . $this->msg( 'embeddablecontent-collision-no-sitelink' )->parse() . '</p>';
+		if ( $targetTitle !== null ) {
+			$body .= '<p>' . $this->msg( 'embeddablecontent-collision-target', $targetTitle )->parse() . '</p>';
+		}
+
+		$form = function ( string $action, string $messageKey, string $class, array $params = [] ) use ( $actionUrl, $csrf ): string {
+			return '<form method="post" action="' . htmlspecialchars( $actionUrl ) . '">'
+				. '<input type="hidden" name="wpEditToken" value="' . htmlspecialchars( $csrf ) . '">'
+				. '<input type="hidden" name="collisionAction" value="' . htmlspecialchars( $action ) . '">'
+				. '<button type="submit" class="mw-ui-button ' . $class . '">'
+				. $this->msg( $messageKey, ...$params )->escaped() . '</button></form>';
+		};
+		$forms = '<div class="wb-collision-actions">'
+			. $form(
+				'reuse',
+				$targetTitle === null
+					? 'embeddablecontent-collision-reuse-nopage'
+					: 'embeddablecontent-collision-reuse',
+				'mw-ui-progressive'
+			)
+			. $form(
+				'delete',
+				'embeddablecontent-collision-delete',
+				'wb-collision-delete',
+				[ $itemId ]
+			)
+			. $form(
+				'duplicate',
+				'embeddablecontent-collision-duplicate',
+				'',
+				[ $duplicateLabel ]
+			)
+			. '</div>';
+		$this->getOutput()->addHTML(
+			\MediaWiki\Html\Html::warningBox( $body ) . $forms
+		);
+	}
+
+	/** POST handler for the three collision actions (CSRF-gated). */
+	protected function onCollisionSubmit( string $token ): bool|string {
+		if ( !$this->getContext()->getCsrfTokenSet()
+			->matchToken( (string)$this->getRequest()->getVal( 'wpEditToken' ) )
+		) {
+			$this->showExpired();
+			return true;
+		}
+		$pending = $this->getTokenValue( $token, ':pending' );
+		if ( !is_array( $pending ) || !isset( $pending['record'], $pending['classItemId'], $pending['collision'] ) ) {
+			$this->showExpired();
+			return true;
+		}
+		$record = $pending['record'];
+		$classItemId = (string)$pending['classItemId'];
+		$collision = $pending['collision'];
+		$sourceToken = (string)( $pending['token'] ?? '' );
+		if ( !is_array( $record ) || !is_array( $collision ) ) {
+			$this->showExpired();
+			return true;
+		}
+		$action = (string)$this->getRequest()->getVal( 'collisionAction', '' );
+		$itemId = (string)( $collision['itemId'] ?? '' );
+
+		if ( $action === 'reuse' ) {
+			try {
+				$this->reuseExistingItem( $itemId, $record, $classItemId );
+			} catch ( \Throwable $e ) {
+				return $this->collisionError( $e->getMessage() );
+			}
+			$this->removeTokenValue( $token, ':pending' );
+			$this->removeTokenValue( $sourceToken );
+			$title = $this->pageTitleForRecord( $record );
+			if ( $title === null ) {
+				$this->redirectToItem( $itemId );
+				return true;
+			}
+			if ( !$title->exists() ) {
+				$label = $this->primaryLabelWithSuffix( $record );
+				if ( !$this->createClassicPage( $title, $record, $label ) ) {
+					return $this->collisionError( $this->msg( 'embeddablecontent-collision-page-failed' )->text() );
+				}
+			} else {
+				$this->purgeTitle( $title );
+			}
+			$this->getOutput()->redirect( $this->stepTitle( 'complete/' . $itemId )->getFullURL() );
+			return true;
+		}
+
+		if ( $action === 'delete' ) {
+			if ( !$this->getUser()->isAllowed( 'delete' ) ) {
+				return $this->collisionError( $this->msg( 'embeddablecontent-collision-delete-forbidden' )->text() );
+			}
+			try {
+				WikibaseRepo::getEntityStore()->deleteEntity(
+					new ItemId( $itemId ),
+					$this->msg( 'embeddablecontent-collision-delete-reason', $itemId )->inContentLanguage()->text(),
+					$this->getUser()
+				);
+			} catch ( \Throwable $e ) {
+				return $this->collisionError( $e->getMessage() );
+			}
+			$this->removeTokenValue( $token, ':pending' );
+			$this->removeTokenValue( $sourceToken );
+			return $this->createItemAndRedirect( $record, $classItemId, $sourceToken, true );
+		}
+
+		if ( $action === 'duplicate' ) {
+			$record['labelSuffix'] = $this->nextDuplicateSuffix( $record );
+			$this->removeTokenValue( $token, ':pending' );
+			$this->removeTokenValue( $sourceToken );
+			return $this->createItemAndRedirect( $record, $classItemId, $sourceToken, true );
+		}
+
+		$this->showExpired();
+		return true;
+	}
+
+	/** Render a collision-step error and stop (never redirect silently). */
+	private function collisionError( string $message ): bool {
+		$this->getOutput()->addHTML(
+			\MediaWiki\Html\Html::errorBox( htmlspecialchars( $message ) )
+		);
+		return true;
+	}
+
+	/** Purge a page after its sitelink changed (page_props re-parse). */
+	private function purgeTitle( Title $title ): void {
+		try {
+			\MediaWiki\MediaWikiServices::getInstance()
+				->getWikiPageFactory()->newFromTitle( $title )->doPurge();
+		} catch ( \Throwable $e ) {
+			// Best-effort: the next edit/view re-parses anyway.
+		}
 	}
 
 	// ------------------------------------------------------------- "Add more"
@@ -1330,15 +1668,23 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			throw new \RuntimeException( $error );
 		}
 		$label = $this->semanticFlow()->labelFor( $kind, $flowRecord );
+		$labelSuffix = (string)( $record['labelSuffix'] ?? '' );
+		$labelWithSuffix = $labelSuffix !== '' ? $label . $labelSuffix : $label;
 
 		if ( !$forceCreate ) {
-			$existing = $this->findItemIdByLabel( $label );
+			$existing = $this->findItemIdByLabel( $labelWithSuffix );
 			if ( $existing !== null ) {
 				return $existing;
 			}
 		}
 
 		$item = $this->semanticFlow()->buildItem( $kind, $flowRecord );
+		if ( $labelSuffix !== '' ) {
+			$item->setLabel(
+				\EmbeddableContent\Flow\SemanticEntityFlowService::termLanguage( $flowRecord ),
+				$labelWithSuffix
+			);
+		}
 		$referenceSnaks = $this->importReferenceSnaks( $record );
 		if ( $referenceSnaks !== null ) {
 			foreach ( $item->getStatements() as $statement ) {
@@ -1351,7 +1697,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		$store = WikibaseRepo::getEntityStore();
 		$store->saveEntity(
 			$item,
-			$this->msg( 'embeddablecontent-extcreate-edit-summary', $label )->inContentLanguage()->text(),
+			$this->msg( 'embeddablecontent-extcreate-edit-summary', $labelWithSuffix )->inContentLanguage()->text(),
 			$this->getUser(),
 			EDIT_NEW
 		);
@@ -1361,7 +1707,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		\EmbeddableContent\Flow\StatementGuidAssigner::ensureGuids( $item, new GuidGenerator() );
 		$store->saveEntity(
 			$item,
-			$this->msg( 'embeddablecontent-extcreate-edit-summary', $label )->inContentLanguage()->text(),
+			$this->msg( 'embeddablecontent-extcreate-edit-summary', $labelWithSuffix )->inContentLanguage()->text(),
 			$this->getUser(),
 			EDIT_UPDATE
 		);
@@ -1550,7 +1896,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		if ( $ns === null ) {
 			return null;
 		}
-		return PageTitle::fromLabel( $this->primaryLabel( $record ), $ns );
+		return PageTitle::fromLabel( $this->primaryLabelWithSuffix( $record ), $ns );
 	}
 
 	/**
@@ -1611,7 +1957,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			}
 			return null;
 		}
-		$label = $this->primaryLabel( $record );
+		$label = $this->primaryLabelWithSuffix( $record );
 
 		// Sitelink the page ↔ item FIRST: the page's save-time parse must
 		// find the link or its wikibase_item page property stays stale
@@ -2270,15 +2616,19 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 *        confirmed a duplicate warning and wants a second item)
 	 */
 	protected function createOrSkipItem( string $label, string $classItemId, array $statementSpecs, array $record, bool $forceCreate = false ): string {
+		$labelWithSuffix = $this->labelWithDuplicateSuffix(
+			$record,
+			(string)( $record['labelSuffix'] ?? '' )
+		);
 		if ( !$forceCreate ) {
-			$existing = $this->findItemIdByLabel( $label );
+			$existing = $this->findItemIdByLabel( $labelWithSuffix );
 			if ( $existing !== null ) {
 				return $existing;
 			}
 		}
 
 		$item = new Item();
-		$item->setLabel( 'en', $label );
+		$item->setLabel( 'en', $labelWithSuffix );
 		// Persist the (harvested or hand-edited) description as the English
 		// term — previously it was silently discarded. New-item path only:
 		// the create-or-skip reuse above returns early, so an existing item's
@@ -2292,7 +2642,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 
 		WikibaseRepo::getEntityStore()->saveEntity(
 			$item,
-			$this->msg( 'embeddablecontent-extcreate-edit-summary', $label )->inContentLanguage()->text(),
+			$this->msg( 'embeddablecontent-extcreate-edit-summary', $labelWithSuffix )->inContentLanguage()->text(),
 			$this->getUser(),
 			EDIT_NEW
 		);
@@ -2326,7 +2676,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 
 		WikibaseRepo::getEntityStore()->saveEntity(
 			$item,
-			$this->msg( 'embeddablecontent-extcreate-edit-summary', $label )->inContentLanguage()->text(),
+			$this->msg( 'embeddablecontent-extcreate-edit-summary', $labelWithSuffix )->inContentLanguage()->text(),
 			$this->getUser(),
 			EDIT_UPDATE
 		);
@@ -2461,26 +2811,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 * labels).
 	 */
 	protected function findItemIdByLabel( string $label, string $language = 'en' ): ?string {
-		try {
-			$entries = WikibaseRepo::getMatchingTermsLookupFactory()
-				->getLookupForSource( WikibaseRepo::getLocalEntitySource() )
-				->getMatchingTerms(
-					$label,
-					Item::ENTITY_TYPE,
-					$language,
-					TermIndexEntry::TYPE_LABEL,
-					[ 'caseSensitive' => false ]
-				);
-		} catch ( DBError $e ) {
-			return null;
-		}
-		foreach ( $entries as $entry ) {
-			$id = $entry->getEntityId();
-			if ( $id instanceof ItemId ) {
-				return $id->getSerialization();
-			}
-		}
-		return null;
+		return ItemLabelLookup::findIdByLabel( $label, $language );
 	}
 
 	// ------------------------------------------------------------- entity autofill

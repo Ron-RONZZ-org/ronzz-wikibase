@@ -269,7 +269,7 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		$fields += [
 			'attributedTo' => $entityCombobox(
 				'embeddablecontent-add-attributedto',
-				$this->getKind() === 'quotation',
+				false,
 				false,
 				$agentClassIds
 			),
@@ -285,6 +285,14 @@ abstract class SpecialAddContentItem extends SpecialPage {
 				'help-message' => 'embeddablecontent-add-date-help',
 			],
 		];
+
+		// A quotation needs an author OR a source; when the author is blank
+		// and the source has exactly one author, the author is inherited on
+		// save (QuotationSourceAuthor). The field is therefore optional — the
+		// server enforces the either-or rule with a clear form error.
+		if ( $this->getKind() === 'quotation' ) {
+			$fields['attributedTo']['help-message'] = 'embeddablecontent-add-attributedto-help';
+		}
 
 		// Content-subject entity fields (issue follow-up): math 'describes'
 		// (what the expression is about), code 'implementation of' (the
@@ -402,6 +410,25 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		}
 		$kind = $converted['kind'];
 		$flowRecord = $converted['record'];
+
+		// A blank quotation author is inherited from a single-author source;
+		// a multi-author source asks the user to choose instead of guessing.
+		if ( $kind === 'quotation' ) {
+			$inheritError = QuotationSourceAuthor::inherit(
+				$flowRecord,
+				WikibaseRepo::getEntityLookup(),
+				$this->config->provenancePropertyIds()['attributedTo'] ?? null,
+				static function ( string $source, string $error ): void {
+					\MediaWiki\Logger\LoggerFactory::getInstance( 'EmbeddableContent' )->warning(
+						'QuotationSourceAuthor: could not load source {source}: {error}',
+						[ 'source' => $source, 'error' => $error ]
+					);
+				}
+			);
+			if ( $inheritError === QuotationSourceAuthor::ERROR_MULTIPLE_AUTHORS ) {
+				return $this->msg( 'embeddablecontent-add-error-source-multiple-authors' )->text();
+			}
+		}
 
 		$error = $this->contentFlow()->prepare( $kind, $flowRecord, true );
 		if ( $error !== null ) {

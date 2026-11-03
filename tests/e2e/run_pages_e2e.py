@@ -2922,6 +2922,10 @@ def flow_uploadform_module_source(op, base: str) -> None:
         raise FlowError("uploadform module: inline error display missing")
     if "wpUploadAnother" not in body or "window.open" not in body:
         raise FlowError("uploadform module: upload-another destination-tab wiring missing")
+    if "wb-upload-loading" not in body or "armLoadingTimer" not in body or "LOADING_DELAY_MS" not in body:
+        raise FlowError("uploadform module: delayed URL-loading overlay missing")
+    if "wpSourceType" not in body or "wb-uploadmeta-preview" not in body or "clearPreview" not in body:
+        raise FlowError("uploadform module: source-toggle preview clearing missing")
 
 
 def flow_themetoggle_module_source(op, base: str) -> None:
@@ -3418,6 +3422,227 @@ def flow_duplicate_manual(op, base: str, api: str, special: str, label: str,
     print(f"[ok] {special} duplicate guard (create gate): same label -> confirm -> "
           f"create-anyway made {second_qid} (≠ {first_qid})")
     return first_qid, second_qid
+
+
+def _api_csrf(op, api: str) -> str:
+    r = api_call(op, api, {"action": "query", "meta": "tokens", "type": "csrf", "format": "json"})
+    return r["query"]["tokens"]["csrftoken"]
+
+
+def _create_main_page(op, api: str, title: str, text: str, token: str) -> None:
+    r = api_call(op, api, {
+        "action": "edit", "title": title, "text": text, "token": token,
+        "format": "json", "createonly": "1", "summary": "Page-flow E2E fixture",
+    }, post=True)
+    if r.get("edit", {}).get("result") != "Success":
+        raise FlowError(f"could not create {title}: {r}")
+
+
+def _delete_api_page(op, api: str, title: str, token: str, reason: str) -> None:
+    r = api_call(op, api, {
+        "action": "delete", "title": title, "token": token,
+        "format": "json", "reason": reason,
+    }, post=True)
+    if "error" in r:
+        raise FlowError(f"could not delete {title}: {r}")
+
+
+def _resolve_item(op, api: str, label: str, attempts: int = 20) -> str:
+    for _ in range(attempts):
+        qid = resolve_label(op, api, label, "item")
+        if qid:
+            return qid
+        time.sleep(1)
+    raise FlowError(f"could not resolve the item for label {label!r}")
+
+
+def flow_orphan_item_deletion(op, api: str, instance_of: str, class_item: str) -> str:
+    """Page-deletion orphan cleanup: a Main page whose auto-created item has
+    only the label + sitelink deletes that item; an item with a statement
+    survives. Returns the surviving item id (the caller tracks it)."""
+    token = _api_csrf(op, api)
+    ts = int(time.time())
+
+    deleted_page = f"Page-flow E2E orphan deleted {ts}"
+    _create_main_page(op, api, deleted_page, f"Orphan fixture {ts}", token)
+    deleted_qid = _resolve_item(op, api, deleted_page)
+    _delete_api_page(op, api, deleted_page, token, "Orphan E2E fixture")
+    for _ in range(15):
+        r = api_call(op, api, {"action": "wbgetentities", "ids": deleted_qid, "format": "json"})
+        entity = r.get("entities", {}).get(deleted_qid, {})
+        if "missing" in entity:
+            break
+        time.sleep(1)
+    else:
+        raise FlowError(
+            f"orphan cleanup did not delete {deleted_qid} after its page was deleted"
+        )
+
+    kept_page = f"Page-flow E2E orphan kept {ts}"
+    _create_main_page(op, api, kept_page, f"Orphan kept fixture {ts}", token)
+    kept_qid = _resolve_item(op, api, kept_page)
+    claim = {
+        "claims": {
+            instance_of: [{
+                "mainsnak": {
+                    "snaktype": "value",
+                    "property": instance_of,
+                    "datavalue": {
+                        "value": {"entity-type": "item", "numeric-id": int(class_item[1:]), "id": class_item},
+                        "type": "wikibase-entityid",
+                    },
+                },
+                "type": "statement",
+                "rank": "normal",
+            }]
+        }
+    }
+    r = api_call(op, api, {
+        "action": "wbeditentity", "id": kept_qid, "data": json.dumps(claim),
+        "token": token, "format": "json", "summary": "Orphan E2E fixture",
+    }, post=True)
+    if "entity" not in r:
+        raise FlowError(f"could not add a statement to {kept_qid}: {r}")
+    _delete_api_page(op, api, kept_page, token, "Orphan E2E fixture")
+    time.sleep(1)
+    r = api_call(op, api, {"action": "wbgetentities", "ids": kept_qid, "format": "json"})
+    if "missing" in r.get("entities", {}).get(kept_qid, {}):
+        raise FlowError(f"orphan cleanup deleted {kept_qid} although it had a statement")
+    print(f"[ok] orphan cleanup: {deleted_qid} deleted with its page; {kept_qid} kept (statement)")
+    return kept_qid
+
+
+def flow_collision_browser(op, base: str, api: str, class_item: str,
+                           instance_of: str) -> str:
+    """The exact-label collision warning + reuse (the AddCollective Q2655
+    report): a Main-page item with the same label (and a stale sitelink) is
+    detected, the warning page renders the three options, and reuse applies
+    the class + moves the sitelink to the new Collective: page. Returns the
+    reused item id (the caller tracks it)."""
+    token = _api_csrf(op, api)
+    ts = int(time.time())
+    label = f"Page-flow E2E collision reuse {ts}"
+    main_page = label
+    _create_main_page(op, api, main_page, f"Collision fixture {ts}", token)
+    old_qid = _resolve_item(op, api, label)
+    if main_page not in CREATED_CLASSIC_PAGES:
+        CREATED_CLASSIC_PAGES.append(main_page)
+
+    url, body = page_get(op, base, "/wiki/Special:AddCollective/manual")
+    url, body = page_post(op, url, {
+        "wplabel": label,
+        "wpclass": class_item,
+        "wpEditToken": edit_token(body),
+        "wpSubmit": "1",
+    })
+    if "Possible duplicate item" not in body:
+        raise FlowError(
+            f"collision warning did not render for {label!r}: {url} {find_error(body)}"
+        )
+    for option in ("Reuse the existing item", "Delete the existing item", "Create a duplicate item"):
+        if option not in body:
+            raise FlowError(f"collision warning is missing the {option!r} option: {find_error(body)}")
+
+    # Reuse: apply the class, move the sitelink, create the Collective: page.
+    url2, body2 = page_post(op, url, {
+        "wpEditToken": edit_token(body),
+        "collisionAction": "reuse",
+    })
+    claims, _ = entity_claims(op, api, old_qid)
+    if first_value(claims, instance_of) != class_item:
+        raise FlowError(
+            f"collision reuse did not apply the class to {old_qid} "
+            f"(got {first_value(claims, instance_of)!r})"
+        )
+    sitelinks = api_call(op, api, {
+        "action": "wbgetentities", "ids": old_qid, "props": "sitelinks", "format": "json",
+    }).get("entities", {}).get(old_qid, {}).get("sitelinks", {})
+    expected_page = f"Collective:{label}"
+    if sitelinks.get("wikibase", {}).get("title") != expected_page:
+        raise FlowError(
+            f"collision reuse did not move the sitelink to {expected_page!r}: {sitelinks}"
+        )
+    if expected_page not in CREATED_CLASSIC_PAGES:
+        CREATED_CLASSIC_PAGES.append(expected_page)
+    print(f"[ok] collision warning + reuse -> {old_qid} now links {expected_page}")
+    return old_qid
+
+
+def flow_collision_api(op, api: str, class_item: str) -> tuple[str, str]:
+    """The API collision result + collisionAction=duplicate: the create is
+    refused with { collision: 1, collisionOf }, and the second call creates
+    the suffixed duplicate item. Returns (old qid, new qid)."""
+    token = _api_csrf(op, api)
+    ts = int(time.time())
+    label = f"Page-flow E2E collision api {ts}"
+    main_page = label
+    _create_main_page(op, api, main_page, f"Collision API fixture {ts}", token)
+    old_qid = _resolve_item(op, api, label)
+    if main_page not in CREATED_CLASSIC_PAGES:
+        CREATED_CLASSIC_PAGES.append(main_page)
+
+    r = api_call(op, api, {
+        "action": "addsemanticentity", "kind": "collective", "label": label,
+        "collectiveClass": class_item, "token": token, "format": "json",
+    }, post=True)
+    semantic = r.get("semantic", {})
+    if semantic.get("collision") != "1" or semantic.get("collisionOf") != old_qid:
+        raise FlowError(f"API collision result missing/wrong: {r}")
+
+    r2 = api_call(op, api, {
+        "action": "addsemanticentity", "kind": "collective", "label": label,
+        "collectiveClass": class_item, "collisionAction": "duplicate",
+        "token": token, "format": "json",
+    }, post=True)
+    new_qid = r2.get("semantic", {}).get("entityId")
+    if not new_qid or new_qid == old_qid:
+        raise FlowError(f"API collisionAction=duplicate did not create a new item: {r2}")
+    _, new_label = entity_claims(op, api, new_qid)
+    if new_label != f"{label} (2)":
+        raise FlowError(f"API duplicate label is {new_label!r}, expected {label + ' (2)'!r}")
+    page = r2.get("semantic", {}).get("pageTitle")
+    if page and page not in CREATED_CLASSIC_PAGES:
+        CREATED_CLASSIC_PAGES.append(page)
+    print(f"[ok] API collision: {old_qid} collides; duplicate action -> {new_qid} ({new_label})")
+    return old_qid, new_qid
+
+
+def flow_quotation_source_author(op, api: str, source_qid: str,
+                                 author_qid: str, quotation_class: str,
+                                 content_prop: str, attributed_to_prop: str,
+                                 source_prop: str) -> str:
+    """AddQuotation source-only attribution: a single-author source supplies
+    the blank author; both author and source blank is an error. Returns the
+    created quotation qid."""
+    token = _api_csrf(op, api)
+    ts = int(time.time())
+    label = f"Page-flow E2E quotation source only {ts}"
+    r = api_call(op, api, {
+        "action": "addspecialcontent", "kind": "quotation", "label": label,
+        "content": f"Inherited attribution {ts}", "source": source_qid,
+        "language": "en", "token": token, "format": "json",
+    }, post=True)
+    if not r.get("content", {}).get("created"):
+        raise FlowError(f"source-only quotation create failed: {r}")
+    qid = r["content"]["entityId"]
+    claims, _ = entity_claims(op, api, qid)
+    if first_value(claims, attributed_to_prop) != author_qid:
+        raise FlowError(
+            f"source-only quotation {qid} did not inherit {author_qid} "
+            f"(got {first_value(claims, attributed_to_prop)!r})"
+        )
+    if first_value(claims, source_prop) != source_qid:
+        raise FlowError(f"source-only quotation {qid} lost its source")
+
+    blank = api_call(op, api, {
+        "action": "addspecialcontent", "kind": "quotation",
+        "label": f"{label} blank {ts}", "content": "No attribution",
+        "language": "en", "token": token, "format": "json",
+    }, post=True)
+    if "error" not in blank:
+        raise FlowError(f"quotation without author or source was accepted: {blank}")
+    print(f"[ok] quotation source-only -> {qid}: inherited {author_qid}; both blank rejected")
+    return qid
 
 
 def flow_duplicate_url_entry(op, base: str, api: str, website_class: str,
@@ -4373,11 +4598,10 @@ def flow_classic_page_toolbar(op, base: str, page_title: str, qid: str,
         if "wbInternalCiteItem" not in body or "ext.embeddableContent.sourcecite" not in body:
             raise FlowError(f"{page_title}: missing the sourcecite wiring (source class)")
     # "Copy internal mention" (all five classic namespaces): wbMentionLink
-    # carries the page's prefixed title, wbMentionLabel the item label (with
-    # any trailing class-disambiguation " (Book)"/" (Webpage)" STRIPPED —
-    # the mention is the bare entity name), and wbMentionItalic the
-    # Source-page italic rule. The button itself is JS-rendered
-    # (resources/mention.js).
+    # carries the page's prefixed title; the button copies the bare
+    # `[[<page>]]` (the smart mention renderer supplies the caption). The
+    # old piped-label/italic config vars are gone. The button itself is
+    # JS-rendered (resources/mention.js).
     m_link = re.search(r'"wbMentionLink"\s*:\s*"([^"]*)"', body)
     if not m_link or m_link.group(1) != page_title:
         raise FlowError(
@@ -4385,33 +4609,20 @@ def flow_classic_page_toolbar(op, base: str, page_title: str, qid: str,
             f"{m_link.group(1) if m_link else 'missing'}): {find_error(body)}")
     if "ext.embeddableContent.mention" not in body:
         raise FlowError(f"{page_title}: missing the copy-internal-mention wiring")
-    m_label = re.search(r'"wbMentionLabel"\s*:\s*"([^"]*)"', body)
-    if not m_label or not m_label.group(1).strip():
-        raise FlowError(f"{page_title}: missing/empty wbMentionLabel: {find_error(body)}")
-    if m_label.group(1).rstrip().endswith(")"):
-        raise FlowError(
-            f"{page_title}: wbMentionLabel still carries the parenthetical "
-            f"class suffix: {m_label.group(1)!r}")
-    m_italic = re.search(r'"wbMentionItalic"\s*:\s*(true|false)', body)
-    if m_italic is None:
-        raise FlowError(f"{page_title}: missing wbMentionItalic")
-    if expect_source_cite and m_italic.group(1) != "true":
-        raise FlowError(f"{page_title}: the source mention snippet must be italic")
-    if not expect_source_cite and m_italic.group(1) != "false":
-        raise FlowError(f"{page_title}: a non-source mention must not be italic")
+    for stale in ( "wbMentionLabel", "wbMentionItalic" ):
+        if stale in body:
+            raise FlowError(f"{page_title}: stale {stale} config var still rendered")
     print(f"[ok] classic page toolbar on {page_title} -> {m.group(1)}"
           + (" + copy internal citation" if expect_source_cite else "")
           + " + copy internal mention")
 
 
-def flow_item_page_mention(op, base: str, page_title: str, qid: str,
-                           expect_italic: bool) -> None:
+def flow_item_page_mention(op, base: str, page_title: str, qid: str) -> None:
     """Entity-page toolbar parity (Nov 2026): the Item: page of an item
     sitelinked to a classic per-kind page carries the SAME "Copy internal
     mention" wiring as that classic page — wbMentionLink is the CLASSIC page
-    title (the readable page the mention links to, never Item:Q…),
-    wbMentionLabel the item label and wbMentionItalic the Source-page rule.
-    The button itself is JS-rendered (resources/mention.js)."""
+    title (the readable page the mention links to, never Item:Q…). The
+    button itself is JS-rendered (resources/mention.js)."""
     _, body = page_get(op, base, "/wiki/Item:" + qid)
     if "ext.embeddableContent.mention" not in body:
         raise FlowError(
@@ -4422,19 +4633,9 @@ def flow_item_page_mention(op, base: str, page_title: str, qid: str,
             f"Item:{qid}: wbMentionLink mismatch "
             f"({m_link.group(1) if m_link else 'missing'}), expected the classic "
             f"page {page_title!r}: {find_error(body)}")
-    m_label = re.search(r'"wbMentionLabel"\s*:\s*"([^"]*)"', body)
-    if not m_label or not m_label.group(1).strip():
-        raise FlowError(f"Item:{qid}: missing/empty wbMentionLabel: {find_error(body)}")
-    if m_label.group(1).rstrip().endswith(")"):
-        raise FlowError(
-            f"Item:{qid}: wbMentionLabel still carries the parenthetical class "
-            f"suffix: {m_label.group(1)!r}")
-    m_italic = re.search(r'"wbMentionItalic"\s*:\s*(true|false)', body)
-    expected_italic = "true" if expect_italic else "false"
-    if m_italic is None or m_italic.group(1) != expected_italic:
-        raise FlowError(
-            f"Item:{qid}: wbMentionItalic is "
-            f"{m_italic.group(1) if m_italic else 'missing'}, expected {expected_italic}")
+    for stale in ( "wbMentionLabel", "wbMentionItalic" ):
+        if stale in body:
+            raise FlowError(f"Item:{qid}: stale {stale} config var still rendered")
     print(f"[ok] Item:{qid} toolbar mentions the classic page {page_title}")
 
 
@@ -4450,6 +4651,38 @@ def flow_item_page_no_mention(op, base: str, qid: str) -> None:
             f"classic page: {find_error(body)}")
     print(f"[ok] Item:{qid} (no classic page) renders no mention button")
 
+
+def flow_smart_internal_mention(op, api: str) -> None:
+    """The smart internal mention renderer (Nov 2026): an unpiped link to a
+    classic per-kind page shows the bare entity name; a Source: link is
+    italicised; a piped link keeps its explicit caption. Read-only
+    action=parse, safe against production."""
+    def parse(text: str) -> str:
+        r = api_call(op, api, {
+            "action": "parse", "text": text, "contentmodel": "wikitext",
+            "format": "json", "formatversion": "2",
+        })
+        return str(r.get("parse", {}).get("text", ""))
+
+    person = parse("[[Person:Edwin Hubble]]")
+    if ">Edwin Hubble</a>" not in person:
+        raise FlowError(f"smart mention: [[Person:Edwin Hubble]] caption is not the bare name: {person[:400]}")
+    if "Person:Edwin Hubble</a>" in person:
+        raise FlowError("smart mention: the Person: prefix stayed in the caption")
+
+    collective = parse("[[Collective:Club of Rome]]")
+    if ">Club of Rome</a>" not in collective or "Collective:Club of Rome</a>" in collective:
+        raise FlowError(f"smart mention: Collective: caption not stripped: {collective[:400]}")
+
+    source = parse("[[Source:Beloved]]")
+    if "<i>Beloved</i>" not in source:
+        raise FlowError(f"smart mention: Source: caption is not italic: {source[:400]}")
+
+    piped = parse("[[Person:Edwin Hubble|Custom]]")
+    if ">Custom</a>" not in piped or "<i>Custom</i>" in piped:
+        raise FlowError(f"smart mention: a piped link must keep its caption: {piped[:400]}")
+
+    print("[ok] smart internal mention: namespace stripped, Source italic, piped caption kept")
 
 def flow_child_items_listing(op, base: str, api: str, book_qid: str,
                              excerpt_qid: str, excerpt_label: str) -> None:
@@ -4636,6 +4869,14 @@ def main() -> int:
         return qid
 
     try:
+        # 0d. Smart internal mention renderer (read-only action=parse).
+        flow_smart_internal_mention(op, api)
+
+        # 0e. Page-deletion orphan cleanup: the auto-created item of a
+        #     Main page with no content is deleted with the page; an item
+        #     carrying a statement survives.
+        track(flow_orphan_item_deletion(op, api, instance_of, organization_class))
+
         # 1. AddPerson — harvest-on-pick (ORCID/VIAF/ISNI where present)
         person = track(flow_person(op, base, api, args.person))
         claims, label = entity_claims(op, api, person)
@@ -4897,6 +5138,14 @@ def main() -> int:
             op, base, api, website_class, instance_of, url_prop)
         track(dup_site)
 
+        # 2c8. Exact-label collision (the AddCollective Q2655 report): the
+        #      browser warning + reuse, and the API collision result +
+        #      collisionAction=duplicate.
+        track(flow_collision_browser(op, base, api, organization_class, instance_of))
+        col_old, col_new = flow_collision_api(op, api, organization_class)
+        track(col_old)
+        track(col_new)
+
         # 2d. Child class: bookExcerpt requires an existing book parent,
         #     auto-links it with a `part of` statement. Blank description /
         #     year / authors are auto-generated / inferred from the parent
@@ -4977,6 +5226,15 @@ def main() -> int:
         assert claims.get(attributed_to_prop) is None, \
             f"{noauthor_book} unexpectedly carries an author statement"
         print("[ok] AddSource author optional: title-only creation, no author statement")
+
+        # 2f2. AddQuotation source-only attribution: the dogfood book has one
+        #      author (Ada Lovelace), so a quotation with only `source`
+        #      inherits it; author + source both blank is rejected.
+        quote_source_qid = track(flow_quotation_source_author(
+            op, api, book, book_author, quotation_class,
+            resolve("content text", "property"), attributed_to_prop,
+            resolve("source", "property")))
+        print(f"[ok] AddQuotation source-only -> {quote_source_qid}")
 
         # 2g. AddSource/book publisher — entity-only (issue #35): the manual
         #     form takes a publisher ITEM; the created item carries the entity
@@ -5473,8 +5731,7 @@ def main() -> int:
         flow_source_cite_button(op, base, webpage_page, subdomain_child)
         flow_classic_page_toolbar(op, base, webpage_page, subdomain_child,
                                   "UpdateSource", expect_source_cite=True)
-        flow_item_page_mention(op, base, webpage_page, subdomain_child,
-                               expect_italic=True)
+        flow_item_page_mention(op, base, webpage_page, subdomain_child)
 
         # 2j1c. The Item: page of a source-class item ALSO carries the
         #     "Copy internal citation" wiring (not only its Source: classic
@@ -5989,7 +6246,7 @@ def main() -> int:
         flow_sitelink_tab(op, base, api, foss_page, software)
         flow_classic_page_toolbar(op, base, foss_page, software,
                                   "UpdateSoftware", expect_source_cite=False)
-        flow_item_page_mention(op, base, foss_page, software, expect_italic=False)
+        flow_item_page_mention(op, base, foss_page, software)
 
         # 4. v1 content form — Special:AddQuotation with provenance.
         # Unique label per run: create-or-skip would otherwise reuse a stale

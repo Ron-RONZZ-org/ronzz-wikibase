@@ -55,6 +55,11 @@
 	var pendingDestinationWindow = null;
 	var lastSubmitter = null;
 
+	/** Delayed loading overlay state (URL-mode uploads). */
+	var loadingTimer = null;
+	var $loading = null;
+	var LOADING_DELAY_MS = 1000;
+
 	/**
 	 * Resolve an HTMLForm field NAME to its real <input> (php-mode id, an
 	 * OOUI widget wrapper's inner input, or a name lookup) — the
@@ -160,6 +165,62 @@
 		}
 	}
 
+	/** @return {boolean} whether the URL source is selected. */
+	function isUrlMode() {
+		var radio = document.getElementById( 'wpSourceTypeUrl' ) ||
+			document.getElementById( 'wpSourceTypeurl' );
+		if ( radio ) {
+			return radio.checked;
+		}
+		// No radio (a stripped-down form): fall back to a filled URL field.
+		var url = findInput( 'wpUploadFileURL' );
+		return !!( url && String( url.value || '' ).trim() );
+	}
+
+	/**
+	 * The URL-fetch loading overlay: shown only when an upload is still
+	 * running after LOADING_DELAY_MS, so a fast fetch never flashes a modal.
+	 * It blocks pointer events, which also prevents repeated Upload clicks.
+	 */
+	function showLoading() {
+		if ( $loading || !$form ) {
+			return;
+		}
+		var $bar = $( '<div class="wb-upload-loading-bar" role="progressbar" aria-valuetext="' +
+			mw.msg( 'embeddablecontent-upload-url-wait' ) + '"></div>' );
+		$loading = $( '<div class="wb-upload-loading" role="alertdialog" aria-modal="true"></div>' )
+			.append(
+				$( '<div class="wb-upload-loading-box"></div>' )
+					.append( $bar )
+					.append(
+						$( '<p class="wb-upload-loading-text"></p>' )
+							.text( mw.msg( 'embeddablecontent-upload-url-wait' ) )
+					)
+			);
+		$( document.body ).append( $loading );
+	}
+
+	function hideLoading() {
+		if ( loadingTimer !== null ) {
+			clearTimeout( loadingTimer );
+			loadingTimer = null;
+		}
+		if ( $loading ) {
+			$loading.remove();
+			$loading = null;
+		}
+	}
+
+	function armLoadingTimer() {
+		if ( loadingTimer !== null || $loading ) {
+			return;
+		}
+		loadingTimer = setTimeout( function () {
+			loadingTimer = null;
+			showLoading();
+		}, LOADING_DELAY_MS );
+	}
+
 	/** @return {boolean} whether `url` has the Special:Upload path. */
 	function isUploadUrl( url ) {
 		try {
@@ -250,6 +311,7 @@
 		uploadInProgress = false;
 		conversionInProgress = false;
 		fetchInProgress = false;
+		hideLoading();
 		setStatus( '' );
 		closeDestination();
 	}
@@ -260,6 +322,7 @@
 		uploadInProgress = false;
 		conversionInProgress = false;
 		fetchInProgress = false;
+		hideLoading();
 		setStatus( '' );
 		if ( destination && !destination.closed ) {
 			try {
@@ -276,6 +339,7 @@
 		uploadInProgress = false;
 		conversionInProgress = false;
 		fetchInProgress = false;
+		hideLoading();
 		setStatus( '' );
 		closeDestination();
 		showError( content );
@@ -320,6 +384,7 @@
 			.text( mw.msg( 'embeddablecontent-upload-review' ) )
 			.on( 'click', function () {
 				clearError();
+				hideLoading();
 				$form.attr( 'target', '_self' );
 				// Native submit() bypasses fetch/uploadmeta: the file is
 				// already stashed server-side, so the warning page loads
@@ -373,6 +438,9 @@
 		}
 		fetchInProgress = true;
 		uploadInProgress = true;
+		if ( isUrlMode() ) {
+			armLoadingTimer();
+		}
 		setStatus( mw.msg( 'embeddablecontent-upload-uploading' ) );
 		$form.attr( 'target', '_self' );
 
@@ -491,6 +559,9 @@
 				return;
 			}
 			clearError();
+			if ( isUrlMode() ) {
+				armLoadingTimer();
+			}
 			lastSubmitter = this;
 			$form.attr( 'target', '_self' );
 			uploadmetaFailed = false;
@@ -506,11 +577,31 @@
 		$form.on( 'submit', function ( e ) {
 			if ( e.isDefaultPrevented() ) {
 				conversionInProgress = true;
+				if ( isUrlMode() ) {
+					armLoadingTimer();
+				}
 				return;
 			}
 			e.preventDefault();
 			conversionInProgress = false;
 			startFetchSubmit();
+		} );
+
+		// 2b. Source toggle: clear the DESELECTED source's preview so the
+		// form never shows a file preview and a URL preview at the same
+		// time. Switching back to the file picker re-renders its preview.
+		$form.on( 'change', 'input[name="wpSourceType"]', function () {
+			var fileEl = fileInput();
+			if ( $( '#wpSourceTypeFile' ).prop( 'checked' ) ) {
+				$form.find( '.wb-uploadmeta-preview, .wb-uploadmeta-status' ).empty().hide();
+				if ( fileEl && fileEl.files && fileEl.files.length > 0 &&
+					mw.embeddableContent.uploadImage
+				) {
+					mw.embeddableContent.uploadImage.refresh( fileEl );
+				}
+			} else if ( fileEl && mw.embeddableContent.uploadImage ) {
+				mw.embeddableContent.uploadImage.clearPreview( fileEl );
+			}
 		} );
 
 		// uploadmeta.js reports its own conversion errors; close the empty

@@ -544,5 +544,21 @@
 	"embeddablecontent-childitems-label-youtubeVideo": "Vidéos YouTube",
 	"embeddablecontent-childitems-label-webpage": "Pages web",
 	"embeddablecontent-childitems-label-law": "Dispositions légales",
-	"special-childitemsof": "Éléments enfants d’une source"
+	"special-childitemsof": "Éléments enfants d’une source",
+	"embeddablecontent-orphan-item-delete-reason": "Élément orphelin : sa page wiki $1 a été supprimée et il n’avait ni déclarations, ni description, ni alias.",
+	"embeddablecontent-collision-title": "Élément potentiellement en double",
+	"embeddablecontent-collision-body": "Un élément portant le libellé '''$1''' existe déjà sous [[Item:$2]]. Créer cet élément entrerait en collision avec lui.",
+	"embeddablecontent-collision-current": "Son lien de site actuel pointe vers '''$1'''.",
+	"embeddablecontent-collision-no-sitelink": "Il n’a actuellement aucun lien de site.",
+	"embeddablecontent-collision-target": "La nouvelle page est '''$1'''.",
+	"embeddablecontent-collision-reuse": "Réutiliser l’élément existant et déplacer son lien de site vers la nouvelle page",
+	"embeddablecontent-collision-reuse-nopage": "Réutiliser l’élément existant",
+	"embeddablecontent-collision-delete": "Supprimer l’élément existant ($1) et en créer un nouveau",
+	"embeddablecontent-collision-duplicate": "Créer un élément en double nommé « $1 »",
+	"embeddablecontent-collision-reuse-summary": "Élément existant réutilisé pour $1",
+	"embeddablecontent-collision-delete-reason": "Remplacé par un nouvel élément lors d’une collision Add* ($1)",
+	"embeddablecontent-collision-delete-forbidden": "Vous n’avez pas la permission de supprimer l’élément existant.",
+	"embeddablecontent-collision-page-failed": "La page classique n’a pas pu être créée.",
+	"embeddablecontent-add-attributedto-help": "Facultatif lorsqu’une source est sélectionnée — une source ayant exactement un auteur est héritée. Si la source a plusieurs auteurs, choisissez-en un ici.",
+	"embeddablecontent-add-error-source-multiple-authors": "La source a plusieurs auteurs. Veuillez préciser l’auteur dans le champ « Attribué à »."
 }

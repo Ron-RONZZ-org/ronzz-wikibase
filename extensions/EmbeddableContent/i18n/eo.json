@@ -544,5 +544,21 @@
 	"embeddablecontent-childitems-label-youtubeVideo": "Jutubaj filmetoj",
 	"embeddablecontent-childitems-label-webpage": "Retpaĝoj",
 	"embeddablecontent-childitems-label-law": "Leĝaj provizoj",
-	"special-childitemsof": "Infanaj eroj de fonto"
+	"special-childitemsof": "Infanaj eroj de fonto",
+	"embeddablecontent-orphan-item-delete-reason": "Orfa ero: ĝia vikia paĝo $1 estis forigita kaj ĝi havis nek asertojn, nek priskribon, nek kromnomojn.",
+	"embeddablecontent-collision-title": "Eble duobla ero",
+	"embeddablecontent-collision-body": "Ero kun la etikedo '''$1''' jam ekzistas kiel [[Item:$2]]. Krei ĉi tiun eron kolizius kun ĝi.",
+	"embeddablecontent-collision-current": "Ĝia nuna reteja ligilo montras al '''$1'''.",
+	"embeddablecontent-collision-no-sitelink": "Ĝi nuntempe havas neniun retejan ligilon.",
+	"embeddablecontent-collision-target": "La nova paĝo estas '''$1'''.",
+	"embeddablecontent-collision-reuse": "Reuzi la ekzistantan eron kaj movi ĝian retejan ligilon al la nova paĝo",
+	"embeddablecontent-collision-reuse-nopage": "Reuzi la ekzistantan eron",
+	"embeddablecontent-collision-delete": "Forigi la ekzistantan eron ($1) kaj krei novan",
+	"embeddablecontent-collision-duplicate": "Krei duoblan eron nomatan \"$1\"",
+	"embeddablecontent-collision-reuse-summary": "Reuzis la ekzistantan eron por $1",
+	"embeddablecontent-collision-delete-reason": "Anstataŭigita per nova ero dum Add* kolizio ($1)",
+	"embeddablecontent-collision-delete-forbidden": "Vi ne rajtas forigi la ekzistantan eron.",
+	"embeddablecontent-collision-page-failed": "La klasika paĝo ne povis esti kreita.",
+	"embeddablecontent-add-attributedto-help": "Laŭvola kiam fonto estas elektita — fonto kun ekzakte unu aŭtoro estas heredata. Se la fonto havas plurajn aŭtorojn, elektu unu ĉi tie.",
+	"embeddablecontent-add-error-source-multiple-authors": "La fonto havas plurajn aŭtorojn. Bonvolu precizigi la aŭtoron en la kampo “Atribuita al”."
 }

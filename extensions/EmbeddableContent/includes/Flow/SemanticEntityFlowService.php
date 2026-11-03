@@ -452,8 +452,8 @@ final class SemanticEntityFlowService {
 		$aliases = self::splitAliases( (string)( $record['alias'] ?? '' ) );
 		if ( $aliases !== [] ) {
 			$item->setAliases( $language, $aliases );
-			if ( $oldLanguage !== $language && $item->getAliases()->hasGroupForLanguage( $oldLanguage ) ) {
-				$item->getAliases()->removeByLanguage( $oldLanguage );
+			if ( $oldLanguage !== $language && $item->getAliasGroups()->hasGroupForLanguage( $oldLanguage ) ) {
+				$item->getAliasGroups()->removeByLanguage( $oldLanguage );
 			}
 		}
 	}

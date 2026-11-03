@@ -413,6 +413,30 @@
 		);
 	}
 
+	// Shared with uploadform.js: the Special:Upload source toggle clears the
+	// deselected source's preview and re-renders the local preview when the
+	// user switches back to the file picker. Exposed synchronously (outside
+	// the OOUI promise) so the toggle handler never races the module load.
+	mw.embeddableContent = mw.embeddableContent || {};
+	mw.embeddableContent.uploadImage = {
+		clearPreview: function ( input ) {
+			if ( input ) {
+				clearPreview( previewFor( input ) );
+			}
+		},
+		refresh: function ( input ) {
+			if ( !input || !input.name ) {
+				return;
+			}
+			var m = /^wp(.+)File$/.exec( input.name );
+			if ( !m ) {
+				return;
+			}
+			setBusy( input, true );
+			processFile( input, m[ 1 ], function () { setBusy( input, false ); } );
+		}
+	};
+
 	mw.loader.using( 'oojs-ui' ).then( function () {
 		wireAll();
 		// The Add* file input is hidden/re-inserted by the OOUI mode radio

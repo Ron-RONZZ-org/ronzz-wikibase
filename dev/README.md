@@ -164,3 +164,12 @@ docker compose -f dev/docker-compose.ci.yml down -v
 - RAM: the full stack (incl. Blazegraph) needs ~2.5 GiB. On a tight machine,
   run only `wikibase` + `mysql` (drop the `wdqs*` services, remove the
   `wdqs-updater` dependency) and skip the SPARQL check.
+
+## Animated GIF thumbnails (Nov 2026)
+
+`dev/config/Extensions.php` sets `$wgMaxImageArea = 60000000` and
+`$wgMaxAnimatedGifArea = $wgMaxImageArea`, mirroring production. MediaWiki
+freezes a GIF thumbnail to its first frame when the total frame area exceeds
+`$wgMaxAnimatedGifArea` (default 12.5 MP); the instance's large animations
+are 21–31 MP. After changing the cap in production, delete the stale static
+GIF thumbnails (or bump the thumbnail epoch) so they regenerate on demand.

@@ -6,8 +6,14 @@ namespace EmbeddableContent\Api;
 
 use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\Flow\ClassicPageCreator;
+use EmbeddableContent\Flow\ClassicPageSpec;
 use EmbeddableContent\Flow\SourceFlowService;
 use EmbeddableContent\Flow\StatementGuidAssigner;
+use EmbeddableContent\Spec\CollisionFinder;
+use EmbeddableContent\Spec\ItemLabelLookup;
+use EmbeddableContent\Spec\LabelSanitizer;
+use EmbeddableContent\Spec\LabelSuffix;
+use EmbeddableContent\Spec\PageTitle;
 use MediaWiki\Api\ApiBase;
 use MediaWiki\Message\RawMessage;
 use Wikibase\DataModel\Entity\Item;
@@ -94,8 +100,75 @@ class ApiAddSource extends ApiBase {
 		$summary = $params['summary'];
 		$store = WikibaseRepo::getEntityStore();
 		$confirmDuplicate = !empty( $params['confirmDuplicate'] );
+		$collisionAction = $params['collisionAction'] ?? null;
+		if ( !$creating && $collisionAction !== null ) {
+			$this->dieWithError(
+				new RawMessage( 'collisionAction is only valid when creating (no qid).' ),
+				'invalid_input'
+			);
+		}
 
 		if ( $creating ) {
+			$label = $this->flow->labelFor( $classKey, $record );
+			$language = SourceFlowService::termLanguage( $record );
+			$pageSpec = $this->flow->pageSpecFor( $classKey );
+			$targetTitle = $pageSpec !== null
+				? PageTitle::fromLabel( $label, $pageSpec->namespace )
+				: null;
+			$labelWithSuffix = null;
+
+			if ( $collisionAction !== null ) {
+				$collision = CollisionFinder::find( $label, $language, $targetTitle );
+				if ( $collision === null ) {
+					$this->dieWithError(
+						new RawMessage( 'No collision found for this label.' ),
+						'no_collision'
+					);
+				}
+				if ( $collisionAction === 'reuse' ) {
+					$this->reuseCollisionItem(
+						$collision, $classKey, $record, $label, $language, $pageSpec, $targetTitle, $summary, $user
+					);
+					return;
+				}
+				if ( $collisionAction === 'delete' ) {
+					if ( !$user->isAllowed( 'delete' ) ) {
+						$this->dieWithError(
+							new RawMessage( 'You do not have permission to delete the existing item.' ),
+							'permissiondenied'
+						);
+					}
+					try {
+						$store->deleteEntity(
+							new ItemId( $collision['itemId'] ),
+							$summary ?? 'Delete the colliding item during an Add* creation',
+							$user
+						);
+					} catch ( \Throwable $e ) {
+						$this->dieWithError( new RawMessage( $e->getMessage() ), 'delete_failed' );
+					}
+					$confirmDuplicate = true;
+				}
+				if ( $collisionAction === 'duplicate' ) {
+					$labelWithSuffix = $this->labelWithSuffix(
+						$classKey,
+						$record,
+						$this->collisionSuffix( $classKey, $record, $language, $pageSpec )
+					);
+					$confirmDuplicate = true;
+				}
+			} elseif ( $confirmDuplicate ) {
+				// "Create anyway" from the duplicate guard: a same-label item
+				// gets the next suffix instead of a hard duplicate.
+				if ( ItemLabelLookup::findIdByLabel( $label, $language ) !== null ) {
+					$labelWithSuffix = $this->labelWithSuffix(
+						$classKey,
+						$record,
+						$this->collisionSuffix( $classKey, $record, $language, $pageSpec )
+					);
+				}
+			}
+
 			// Duplication guard: an existing item carrying the record's
 			// external ids / URLs, or a highly similar label, aborts with a
 			// duplicate result (no create) — machine clients decide;
@@ -107,9 +180,9 @@ class ApiAddSource extends ApiBase {
 				$duplicate = \EmbeddableContent\Spec\DuplicateChecker::find(
 					$this->config,
 					$record,
-					$this->flow->labelFor( $classKey, $record ),
+					$label,
 					$classId !== null ? [ $classId ] : [],
-					SourceFlowService::termLanguage( $record )
+					$language
 				);
 				if ( $duplicate !== null ) {
 					$this->getResult()->addValue( null, 'source', [
@@ -121,7 +194,28 @@ class ApiAddSource extends ApiBase {
 					return;
 				}
 			}
+
+			// Exact-label collision (the class-filtered guard above cannot
+			// see an unclassified item). A target page owned by another item
+			// stays with the existing duplicate/link-confirm flow.
+			if ( !$confirmDuplicate ) {
+				$collision = CollisionFinder::find( $label, $language, $targetTitle );
+				if ( $collision !== null ) {
+					$this->getResult()->addValue( null, 'source', [
+						'collision' => '1',
+						'collisionOf' => $collision['itemId'],
+						'collisionLabel' => $collision['label'],
+						'currentSitelink' => $collision['currentSitelink'],
+						'targetTitle' => $collision['targetTitle'],
+					] );
+					return;
+				}
+			}
+
 			$item = $this->flow->buildItem( $classKey, $record );
+			if ( $labelWithSuffix !== null ) {
+				$item->setLabel( $language, $labelWithSuffix );
+			}
 			$summaryText = $summary ?? 'Add source item';
 			$store->saveEntity( $item, $summaryText, $user, EDIT_NEW );
 			// The first save assigns the item id; statements must carry
@@ -145,11 +239,10 @@ class ApiAddSource extends ApiBase {
 				'created' => '1',
 			];
 			$record['itemId'] = $itemId;
-			$pageSpec = $this->flow->pageSpecFor( $classKey );
 			if ( $pageSpec !== null ) {
 				$pageTitle = $this->pageCreator->createFor(
 					$pageSpec,
-					$this->flow->labelFor( $classKey, $record ),
+					$labelWithSuffix ?? $label,
 					$record,
 					$user
 				);
@@ -190,6 +283,112 @@ class ApiAddSource extends ApiBase {
 		$this->getResult()->addValue( null, 'source', $result );
 	}
 
+	/**
+	 * The record's label with a duplicate suffix. The suffix goes BEFORE the
+	 * class suffix ("The Hobbit (2) (Book)"), never after it.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function labelWithSuffix( string $classKey, array $record, string $suffix ): string {
+		if ( $suffix === '' ) {
+			return $this->flow->labelFor( $classKey, $record );
+		}
+		$title = LabelSanitizer::stripMarkup( trim( (string)( $record['title'] ?? '' ) ) );
+		if ( $title === '' ) {
+			// A derived label (law): append (there is no class suffix).
+			return $this->flow->labelFor( $classKey, $record ) . $suffix;
+		}
+		$modified = $record;
+		$modified['title'] = $title . $suffix;
+		return $this->flow->labelFor( $classKey, $modified );
+	}
+
+	/**
+	 * The next free duplicate suffix, checking the final label (with the
+	 * class suffix) against both the item term store and the page title.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function collisionSuffix(
+		string $classKey,
+		array $record,
+		string $language,
+		?ClassicPageSpec $pageSpec
+	): string {
+		$base = $this->flow->labelFor( $classKey, $record );
+		return LabelSuffix::nextSuffix(
+			$base,
+			function ( string $suffix ) use ( $classKey, $record, $language, $pageSpec ): bool {
+				$candidate = $this->labelWithSuffix( $classKey, $record, $suffix );
+				if ( ItemLabelLookup::findIdByLabel( $candidate, $language ) !== null ) {
+					return true;
+				}
+				if ( $pageSpec !== null ) {
+					$title = PageTitle::fromLabel( $candidate, $pageSpec->namespace );
+					if ( $title !== null && $title->exists() ) {
+						return true;
+					}
+				}
+				return false;
+			}
+		);
+	}
+
+	/**
+	 * collisionAction=reuse: apply the record to the existing source item,
+	 * move its sitelink to the new page, and create the page if needed.
+	 *
+	 * @param array<string,mixed> $collision
+	 * @param array<string,mixed> $record
+	 */
+	private function reuseCollisionItem(
+		array $collision,
+		string $classKey,
+		array $record,
+		string $label,
+		string $language,
+		?ClassicPageSpec $pageSpec,
+		?\MediaWiki\Title\Title $targetTitle,
+		?string $summary,
+		$user
+	): void {
+		$entity = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $collision['itemId'] ) );
+		if ( !$entity instanceof Item ) {
+			$this->dieWithError(
+				new RawMessage( 'The colliding item could not be loaded.' ),
+				'not_found'
+			);
+		}
+		$this->flow->applyUpdate( $classKey, $entity, $record );
+		$entity->setLabel( $language, $label );
+		if ( $targetTitle !== null ) {
+			$entity->getSiteLinkList()->setNewSiteLink( 'wikibase', $targetTitle->getPrefixedText() );
+		}
+		$revision = WikibaseRepo::getEntityStore()->saveEntity(
+			$entity,
+			$summary ?? 'Reuse the existing item during an Add* creation',
+			$user,
+			EDIT_UPDATE
+		);
+		if ( $targetTitle !== null ) {
+			WikibaseRepo::getStore()->newSiteLinkStore()->saveLinksOfItem( $entity );
+		}
+		$result = [
+			'entityId' => $entity->getId()->getSerialization(),
+			'entityType' => 'item',
+			'latestRevisionId' => $revision->getRevisionId(),
+			'reused' => '1',
+		];
+		if ( $pageSpec !== null ) {
+			$record['itemId'] = $result['entityId'];
+			$pageTitle = $this->pageCreator->createFor( $pageSpec, $label, $record, $user );
+			if ( $pageTitle !== null ) {
+				$result['pageTitle'] = $pageTitle;
+			}
+		}
+		$this->getResult()->addValue( null, 'source', $result );
+	}
+
 	public function getAllowedParams() {
 		$params = [
 			'class' => [
@@ -208,6 +407,12 @@ class ApiAddSource extends ApiBase {
 			// duplicate hit returns { duplicate: 1, duplicateOf, match }).
 			'confirmDuplicate' => [
 				self::PARAM_TYPE => 'boolean',
+				self::PARAM_REQUIRED => false,
+			],
+			// Resolve an exact-label collision: reuse the existing item and
+			// move its sitelink, delete it, or create a suffixed duplicate.
+			'collisionAction' => [
+				self::PARAM_TYPE => [ 'reuse', 'delete', 'duplicate' ],
 				self::PARAM_REQUIRED => false,
 			],
 		];

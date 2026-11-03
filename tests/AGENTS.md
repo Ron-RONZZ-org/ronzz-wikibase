@@ -36,7 +36,11 @@ plus the Playwright browser UX suite for the query GUI (query.ronzz.org).
   The Main-namespace subpage runtime check is in the production browser E2E
   (the WBS dev stack builds `NamespaceInfo` before `Extensions.php`, so the
   dev flag cannot apply there); its config mirror is guarded by
-  `tools/tests/test_instance_config.py`.
+  `tools/tests/test_instance_config.py`. The Nov 2026 batch adds read-only
+  smart-mention `action=parse` checks, page-deletion orphan cleanup,
+  exact-label collision warning + reuse (browser) and the API collision
+  result + `collisionAction=duplicate`, and source-only AddQuotation
+  author inheritance.
 - **`tests/e2e/run_forum_e2e.py`** — DPLforum forum: `Forum:` namespace
   registration (NS 110/111) + a board's `<forum>` listing showing a created
   thread; **self-cleaning** (deletes its scratch board/thread pages).
@@ -107,7 +111,8 @@ plus the Playwright browser UX suite for the query GUI (query.ronzz.org).
   sees the first's variable (shared interpreter), then deletes the page.
 - **`tests/e2e/run_wiki_ux_e2e.mjs`** — Playwright browser UX suite for the
   Sep-2026 UX batch B (manual/production, needs `--user` + `--password-file`
-  for Special:Upload): the File: page copy buttons write `[[File:xxx]]` /
+  for Special:Upload; the Nov 2026 batch adds the Special:Upload source
+  toggle preview clearing): the File: page copy buttons write `[[File:xxx]]` /
   the media URL to the clipboard; the AddSource picker and the AddCollective
   class select are alphabetical (the latter with human labels); the
   Special:Upload file picker is gated on the File radio, an empty

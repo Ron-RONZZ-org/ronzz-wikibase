@@ -36,6 +36,7 @@ class ApiSpecialContentFields extends ApiBase {
 				'payloadPropertyId' => $this->config->payloadPropertyIds()[$kind] ?? null,
 				'fields' => SpecialContentFieldMap::fieldsForKind( $kind ),
 				'requiredOnCreate' => SpecialContentFieldMap::requiredOnCreate( $kind ),
+				'requiredAnyOf' => SpecialContentFieldMap::requiredAnyOf( $kind ),
 			];
 		}
 
