@@ -6177,7 +6177,7 @@ def main() -> int:
         # image item + File page.
         logo_image_item = assert_semantic_image_item(
             op, base, api, logo_qid, logo_label, "logo", license_item,
-            "E2E Logo Author", "E2E license note")
+            "E2E Logo Author", "E2E license note", consumer_license=license_item)
         logo_image_item = track(logo_image_item)
         _, raw = page_get(op, base, "/wiki/" + urllib.parse.quote(logo_page.replace(" ", "_")) + "?action=raw")
         # File DB keys normalize spaces to underscores — match the stored form.
