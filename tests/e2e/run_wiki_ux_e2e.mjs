@@ -1425,7 +1425,10 @@ async function main() {
 			const expectedText = `Auto-retried edit ${Date.now()}`;
 			await page.fill('#wpTextbox1', expectedText);
 			await page.evaluate(() => {
-				document.querySelector('#wpEditToken').value = 'invalid-token';
+				// The core edit form's token input has a NAME but no id.
+				const token = document.querySelector('input[name="wpEditToken"]')
+					|| document.getElementById('wpEditToken');
+				if (token) token.value = 'invalid-token';
 			});
 			await page.click('#wpSave');
 			await page.waitForFunction(
