@@ -54,6 +54,8 @@
 	var fetchInProgress = false;
 	var pendingDestinationWindow = null;
 	var lastSubmitter = null;
+	/** Whether the one automatic retry after a CSRF refresh has been used. */
+	var tokenRetryUsed = false;
 
 	/** Delayed loading overlay state (URL-mode uploads). */
 	var loadingTimer = null;
@@ -408,12 +410,30 @@
 				finishFailure( makeMessageBox( mw.msg( 'embeddablecontent-upload-logged-out' ) ) );
 				return;
 			}
+			if ( tokenRetryUsed ) {
+				// The automatic retry also hit a stale token (the session
+				// changed again): refresh once more and keep the file, but do
+				// not loop.
+				refreshToken().then( function () {
+					finishFailure( makeMessageBox(
+						mw.msg( 'embeddablecontent-upload-session-refreshed' )
+					) );
+				}, function () {
+					finishFailure( makeMessageBox(
+						mw.msg( 'embeddablecontent-upload-failed-generic' )
+					) );
+				} );
+				return;
+			}
 			// The token can be stale after a long-idle form. Refresh it and
-			// keep the user's file so a retry is one click away.
+			// retry the SAME fetch automatically once — the file input and
+			// the destination tab are still alive, so the user does not have
+			// to click again.
+			tokenRetryUsed = true;
 			refreshToken().then( function () {
-				finishFailure( makeMessageBox(
-					mw.msg( 'embeddablecontent-upload-session-refreshed' )
-				) );
+				fetchInProgress = false;
+				uploadInProgress = false;
+				startFetchSubmit( true );
 			}, function () {
 				finishFailure( makeMessageBox(
 					mw.msg( 'embeddablecontent-upload-failed-generic' )
@@ -432,9 +452,13 @@
 	}
 
 	/** POST the form with fetch, keeping the page (and file) in place on failure. */
-	function startFetchSubmit() {
+	function startFetchSubmit( isTokenRetry ) {
 		if ( fetchInProgress ) {
 			return;
+		}
+		if ( !isTokenRetry ) {
+			// A fresh user-initiated submission gets its own one auto-retry.
+			tokenRetryUsed = false;
 		}
 		fetchInProgress = true;
 		uploadInProgress = true;

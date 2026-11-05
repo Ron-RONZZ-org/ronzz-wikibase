@@ -446,6 +446,14 @@ class Hooks {
 			return;
 		}
 
+		// Core edit page: a stale CSRF edit token forces a PREVIEW
+		// (session_fail_preview) instead of saving. When the POST is
+		// same-origin, mark the response so resources/editsessionretry.js can
+		// resubmit it ONCE with the fresh token the re-rendered form carries.
+		// A cross-site POST (or a missing Origin/Referer) keeps core's safe
+		// preview; wbTokenRetry stops a retry loop.
+		self::wireEditSessionRetry( $out );
+
 		// Userspace subpage title: `User:Rongzhou/Pretty good Linux` renders
 		// as "Pretty good Linux by @Rongzhou" (the author link is added by
 		// resources/userpagetitle.js; the server text is the no-JS fallback
@@ -793,6 +801,49 @@ class Hooks {
 	}
 
 	/**
+	 * Mark a same-origin edit POST whose CSRF token was stale, and load the
+	 * module that resubmits it once with the (already refreshed) token.
+	 *
+	 * Core's EditPage forces a preview on a token mismatch — the deliberate
+	 * defense against off-site form posts. We only bypass that one extra step
+	 * when the original POST came from this wiki (Origin/Referer host), the
+	 * user is still logged in, and this is not the automatic retry itself.
+	 * Every other case keeps the preview and the user's edit text.
+	 */
+	private static function wireEditSessionRetry( OutputPage $out ): void {
+		$request = \MediaWiki\Context\RequestContext::getMain()->getRequest();
+		if ( !$request->wasPosted() || !$request->getCheck( 'wpTextbox1' ) ) {
+			return;
+		}
+		// Preview / diff are explicit requests, not a failed save.
+		if ( $request->getCheck( 'wpPreview' ) || $request->getCheck( 'wpDiff' ) ) {
+			return;
+		}
+		// The one automatic retry already happened: never loop.
+		if ( $request->getCheck( 'wbTokenRetry' ) ) {
+			return;
+		}
+		$user = \MediaWiki\Context\RequestContext::getMain()->getUser();
+		if ( $user->isAnon() ) {
+			return;
+		}
+		if ( $user->matchEditToken( $request->getVal( 'wpEditToken' ) ) ) {
+			return;
+		}
+		$origin = $request->getHeader( 'Origin' );
+		if ( $origin === null || $origin === '' ) {
+			$origin = $request->getHeader( 'Referer' );
+		}
+		if ( $origin === null || $origin === ''
+			|| !\EmbeddableContent\Spec\SameOrigin::matches( $origin, $request->getFullRequestURL() )
+		) {
+			return;
+		}
+		$out->addBodyClasses( 'wb-edit-token-refreshed' );
+		$out->addModules( 'ext.embeddableContent.editsessionretry' );
+	}
+
+	/**
 	 * The per-section controls (Copy internal mention / Copy URL / Add section
 	 * below / Delete section), loaded next to each heading's `[edit]` link on
 	 * every classic article page. `wbReferenceSnippet` is the server-resolved
@@ -806,17 +857,24 @@ class Hooks {
 		OutputPage $out,
 		\MediaWiki\Title\Title $title
 	): void {
+		$prefixed = $title->getPrefixedText();
+		$isMain = $title->getNamespace() === NS_MAIN;
 		$out->addJsConfigVars(
 			'wbReferenceSnippet',
 			\EmbeddableContent\Spec\MentionSnippet::fromPrefixedTitle(
-				$title->getPrefixedText(),
-				$title->getNamespace() === NS_MAIN,
+				$prefixed,
+				$isMain,
 				in_array(
 					\EmbeddableContent\Spec\MentionSnippet::PROPER_NAME_CATEGORY,
 					$out->getCategories(),
 					true
 				)
 			)
+		);
+		// The right-click "Capitalise first letter" variant of the same link.
+		$out->addJsConfigVars(
+			'wbReferenceSnippetCapitalized',
+			\EmbeddableContent\Spec\MentionSnippet::capitalizedFromPrefixedTitle( $prefixed, $isMain )
 		);
 		$out->addModules( 'ext.embeddableContent.sectionactions' );
 	}
@@ -935,7 +993,17 @@ class Hooks {
 		\MediaWiki\Title\Title $title,
 		string $itemId
 	): void {
-		$out->addJsConfigVars( 'wbMentionLink', $title->getPrefixedText() );
+		$prefixed = $title->getPrefixedText();
+		$out->addJsConfigVars( 'wbMentionLink', $prefixed );
+		// The right-click "Capitalise first letter" variant (page name after
+		// the namespace prefix, never the prefix itself).
+		$out->addJsConfigVars(
+			'wbMentionLinkCapitalized',
+			\EmbeddableContent\Spec\MentionSnippet::capitalizePrefixedTitle(
+				$prefixed,
+				$title->getNamespace() === NS_MAIN
+			)
+		);
 		$out->addModules( 'ext.embeddableContent.mention' );
 	}
 

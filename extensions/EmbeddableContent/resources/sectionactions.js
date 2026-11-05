@@ -204,8 +204,8 @@
 	}
 
 	/** One small copy control matching the [edit] link's style. */
-	function makeCopyButton( id, messageKey, hintKey, text ) {
-		return $( '<button>' )
+	function makeCopyButton( id, messageKey, hintKey, text, capitalizedText ) {
+		var $button = $( '<button>' )
 			.attr( 'id', id )
 			.attr( 'type', 'button' )
 			.addClass( 'wb-section-action' )
@@ -215,6 +215,14 @@
 				e.preventDefault();
 				copyText( text );
 			} );
+		if ( capitalizedText ) {
+			mw.embeddableContent.mentionContext.attach( $button, {
+				plain: function () { return text; },
+				capitalized: function () { return capitalizedText; },
+				copy: copyText
+			} );
+		}
+		return $button;
 	}
 
 	/** One small navigation control matching the [edit] link's style. */
@@ -234,6 +242,8 @@
 		}
 		// `[[Page name]]` → `[[Page name` (the mention pipes the anchor in).
 		var linkBase = String( snippet ).replace( /\]\]\s*$/, '' );
+		var capitalizedSnippet = mw.config.get( 'wbReferenceSnippetCapitalized' ) || snippet;
+		var capitalizedLinkBase = String( capitalizedSnippet ).replace( /\]\]\s*$/, '' );
 		var pageName = mw.config.get( 'wgPageName' );
 		var pageUrlBase = location.origin + mw.util.getUrl( pageName );
 
@@ -252,7 +262,8 @@
 				'wb-section-copymention-' + anchor,
 				'embeddablecontent-section-copymention',
 				'embeddablecontent-section-copymention-hint',
-				linkBase + '#' + anchor + '|'
+				linkBase + '#' + anchor + '|',
+				capitalizedLinkBase + '#' + anchor + '|'
 			) ) );
 			$edit.append( bracketed( makeCopyButton(
 				'wb-section-copyurl-' + anchor,

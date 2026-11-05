@@ -149,7 +149,8 @@ class ProviderClient {
 			$this->personNameProviders,
 			static fn ( PersonProvider $p, string $q ) => $p->searchByName( $q ),
 			$name,
-			fn ( array $records ) => $this->dedupePersons( $records )
+			fn ( array $records ) => $this->dedupePersons( $records ),
+			static fn ( $record ): string => $record->label
 		);
 	}
 
@@ -168,7 +169,8 @@ class ProviderClient {
 				return $p->searchByTitle( $q );
 			},
 			$title,
-			fn ( array $records ) => $this->dedupeWorks( $records )
+			fn ( array $records ) => $this->dedupeWorks( $records ),
+			static fn ( $record ): string => $record->title
 		);
 	}
 
@@ -189,7 +191,9 @@ class ProviderClient {
 				return $p->searchByAuthorName( $q, $title );
 			},
 			$author,
-			fn ( array $records ) => $this->dedupeWorks( $records )
+			fn ( array $records ) => $this->dedupeWorks( $records ),
+			static fn ( $record ): string => $record->title,
+			$title
 		);
 	}
 
@@ -211,7 +215,9 @@ class ProviderClient {
 				return $p->searchByAuthorEntities( $qids, $title );
 			},
 			implode( '|', $qids ),
-			fn ( array $records ) => $this->dedupeWorks( $records )
+			fn ( array $records ) => $this->dedupeWorks( $records ),
+			static fn ( $record ): string => $record->title,
+			$title
 		);
 	}
 
@@ -220,7 +226,8 @@ class ProviderClient {
 			$this->entityProviders,
 			static fn ( EntityProvider $p, string $q ) => $p->searchByName( $q ),
 			$name,
-			fn ( array $records ) => $this->dedupeEntities( $records )
+			fn ( array $records ) => $this->dedupeEntities( $records ),
+			static fn ( $record ): string => $record->label
 		);
 	}
 
@@ -232,7 +239,8 @@ class ProviderClient {
 			$this->softwareNameProviders,
 			static fn ( SoftwareProvider $p, string $q ) => $p->searchByName( $q ),
 			$name,
-			fn ( array $records ) => $this->dedupeSoftware( $records )
+			fn ( array $records ) => $this->dedupeSoftware( $records ),
+			static fn ( $record ): string => $record->label
 		);
 	}
 
@@ -449,8 +457,17 @@ class ProviderClient {
 	 * @param object[] $providers
 	 * @param callable(object,string):object[] $call
 	 * @param callable(object[]):object[] $dedupe
+	 * @param callable(object):string|null $labelOf record label/title for relevance ranking
+	 * @param string|null $rankText the text to rank by; null/'' keeps provider order
 	 */
-	private function searchCascade( array $providers, callable $call, string $query, callable $dedupe ): ProviderResult {
+	private function searchCascade(
+		array $providers,
+		callable $call,
+		string $query,
+		callable $dedupe,
+		?callable $labelOf = null,
+		?string $rankText = null
+	): ProviderResult {
 		$records = [];
 		$warnings = [];
 		foreach ( $providers as $provider ) {
@@ -462,8 +479,13 @@ class ProviderClient {
 				$warnings[] = $this->providerName( $provider ) . ': ' . $e->getMessage();
 			}
 		}
+		$merged = $dedupe( $records );
+		$rank = $rankText ?? $query;
+		if ( $labelOf !== null && trim( $rank ) !== '' ) {
+			$merged = RecordRanker::rank( $merged, $rank, $labelOf );
+		}
 		return new ProviderResult(
-			array_slice( $dedupe( $records ), 0, self::RESULT_CAP ),
+			array_slice( $merged, 0, self::RESULT_CAP ),
 			$warnings
 		);
 	}

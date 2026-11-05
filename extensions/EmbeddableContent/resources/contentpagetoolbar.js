@@ -57,6 +57,7 @@
 
 	mw.loader.using( [ 'mediawiki.notification', 'mediawiki.util' ] ).then( function () {
 		var snippet = mw.config.get( 'wbReferenceSnippet' );
+		var capitalizedSnippet = mw.config.get( 'wbReferenceSnippetCapitalized' ) || snippet;
 		var citePage = mw.config.get( 'wbCitePage' );
 		if ( ( !snippet && !citePage ) || $( '#firstHeading' ).length === 0 ) {
 			return;
@@ -75,17 +76,19 @@
 		var toolbar = mw.embeddableContent.toolbar;
 
 		if ( snippet ) {
-			toolbar.add(
-				$toolbar,
-				$( '<button>' )
-					.attr( 'id', 'ca-wb-content-copymention' )
-					.attr( 'type', 'button' )
-					.addClass( 'wb-embed-toolbar-btn' )
-					.attr( 'title', mw.msg( 'embeddablecontent-contentpage-copymention-hint' ) )
-					.text( mw.msg( 'embeddablecontent-contentpage-copymention' ) )
-					.on( 'click', function () { copyText( snippet ); } ),
-				toolbar.ORDER.mention
-			);
+			var $mention = $( '<button>' )
+				.attr( 'id', 'ca-wb-content-copymention' )
+				.attr( 'type', 'button' )
+				.addClass( 'wb-embed-toolbar-btn' )
+				.attr( 'title', mw.msg( 'embeddablecontent-contentpage-copymention-hint' ) )
+				.text( mw.msg( 'embeddablecontent-contentpage-copymention' ) )
+				.on( 'click', function () { copyText( snippet ); } );
+			mw.embeddableContent.mentionContext.attach( $mention, {
+				plain: function () { return snippet; },
+				capitalized: function () { return capitalizedSnippet; },
+				copy: copyText
+			} );
+			toolbar.add( $toolbar, $mention, toolbar.ORDER.mention );
 		}
 
 		if ( citePage ) {

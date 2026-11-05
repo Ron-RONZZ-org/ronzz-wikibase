@@ -16,12 +16,14 @@ use Wikibase\Repo\WikibaseRepo;
  * action=addsemanticentity kind=software (the API page creation).
  *
  * A software whose chosen license qualifies as free/open-source documents
- * as a FOSS:<Name> page; anything else as a Software:<Name> page. The
- * license "qualifies" when its item is classified `instance of` the free
- * software license class (the preseed's foss-flagged licenses). Any FOSS
- * license among several wins; no license (or no FOSS-license class
- * configured on the instance) keeps the historical FOSS: default — the
- * caller may override (the form's radio, the API's pageKind param).
+ * as a FOSS:<Name> page; anything else — including NO license and an
+ * unresolved harvested label — as a Software:<Name> page. The license
+ * "qualifies" when its item is classified `instance of` the free software
+ * license class (the preseed's foss-flagged licenses). Any FOSS license
+ * among several wins; a missing/unrecognised license must NEVER imply
+ * free/open-source (the Q2721 bug: a license-less software was created as
+ * FOSS). The caller may still override (the form's radio, the API's
+ * pageKind param).
  *
  * @license GPL-2.0-or-later
  */
@@ -37,9 +39,9 @@ final class SoftwarePageKind {
 	public static function defaultFor( EmbeddableContentConfig $config, string $licenseInput ): string {
 		$fossLicenseClass = $config->fossLicenseClasses()['fossLicense'] ?? null;
 		if ( $fossLicenseClass === null ) {
-			// No FOSS-license class configured: keep the historical FOSS:
-			// default — the caller may override.
-			return self::FOSS;
+			// No FOSS-license class configured: nothing can establish
+			// FOSS-ness, so the safe default is the non-FOSS page.
+			return self::SOFTWARE;
 		}
 		$ids = self::splitIds( $licenseInput );
 		if ( $ids === [] ) {
@@ -47,9 +49,9 @@ final class SoftwarePageKind {
 			// UNRESOLVED harvested label (Wikidata's "GNU General Public
 			// License v3.0" vs the preseed's "GNU GPL-3.0" — the form shows
 			// the label as context, the statement is only written once the
-			// user picks a local item). Nothing to judge FOSS-ness from —
-			// keep the historical FOSS: default.
-			return self::FOSS;
+			// user picks a local item). Nothing establishes FOSS-ness — never
+			// call an unlicensed/unresolved work free/open-source.
+			return self::SOFTWARE;
 		}
 		foreach ( $ids as $id ) {
 			try {

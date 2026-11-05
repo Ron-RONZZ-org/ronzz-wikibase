@@ -51,6 +51,8 @@
 			return;
 		}
 		var snippet = '[[' + link + ']]';
+		var capitalizedLink = mw.config.get( 'wbMentionLinkCapitalized' ) || link;
+		var capitalizedSnippet = '[[' + capitalizedLink + ']]';
 		var $button = $( '<button>' )
 			.attr( 'id', 'ca-wb-mention' )
 			.attr( 'type', 'button' )
@@ -60,6 +62,12 @@
 			.on( 'click', function () {
 				copyText( snippet );
 			} );
+
+		mw.embeddableContent.mentionContext.attach( $button, {
+			plain: function () { return snippet; },
+			capitalized: function () { return capitalizedSnippet; },
+			copy: copyText
+		} );
 
 		// Ranked by the shared toolbar primitive: after "Copy internal
 		// citation" (when present), before "Copy embed code".

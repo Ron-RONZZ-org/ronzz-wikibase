@@ -56,4 +56,31 @@ class MentionSnippetTest extends TestCase {
 		$this->assertSame( 'Proper name', MentionSnippet::PROPER_NAME_CATEGORY );
 	}
 
+	public function testCapitalizeMainNamespacePageName(): void {
+		$this->assertSame( 'Classical mechanics', MentionSnippet::capitalizePrefixedTitle( 'classical mechanics', true ) );
+		$this->assertSame( 'Permutation', MentionSnippet::capitalizePrefixedTitle( 'permutation', true ) );
+		$this->assertSame( 'École normale', MentionSnippet::capitalizePrefixedTitle( 'école normale', true ) );
+		// A Main-namespace title containing a colon is a page name, not a
+		// namespace prefix: capitalise the whole title's first letter.
+		$this->assertSame( 'C++: Le guide', MentionSnippet::capitalizePrefixedTitle( 'c++: Le guide', true ) );
+	}
+
+	public function testCapitalizeDoesNotTouchTheNamespacePrefix(): void {
+		// The page-name part after the namespace prefix is capitalised, never
+		// the namespace itself (which already starts uppercase).
+		$this->assertSame( 'Person:Edwin hubble', MentionSnippet::capitalizePrefixedTitle( 'Person:edwin hubble', false ) );
+		$this->assertSame( 'Source:Beloved', MentionSnippet::capitalizePrefixedTitle( 'Source:beloved', false ) );
+		$this->assertSame( 'Software:Git', MentionSnippet::capitalizePrefixedTitle( 'Software:git', false ) );
+		// Already-capitalised and non-letter initials are unchanged.
+		$this->assertSame( 'Help:Contributing', MentionSnippet::capitalizePrefixedTitle( 'Help:Contributing', false ) );
+		$this->assertSame( 'Help:2024 report', MentionSnippet::capitalizePrefixedTitle( 'Help:2024 report', false ) );
+		$this->assertSame( '', MentionSnippet::capitalizePrefixedTitle( '   ', true ) );
+	}
+
+	public function testCapitalizedSnippetVariant(): void {
+		$this->assertSame( '[[Classical mechanics]]', MentionSnippet::capitalizedFromPrefixedTitle( 'classical mechanics', true ) );
+		$this->assertSame( '[[Person:Edwin hubble]]', MentionSnippet::capitalizedFromPrefixedTitle( 'Person:edwin hubble', false ) );
+		$this->assertSame( '', MentionSnippet::capitalizedFromPrefixedTitle( '', true ) );
+	}
+
 }

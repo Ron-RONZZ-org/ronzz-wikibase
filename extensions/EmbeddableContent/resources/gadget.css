@@ -163,3 +163,37 @@
 .oo-ui-popupWidget.wb-citation-popup-widget {
 	z-index: 500;
 }
+
+/* Right-click menu on the "Copy internal mention" buttons
+ * (resources/mentioncontext.js). Fixed-position so the heading's overflow
+ * cannot clip it; theme tokens keep it readable in the day/night themes. */
+.wb-mention-menu {
+	position: fixed;
+	z-index: 600;
+	min-width: 15em;
+	padding: 4px;
+	background: var( --background-color-base, #fff );
+	color: var( --color-base, #202122 );
+	border: 1px solid var( --border-color-base, #a2a9b1 );
+	border-radius: 2px;
+	box-shadow: 0 2px 8px 0 var( --box-shadow-color-alpha-base, rgba( 0, 0, 0, 0.06 ) ),
+		0 0 16px 0 var( --box-shadow-color-alpha-base, rgba( 0, 0, 0, 0.06 ) );
+}
+
+.wb-mention-menu-item {
+	display: block;
+	width: 100%;
+	padding: 6px 10px;
+	border: 0;
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+.wb-mention-menu-item:hover,
+.wb-mention-menu-item:focus {
+	background: var( --background-color-neutral-subtle, #f8f9fa );
+	outline: none;
+}

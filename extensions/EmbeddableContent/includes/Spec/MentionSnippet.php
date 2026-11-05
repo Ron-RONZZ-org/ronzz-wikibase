@@ -54,6 +54,59 @@ final class MentionSnippet {
 	}
 
 	/**
+	 * The "Capitalise first letter" variant of a prefixed title: the first
+	 * letter of the PAGE NAME (after the namespace prefix in a non-Main
+	 * namespace) is uppercased. The namespace prefix is never touched.
+	 *
+	 * Only a lowercase letter is changed; digits, punctuation and an
+	 * already-uppercase letter are returned unchanged. UTF-8 aware.
+	 *
+	 * MediaWiki's first-letter case-insensitivity (siteinfo `Case:
+	 * first-letter`) makes the capitalised target resolve to the same page
+	 * as the sentence-case mention — the variant is purely cosmetic, for
+	 * use at the start of a sentence.
+	 *
+	 * @param string $prefixedText the page's prefixed title
+	 * @param bool $isMainNamespace whether the page lives in the Main namespace
+	 * @return string the prefixed title with the page name capitalised
+	 */
+	public static function capitalizePrefixedTitle(
+		string $prefixedText,
+		bool $isMainNamespace
+	): string {
+		$text = trim( $prefixedText );
+		if ( $text === '' ) {
+			return '';
+		}
+		$offset = 0;
+		if ( !$isMainNamespace ) {
+			$colon = strpos( $text, ':' );
+			if ( $colon !== false ) {
+				$offset = $colon + 1;
+			}
+		}
+		$first = mb_substr( $text, $offset, 1, 'UTF-8' );
+		if ( $first === '' || preg_match( '/^\p{Ll}/u', $first ) !== 1 ) {
+			return $text;
+		}
+		return mb_substr( $text, 0, $offset, 'UTF-8' )
+			. mb_strtoupper( $first, 'UTF-8' )
+			. mb_substr( $text, $offset + 1, null, 'UTF-8' );
+	}
+
+	/**
+	 * The full `[[…]]` snippet with the page name's first letter
+	 * capitalised (see capitalizePrefixedTitle).
+	 */
+	public static function capitalizedFromPrefixedTitle(
+		string $prefixedText,
+		bool $isMainNamespace
+	): string {
+		$text = self::capitalizePrefixedTitle( $prefixedText, $isMainNamespace );
+		return $text === '' ? '' : '[[' . $text . ']]';
+	}
+
+	/**
 	 * Lowercases the first character when it is an uppercase letter; any
 	 * other first character (lowercase, digit, punctuation) is returned
 	 * unchanged. UTF-8 aware (mbstring).

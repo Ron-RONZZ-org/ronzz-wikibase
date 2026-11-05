@@ -74,6 +74,24 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		parent::__construct( $pageName, $config, $client );
 	}
 
+	/**
+	 * The "Unknown license" checkbox toggles the required license field
+	 * (create only); the module disables/clears the combobox when ticked.
+	 */
+	public function execute( $subPage ) {
+		$this->getOutput()->addModules( 'ext.embeddableContent.softwarelicense' );
+		parent::execute( $subPage );
+	}
+
+	/**
+	 * Whether a license (or the explicit "Unknown license" opt-out) is
+	 * required on this form. Create requires it; Update keeps the no-clobber
+	 * semantics and does not.
+	 */
+	protected function licenseRequired(): bool {
+		return true;
+	}
+
 	protected function kindKey(): string {
 		return 'software';
 	}
@@ -221,13 +239,25 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 			// Multi-value class-scoped entity combobox (the shared builder):
 			// developer → agent classes, license/OS/UI → their domain class,
 			// hasUse → any item. The userInterface field additionally
-			// explains what the fact means.
-			$fields += $this->entityComboboxField(
-				$field,
-				'embeddablecontent-field-' . $field,
-				$scope,
-				true
-			);
+			// explains what the fact means. The license uses the shared
+			// license combobox so the known licenses (including Proprietary)
+			// are offered as options, not only via typeahead search.
+			if ( $field === 'license' ) {
+				$fields['license'] = \EmbeddableContent\Fields\EntityCombobox::licenseSpec(
+					'embeddablecontent-field-license',
+					'embeddablecontent-software-license-help',
+					$this->config,
+					[],
+					true
+				);
+			} else {
+				$fields += $this->entityComboboxField(
+					$field,
+					'embeddablecontent-field-' . $field,
+					$scope,
+					true
+				);
+			}
 			if ( $value !== '' ) {
 				if ( $this->isItemIdList( $value ) ) {
 					// Prefilled from an EXISTING item (Special:UpdateSoftware's
@@ -260,11 +290,26 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 					}
 				}
 			}
-			$fields[$field]['help'] = ( $fields[$field]['help'] ?? '' )
-				. $this->msg( $field === 'userInterface'
-					? 'embeddablecontent-software-userinterface-help'
-					: 'embeddablecontent-entityid-multiple-hint'
-				)->parse();
+			if ( $field !== 'license' ) {
+				$fields[$field]['help'] = ( $fields[$field]['help'] ?? '' )
+					. $this->msg( $field === 'userInterface'
+						? 'embeddablecontent-software-userinterface-help'
+						: 'embeddablecontent-entityid-multiple-hint'
+					)->parse();
+			}
+			// "Unknown license" directly below the license: the field is
+			// required on CREATE, and this checkbox is the explicit opt-out
+			// (the record then gets no license statement and the license-less
+			// Software: page default). Create only — an Update keeps its
+			// no-clobber semantics and does not require a license.
+			if ( $field === 'license' && $this->licenseRequired() ) {
+				$fields['licenseUnknown'] = [
+					'type' => 'check',
+					'label-message' => 'embeddablecontent-software-license-unknown',
+					'help-message' => 'embeddablecontent-software-license-unknown-help',
+					'default' => !empty( $record['licenseUnknown'] ),
+				];
+			}
 		}
 
 		// Classic-page kind: FOSS: page or Software: page — asked PER CREATE
@@ -470,6 +515,16 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 	 * @return string|null error message, or null to proceed
 	 */
 	protected function beforeCreate( array &$record ): ?string {
+		// License required on CREATE unless the user explicitly ticked
+		// "Unknown license". The checkbox wins over a stale value left in the
+		// combobox, so an unknown license can never be classified FOSS.
+		if ( $this->licenseRequired() ) {
+			if ( !empty( $record['licenseUnknown'] ) ) {
+				$record['license'] = '';
+			} elseif ( trim( (string)( $record['license'] ?? '' ) ) === '' ) {
+				return $this->msg( 'embeddablecontent-software-license-required' )->text();
+			}
+		}
 		// Resolve the page-kind radio: 'auto' (the default — the render-time
 		// form cannot know the license the user submits) or an ABSENT value
 		// (a scripted POST) follows the SUBMITTED license; 'foss'/'software'

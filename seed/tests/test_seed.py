@@ -109,6 +109,7 @@ class ManifestLoaderTest(unittest.TestCase):
         labels = [r["labels"]["en"] for r in rows]
         # the exact preseed contract Special:AddSoftware depends on
         for expected in ["Linux", "Android", "Windows", "GNU AGPL-3.0", "MIT License",
+                         "Proprietary",
                          "GUI (graphical user interface)", "CLI (command-line interface)"]:
             self.assertIn(expected, labels, f"preseed item {expected!r} missing")
 
@@ -132,7 +133,7 @@ class ManifestLoaderTest(unittest.TestCase):
         # derivatives) CC variant.
         for restricted in ["CC BY-NC 4.0", "CC BY-NC-SA 4.0", "CC BY-NC-ND 4.0",
                            "CC BY-ND 4.0", "CC BY-NC 3.0", "CC BY-NC-SA 3.0",
-                           "CC BY-NC-ND 3.0", "CC BY-ND 3.0"]:
+                           "CC BY-NC-ND 3.0", "CC BY-ND 3.0", "Proprietary"]:
             self.assertNotIn(restricted, flagged, f"{restricted!r} must NOT be foss-flagged")
             self.assertIn(restricted, not_flagged)
         # OS/UI rows are not licenses: never flagged.
