@@ -2664,7 +2664,8 @@ def dest_file_name(label: str) -> str:
 
 
 def assert_semantic_image_item(op, base: str, api: str, consumer_qid: str, label: str,
-                               suffix: str, license_qid: str, author: str, license_info: str) -> str:
+                               suffix: str, license_qid: str, author: str, license_info: str,
+                               consumer_license: str | None = None) -> str:
     """The semantic-first image model (issue report): a NEW Add* logo/portrait
     upload creates the sitelinked image-class item carrying the image facts
     (license / image author / additional license information) + the File page
@@ -2697,8 +2698,15 @@ def assert_semantic_image_item(op, base: str, api: str, consumer_qid: str, label
     image_url = str(first_value(claims, image_prop) or "")
     assert file_title.replace(" ", "_") in image_url.replace(" ", "_"), \
         f"{consumer_qid} image statement does not reference {file_title} ({image_url!r})"
-    assert first_value(claims, license_prop) is None, \
-        f"{consumer_qid} must NOT carry a license statement (the file owns it)"
+    if consumer_license is None:
+        assert first_value(claims, license_prop) is None, \
+            f"{consumer_qid} must NOT carry a license statement (the file owns it)"
+    else:
+        # A software item legitimately carries its OWN software license; the
+        # image license still belongs to the file (checked below). The same
+        # property is used for both, so the expected value disambiguates.
+        assert first_value(claims, license_prop) == consumer_license, \
+            f"{consumer_qid} software license mismatch ({first_value(claims, license_prop)!r})"
     assert first_value(claims, author_prop) is None, \
         f"{consumer_qid} must NOT carry an image-author statement (the file owns it)"
     assert first_value(claims, info_prop) is None, \
