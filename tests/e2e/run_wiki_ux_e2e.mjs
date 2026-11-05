@@ -197,6 +197,19 @@ async function main() {
 			} else {
 				console.log(`[ok] content-page copy-mention button copies ${expected} (${pageName})`);
 			}
+			// Right-click → "Capitalise first letter" copies the page name's
+			// initial uppercased (namespace untouched; the target resolves to
+			// the same page under MediaWiki's first-letter case rule).
+			const capitalized = expected.replace(/^(\[\[)(\p{Ll})/u, (m, open, first) => open + first.toUpperCase());
+			await page.locator('#ca-wb-content-copymention').click({ button: 'right' });
+			await page.waitForSelector('.wb-mention-menu', { timeout: 5000 });
+			await page.locator('.wb-mention-menu-item', { hasText: 'Capitalise first letter' }).click();
+			const copiedCapitalized = await page.evaluate(() => navigator.clipboard.readText());
+			if (copiedCapitalized !== capitalized) {
+				failures.push(`capitalise-first-letter on ${pageName} copied ${JSON.stringify(copiedCapitalized)}, expected ${capitalized}`);
+			} else {
+				console.log(`[ok] right-click Capitalise first letter copies ${capitalized} (${pageName})`);
+			}
 		}
 
 		// The "Print this page" button joins the CONTENT-page toolbar row
@@ -1317,25 +1330,26 @@ async function main() {
 
 		// "Submit and upload another": the button carries name=wpUpload
 		// value=another, opens the destination tab synchronously and submits
-		// the form through the same-origin fetch handler. Force a stale CSRF token so the
-		// server returns the session-failure form: the destination tab must
-		// close, the error must appear inline, and the file must survive.
+		// the form through the same-origin fetch handler. Force a stale CSRF
+		// token: the form refreshes it and retries the SAME upload
+		// automatically (the file and destination tab survive the retry).
 		const anotherName = await page.locator('#wpUploadAnother').getAttribute('name');
 		const anotherValue = await page.locator('#wpUploadAnother').getAttribute('value');
 		if (anotherName !== 'wpUpload' || anotherValue !== 'another') {
 			failures.push(`"upload another" button carries name=${anotherName} value=${anotherValue}, expected wpUpload/another`);
 		}
+		const retryFileName = `token-retry-${Date.now()}.png`;
 		// The form refreshes its CSRF token on load; wait for that request to
-		// settle, then force the stale token the failure path should recover.
+		// settle, then force the stale token the auto-retry should recover.
 		await page.waitForTimeout(1500);
-		await page.evaluate(async () => {
+		await page.evaluate(async (name) => {
 			const canvas = document.createElement('canvas');
 			canvas.width = 2;
 			canvas.height = 2;
 			canvas.getContext('2d').fillRect(0, 0, 2, 2);
 			const blob = await new Promise((r) => canvas.toBlob(r, 'image/png'));
 			const dt = new DataTransfer();
-			dt.items.add(new File([blob], 'token-failure.png', { type: 'image/png' }));
+			dt.items.add(new File([blob], name, { type: 'image/png' }));
 			const fileRadio = document.querySelector('#wpSourceTypeFile');
 			fileRadio.checked = true;
 			fileRadio.dispatchEvent(new Event('change', { bubbles: true }));
@@ -1344,7 +1358,7 @@ async function main() {
 			input.files = dt.files;
 			input.dispatchEvent(new Event('change', { bubbles: true }));
 			document.querySelector('#wpEditToken').value = 'invalid-token';
-		});
+		}, retryFileName);
 		dialogAction = 'accept';
 		const popupPromise = page.waitForEvent('popup', { timeout: 10000 }).catch(() => null);
 		await page.click('#wpUploadAnother');
@@ -1352,31 +1366,39 @@ async function main() {
 		if (!popup) {
 			failures.push('"upload another" did not open the destination tab');
 		}
-		await page.waitForSelector('#wb-upload-error', { state: 'visible', timeout: 20000 }).catch(() => {});
-		const failedUpload = await page.evaluate(() => ({
+		let uploadRetried = false;
+		if (popup) {
+			try {
+				await popup.waitForURL(/\/wiki\/File:/, { timeout: 30000 });
+				uploadRetried = true;
+			} catch (e) {
+				failures.push('a stale CSRF token was not retried automatically (the destination tab never reached a File: page)');
+			}
+		}
+		await page.waitForTimeout(1000);
+		const retriedUpload = await page.evaluate(() => ({
 			url: location.href,
-			error: (document.querySelector('#wb-upload-error') || {}).innerText || '',
-			files: (document.querySelector('#wpUploadFile') || {}).files?.length || 0,
 			token: (document.querySelector('#wpEditToken') || {}).value || '',
 		}));
-		if (!failedUpload.url.includes('Special:Upload')) {
-			failures.push('a failed "upload another" navigated the original tab away');
+		if (!retriedUpload.url.includes('Special:Upload')) {
+			failures.push('the automatic token retry navigated the original tab away');
 		}
-		if (!failedUpload.error) {
-			failures.push('a failed "upload another" did not show an inline error');
+		if (!retriedUpload.token || retriedUpload.token === 'invalid-token') {
+			failures.push('a stale CSRF token was not refreshed before the automatic retry');
 		}
-		if (failedUpload.files !== 1) {
-			failures.push(`a failed "upload another" lost the selected file (files=${failedUpload.files})`);
-		}
-		if (!failedUpload.token || failedUpload.token === 'invalid-token') {
-			failures.push('a stale CSRF token was not refreshed after the session failure');
+		if (uploadRetried) {
+			console.log('[ok] a stale CSRF token is refreshed and the upload is retried automatically');
 		}
 		if (popup && !popup.isClosed()) {
-			failures.push('the destination tab stayed open after the failed upload');
 			await popup.close().catch(() => {});
-		} else if (popup) {
-			console.log('[ok] a failed "upload another" closes the destination tab and keeps the file');
 		}
+		// Best-effort cleanup: the retried upload created File:<retryFileName>.
+		await page.evaluate(async (title) => {
+			await new Promise((r) => mw.loader.using('mediawiki.api', r));
+			try {
+				await new mw.Api().postWithToken('csrf', { action: 'delete', title, format: 'json' });
+			} catch (e) { /* best-effort cleanup */ }
+		}, `File:${retryFileName}`).catch(() => {});
 		await page.evaluate(() => {
 			const input = document.querySelector('#wpUploadFile');
 			if (input) {
@@ -1384,6 +1406,51 @@ async function main() {
 				input.dispatchEvent(new Event('change', { bubbles: true }));
 			}
 		});
+
+		// --- Edit-page stale-token auto-retry ---------------------------
+		// Core forces a preview when the edit token is stale. The same-origin
+		// marker + editsessionretry.js must resubmit the re-rendered form once
+		// with the fresh token, saving the edit.
+		const editTitle = `EditRetryUX${Date.now()}`;
+		await page.evaluate(async (title) => {
+			await new Promise((r) => mw.loader.using('mediawiki.api', r));
+			await new mw.Api().postWithToken('csrf', {
+				action: 'edit', title, text: 'Original text.', createonly: true,
+			});
+		}, editTitle);
+		try {
+			await page.goto(`${BASE_URL}/wiki/${encodeURIComponent(editTitle)}?action=edit`,
+				{ waitUntil: 'domcontentloaded', timeout: 60000 });
+			await page.waitForSelector('#wpTextbox1', { timeout: 15000 });
+			const expectedText = `Auto-retried edit ${Date.now()}`;
+			await page.fill('#wpTextbox1', expectedText);
+			await page.evaluate(() => {
+				document.querySelector('#wpEditToken').value = 'invalid-token';
+			});
+			await page.click('#wpSave');
+			await page.waitForFunction(
+				(text) => !location.search.includes('action=edit')
+					&& (document.querySelector('#mw-content-text') || {}).innerText?.includes(text),
+				expectedText,
+				{ timeout: 30000 }
+			).catch(() => {});
+			const savedEdit = await page.evaluate(() => ({
+				url: location.href,
+				text: (document.querySelector('#mw-content-text') || {}).innerText || '',
+			}));
+			if (savedEdit.url.includes('action=edit') || !savedEdit.text.includes(expectedText)) {
+				failures.push('the edit-page stale-token auto-retry did not save the edit');
+			} else {
+				console.log('[ok] a stale edit token is refreshed and the edit is saved automatically');
+			}
+		} finally {
+			await page.evaluate(async (title) => {
+				await new Promise((r) => mw.loader.using('mediawiki.api', r));
+				try {
+					await new mw.Api().postWithToken('csrf', { action: 'delete', title, format: 'json' });
+				} catch (e) { /* best-effort cleanup */ }
+			}, editTitle).catch(() => {});
+		}
 
 		// --- Printable version: clean title + authors + cover popup ------
 		// A scratch User: subpage exercises the namespace + subpage-parent

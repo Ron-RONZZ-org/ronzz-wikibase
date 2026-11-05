@@ -63,11 +63,12 @@ final class EntityCombobox {
 	 * own license fact and Special:Upload.
 	 *
 	 * @param array<string,mixed> $extra
+	 * @param bool $multi comma/semicolon-separated multi-value field
 	 * @return array<string,mixed>
 	 */
-	public static function licenseSpec( string $msgKey, string $helpMsg, EmbeddableContentConfig $config, array $extra = [] ): array {
+	public static function licenseSpec( string $msgKey, string $helpMsg, EmbeddableContentConfig $config, array $extra = [], bool $multi = false ): array {
 		$class = $config->softwareLicenseClass();
-		return self::spec( $msgKey, $class === null ? [] : [ $class ], false, array_merge( [
+		return self::spec( $msgKey, $class === null ? [] : [ $class ], $multi, array_merge( [
 			'options' => $config->licenseItems(),
 			'help-message' => $helpMsg,
 		], $extra ) );

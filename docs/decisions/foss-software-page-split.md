@@ -52,8 +52,10 @@ would have rendered an empty author).
   `fossLicenseClasses` config map; `EmbeddableContentConfig::fossLicenseClasses()` reads it.
 - **`Special:AddSoftware` asks per create**: a **Page kind radio** on the review/manual form —
   `FOSS:` page or `Software:` page — defaulting from the license (ANY chosen license
-  classified as a free software license → `FOSS:`; no license keeps the historical `FOSS:`
-  default). The base class's page creation reads record-aware `pageNamespaceForRecord()` /
+  classified as a free software license → `FOSS:`; **no license, or an unresolved harvested
+  label, defaults to `Software:`** — corrected 2026-11-05 after Q2721; a missing license must
+  never imply FOSS. The license field is required on create, with an **Unknown license**
+  opt-out). The base class's page creation reads record-aware `pageNamespaceForRecord()` /
   `pageTemplateForRecord()` (defaulting to the old `pageNamespace()` / `pageTemplate()`
   contract), so create, update-heal and update-rename all honor the per-record kind.
 - **New `Software:` namespace** (NS 2016/2017) + `Template:Software` (+ `/Infobox`, on-wiki),
@@ -100,7 +102,9 @@ instance grows.
   persons.
 - Non-FOSS software gets its own page namespace; the license drives the default, the editor
   has the final say via the radio. Existing FOSS pages are untouched (no migration); the
-  update flow moves pages when the license flips.
+  update flow moves pages when the license flips. License-less/rebuilt software now defaults
+  to `Software:` (the Q2721 correction); a `Proprietary` preseed license is offered for
+  closed-source software.
 - Combobox suggestions now find mid-word and acronym matches ("AGPL", "Einstein",
   "ovelace" → "Ada Lovelace") across every entity-typed field.
 

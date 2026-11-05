@@ -51,8 +51,10 @@ The destination tab is only a destination; the upload POST is a **same-origin
    HTML with `DOMParser`; close the destination tab; show the server's error
    **inline** above the form; keep every field and the selected file. If the
    parsed body carries the server's `wb-upload-token-failed` class, refresh
-   the CSRF token from `action=query&meta=tokens&type=csrf` and tell the user
-   to retry. A logged-out response shows a login message instead.
+   the CSRF token from `action=query&meta=tokens&type=csrf` and **retry the
+   same fetch automatically once** (2026-11-05). A second token failure
+   refreshes once more and shows the "file still selected" message instead of
+   looping. A logged-out response shows a login message instead.
 5. **Recoverable warning** (duplicate/exists): show a “Review” action that
    re-submits normally so the stock warning page (and its stash key) loads.
 6. **Destination tab blocked or closed**: fall back to navigating the original

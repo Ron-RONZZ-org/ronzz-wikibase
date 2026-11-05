@@ -187,7 +187,12 @@ report). See `SimpleMathJax/VENDORED.md`.
   ISBN/DOI/VIAF yields an empty result (the cascade falls through to the next
   provider; the caller's own no-results message stands) instead of surfacing
   the raw "OpenLibraryProvider: HTTP 404 from …" text on the search page
-  (the AddSource report).
+  (the AddSource report). **Relevance ranking (2026-11-05)**:
+  `Fetch/RecordRanker` sorts the merged records before the 10-result cap
+  (exact title → prefix/subtitle → substring → all tokens in order → all
+  tokens → partial, stable provider-order tie-break), so a later provider's
+  exact title beats an earlier provider's loose matches. Author-only searches
+  keep provider order; title-scoped author searches rank by the title.
 - **Special:AddSoftware (issue #26)**: FOSS item + `FOSS:` page + sitelink;
   entity-combobox facts (developer/license/OS/user-interface/has-use,
   multi-value), programming language via the shared lexer combobox,
@@ -203,8 +208,12 @@ report). See `SimpleMathJax/VENDORED.md`.
   qualifies as free/open-source, a **Software:** page otherwise — the
   review/manual form carries a **Page kind radio** (defaulting from the
   license: ANY chosen license classified `instance of` the new
-  `free software license` class → FOSS:, no license keeps the historical
-  FOSS: default). The preseed license rows gain a **`foss` flag** (the
+  `free software license` class → FOSS:; **no license, or an unresolved
+  harvested label, now defaults to Software:** — the Q2721 correction
+  (2026-11-05); a missing license never implies FOSS. The AddSoftware
+  license field is required on create, with an **Unknown license** opt-out;
+  the preseed gains a `Proprietary` license item). The preseed license rows
+  gain a **`foss` flag** (the
   FSF/OSI line — everything except the CC BY-NC*/ND* variants) and the seed
   classifies `foss`-flagged licenses `instance of` BOTH `software license`
   (the license-combobox class) and `free software license` (re-classifying
@@ -1272,7 +1281,10 @@ report). See `SimpleMathJax/VENDORED.md`.
   submits the POST through a **same-origin fetch in the original tab**; `resources/filepage.js` signals the opener back to a fresh,
   prefilled upload form on success. On failure the destination tab closes,
   the server error is shown inline, the selected file/fields are kept and a
-  stale CSRF token is refreshed (ADR `docs/decisions/upload-another-fetch.md`).
+  stale CSRF token is refreshed; the same fetch is **retried automatically
+  once** after the refresh (2026-11-05), and a second failure shows the
+  "file still selected" message instead of looping (ADR
+  `docs/decisions/upload-another-fetch.md`).
   **Clipboard-blocked copy fallback (2026-09-28):** a page-load
   clipboard write is not allowed without a user gesture (Firefox rejects it,
   Chromium only auto-grants a focused tab), so `filepage.js` attempts the
@@ -2010,3 +2022,31 @@ report). See `SimpleMathJax/VENDORED.md`.
   "specify the author" error, and accepts a source without an author. The
   canonical contract exposes `requiredAnyOf`; the pinned MCP contract and
   tools were regenerated.
+
+### Nov 2026 follow-up batch — mention capitalisation, automatic retries, ranking, proprietary license
+
+- **Right-click "Capitalise first letter"**: `Spec/MentionSnippet` gains
+  `capitalizePrefixedTitle()` / `capitalizedFromPrefixedTitle()` (page name
+  after the namespace, UTF-8 aware). `Hooks` emits
+  `wbReferenceSnippetCapitalized` / `wbMentionLinkCapitalized`;
+  `resources/mentioncontext.js` attaches a context menu to every "Copy
+  internal mention" button (content toolbar, section controls, classic/Item
+  page). A normal click is unchanged. ADR
+  `docs/decisions/nov-2026-mention-retry-ranking-license.md`.
+- **Automatic token retry**: upload auto-retries the same fetch once after
+  refreshing a stale CSRF token. Edit-page recovery is same-origin guarded:
+  `Spec/SameOrigin` + `Hooks::wireEditSessionRetry` mark the forced-preview
+  page (`wb-edit-token-refreshed`) only for a same-origin POST from a
+  logged-in user, and `resources/editsessionretry.js` resubmits once with
+  `wbTokenRetry=1` (no loop). Cross-site POSTs keep core's preview.
+- **Add\* relevance ranking**: `Fetch/RecordRanker` (above).
+- **Proprietary license + non-FOSS default**: the preseed gains a
+  `software license`-class **Proprietary** item (`foss=false`); the
+  AddSoftware license field is required on create, pre-populated with the
+  known licenses and paired with an **Unknown license** checkbox
+  (`resources/softwarelicense.js` disables/clears the combobox; the server
+  clears the license and defaults to Software:). `SoftwarePageKind` no
+  longer treats an empty/unresolved license as FOSS. Update keeps the
+  no-clobber rule (license optional, no checkbox). **Q2721 repair**: add
+  P34 → Proprietary and fix the `Software:` page's `{{FOSS}}` template to
+  `{{Software}}`.

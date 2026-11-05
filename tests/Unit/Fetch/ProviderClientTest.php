@@ -345,6 +345,36 @@ final class ProviderClientTest extends TestCase {
 		$this->assertSame( 1, count( $http->calls ) );
 	}
 
+	public function testTitleSearchRanksAnExactOpenAlexTitleAboveEarlierOpenLibraryHits(): void {
+		// The AddSource report: Open Library's loose title match returned four
+		// irrelevant books before OpenAlex's exact title. The merged list is
+		// now relevance-ranked before the 10-result cap.
+		$http = new FakeHttpClient();
+		$http->onJson( '/search.json', [ 'docs' => [
+			[ 'title' => 'The predictive power of chronic stress and hassles', 'key' => '/books/OL1' ],
+			[ 'title' => 'The use of a caution factor to increase the predictive value', 'key' => '/books/OL2' ],
+			[ 'title' => 'A study of the value of a psychological examination', 'key' => '/books/OL3' ],
+			[ 'title' => 'Prediction of success in philosophical studies', 'key' => '/books/OL4' ],
+		] ] );
+		$http->onJson( '/works', [ 'results' => [
+			[ 'id' => 'https://openalex.org/W1', 'title' => 'On the psychology of prediction.' ],
+			[ 'id' => 'https://openalex.org/W2', 'title' => 'Attribution and the psychology of prediction.' ],
+		] ] );
+		$client = new ProviderClient(
+			[],
+			[],
+			[ new OpenLibraryProvider( $http ), new OpenAlexProvider( $http ) ],
+			[],
+			[],
+			[]
+		);
+
+		$result = $client->searchWorks( 'On the psychology of prediction' );
+
+		$this->assertSame( 'On the psychology of prediction.', $result->records[0]->title );
+		$this->assertSame( 'openalex', $result->records[0]->provider );
+	}
+
 	public function testDefaultFactoryWiresTheCanonicalCascade(): void {
 		$http = new FakeHttpClient();
 		$client = ProviderClient::default( $http );

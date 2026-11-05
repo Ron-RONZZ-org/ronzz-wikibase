@@ -515,6 +515,7 @@ def flow_manual(op, base: str, api: str, special: str, label: str, class_item: s
 
 
 def flow_software_manual(op, base: str, api: str, label: str, class_item: str,
+                         license_qid: str,
                          extra_fields: dict | None = None) -> tuple[str, str]:
     """Special:AddSoftware/manual — create from blank (no authority record),
     following the /complete/<qid> finalize redirect to the FOSS page.
@@ -531,6 +532,7 @@ def flow_software_manual(op, base: str, api: str, label: str, class_item: str,
     fields = {
         "wplabel": label,
         "wpclass": class_item,
+        "wplicense": license_qid,
         "wpEditToken": token,
         "wpSubmit": "1",
     }
@@ -551,6 +553,43 @@ def flow_software_manual(op, base: str, api: str, label: str, class_item: str,
     if not qid:
         raise FlowError(f"AddSoftware/manual page {page_title} has no wikibase_item "
                         f"(finalize step did not map the sitelink)")
+    return qid, page_title
+
+
+def flow_software_manual_unknown_license(op, base: str, api: str, label: str,
+                                         class_item: str, software_class: str,
+                                         instance_of_prop: str) -> tuple[str, str]:
+    """Special:AddSoftware/manual with the "Unknown license" opt-out (the
+    Q2721 regression): no license statement, and the license-less default is
+    the NON-FOSS Software: page + software class — never FOSS."""
+    url, body = page_get(op, base, "/wiki/Special:AddSoftware/manual")
+    token = edit_token(body)
+    fields = {
+        "wplabel": label,
+        "wpclass": class_item,
+        "wplicenseUnknown": "1",
+        "wpEditToken": token,
+        "wpSubmit": "1",
+    }
+    url, body = page_post(op, url, fields)
+    m = re.search(r"/wiki/(Software:[^?#]+)$", url)
+    if not m:
+        raise FlowError(
+            f"AddSoftware/manual (unknown license) did not redirect to a Software: page: "
+            f"{url} {find_error(body)}")
+    page_title = urllib.parse.unquote(m.group(1)).replace("_", " ")
+
+    r = api_call(op, api, {"action": "query", "titles": page_title,
+                           "prop": "pageprops", "format": "json"})
+    qid = None
+    for page in r.get("query", {}).get("pages", {}).values():
+        qid = page.get("pageprops", {}).get("wikibase_item")
+    if not qid:
+        raise FlowError(f"AddSoftware/manual (unknown license) page {page_title} has no wikibase_item")
+    claims, _ = entity_claims(op, api, qid)
+    assert first_value(claims, instance_of_prop) == software_class, \
+        f"{qid} instance-of != software (an unknown license must never be classified FOSS); " \
+        f"claims: {json.dumps(claims)}"
     return qid, page_title
 
 
@@ -657,7 +696,7 @@ def flow_cite_collective_author(op, base: str, api: str, collective_class: str) 
     return collective_qid, quote_qid, collective_page
 
 
-def flow_software(op, base: str, api: str, name: str) -> tuple[str, str]:
+def flow_software(op, base: str, api: str, name: str, license_qid: str) -> tuple[str, str]:
     """Special:AddSoftware search -> select -> review -> create (issue #26).
 
     Unlike the other flows, success redirects to the created FOSS: page (the
@@ -692,9 +731,15 @@ def flow_software(op, base: str, api: str, name: str) -> tuple[str, str]:
         raise FlowError(
             f"AddSoftware select did not redirect to the review step: {url} {find_error(body)}")
 
-    # Review step: submit the pre-filled form unchanged.
+    # Review step: submit the pre-filled form unchanged, but pick a known
+    # FOSS license — the license field is required on create (the
+    # "Unknown license" checkbox is the explicit opt-out).
     token3 = edit_token(body)
-    url, body = page_post(op, url, {"wpEditToken": token3, "wpSubmit": "1"})
+    url, body = page_post(op, url, {
+        "wplicense": license_qid,
+        "wpEditToken": token3,
+        "wpSubmit": "1",
+    })
     m = re.search(r"/wiki/(FOSS:[^?#]+)$", url)
     if not m:
         raise FlowError(f"AddSoftware review did not redirect to a FOSS page: {url} {find_error(body)}")
@@ -735,8 +780,9 @@ def flow_software_logo(op, base: str, api: str, label: str, class_item: str,
     url, body = page_post_multipart(op, url, {
         "wplabel": label,
         "wpclass": class_item,
-        # The logo section is opt-in behind the toggle (upload enhancements);
-        # the license is mandatory when a logo is provided.
+        # The software license is required on create; the logo license is
+        # separately mandatory when a logo is provided.
+        "wplicense": license_qid,
         "wplogoInclude": "1",
         "wplogoMode": "file",
         "wplogoLicense": license_qid,
@@ -2918,6 +2964,8 @@ def flow_uploadform_module_source(op, base: str) -> None:
         raise FlowError("uploadform module: same-origin fetch submission missing")
     if "wb-upload-token-failed" not in body or "refreshToken" not in body:
         raise FlowError("uploadform module: stale-CSRF-token detection/refresh missing")
+    if "tokenRetryUsed" not in body or "startFetchSubmit( true )" not in body:
+        raise FlowError("uploadform module: automatic CSRF-token retry missing")
     if "wb-upload-error" not in body:
         raise FlowError("uploadform module: inline error display missing")
     if "wpUploadAnother" not in body or "window.open" not in body:
@@ -2926,6 +2974,30 @@ def flow_uploadform_module_source(op, base: str) -> None:
         raise FlowError("uploadform module: delayed URL-loading overlay missing")
     if "wpSourceType" not in body or "wb-uploadmeta-preview" not in body or "clearPreview" not in body:
         raise FlowError("uploadform module: source-toggle preview clearing missing")
+
+
+def flow_editsessionretry_module_source(op, base: str) -> None:
+    """Edit-page stale-token recovery is JS-side: assert the served module
+    source carries the body-class marker, the no-loop hidden field and the
+    Save activation."""
+    _, body = page_get(op, base,
+        "/load.php?modules=ext.embeddableContent.editsessionretry&lang=en&skin=vector&debug=true")
+    if "wb-edit-token-refreshed" not in body or "wbTokenRetry" not in body:
+        raise FlowError("editsessionretry module: token-refresh retry wiring missing")
+    if "wpSave" not in body:
+        raise FlowError("editsessionretry module: save button activation missing")
+
+
+def flow_mentioncontext_module_source(op, base: str) -> None:
+    """The "Copy internal mention" right-click menu is JS-side: assert the
+    served module source carries the contextmenu handler and the
+    "Capitalise first letter" menu item."""
+    _, body = page_get(op, base,
+        "/load.php?modules=ext.embeddableContent.mentioncontext&lang=en&skin=vector&debug=true")
+    if "contextmenu" not in body:
+        raise FlowError("mentioncontext module: contextmenu handler missing")
+    if "embeddablecontent-mention-menu-capitalise" not in body:
+        raise FlowError("mentioncontext module: capitalise-first-letter item missing")
 
 
 def flow_themetoggle_module_source(op, base: str) -> None:
@@ -4633,6 +4705,10 @@ def flow_item_page_mention(op, base: str, page_title: str, qid: str) -> None:
             f"Item:{qid}: wbMentionLink mismatch "
             f"({m_link.group(1) if m_link else 'missing'}), expected the classic "
             f"page {page_title!r}: {find_error(body)}")
+    m_cap = re.search(r'"wbMentionLinkCapitalized"\s*:\s*"([^"]*)"', body)
+    if not m_cap:
+        raise FlowError(f"Item:{qid}: missing wbMentionLinkCapitalized "
+                        f"(the right-click capitalise option)")
     for stale in ( "wbMentionLabel", "wbMentionItalic" ):
         if stale in body:
             raise FlowError(f"Item:{qid}: stale {stale} config var still rendered")
@@ -5973,9 +6049,10 @@ def main() -> int:
 
         # 3c. Special:AddSoftware — search -> select -> review -> create:
         #     item + FOSS:<Name> page + sitelink in one flow (issue #26).
+        license_item = resolve("CC BY-SA 4.0", "item")  # preseed FOSS license
         foss_class = resolve("free and open-source software", "item")
         official_website = resolve("official website", "property")
-        software_qid, foss_page = flow_software(op, base, api, args.software)
+        software_qid, foss_page = flow_software(op, base, api, args.software, license_item)
         software = track(software_qid)
         claims, label = entity_claims(op, api, software)
         assert first_value(claims, instance_of) == foss_class, \
@@ -6013,7 +6090,7 @@ def main() -> int:
         has_use = resolve("has use", "property")
         software_manual_label = f"Page-flow E2E software {int(time.time())}"
         software_manual, foss_manual_page = flow_software_manual(
-            op, base, api, software_manual_label, foss_class,
+            op, base, api, software_manual_label, foss_class, license_item,
             extra_fields={"wphasUse": f"{foss_class}, {person}"})
         software_manual = track(software_manual)
         claims, _ = entity_claims(op, api, software_manual)
@@ -6033,7 +6110,7 @@ def main() -> int:
         #      the wrong config map.
         prefill_label = f"Page-flow E2E prefill software {int(time.time())}"
         software_prefill, software_prefill_page = flow_software_manual(
-            op, base, api, prefill_label, foss_class,
+            op, base, api, prefill_label, foss_class, license_item,
             extra_fields={"wpdeveloper": person, "wpprogrammingLanguage": "python"})
         software_prefill = track(software_prefill)
         if software_prefill in created:
@@ -6077,7 +6154,6 @@ def main() -> int:
         #     image statement, and passed to the FOSS page infobox. The
         #     license is mandatory; the image facts land on the FILE's own
         #     image item + page, never on the FOSS item (semantic-first).
-        license_item = resolve("CC BY-SA 4.0", "item")  # preseed license
         logo_label = f"Page-flow E2E logo software {int(time.time())}"
         logo_qid, logo_page = flow_software_logo(op, base, api, logo_label, foss_class, license_item)
         logo_qid = track(logo_qid)
@@ -6144,6 +6220,18 @@ def main() -> int:
             created_pages.append(sw_nonfree_page)
         print(f"[ok] AddSoftware/manual (non-FOSS license) -> {sw_nonfree}: "
               f"Software: page + {software_class} class by license default")
+
+        # 3d4. Unknown license (the Q2721 regression): the checkbox bypasses
+        #      the required license and the license-less default must be the
+        #      NON-FOSS Software: page + software class, never FOSS.
+        sw_unknown_label = f"Page-flow E2E unknown-license software {int(time.time())}"
+        sw_unknown, sw_unknown_page = flow_software_manual_unknown_license(
+            op, base, api, sw_unknown_label, foss_class, software_class, instance_of)
+        sw_unknown = track(sw_unknown)
+        if sw_unknown in created:
+            created_pages.append(sw_unknown_page)
+        print(f"[ok] AddSoftware/manual (unknown license) -> {sw_unknown}: "
+              f"Software: page + {software_class} class without a license")
 
         # Explicit override: a FOSS license, but the user picks the Software
         # page (the radio wins over the license default) — the class follows
@@ -6221,7 +6309,11 @@ def main() -> int:
               "(copy-on-upload, upload-another opener reload)")
         flow_uploadform_module_source(op, base)
         print("[ok] uploadform module source: file-source gating, empty-field warning, "
-              "same-origin fetch submission, inline error + token refresh")
+              "same-origin fetch submission, inline error + automatic token retry")
+        flow_editsessionretry_module_source(op, base)
+        print("[ok] editsessionretry module source: same-origin stale-token retry + no-loop marker")
+        flow_mentioncontext_module_source(op, base)
+        print("[ok] mentioncontext module source: right-click Capitalise first letter")
         flow_themetoggle_module_source(op, base)
         print("[ok] ThemeToggle module source: Vector 2022 sun/moon button + "
               "vector-theme persistence")

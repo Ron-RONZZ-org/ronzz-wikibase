@@ -46,6 +46,15 @@ class SpecialUpdateSoftware extends SpecialAddSoftware {
 	}
 
 	/**
+	 * Update keeps the no-clobber contract: a blank license keeps the
+	 * existing statement, so the field is not required and the "Unknown
+	 * license" opt-out is not shown.
+	 */
+	protected function licenseRequired(): bool {
+		return false;
+	}
+
+	/**
 	 * The include toggle says the logo is being REPLACED on update (the
 	 * Add* wording "I will upload a logo image" implied a new entity).
 	 */

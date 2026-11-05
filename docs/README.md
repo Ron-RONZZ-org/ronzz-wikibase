@@ -152,3 +152,9 @@ from `addsemanticentity`/`addsource`; URL uploads show a delayed loading
 overlay and the source toggle clears the deselected preview; animated GIF
 thumbnails up to 60 MP; orphan Main-page items are deleted with their page;
 AddQuotation inherits a single-author source when the author is blank).
+
+Nov 2026 follow-up: `nov-2026-mention-retry-ranking-license.md` — the
+right-click **Capitalise first letter** mention variant, automatic stale-
+token retries for `Special:Upload` and the same-origin `action=edit` save,
+relevance ranking of merged Add\* provider results, and the **Proprietary**
+license + non-FOSS default (the Q2721 repair).

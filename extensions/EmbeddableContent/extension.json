@@ -590,7 +590,49 @@
 			],
 			"dependencies": [
 				"mediawiki.notification",
-				"ext.embeddableContent.toolbar"
+				"ext.embeddableContent.toolbar",
+				"ext.embeddableContent.mentioncontext"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.mentioncontext": {
+			"scripts": [
+				"mentioncontext.js"
+			],
+			"styles": [
+				"gadget.css"
+			],
+			"messages": [
+				"embeddablecontent-mention-menu-copy",
+				"embeddablecontent-mention-menu-capitalise"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.editsessionretry": {
+			"scripts": [
+				"editsessionretry.js"
+			],
+			"dependencies": [
+				"mediawiki.user",
+				"mediawiki.notification"
+			],
+			"messages": [
+				"embeddablecontent-edit-session-retry"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.softwarelicense": {
+			"scripts": [
+				"softwarelicense.js"
 			],
 			"targets": [
 				"desktop",
@@ -667,7 +709,8 @@
 				"mediawiki.notification",
 				"mediawiki.util",
 				"ext.embeddableContent.toolbar",
-				"ext.embeddableContent.citationpopup"
+				"ext.embeddableContent.citationpopup",
+				"ext.embeddableContent.mentioncontext"
 			],
 			"messages": [
 				"embeddablecontent-contentpage-copymention",
@@ -835,8 +878,9 @@
 				"uploadimage.js"
 			],
 			"dependencies": [
-				"ext.embeddableContent.uploadmeta",
-				"mediawiki.util"
+				"mediawiki.notification",
+				"mediawiki.util",
+				"ext.embeddableContent.mentioncontext"
 			],
 			"messages": [
 				"embeddablecontent-upload-resizing"
