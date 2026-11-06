@@ -21,6 +21,7 @@ final class OpenLibraryProviderTest extends TestCase {
 					'publisher' => [ "Charles Scribner's Sons" ],
 					'isbn_13' => [ '9780684801223' ],
 					'first_publish_year' => 1952,
+					'author_name' => [ 'Ernest Hemingway' ],
 					'key' => '/books/OL1234567W',
 				],
 			],
@@ -36,16 +37,21 @@ final class OpenLibraryProviderTest extends TestCase {
 		$this->assertSame( '9780684801223', $records[0]->isbn );
 		$this->assertSame( 1952, $records[0]->issuedYear );
 		$this->assertSame( '/books/OL1234567W', $records[0]->providerId );
+		$this->assertSame( 'Ernest Hemingway', $records[0]->authors[0]->label );
 	}
 
 	public function testByIsbn(): void {
-		$http = ( new FakeHttpClient() )->onJson( '/isbn/9780684801223.json', [
-			'title' => 'The Old Man and the Sea',
-			'publishers' => [ "Charles Scribner's Sons" ],
-			'publish_date' => '1952-09-01',
-			'isbn_13' => [ '9780684801223' ],
-			'key' => '/books/OL1234567W',
-		] );
+		$http = ( new FakeHttpClient() )
+			->onJson( '/isbn/9780684801223.json', [
+				'title' => 'The Old Man and the Sea',
+				'publishers' => [ "Charles Scribner's Sons" ],
+				'publish_date' => '1952-09-01',
+				'isbn_13' => [ '9780684801223' ],
+				'key' => '/books/OL1234567W',
+			] )
+			->onJson( '/search.json', [
+				'docs' => [ [ 'author_name' => [ 'Ernest Hemingway' ] ] ],
+			] );
 		$provider = new OpenLibraryProvider( $http );
 
 		$record = $provider->byIsbn( '9780684801223' );
@@ -53,6 +59,7 @@ final class OpenLibraryProviderTest extends TestCase {
 		$this->assertNotNull( $record );
 		$this->assertSame( 'The Old Man and the Sea', $record->title );
 		$this->assertSame( 1952, $record->issuedYear );
+		$this->assertSame( 'Ernest Hemingway', $record->authors[0]->label );
 	}
 
 	public function testByDoiReturnsNull(): void {

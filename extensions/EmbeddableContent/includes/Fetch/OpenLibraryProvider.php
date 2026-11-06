@@ -107,10 +107,18 @@ class OpenLibraryProvider implements WorkProvider {
 				'limit' => 1,
 			], $this->timeout );
 		} catch ( \Throwable $e ) {
-			\MediaWiki\Logger\LoggerFactory::getInstance( 'EmbeddableContent' )->warning(
-				'Open Library author enrichment failed for ISBN {isbn}: {error}',
-				[ 'isbn' => $isbn, 'error' => $e->getMessage() ]
-			);
+			if ( class_exists( \MediaWiki\Logger\LoggerFactory::class ) ) {
+				\MediaWiki\Logger\LoggerFactory::getInstance( 'EmbeddableContent' )->warning(
+					'Open Library author enrichment failed for ISBN {isbn}: {error}',
+					[ 'isbn' => $isbn, 'error' => $e->getMessage() ]
+				);
+			} else {
+				error_log( sprintf(
+					'Open Library author enrichment failed for ISBN %s: %s',
+					$isbn,
+					$e->getMessage()
+				) );
+			}
 			return [];
 		}
 		$doc = $data['docs'][0] ?? null;
