@@ -16,6 +16,8 @@ namespace EmbeddableContent\Fetch;
 
 	/**
 	 * @param string[] $classWikidataIds instance-of class QIDs from the authority
+	 * @param AuthorRecord[] $authors creators carried by the provider, in
+	 *   authority order; empty when the provider has no author payload
 	 */
 	public function __construct(
 		public readonly string $title,
@@ -40,7 +42,8 @@ namespace EmbeddableContent\Fetch;
 		public readonly ?string $channelTitle = null,
 		public readonly ?string $abstract = null,
 		public readonly ?string $keywords = null,
-		public readonly ?string $enwikiTitle = null
+		public readonly ?string $enwikiTitle = null,
+		public readonly array $authors = []
 	) {
 	}
 }

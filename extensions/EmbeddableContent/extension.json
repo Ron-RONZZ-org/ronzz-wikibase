@@ -158,6 +158,12 @@
 				"EmbeddableContent.EntityTermSearch"
 			]
 		},
+		"authority-search": {
+			"class": "EmbeddableContent\\Api\\ApiAuthoritySearch",
+			"services": [
+				"EmbeddableContent.AuthoritySearch"
+			]
+		},
 		"uploadmeta": {
 			"class": "EmbeddableContent\\Api\\ApiUploadMeta"
 		},

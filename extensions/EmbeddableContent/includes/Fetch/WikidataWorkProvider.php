@@ -176,8 +176,17 @@ class WikidataWorkProvider implements WorkProvider, ClassFilteredWorkProvider {
 			return null;
 		}
 		$itemLabels = $this->core->resolveItemLabels(
-			$this->core->itemValueIds( $harvest['claims'], [ 'P1433', 'P123' ] )
+			$this->core->itemValueIds( $harvest['claims'], [ 'P1433', 'P123', 'P50' ] )
 		);
+		$authors = [];
+		foreach ( $this->core->itemValueIds( $harvest['claims'], [ 'P50' ] ) as $authorId ) {
+			$authors[] = new AuthorRecord(
+				label: $itemLabels[$authorId] ?? $authorId,
+				wikidataId: $authorId,
+				provider: 'wikidata',
+				providerId: $authorId
+			);
+		}
 		return new WorkRecord(
 			title: $harvest['label'],
 			description: $harvest['description'],
@@ -195,7 +204,8 @@ class WikidataWorkProvider implements WorkProvider, ClassFilteredWorkProvider {
 			classWikidataIds: $this->core->itemValueIds( $harvest['claims'], [ 'P31' ] ),
 			provider: 'wikidata',
 			providerId: $qid,
-			enwikiTitle: $this->core->enwikiTitle( $harvest['sitelinks'] )
+			enwikiTitle: $this->core->enwikiTitle( $harvest['sitelinks'] ),
+			authors: $authors
 		);
 	}
 }
