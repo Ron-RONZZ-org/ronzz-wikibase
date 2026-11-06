@@ -99,6 +99,7 @@ class CrossrefProvider implements WorkProvider {
 			}
 			$out[] = new WorkRecord(
 				title: (string)$message['title'][0],
+				authors: $this->mapAuthors( $message['author'] ?? [] ),
 				containerTitle: isset( $message['container-title'][0] ) ? (string)$message['container-title'][0] : null,
 				publisher: isset( $message['publisher'] ) ? (string)$message['publisher'] : null,
 				volume: isset( $message['volume'] ) ? (string)$message['volume'] : null,
@@ -112,6 +113,49 @@ class CrossrefProvider implements WorkProvider {
 			);
 		}
 		return $out;
+	}
+
+	/**
+	 * @param mixed $authors the message's `author` array
+	 * @return AuthorRecord[]
+	 */
+	private function mapAuthors( $authors ): array {
+		if ( !is_array( $authors ) ) {
+			return [];
+		}
+		$out = [];
+		foreach ( $authors as $author ) {
+			if ( !is_array( $author ) ) {
+				continue;
+			}
+			$given = is_string( $author['given'] ?? null ) ? trim( $author['given'] ) : '';
+			$family = is_string( $author['family'] ?? null ) ? trim( $author['family'] ) : '';
+			$label = trim( $given . ' ' . $family );
+			if ( $label === '' ) {
+				continue;
+			}
+			$out[] = new AuthorRecord(
+				label: $label,
+				givenName: $given !== '' ? $given : null,
+				familyName: $family !== '' ? $family : null,
+				orcid: $this->bareOrcid( $author['ORCID'] ?? null ),
+				provider: 'crossref'
+			);
+		}
+		return $out;
+	}
+
+	/**
+	 * Crossref serves ORCIDs as full URLs; the wiki stores the bare iD.
+	 *
+	 * @param mixed $value
+	 */
+	private function bareOrcid( $value ): ?string {
+		if ( !is_string( $value ) || trim( $value ) === '' ) {
+			return null;
+		}
+		$id = basename( rtrim( trim( $value ), '/' ) );
+		return preg_match( '/^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/i', $id ) === 1 ? $id : null;
 	}
 
 	/**

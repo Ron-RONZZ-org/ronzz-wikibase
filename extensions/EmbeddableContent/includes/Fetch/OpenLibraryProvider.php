@@ -61,6 +61,7 @@ class OpenLibraryProvider implements WorkProvider {
 			}
 			$out[] = new WorkRecord(
 				title: (string)$doc['title'],
+				authors: $this->authorRecords( $doc['author_name'] ?? [] ),
 				publisher: isset( $doc['publisher'][0] ) ? (string)$doc['publisher'][0] : null,
 				isbn: isset( $doc['isbn_13'][0] ) ? (string)$doc['isbn_13'][0] : null,
 				issuedYear: isset( $doc['first_publish_year'] ) ? (int)$doc['first_publish_year'] : null,
@@ -82,12 +83,56 @@ class OpenLibraryProvider implements WorkProvider {
 		}
 		return new WorkRecord(
 			title: (string)$data['title'],
+			authors: $this->authorsForIsbn( $isbn ),
 			publisher: isset( $data['publishers'][0] ) ? (string)$data['publishers'][0] : null,
 			isbn: isset( $data['isbn_13'][0] ) ? (string)$data['isbn_13'][0] : null,
 			issuedYear: $this->yearFromPublishDate( $data['publish_date'] ?? null ),
 			provider: 'openlibrary',
 			providerId: isset( $data['key'] ) ? (string)$data['key'] : null
 		);
+	}
+
+	/**
+	 * The ISBN endpoint carries author KEYS, not names. The search endpoint
+	 * carries `author_name`, so one extra request enriches the record without
+	 * changing the canonical ISBN title/publisher/year. A failed enrichment is
+	 * non-fatal and logged (the ISBN record itself is still valid).
+	 *
+	 * @return AuthorRecord[]
+	 */
+	private function authorsForIsbn( string $isbn ): array {
+		try {
+			$data = $this->http->getJson( self::SEARCH_API, [
+				'isbn' => $isbn,
+				'limit' => 1,
+			], $this->timeout );
+		} catch ( \Throwable $e ) {
+			\MediaWiki\Logger\LoggerFactory::getInstance( 'EmbeddableContent' )->warning(
+				'Open Library author enrichment failed for ISBN {isbn}: {error}',
+				[ 'isbn' => $isbn, 'error' => $e->getMessage() ]
+			);
+			return [];
+		}
+		$doc = $data['docs'][0] ?? null;
+		return is_array( $doc ) ? $this->authorRecords( $doc['author_name'] ?? [] ) : [];
+	}
+
+	/**
+	 * @param mixed $names Open Library `author_name` (a string array)
+	 * @return AuthorRecord[]
+	 */
+	private function authorRecords( $names ): array {
+		if ( !is_array( $names ) ) {
+			return [];
+		}
+		$out = [];
+		foreach ( $names as $name ) {
+			if ( !is_string( $name ) || trim( $name ) === '' ) {
+				continue;
+			}
+			$out[] = new AuthorRecord( label: trim( $name ), provider: 'openlibrary' );
+		}
+		return $out;
 	}
 
 	private function yearFromPublishDate( $value ): ?int {

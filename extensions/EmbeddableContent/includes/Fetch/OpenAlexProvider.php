@@ -108,6 +108,36 @@ class OpenAlexProvider implements PersonProvider, WorkProvider {
 	}
 
 	/**
+	 * @param mixed $authorships the work's `authorships` array
+	 * @return AuthorRecord[]
+	 */
+	private function mapWorkAuthors( $authorships ): array {
+		if ( !is_array( $authorships ) ) {
+			return [];
+		}
+		$out = [];
+		foreach ( $authorships as $authorship ) {
+			$author = $authorship['author'] ?? null;
+			if ( !is_array( $author ) || empty( $author['display_name'] ) ) {
+				continue;
+			}
+			$label = (string)$author['display_name'];
+			$names = NameSplitter::splitFullName( $label );
+			$out[] = new AuthorRecord(
+				label: $label,
+				givenName: $names['givenName'] !== '' ? $names['givenName'] : null,
+				familyName: $names['familyName'] !== '' ? $names['familyName'] : null,
+				orcid: $this->extractOrcid( $author['orcid'] ?? null ),
+				openalexId: $this->extractOpenAlexId( $author['id'] ?? null ),
+				wikidataId: $this->extractQid( $author['ids']['wikidata'] ?? null ),
+				provider: 'openalex',
+				providerId: is_string( $author['id'] ?? null ) ? $author['id'] : null
+			);
+		}
+		return $out;
+	}
+
+	/**
 	 * OpenAlex ids are served as full URLs ("https://openalex.org/W2741809807")
 	 * — the external-id property stores the bare id ("W2741809807", the
 	 * formatter URL renders it back). Same for author A-ids.
@@ -140,6 +170,7 @@ class OpenAlexProvider implements PersonProvider, WorkProvider {
 
 			$out[] = new WorkRecord(
 				title: (string)$work['title'],
+				authors: $this->mapWorkAuthors( $work['authorships'] ?? [] ),
 				containerTitle: is_string( $source ) ? $source : null,
 				publisher: isset( $work['publisher'] ) && is_string( $work['publisher'] ) ? $work['publisher'] : null,
 				volume: isset( $biblio['volume'] ) ? (string)$biblio['volume'] : null,
