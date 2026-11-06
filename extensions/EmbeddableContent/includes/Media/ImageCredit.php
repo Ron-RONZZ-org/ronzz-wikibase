@@ -205,7 +205,7 @@ final class ImageCredit {
 		if ( $line === '' ) {
 			return '';
 		}
-		$parser->getOutput()->addModuleStyles( 'ext.embeddableContent.imagecredit' );
+		$parser->getOutput()->addModuleStyles( [ 'ext.embeddableContent.imagecredit' ] );
 		self::registerCacheDependency( $parser, $itemId );
 		return '<div class="wb-image-credit">' . $line . '</div>';
 	}
