@@ -1034,6 +1034,42 @@ async function main() {
 		} else {
 			console.log('[ok] Special:Upload restores the remembered File source');
 		}
+
+		// Author / source mode toggles: the plain-text field is shown by
+		// default, the entity combobox appears only when its checkbox is
+		// ticked (and the server reads the mode the checkbox selects).
+		const authorTextRow = page.locator('tr.wb-upload-author-text');
+		const authorEntityRow = page.locator('tr.wb-upload-author-entity');
+		const sourceEntityRow = page.locator('tr.wb-upload-source-entity');
+		const sourceTextRow = page.locator('tr.wb-upload-source-text');
+		await page.waitForFunction(() => {
+			const row = document.querySelector('tr.wb-upload-author-entity');
+			return row !== null && getComputedStyle(row).display === 'none';
+		}, { timeout: 15000 }).catch(() => {});
+		if (!(await authorTextRow.isVisible()) || (await authorEntityRow.isVisible()) ||
+			!(await sourceEntityRow.isVisible()) || (await sourceTextRow.isVisible())) {
+			failures.push('Special:Upload author/source modes are not in their default state');
+		}
+		await page.check('#wpUploadAuthorIsEntity');
+		await page.check('#wpUploadSourceIsText');
+		await page.waitForFunction(() => {
+			const author = document.querySelector('tr.wb-upload-author-text');
+			const entity = document.querySelector('tr.wb-upload-author-entity');
+			const source = document.querySelector('tr.wb-upload-source-entity');
+			const text = document.querySelector('tr.wb-upload-source-text');
+			return author && entity && source && text &&
+				getComputedStyle(author).display === 'none' &&
+				getComputedStyle(entity).display !== 'none' &&
+				getComputedStyle(source).display === 'none' &&
+				getComputedStyle(text).display !== 'none';
+		}, { timeout: 15000 }).catch(() => {});
+		if ((await authorTextRow.isVisible()) || !(await authorEntityRow.isVisible()) ||
+			(await sourceEntityRow.isVisible()) || !(await sourceTextRow.isVisible())) {
+			failures.push('Special:Upload author/source toggle did not swap the visible field');
+		} else {
+			console.log('[ok] Special:Upload author/source mode toggles');
+		}
+
 		await page.goto(`${BASE_URL}/wiki/Special:Upload`, { waitUntil: 'domcontentloaded', timeout: 60000 });
 		await page.waitForSelector('#mw-upload-form', { timeout: 15000 });
 

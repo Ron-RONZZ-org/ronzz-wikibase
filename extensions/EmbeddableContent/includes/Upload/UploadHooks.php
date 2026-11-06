@@ -16,7 +16,10 @@ use MediaWiki\Upload\UploadBase;
  *  - semantic license combobox replacing the core MediaWiki:Licenses
  *    dropdown (UploadFormInitDescriptor) — the value is a license ITEM id,
  *    so the file page gets a wikilink reference instead of a {{template}};
- *  - free-text "image author" + "additional license information" fields;
+ *  - "Author" (free text, or an agent item when the semantic-entity
+ *    checkbox is ticked), "Source" (a source-class item by default, or
+ *    plain text when its checkbox is ticked) and "Additional license
+ *    information" fields;
  *  - the duplicated "Maximum file size: 1 GB (your chosen file from your
  *    device)" notes collapse to a single note on the file field
  *    (UploadFormSourceDescriptors), and the URL field gains the shared
@@ -58,12 +61,62 @@ final class UploadHooks {
 			'section' => 'description',
 			'id' => 'wpLicense',
 		];
+		// Author: a free-text name by default, or a semantic ENTITY (an agent
+		// item — the same model as the AddSource author field) when the
+		// checkbox is ticked. Both fields stay in the form; the checkbox
+		// selects which one the server reads, and resources/uploadform.js
+		// hides the inactive one (JS-off still submits a coherent value).
 		$descriptor['UploadAuthor'] = [
 			'type' => 'text',
 			'section' => 'description',
 			'id' => 'wpUploadAuthor',
+			'cssclass' => 'wb-upload-author-text',
 			'label-message' => 'embeddablecontent-upload-author',
 			'maxlength' => 250,
+		];
+		$descriptor['UploadAuthorIsEntity'] = [
+			'type' => 'check',
+			'section' => 'description',
+			'id' => 'wpUploadAuthorIsEntity',
+			'label-message' => 'embeddablecontent-upload-author-entity-check',
+		];
+		$descriptor['UploadAuthorEntity'] = EntityCombobox::spec(
+			'embeddablecontent-upload-author-entity',
+			array_values( self::config()->agentClasses() ),
+			false,
+			[
+				'id' => 'wpUploadAuthorEntity',
+				'section' => 'description',
+				'cssclass' => 'wb-entity-combobox wb-upload-author-entity',
+			]
+		);
+		// Source: an optional entity (a Source:/work item) by default, or a
+		// plain-text provenance string when the checkbox is ticked. When a
+		// source entity is given and no entity author is, the upload item
+		// inherits the source's `attributed to` statements.
+		$descriptor['UploadSource'] = EntityCombobox::spec(
+			'embeddablecontent-upload-source',
+			array_values( self::config()->sourceClasses() ),
+			false,
+			[
+				'id' => 'wpUploadSource',
+				'section' => 'description',
+				'cssclass' => 'wb-entity-combobox wb-upload-source-entity',
+			]
+		);
+		$descriptor['UploadSourceIsText'] = [
+			'type' => 'check',
+			'section' => 'description',
+			'id' => 'wpUploadSourceIsText',
+			'label-message' => 'embeddablecontent-upload-source-text-check',
+		];
+		$descriptor['UploadSourceText'] = [
+			'type' => 'text',
+			'section' => 'description',
+			'id' => 'wpUploadSourceText',
+			'cssclass' => 'wb-upload-source-text',
+			'label-message' => 'embeddablecontent-upload-source-text',
+			'maxlength' => 500,
 		];
 		$descriptor['UploadLicenseInfo'] = [
 			'type' => 'text',
@@ -278,7 +331,8 @@ final class UploadHooks {
 	public static function onUploadForm_getInitialPageText( &$pageText, $msg, $config ): void {
 		$request = RequestContext::getMain()->getRequest();
 		$license = trim( (string)$request->getVal( 'wpLicense', '' ) );
-		$author = trim( (string)$request->getVal( 'wpUploadAuthor', '' ) );
+		$author = self::authorFieldValues();
+		$source = self::sourceFieldValues();
 		$licenseInfo = trim( (string)$request->getVal( 'wpUploadLicenseInfo', '' ) );
 		$sourceUrl = trim( (string)$request->getVal( 'wbUploadmetaSourceUrl', '' ) );
 		if ( $sourceUrl === '' ) {
@@ -301,19 +355,25 @@ final class UploadHooks {
 				. '[[' . $license . '|' . htmlspecialchars( $label ) . "]]\n";
 		}
 
-		if ( $author !== '' || $licenseInfo !== '' || $sourceUrl !== '' ) {
+		$hasAuthor = $author['text'] !== '' || $author['entity'] !== '';
+		$hasSource = $source['text'] !== '' || $source['entity'] !== '';
+		if ( $hasAuthor || $licenseInfo !== '' || $hasSource || $sourceUrl !== '' ) {
 			$lines = [];
-			if ( $author !== '' ) {
+			if ( $hasAuthor ) {
 				$lines[] = wfMessage( 'embeddablecontent-upload-attribution-author' )->inContentLanguage()->text()
-					. ': ' . $author;
+					. ': ' . self::attributionValue( $author['entity'], $author['text'] );
 			}
 			if ( $licenseInfo !== '' ) {
 				$lines[] = wfMessage( 'embeddablecontent-upload-attribution-licenseinfo' )->inContentLanguage()->text()
-					. ': ' . $licenseInfo;
+					. ': ' . htmlspecialchars( $licenseInfo );
+			}
+			if ( $hasSource ) {
+				$lines[] = wfMessage( 'embeddablecontent-upload-attribution-source' )->inContentLanguage()->text()
+					. ': ' . self::attributionValue( $source['entity'], $source['text'] );
 			}
 			if ( $sourceUrl !== '' ) {
-				$lines[] = wfMessage( 'embeddablecontent-upload-attribution-source' )->inContentLanguage()->text()
-					. ': ' . $sourceUrl;
+				$lines[] = wfMessage( 'embeddablecontent-upload-attribution-sourceurl' )->inContentLanguage()->text()
+					. ': ' . htmlspecialchars( $sourceUrl );
 			}
 			if ( $lines !== [] ) {
 				$pageText .= '== '
@@ -321,6 +381,63 @@ final class UploadHooks {
 					. " ==\n" . implode( "\n", $lines ) . "\n";
 			}
 		}
+	}
+
+	/**
+	 * The ACTIVE author mode's values: the entity field when the "specify as
+	 * a semantic entity" checkbox is ticked, otherwise the free-text field.
+	 * Both fields are submitted, so the checkbox decides which one counts.
+	 *
+	 * @return array{text:string,entity:string}
+	 */
+	private static function authorFieldValues(): array {
+		$request = RequestContext::getMain()->getRequest();
+		if ( $request->getCheck( 'wpUploadAuthorIsEntity' ) ) {
+			return [
+				'text' => '',
+				'entity' => trim( (string)$request->getVal( 'wpUploadAuthorEntity', '' ) ),
+			];
+		}
+		return [
+			'text' => trim( (string)$request->getVal( 'wpUploadAuthor', '' ) ),
+			'entity' => '',
+		];
+	}
+
+	/**
+	 * The ACTIVE source mode's values: the plain-text field when the
+	 * "specify source as plain text" checkbox is ticked, otherwise the
+	 * entity field (the default).
+	 *
+	 * @return array{entity:string,text:string}
+	 */
+	private static function sourceFieldValues(): array {
+		$request = RequestContext::getMain()->getRequest();
+		if ( $request->getCheck( 'wpUploadSourceIsText' ) ) {
+			return [
+				'entity' => '',
+				'text' => trim( (string)$request->getVal( 'wpUploadSourceText', '' ) ),
+			];
+		}
+		return [
+			'entity' => trim( (string)$request->getVal( 'wpUploadSource', '' ) ),
+			'text' => '',
+		];
+	}
+
+	/**
+	 * The File: page attribution value for an author/source: an item link
+	 * when the entity mode is active and the value is a Q-id, else the
+	 * HTML-escaped plain text (never raw markup from the form).
+	 */
+	private static function attributionValue( string $entity, string $plainText ): string {
+		$entity = trim( $entity );
+		if ( preg_match( '/^Q[1-9]\d*$/i', $entity ) === 1 ) {
+			$entity = strtoupper( $entity );
+			return '[[:Item:' . $entity . '|'
+				. htmlspecialchars( self::licenseLabel( $entity ) ) . ']]';
+		}
+		return htmlspecialchars( $plainText );
 	}
 
 	/**
@@ -346,6 +463,8 @@ final class UploadHooks {
 			return;
 		}
 		$request = RequestContext::getMain()->getRequest();
+		$author = self::authorFieldValues();
+		$source = self::sourceFieldValues();
 		$label = (string)preg_replace( '/\.[^.]+$/', '', $title->getText() );
 		ImageItemCreator::createOrReuse(
 			self::config(),
@@ -354,10 +473,15 @@ final class UploadHooks {
 			trim( (string)$request->getVal( 'wpUploadDescription', '' ) ),
 			$title->getPrefixedText(),
 			trim( (string)$request->getVal( 'wpLicense', '' ) ) ?: null,
-			trim( (string)$request->getVal( 'wpUploadAuthor', '' ) ),
+			$author['text'],
 			trim( (string)$request->getVal( 'wpUploadLicenseInfo', '' ) ),
 			trim( (string)$request->getVal( 'wbUploadmetaSourceUrl', '' ) ),
-			wfMessage( 'embeddablecontent-upload-item-edit-summary', $label )->inContentLanguage()->text()
+			wfMessage( 'embeddablecontent-upload-item-edit-summary', $label )->inContentLanguage()->text(),
+			false,
+			[],
+			$author['entity'] !== '' ? $author['entity'] : null,
+			$source['entity'] !== '' ? $source['entity'] : null,
+			$source['text']
 		);
 	}
 

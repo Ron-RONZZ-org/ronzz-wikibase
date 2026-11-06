@@ -96,6 +96,9 @@ class ApiImageFacts extends ApiBase {
 			);
 		}
 
+		$authorEntity = $this->itemIdParam( $params['authorEntity'] ?? null, 'authorEntity' );
+		$sourceEntity = $this->itemIdParam( $params['sourceEntity'] ?? null, 'sourceEntity' );
+
 		$label = (string)preg_replace( '/\.[^.]+$/', '', $title->getText() );
 		$itemId = ImageItemCreator::createOrReuse(
 			$this->config,
@@ -109,7 +112,10 @@ class ApiImageFacts extends ApiBase {
 			trim( (string)( $params['sourceUrl'] ?? '' ) ),
 			$params['summary'] ?? 'Set image facts',
 			$params['mode'] === 'update',
-			$clearFields
+			$clearFields,
+			$authorEntity,
+			$sourceEntity,
+			trim( (string)( $params['sourceText'] ?? '' ) )
 		);
 
 		if ( $itemId === null ) {
@@ -127,6 +133,24 @@ class ApiImageFacts extends ApiBase {
 			'mode' => $params['mode'],
 			...( $clearFields !== [] ? [ 'cleared' => $clearFields ] : [] ),
 		] );
+	}
+
+	/**
+	 * A Q-id API parameter, or null when blank; a non-item value is a client
+	 * error (the entity comboboxes only submit ids).
+	 */
+	private function itemIdParam( ?string $value, string $name ): ?string {
+		$value = trim( (string)$value );
+		if ( $value === '' ) {
+			return null;
+		}
+		if ( preg_match( '/^Q[1-9]\d*$/i', $value ) !== 1 ) {
+			$this->dieWithError(
+				new RawMessage( "{$name} \"{$value}\" is not an item ID (Q<n>)." ),
+				'invalid_' . strtolower( $name )
+			);
+		}
+		return strtoupper( $value );
 	}
 
 	public function getAllowedParams() {
@@ -150,6 +174,23 @@ class ApiImageFacts extends ApiBase {
 				self::PARAM_TYPE => 'string',
 				self::PARAM_REQUIRED => false,
 				self::PARAM_MAX_BYTES => 250,
+			],
+			// Entity author/source (the item-valued provenance statements);
+			// `author` stays the free-text image-author string.
+			'authorEntity' => [
+				self::PARAM_TYPE => 'string',
+				self::PARAM_REQUIRED => false,
+				self::PARAM_MAX_BYTES => 16,
+			],
+			'sourceEntity' => [
+				self::PARAM_TYPE => 'string',
+				self::PARAM_REQUIRED => false,
+				self::PARAM_MAX_BYTES => 16,
+			],
+			'sourceText' => [
+				self::PARAM_TYPE => 'string',
+				self::PARAM_REQUIRED => false,
+				self::PARAM_MAX_BYTES => 500,
 			],
 			'licenseInfo' => [
 				self::PARAM_TYPE => 'string',
@@ -198,6 +239,6 @@ class ApiImageFacts extends ApiBase {
 	}
 
 	public function getModuleDescription() {
-		return 'Creates, reuses or updates the sitelinked image item for an uploaded File: page, writing the license, image author, additional license information and source URL statements (the API counterpart of the Special:Upload itemization; mode=update replaces the statements for the fields provided and clear removes them).';
+		return 'Creates, reuses or updates the sitelinked image item for an uploaded File: page, writing the license, image author, image source, additional license information, source URL and the entity author/source (attributed to / source) statements. The API counterpart of the Special:Upload itemization: mode=update replaces the statements for the fields provided, a blank field keeps the current statement, and clear removes them. When no entity author is given but an entity source is, the source item\'s attributed-to authors are inherited.';
 	}
 }

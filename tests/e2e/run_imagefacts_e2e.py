@@ -133,6 +133,52 @@ def upload_png(op, api: str, filename: str, token: str) -> None:
         raise FlowError(f"upload failed: {r!r}")
 
 
+def create_item(op, api: str, token: str, label: str, claims: list | None = None) -> str:
+    """Create a plain item through wbeditentity and return its Q-id."""
+    data = {"labels": {"en": {"language": "en", "value": label}}}
+    if claims:
+        data["claims"] = claims
+    r = api_call(op, api, {
+        "action": "wbeditentity", "new": "item",
+        "data": json.dumps(data), "token": token, "format": "json",
+    }, post=True)
+    item_id = r.get("entity", {}).get("id")
+    if not item_id:
+        raise FlowError(f"wbeditentity returned no item id: {r!r}")
+    return item_id
+
+
+def entity_claim(property_id: str, item_id: str) -> dict:
+    return {
+        "mainsnak": {
+            "snaktype": "value",
+            "property": property_id,
+            "datavalue": {
+                "value": {
+                    "entity-type": "item",
+                    "numeric-id": int(item_id[1:]),
+                    "id": item_id,
+                },
+                "type": "wikibase-entityid",
+            },
+        },
+        "type": "statement",
+        "rank": "normal",
+    }
+
+
+def parse_text(op, api: str, text: str) -> str:
+    # A real content-page title: the credit hook only acts on content pages,
+    # and action=parse without `title` uses a non-content placeholder.
+    r = api_call(op, api, {
+        "action": "parse", "text": text, "title": "Imagefacts credit E2E",
+        "contentmodel": "wikitext", "prop": "text", "format": "json",
+    })
+    if "parse" not in r:
+        raise FlowError(f"action=parse failed for {text!r}: {r!r}")
+    return r["parse"]["text"]["*"]
+
+
 def claim_values(item: dict, prop: str) -> list:
     values = []
     for statement in item.get("claims", {}).get(prop, []):
@@ -160,6 +206,12 @@ def check_item(item: dict, file_title: str, expected: dict) -> None:
         got = claim_values(item, prop)
         if wanted not in got:
             raise FlowError(f"{prop}: {wanted!r} not in {got!r}")
+
+
+def delete_item(op, api: str, item_id: str, token: str) -> None:
+    api_call(op, api, {"action": "delete", "title": f"Item:{item_id}",
+                       "token": token, "reason": "imagefacts E2E cleanup",
+                       "format": "json"}, post=True)
 
 
 def cleanup(op, api: str, item_id: str, file_title: str, token: str) -> None:
@@ -273,6 +325,63 @@ def main() -> int:
             author_prop: updated_author,
             source_prop: SOURCE_URL,
         })
+
+        # Entity author/source + inheritance: an entity source with its own
+        # `attributed to` supplies the image author when the author is
+        # blank (clear the free-text author first).
+        provenance = fields.get("provenance") or {}
+        attributed_to_prop = provenance.get("attributedTo")
+        source_entity_prop = provenance.get("source")
+        if not attributed_to_prop or not source_entity_prop:
+            raise FlowError(f"imagefacts-fields lacks the entity provenance ids: {provenance!r}")
+        stamp = int(time.time())
+        author_label = f"Imagefacts E2E author {stamp}"
+        source_label = f"Imagefacts E2E source {stamp}"
+        author_item = create_item(op, args.api_url, token, author_label)
+        source_item = create_item(
+            op, args.api_url, token, source_label,
+            [entity_claim(attributed_to_prop, author_item)],
+        )
+        try:
+            r = api_call(op, args.api_url, {
+                "action": "imagefacts", "filename": file_title, "mode": "update",
+                "clear": "author", "sourceEntity": source_item,
+                "token": token, "format": "json",
+            }, post=True)
+            if r.get("imagefacts", {}).get("itemId") != item_id:
+                raise FlowError(f"entity-author update reused a different item: {r!r}")
+            item = fetch_item(op, args.api_url, item_id)
+            if claim_values(item, author_prop):
+                raise FlowError("the free-text author survived clear=author")
+            check_item(item, file_title, {
+                attributed_to_prop: author_item,
+                source_entity_prop: source_item,
+            })
+
+            # Automatic thumbnail credit on a content page (the image item's
+            # facts are appended to the caption)…
+            html = parse_text(op, args.api_url,
+                              f"[[File:{filename}|thumb|Caption]]")
+            if "wb-image-credit" not in html:
+                raise FlowError("a thumbnail of a fully-factored file shows no image credit")
+            for wanted in (author_label, source_label,
+                           {v: k for k, v in licenses.items()}[license_b]):
+                if wanted not in html:
+                    raise FlowError(f"the image credit is missing {wanted!r}")
+            # …and class=noCredit (canonical) / a bare noCredit caption
+            # suppress it without leaking the token into the class list.
+            for suppressed in (
+                f"[[File:{filename}|thumb|Caption|class=noCredit]]",
+                f"[[File:{filename}|thumb|noCredit]]",
+            ):
+                html = parse_text(op, args.api_url, suppressed)
+                if "wb-image-credit" in html:
+                    raise FlowError(f"noCredit did not suppress the credit: {suppressed!r}")
+            print(f"OK image credit + noCredit: {file_title}")
+        finally:
+            if not args.keep:
+                delete_item(op, args.api_url, source_item, token)
+                delete_item(op, args.api_url, author_item, token)
 
         print(f"OK imagefacts: {file_title} -> {item_id}")
         if not args.keep:

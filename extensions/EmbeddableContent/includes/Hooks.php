@@ -398,6 +398,27 @@ class Hooks {
 			$params['wbanother'] = '1';
 			$params['wblicense'] = (string)$request->getVal( 'wpLicense', '' );
 			$params['wbauthor'] = (string)$request->getVal( 'wpUploadAuthor', '' );
+			// Author/source mode selection + the entity variants (the same
+			// checkbox-decides rule the form and the server use). Empty
+			// values are dropped by the File-page hand-off.
+			if ( $request->getCheck( 'wpUploadAuthorIsEntity' ) ) {
+				$params['wbauthorisentity'] = '1';
+			}
+			$authorEntity = trim( (string)$request->getVal( 'wpUploadAuthorEntity', '' ) );
+			if ( $authorEntity !== '' ) {
+				$params['wbauthorentity'] = $authorEntity;
+			}
+			if ( $request->getCheck( 'wpUploadSourceIsText' ) ) {
+				$params['wbsourceistext'] = '1';
+			}
+			$sourceEntity = trim( (string)$request->getVal( 'wpUploadSource', '' ) );
+			if ( $sourceEntity !== '' ) {
+				$params['wbsource'] = $sourceEntity;
+			}
+			$sourceText = trim( (string)$request->getVal( 'wpUploadSourceText', '' ) );
+			if ( $sourceText !== '' ) {
+				$params['wbsourcetext'] = $sourceText;
+			}
 			$params['wblicenseinfo'] = (string)$request->getVal( 'wpUploadLicenseInfo', '' );
 			// The source radio (File | Url): preserved so "upload another
 			// image from same author" remembers the user's choice (a URL
@@ -454,11 +475,13 @@ class Hooks {
 		// preview; wbTokenRetry stops a retry loop.
 		self::wireEditSessionRetry( $out );
 
-		// Userspace subpage title: `User:Rongzhou/Pretty good Linux` renders
-		// as "Pretty good Linux by @Rongzhou" (the author link is added by
+		// Display titles: `User:Rongzhou/Pretty good Linux` renders as
+		// "Pretty good Linux by @Rongzhou" (the author link is added by
 		// resources/userpagetitle.js; the server text is the no-JS fallback
-		// and the correct <title>).
-		self::applyUserPageTitle( $out, $title );
+		// and the correct <title>), and a content page in a non-main
+		// namespace (`Source:Beloved`) renders as "Beloved in Source".
+		// Both rules share one article-view guard + one setPageTitle path.
+		self::applyDisplayTitle( $out, $title );
 
 		// Printable-version enhancements on every existing article page
 		// (namespace/subpage-stripped title + centered authors + the
@@ -711,26 +734,59 @@ class Hooks {
 	}
 
 	/**
-	 * Render a Userspace subpage H1 as "<subpage> by @<user>": the root
-	 * segment is the author (the username), the rest is the page title. The
-	 * author is a real link (added client-side — OutputPage's page-title
-	 * sanitizer allows only formatting tags, not <a>); the server-side
-	 * setPageTitle() gives no-JS readers the same text and fixes the
-	 * browser <title>. Root user pages (`User:Rongzhou`) and non-view
-	 * requests (edit/history/raw) are left alone.
+	 * Render the article H1 with the house display-title rules:
+	 *
+	 *  - `User:Rongzhou/Pretty good Linux` → "Pretty good Linux by
+	 *    @Rongzhou": the root segment is the author (the username), the rest
+	 *    is the page title. The author is a real link (added client-side —
+	 *    OutputPage's page-title sanitizer allows only formatting tags, not
+	 *    <a>); the server-side setPageTitle() gives no-JS readers the same
+	 *    text and fixes the browser <title>.
+	 *  - a content page in any other non-main namespace (`Source:Beloved`)
+	 *    → "Beloved in Source" (Spec\NamespacePageTitle).
+	 *
+	 * Root user pages, Main-namespace pages and non-view requests
+	 * (edit/history/raw) keep the real page title. The single isArticle()
+	 * guard here is the shared gate for both rules.
 	 */
-	private static function applyUserPageTitle(
+	private static function applyDisplayTitle(
 		OutputPage $out,
 		\MediaWiki\Title\Title $title
 	): void {
-		if ( $title->getNamespace() !== NS_USER || !$title->isSubpage() ) {
-			return;
-		}
 		// The H1 is only the article view; edit/history/diff must keep the
 		// real page title.
 		if ( !$out->isArticle() ) {
 			return;
 		}
+		$namespace = $title->getNamespace();
+		if ( $namespace === NS_USER && $title->isSubpage() ) {
+			self::applyUserPageTitle( $out, $title );
+			return;
+		}
+		if ( $namespace === NS_MAIN || $namespace === NS_USER || !$title->isContentPage() ) {
+			return;
+		}
+		$in = wfMessage( 'embeddablecontent-namespacepagetitle-in' )
+			->inLanguage( $title->getPageLanguage() )
+			->text();
+		$display = \EmbeddableContent\Spec\NamespacePageTitle::format(
+			$title->getText(),
+			(string)$title->getNsText(),
+			$in
+		);
+		if ( $display !== null ) {
+			$out->setPageTitle( $display );
+		}
+	}
+
+	/**
+	 * Userspace subpage branch of applyDisplayTitle(): "<subpage> by @<user>"
+	 * plus the client-side author link wiring.
+	 */
+	private static function applyUserPageTitle(
+		OutputPage $out,
+		\MediaWiki\Title\Title $title
+	): void {
 		$parts = \EmbeddableContent\Spec\UserPageTitle::split( $title->getText() );
 		if ( $parts === null ) {
 			return;

@@ -228,6 +228,9 @@
 		},
 		"upload": {
 			"class": "EmbeddableContent\\Upload\\UploadHooks"
+		},
+		"imagecredit": {
+			"class": "EmbeddableContent\\Media\\ImageCredit"
 		}
 	},
 	"Hooks": {
@@ -238,6 +241,7 @@
 		"SkinTemplateNavigation::Universal": "main",
 		"ParserFirstCallInit": "main",
 		"ParserAfterTidy": "main",
+		"ImageBeforeProduceHTML": "imagecredit",
 		"UploadFormInitDescriptor": "upload",
 		"UploadFormSourceDescriptors": "upload",
 		"UploadForm:BeforeProcessing": "upload",
@@ -884,6 +888,15 @@
 			],
 			"messages": [
 				"embeddablecontent-upload-resizing"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.imagecredit": {
+			"styles": [
+				"imagecredit.css"
 			],
 			"targets": [
 				"desktop",

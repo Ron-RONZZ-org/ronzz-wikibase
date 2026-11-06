@@ -2050,3 +2050,47 @@ report). See `SimpleMathJax/VENDORED.md`.
   no-clobber rule (license optional, no checkbox). **Q2721 repair**: add
   P34 → Proprietary and fix the `Software:` page's `{{FOSS}}` template to
   `{{Software}}`.
+
+### Nov 2026 — namespace titles, AddSource module fix, upload author/source, thumbnail credit
+
+- **Namespace display titles**: a content page in a non-main, non-user
+  namespace (`Source:Beloved`, `FOSS:…`) renders its H1 + browser title as
+  "Beloved in Source" (`Spec/NamespacePageTitle`; message
+  `embeddablecontent-namespacepagetitle-in` en/fr/eo). `Hooks::applyDisplayTitle`
+  is the ONE article-view guard and calls the existing User-subpage branch
+  (`UserPageTitle` + `resources/userpagetitle.js`) or the namespace branch.
+- **AddSource autofill-confirm fix**: `SpecialAddSource::execute()` overrides
+  the base `execute()` with class-scoped routing and never registered the
+  shared modules, so `entityconfirm.js` (and `uploadmeta`, `fileselect`,
+  `languagemulti`, `uploadimage`) never loaded on AddSource/UpdateSource —
+  the server-rendered "we think this corresponds to …" banner's
+  `[Yes]`/`[No]` buttons were dead. The list now lives in
+  `SpecialAddExternalEntity::registerCommonModules()`; both `execute()`
+  methods call it. E2E asserts the scholarlyArticle review page loads them.
+- **Special:Upload semantic author/source**: `UploadHooks` adds an "Author"
+  free-text field + "Specify the author as a semantic entity" checkbox
+  (agent-class `EntityCombobox` → `attributed to`), and a "Source" entity
+  combobox (source-class scoped) + "Specify the source as plain text"
+  checkbox. New string property **`image source`**
+  (`manifests/properties.csv` + `IMAGE_PROPERTY_KINDS` +
+  `imagePropertyIds()['imageSource']`; re-seed required). The server reads
+  the mode the checkbox selects (`UploadHooks::authorFieldValues` /
+  `sourceFieldValues`); `resources/uploadform.js` swaps the rows and the
+  empty-author warning follows the active mode. An entity source with a
+  blank author inherits the source's `attributed to` authors
+  (`ImageItemCreator::attributedToIds`). The File: page attribution block
+  links entity values (`[[:Item:Q…|label]]`) and escapes plain text.
+  `action=imagefacts` gains `authorEntity`/`sourceEntity`/`sourceText` and
+  the matching `clear` tokens; `imagefacts-fields` exposes the provenance
+  ids. The MCP image-facts tools mirror the fields (`dist/` rebuilt).
+- **Automatic thumbnail credit**: `Media/ImageCredit` (the
+  `ImageBeforeProduceHTML` handler) appends a compact "Image: author ·
+  license · source" `<div class="wb-image-credit">` to the caption of a
+  thumb/framed image on a content page, resolved from the file's sitelinked
+  image item (entity labels link to their classic/Item pages; missing facts
+  degrade silently). The image item page is a parser-cache dependency (the
+  `ItemImage` pattern) and `resources/imagecredit.css` uses Codex tokens.
+  Suppression: the canonical `class=noCredit` option (the token is stripped
+  from the class list on every image) and a bare `noCredit` caption
+  (`Spec/ImageCredit`, unit-tested). Parser-output change — purge the
+  parser cache on deploy.

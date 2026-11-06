@@ -35,6 +35,8 @@ class ApiImageFactsFields extends ApiBase {
 			'imageClasses' => $this->config->imageClasses(),
 			'imageProperties' => $this->config->imagePropertyIds(),
 			'provenance' => [
+				'attributedTo' => $provenance['attributedTo'] ?? null,
+				'source' => $provenance['source'] ?? null,
 				'sourceUrl' => $provenance['sourceUrl'] ?? null,
 			],
 			// label => item id (the preseed license vocabulary); empty when

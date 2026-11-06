@@ -38,8 +38,15 @@ final class ImageFactsRequest {
 		return preg_match( '/^Q[1-9]\d*$/', $id ) === 1;
 	}
 
-	/** The fact fields mode=update may clear. */
-	public const CLEARABLE_FIELDS = [ 'license', 'author', 'licenseInfo', 'sourceUrl' ];
+	/**
+	 * The fact fields mode=update may clear. The author and source each have
+	 * a plain-text and an entity variant: `author`/`sourceText` are the
+	 * string properties, `authorEntity`/`sourceEntity` the item-valued
+	 * provenance statements, and `sourceUrl` the URL property.
+	 */
+	public const CLEARABLE_FIELDS = [
+		'license', 'author', 'authorEntity', 'licenseInfo', 'sourceEntity', 'sourceText', 'sourceUrl',
+	];
 
 	/**
 	 * Parses the API's comma-separated clear list. Returns the trimmed,

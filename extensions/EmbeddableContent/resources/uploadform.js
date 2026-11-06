@@ -566,7 +566,13 @@
 				return;
 			}
 			var missing = [];
-			if ( !fieldValue( 'wpUploadAuthor' ).trim() ) {
+			// The active author mode decides which field is "the author" —
+			// the entity combobox when the semantic-entity checkbox is on.
+			var authorEntityMode = document.getElementById( 'wpUploadAuthorIsEntity' );
+			var authorEmpty = authorEntityMode && authorEntityMode.checked
+				? !fieldValue( 'wpUploadAuthorEntity' ).trim()
+				: !fieldValue( 'wpUploadAuthor' ).trim();
+			if ( authorEmpty ) {
 				missing.push( mw.msg( 'embeddablecontent-upload-author' ) );
 			}
 			if ( !fieldValue( 'wpLicense' ).trim() ) {
@@ -627,6 +633,50 @@
 				mw.embeddableContent.uploadImage.clearPreview( fileEl );
 			}
 		} );
+
+		// 2c. Author / source mode toggles. The entity and plain-text
+		// variants are both in the form; the checkbox selects the active
+		// one and the server reads only that mode. JS-off shows both rows —
+		// the server still honours the checkbox, so no value is lost.
+		function rowFor( id ) {
+			var el = document.getElementById( id ) ||
+				document.querySelector( '[name="' + id + '"]' );
+			if ( !el ) {
+				return null;
+			}
+			return el.closest( 'tr' ) || el.closest( '.mw-htmlform-field' ) || null;
+		}
+
+		function syncAuthorMode() {
+			var checkbox = document.getElementById( 'wpUploadAuthorIsEntity' );
+			var entity = !!( checkbox && checkbox.checked );
+			var textRow = rowFor( 'wpUploadAuthor' );
+			var entityRow = rowFor( 'wpUploadAuthorEntity' );
+			if ( textRow ) {
+				textRow.style.display = entity ? 'none' : '';
+			}
+			if ( entityRow ) {
+				entityRow.style.display = entity ? '' : 'none';
+			}
+		}
+
+		function syncSourceMode() {
+			var checkbox = document.getElementById( 'wpUploadSourceIsText' );
+			var text = !!( checkbox && checkbox.checked );
+			var entityRow = rowFor( 'wpUploadSource' );
+			var textRow = rowFor( 'wpUploadSourceText' );
+			if ( entityRow ) {
+				entityRow.style.display = text ? 'none' : '';
+			}
+			if ( textRow ) {
+				textRow.style.display = text ? '' : 'none';
+			}
+		}
+
+		$form.on( 'change', '#wpUploadAuthorIsEntity', syncAuthorMode );
+		$form.on( 'change', '#wpUploadSourceIsText', syncSourceMode );
+		syncAuthorMode();
+		syncSourceMode();
 
 		// uploadmeta.js reports its own conversion errors; close the empty
 		// destination tab and free the form so the user can retry.

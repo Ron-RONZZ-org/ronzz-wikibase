@@ -487,8 +487,13 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 */
 	public function execute( $subPage ) {
 		$this->setHeaders();
-		$this->getOutput()->enableOOUI();
-		$this->getOutput()->addModules( 'ext.embeddableContent.entitysuggest' );
+		// The shared Add* modules — this class overrides the base execute()
+		// with its own class-scoped routing, so it must register them itself.
+		// Without this call the entityconfirm.js module never loaded on any
+		// AddSource/UpdateSource page: the server-rendered "we think this
+		// corresponds to …" banners kept rendering but their [Yes, that's
+		// right] / [No, let me correct] buttons had no handler.
+		$this->registerCommonModules();
 
 		$parts = explode( '/', trim( (string)$subPage ) );
 		$first = $parts[0] ?? '';

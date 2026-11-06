@@ -137,6 +137,12 @@
 		function handoffQuery() {
 			var query = {};
 			[ [ 'wblicense', 'wpLicense' ], [ 'wbauthor', 'wpUploadAuthor' ],
+				// Author/source mode + the entity/plain-text variants.
+				[ 'wbauthorisentity', 'wpUploadAuthorIsEntity' ],
+				[ 'wbauthorentity', 'wpUploadAuthorEntity' ],
+				[ 'wbsourceistext', 'wpUploadSourceIsText' ],
+				[ 'wbsource', 'wpUploadSource' ],
+				[ 'wbsourcetext', 'wpUploadSourceText' ],
 				[ 'wblicenseinfo', 'wpUploadLicenseInfo' ],
 				// Remember the source radio (File | Url) the user picked.
 				[ 'wbsourcetype', 'wbsourcetype' ] ]
@@ -186,7 +192,9 @@
 			}
 		}
 		if ( params.get( 'wbuploadcopy' ) === '1' || params.get( 'wbanother' ) === '1' ) {
-			[ 'wbuploadcopy', 'wbanother', 'wblicense', 'wbauthor', 'wblicenseinfo', 'wbsourcetype' ]
+			[ 'wbuploadcopy', 'wbanother', 'wblicense', 'wbauthor',
+				'wbauthorisentity', 'wbauthorentity', 'wbsourceistext',
+				'wbsource', 'wbsourcetext', 'wblicenseinfo', 'wbsourcetype' ]
 				.forEach( function ( key ) { params.delete( key ); } );
 			var clean = window.location.pathname + ( params.toString() ? '?' + params.toString() : '' );
 			window.history.replaceState( null, '', clean );

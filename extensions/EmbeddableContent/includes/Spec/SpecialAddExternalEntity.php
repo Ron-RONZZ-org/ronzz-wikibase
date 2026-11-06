@@ -124,18 +124,17 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 */
 	abstract protected function harvest( string $qid ): ProviderResult;
 
-	public function execute( $subPage ) {
-		// Standard special-page header plumbing (title from getDescription(),
-		// noindex + article-related=false); the step handlers may then
-		// override the title for their specific screen.
-		$this->setHeaders();
-		// No requireLogin() here: the page LOAD performs no external fetches,
-		// and gating it excluded bot-password sessions — MediaWiki bot
-		// passwords are API-only by design (BotPasswordSessionProvider serves
-		// no non-API request), so an MCP/automation session could never view
-		// the forms. The abuse surface is the SEARCH SUBMIT (server-side
-		// external fetches) and the manual/review CREATION — those handlers
-		// enforce login (onSearchSubmit/onManualSubmit).
+	/**
+	 * The OOUI boot + the modules every Add/Update form may need. Shared by
+	 * this class's execute() and the subclasses that override execute() with
+	 * their own routing (SpecialAddSource): skipping it left the server-
+	 * rendered autofill-confirm banners without entityconfirm.js (dead
+	 * [Yes, that's right] / [No, let me correct] buttons on AddSource), and
+	 * the URL validate / multi-language / image-preview controls unwired.
+	 *
+	 * Every module is a no-op on a page without its widget.
+	 */
+	protected function registerCommonModules(): void {
 		$this->getOutput()->enableOOUI();
 		// Entity comboboxes in the review/manual steps need the autofill
 		// module (AddSoftware entity facts, AddSource authors/parent,
@@ -158,6 +157,21 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// for the portrait/logo file inputs (the shared Special:Upload
 		// module; a no-op on pages without the wb-image-preview field).
 		$this->getOutput()->addModules( 'ext.embeddableContent.uploadimage' );
+	}
+
+	public function execute( $subPage ) {
+		// Standard special-page header plumbing (title from getDescription(),
+		// noindex + article-related=false); the step handlers may then
+		// override the title for their specific screen.
+		$this->setHeaders();
+		// No requireLogin() here: the page LOAD performs no external fetches,
+		// and gating it excluded bot-password sessions — MediaWiki bot
+		// passwords are API-only by design (BotPasswordSessionProvider serves
+		// no non-API request), so an MCP/automation session could never view
+		// the forms. The abuse surface is the SEARCH SUBMIT (server-side
+		// external fetches) and the manual/review CREATION — those handlers
+		// enforce login (onSearchSubmit/onManualSubmit).
+		$this->registerCommonModules();
 		$parts = explode( '/', trim( (string)$subPage ) );
 		$first = $parts[0] ?? '';
 		if ( $first === '' ) {

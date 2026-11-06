@@ -2315,6 +2315,16 @@ def flow_source_content_step(op, base: str, api: str, doi: str, author_qid: str,
     if not m:
         raise FlowError(f"scholarlyArticle select did not redirect to review: {url} {find_error(body)}")
 
+    # SpecialAddSource overrides the base execute() with its own class-scoped
+    # routing, so it must register the shared Add* modules itself. Without
+    # them the server-rendered autofill-confirm banner's [Yes]/[No] buttons
+    # (entityconfirm.js) and the URL/multi-language controls are dead.
+    for module in ("entityconfirm", "uploadmeta", "languagemulti"):
+        if f"ext.embeddableContent.{module}" not in body:
+            raise FlowError(
+                f"AddSource review page does not load ext.embeddableContent.{module} "
+                f"(the shared Add* modules are missing after the execute() override)")
+
     # Review (with the required author) + — when a license is given — the
     # access field in file mode with a local PDF upload (bug 6 regression).
     token3 = edit_token(body)
@@ -4062,6 +4072,28 @@ def flow_print_module(op, base: str, api: str) -> None:
             raise FlowError(f"{title} H1 does not render '<title> by @PrintE2E'")
         print(f"[ok] print module wired: {title} -> wbPrintTitle={leaf!r}")
         print(f"[ok] user subpage title wired: {title} -> '<title> by @PrintE2E'")
+    finally:
+        api_call(op, api, {"action": "delete", "title": title, "token": token,
+                           "reason": "page-flow E2E cleanup (run_pages_e2e.py)",
+                           "format": "json"}, post=True)
+
+
+def flow_namespace_title(op, base: str, api: str) -> None:
+    """Content-page display title: `Source:<page>` renders "<page> in Source"
+    instead of the default "<namespace>:<page>". Self-cleaning."""
+    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = csrf["query"]["tokens"]["csrftoken"]
+    leaf = f"Namespace title E2E {int(time.time())}"
+    title = f"Source:{leaf}"
+    api_call(op, api, {"action": "edit", "title": title, "text": "namespace title fixture",
+                       "token": token, "format": "json"}, post=True)
+    try:
+        _, body = page_get(op, base, "/wiki/" + urllib.parse.quote(title.replace(" ", "_")))
+        if f"{leaf} in Source" not in body:
+            raise FlowError(
+                f"{title} H1 does not render '{leaf} in Source' "
+                f"(namespace display-title regression)")
+        print(f"[ok] namespace display title: {title} -> '{leaf} in Source'")
     finally:
         api_call(op, api, {"action": "delete", "title": title, "token": token,
                            "reason": "page-flow E2E cleanup (run_pages_e2e.py)",
@@ -5962,6 +5994,8 @@ def main() -> int:
         #       subpage-parent strip and the module load. The client-side
         #       popup/cover/authors flow is covered by run_wiki_ux_e2e.mjs.
         flow_print_module(op, base, api)
+        # 3a1c. Namespace display title: `Source:<page>` → "<page> in Source".
+        flow_namespace_title(op, base, api)
 
         # 3a2. AddCollective logo (issue follow-up): the optional logo
         #     uploads as File:<label>-logo.png (AddSoftware pattern) with a

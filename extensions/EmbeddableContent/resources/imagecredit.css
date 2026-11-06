@@ -1,0 +1,16 @@
+/* Automatic thumbnail credit line (Media/ImageCredit).
+ *
+ * Appended inside the <figcaption> of a thumb/framed image on a content
+ * page, below the caption (or alone when the image has no caption). Colours
+ * follow the Codex theme tokens so the line stays readable in the night
+ * theme; the ThemeTokensTest audits this file. */
+.wb-image-credit {
+	margin-top: 0.35em;
+	font-size: 0.8125em;
+	line-height: 1.35;
+	color: var(--color-subtle, #54595d);
+}
+
+.wb-image-credit a {
+	color: inherit;
+}

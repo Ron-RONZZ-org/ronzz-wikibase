@@ -27,10 +27,17 @@ use Wikimedia\Rdbms\DBError;
  *
  * Statements written on the item: `instance of` → the image class, `image`
  * → the File: page URL, `license` (entity, P275-aligned), `image author`
- * (P2093-aligned string), `additional license information` (string), and
- * the source URL (provenance, when configured). The file description page
- * itself carries the human-readable attribution (UploadHooks), so the item
- * holds the queryable facts and the page the prose — the Add* split.
+ * (P2093-aligned string), `image source` (string), `additional license
+ * information` (string), the source URL (provenance), and the ENTITY
+ * variants of author/source (`attributed to` / `source` — the same
+ * item-valued provenance properties the Add* flows use). The file
+ * description page itself carries the human-readable attribution
+ * (UploadHooks), so the item holds the queryable facts and the page the
+ * prose — the Add* split.
+ *
+ * When no entity author is supplied but an entity source is, the item
+ * inherits the source's `attributed to` statements (the upload form's
+ * "source specified, author blank" rule).
  *
  * Mirrors the base SpecialAddExternalEntity create-or-skip + sitelink
  * pattern (label reuse is idempotent; existing sitelink state is never
@@ -47,6 +54,9 @@ final class ImageItemCreator {
 	 * @param string|null $license license item id ("Q42"), or null
 	 * @param bool $replaceExistingFacts replace the provided facts on an existing item
 	 * @param string[] $clearFields fact fields to remove on an existing item
+	 * @param string|null $authorEntity entity author (Q-id) → `attributed to`
+	 * @param string|null $sourceEntity entity source (Q-id) → `source`
+	 * @param string $sourceText plain-text source → `image source`
 	 * @return string|null created/reused item id, or null when the vocabulary
 	 *   is not configured (image class/property missing) — never fatal
 	 */
@@ -62,7 +72,10 @@ final class ImageItemCreator {
 		string $sourceUrl,
 		string $editSummary,
 		bool $replaceExistingFacts = false,
-		array $clearFields = []
+		array $clearFields = [],
+		?string $authorEntity = null,
+		?string $sourceEntity = null,
+		string $sourceText = ''
 	): ?string {
 		$classes = $config->imageClasses();
 		$classItemId = $classes['image'] ?? null;
@@ -88,7 +101,10 @@ final class ImageItemCreator {
 						$licenseInfo,
 						$sourceUrl,
 						$replaceExistingFacts,
-						$clearFields
+						$clearFields,
+						$authorEntity,
+						$sourceEntity,
+						$sourceText
 					);
 					WikibaseRepo::getEntityStore()->saveEntity( $item, $editSummary, $user, EDIT_UPDATE );
 				}
@@ -130,7 +146,19 @@ final class ImageItemCreator {
 				$add( $props['image'], new StringValue( $fileTitle->getFullURL() ) );
 			}
 		}
-		self::applyFacts( $config, $item, $license, $author, $licenseInfo, $sourceUrl, false, $clearFields );
+		self::applyFacts(
+			$config,
+			$item,
+			$license,
+			$author,
+			$licenseInfo,
+			$sourceUrl,
+			false,
+			$clearFields,
+			$authorEntity,
+			$sourceEntity,
+			$sourceText
+		);
 
 		WikibaseRepo::getEntityStore()->saveEntity( $item, $editSummary, $user, EDIT_UPDATE );
 		self::assertSitelink( $item->getId()->getSerialization(), $filePageName, $user, $editSummary );
@@ -148,6 +176,9 @@ final class ImageItemCreator {
 	 *
 	 * @param bool $replace remove existing statements for each PROVIDED property
 	 * @param string[] $clearFields fields whose statements are removed regardless of value
+	 * @param string|null $authorEntity entity author (Q-id) → `attributed to`
+	 * @param string|null $sourceEntity entity source (Q-id) → `source`
+	 * @param string $sourceText plain-text source → `image source`
 	 */
 	private static function applyFacts(
 		EmbeddableContentConfig $config,
@@ -157,41 +188,65 @@ final class ImageItemCreator {
 		string $licenseInfo,
 		string $sourceUrl,
 		bool $replace,
-		array $clearFields = []
+		array $clearFields = [],
+		?string $authorEntity = null,
+		?string $sourceEntity = null,
+		string $sourceText = ''
 	): void {
 		$props = $config->imagePropertyIds();
 		$provenance = $config->provenancePropertyIds();
-		$licenseValue = null;
-		if ( $license !== null && $license !== '' ) {
-			try {
-				$licenseItem = WikibaseRepo::getEntityIdParser()->parse( $license );
-				if ( $licenseItem instanceof ItemId ) {
-					$licenseValue = new EntityIdValue( $licenseItem );
-				}
-			} catch ( \Throwable $e ) {
-				// A malformed license value is a form-level problem; the item
-				// still gets created/updated with the rest of the statements.
-			}
+
+		$authorEntityId = self::normalizeItemId( $authorEntity );
+		$sourceEntityId = self::normalizeItemId( $sourceEntity );
+
+		// "Source specified but not author": inherit the source's own
+		// `attributed to` statements (the AddSource author model).
+		$authorEntityIds = $authorEntityId !== null ? [ $authorEntityId ] : [];
+		if ( $authorEntityIds === [] && $sourceEntityId !== null ) {
+			$authorEntityIds = self::attributedToIds(
+				$sourceEntityId,
+				$provenance['attributedTo'] ?? null
+			);
 		}
 
+		// Each field maps to a property + the list of values to add. A list
+		// keeps the multi-author inheritance case uniform with single values.
 		$facts = [
-			'license' => [ $props['license'] ?? null, $licenseValue ],
+			'license' => [
+				$props['license'] ?? null,
+				array_values( array_filter( [ self::itemIdValue( $license ) ] ) ),
+			],
 			'author' => [
 				$props['imageAuthor'] ?? null,
-				$author !== '' ? new StringValue( mb_substr( $author, 0, 250 ) ) : null,
+				$author !== '' ? [ new StringValue( mb_substr( $author, 0, 250 ) ) ] : [],
 			],
 			'licenseInfo' => [
 				$props['imageLicenseInfo'] ?? null,
-				$licenseInfo !== '' ? new StringValue( mb_substr( $licenseInfo, 0, 250 ) ) : null,
+				$licenseInfo !== '' ? [ new StringValue( mb_substr( $licenseInfo, 0, 250 ) ) ] : [],
 			],
 			'sourceUrl' => [
 				$provenance['sourceUrl'] ?? null,
-				$sourceUrl !== '' ? new StringValue( mb_substr( $sourceUrl, 0, 500 ) ) : null,
+				$sourceUrl !== '' ? [ new StringValue( mb_substr( $sourceUrl, 0, 500 ) ) ] : [],
+			],
+			'sourceText' => [
+				$props['imageSource'] ?? null,
+				$sourceText !== '' ? [ new StringValue( mb_substr( $sourceText, 0, 500 ) ) ] : [],
+			],
+			'authorEntity' => [
+				$provenance['attributedTo'] ?? null,
+				array_values( array_filter( array_map(
+					static fn ( string $id ): ?EntityIdValue => self::itemIdValue( $id ),
+					$authorEntityIds
+				) ) ),
+			],
+			'sourceEntity' => [
+				$provenance['source'] ?? null,
+				array_values( array_filter( [ self::itemIdValue( $sourceEntityId ) ] ) ),
 			],
 		];
 		$clear = array_fill_keys( $clearFields, true );
 		$guidGenerator = new GuidGenerator();
-		foreach ( $facts as $field => [ $propertyId, $value ] ) {
+		foreach ( $facts as $field => [ $propertyId, $values ] ) {
 			if ( $propertyId === null ) {
 				continue;
 			}
@@ -199,19 +254,76 @@ final class ImageItemCreator {
 				self::removeStatements( $item, $propertyId );
 				continue;
 			}
-			if ( $value === null ) {
+			if ( $values === [] ) {
 				continue;
 			}
 			if ( $replace ) {
 				self::removeStatements( $item, $propertyId );
 			}
-			$item->getStatements()->addStatement( new Statement(
-				new PropertyValueSnak( new NumericPropertyId( $propertyId ), $value ),
-				null,
-				null,
-				$guidGenerator->newGuid( $item->getId() )
-			) );
+			foreach ( $values as $value ) {
+				$item->getStatements()->addStatement( new Statement(
+					new PropertyValueSnak( new NumericPropertyId( $propertyId ), $value ),
+					null,
+					null,
+					$guidGenerator->newGuid( $item->getId() )
+				) );
+			}
 		}
+	}
+
+	/**
+	 * An EntityIdValue for a valid item id, or null (a malformed value is a
+	 * form/API problem — the rest of the facts still land). Accepts an
+	 * already-normalized id.
+	 */
+	private static function itemIdValue( ?string $itemId ): ?EntityIdValue {
+		if ( $itemId === null || $itemId === '' ) {
+			return null;
+		}
+		try {
+			$parsed = WikibaseRepo::getEntityIdParser()->parse( $itemId );
+			return $parsed instanceof ItemId ? new EntityIdValue( $parsed ) : null;
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+	}
+
+	/** Trimmed/validated item id serialization, or null. */
+	private static function normalizeItemId( ?string $itemId ): ?string {
+		$value = self::itemIdValue( $itemId );
+		return $value === null ? null : $value->getEntityId()->getSerialization();
+	}
+
+	/**
+	 * The item ids of an entity's `attributed to` statements (the author
+	 * inheritance rule), or [] when the entity/property is unavailable.
+	 *
+	 * @return string[]
+	 */
+	private static function attributedToIds( string $itemId, ?string $propertyId ): array {
+		if ( $propertyId === null || $propertyId === '' ) {
+			return [];
+		}
+		try {
+			$entity = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
+		} catch ( \Throwable $e ) {
+			return [];
+		}
+		if ( !$entity instanceof Item ) {
+			return [];
+		}
+		$ids = [];
+		foreach ( $entity->getStatements()->getByPropertyId( new NumericPropertyId( $propertyId ) ) as $statement ) {
+			$snak = $statement->getMainSnak();
+			if ( !$snak instanceof PropertyValueSnak ) {
+				continue;
+			}
+			$value = $snak->getDataValue();
+			if ( $value instanceof EntityIdValue ) {
+				$ids[] = $value->getEntityId()->getSerialization();
+			}
+		}
+		return array_values( array_unique( $ids ) );
 	}
 
 	/** Removes every statement of one property (the mode=update replace/clear step). */

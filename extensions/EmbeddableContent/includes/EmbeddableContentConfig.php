@@ -221,7 +221,7 @@ class EmbeddableContentConfig {
 	 */
 	public function imagePropertyIds(): array {
 		return $this->requireStringMap( 'imageProperties', [
-			'image', 'license', 'imageAuthor', 'imageLicenseInfo',
+			'image', 'license', 'imageAuthor', 'imageSource', 'imageLicenseInfo',
 		] );
 	}
 

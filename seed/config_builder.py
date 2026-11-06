@@ -301,6 +301,7 @@ IMAGE_PROPERTY_KINDS = {
     "image": "image",
     "license": "license",
     "image author": "imageAuthor",
+    "image source": "imageSource",
     "additional license information": "imageLicenseInfo",
 }
 

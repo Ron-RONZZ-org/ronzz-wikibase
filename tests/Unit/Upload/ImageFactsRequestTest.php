@@ -55,6 +55,10 @@ final class ImageFactsRequestTest extends TestCase {
 	public function testIsClearableField(): void {
 		$this->assertTrue( ImageFactsRequest::isClearableField( 'license' ) );
 		$this->assertTrue( ImageFactsRequest::isClearableField( 'sourceUrl' ) );
+		// Entity author/source and the plain-text source join the set.
+		$this->assertTrue( ImageFactsRequest::isClearableField( 'authorEntity' ) );
+		$this->assertTrue( ImageFactsRequest::isClearableField( 'sourceEntity' ) );
+		$this->assertTrue( ImageFactsRequest::isClearableField( 'sourceText' ) );
 		$this->assertFalse( ImageFactsRequest::isClearableField( 'image' ) );
 		$this->assertFalse( ImageFactsRequest::isClearableField( 'bogus' ) );
 	}
