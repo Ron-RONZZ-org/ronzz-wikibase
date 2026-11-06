@@ -4,8 +4,10 @@ declare( strict_types = 1 );
 
 use EmbeddableContent\Content\ContentRenderer;
 use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\Fetch\AuthoritySearch;
 use EmbeddableContent\Fetch\CurlHttpClient;
 use EmbeddableContent\Fetch\NominatimProvider;
+use EmbeddableContent\Fetch\PageMetadataFetcher;
 use EmbeddableContent\Fetch\ProviderClient;
 use EmbeddableContent\Fetch\RateLimitedHttpClient;
 use EmbeddableContent\Fetch\WikipediaContentProvider;
@@ -59,6 +61,25 @@ return [
 			10,
 			$services->getMainObjectStash(),
 			$config->youtubeSearchCacheTtl()
+		);
+	},
+
+	'EmbeddableContent.PageMetadataFetcher' => static function (): PageMetadataFetcher {
+		// SSRF-guarded URL metadata fetch (website/webpage AddSource step).
+		// The default transport is MediaWiki's HttpRequestFactory with
+		// rejectLocalUrls; unit tests inject their own transport.
+		return new PageMetadataFetcher();
+	},
+
+	'EmbeddableContent.AuthoritySearch' => static function ( MediaWikiServices $services ): AuthoritySearch {
+		// Read-only authority search for the action=authority-search API
+		// module and the MCP authority-search tool. Reuses the one provider
+		// cascade the browser forms call.
+		return new AuthoritySearch(
+			$services->get( 'EmbeddableContent.ProviderClient' ),
+			$services->get( 'EmbeddableContent.PageMetadataFetcher' ),
+			$services->get( 'EmbeddableContent.EntityTermSearch' ),
+			$services->get( 'EmbeddableContent.Config' )
 		);
 	},
 
