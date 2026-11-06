@@ -2783,6 +2783,16 @@ def flow_upload_special_form(op, base: str) -> None:
         raise FlowError("Special:Upload missing the image-author field")
     if 'id="wpUploadLicenseInfo"' not in body:
         raise FlowError("Special:Upload missing the additional-license-info field")
+    # Semantic author/source modes: the checkbox + text/combobox pairs and
+    # their row classes (the JS swaps the visible row; the server reads the
+    # mode the checkbox selects).
+    for field in ('wpUploadAuthorIsEntity', 'wpUploadSourceIsText', 'wpUploadSourceText'):
+        if f'id="{field}"' not in body:
+            raise FlowError(f"Special:Upload missing the {field} field")
+    for cssclass in ('wb-upload-author-text', 'wb-upload-author-entity',
+                     'wb-upload-source-entity', 'wb-upload-source-text'):
+        if cssclass not in body:
+            raise FlowError(f"Special:Upload missing the {cssclass} row")
     # The license help must render as the translated TEXT, never the raw
     # message key — MW 1.46 treats 'help' as raw HTML; the field uses
     # 'help-message' (a bare key string rendered verbatim before the fix).
