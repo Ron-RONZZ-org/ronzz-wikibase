@@ -3093,6 +3093,9 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		if ( !empty( $record['license'] ) ) {
 			$out['license'] = (string)$record['license'];
 		}
+		if ( isset( $record['additionalStatements'] ) && is_array( $record['additionalStatements'] ) ) {
+			$out['additionalStatements'] = $record['additionalStatements'];
+		}
 		return $out;
 	}
 

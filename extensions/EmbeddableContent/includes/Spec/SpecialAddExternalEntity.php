@@ -624,7 +624,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		}
 
 		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-' . $this->kindKey() . '-review-title' )->text() );
-		$fields = $this->applyRequestPrefill( $this->reviewFieldSpecs( $record ) + $this->classFieldSpec( $record ) );
+		$fields = $this->applyRequestPrefill( $this->reviewFieldSpecs( $record ) + $this->classFieldSpec( $record ) + $this->additionalStatementsFieldSpec() );
 
 		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
 		$form->setTitle( $this->stepTitle( $token . '/review/' . $index ) )
@@ -670,6 +670,9 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			$value = (string)$data[$name];
 			$record[$name] = ( $name === 'issuedYear' && $value !== '' ) ? (int)$value : $value;
 		}
+		$record['additionalStatements'] = is_array( $data['additionalStatements'] ?? null )
+			? $data['additionalStatements']
+			: [];
 		// Validate now so errors surface on the RECORD form, not on the
 		// content step. Side effects (file uploads) are idempotent — the
 		// final creation re-runs beforeCreate without duplicating them.
@@ -1380,6 +1383,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			$this->reviewFieldSpecs( $record )
 			+ $this->classFieldSpec( $record )
 			+ $this->manualExtraSubmits()
+			+ $this->additionalStatementsFieldSpec()
 		);
 
 		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
@@ -1502,6 +1506,9 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			}
 			$record[$name] = ( $name === 'issuedYear' ) ? (int)$value : $value;
 		}
+		$record['additionalStatements'] = is_array( $data['additionalStatements'] ?? null )
+			? $data['additionalStatements']
+			: [];
 		// URL-first flow content (website/webpage): the fetched intro and
 		// keywords ride along for the content review step.
 		$urlMeta = $this->manualUrlMeta();
@@ -1743,7 +1750,11 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 * @return array<string,mixed>
 	 */
 	protected function semanticFlowRecord( string $kind, array $record ): array {
-		return $this->pickServiceFields( $record, \EmbeddableContent\Flow\SemanticEntityFieldMap::ALL_FIELDS );
+		$out = $this->pickServiceFields( $record, \EmbeddableContent\Flow\SemanticEntityFieldMap::ALL_FIELDS );
+		if ( isset( $record['additionalStatements'] ) && is_array( $record['additionalStatements'] ) ) {
+			$out['additionalStatements'] = $record['additionalStatements'];
+		}
+		return $out;
 	}
 
 	/**
@@ -2318,6 +2329,23 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 */
 	protected function manualFieldSpecs(): array {
 		return $this->reviewFieldSpecs( [] );
+	}
+
+	/**
+	 * The "Additional semantic statements" cloner. On Update* it is
+	 * prefilled with the item's non-managed supported statements; on Add*
+	 * it starts empty. The server validates the property datatype/value in
+	 * Spec\AdditionalStatements and applies the submit as a diff.
+	 *
+	 * @param Item|null $item the existing item (Update*)
+	 * @param string[] $managedPropertyIds properties the form owns
+	 * @return array<string,mixed>
+	 */
+	protected function additionalStatementsFieldSpec( ?Item $item = null, array $managedPropertyIds = [] ): array {
+		$rows = $item instanceof Item
+			? AdditionalStatements::rowsForItem( $item, $managedPropertyIds )
+			: [];
+		return \EmbeddableContent\Fields\AdditionalStatementsCloner::spec( $rows );
 	}
 
 	/**

@@ -159,7 +159,10 @@ trait UpdateExternalEntityFlow {
 		// The class field is hidden by default (a class change is a
 		// different edit for most kinds); Special:UpdateCollective
 		// overrides updateClassFieldSpec() with an editable select.
-		$fields = $this->reviewFieldSpecs( $record ) + $this->updateClassFieldSpec( $classItemId );
+		$managed = array_keys( $this->updateStatementSpecs( $record ) );
+		$fields = $this->reviewFieldSpecs( $record )
+			+ $this->updateClassFieldSpec( $classItemId )
+			+ $this->additionalStatementsFieldSpec( $item, $managed );
 		if ( $this->updateReturnToClassic ) {
 			// Carries the classic-page return marker across the POST (the
 			// query string is lost by HTMLForm::setTitle's action URL).
@@ -234,6 +237,9 @@ trait UpdateExternalEntityFlow {
 			$value = trim( (string)$data[$name] );
 			$record[$name] = ( $name === 'issuedYear' && $value !== '' ) ? (int)$value : $value;
 		}
+		$record['additionalStatements'] = is_array( $data['additionalStatements'] ?? null )
+			? $data['additionalStatements']
+			: [];
 
 		// Inject the chosen class into the record so the flow service's
 		// statement builder writes the new `instance of` value (the
@@ -368,6 +374,22 @@ trait UpdateExternalEntityFlow {
 			$values = is_array( $value ) ? $value : [ $value ];
 			foreach ( $values as $v ) {
 				$add( $propertyId, $v );
+			}
+		}
+
+		// Additional statements: diff the cloner against the item's
+		// non-managed supported statements (unchanged rows keep their
+		// GUID/qualifiers/references; removed rows are deleted; new rows are
+		// added).
+		$additional = $record['additionalStatements'] ?? [];
+		if ( is_array( $additional ) && $additional !== [] ) {
+			$error = \EmbeddableContent\Spec\AdditionalStatements::applyDiff(
+				$item,
+				$additional,
+				array_keys( $specs )
+			);
+			if ( $error !== null ) {
+				throw new \RuntimeException( $error );
 			}
 		}
 

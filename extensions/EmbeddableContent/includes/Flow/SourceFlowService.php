@@ -13,6 +13,7 @@ use EmbeddableContent\Duration;
 use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\EntityClassFilter;
 use EmbeddableContent\Fetch\YouTubeProvider;
+use EmbeddableContent\Spec\AdditionalStatements;
 use EmbeddableContent\Spec\EntityLabelText;
 use EmbeddableContent\Spec\ItemIdList;
 use EmbeddableContent\Spec\JurisdictionList;
@@ -72,7 +73,7 @@ final class SourceFlowService {
 	 * access flow feeds in (the uploaded file's URL and the license entity).
 	 * Accepted by prepare (no exposure check) and written by statementSpecs.
 	 */
-	private const INTERNAL_FIELDS = [ 'license', 'accessFileUrl' ];
+	private const INTERNAL_FIELDS = [ 'license', 'accessFileUrl', 'additionalStatements' ];
 
 	/**
 	 * @param \Closure(string $messageKey, string[] $params): string $message
@@ -204,7 +205,26 @@ final class SourceFlowService {
 			$record['youtubeVideoId'] = YouTubeProvider::extractVideoId( (string)( $record['url'] ?? '' ) ) ?? '';
 		}
 
-		return $this->validateParent( $classKey, $record, $creating );
+		$parentError = $this->validateParent( $classKey, $record, $creating );
+		if ( $parentError !== null ) {
+			return $parentError;
+		}
+
+		if ( array_key_exists( 'additionalStatements', $record ) ) {
+			if ( !is_array( $record['additionalStatements'] ) ) {
+				return 'additionalStatements must be a list of {property, value} rows.';
+			}
+			$managed = $this->managedPropertyIds( $classKey, $record );
+			$managed[] = $this->config->instanceOfPropertyId();
+			$built = AdditionalStatements::dataValues(
+				$record['additionalStatements'],
+				array_values( array_unique( $managed ) )
+			);
+			if ( $built['error'] !== null ) {
+				return $built['error'];
+			}
+		}
+		return null;
 	}
 
 	/**
@@ -503,6 +523,25 @@ final class SourceFlowService {
 				)
 			);
 		}
+		$additional = $record['additionalStatements'] ?? [];
+		if ( is_array( $additional ) && $additional !== [] ) {
+			$managed = $this->managedPropertyIds( $classKey, $record );
+			$managed[] = $this->config->instanceOfPropertyId();
+			$built = AdditionalStatements::dataValues(
+				$additional,
+				array_values( array_unique( $managed ) )
+			);
+			if ( $built['error'] !== null ) {
+				throw new \InvalidArgumentException( $built['error'] );
+			}
+			foreach ( $built['values'] as $propertyId => $values ) {
+				foreach ( $values as $single ) {
+					$item->getStatements()->addNewStatement(
+						new PropertyValueSnak( $this->propertyId( $propertyId ), $single )
+					);
+				}
+			}
+		}
 		return $item;
 	}
 
@@ -556,6 +595,20 @@ final class SourceFlowService {
 			// added statements now (the entity-page client matches statements
 			// to the DOM by GUID; a GUID-less statement renders as an empty
 			// edit-mode row for logged-in users).
+			StatementGuidAssigner::ensureGuids( $item, new GuidGenerator() );
+		}
+		$additional = $record['additionalStatements'] ?? [];
+		if ( is_array( $additional ) && $additional !== [] ) {
+			$additionalManaged = $managed;
+			$additionalManaged[] = $this->config->instanceOfPropertyId();
+			$error = AdditionalStatements::applyDiff(
+				$item,
+				$additional,
+				array_values( array_unique( $additionalManaged ) )
+			);
+			if ( $error !== null ) {
+				throw new \InvalidArgumentException( $error );
+			}
 			StatementGuidAssigner::ensureGuids( $item, new GuidGenerator() );
 		}
 		$newLanguage = self::termLanguage( $record );

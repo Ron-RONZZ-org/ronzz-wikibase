@@ -7,6 +7,7 @@ namespace EmbeddableContent\Flow;
 use DataValues\StringValue;
 use DataValues\TimeValue;
 use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\Spec\AdditionalStatements;
 use EmbeddableContent\Spec\EntityLabelText;
 use EmbeddableContent\Spec\WikibaseTime;
 use Wikibase\DataModel\DataValue;
@@ -72,6 +73,7 @@ final class SemanticEntityFlowService {
 		// written as parallel string statements.
 		'placeOfBirthLabel', 'placeOfDeathLabel',
 		'imageFileUrl',
+		'additionalStatements',
 	];
 
 	/**
@@ -188,6 +190,19 @@ final class SemanticEntityFlowService {
 
 		if ( $kind === 'fictional-character' && trim( (string)( $record['description'] ?? '' ) ) === '' ) {
 			$record['description'] = $this->fictionalDescription( (string)( $record['presentInWork'] ?? '' ) );
+		}
+
+		if ( array_key_exists( 'additionalStatements', $record ) ) {
+			if ( !is_array( $record['additionalStatements'] ) ) {
+				return 'additionalStatements must be a list of {property, value} rows.';
+			}
+			$built = AdditionalStatements::dataValues(
+				$record['additionalStatements'],
+				array_keys( $this->statementSpecs( $kind, $record ) )
+			);
+			if ( $built['error'] !== null ) {
+				return $built['error'];
+			}
 		}
 
 		return null;
@@ -396,6 +411,23 @@ final class SemanticEntityFlowService {
 				);
 			}
 		}
+		$additional = $record['additionalStatements'] ?? [];
+		if ( is_array( $additional ) && $additional !== [] ) {
+			$built = AdditionalStatements::dataValues(
+				$additional,
+				array_keys( $this->statementSpecs( $kind, $record ) )
+			);
+			if ( $built['error'] !== null ) {
+				throw new \InvalidArgumentException( $built['error'] );
+			}
+			foreach ( $built['values'] as $propertyId => $values ) {
+				foreach ( $values as $single ) {
+					$item->getStatements()->addNewStatement(
+						new PropertyValueSnak( $this->propertyId( $propertyId ), $single )
+					);
+				}
+			}
+		}
 		return $item;
 	}
 
@@ -431,6 +463,14 @@ final class SemanticEntityFlowService {
 			// added statements now (the entity-page client matches statements
 			// to the DOM by GUID; a GUID-less statement renders as an empty
 			// edit-mode row for logged-in users).
+			StatementGuidAssigner::ensureGuids( $item, new GuidGenerator() );
+		}
+		$additional = $record['additionalStatements'] ?? [];
+		if ( is_array( $additional ) && $additional !== [] ) {
+			$error = AdditionalStatements::applyDiff( $item, $additional, $managed );
+			if ( $error !== null ) {
+				throw new \InvalidArgumentException( $error );
+			}
 			StatementGuidAssigner::ensureGuids( $item, new GuidGenerator() );
 		}
 		$language = trim( (string)( $record['labelLanguage'] ?? '' ) );
