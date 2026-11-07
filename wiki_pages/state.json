@@ -151,9 +151,9 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     },
     "Template:Collective": {
-      "revid": 9014,
-      "sha256": "afcf966a5e4a350118488a2299887156e18358a578f72cb23a1e4c4977999487",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 14201,
+      "sha256": "e803fa66bd8dbbc2a652af4cd005f5566a51cc0eb11b6665cec0ecf771af6d57",
+      "synced_at": "2026-11-07T20:08:35+00:00"
     },
     "Template:ConferencePaper": {
       "revid": 9028,
@@ -411,6 +411,6 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     }
   },
-  "updated": "2026-11-07T19:31:52+00:00",
+  "updated": "2026-11-07T20:08:35+00:00",
   "version": 1
 }

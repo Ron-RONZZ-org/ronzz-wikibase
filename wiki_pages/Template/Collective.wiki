@@ -9,6 +9,7 @@
 |-
 | colspan="2" style="text-align:center;" | {{{logo|{{#item-image:}}}}}
 {{#statement-row:Instance of|instance of}}
+{{#statement-row:Members|has member}}
 {{#statement-row:Official website|official website}}
 {{#statement-row:Wikidata ID|Wikidata ID}}
 |}
