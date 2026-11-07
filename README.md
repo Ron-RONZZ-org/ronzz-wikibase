@@ -57,6 +57,7 @@ The v1 plan lives in
 | October 2026 Add\* UX batch | implemented: (1) the append editor redirects to the **section just added** (topmost heading anchor, target-section fallback); (2) AddQuotation's **Attributed to** typeahead is scoped to the agent classes (no more Q2413 `document` suggestions); (3) **house CSS uses Codex theme tokens** — the AddPerson place-of-birth banner text is readable in night mode, with a `ThemeTokensTest` regression guard; (4) **BCE dates** are signed text values (`-0384-01-01`) stored as negative Julian-calendar TimeValues (the Q868 report); (5) new **`transcript`** AddSource class (manual-only, metadata-only: title/description/language/authors/year/access; CSL `document`) — see `docs/decisions/add-ux-batch-2026-10.md` |
 | Nov 2026 — Item-page "Copy internal mention" | implemented: an `Item:` page whose item is sitelinked to a classic per-kind page (`Source:`/`Person:`/`Collective:`/`FOSS:`/`Software:`) renders the same **Copy internal mention** button as that page — the snippet targets the CLASSIC page (`[[Person:Carl David Anderson|Carl David Anderson]]`, italic on `Source:`), never `[[Item:Q…]]`; an item with no classic page renders none. Resolves the item→page link via the new `Spec/ItemPageTitle` (`getSiteLinksForItem()`) — also fixing four silently dead `getLinkForItemId()` call sites: `Special:ChildItemsOf`'s classic-page links and the quotation/child-listing parent-page cache invalidators — see `docs/decisions/mention-and-quotation-attribution.md` |
 | Nov 2026 — Wikimedia file-page URLs upload the image | fixed: a Wikipedia/Wikimedia **`File:` description page** URL (e.g. `https://en.wikipedia.org/wiki/File:Standard_Model_of_Elementary_Particles.svg`) fetched metadata but never the image — the URL is HTML. The file's **own wiki API** is now queried (resolves Commons AND locally hosted non-free files) for `imageinfo.url` (the direct bytes URL) + a preview `thumburl`; the browser blob fallback and the server-side `UploadFromUrl` resolve that direct URL before fetching (`Special:Upload` URL mode and the Add\*/Update\* portrait/logo fields) — see `docs/decisions/wikimedia-file-page-upload.md` |
+| Nov 2026 — internal-use (copyright-restricted) access files | implemented: `Special:AddSource`/`UpdateSource` gain **“No public licence (internal use only)”** for `file`/`download`; the licence is auto-recorded as **All rights reserved** (new preseed), and the bytes are gated to logged-in readers with a signed cookie + a filesystem marker checked by nginx `secure_link` (no PHP per image; public files untouched). Anonymous readers see the copyright/login message on the File: page (description stays public), `Special:SourceFile` and `[[File:…]]`; logged-in readers keep the normal File: page, thumbnails, embeds and preview/download. Direct `thumb.php`/`img_auth.php` bypasses are blocked. `maintenance/syncInternalFileMarkers.php` rebuilds the markers after a restore — see `docs/decisions/internal-use-files.md` |
 
 ## Repository layout
 
@@ -217,6 +218,12 @@ python3 tests/e2e/run_diagrams_e2e.py --base-url https://wikibase.ronzz.org \
 `--instance-of` is **P1** on production (`instance of`; P31 is *subclass of* — the
 E2E example previously said P31). Property IDs are opaque and instance-specific:
 CI and `dev/README.md` resolve them from `seed/generated/ids.json` instead.
+
+`run_pages_e2e.py --media-gate` additionally verifies the **production nginx
+internal-media gate** (an anonymous media request must end on the 403 copyright
+message page; the logged-in request must be 200). The CI stack runs Apache and
+serves `/images/` directly, so CI runs without the flag; the deploy procedure
+runs it against production.
 
 ## Documentation
 

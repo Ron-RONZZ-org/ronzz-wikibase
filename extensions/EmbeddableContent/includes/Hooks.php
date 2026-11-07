@@ -10,6 +10,7 @@ use EmbeddableContent\ParserFunctions\ItemImage;
 use EmbeddableContent\ParserFunctions\QuotationsOf;
 use EmbeddableContent\ParserFunctions\SourceAccess;
 use EmbeddableContent\Search\EntityTermSearch;
+use EmbeddableContent\Spec\InternalFile;
 use EmbeddableContent\Spec\InternalMention;
 use MediaWiki\Html\Html;
 use MediaWiki\MediaWikiServices;
@@ -467,6 +468,12 @@ class Hooks {
 			return;
 		}
 
+		// Internal-use media: logged-in readers carry a short-lived signed
+		// cookie that nginx verifies for /images/ requests (secure_link),
+		// so the media gate costs no PHP request. Anonymous users get no
+		// cookie; the File: page and Special:SourceFile show a login prompt.
+		InternalFile::setMediaCookie( $out->getRequest()->response(), $out->getUser() );
+
 		// Core edit page: a stale CSRF edit token forces a PREVIEW
 		// (session_fail_preview) instead of saving. When the POST is
 		// same-origin, mark the response so resources/editsessionretry.js can
@@ -539,6 +546,23 @@ class Hooks {
 		// and the page name ride JS config vars, so the module needs no API
 		// roundtrip. Non-files (redlinks) render nothing.
 		if ( $title->getNamespace() === NS_FILE ) {
+			// Internal-use file: anonymous readers keep the description and
+			// metadata ("file info") but not the media controls — the core
+			// file block is hidden by the style module, and the notice is
+			// added by onImageOpenShowImageInlineBefore. Logged-in readers
+			// get the normal page (the media cookie set above passes the
+			// nginx gate).
+			if ( InternalFile::isInternal( $title ) ) {
+				$out->addBodyClasses( 'wb-internal-file' );
+				if ( $out->getUser()->isAnon() ) {
+					$out->addBodyClasses( 'wb-internal-file-anon' );
+					$out->addModuleStyles( [
+						'mediawiki.codex.messagebox.styles',
+						'ext.embeddableContent.internalfile',
+					] );
+					return;
+				}
+			}
 			$file = MediaWikiServices::getInstance()->getRepoGroup()->findFile( $title );
 			if ( $file !== false ) {
 				$out->addJsConfigVars( 'wbFileName', $title->getText() );
@@ -1334,5 +1358,83 @@ class Hooks {
 				$args
 			);
 		} );
+	}
+
+	/**
+	 * File: page notice for an internal-use file viewed anonymously. The
+	 * core file block itself is hidden by the internalfile style module; this
+	 * notice states why and offers the login link. Logged-in readers need no
+	 * notice — the page renders normally.
+	 *
+	 * @param \MediaWiki\Page\ImagePage $imagePage
+	 * @param OutputPage $out
+	 */
+	public static function onImageOpenShowImageInlineBefore( $imagePage, OutputPage $out ): void {
+		$title = $imagePage->getTitle();
+		if ( $title === null || !InternalFile::isInternal( $title ) || !$out->getUser()->isAnon() ) {
+			return;
+		}
+		$out->addModuleStyles( [
+			'mediawiki.codex.messagebox.styles',
+			'ext.embeddableContent.internalfile',
+		] );
+		$message = $out->msg( 'embeddablecontent-internal-file-loginrequired' )->text();
+		$login = Html::element(
+			'a',
+			[ 'href' => InternalFile::loginUrl( $title ) ],
+			$out->msg( 'login' )->text()
+		);
+		$out->addHTML( Html::warningBox( htmlspecialchars( $message ) . ' ' . $login ) );
+	}
+
+	/**
+	 * UserLogoutComplete: drop the signed media cookie. Without this a stale
+	 * cookie would keep granting internal-media access after logout until
+	 * its one-hour expiry.
+	 *
+	 * @param \MediaWiki\User\User $user
+	 * @param string &$injectHtml
+	 * @param string $oldName
+	 */
+	public static function onUserLogoutComplete( $user, &$injectHtml, $oldName ): void {
+		InternalFile::clearMediaCookie( \MediaWiki\Context\RequestContext::getMain()->getRequest()->response() );
+	}
+
+	/**
+	 * FileDeleteComplete: drop the media marker with the file (the File:
+	 * page and its category are gone). Old-version deletions keep it.
+	 *
+	 * @param mixed $file
+	 * @param mixed $oldimage
+	 * @param mixed $article
+	 * @param mixed $user
+	 * @param string $reason
+	 */
+	public static function onFileDeleteComplete( $file, $oldimage, $article, $user, $reason ): void {
+		if ( $oldimage !== null ) {
+			return;
+		}
+		try {
+			InternalFile::removeMarkerForFile( $file );
+		} catch ( \Throwable $e ) {
+			wfLogWarning( 'EmbeddableContent: could not remove the internal-file marker: ' . $e->getMessage() );
+		}
+	}
+
+	/**
+	 * FileUndeleteComplete: restore the media marker from the restored
+	 * File: page's category.
+	 *
+	 * @param \MediaWiki\Title\Title $title
+	 * @param array $fileVersions
+	 * @param mixed $user
+	 * @param string $reason
+	 */
+	public static function onFileUndeleteComplete( $title, $fileVersions, $user, $reason ): void {
+		try {
+			InternalFile::syncOne( $title );
+		} catch ( \Throwable $e ) {
+			wfLogWarning( 'EmbeddableContent: could not restore the internal-file marker: ' . $e->getMessage() );
+		}
 	}
 }

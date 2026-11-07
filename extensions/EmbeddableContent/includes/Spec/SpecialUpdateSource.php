@@ -148,6 +148,13 @@ class SpecialUpdateSource extends SpecialAddSource {
 		$record['additionalLanguages'] = implode( ', ', array_slice( $languageValues, 1 ) );
 		$record['accessUrl'] = $this->firstStringForProperty( $item, $source['accessUrl'] ?? null );
 		$record['fileTitle'] = $this->accessFileTitle( $item, $source['file'] ?? null );
+		$accessFileTitle = $record['fileTitle'] !== ''
+			? \MediaWiki\Title\Title::newFromText( $record['fileTitle'] )
+			: null;
+		$record['internalUse'] = $accessFileTitle !== null
+			&& InternalFile::isInternal( $accessFileTitle )
+			? '1'
+			: '';
 		$record['license'] = $this->firstEntityForProperty( $item, $source['license'] ?? null );
 		// accessMode derivation: an uploaded file → file; else a bare
 		// license (no access URL) → download; else the access URL → url;
@@ -247,15 +254,27 @@ class SpecialUpdateSource extends SpecialAddSource {
 		}
 		$record['accessMode'] = $mode;
 		if ( $mode === 'url' || $mode === 'na' ) {
+			// A file that is no longer the access resource is left exactly as
+			// it is — the section was not about the media in this submit.
 			return null;
 		}
 
-		$licenseId = trim( (string)( $record['license'] ?? '' ) );
-		$licenseItem = $this->parseItemId( $licenseId );
-		if ( $licenseItem === null ) {
-			return $this->msg( 'embeddablecontent-source-error-license' )->text();
+		$internal = !empty( $record['internalUse'] );
+		$record['internalUse'] = $internal ? '1' : '';
+		if ( $internal ) {
+			$allRights = InternalFile::allRightsReservedLicenseId( $this->config );
+			if ( $allRights === null ) {
+				return $this->msg( 'embeddablecontent-source-error-internal-license' )->text();
+			}
+			$record['license'] = $allRights;
+		} else {
+			$licenseId = trim( (string)( $record['license'] ?? '' ) );
+			$licenseItem = $this->parseItemId( $licenseId );
+			if ( $licenseItem === null ) {
+				return $this->msg( 'embeddablecontent-source-error-license' )->text();
+			}
+			$record['license'] = $licenseItem->getSerialization();
 		}
-		$record['license'] = $licenseItem->getSerialization();
 
 		try {
 			if ( $mode === 'file' ) {
@@ -275,7 +294,7 @@ class SpecialUpdateSource extends SpecialAddSource {
 				if ( $url === null ) {
 					if ( !empty( $record['fileTitle'] ) ) {
 						// Keep the existing download.
-						return null;
+						return $this->applyInternalFlag( $record, $internal );
 					}
 					return $this->msg( 'embeddablecontent-source-error-access-upload', 'invalid or unreachable URL' )->text();
 				}
@@ -287,6 +306,41 @@ class SpecialUpdateSource extends SpecialAddSource {
 			}
 		} catch ( \Throwable $e ) {
 			return $this->msg( 'embeddablecontent-source-error-access-upload', $e->getMessage() )->text();
+		}
+		return $this->applyInternalFlag( $record, $internal );
+	}
+
+	/**
+	 * Applies the internal-use flag to the record's (existing) file. The
+	 * upload path already applies it; this covers "keep the existing file"
+	 * and is idempotent otherwise.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return string|null form error, or null
+	 */
+	private function applyInternalFlag( array $record, bool $internal ): ?string {
+		$fileTitle = trim( (string)( $record['fileTitle'] ?? '' ) );
+		if ( $fileTitle === '' ) {
+			return null;
+		}
+		// The record carries the DB key ("Foo.pdf") for a fresh upload and
+		// the prefixed title ("File:Foo.pdf") for a kept file — normalize to
+		// a File: title either way.
+		$title = \MediaWiki\Title\Title::newFromText( $fileTitle );
+		if ( $title === null || !$title->inNamespace( NS_FILE ) ) {
+			try {
+				$title = \MediaWiki\Title\Title::makeTitle( NS_FILE, $fileTitle );
+			} catch ( \Throwable $e ) {
+				$title = null;
+			}
+		}
+		if ( $title === null ) {
+			return $this->msg( 'embeddablecontent-source-error-access-file-required' )->text();
+		}
+		try {
+			InternalFile::setInternal( $title, $internal, $this->getUser() );
+		} catch ( \Throwable $e ) {
+			return $this->msg( 'embeddablecontent-source-error-internal-marker', $e->getMessage() )->text();
 		}
 		return null;
 	}

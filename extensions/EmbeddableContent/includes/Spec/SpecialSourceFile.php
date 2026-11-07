@@ -35,9 +35,12 @@ use Wikibase\Repo\WikibaseRepo;
  *   * a download button gated on a checkbox accepting the licence conditions
  *     (server-side; unchecked = form error, checked = redirect to the file).
  *
- * The page LOAD is not login-gated (preview + licence are informational);
- * the download SUBMIT enforces login (house pattern — the instance is
- * anon read-only).
+ * Public copies: the page LOAD is not login-gated (preview + licence are
+ * informational); the download SUBMIT enforces login (house pattern — the
+ * instance is anon read-only). Internal-use copies: the page LOAD keeps the
+ * title + licence ("file info") public, but the preview and the download form
+ * are replaced by the copyright/login message for anonymous readers (the
+ * media itself is gated by nginx; see Spec\InternalFile).
  *
  * @license GPL-2.0-or-later
  */
@@ -69,27 +72,53 @@ class SpecialSourceFile extends SpecialPage {
 
 		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-sourcefile-title', $file->getTitle()->getText() )->text() );
 
-		// 1. Embedded preview: PDFs render in a self-hosted iframe (the
-		// browser's native viewer); images get a thumbnail; other types get
-		// a file-page link (no blank surface).
-		$this->getOutput()->addHTML( $this->previewHtml( $file ) );
+		$internal = InternalFile::isInternal( $file->getTitle() );
 
-		// 2. Licence information from the owning item's `license` statement.
+		// Licence information from the owning item's `license` statement.
 		$itemId = $this->parseItemId( $itemParam );
 		$license = $itemId !== null ? $this->licenseInfo( $itemId ) : null;
+
+		// Internal-use copy: the page itself (title + licence = "file
+		// info") stays public; the media and the download are login-gated.
+		if ( $internal && $this->getUser()->isAnon() ) {
+			$this->getOutput()->addHTML( $this->licenceHtml( $license ) );
+			$this->getOutput()->addHTML( $this->internalLoginNoticeHtml() );
+			$this->getOutput()->addHTML( $this->filePageLinkHtml( $file ) );
+			return;
+		}
+
+		// 1. Embedded preview: PDFs render in a self-hosted iframe (the
+		// browser's native viewer); images get a thumbnail; other types get
+		// a file-page link (no blank surface). The logged-in media cookie
+		// lets nginx serve the internal file's preview.
+		$this->getOutput()->addHTML( $this->previewHtml( $file ) );
+
+		// 2. Licence information.
 		$this->getOutput()->addHTML( $this->licenceHtml( $license ) );
 
-		// 3. Download form: checkbox accepts the licence conditions.
-		$acceptMessage = $license !== null
-			? $this->msg( 'embeddablecontent-sourcefile-accept', $license['label'] )
-			: $this->msg( 'embeddablecontent-sourcefile-accept-unknown' );
-		$form = HTMLForm::factory( 'ooui', [
-			'accept' => [
-				'type' => 'check',
-				'label-message' => $acceptMessage,
-				'required' => true,
-			],
-		], $this->getContext() );
+		// 3. Download form. Public files keep the licence-acceptance
+		// checkbox; internal files are gated by login alone (the licence is
+		// recorded automatically as "All rights reserved").
+		if ( $internal ) {
+			$fields = [
+				'internal' => [
+					'type' => 'hidden',
+					'default' => '1',
+				],
+			];
+		} else {
+			$acceptMessage = $license !== null
+				? $this->msg( 'embeddablecontent-sourcefile-accept', $license['label'] )
+				: $this->msg( 'embeddablecontent-sourcefile-accept-unknown' );
+			$fields = [
+				'accept' => [
+					'type' => 'check',
+					'label-message' => $acceptMessage,
+					'required' => true,
+				],
+			];
+		}
+		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
 		$form->setTitle( $this->getPageTitle() )
 			->setAction( $this->getPageTitle()->getFullURL( [ 'file' => $fileParam, 'item' => $itemParam ] ) )
 			->setSubmitTextMsg( 'embeddablecontent-sourcefile-download' )
@@ -98,11 +127,34 @@ class SpecialSourceFile extends SpecialPage {
 			->setWrapperLegendMsg( 'embeddablecontent-sourcefile-download-legend' );
 		$form->show();
 
-		// A link back to the canonical file page (history, other renditions).
-		$this->getOutput()->addHTML(
-			'<p><a href="' . htmlspecialchars( $file->getTitle()->getLocalURL() ) . '">'
-			. $this->msg( 'embeddablecontent-sourcefile-filepage' )->escaped() . '</a></p>'
+		$this->getOutput()->addHTML( $this->filePageLinkHtml( $file ) );
+	}
+
+	/**
+	 * The copyright/login notice for an internal-use file, with the login
+	 * link returning to this page (title + query).
+	 */
+	private function internalLoginNoticeHtml(): string {
+		$this->getOutput()->addModuleStyles( [
+			'mediawiki.codex.messagebox.styles',
+			'ext.embeddableContent.internalfile',
+		] );
+		$login = SpecialPage::getTitleFor( 'UserLogin' )->getFullURL( [
+			'returnto' => $this->getPageTitle()->getPrefixedText(),
+			'returntoquery' => $this->getRequest()->getRawQueryString(),
+		] );
+		$link = Html::element( 'a', [ 'href' => $login ], $this->msg( 'login' )->text() );
+		return Html::warningBox(
+			htmlspecialchars( $this->msg( 'embeddablecontent-internal-file-loginrequired' )->text() )
+				. ' ' . $link,
+			'wb-internal-file-placeholder'
 		);
+	}
+
+	/** @param \MediaWiki\FileRepo\File\File $file */
+	private function filePageLinkHtml( \MediaWiki\FileRepo\File\File $file ): string {
+		return '<p><a href="' . htmlspecialchars( $file->getTitle()->getLocalURL() ) . '">'
+			. $this->msg( 'embeddablecontent-sourcefile-filepage' )->escaped() . '</a></p>';
 	}
 
 	/**
@@ -119,12 +171,15 @@ class SpecialSourceFile extends SpecialPage {
 		if ( $loginError !== null ) {
 			return $loginError;
 		}
-		if ( empty( $data['accept'] ) ) {
-			return $this->msg( 'embeddablecontent-sourcefile-accept-required' )->text();
-		}
 		$file = $this->resolveFile( (string)$this->getRequest()->getVal( 'file' ) );
 		if ( $file === null ) {
 			return $this->msg( 'embeddablecontent-sourcefile-invalidfile' )->text();
+		}
+		// Internal-use copies are gated by login alone; public copies keep
+		// the licence-acceptance gate. Decided from the FILE, not the
+		// submitted field (a crafted field must not skip the licence).
+		if ( !InternalFile::isInternal( $file->getTitle() ) && empty( $data['accept'] ) ) {
+			return $this->msg( 'embeddablecontent-sourcefile-accept-required' )->text();
 		}
 		$this->getOutput()->redirect( $file->getUrl() );
 		return true;
