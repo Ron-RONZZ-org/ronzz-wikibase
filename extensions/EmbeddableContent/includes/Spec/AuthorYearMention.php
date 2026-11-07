@@ -115,7 +115,13 @@ final class AuthorYearMention {
 		if ( !$best instanceof TimeValue ) {
 			return null;
 		}
-		$year = $best->getYear();
+		// TimeValue has no getYear() in every data-values version; parse the
+		// signed ISO day (WikibaseTime::isoDay normalizes the 00 placeholders).
+		$iso = WikibaseTime::isoDay( $best->getTime() );
+		if ( $iso === null || preg_match( '/^(-?)(\d{4})-\d{2}-\d{2}$/', $iso, $m ) !== 1 ) {
+			return null;
+		}
+		$year = (int)( $m[1] . $m[2] );
 		return $year === 0 ? null : (string)$year;
 	}
 
