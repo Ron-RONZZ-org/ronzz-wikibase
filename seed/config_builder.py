@@ -91,6 +91,9 @@ PERSON_PROPERTY_KINDS = {
     "place of birth (label)": "placeOfBirthLabel",
     "place of death (label)": "placeOfDeathLabel",
     "official website": "officialWebsite",
+    # Affiliation (P1416-aligned): the collectives/organizations a person is
+    # linked to. Multi-value (one statement per item).
+    "affiliated with": "affiliatedWith",
     # Portrait facts: the P18-aligned image (url) + the shared P275 license.
     "image": "image",
     "license": "license",
@@ -119,6 +122,8 @@ FICTIONAL_CHARACTER_PROPERTY_KINDS = {
 # the shared P275 license).
 COLLECTIVE_PROPERTY_KINDS = {
     "parent organization": "parentOrganization",
+    # Group-of-humans membership (P527-aligned): one item per member.
+    "has member": "hasMember",
     "official website": "officialWebsite",
     "image": "image",
     "license": "license",

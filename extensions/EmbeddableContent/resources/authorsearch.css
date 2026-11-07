@@ -1,0 +1,96 @@
+/* AddSource "Search for authors" panel — author-name rows + confirmation
+ * dialog. Colours use the Codex theme tokens so the night theme stays
+ * readable (the ThemeTokensTest guard). */
+
+.wb-author-results {
+	margin-top: 0.5em;
+}
+
+.wb-author-row {
+	display: flex;
+	align-items: baseline;
+	gap: 0.5em;
+	padding: 0.25em 0;
+	border-bottom: 1px solid var( --border-color-subtle, #c8ccd1 );
+}
+
+.wb-author-flag {
+	display: inline-block;
+	width: 1.2em;
+	font-weight: bold;
+	text-align: center;
+}
+
+.wb-author-flag-yellow {
+	color: var( --color-warning, #ac6600 );
+}
+
+.wb-author-flag-red {
+	color: var( --color-error, #bf3c2c );
+}
+
+.wb-author-flag-green {
+	color: var( --color-success, #14866d );
+}
+
+.wb-author-flag-skipped {
+	color: var( --color-subtle, #72777d );
+}
+
+.wb-author-name {
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var( --color-progressive, #3366cc );
+	cursor: pointer;
+	font-weight: bold;
+}
+
+.wb-author-name:hover {
+	text-decoration: underline;
+}
+
+.wb-author-parsed {
+	color: var( --color-subtle, #72777d );
+}
+
+.wb-author-status {
+	margin-left: auto;
+	color: var( --color-subtle, #72777d );
+	font-size: 0.9em;
+}
+
+.wb-author-collective {
+	margin-bottom: 0.75em;
+	padding: 0.5em 0.75em;
+	border-left: 4px solid var( --color-warning, #ac6600 );
+	background: var( --background-color-warning-subtle, #fef6e7 );
+}
+
+.wb-author-collective button {
+	margin-left: 0.5em;
+}
+
+.wb-author-dialog .oo-ui-dialog-content {
+	max-width: 40em;
+}
+
+.wb-author-candidate {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.75em;
+	padding: 0.5em 0;
+	border-bottom: 1px solid var( --border-color-subtle, #c8ccd1 );
+}
+
+.wb-author-dialog-actions {
+	display: flex;
+	gap: 0.5em;
+	margin-top: 1em;
+}
+
+.wb-author-hint {
+	color: var( --color-subtle, #72777d );
+	font-size: 0.9em;
+}

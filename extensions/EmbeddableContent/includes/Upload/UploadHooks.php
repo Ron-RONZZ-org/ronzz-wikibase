@@ -349,6 +349,15 @@ final class UploadHooks {
 			'',
 			$pageText
 		);
+		// Semantic-first: the form submission itemizes the upload
+		// (UploadComplete), so the File page derives Licensing/Attribution
+		// from the item's statements instead of freezing the form values as
+		// static text. Editing the item (Special:UpdateFile, action=imagefacts,
+		// wbeditentity) then updates the page automatically.
+		if ( RequestContext::getMain()->getRequest()->getVal( 'wpUploadmetaItemize' ) === '1' ) {
+			$pageText = rtrim( $pageText ) . "\n\n{{#image-facts:}}\n";
+			return;
+		}
 		if ( preg_match( '/^Q[1-9]\d*$/i', $license ) === 1 ) {
 			$label = self::licenseLabel( $license );
 			$pageText .= '== ' . $licenseHeader . " ==\n"

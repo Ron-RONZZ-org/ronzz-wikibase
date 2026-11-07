@@ -7,7 +7,9 @@ namespace EmbeddableContent\Flow;
 use DataValues\StringValue;
 use DataValues\TimeValue;
 use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\Spec\AdditionalStatements;
 use EmbeddableContent\Spec\EntityLabelText;
+use EmbeddableContent\Spec\GroupLabel;
 use EmbeddableContent\Spec\WikibaseTime;
 use Wikibase\DataModel\DataValue;
 use Wikibase\DataModel\Entity\EntityIdValue;
@@ -72,6 +74,7 @@ final class SemanticEntityFlowService {
 		// written as parallel string statements.
 		'placeOfBirthLabel', 'placeOfDeathLabel',
 		'imageFileUrl',
+		'additionalStatements',
 	];
 
 	/**
@@ -112,7 +115,8 @@ final class SemanticEntityFlowService {
 
 		if ( $creating ) {
 			$required = SemanticEntityFieldMap::requiredOnCreate( $kind );
-			if ( in_array( 'label', $required, true ) && !isset( $provided['label'] ) ) {
+			$hasMembers = $kind === 'collective' && trim( (string)( $record['members'] ?? '' ) ) !== '';
+			if ( in_array( 'label', $required, true ) && !isset( $provided['label'] ) && !$hasMembers ) {
 				return sprintf( self::ERROR_LABEL_REQUIRED, $kind );
 			}
 			if ( in_array( 'givenName', $required, true )
@@ -141,7 +145,7 @@ final class SemanticEntityFlowService {
 		// (developer/license/operating-system/user-interface/has-use) accept
 		// comma-separated item ids (one statement per id), the rest are
 		// single ids.
-		$multiEntityFields = [ 'developer', 'license', 'operatingSystem', 'userInterface', 'hasUse' ];
+		$multiEntityFields = [ 'developer', 'license', 'operatingSystem', 'userInterface', 'hasUse', 'affiliatedWith', 'members' ];
 		foreach ( [ 'placeOfBirth', 'placeOfDeath', 'parentOrganization', 'instanceOf' ] as $entityField ) {
 			$id = trim( (string)( $record[$entityField] ?? '' ) );
 			if ( $id !== '' && preg_match( '/^Q[1-9]\d*$/', $id ) !== 1 ) {
@@ -176,6 +180,19 @@ final class SemanticEntityFlowService {
 					return "collectiveClass \"{$class}\" is neither an item ID nor a known preset.";
 				}
 			}
+			$groupClass = $this->config->agentClasses()['groupOfHumans'] ?? null;
+			$members = trim( (string)( $record['members'] ?? '' ) );
+			if ( $members !== '' && $groupClass !== null && $record['collectiveClass'] !== $groupClass ) {
+				return 'members is only valid for the group of humans class.';
+			}
+			if ( $members !== '' && trim( (string)( $record['label'] ?? '' ) ) === '' ) {
+				$labels = [];
+				foreach ( $this->splitItemIds( $members ) as $memberId ) {
+					$item = $this->lookup->getEntity( new ItemId( $memberId ) );
+					$labels[] = $item instanceof Item ? ( EntityLabelText::of( $item ) ?? $memberId ) : $memberId;
+				}
+				$record['label'] = GroupLabel::fromMembers( $labels );
+			}
 		}
 
 		foreach ( [ 'presentInWork' ] as $listField ) {
@@ -188,6 +205,19 @@ final class SemanticEntityFlowService {
 
 		if ( $kind === 'fictional-character' && trim( (string)( $record['description'] ?? '' ) ) === '' ) {
 			$record['description'] = $this->fictionalDescription( (string)( $record['presentInWork'] ?? '' ) );
+		}
+
+		if ( array_key_exists( 'additionalStatements', $record ) ) {
+			if ( !is_array( $record['additionalStatements'] ) ) {
+				return 'additionalStatements must be a list of {property, value} rows.';
+			}
+			$built = AdditionalStatements::dataValues(
+				$record['additionalStatements'],
+				array_keys( $this->statementSpecs( $kind, $record ) )
+			);
+			if ( $built['error'] !== null ) {
+				return $built['error'];
+			}
 		}
 
 		return null;
@@ -257,6 +287,12 @@ final class SemanticEntityFlowService {
 				if ( $website !== '' && isset( $person['officialWebsite'] ) ) {
 					$specs[$person['officialWebsite']] = new StringValue( $website );
 				}
+				// Affiliation is multi-value (one statement per collective).
+				if ( isset( $person['affiliatedWith'] ) ) {
+					foreach ( $this->splitItemIds( (string)( $record['affiliatedWith'] ?? '' ) ) as $id ) {
+						$specs[$person['affiliatedWith']][] = new EntityIdValue( new ItemId( $id ) );
+					}
+				}
 				$imageUrl = trim( (string)( $record['imageFileUrl'] ?? '' ) );
 				if ( $imageUrl !== '' && isset( $person['image'] ) ) {
 					$specs[$person['image']] = new StringValue( $imageUrl );
@@ -314,6 +350,16 @@ final class SemanticEntityFlowService {
 				$parent = trim( (string)( $record['parentOrganization'] ?? '' ) );
 				if ( $parent !== '' && isset( $collective['parentOrganization'] ) ) {
 					$specs[$collective['parentOrganization']] = new EntityIdValue( new ItemId( $parent ) );
+				}
+				if ( array_key_exists( 'members', $record ) && isset( $collective['hasMember'] ) ) {
+					$groupClass = $this->config->agentClasses()['groupOfHumans'] ?? null;
+					$class = trim( (string)( $record['collectiveClass'] ?? '' ) );
+					if ( $groupClass !== null && $class === $groupClass ) {
+						$specs[$collective['hasMember']] = array_map(
+							static fn ( string $id ): EntityIdValue => new EntityIdValue( new ItemId( $id ) ),
+							$this->splitItemIds( (string)( $record['members'] ?? '' ) )
+						);
+					}
 				}
 				$website = trim( (string)( $record['officialWebsite'] ?? '' ) );
 				if ( $website !== '' && isset( $collective['officialWebsite'] ) ) {
@@ -390,6 +436,23 @@ final class SemanticEntityFlowService {
 				);
 			}
 		}
+		$additional = $record['additionalStatements'] ?? [];
+		if ( is_array( $additional ) && $additional !== [] ) {
+			$built = AdditionalStatements::dataValues(
+				$additional,
+				array_keys( $this->statementSpecs( $kind, $record ) )
+			);
+			if ( $built['error'] !== null ) {
+				throw new \InvalidArgumentException( $built['error'] );
+			}
+			foreach ( $built['values'] as $propertyId => $values ) {
+				foreach ( $values as $single ) {
+					$item->getStatements()->addNewStatement(
+						new PropertyValueSnak( $this->propertyId( $propertyId ), $single )
+					);
+				}
+			}
+		}
 		return $item;
 	}
 
@@ -404,6 +467,12 @@ final class SemanticEntityFlowService {
 		$managed = [];
 		foreach ( $this->statementSpecs( $kind, $provided ) as $propertyId => $_ ) {
 			$managed[] = $propertyId;
+		}
+		if ( $kind === 'collective' && array_key_exists( 'members', $record ) ) {
+			$hasMember = $this->config->collectivePropertyIds()['hasMember'] ?? null;
+			if ( $hasMember !== null ) {
+				$managed[] = $hasMember;
+			}
 		}
 		$managed = array_values( array_unique( $managed ) );
 		if ( $managed !== [] ) {
@@ -425,6 +494,14 @@ final class SemanticEntityFlowService {
 			// added statements now (the entity-page client matches statements
 			// to the DOM by GUID; a GUID-less statement renders as an empty
 			// edit-mode row for logged-in users).
+			StatementGuidAssigner::ensureGuids( $item, new GuidGenerator() );
+		}
+		$additional = $record['additionalStatements'] ?? [];
+		if ( is_array( $additional ) && $additional !== [] ) {
+			$error = AdditionalStatements::applyDiff( $item, $additional, $managed );
+			if ( $error !== null ) {
+				throw new \InvalidArgumentException( $error );
+			}
 			StatementGuidAssigner::ensureGuids( $item, new GuidGenerator() );
 		}
 		$language = trim( (string)( $record['labelLanguage'] ?? '' ) );

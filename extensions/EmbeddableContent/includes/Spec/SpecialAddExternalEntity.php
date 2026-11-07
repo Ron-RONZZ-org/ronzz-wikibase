@@ -157,6 +157,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// for the portrait/logo file inputs (the shared Special:Upload
 		// module; a no-op on pages without the wb-image-preview field).
 		$this->getOutput()->addModules( 'ext.embeddableContent.uploadimage' );
+		// The AddSource author-name panel ("Search for authors" + the
+		// per-name confirmation popup) — a no-op on pages without the
+		// #wb-author-search button.
+		$this->getOutput()->addModules( 'ext.embeddableContent.authorsearch' );
 	}
 
 	public function execute( $subPage ) {
@@ -620,7 +624,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		}
 
 		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-' . $this->kindKey() . '-review-title' )->text() );
-		$fields = $this->applyRequestPrefill( $this->reviewFieldSpecs( $record ) + $this->classFieldSpec( $record ) );
+		$fields = $this->applyRequestPrefill( $this->reviewFieldSpecs( $record ) + $this->classFieldSpec( $record ) + $this->additionalStatementsFieldSpec() );
 
 		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
 		$form->setTitle( $this->stepTitle( $token . '/review/' . $index ) )
@@ -666,6 +670,9 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			$value = (string)$data[$name];
 			$record[$name] = ( $name === 'issuedYear' && $value !== '' ) ? (int)$value : $value;
 		}
+		$record['additionalStatements'] = is_array( $data['additionalStatements'] ?? null )
+			? $data['additionalStatements']
+			: [];
 		// Validate now so errors surface on the RECORD form, not on the
 		// content step. Side effects (file uploads) are idempotent — the
 		// final creation re-runs beforeCreate without duplicating them.
@@ -1376,6 +1383,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			$this->reviewFieldSpecs( $record )
 			+ $this->classFieldSpec( $record )
 			+ $this->manualExtraSubmits()
+			+ $this->additionalStatementsFieldSpec()
 		);
 
 		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
@@ -1498,6 +1506,9 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			}
 			$record[$name] = ( $name === 'issuedYear' ) ? (int)$value : $value;
 		}
+		$record['additionalStatements'] = is_array( $data['additionalStatements'] ?? null )
+			? $data['additionalStatements']
+			: [];
 		// URL-first flow content (website/webpage): the fetched intro and
 		// keywords ride along for the content review step.
 		$urlMeta = $this->manualUrlMeta();
@@ -1619,6 +1630,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 */
 	protected function createFromRecord( array $record, string $classItemId, bool $forceCreate = false ): string {
 		$record = $this->enrichRecord( $record );
+		$commitError = $this->commitRecord( $record, $classItemId );
+		if ( $commitError !== null ) {
+			throw new \RuntimeException( $commitError );
+		}
 		$flowKind = $this->semanticFlowKindKey();
 		if ( $flowKind !== null ) {
 			return $this->createViaSemanticFlow(
@@ -1649,6 +1664,18 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 */
 	protected function withChosenClass( array $record, string $classItemId ): array {
 		return $record;
+	}
+
+	/**
+	 * Post-validation, pre-create commit hook: subclasses may create the
+	 * Person items decided by a person-name panel (the group-of-humans
+	 * members) now that the duplicate guard has passed. Returns an error
+	 * string to abort, or null.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function commitRecord( array &$record, string $classItemId = '' ): ?string {
+		return null;
 	}
 
 	/**
@@ -1739,7 +1766,11 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 * @return array<string,mixed>
 	 */
 	protected function semanticFlowRecord( string $kind, array $record ): array {
-		return $this->pickServiceFields( $record, \EmbeddableContent\Flow\SemanticEntityFieldMap::ALL_FIELDS );
+		$out = $this->pickServiceFields( $record, \EmbeddableContent\Flow\SemanticEntityFieldMap::ALL_FIELDS );
+		if ( isset( $record['additionalStatements'] ) && is_array( $record['additionalStatements'] ) ) {
+			$out['additionalStatements'] = $record['additionalStatements'];
+		}
+		return $out;
 	}
 
 	/**
@@ -1774,6 +1805,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 * @param array<string,mixed> $record
 	 */
 	protected function manualCreate( string $label, string $classItemId, array $record ): string {
+		$commitError = $this->commitRecord( $record, $classItemId );
+		if ( $commitError !== null ) {
+			throw new \RuntimeException( $commitError );
+		}
 		$flowKind = $this->semanticFlowKindKey();
 		if ( $flowKind !== null ) {
 			return $this->createViaSemanticFlow( $flowKind, $record );
@@ -2314,6 +2349,110 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 */
 	protected function manualFieldSpecs(): array {
 		return $this->reviewFieldSpecs( [] );
+	}
+
+	/**
+	 * Applies a person-name panel (author or member): parses the pasted
+	 * names, validates/creates the decided Person items, and merges the
+	 * resulting ids into the target record field (`authors` for prefix
+	 * "author", `members` for prefix "member"). `$commit = false` is the
+	 * review-step pre-flight (no Person writes); `true` is the actual create
+	 * (called after the duplicate guard).
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function applyPersonPanel( string $prefix, array &$record, bool $commit = false ): ?string {
+		$namesInput = trim( (string)( $record[$prefix . 'Names'] ?? '' ) );
+		$choicesJson = trim( (string)( $record[$prefix . 'Choices'] ?? '' ) );
+		if ( $namesInput === '' && $choicesJson === '' ) {
+			return null;
+		}
+		// A harvested names prefill with no decisions: the contributor
+		// submitted without confirming them — create the item without those
+		// authors instead of showing a blocking form error. Any input or a
+		// Search click clears the marker (resources/authorsearch.js).
+		if ( $choicesJson === '' && !empty( $record[$prefix . 'NamesHarvested'] ) ) {
+			$record[$prefix . 'Names'] = '';
+			return null;
+		}
+		if ( $namesInput === '' ) {
+			return $this->msg( 'embeddablecontent-personpanel-error-names-missing' )->text();
+		}
+		$parsed = AuthorNameList::parse( $namesInput );
+		if ( $parsed['names'] === [] ) {
+			return $this->msg( 'embeddablecontent-personpanel-error-names-empty' )->text();
+		}
+		$choices = [];
+		if ( $choicesJson !== '' ) {
+			$decoded = json_decode( $choicesJson, true );
+			if ( !is_array( $decoded ) ) {
+				return $this->msg( 'embeddablecontent-personpanel-error-choices-invalid' )->text();
+			}
+			$choices = $decoded;
+		}
+		if ( $commit ) {
+			$result = $this->personCreator()->applyDecisions(
+				$parsed['names'],
+				$choices,
+				$this->getUser(),
+				$this->msg( 'embeddablecontent-person-create-summary' )->inContentLanguage()->text()
+			);
+			if ( $result['error'] !== null ) {
+				return $result['error'];
+			}
+			foreach ( $result['warnings'] as $warning ) {
+				wfDebugLog( 'EmbeddableContent', $prefix . '-panel: ' . $warning );
+			}
+			$newIds = $result['ids'];
+		} else {
+			$result = $this->personCreator()->validateDecisions( $parsed['names'], $choices );
+			if ( $result['error'] !== null ) {
+				return $result['error'];
+			}
+			$newIds = $result['ids'];
+		}
+		$target = $prefix === 'author' ? 'authors' : 'members';
+		$ids = ItemIdList::split( (string)( $record[$target] ?? '' ) );
+		foreach ( $newIds as $id ) {
+			if ( !in_array( $id, $ids, true ) ) {
+				$ids[] = $id;
+			}
+		}
+		$record[$target] = implode( ', ', $ids );
+		return null;
+	}
+
+	/** @var \EmbeddableContent\Flow\AuthorCreator|null */
+	private $personCreator = null;
+
+	private function personCreator(): \EmbeddableContent\Flow\AuthorCreator {
+		if ( $this->personCreator === null ) {
+			$this->personCreator = \MediaWiki\MediaWikiServices::getInstance()
+				->get( 'EmbeddableContent.AuthorCreator' );
+		}
+		return $this->personCreator;
+	}
+
+	/**
+	 * The "Additional semantic statements" cloner. On Update* it is
+	 * prefilled with the item's non-managed supported statements; on Add*
+	 * it starts empty. The server validates the property datatype/value in
+	 * Spec\AdditionalStatements and applies the submit as a diff.
+	 *
+	 * @param Item|null $item the existing item (Update*)
+	 * @param string[] $managedPropertyIds properties the form owns
+	 * @return array<string,mixed>
+	 */
+	protected function additionalStatementsFieldSpec( ?Item $item = null, array $managedPropertyIds = [] ): array {
+		$rows = $item instanceof Item
+			? AdditionalStatements::rowsForItem( $item, $managedPropertyIds )
+			: [];
+		$catalog = \MediaWiki\MediaWikiServices::getInstance()
+			->get( 'EmbeddableContent.PropertyCatalog' )
+			->options( $this->getLanguage()->getCode() );
+		$this->getOutput()->addJsConfigVars( 'wbAdditionalStatementDatatypes', $catalog['datatypes'] );
+		$this->getOutput()->addModules( 'ext.embeddableContent.additionalstatements' );
+		return \EmbeddableContent\Fields\AdditionalStatementsCloner::spec( $rows, $catalog['options'] );
 	}
 
 	/**

@@ -13,7 +13,9 @@ use EmbeddableContent\Duration;
 use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\EntityClassFilter;
 use EmbeddableContent\Fetch\YouTubeProvider;
+use EmbeddableContent\Spec\AdditionalStatements;
 use EmbeddableContent\Spec\EntityLabelText;
+use EmbeddableContent\Spec\GroupMembers;
 use EmbeddableContent\Spec\ItemIdList;
 use EmbeddableContent\Spec\JurisdictionList;
 use EmbeddableContent\Spec\LabelSanitizer;
@@ -72,7 +74,7 @@ final class SourceFlowService {
 	 * access flow feeds in (the uploaded file's URL and the license entity).
 	 * Accepted by prepare (no exposure check) and written by statementSpecs.
 	 */
-	private const INTERNAL_FIELDS = [ 'license', 'accessFileUrl' ];
+	private const INTERNAL_FIELDS = [ 'license', 'accessFileUrl', 'additionalStatements', 'allowCollectiveAuthor' ];
 
 	/**
 	 * @param \Closure(string $messageKey, string[] $params): string $message
@@ -190,6 +192,11 @@ final class SourceFlowService {
 			return $error;
 		}
 
+		$error = $this->expandAuthorGroups( $record );
+		if ( $error !== null ) {
+			return $error;
+		}
+
 		$error = $this->validateAuthors( $classKey, $record, $creating );
 		if ( $error !== null ) {
 			return $error;
@@ -204,7 +211,26 @@ final class SourceFlowService {
 			$record['youtubeVideoId'] = YouTubeProvider::extractVideoId( (string)( $record['url'] ?? '' ) ) ?? '';
 		}
 
-		return $this->validateParent( $classKey, $record, $creating );
+		$parentError = $this->validateParent( $classKey, $record, $creating );
+		if ( $parentError !== null ) {
+			return $parentError;
+		}
+
+		if ( array_key_exists( 'additionalStatements', $record ) ) {
+			if ( !is_array( $record['additionalStatements'] ) ) {
+				return 'additionalStatements must be a list of {property, value} rows.';
+			}
+			$managed = $this->managedPropertyIds( $classKey, $record );
+			$managed[] = $this->config->instanceOfPropertyId();
+			$built = AdditionalStatements::dataValues(
+				$record['additionalStatements'],
+				array_values( array_unique( $managed ) )
+			);
+			if ( $built['error'] !== null ) {
+				return $built['error'];
+			}
+		}
+		return null;
 	}
 
 	/**
@@ -503,6 +529,25 @@ final class SourceFlowService {
 				)
 			);
 		}
+		$additional = $record['additionalStatements'] ?? [];
+		if ( is_array( $additional ) && $additional !== [] ) {
+			$managed = $this->managedPropertyIds( $classKey, $record );
+			$managed[] = $this->config->instanceOfPropertyId();
+			$built = AdditionalStatements::dataValues(
+				$additional,
+				array_values( array_unique( $managed ) )
+			);
+			if ( $built['error'] !== null ) {
+				throw new \InvalidArgumentException( $built['error'] );
+			}
+			foreach ( $built['values'] as $propertyId => $values ) {
+				foreach ( $values as $single ) {
+					$item->getStatements()->addNewStatement(
+						new PropertyValueSnak( $this->propertyId( $propertyId ), $single )
+					);
+				}
+			}
+		}
 		return $item;
 	}
 
@@ -556,6 +601,20 @@ final class SourceFlowService {
 			// added statements now (the entity-page client matches statements
 			// to the DOM by GUID; a GUID-less statement renders as an empty
 			// edit-mode row for logged-in users).
+			StatementGuidAssigner::ensureGuids( $item, new GuidGenerator() );
+		}
+		$additional = $record['additionalStatements'] ?? [];
+		if ( is_array( $additional ) && $additional !== [] ) {
+			$additionalManaged = $managed;
+			$additionalManaged[] = $this->config->instanceOfPropertyId();
+			$error = AdditionalStatements::applyDiff(
+				$item,
+				$additional,
+				array_values( array_unique( $additionalManaged ) )
+			);
+			if ( $error !== null ) {
+				throw new \InvalidArgumentException( $error );
+			}
 			StatementGuidAssigner::ensureGuids( $item, new GuidGenerator() );
 		}
 		$newLanguage = self::termLanguage( $record );
@@ -658,6 +717,29 @@ final class SourceFlowService {
 	/**
 	 * @param array<string,mixed> $record
 	 */
+	/**
+	 * A group-of-humans author is replaced by its `has member` Persons. A
+	 * group without members is blocked when its label is a name list
+	 * (allowCollectiveAuthor bypasses this for a genuine collective).
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function expandAuthorGroups( array &$record ): ?string {
+		$ids = ItemIdList::split( (string)( $record['authors'] ?? '' ) );
+		if ( $ids === [] ) {
+			return null;
+		}
+		$members = new GroupMembers( $this->config, $this->lookup );
+		$expansion = $members->expand( $ids, !empty( $record['allowCollectiveAuthor'] ) );
+		if ( $expansion['blocked'] !== [] ) {
+			$blocked = $expansion['blocked'][0];
+			return "author \"{$blocked['label']}\" ({$blocked['qid']}) is a group-of-humans name list "
+				. 'without members; add its members or pass allowCollectiveAuthor=1.';
+		}
+		$record['authors'] = implode( ', ', $expansion['ids'] );
+		return null;
+	}
+
 	private function validateAuthors( string $classKey, array &$record, bool $creating ): ?string {
 		// Classes that do not expose authors (the legal texts: the court /
 		// jurisdiction carry the attribution) never validate one.

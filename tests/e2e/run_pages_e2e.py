@@ -2764,15 +2764,18 @@ def assert_semantic_image_item(op, base: str, api: str, consumer_qid: str, label
     assert links.get("wikibase", {}).get("title") == file_title, \
         f"{image_qid} not sitelinked to {file_title} ({links})"
 
-    # The File page carries the attribution + the semantic license reference
-    # ([[Q42|label]] — never a {{Q42}} template call).
+    # Semantic-first File page: the raw text carries {{#image-facts:}}; the
+    # rendered page derives the Licensing/Attribution block from the item.
     _, raw = page_get(op, base, "/wiki/" + urllib.parse.quote(file_title.replace(" ", "_")) + "?action=raw")
-    assert "Attribution" in raw and author in raw, \
-        f"{file_title} missing the attribution block; raw: {raw[:400]!r}"
-    assert f"[[{license_qid}|" in raw, \
-        f"{file_title} missing the semantic license reference; raw: {raw[:400]!r}"
+    assert "{{#image-facts:}}" in raw, \
+        f"{file_title} missing the semantic facts block; raw: {raw[:400]!r}"
     assert "{{" + license_qid + "}}" not in raw, \
         f"{file_title} renders the license item id as a template call"
+    _, rendered = page_get(op, base, "/wiki/" + urllib.parse.quote(file_title.replace(" ", "_")))
+    assert "Attribution" in rendered and author in rendered, \
+        f"{file_title} rendered page missing the attribution block"
+    assert license_qid in rendered, \
+        f"{file_title} rendered page missing the semantic license reference"
     return image_qid
 
 
@@ -3270,14 +3273,20 @@ def flow_upload_special_item(op, base: str, api: str, license_qid: str) -> str:
     assert links.get("wikibase", {}).get("title") == f"File:{dest}.png", \
         f"{qid} not sitelinked to File:{dest}.png ({links})"
 
-    # The File page carries the attribution block (author + license info +
-    # the semantic license reference — never a {{Q42}} template call).
+    # Semantic-first File page: the raw text carries {{#image-facts:}}; the
+    # rendered page derives the Licensing/Attribution block from the item.
     # File DB keys normalize spaces to underscores — match the stored form.
-    _, raw = page_get(op, base, "/wiki/" + urllib.parse.quote(("File:" + dest + ".png").replace(" ", "_")) + "?action=raw")
-    assert "Attribution" in raw and "E2E Upload Author" in raw, \
-        f"File:{dest}.png missing the attribution block; raw: {raw[:400]!r}"
+    file_path = "/wiki/" + urllib.parse.quote(("File:" + dest + ".png").replace(" ", "_"))
+    _, raw = page_get(op, base, file_path + "?action=raw")
+    assert "{{#image-facts:}}" in raw, \
+        f"File:{dest}.png missing the semantic facts block; raw: {raw[:400]!r}"
     assert "{{" + license_qid + "}}" not in raw, \
         f"File:{dest}.png renders the license item id as a template call"
+    _, rendered = page_get(op, base, file_path)
+    assert "Attribution" in rendered and "E2E Upload Author" in rendered, \
+        "File:" + dest + ".png rendered page missing the attribution block"
+    assert license_qid in rendered, \
+        "File:" + dest + ".png rendered page missing the semantic license reference"
 
     # File: page copy toolbar (2026-09 UX batch): the served File page loads
     # the filepage module and carries the file name + direct media URL as JS

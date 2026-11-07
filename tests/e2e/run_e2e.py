@@ -307,7 +307,7 @@ def check(args: argparse.Namespace) -> int:
         for page in ("AddQuotation", "AddCodeSnippet", "AddMath"):
             status, body, _ = http_get(f"{base}/wiki/Special:{page}")
             html = body.decode("utf-8", "replace")
-            expect(status == 200, f"Special:{page}: HTTP {status}")
+            expect(status == 200, f"Special:{page}: HTTP {status}: {html[:2000]}")
             m = re.search(r"<h1[^>]*>(.*?)</h1>", html, re.S)
             heading = re.sub(r"<[^>]+>", "", m.group(1)).strip() if m else ""
             expect(

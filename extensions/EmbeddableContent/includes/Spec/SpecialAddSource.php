@@ -15,6 +15,7 @@ use EmbeddableContent\Fetch\WorkRecord;
 use EmbeddableContent\Fetch\YouTubeProvider;
 use EmbeddableContent\Fields\EntityCombobox;
 use EmbeddableContent\Flow\SourceFieldMap;
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\Title;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
@@ -1006,6 +1007,47 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		return $this->flow;
 	}
 
+	/**
+	 * Harvested works carry an author array (AuthorRecord objects or their
+	 * JSON-decoded array shape), not the form's Q-id string. Turn those
+	 * labels into the author-name panel prefill so imported records open
+	 * with the complete author list ready to confirm — the convenient path
+	 * is also the correct one. The raw array is removed so the advanced
+	 * Q-id combobox never stringifies it as "Array".
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,mixed>
+	 */
+	protected function enrichRecord( array $record ): array {
+		$record = parent::enrichRecord( $record );
+		if ( !empty( $record['authorNames'] ) || !isset( $record['authors'] ) || !is_array( $record['authors'] ) ) {
+			return $record;
+		}
+		$names = [];
+		foreach ( $record['authors'] as $author ) {
+			if ( is_object( $author ) && isset( $author->label ) ) {
+				$label = (string)$author->label;
+			} elseif ( is_array( $author ) ) {
+				$label = (string)( $author['label'] ?? '' );
+			} else {
+				continue;
+			}
+			$label = trim( $label );
+			if ( $label !== '' ) {
+				$names[] = $label;
+			}
+		}
+		if ( $names !== [] ) {
+			$record['authorNames'] = implode( '; ', $names );
+			// A harvested prefill is not a user decision: submitting the form
+			// without confirming the names creates the source without those
+			// authors instead of failing the required confirmation.
+			$record['authorNamesHarvested'] = '1';
+		}
+		unset( $record['authors'] );
+		return $record;
+	}
+
 	protected function harvestContent( array $record ): array {
 		switch ( $this->currentClassKey ) {
 			case 'scholarlyArticle':
@@ -1460,17 +1502,61 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				(string)( $confirm['id'] ?? '' )
 			);
 		}
-		return $this->entityComboboxField(
+		$searchButton = '<button type="button" id="wb-author-search"'
+			. ' class="mw-ui-button mw-ui-progressive">'
+			. htmlspecialchars( $this->msg( 'embeddablecontent-source-field-authorsearch' )->text() )
+			. '</button>';
+		return [
+			// The recommended path: paste the whole author list, click
+			// Search, then confirm every name in the popup. The parsed names
+			// become Person items (or reuse confirmed ones) at submit time.
+			'authorNames' => [
+				'type' => 'textarea',
+				'rows' => 3,
+				'label-message' => 'embeddablecontent-source-field-authornames',
+				'help-message' => 'embeddablecontent-source-field-authornames-help',
+				'default' => (string)( $record['authorNames'] ?? '' ),
+			],
+			// Marks the names as a harvested prefill (not a user decision);
+			// resources/authorsearch.js clears it on input/Search.
+			'authorNamesHarvested' => [
+				'type' => 'hidden',
+				'default' => (string)( $record['authorNamesHarvested'] ?? '' ),
+			],
+			'authorSearch' => [
+				'type' => 'info',
+				'raw' => true,
+				'default' => $searchButton
+					. '<div id="wb-author-results" class="wb-author-results"></div>',
+			],
+			// The popup writes the per-name decisions here (JSON). A hidden
+			// field so the form round-trips them; the server re-validates.
+			'authorChoices' => [
+				'type' => 'hidden',
+				'default' => (string)( $record['authorChoices'] ?? '' ),
+			],
+			// Escape hatch for a genuine organization author (the
+			// group-of-humans name-list guard in validateAuthors).
+			'authorCollectiveOk' => [
+				'type' => 'check',
+				'label-message' => 'embeddablecontent-source-field-authorcollectiveok',
+				'default' => !empty( $record['authorCollectiveOk'] ),
+			],
+		] + $this->entityComboboxField(
 			'authors',
 			'embeddablecontent-source-field-authors',
 			$this->agentClassIds(),
 			true,
 			[
 				'default' => (string)( $record['authors'] ?? '' ),
-				'help' => $help,
+				'help' => $help . ' ' . $this->msg( 'embeddablecontent-source-field-authors-advanced' )->parse(),
 				// Authors are optional: a text of unknown authorship is
 				// legitimate (title is the only required field).
 				'required' => false,
+				// A picked group-of-humans is expanded to its members
+				// client-side by entitysuggest.js (the server repeats the
+				// expansion at save time).
+				'cssclass' => 'wb-entity-combobox wb-entity-combobox-multi wb-entity-combobox-expand-groups',
 			]
 		);
 	}
@@ -2260,6 +2346,19 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			}
 		}
 
+		// Author-name panel: turn the confirmed names into Person items and
+		// merge their ids into `authors` BEFORE the author validation. Every
+		// name must carry an explicit reuse/create/skip/update decision; a
+		// missing decision is a form error (never an inferred match).
+		$error = $this->applyPersonPanel( 'author', $record, false );
+		if ( $error !== null ) {
+			return $error;
+		}
+		$error = $this->expandAuthorGroups( $record );
+		if ( $error !== null ) {
+			return $error;
+		}
+
 		$error = $this->validateAuthors( $record );
 		if ( $error !== null ) {
 			return $error;
@@ -2700,6 +2799,42 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	}
 
 	/**
+	 * Expands a group-of-humans author to its `has member` Persons. A group
+	 * with members is replaced by the members; a group without members is
+	 * blocked when its label is a person-name list (unless the contributor
+	 * explicitly allowed a collective author). Other authors pass through.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function expandAuthorGroups( array &$record ): ?string {
+		$expansion = $this->groupMembers()->expand(
+			ItemIdList::split( (string)( $record['authors'] ?? '' ) ),
+			!empty( $record['authorCollectiveOk'] )
+		);
+		if ( $expansion['blocked'] !== [] ) {
+			$blocked = $expansion['blocked'][0];
+			return $this->msg(
+				'embeddablecontent-source-error-author-collective-namelist',
+				$blocked['label'],
+				$blocked['qid']
+			)->text();
+		}
+		$record['authors'] = implode( ', ', $expansion['ids'] );
+		return null;
+	}
+
+	/** @var \EmbeddableContent\Spec\GroupMembers|null */
+	private $groupMembers = null;
+
+	private function groupMembers(): \EmbeddableContent\Spec\GroupMembers {
+		if ( $this->groupMembers === null ) {
+			$this->groupMembers = \MediaWiki\MediaWikiServices::getInstance()
+				->get( 'EmbeddableContent.GroupMembers' );
+		}
+		return $this->groupMembers;
+	}
+
+	/**
 	 * @param array<string,mixed> $record
 	 */
 	protected function validateAuthors( array $record ): ?string {
@@ -2710,6 +2845,8 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		// only the ids actually provided; an empty list is legitimate.
 		$ids = ItemIdList::split( (string)( $record['authors'] ?? '' ) );
 		$agentIds = array_values( $this->config->agentClasses() );
+		$groupClass = $this->config->agentClasses()['groupOfHumans'] ?? null;
+		$collectiveOk = !empty( $record['authorCollectiveOk'] );
 		foreach ( $ids as $id ) {
 			if ( preg_match( '/^Q[1-9]\d*$/', $id ) !== 1 ) {
 				return $this->msg( 'embeddablecontent-add-error-baditemid', $id )->text();
@@ -2720,6 +2857,21 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			}
 			if ( !$this->itemHasClass( $item, $agentIds ) ) {
 				return $this->msg( 'embeddablecontent-source-error-author-class', $id )->text();
+			}
+			// The legacy shortcut: a "Group of humans" item whose label is a
+			// list of person names. Do not let a new source bind it as an
+			// author unless the contributor explicitly confirms it is a
+			// genuine collective author.
+			if ( !$collectiveOk && $groupClass !== null && $this->itemHasClass( $item, [ $groupClass ] ) ) {
+				$label = EntityLabelText::of( $item ) ?? $id;
+				$parsed = AuthorNameList::parse( $label );
+				if ( count( $parsed['names'] ) >= 2 ) {
+					return $this->msg(
+						'embeddablecontent-source-error-author-collective-namelist',
+						$label,
+						$id
+					)->text();
+				}
 			}
 		}
 		return null;
@@ -2807,10 +2959,29 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 */
 	protected function createFromRecord( array $record, string $classItemId, bool $forceCreate = false ): string {
 		$record = $this->enrichRecord( $record );
+		// The duplicate/collision guards have passed: now it is safe to
+		// create/reuse the decided author Persons (the read-only pre-flight
+		// ran in beforeCreate).
+		$error = $this->applyPersonPanel( 'author', $record, true );
+		if ( $error !== null ) {
+			throw new \RuntimeException( $error );
+		}
+		$error = $this->expandAuthorGroups( $record );
+		if ( $error !== null ) {
+			throw new \RuntimeException( $error );
+		}
 		return $this->createViaFlow( $record, $forceCreate );
 	}
 
 	protected function manualCreate( string $label, string $classItemId, array $record, bool $forceCreate = false ): string {
+		$error = $this->applyPersonPanel( 'author', $record, true );
+		if ( $error !== null ) {
+			throw new \RuntimeException( $error );
+		}
+		$error = $this->expandAuthorGroups( $record );
+		if ( $error !== null ) {
+			throw new \RuntimeException( $error );
+		}
 		return $this->createViaFlow( $record, $forceCreate );
 	}
 
@@ -2951,6 +3122,9 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		}
 		if ( !empty( $record['license'] ) ) {
 			$out['license'] = (string)$record['license'];
+		}
+		if ( isset( $record['additionalStatements'] ) && is_array( $record['additionalStatements'] ) ) {
+			$out['additionalStatements'] = $record['additionalStatements'];
 		}
 		return $out;
 	}

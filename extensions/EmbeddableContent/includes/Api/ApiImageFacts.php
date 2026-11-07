@@ -8,7 +8,7 @@ use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\Upload\ImageFactsRequest;
 use EmbeddableContent\Upload\ImageItemCreator;
 use MediaWiki\Api\ApiBase;
-use MediaWiki\Message\RawMessage;
+use MediaWiki\Language\RawMessage;
 use MediaWiki\Title\Title;
 
 /**

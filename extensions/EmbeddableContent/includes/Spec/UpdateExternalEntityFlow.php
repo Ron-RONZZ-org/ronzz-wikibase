@@ -86,6 +86,17 @@ trait UpdateExternalEntityFlow {
 	 */
 	abstract protected function updateClassItemId( Item $item ): ?string;
 
+	/**
+	 * The class field on the Update form. Default: a hidden field (the class
+	 * is fixed). Special:UpdateCollective overrides this with an editable
+	 * select so a collective can be reclassified.
+	 *
+	 * @return array<string,mixed> fieldname => descriptor
+	 */
+	protected function updateClassFieldSpec( string $classItemId ): array {
+		return [ 'class' => [ 'type' => 'hidden', 'default' => $classItemId ] ];
+	}
+
 	// ------------------------------------------------------------- page flow
 
 	public function execute( $subPage ) {
@@ -145,11 +156,13 @@ trait UpdateExternalEntityFlow {
 		);
 
 		$record = $this->recordFromItem( $item );
-		// The class is fixed on update (hidden field) — re-classification
-		// is a different edit, not "basic information".
-		$fields = $this->reviewFieldSpecs( $record ) + [
-			'class' => [ 'type' => 'hidden', 'default' => $classItemId ],
-		];
+		// The class field is hidden by default (a class change is a
+		// different edit for most kinds); Special:UpdateCollective
+		// overrides updateClassFieldSpec() with an editable select.
+		$managed = array_keys( $this->updateStatementSpecs( $record ) );
+		$fields = $this->reviewFieldSpecs( $record )
+			+ $this->updateClassFieldSpec( $classItemId )
+			+ $this->additionalStatementsFieldSpec( $item, $managed );
 		if ( $this->updateReturnToClassic ) {
 			// Carries the classic-page return marker across the POST (the
 			// query string is lost by HTMLForm::setTitle's action URL).
@@ -224,10 +237,21 @@ trait UpdateExternalEntityFlow {
 			$value = trim( (string)$data[$name] );
 			$record[$name] = ( $name === 'issuedYear' && $value !== '' ) ? (int)$value : $value;
 		}
+		$record['additionalStatements'] = is_array( $data['additionalStatements'] ?? null )
+			? $data['additionalStatements']
+			: [];
 
+		// Inject the chosen class into the record so the flow service's
+		// statement builder writes the new `instance of` value (the
+		// collective reclassification; identity for the other kinds).
+		$record = $this->withChosenClass( $record, $classItemId );
 		$beforeError = $this->beforeCreate( $record );
 		if ( $beforeError !== null ) {
 			return $beforeError;
+		}
+		$commitError = $this->commitRecord( $record, $classItemId );
+		if ( $commitError !== null ) {
+			return $commitError;
 		}
 		return $this->updateItemAndRedirect( $itemId, $record, $classItemId );
 	}
@@ -354,6 +378,22 @@ trait UpdateExternalEntityFlow {
 			$values = is_array( $value ) ? $value : [ $value ];
 			foreach ( $values as $v ) {
 				$add( $propertyId, $v );
+			}
+		}
+
+		// Additional statements: diff the cloner against the item's
+		// non-managed supported statements (unchanged rows keep their
+		// GUID/qualifiers/references; removed rows are deleted; new rows are
+		// added).
+		$additional = $record['additionalStatements'] ?? [];
+		if ( is_array( $additional ) && $additional !== [] ) {
+			$error = \EmbeddableContent\Spec\AdditionalStatements::applyDiff(
+				$item,
+				$additional,
+				array_keys( $specs )
+			);
+			if ( $error !== null ) {
+				throw new \RuntimeException( $error );
 			}
 		}
 

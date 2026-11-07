@@ -8,6 +8,7 @@ use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\Flow\ClassicPageSpec;
 use EmbeddableContent\Flow\SemanticEntityFieldMap;
 use EmbeddableContent\Flow\SemanticEntityFlowService;
+use EmbeddableContent\Flow\PersonPanelPayload;
 use EmbeddableContent\Flow\SoftwarePageKind;
 use EmbeddableContent\Flow\StatementGuidAssigner;
 use EmbeddableContent\Spec\CollisionFinder;
@@ -15,7 +16,7 @@ use EmbeddableContent\Spec\ItemLabelLookup;
 use EmbeddableContent\Spec\LabelSuffix;
 use EmbeddableContent\Spec\PageTitle;
 use MediaWiki\Api\ApiBase;
-use MediaWiki\Message\RawMessage;
+use MediaWiki\Language\RawMessage;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\DataModel\Services\Statement\GuidGenerator;
@@ -53,17 +54,21 @@ class ApiAddSemanticEntity extends ApiBase {
 	/** @var EmbeddableContentConfig */
 	private $config;
 
+	private PersonPanelPayload $personPanelPayload;
+
 	public function __construct(
 		$mainModule,
 		$moduleName,
 		SemanticEntityFlowService $flow,
 		\EmbeddableContent\Flow\ClassicPageCreator $pageCreator,
-		EmbeddableContentConfig $config
+		EmbeddableContentConfig $config,
+		PersonPanelPayload $personPanelPayload
 	) {
 		parent::__construct( $mainModule, $moduleName );
 		$this->flow = $flow;
 		$this->pageCreator = $pageCreator;
 		$this->config = $config;
+		$this->personPanelPayload = $personPanelPayload;
 	}
 
 	public function execute() {
@@ -90,14 +95,51 @@ class ApiAddSemanticEntity extends ApiBase {
 				? $pageKind
 				: SoftwarePageKind::defaultFor( $this->config, (string)( $record['license'] ?? '' ) );
 		}
+		// `members` is the one field where a PRESENT-EMPTY value is
+		// meaningful (remove every has-member statement). The generic
+		// non-empty filter above would drop it.
+		if ( $kind === 'collective' && $params['members'] !== null ) {
+			$record['members'] = (string)$params['members'];
+		}
+
+		$user = $this->getUser();
+		$summary = $params['summary'];
+		$memberResult = null;
+		if ( $kind === 'collective' ) {
+			$memberPayload = $this->personPanelPayload->process(
+				'member',
+				$params,
+				$record,
+				$user,
+				$summary,
+				(string)( $record['labelLanguage'] ?? 'en' )
+			);
+			if ( is_array( $memberPayload ) && isset( $memberPayload['error'] ) ) {
+				$this->dieWithError( new RawMessage( (string)$memberPayload['error'] ), 'invalid_members' );
+			}
+			if ( is_array( $memberPayload ) && isset( $memberPayload['resolution'] ) ) {
+				$this->getResult()->addValue( null, 'semantic', [
+					'memberConfirmationRequired' => '1',
+					'memberResolution' => $memberPayload['resolution'],
+					'memberWarnings' => $memberPayload['warnings'],
+				] );
+				return;
+			}
+			if ( is_array( $memberPayload ) && isset( $memberPayload['result'] ) ) {
+				$memberResult = $memberPayload['result'];
+			}
+		} elseif ( !empty( $params['memberNames'] ) ) {
+			$this->dieWithError(
+				new RawMessage( 'memberNames is only valid for kind=collective.' ),
+				'invalid_members'
+			);
+		}
 
 		$error = $this->flow->prepare( $kind, $record, $creating );
 		if ( $error !== null ) {
 			$this->dieWithError( new RawMessage( $error ), 'invalid_input' );
 		}
 
-		$user = $this->getUser();
-		$summary = $params['summary'];
 		$store = WikibaseRepo::getEntityStore();
 		$confirmDuplicate = !empty( $params['confirmDuplicate'] );
 		$collisionAction = $params['collisionAction'] ?? null;
@@ -242,6 +284,9 @@ class ApiAddSemanticEntity extends ApiBase {
 			];
 		}
 
+		if ( $memberResult !== null ) {
+			$result['members'] = $memberResult;
+		}
 		$this->getResult()->addValue( null, 'semantic', $result );
 	}
 
@@ -266,6 +311,36 @@ class ApiAddSemanticEntity extends ApiBase {
 			// absent → the license decides (SoftwarePageKind).
 			'pageKind' => [
 				self::PARAM_TYPE => [ SoftwarePageKind::FOSS, SoftwarePageKind::SOFTWARE ],
+				self::PARAM_REQUIRED => false,
+			],
+			// Batch member resolution for kind=collective (the same shape as
+			// the AddSource author panel).
+			'memberNames' => [
+				self::PARAM_TYPE => 'string',
+				self::PARAM_REQUIRED => false,
+				self::PARAM_MAX_BYTES => 2000,
+			],
+			'memberNameFormat' => [
+				self::PARAM_TYPE => [
+					\EmbeddableContent\Spec\AuthorNameList::FORMAT_AUTO,
+					\EmbeddableContent\Spec\AuthorNameList::FORMAT_COMMA,
+					\EmbeddableContent\Spec\AuthorNameList::FORMAT_SEMICOLON,
+					\EmbeddableContent\Spec\AuthorNameList::FORMAT_SINGLE,
+				],
+				self::PARAM_DFLT => \EmbeddableContent\Spec\AuthorNameList::FORMAT_AUTO,
+			],
+			'memberDecisions' => [
+				self::PARAM_TYPE => 'string',
+				self::PARAM_REQUIRED => false,
+				self::PARAM_MAX_BYTES => 50000,
+			],
+			'memberDetails' => [
+				self::PARAM_TYPE => 'string',
+				self::PARAM_REQUIRED => false,
+				self::PARAM_MAX_BYTES => 50000,
+			],
+			'memberUpdateExisting' => [
+				self::PARAM_TYPE => 'boolean',
 				self::PARAM_REQUIRED => false,
 			],
 		];
@@ -426,6 +501,9 @@ class ApiAddSemanticEntity extends ApiBase {
 			if ( $pageTitle !== null ) {
 				$result['pageTitle'] = $pageTitle;
 			}
+		}
+		if ( $memberResult !== null ) {
+			$result['members'] = $memberResult;
 		}
 		$this->getResult()->addValue( null, 'semantic', $result );
 	}

@@ -9,7 +9,7 @@ use EmbeddableContent\Flow\SpecialContentFieldMap;
 use EmbeddableContent\Flow\SpecialContentFlowService;
 use EmbeddableContent\Flow\StatementGuidAssigner;
 use MediaWiki\Api\ApiBase;
-use MediaWiki\Message\RawMessage;
+use MediaWiki\Language\RawMessage;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\DataModel\Services\Statement\GuidGenerator;

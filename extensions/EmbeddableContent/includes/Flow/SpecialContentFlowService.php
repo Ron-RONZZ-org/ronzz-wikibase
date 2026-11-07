@@ -8,6 +8,7 @@ use DataValues\MonolingualTextValue;
 use DataValues\StringValue;
 use DataValues\TimeValue;
 use EmbeddableContent\Content\MathRenderer;
+use EmbeddableContent\Spec\AdditionalStatements;
 use EmbeddableContent\Content\PayloadCodec;
 use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\Spec\TranslationList;
@@ -33,6 +34,9 @@ use Wikibase\DataModel\Statement\StatementList;
  */
 final class SpecialContentFlowService {
 
+	/** Browser-form-only record keys the API contract does not expose. */
+	private const INTERNAL_FIELDS = [ 'additionalStatements' ];
+
 	public const ERROR_TITLE_REQUIRED = 'label is required when creating a content item.';
 	public const ERROR_PAYLOAD_REQUIRED = 'content is required when creating a content item.';
 	public const ERROR_ATTRIBUTION_REQUIRED = 'attributedTo or source is required for quotations.';
@@ -56,12 +60,12 @@ final class SpecialContentFlowService {
 		if ( !in_array( $kind, SpecialContentFieldMap::KINDS, true ) ) {
 			return "kind {$kind} is not one of " . implode( ', ', SpecialContentFieldMap::KINDS ) . '.';
 		}
-		$unknown = array_diff( array_keys( $record ), SpecialContentFieldMap::ALL_FIELDS );
+		$unknown = array_diff( array_keys( $record ), array_merge( SpecialContentFieldMap::ALL_FIELDS, self::INTERNAL_FIELDS ) );
 		if ( $unknown !== [] ) {
 			return 'unknown field(s): ' . implode( ', ', $unknown ) . '.';
 		}
 		$provided = array_filter( $record, static fn ( $v ) => $v !== null && $v !== '' );
-		$disallowed = array_diff( array_keys( $provided ), SpecialContentFieldMap::fieldsForKind( $kind ) );
+		$disallowed = array_diff( array_keys( $provided ), array_merge( SpecialContentFieldMap::fieldsForKind( $kind ), self::INTERNAL_FIELDS ) );
 		if ( $disallowed !== [] ) {
 			return "kind {$kind} does not accept the field(s) " . implode( ', ', $disallowed )
 				. '. Its fields are ' . implode( ', ', SpecialContentFieldMap::fieldsForKind( $kind ) ) . '.';
@@ -158,6 +162,21 @@ final class SpecialContentFlowService {
 		$date = trim( (string)( $record['date'] ?? '' ) );
 		if ( $date !== '' && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date ) !== 1 ) {
 			return "date \"{$date}\" is not YYYY-MM-DD.";
+		}
+
+		if ( array_key_exists( 'additionalStatements', $record ) ) {
+			if ( !is_array( $record['additionalStatements'] ) ) {
+				return 'additionalStatements must be a list of {property, value} rows.';
+			}
+			$managed = array_keys( $this->statementSpecs( $kind, $record ) );
+			$managed[] = $this->config->instanceOfPropertyId();
+			$built = AdditionalStatements::dataValues(
+				$record['additionalStatements'],
+				array_values( array_unique( $managed ) )
+			);
+			if ( $built['error'] !== null ) {
+				return $built['error'];
+			}
 		}
 
 		return null;
@@ -273,6 +292,25 @@ final class SpecialContentFlowService {
 				);
 			}
 		}
+		$additional = $record['additionalStatements'] ?? [];
+		if ( is_array( $additional ) && $additional !== [] ) {
+			$managed = array_keys( $this->statementSpecs( $kind, $record ) );
+			$managed[] = $this->config->instanceOfPropertyId();
+			$built = AdditionalStatements::dataValues(
+				$additional,
+				array_values( array_unique( $managed ) )
+			);
+			if ( $built['error'] !== null ) {
+				throw new \InvalidArgumentException( $built['error'] );
+			}
+			foreach ( $built['values'] as $propertyId => $values ) {
+				foreach ( $values as $single ) {
+					$item->getStatements()->addNewStatement(
+						new PropertyValueSnak( $this->propertyId( $propertyId ), $single )
+					);
+				}
+			}
+		}
 		return $item;
 	}
 
@@ -308,6 +346,20 @@ final class SpecialContentFlowService {
 			// added statements now (the entity-page client matches statements
 			// to the DOM by GUID; a GUID-less statement renders as an empty
 			// edit-mode row for logged-in users).
+			StatementGuidAssigner::ensureGuids( $item, new GuidGenerator() );
+		}
+		$additional = $record['additionalStatements'] ?? [];
+		if ( is_array( $additional ) && $additional !== [] ) {
+			$additionalManaged = $managed;
+			$additionalManaged[] = $this->config->instanceOfPropertyId();
+			$error = AdditionalStatements::applyDiff(
+				$item,
+				$additional,
+				array_values( array_unique( $additionalManaged ) )
+			);
+			if ( $error !== null ) {
+				throw new \InvalidArgumentException( $error );
+			}
 			StatementGuidAssigner::ensureGuids( $item, new GuidGenerator() );
 		}
 		$label = trim( (string)( $record['label'] ?? '' ) );

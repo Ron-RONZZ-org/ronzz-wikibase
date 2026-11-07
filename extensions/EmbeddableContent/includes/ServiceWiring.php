@@ -71,6 +71,48 @@ return [
 		return new PageMetadataFetcher();
 	},
 
+	'EmbeddableContent.GroupMembers' => static function ( MediaWikiServices $services ): \EmbeddableContent\Spec\GroupMembers {
+		// Group-of-humans membership reads/expansion for Source authors.
+		return new \EmbeddableContent\Spec\GroupMembers(
+			$services->get( 'EmbeddableContent.Config' ),
+			WikibaseRepo::getEntityLookup( $services )
+		);
+	},
+
+	'EmbeddableContent.PropertyCatalog' => static function ( MediaWikiServices $services ): \EmbeddableContent\Search\PropertyCatalog {
+		// Property combobox options for the additional-statements cloner.
+		return new \EmbeddableContent\Search\PropertyCatalog(
+			$services->get( 'EmbeddableContent.Config' )
+		);
+	},
+
+	'EmbeddableContent.AuthorResolver' => static function ( MediaWikiServices $services ): \EmbeddableContent\Flow\AuthorResolver {
+		// Batch local author-name resolution for the AddSource author panel
+		// and action=authorresolve. Read-only; the caller confirms matches.
+		return new \EmbeddableContent\Flow\AuthorResolver(
+			$services->get( 'EmbeddableContent.EntityTermSearch' ),
+			$services->get( 'EmbeddableContent.Config' )
+		);
+	},
+
+	'EmbeddableContent.PersonPanelPayload' => static function ( MediaWikiServices $services ): \EmbeddableContent\Flow\PersonPanelPayload {
+		// Shared author/member batch payload handling for the API modules.
+		return new \EmbeddableContent\Flow\PersonPanelPayload(
+			$services->get( 'EmbeddableContent.AuthorResolver' ),
+			$services->get( 'EmbeddableContent.AuthorCreator' )
+		);
+	},
+
+	'EmbeddableContent.AuthorCreator' => static function ( MediaWikiServices $services ): \EmbeddableContent\Flow\AuthorCreator {
+		// Creates/reuses the Person items decided by the AddSource author
+		// panel (the same flow service + Person: page machinery as AddPerson).
+		return new \EmbeddableContent\Flow\AuthorCreator(
+			$services->get( 'EmbeddableContent.Config' ),
+			$services->get( 'EmbeddableContent.SemanticEntityFlowService' ),
+			$services->get( 'EmbeddableContent.ClassicPageCreator' )
+		);
+	},
+
 	'EmbeddableContent.AuthoritySearch' => static function ( MediaWikiServices $services ): AuthoritySearch {
 		// Read-only authority search for the action=authority-search API
 		// module and the MCP authority-search tool. Reuses the one provider

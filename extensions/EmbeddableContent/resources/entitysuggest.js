@@ -21,20 +21,28 @@
 ( function () {
 	'use strict';
 
-	mw.loader.using( 'oojs-ui' ).then( function () {
-		// MW 1.46's OOUI HTMLForm renders TWO elements per combobox field
-		// carrying the `wb-entity-combobox` cssclass AND a data-ooui:
-		//   - the outer mw.htmlform.FieldLayout wrapper (data-ooui type
-		//     "mw.htmlform.FieldLayout"), and
-		//   - the actual OO.ui.ComboBoxInputWidget (data-ooui type
-		//     "OO.ui.ComboBoxInputWidget").
-		// Selecting `.wb-entity-combobox[data-ooui]` matches the wrapper
-		// FIRST; infusing a FieldLayout as a ComboBoxInputWidget throws, and
-		// the exception aborts the .each() loop — leaving EVERY combobox on
-		// the page unwired (the Author(s) field symptom, all Add* pages).
-		// Target the widget element itself via its OOUI class instead.
-		$( '.wb-entity-combobox.oo-ui-comboBoxInputWidget' ).each( function () {
-			var $el = $( this );
+	/**
+	 * Wire ONE entity combobox widget. Exposed as
+	 * mw.embeddableContent.entitysuggest.wire($el) so dynamically added
+	 * widgets (the additional-statements cloner rows) can be wired too.
+	 *
+	 * MW 1.46's OOUI HTMLForm renders TWO elements per combobox field
+	 * carrying the `wb-entity-combobox` cssclass AND a data-ooui:
+	 *   - the outer mw.htmlform.FieldLayout wrapper (data-ooui type
+	 *     "mw.htmlform.FieldLayout"), and
+	 *   - the actual OO.ui.ComboBoxInputWidget (data-ooui type
+	 *     "OO.ui.ComboBoxInputWidget").
+	 * Selecting `.wb-entity-combobox[data-ooui]` matches the wrapper
+	 * FIRST; infusing a FieldLayout as a ComboBoxInputWidget throws, and
+	 * the exception aborts the loop — leaving EVERY combobox on the page
+	 * unwired. Target the widget element itself via its OOUI class.
+	 */
+	function wireCombo( $el ) {
+		if ( $el.data( 'wbEntityWired' ) ) {
+			return;
+		}
+		$el.data( 'wbEntityWired', true );
+		{
 			var multi = $el.hasClass( 'wb-entity-combobox-multi' );
 			// Infuse FIRST: the OOUI HTMLForm auto-infusion re-creates the
 			// widget from its `data-ooui` JSON and DROPS server-rendered DOM
@@ -157,8 +165,42 @@
 					combo.setValue( picked.join( ', ' ) );
 					combo.setOptions( [] );
 					combo.getMenu().toggle( false );
+					// A group-of-humans author is expanded to its members so
+					// the contributor sees the actual authors and can remove
+					// one before saving (the server repeats the expansion).
+					if ( $el.hasClass( 'wb-entity-combobox-expand-groups' ) ) {
+						api.get( { action: 'groupmembers', qid: id } ).then( function ( data ) {
+							var members = data && data.groupmembers && data.groupmembers.members || [];
+							if ( !members.length ) {
+								return;
+							}
+							var expanded = [];
+							picked.forEach( function ( q ) {
+								if ( q === id ) {
+									members.forEach( function ( member ) {
+										var memberId = String( member.qid || '' );
+										if ( memberId && expanded.indexOf( memberId ) === -1 ) {
+											expanded.push( memberId );
+										}
+									} );
+								} else if ( expanded.indexOf( q ) === -1 ) {
+									expanded.push( q );
+								}
+							} );
+							combo.setValue( expanded.join( ', ' ) );
+						} );
+					}
 				} );
 			}
+		}
+	}
+
+	mw.embeddableContent = mw.embeddableContent || {};
+	mw.embeddableContent.entitysuggest = { wire: wireCombo };
+
+	mw.loader.using( 'oojs-ui' ).then( function () {
+		$( '.wb-entity-combobox.oo-ui-comboBoxInputWidget' ).each( function () {
+			wireCombo( $( this ) );
 		} );
 	} );
 }() );

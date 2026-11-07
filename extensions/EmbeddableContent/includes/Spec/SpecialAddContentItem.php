@@ -305,6 +305,17 @@ abstract class SpecialAddContentItem extends SpecialPage {
 			$fields['implementationOf'] = $entityCombobox( 'embeddablecontent-add-implementationof', false, true );
 		}
 
+		// Additional semantic statements (the cloner): Add* starts empty,
+		// Update* prefills the item's non-managed supported statements. The
+		// property combobox options come from the instance's property
+		// catalog; the datatype map drives the value combobox switch.
+		$catalog = \MediaWiki\MediaWikiServices::getInstance()
+			->get( 'EmbeddableContent.PropertyCatalog' )
+			->options( $this->getLanguage()->getCode() );
+		$this->getOutput()->addJsConfigVars( 'wbAdditionalStatementDatatypes', $catalog['datatypes'] );
+		$this->getOutput()->addModules( 'ext.embeddableContent.additionalstatements' );
+		$fields += \EmbeddableContent\Fields\AdditionalStatementsCloner::spec( [], $catalog['options'] );
+
 		// Carry-over defaults (Add-more flow): applied AFTER the field
 		// builders so the request values win over the builder defaults
 		// (e.g. the language/lexer combobox defaults).
@@ -539,6 +550,9 @@ abstract class SpecialAddContentItem extends SpecialPage {
 			'content' => trim( (string)( $data['payload'] ?? '' ) ),
 			'labelLanguage' => (string)( $data['labelLanguage'] ?? $this->getLanguage()->getCode() ),
 		];
+		$record['additionalStatements'] = is_array( $data['additionalStatements'] ?? null )
+			? $data['additionalStatements']
+			: [];
 		// The math accompanying notes (rich wikitext). Passed raw — the flow
 		// service escapes them at rest and writes them only for math items.
 		// `preNote` renders above the expression; `note` below it.

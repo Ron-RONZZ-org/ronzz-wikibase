@@ -108,6 +108,12 @@
 				"EmbeddableContent.ProviderClient"
 			]
 		},
+		"UpdateFile": {
+			"class": "EmbeddableContent\\Spec\\SpecialUpdateFile",
+			"services": [
+				"EmbeddableContent.Config"
+			]
+		},
 		"UpdateCollective": {
 			"class": "EmbeddableContent\\Spec\\SpecialUpdateCollective",
 			"services": [
@@ -176,6 +182,18 @@
 				"EmbeddableContent.AuthoritySearch"
 			]
 		},
+		"authorresolve": {
+			"class": "EmbeddableContent\\Api\\ApiAuthorResolve",
+			"services": [
+				"EmbeddableContent.AuthorResolver"
+			]
+		},
+		"groupmembers": {
+			"class": "EmbeddableContent\\Api\\ApiGroupMembers",
+			"services": [
+				"EmbeddableContent.GroupMembers"
+			]
+		},
 		"uploadmeta": {
 			"class": "EmbeddableContent\\Api\\ApiUploadMeta"
 		},
@@ -196,7 +214,8 @@
 			"services": [
 				"EmbeddableContent.SourceFlowService",
 				"EmbeddableContent.ClassicPageCreator",
-				"EmbeddableContent.Config"
+				"EmbeddableContent.Config",
+				"EmbeddableContent.PersonPanelPayload"
 			]
 		},
 		"addsource-fields": {
@@ -223,7 +242,8 @@
 			"services": [
 				"EmbeddableContent.SemanticEntityFlowService",
 				"EmbeddableContent.ClassicPageCreator",
-				"EmbeddableContent.Config"
+				"EmbeddableContent.Config",
+				"EmbeddableContent.PersonPanelPayload"
 			]
 		},
 		"addsemanticentity-fields": {
@@ -278,6 +298,7 @@
 		"FileDeleteComplete": "main",
 		"FileUndeleteComplete": "main",
 		"HtmlPageLinkRendererBegin": "main",
+		"EditPage::showEditForm:initial": "main",
 		"SpecialSearchResultsAppend": "main"
 	},
 	"ResourceModules": {
@@ -317,6 +338,86 @@
 			],
 			"dependencies": [
 				"oojs-ui"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.fileeditbanner": {
+			"scripts": [
+				"fileeditbanner.js"
+			],
+			"dependencies": [
+				"mediawiki.storage"
+			],
+			"messages": [
+				"embeddablecontent-file-edit-banner",
+				"embeddablecontent-file-edit-banner-update",
+				"embeddablecontent-file-edit-banner-dismiss"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.additionalstatements": {
+			"scripts": [
+				"additionalstatements.js"
+			],
+			"dependencies": [
+				"oojs-ui",
+				"ext.embeddableContent.entitysuggest"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.authorsearch": {
+			"scripts": [
+				"authorsearch.js"
+			],
+			"styles": [
+				"authorsearch.css"
+			],
+			"dependencies": [
+				"mediawiki.api",
+				"mediawiki.notification",
+				"oojs-ui"
+			],
+			"messages": [
+				"embeddablecontent-authorsearch-skipped",
+				"embeddablecontent-authorsearch-reused",
+				"embeddablecontent-authorsearch-updated",
+				"embeddablecontent-authorsearch-created",
+				"embeddablecontent-authorsearch-candidates",
+				"embeddablecontent-authorsearch-missing",
+				"embeddablecontent-authorsearch-collective",
+				"embeddablecontent-authorsearch-addindividuals",
+				"embeddablecontent-authorsearch-dialog-title",
+				"embeddablecontent-authorsearch-choose",
+				"embeddablecontent-authorsearch-use",
+				"embeddablecontent-authorsearch-edit",
+				"embeddablecontent-authorsearch-create",
+				"embeddablecontent-authorsearch-skip",
+				"embeddablecontent-authorsearch-update-title",
+				"embeddablecontent-authorsearch-create-title",
+				"embeddablecontent-authorsearch-keepblank",
+				"embeddablecontent-authorsearch-save",
+				"embeddablecontent-authorsearch-back",
+				"embeddablecontent-authorsearch-empty",
+				"embeddablecontent-authorsearch-searching",
+				"embeddablecontent-authorsearch-error",
+				"embeddablecontent-authorsearch-given",
+				"embeddablecontent-authorsearch-family",
+				"embeddablecontent-authorsearch-description",
+				"embeddablecontent-authorsearch-orcid",
+				"embeddablecontent-authorsearch-viaf",
+				"embeddablecontent-authorsearch-isni",
+				"embeddablecontent-authorsearch-website",
+				"embeddablecontent-authorsearch-dateofbirth",
+				"embeddablecontent-authorsearch-dateofdeath"
 			],
 			"targets": [
 				"desktop",
@@ -618,6 +719,8 @@
 			"messages": [
 				"embeddablecontent-mention-button",
 				"embeddablecontent-mention-hint",
+				"embeddablecontent-mention-author-year-button",
+				"embeddablecontent-mention-author-year-hint",
 				"embeddablecontent-gadget-copied"
 			],
 			"dependencies": [
@@ -639,7 +742,8 @@
 			],
 			"messages": [
 				"embeddablecontent-mention-menu-copy",
-				"embeddablecontent-mention-menu-capitalise"
+				"embeddablecontent-mention-menu-capitalise",
+				"embeddablecontent-mention-menu-author-year"
 			],
 			"targets": [
 				"desktop",

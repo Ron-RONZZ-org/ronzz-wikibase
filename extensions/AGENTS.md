@@ -1731,6 +1731,65 @@ report). See `SimpleMathJax/VENDORED.md`.
   submit time (cached from Validate; one API call at most). No
   vocabulary/config/DB change; deploy = extension rsync + php-fpm restart.
 
+### Nov 2026 author-resolution / semantic-file batch
+
+- **Author-name resolution** (ADR `docs/decisions/nov-2026-author-file-updates.md`):
+  `Special:AddSource` can paste a whole author list into the Author names
+  panel; `Spec/AuthorNameList` parses it, `Spec/AuthorNameMatcher` scores
+  local Person candidates, `Flow/AuthorResolver` + `action=authorresolve`
+  return the batch (with group-of-humans name-list suggestions), and
+  `Flow/AuthorCreator` creates/reuses/updates Person items (+ `Person:`
+  pages) only after explicit per-name decisions. The review step runs the
+  read-only `validateDecisions`; the create step runs `applyDecisions` after
+  the duplicate guard. `action=addsource` accepts `authorNames`,
+  `authorNameFormat`, `authorDecisions`, `authorDetails`,
+  `authorUpdateExisting`, `allowCollectiveAuthor`; the MCP server adds
+  `embeddable-resolve-authors` and the same parameters. Legacy cleanup:
+  `tools/report_group_authors.py` + `tools/backfill_group_members.py`.
+- **Semantic-first File pages**: `{{#image-facts:}}` renders
+  Licensing/Attribution from the sitelinked image item (parser-cache
+  dependent); itemized uploads write it instead of static text. New
+  `Special:UpdateFile` edits the item facts and uploads a new version from a
+  local file or URL (`ImageUploadHelper::replaceFile`, page text preserved).
+  File edit pages show a warning banner with “Update basic information” /
+  Dismiss. `maintenance/backfillImageFacts.php` migrates the existing static
+  blocks.
+- **`Special:UpdateCollective`** shows an editable Class select
+  (reclassification via `withChosenClass()` → `instance of` replacement).
+- **`affiliated with`** (P1416-aligned, multi-value) joins the person
+  vocabulary (`personProperties.affiliatedWith`), Add/UpdatePerson field and
+  `SemanticEntityFlowService`; **re-seed required**.
+- **Group-of-humans members**: new `has member` (P527-aligned,
+  `collectiveProperties.hasMember`). Add/UpdateCollective (class = group of
+  humans) gain a Person-scoped Members combobox (removable), a Member names
+  panel (the author panel generalized via `authorsearch.js` initPanel), and
+  an optional label auto-generated from member names (`Spec/GroupLabel`,
+  `et al.` on overflow). AddSource expands a group author to its
+  `has member` Persons (UI `action=groupmembers`, server form +
+  `action=addsource`); a memberless group with a name-list label is blocked
+  unless `authorCollectiveOk`. `action=addsemanticentity` + the MCP
+  `embeddable-add-semantic-entity` accept `members` and batch member params.
+  Legacy backfill: `tools/report_group_authors.py` +
+  `tools/backfill_group_members.py` (keep the group, add members, relink
+  sources, rename to the auto-label). **Re-seed required.**
+- **Additional semantic statements**: an `additionalStatements` cloner on
+  every Add*/Update* form (`Fields/AdditionalStatementsCloner` +
+  `Spec/AdditionalStatements`). The Property field is a combobox over
+  `Search/PropertyCatalog` (P-id + label, supported datatypes only); the
+  Value field is the shared entity-search combobox for item-valued
+  properties and a free-text datatype-aware combobox for literals.
+  Supported datatypes: wikibase-item, string, external-id, url, quantity,
+  time. On Update* the cloner is prefilled with
+  the item's non-managed supported statements and applied as a diff
+  (unchanged rows keep their GUID/qualifiers/references). Managed properties
+  and `instance of` are rejected. Form-only; the API/MCP contracts are
+  unchanged.
+- **Author-year mention**: Source pages copy `[[Source:X|name-author]]`;
+  `Spec/AuthorYearMention` derives the current `Family1-Family2 (Year)` and
+  `onHtmlPageLinkRendererBegin` renders it italic, tagging the link so
+  `onParserAfterTidy` registers the source item as a parser-cache
+  dependency.
+
 ### WikibaseCitation
 
 

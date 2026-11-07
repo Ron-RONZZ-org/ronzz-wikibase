@@ -5,17 +5,19 @@ declare( strict_types = 1 );
 namespace EmbeddableContent\Api;
 
 use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\Flow\PersonPanelPayload;
 use EmbeddableContent\Flow\ClassicPageCreator;
 use EmbeddableContent\Flow\ClassicPageSpec;
 use EmbeddableContent\Flow\SourceFlowService;
 use EmbeddableContent\Flow\StatementGuidAssigner;
+use EmbeddableContent\Spec\AuthorNameList;
 use EmbeddableContent\Spec\CollisionFinder;
 use EmbeddableContent\Spec\ItemLabelLookup;
 use EmbeddableContent\Spec\LabelSanitizer;
 use EmbeddableContent\Spec\LabelSuffix;
 use EmbeddableContent\Spec\PageTitle;
 use MediaWiki\Api\ApiBase;
-use MediaWiki\Message\RawMessage;
+use MediaWiki\Language\RawMessage;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\DataModel\Services\Statement\GuidGenerator;
@@ -46,17 +48,21 @@ class ApiAddSource extends ApiBase {
 	/** @var EmbeddableContentConfig */
 	private $config;
 
+	private PersonPanelPayload $personPanelPayload;
+
 	public function __construct(
 		$mainModule,
 		$moduleName,
 		SourceFlowService $flow,
 		ClassicPageCreator $pageCreator,
-		EmbeddableContentConfig $config
+		EmbeddableContentConfig $config,
+		PersonPanelPayload $personPanelPayload
 	) {
 		parent::__construct( $mainModule, $moduleName );
 		$this->flow = $flow;
 		$this->pageCreator = $pageCreator;
 		$this->config = $config;
+		$this->personPanelPayload = $personPanelPayload;
 	}
 
 	public function execute() {
@@ -91,13 +97,38 @@ class ApiAddSource extends ApiBase {
 			$record[$field] = $value;
 		}
 
+		$user = $this->getUser();
+		$summary = $params['summary'];
+		$authorResult = null;
+		$record['allowCollectiveAuthor'] = !empty( $params['allowCollectiveAuthor'] ) ? '1' : '';
+		$authorPayload = $this->personPanelPayload->process(
+			'author',
+			$params,
+			$record,
+			$user,
+			$summary,
+			(string)( $params['labelLanguage'] ?? 'en' )
+		);
+		if ( is_array( $authorPayload ) && isset( $authorPayload['error'] ) ) {
+			$this->dieWithError( new RawMessage( (string)$authorPayload['error'] ), 'invalid_authors' );
+		}
+		if ( is_array( $authorPayload ) && isset( $authorPayload['resolution'] ) ) {
+			$this->getResult()->addValue( null, 'source', [
+				'authorConfirmationRequired' => '1',
+				'authorResolution' => $authorPayload['resolution'],
+				'authorWarnings' => $authorPayload['warnings'],
+			] );
+			return;
+		}
+		if ( is_array( $authorPayload ) && isset( $authorPayload['result'] ) ) {
+			$authorResult = $authorPayload['result'];
+		}
+
 		$error = $this->flow->prepare( $classKey, $record, $creating );
 		if ( $error !== null ) {
 			$this->dieWithError( new RawMessage( $error ), 'invalid_input' );
 		}
 
-		$user = $this->getUser();
-		$summary = $params['summary'];
 		$store = WikibaseRepo::getEntityStore();
 		$confirmDuplicate = !empty( $params['confirmDuplicate'] );
 		$collisionAction = $params['collisionAction'] ?? null;
@@ -280,6 +311,9 @@ class ApiAddSource extends ApiBase {
 			}
 		}
 
+		if ( $authorResult !== null ) {
+			$result['authors'] = $authorResult;
+		}
 		$this->getResult()->addValue( null, 'source', $result );
 	}
 
@@ -413,6 +447,44 @@ class ApiAddSource extends ApiBase {
 			// move its sitelink, delete it, or create a suffixed duplicate.
 			'collisionAction' => [
 				self::PARAM_TYPE => [ 'reuse', 'delete', 'duplicate' ],
+				self::PARAM_REQUIRED => false,
+			],
+			// Batch author resolution: paste the names, get every local
+			// candidate in one call, then submit decisions in one write call.
+			'authorNames' => [
+				self::PARAM_TYPE => 'string',
+				self::PARAM_REQUIRED => false,
+				self::PARAM_MAX_BYTES => 2000,
+			],
+			'authorNameFormat' => [
+				self::PARAM_TYPE => [
+					AuthorNameList::FORMAT_AUTO,
+					AuthorNameList::FORMAT_COMMA,
+					AuthorNameList::FORMAT_SEMICOLON,
+					AuthorNameList::FORMAT_SINGLE,
+				],
+				self::PARAM_DFLT => AuthorNameList::FORMAT_AUTO,
+			],
+			// JSON array of {index, action: reuse|create|update|skip, qid?, person?}
+			'authorDecisions' => [
+				self::PARAM_TYPE => 'string',
+				self::PARAM_REQUIRED => false,
+				self::PARAM_MAX_BYTES => 50000,
+			],
+			// JSON object keyed by name index or original name; person fields
+			// for a new/updated Person (givenName, familyName, description,
+			// ORCID, VIAF, ISNI, website, dates, …).
+			'authorDetails' => [
+				self::PARAM_TYPE => 'string',
+				self::PARAM_REQUIRED => false,
+				self::PARAM_MAX_BYTES => 50000,
+			],
+			'authorUpdateExisting' => [
+				self::PARAM_TYPE => 'boolean',
+				self::PARAM_REQUIRED => false,
+			],
+			'allowCollectiveAuthor' => [
+				self::PARAM_TYPE => 'boolean',
 				self::PARAM_REQUIRED => false,
 			],
 		];

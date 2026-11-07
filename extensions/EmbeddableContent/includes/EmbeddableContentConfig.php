@@ -207,6 +207,7 @@ class EmbeddableContentConfig {
 			'placeOfBirthOsm', 'placeOfDeathOsm',
 			'placeOfBirthLabel', 'placeOfDeathLabel',
 			'officialWebsite',
+			'affiliatedWith',
 			'image', 'license', 'imageAuthor', 'imageLicenseInfo',
 		] );
 	}
@@ -326,7 +327,7 @@ class EmbeddableContentConfig {
 	 */
 	public function collectivePropertyIds(): array {
 		return $this->requireStringMap( 'collectiveProperties', [
-			'parentOrganization', 'officialWebsite',
+			'parentOrganization', 'hasMember', 'officialWebsite',
 			'image', 'license',
 			'imageAuthor', 'imageLicenseInfo',
 		] );
