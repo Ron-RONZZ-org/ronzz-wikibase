@@ -319,6 +319,7 @@ jobs:
             echo "--- E2E failed; diagnostics ---"
             curl -sG "$SPARQL_URL" --data-urlencode 'query=SELECT ?p ?o WHERE { wd:Q87 ?p ?o } LIMIT 10' --data-urlencode 'format=json' | head -c 400; echo
             $COMPOSE logs --tail 30 wdqs-updater 2>&1 | tail -20 || true
+            $COMPOSE logs --tail 80 wikibase 2>&1 | tail -80 || true
           fi
           exit ${E2E_RC:-0}
 

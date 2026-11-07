@@ -39,39 +39,42 @@ final class PropertyCatalog {
 		if ( isset( $this->cache[$language] ) ) {
 			return $this->cache[$language];
 		}
-		$supported = array_fill_keys( AdditionalStatements::SUPPORTED_DATATYPES, true );
-		$labels = $this->labels( $language );
-		$options = [];
-		$datatypes = [];
 		try {
+			$supported = array_fill_keys( AdditionalStatements::SUPPORTED_DATATYPES, true );
+			$labels = $this->labels( $language );
 			$infos = WikibaseRepo::getPropertyInfoLookup()->getAllPropertyInfo();
+			$options = [];
+			$datatypes = [];
+			foreach ( $infos as $propertyId => $info ) {
+				$datatype = (string)( $info['type'] ?? '' );
+				if ( !isset( $supported[$datatype] ) ) {
+					continue;
+				}
+				$id = (string)$propertyId;
+				$label = $id;
+				$candidates = array_merge( [ $language ], $this->config->fallbackLanguages(), [ 'en' ] );
+				foreach ( $candidates as $code ) {
+					if ( isset( $labels[$id][$code] ) && $labels[$id][$code] !== '' ) {
+						$label = $labels[$id][$code];
+						break;
+					}
+				}
+				if ( $label === $id && !empty( $labels[$id] ) ) {
+					$label = (string)reset( $labels[$id] );
+				}
+				$options[$id . ' — ' . $label] = $id;
+				$datatypes[$id] = $datatype;
+			}
+			uksort( $options, static function ( string $a, string $b ): int {
+				return strcasecmp( $a, $b );
+			} );
+			return $this->cache[$language] = [ 'options' => $options, 'datatypes' => $datatypes ];
 		} catch ( \Throwable $e ) {
+			// The property catalog is a form convenience; an unavailable
+			// term/property-info store must never 500 the Add* page.
+			wfDebugLog( 'EmbeddableContent', 'property catalog unavailable: ' . $e->getMessage() );
 			return $this->cache[$language] = [ 'options' => [], 'datatypes' => [] ];
 		}
-		foreach ( $infos as $propertyId => $info ) {
-			$datatype = (string)( $info['type'] ?? '' );
-			if ( !isset( $supported[$datatype] ) ) {
-				continue;
-			}
-			$id = (string)$propertyId;
-			$label = $id;
-			$candidates = array_merge( [ $language ], $this->config->fallbackLanguages(), [ 'en' ] );
-			foreach ( $candidates as $code ) {
-				if ( isset( $labels[$id][$code] ) && $labels[$id][$code] !== '' ) {
-					$label = $labels[$id][$code];
-					break;
-				}
-			}
-			if ( $label === $id && !empty( $labels[$id] ) ) {
-				$label = (string)reset( $labels[$id] );
-			}
-			$options[$id . ' — ' . $label] = $id;
-			$datatypes[$id] = $datatype;
-		}
-		uksort( $options, static function ( string $a, string $b ): int {
-			return strcasecmp( $a, $b );
-		} );
-		return $this->cache[$language] = [ 'options' => $options, 'datatypes' => $datatypes ];
 	}
 
 	/**
