@@ -230,6 +230,10 @@ final class AuthorNameList {
 	 * @return string[]
 	 */
 	private static function splitAndWithin( string $segment ): array {
+		// A conjunction can lead a comma/semicolon segment
+		// ("A, B, and C" / "A, & B"): drop the leading word before any
+		// further split.
+		$segment = (string)preg_replace( '/^(?:and|&)\s+/iu', '', trim( $segment ) );
 		if ( str_contains( $segment, ',' ) ) {
 			return [ $segment ];
 		}

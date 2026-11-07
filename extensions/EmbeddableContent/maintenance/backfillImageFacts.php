@@ -69,9 +69,18 @@ class BackfillImageFacts extends Maintenance {
 		$attrHeader = wfMessage( 'embeddablecontent-upload-attribution-header' )
 			->inContentLanguage()->text();
 		$patterns = [
-			'/\n?==\s*' . preg_quote( $licenseHeader, '/' ) . '\s*==[\s\S]*?==\s*'
+			// Special:Upload (core license-header, usually "Licensing") + Attribution.
+			'/\n?==\s*(?:' . preg_quote( $licenseHeader, '/' ) . '|Licensing)\s*==[\s\S]*?==\s*'
 				. preg_quote( $attrHeader, '/' ) . '\s*==[\s\S]*$/u',
+			// Add* portrait/logo uploads wrote "== License ==" + Attribution.
+			'/\n?==\s*License\s*==[\s\S]*?==\s*'
+				. preg_quote( $attrHeader, '/' ) . '\s*==[\s\S]*$/u',
+			// Attribution-only block.
 			'/\n?==\s*' . preg_quote( $attrHeader, '/' ) . '\s*==[\s\S]*$/u',
+			// License-only block (Add* uploads without attribution).
+			'/\n?==\s*License\s*==[\s\S]*$/u',
+			// Licensing-only block (Special:Upload without attribution).
+			'/\n?==\s*(?:' . preg_quote( $licenseHeader, '/' ) . '|Licensing)\s*==[\s\S]*$/u',
 		];
 
 		$dbr = $this->getServiceContainer()->getDBLoadBalancer()->getConnection( DB_REPLICA );
@@ -140,6 +149,7 @@ class BackfillImageFacts extends Maintenance {
 		$this->output( "eligible: {$eligible}, changed: {$changed}\n" );
 		if ( $verify ) {
 			$missing = 0;
+			$manual = 0;
 			foreach ( $rows as $row ) {
 				$title = Title::makeTitle( NS_FILE, (string)$row->page_title );
 				if ( $title === null ) {
@@ -154,15 +164,30 @@ class BackfillImageFacts extends Maintenance {
 				if ( $item === null || !$this->hasFacts( $config, $item ) ) {
 					continue;
 				}
-				if ( !str_contains( $content->getText(), '{{#image-facts:' ) ) {
+				$text = $content->getText();
+				if ( str_contains( $text, '{{#image-facts:' ) ) {
+					continue;
+				}
+				$hasBlock = false;
+				foreach ( $patterns as $pattern ) {
+					if ( preg_match( $pattern, $text ) === 1 ) {
+						$hasBlock = true;
+						break;
+					}
+				}
+				if ( $hasBlock ) {
 					$missing++;
 					$this->error( 'STILL STATIC: ' . $title->getPrefixedText() . "\n" );
+				} else {
+					$manual++;
+					$this->output( 'MANUAL: ' . $title->getPrefixedText()
+						. " (custom attribution, no generated block)\n" );
 				}
 			}
 			if ( $missing > 0 ) {
 				$this->fatalError( "{$missing} eligible page(s) still lack {{#image-facts:}}." );
 			}
-			$this->output( "verify OK\n" );
+			$this->output( "verify OK (manual review: {$manual})\n" );
 		}
 	}
 
@@ -208,3 +233,5 @@ class BackfillImageFacts extends Maintenance {
 		return User::newSystemUser( 'Maintenance script', [ 'steal' ] );
 	}
 }
+
+return BackfillImageFacts::class;
