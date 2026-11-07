@@ -2345,7 +2345,12 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		$rows = $item instanceof Item
 			? AdditionalStatements::rowsForItem( $item, $managedPropertyIds )
 			: [];
-		return \EmbeddableContent\Fields\AdditionalStatementsCloner::spec( $rows );
+		$catalog = \MediaWiki\MediaWikiServices::getInstance()
+			->get( 'EmbeddableContent.PropertyCatalog' )
+			->options( $this->getLanguage()->getCode() );
+		$this->getOutput()->addJsConfigVars( 'wbAdditionalStatementDatatypes', $catalog['datatypes'] );
+		$this->getOutput()->addModules( 'ext.embeddableContent.additionalstatements' );
+		return \EmbeddableContent\Fields\AdditionalStatementsCloner::spec( $rows, $catalog['options'] );
 	}
 
 	/**

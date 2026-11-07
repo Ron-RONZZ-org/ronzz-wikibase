@@ -1739,8 +1739,12 @@ report). See `SimpleMathJax/VENDORED.md`.
   `SemanticEntityFlowService`; **re-seed required**.
 - **Additional semantic statements**: an `additionalStatements` cloner on
   every Add*/Update* form (`Fields/AdditionalStatementsCloner` +
-  `Spec/AdditionalStatements`). Supported datatypes: wikibase-item, string,
-  external-id, url, quantity, time. On Update* the cloner is prefilled with
+  `Spec/AdditionalStatements`). The Property field is a combobox over
+  `Search/PropertyCatalog` (P-id + label, supported datatypes only); the
+  Value field is the shared entity-search combobox for item-valued
+  properties and a free-text datatype-aware combobox for literals.
+  Supported datatypes: wikibase-item, string, external-id, url, quantity,
+  time. On Update* the cloner is prefilled with
   the item's non-managed supported statements and applied as a diff
   (unchanged rows keep their GUID/qualifiers/references). Managed properties
   and `instance of` are rejected. Form-only; the API/MCP contracts are

@@ -333,6 +333,19 @@
 				"mobile"
 			]
 		},
+		"ext.embeddableContent.additionalstatements": {
+			"scripts": [
+				"additionalstatements.js"
+			],
+			"dependencies": [
+				"oojs-ui",
+				"ext.embeddableContent.entitysuggest"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
 		"ext.embeddableContent.authorsearch": {
 			"scripts": [
 				"authorsearch.js"

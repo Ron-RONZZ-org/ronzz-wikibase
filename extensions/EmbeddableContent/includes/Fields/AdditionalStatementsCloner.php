@@ -16,9 +16,10 @@ final class AdditionalStatementsCloner {
 
 	/**
 	 * @param list<array{property:string,value:string}> $rows prefilled rows
+	 * @param array<string,string> $propertyOptions "P123 — label" => "P123"
 	 * @return array<string,mixed> [ 'additionalStatements' => descriptor ]
 	 */
-	public static function spec( array $rows = [] ): array {
+	public static function spec( array $rows = [], array $propertyOptions = [] ): array {
 		return [ 'additionalStatements' => [
 			'type' => 'cloner',
 			'label-message' => 'embeddablecontent-additional-statements',
@@ -27,14 +28,16 @@ final class AdditionalStatementsCloner {
 			'delete-button-message' => 'embeddablecontent-additional-statements-delete',
 			'fields' => [
 				'property' => [
-					'type' => 'text',
+					'type' => 'combobox',
 					'label-message' => 'embeddablecontent-additional-statements-property',
-					'placeholder' => 'P123',
-					'maxlength' => 20,
+					'options' => $propertyOptions,
+					'cssclass' => 'wb-additional-property',
 				],
 				'value' => [
-					'type' => 'text',
+					'type' => 'combobox',
 					'label-message' => 'embeddablecontent-additional-statements-value',
+					'options' => [],
+					'cssclass' => 'wb-additional-value',
 				],
 			],
 			'default' => $rows,

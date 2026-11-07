@@ -306,8 +306,15 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		}
 
 		// Additional semantic statements (the cloner): Add* starts empty,
-		// Update* prefills the item's non-managed supported statements.
-		$fields += \EmbeddableContent\Fields\AdditionalStatementsCloner::spec();
+		// Update* prefills the item's non-managed supported statements. The
+		// property combobox options come from the instance's property
+		// catalog; the datatype map drives the value combobox switch.
+		$catalog = \MediaWiki\MediaWikiServices::getInstance()
+			->get( 'EmbeddableContent.PropertyCatalog' )
+			->options( $this->getLanguage()->getCode() );
+		$this->getOutput()->addJsConfigVars( 'wbAdditionalStatementDatatypes', $catalog['datatypes'] );
+		$this->getOutput()->addModules( 'ext.embeddableContent.additionalstatements' );
+		$fields += \EmbeddableContent\Fields\AdditionalStatementsCloner::spec( [], $catalog['options'] );
 
 		// Carry-over defaults (Add-more flow): applied AFTER the field
 		// builders so the request values win over the builder defaults

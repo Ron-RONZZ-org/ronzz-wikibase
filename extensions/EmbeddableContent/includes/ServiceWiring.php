@@ -71,6 +71,13 @@ return [
 		return new PageMetadataFetcher();
 	},
 
+	'EmbeddableContent.PropertyCatalog' => static function ( MediaWikiServices $services ): \EmbeddableContent\Search\PropertyCatalog {
+		// Property combobox options for the additional-statements cloner.
+		return new \EmbeddableContent\Search\PropertyCatalog(
+			$services->get( 'EmbeddableContent.Config' )
+		);
+	},
+
 	'EmbeddableContent.AuthorResolver' => static function ( MediaWikiServices $services ): \EmbeddableContent\Flow\AuthorResolver {
 		// Batch local author-name resolution for the AddSource author panel
 		// and action=authorresolve. Read-only; the caller confirms matches.

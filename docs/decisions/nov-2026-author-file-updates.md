@@ -107,7 +107,11 @@ per id. **Re-seed required.**
 
 Every Add* and Update* form (semantic entities, Source, content items) gains
 an `additionalStatements` cloner: rows of {property, value} for statements
-the form has no dedicated field for. `Spec/AdditionalStatements` validates
+the form has no dedicated field for. The Property field is a combobox over
+the instance's property catalog (`Search/PropertyCatalog`: P-id + label,
+supported datatypes only); the Value field is the shared entity-search
+combobox for item-valued properties and a free-text combobox (datatype-aware
+placeholder) for the literal datatypes. `Spec/AdditionalStatements` validates
 the property datatype (wikibase-item, string, external-id, url, quantity,
 time), builds DataValues, and:
 - on **create**, appends the rows after the managed statements;
