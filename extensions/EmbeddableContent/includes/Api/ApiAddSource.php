@@ -17,7 +17,7 @@ use EmbeddableContent\Spec\LabelSanitizer;
 use EmbeddableContent\Spec\LabelSuffix;
 use EmbeddableContent\Spec\PageTitle;
 use MediaWiki\Api\ApiBase;
-use MediaWiki\Message\RawMessage;
+use MediaWiki\Language\RawMessage;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\DataModel\Services\Statement\GuidGenerator;

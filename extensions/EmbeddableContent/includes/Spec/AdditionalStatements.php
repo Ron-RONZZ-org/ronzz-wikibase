@@ -8,7 +8,7 @@ use DataValues\DecimalValue;
 use DataValues\QuantityValue;
 use DataValues\StringValue;
 use DataValues\TimeValue;
-use Wikibase\DataModel\DataValue;
+use DataValues\DataValue;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;

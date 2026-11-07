@@ -16,7 +16,7 @@ use EmbeddableContent\Spec\ItemLabelLookup;
 use EmbeddableContent\Spec\LabelSuffix;
 use EmbeddableContent\Spec\PageTitle;
 use MediaWiki\Api\ApiBase;
-use MediaWiki\Message\RawMessage;
+use MediaWiki\Language\RawMessage;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\DataModel\Services\Statement\GuidGenerator;
@@ -94,6 +94,12 @@ class ApiAddSemanticEntity extends ApiBase {
 			$record['pageKind'] = $pageKind !== null
 				? $pageKind
 				: SoftwarePageKind::defaultFor( $this->config, (string)( $record['license'] ?? '' ) );
+		}
+		// `members` is the one field where a PRESENT-EMPTY value is
+		// meaningful (remove every has-member statement). The generic
+		// non-empty filter above would drop it.
+		if ( $kind === 'collective' && $params['members'] !== null ) {
+			$record['members'] = (string)$params['members'];
 		}
 
 		$user = $this->getUser();

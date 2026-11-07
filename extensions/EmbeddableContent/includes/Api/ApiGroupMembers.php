@@ -6,7 +6,7 @@ namespace EmbeddableContent\Api;
 
 use EmbeddableContent\Spec\GroupMembers;
 use MediaWiki\Api\ApiBase;
-use MediaWiki\Message\RawMessage;
+use MediaWiki\Language\RawMessage;
 
 /**
  * api.php?action=groupmembers&qid=Q… — read-only membership lookup for the

@@ -4,6 +4,7 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\Search;
 
+use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\Spec\AdditionalStatements;
 use MediaWiki\MediaWikiServices;
 use Wikibase\Repo\WikibaseRepo;
@@ -27,7 +28,7 @@ final class PropertyCatalog {
 	/** @var array<string,array{options:array<string,string>,datatypes:array<string,string>}> */
 	private array $cache = [];
 
-	public function __construct( \EmbeddableContent\EmbeddableContentConfig $config ) {
+	public function __construct( EmbeddableContentConfig $config ) {
 		$this->config = $config;
 	}
 
