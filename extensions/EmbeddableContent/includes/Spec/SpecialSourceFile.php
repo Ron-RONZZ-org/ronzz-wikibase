@@ -141,7 +141,7 @@ class SpecialSourceFile extends SpecialPage {
 		] );
 		$login = SpecialPage::getTitleFor( 'UserLogin' )->getFullURL( [
 			'returnto' => $this->getPageTitle()->getPrefixedText(),
-			'returntoquery' => $this->getRequest()->getQueryString(),
+			'returntoquery' => $this->getRequest()->getRawQueryString(),
 		] );
 		$link = Html::element( 'a', [ 'href' => $login ], $this->msg( 'login' )->text() );
 		return Html::warningBox(
