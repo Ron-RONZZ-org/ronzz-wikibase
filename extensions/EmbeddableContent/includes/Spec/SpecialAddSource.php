@@ -14,7 +14,9 @@ use EmbeddableContent\Fetch\ProviderResult;
 use EmbeddableContent\Fetch\WorkRecord;
 use EmbeddableContent\Fetch\YouTubeProvider;
 use EmbeddableContent\Fields\EntityCombobox;
+use EmbeddableContent\Flow\AuthorCreator;
 use EmbeddableContent\Flow\SourceFieldMap;
+use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\Title;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
@@ -1006,6 +1008,53 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		return $this->flow;
 	}
 
+	/** @var AuthorCreator|null lazily built */
+	private ?AuthorCreator $authorCreator = null;
+
+	/** Creates/reuses the Person items decided by the author-name popup. */
+	private function authorCreator(): AuthorCreator {
+		$this->authorCreator ??= \MediaWiki\MediaWikiServices::getInstance()
+			->get( 'EmbeddableContent.AuthorCreator' );
+		return $this->authorCreator;
+	}
+
+	/**
+	 * Harvested works carry an author array (AuthorRecord objects or their
+	 * JSON-decoded array shape), not the form's Q-id string. Turn those
+	 * labels into the author-name panel prefill so imported records open
+	 * with the complete author list ready to confirm — the convenient path
+	 * is also the correct one. The raw array is removed so the advanced
+	 * Q-id combobox never stringifies it as "Array".
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,mixed>
+	 */
+	protected function enrichRecord( array $record ): array {
+		$record = parent::enrichRecord( $record );
+		if ( !empty( $record['authorNames'] ) || !isset( $record['authors'] ) || !is_array( $record['authors'] ) ) {
+			return $record;
+		}
+		$names = [];
+		foreach ( $record['authors'] as $author ) {
+			if ( is_object( $author ) && isset( $author->label ) ) {
+				$label = (string)$author->label;
+			} elseif ( is_array( $author ) ) {
+				$label = (string)( $author['label'] ?? '' );
+			} else {
+				continue;
+			}
+			$label = trim( $label );
+			if ( $label !== '' ) {
+				$names[] = $label;
+			}
+		}
+		if ( $names !== [] ) {
+			$record['authorNames'] = implode( '; ', $names );
+		}
+		unset( $record['authors'] );
+		return $record;
+	}
+
 	protected function harvestContent( array $record ): array {
 		switch ( $this->currentClassKey ) {
 			case 'scholarlyArticle':
@@ -1460,14 +1509,48 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				(string)( $confirm['id'] ?? '' )
 			);
 		}
-		return $this->entityComboboxField(
+		$searchButton = '<button type="button" id="wb-author-search"'
+			. ' class="mw-ui-button mw-ui-progressive">'
+			. htmlspecialchars( $this->msg( 'embeddablecontent-source-field-authorsearch' )->text() )
+			. '</button>';
+		return [
+			// The recommended path: paste the whole author list, click
+			// Search, then confirm every name in the popup. The parsed names
+			// become Person items (or reuse confirmed ones) at submit time.
+			'authorNames' => [
+				'type' => 'textarea',
+				'rows' => 3,
+				'label-message' => 'embeddablecontent-source-field-authornames',
+				'help-message' => 'embeddablecontent-source-field-authornames-help',
+				'default' => (string)( $record['authorNames'] ?? '' ),
+			],
+			'authorSearch' => [
+				'type' => 'info',
+				'raw' => true,
+				'default' => $searchButton
+					. '<div id="wb-author-results" class="wb-author-results"></div>',
+			],
+			// The popup writes the per-name decisions here (JSON). A hidden
+			// field so the form round-trips them; the server re-validates.
+			'authorChoices' => [
+				'type' => 'hidden',
+				'default' => (string)( $record['authorChoices'] ?? '' ),
+			],
+			// Escape hatch for a genuine organization author (the
+			// group-of-humans name-list guard in validateAuthors).
+			'authorCollectiveOk' => [
+				'type' => 'check',
+				'label-message' => 'embeddablecontent-source-field-authorcollectiveok',
+				'default' => !empty( $record['authorCollectiveOk'] ),
+			],
+		] + $this->entityComboboxField(
 			'authors',
 			'embeddablecontent-source-field-authors',
 			$this->agentClassIds(),
 			true,
 			[
 				'default' => (string)( $record['authors'] ?? '' ),
-				'help' => $help,
+				'help' => $help . ' ' . $this->msg( 'embeddablecontent-source-field-authors-advanced' )->parse(),
 				// Authors are optional: a text of unknown authorship is
 				// legitimate (title is the only required field).
 				'required' => false,
@@ -2240,6 +2323,15 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			}
 		}
 
+		// Author-name panel: turn the confirmed names into Person items and
+		// merge their ids into `authors` BEFORE the author validation. Every
+		// name must carry an explicit reuse/create/skip/update decision; a
+		// missing decision is a form error (never an inferred match).
+		$error = $this->applyAuthorChoices( $record );
+		if ( $error !== null ) {
+			return $error;
+		}
+
 		$error = $this->validateAuthors( $record );
 		if ( $error !== null ) {
 			return $error;
@@ -2652,6 +2744,75 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	}
 
 	/**
+	 * Applies the author-name panel's decisions: creates/reuses the decided
+	 * Person items and merges their ids into `$record['authors']`.
+	 *
+	 * The panel submits the raw names plus a JSON decision list (the popup
+	 * writes it). Every parsed name MUST have a decision; otherwise the
+	 * creation aborts with a form error rather than guessing a match — a
+	 * common name such as "John Smith" is never silently bound.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function applyAuthorChoices( array &$record, bool $commit = false ): ?string {
+		$namesInput = trim( (string)( $record['authorNames'] ?? '' ) );
+		$choicesJson = trim( (string)( $record['authorChoices'] ?? '' ) );
+		if ( $namesInput === '' && $choicesJson === '' ) {
+			return null;
+		}
+		if ( $namesInput === '' ) {
+			return $this->msg( 'embeddablecontent-source-error-authornames-missing' )->text();
+		}
+		$parsed = AuthorNameList::parse( $namesInput );
+		if ( $parsed['names'] === [] ) {
+			return $this->msg( 'embeddablecontent-source-error-authornames-empty' )->text();
+		}
+		$choices = [];
+		if ( $choicesJson !== '' ) {
+			$decoded = json_decode( $choicesJson, true );
+			if ( !is_array( $decoded ) ) {
+				return $this->msg( 'embeddablecontent-source-error-authorchoices-invalid' )->text();
+			}
+			$choices = $decoded;
+		}
+
+		if ( $commit ) {
+			$result = $this->authorCreator()->applyDecisions(
+				$parsed['names'],
+				$choices,
+				$this->getUser(),
+				$this->msg( 'embeddablecontent-author-create-summary' )->inContentLanguage()->text()
+			);
+			if ( $result['error'] !== null ) {
+				return $result['error'];
+			}
+			foreach ( $result['warnings'] as $warning ) {
+				wfDebugLog( 'EmbeddableContent', 'author-name: ' . $warning );
+			}
+			$newIds = $result['ids'];
+		} else {
+			// Review-step pre-flight: validate the decisions and merge the
+			// EXISTING reuse/update ids for validateAuthors, but do not
+			// create the Person items yet (the actual create happens after
+			// the duplicate guard, in createFromRecord/manualCreate).
+			$result = $this->authorCreator()->validateDecisions( $parsed['names'], $choices );
+			if ( $result['error'] !== null ) {
+				return $result['error'];
+			}
+			$newIds = $result['ids'];
+		}
+
+		$ids = ItemIdList::split( (string)( $record['authors'] ?? '' ) );
+		foreach ( $newIds as $id ) {
+			if ( !in_array( $id, $ids, true ) ) {
+				$ids[] = $id;
+			}
+		}
+		$record['authors'] = implode( ', ', $ids );
+		return null;
+	}
+
+	/**
 	 * @param array<string,mixed> $record
 	 */
 	protected function validateAuthors( array $record ): ?string {
@@ -2662,6 +2823,8 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		// only the ids actually provided; an empty list is legitimate.
 		$ids = ItemIdList::split( (string)( $record['authors'] ?? '' ) );
 		$agentIds = array_values( $this->config->agentClasses() );
+		$groupClass = $this->config->agentClasses()['groupOfHumans'] ?? null;
+		$collectiveOk = !empty( $record['authorCollectiveOk'] );
 		foreach ( $ids as $id ) {
 			if ( preg_match( '/^Q[1-9]\d*$/', $id ) !== 1 ) {
 				return $this->msg( 'embeddablecontent-add-error-baditemid', $id )->text();
@@ -2672,6 +2835,21 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			}
 			if ( !$this->itemHasClass( $item, $agentIds ) ) {
 				return $this->msg( 'embeddablecontent-source-error-author-class', $id )->text();
+			}
+			// The legacy shortcut: a "Group of humans" item whose label is a
+			// list of person names. Do not let a new source bind it as an
+			// author unless the contributor explicitly confirms it is a
+			// genuine collective author.
+			if ( !$collectiveOk && $groupClass !== null && $this->itemHasClass( $item, [ $groupClass ] ) ) {
+				$label = EntityLabelText::of( $item ) ?? $id;
+				$parsed = AuthorNameList::parse( $label );
+				if ( count( $parsed['names'] ) >= 2 ) {
+					return $this->msg(
+						'embeddablecontent-source-error-author-collective-namelist',
+						$label,
+						$id
+					)->text();
+				}
 			}
 		}
 		return null;
@@ -2759,10 +2937,21 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 */
 	protected function createFromRecord( array $record, string $classItemId, bool $forceCreate = false ): string {
 		$record = $this->enrichRecord( $record );
+		// The duplicate/collision guards have passed: now it is safe to
+		// create/reuse the decided author Persons (the read-only pre-flight
+		// ran in beforeCreate).
+		$error = $this->applyAuthorChoices( $record, true );
+		if ( $error !== null ) {
+			throw new \RuntimeException( $error );
+		}
 		return $this->createViaFlow( $record, $forceCreate );
 	}
 
 	protected function manualCreate( string $label, string $classItemId, array $record, bool $forceCreate = false ): string {
+		$error = $this->applyAuthorChoices( $record, true );
+		if ( $error !== null ) {
+			throw new \RuntimeException( $error );
+		}
 		return $this->createViaFlow( $record, $forceCreate );
 	}
 

@@ -148,6 +148,10 @@ class SpecialUpdatePerson extends SpecialAddPerson {
 		);
 		$record['deceased'] = $record['dateOfDeath'] !== '' || $record['placeOfDeathOsm'] !== '';
 		$record['website'] = $this->firstStringForProperty( $item, $props['officialWebsite'] ?? null );
+		$record['affiliatedWith'] = implode(
+			', ',
+			$this->entityIdsForProperty( $item, $props['affiliatedWith'] ?? null )
+		);
 
 		// Portrait facts are NOT prefilled into the upload section (the
 		// toggle defaults unchecked — the existing portrait is preserved).

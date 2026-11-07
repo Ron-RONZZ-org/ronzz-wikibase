@@ -157,6 +157,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// for the portrait/logo file inputs (the shared Special:Upload
 		// module; a no-op on pages without the wb-image-preview field).
 		$this->getOutput()->addModules( 'ext.embeddableContent.uploadimage' );
+		// The AddSource author-name panel ("Search for authors" + the
+		// per-name confirmation popup) — a no-op on pages without the
+		// #wb-author-search button.
+		$this->getOutput()->addModules( 'ext.embeddableContent.authorsearch' );
 	}
 
 	public function execute( $subPage ) {

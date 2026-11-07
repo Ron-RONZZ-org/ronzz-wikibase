@@ -12,9 +12,10 @@ use Wikibase\DataModel\Entity\Item;
  * fields as Special:AddCollective, prefilled from the item's statements;
  * submit UPDATES the item instead of creating a new one.
  *
- * URL: Special:UpdateCollective/Q42. The class is fixed on update (hidden
- * field — the item's existing agent class); the logo is preserved unless a
- * NEW logo is uploaded.
+ * URL: Special:UpdateCollective/Q42. The class is editable (the item's
+ * existing agent class is preselected; a changed value replaces the
+ * `instance of` statement); the logo is preserved unless a NEW logo is
+ * uploaded.
  *
  * @license GPL-2.0-or-later
  */
@@ -63,6 +64,23 @@ class SpecialUpdateCollective extends SpecialAddCollective {
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * A collective may be reclassified on update — unlike the other Update*
+	 * pages, whose class is fixed. The submitted value rides the record via
+	 * withChosenClass() and replaces the item's instance-of statement.
+	 *
+	 * @return array<string,mixed>
+	 */
+	protected function updateClassFieldSpec( string $classItemId ): array {
+		return [ 'class' => [
+			'type' => 'select',
+			'label-message' => 'embeddablecontent-extselect-class',
+			'options' => $this->classOptions(),
+			'default' => $classItemId,
+			'required' => true,
+		] ];
 	}
 
 	protected function recordFromItem( Item $item ): array {

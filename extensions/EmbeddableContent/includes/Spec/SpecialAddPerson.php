@@ -261,6 +261,22 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 		// Official website (optional URL field, shared with AddSoftware/
 		// AddCollective — the P856-aligned property).
 		+ $this->websiteFieldSpec( $record )
+		// Affiliated collectives (P1416-aligned, multi-value): the
+		// organizations this person is linked to. Scoped to the collective
+		// agent classes (a person is not affiliated with a person).
+		+ $this->entityComboboxField(
+			'affiliatedWith',
+			'embeddablecontent-field-affiliatedwith',
+			array_values( array_diff(
+				array_values( $this->config->agentClasses() ),
+				[ $this->config->agentClasses()['person'] ?? '' ]
+			) ),
+			true,
+			[
+				'default' => (string)( $record['affiliatedWith'] ?? '' ),
+				'help-message' => 'embeddablecontent-field-affiliatedwith-help',
+			]
+		)
 		+ [
 			// Portrait (optional): collapsed behind the "I will upload a
 			// portrait image for this person" toggle; local-file upload OR

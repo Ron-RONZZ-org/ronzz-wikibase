@@ -362,6 +362,95 @@ final class ImageUploadHelper {
 	}
 
 	/**
+	 * Uploads a NEW VERSION of an existing File: page (the Special:UpdateFile
+	 * "New file version" section). The file page text is preserved (the
+	 * semantic-first {{#image-facts:}} block + description), so a revision
+	 * upload never rewrites the description or the facts.
+	 *
+	 * @param string $mode file|url (none = no new version)
+	 * @return string|null error message, or null on success
+	 */
+	public static function replaceFile(
+		IContextSource $context,
+		User $user,
+		Title $title,
+		string $mode,
+		string $comment
+	): ?string {
+		if ( $mode !== 'file' && $mode !== 'url' ) {
+			return null;
+		}
+		if ( !$title->exists() ) {
+			return $context->msg( 'embeddablecontent-updatefile-missing-file' )->text();
+		}
+		if ( !$user->isAllowed( 'upload' ) ) {
+			return $context->msg( 'embeddablecontent-updatefile-no-upload-right' )->text();
+		}
+		$file = MediaWikiServices::getInstance()->getRepoGroup()
+			->getLocalRepo()->newFile( $title );
+		$file->load( \IDBAccessObject::READ_LATEST );
+		if ( !UploadBase::userCanReUpload( $user, $file ) ) {
+			return $context->msg( 'embeddablecontent-updatefile-no-reupload-right' )->text();
+		}
+
+		try {
+			if ( $mode === 'url' ) {
+				$url = ( new FragmentSanitizer() )->validateUrl(
+					(string)$context->getRequest()->getVal( 'wpnewVersionUrl', '' )
+				);
+				if ( $url === null ) {
+					return $context->msg( 'embeddablecontent-updatefile-bad-url' )->text();
+				}
+				if ( !UploadFromUrl::isAllowed( $user ) ) {
+					return $context->msg( 'embeddablecontent-updatefile-no-upload-right' )->text();
+				}
+				$url = ( new UploadMetadataFetcher() )->resolveDirectFileUrl( $url ) ?? $url;
+				$url = WikimediaFileUrl::originalSvgUrl( $url ) ?? $url;
+				$base = new UploadFromUrl();
+				$base->initialize( $title->getText(), $url );
+				$status = $base->fetchFile();
+				if ( !$status->isGood() || $base->getTempPath() === '' ) {
+					return $context->msg( 'embeddablecontent-updatefile-fetch-failed' )->text();
+				}
+			} else {
+				$upload = $context->getRequest()->getUpload( 'wpnewVersionFile' );
+				if ( !$upload instanceof \MediaWiki\Request\WebRequestUpload
+					|| $upload->getSize() <= 0 || $upload->getTempName() === ''
+				) {
+					return $context->msg( 'embeddablecontent-updatefile-no-file' )->text();
+				}
+				$base = new UploadFromFile();
+				$base->initializePathInfo(
+					$title->getText(),
+					$upload->getTempName(),
+					$upload->getSize()
+				);
+			}
+
+			$verify = $base->verifyUpload();
+			if ( ( $verify['status'] ?? null ) !== UploadBase::OK ) {
+				$details = $verify['details'] ?? [];
+				$detail = is_array( $details ) && $details !== []
+					? (string)( $details[0] ?? '' )
+					: (string)( $verify['status'] ?? 'rejected' );
+				return $context->msg( 'embeddablecontent-updatefile-rejected', $detail )->text();
+			}
+			$page = MediaWikiServices::getInstance()->getWikiPageFactory()->newFromTitle( $title );
+			$content = $page->getContent();
+			$pageText = $content instanceof \MediaWiki\Content\TextContent
+				? $content->getText()
+				: '';
+			$status = $base->performUpload( $comment, $pageText, false, $user );
+			if ( !$status->isOK() ) {
+				return $status->getMessage()->text();
+			}
+		} catch ( Throwable $e ) {
+			return $e->getMessage();
+		}
+		return null;
+	}
+
+	/**
 	 * Creates (or reuses) the sitelinked image-class item for a NEW upload —
 	 * the semantic home of the image facts (license / author / additional
 	 * license information / source URL). Label = the file name without

@@ -1709,6 +1709,35 @@ report). See `SimpleMathJax/VENDORED.md`.
   submit time (cached from Validate; one API call at most). No
   vocabulary/config/DB change; deploy = extension rsync + php-fpm restart.
 
+### Nov 2026 author-resolution / semantic-file batch
+
+- **Author-name resolution** (ADR `docs/decisions/nov-2026-author-file-updates.md`):
+  `Special:AddSource` can paste a whole author list into the Author names
+  panel; `Spec/AuthorNameList` parses it, `Spec/AuthorNameMatcher` scores
+  local Person candidates, `Flow/AuthorResolver` + `action=authorresolve`
+  return the batch (with group-of-humans name-list suggestions), and
+  `Flow/AuthorCreator` creates/reuses/updates Person items (+ `Person:`
+  pages) only after explicit per-name decisions. The review step runs the
+  read-only `validateDecisions`; the create step runs `applyDecisions` after
+  the duplicate guard. `action=addsource` accepts `authorNames`,
+  `authorNameFormat`, `authorDecisions`, `authorDetails`,
+  `authorUpdateExisting`, `allowCollectiveAuthor`; the MCP server adds
+  `embeddable-resolve-authors` and the same parameters. Legacy cleanup:
+  `tools/report_group_authors.py` + `tools/split_group_authors.py`.
+- **Semantic-first File pages**: `{{#image-facts:}}` renders
+  Licensing/Attribution from the sitelinked image item (parser-cache
+  dependent); itemized uploads write it instead of static text. New
+  `Special:UpdateFile` edits the item facts and uploads a new version from a
+  local file or URL (`ImageUploadHelper::replaceFile`, page text preserved).
+  File edit pages show a warning banner with “Update basic information” /
+  Dismiss. `maintenance/backfillImageFacts.php` migrates the existing static
+  blocks.
+- **`Special:UpdateCollective`** shows an editable Class select
+  (reclassification via `withChosenClass()` → `instance of` replacement).
+- **`affiliated with`** (P1416-aligned, multi-value) joins the person
+  vocabulary (`personProperties.affiliatedWith`), Add/UpdatePerson field and
+  `SemanticEntityFlowService`; **re-seed required**.
+
 ### WikibaseCitation
 
 

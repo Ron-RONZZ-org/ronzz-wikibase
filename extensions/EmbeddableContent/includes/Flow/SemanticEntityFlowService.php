@@ -141,7 +141,7 @@ final class SemanticEntityFlowService {
 		// (developer/license/operating-system/user-interface/has-use) accept
 		// comma-separated item ids (one statement per id), the rest are
 		// single ids.
-		$multiEntityFields = [ 'developer', 'license', 'operatingSystem', 'userInterface', 'hasUse' ];
+		$multiEntityFields = [ 'developer', 'license', 'operatingSystem', 'userInterface', 'hasUse', 'affiliatedWith' ];
 		foreach ( [ 'placeOfBirth', 'placeOfDeath', 'parentOrganization', 'instanceOf' ] as $entityField ) {
 			$id = trim( (string)( $record[$entityField] ?? '' ) );
 			if ( $id !== '' && preg_match( '/^Q[1-9]\d*$/', $id ) !== 1 ) {
@@ -256,6 +256,12 @@ final class SemanticEntityFlowService {
 				$website = trim( (string)( $record['officialWebsite'] ?? '' ) );
 				if ( $website !== '' && isset( $person['officialWebsite'] ) ) {
 					$specs[$person['officialWebsite']] = new StringValue( $website );
+				}
+				// Affiliation is multi-value (one statement per collective).
+				if ( isset( $person['affiliatedWith'] ) ) {
+					foreach ( $this->splitItemIds( (string)( $record['affiliatedWith'] ?? '' ) ) as $id ) {
+						$specs[$person['affiliatedWith']][] = new EntityIdValue( new ItemId( $id ) );
+					}
 				}
 				$imageUrl = trim( (string)( $record['imageFileUrl'] ?? '' ) );
 				if ( $imageUrl !== '' && isset( $person['image'] ) ) {

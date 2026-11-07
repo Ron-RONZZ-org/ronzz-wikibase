@@ -166,6 +166,53 @@ final class ImageItemCreator {
 	}
 
 	/**
+	 * Updates the facts of an EXISTING sitelinked image item (the
+	 * Special:UpdateFile path). A provided value replaces that property's
+	 * statements; a blank value keeps the current statement (no-clobber).
+	 * `$clearFields` removes a field explicitly (the API's clear list).
+	 *
+	 * @param string[] $clearFields
+	 */
+	public static function updateFacts(
+		EmbeddableContentConfig $config,
+		string $itemId,
+		string $description,
+		?string $license,
+		string $author,
+		string $licenseInfo,
+		string $sourceUrl,
+		string $editSummary,
+		User $user,
+		array $clearFields = [],
+		?string $authorEntity = null,
+		?string $sourceEntity = null,
+		string $sourceText = ''
+	): void {
+		$entity = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
+		if ( !$entity instanceof Item ) {
+			throw new \RuntimeException( "image item {$itemId} not found" );
+		}
+		self::applyFacts(
+			$config,
+			$entity,
+			$license,
+			$author,
+			$licenseInfo,
+			$sourceUrl,
+			true,
+			$clearFields,
+			$authorEntity,
+			$sourceEntity,
+			$sourceText
+		);
+		$description = trim( $description );
+		if ( $description !== '' ) {
+			$entity->setDescription( 'en', mb_substr( $description, 0, 2000 ) );
+		}
+		WikibaseRepo::getEntityStore()->saveEntity( $entity, $editSummary, $user, EDIT_UPDATE );
+	}
+
+	/**
 	 * Adds (or, in replace mode, replaces) the fact statements on an item.
 	 *
 	 * Replace mode is for `update-file`: a provided value replaces every

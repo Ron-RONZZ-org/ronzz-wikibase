@@ -207,6 +207,7 @@ class EmbeddableContentConfig {
 			'placeOfBirthOsm', 'placeOfDeathOsm',
 			'placeOfBirthLabel', 'placeOfDeathLabel',
 			'officialWebsite',
+			'affiliatedWith',
 			'image', 'license', 'imageAuthor', 'imageLicenseInfo',
 		] );
 	}

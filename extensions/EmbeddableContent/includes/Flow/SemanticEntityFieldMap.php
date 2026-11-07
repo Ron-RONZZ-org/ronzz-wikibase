@@ -38,6 +38,7 @@ final class SemanticEntityFieldMap {
 		'wikidataId',
 		'openalexAuthorId',
 		'officialWebsite',
+		'affiliatedWith',
 		'developer',
 		'license',
 		'programmingLanguage',
@@ -75,13 +76,14 @@ final class SemanticEntityFieldMap {
 		'hasUse',
 		'collectiveClass',
 		'parentOrganization',
+		'affiliatedWith',
 		'presentInWork',
 		'instanceOf',
 	];
 
 	/** kind => fields the flow accepts for it. */
 	private const KIND_FIELDS = [
-		'person' => [ 'givenName', 'familyName', 'description', 'labelLanguage', 'dateOfBirth', 'placeOfBirth', 'dateOfDeath', 'placeOfDeath', 'orcid', 'viafId', 'isni', 'wikidataId', 'openalexAuthorId', 'officialWebsite' ],
+		'person' => [ 'givenName', 'familyName', 'description', 'labelLanguage', 'dateOfBirth', 'placeOfBirth', 'dateOfDeath', 'placeOfDeath', 'orcid', 'viafId', 'isni', 'wikidataId', 'openalexAuthorId', 'officialWebsite', 'affiliatedWith' ],
 		'software' => [ 'label', 'description', 'labelLanguage', 'developer', 'license', 'programmingLanguage', 'operatingSystem', 'userInterface', 'hasUse', 'officialWebsite', 'sourceCodeRepository', 'documentationUrl', 'wikidataId', 'pageKind' ],
 		'collective' => [ 'label', 'description', 'labelLanguage', 'collectiveClass', 'parentOrganization', 'officialWebsite', 'wikidataId' ],
 		'fictional-character' => [ 'givenName', 'familyName', 'alias', 'description', 'labelLanguage', 'presentInWork' ],

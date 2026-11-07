@@ -461,6 +461,42 @@ class Hooks {
 		return true;
 	}
 
+	/**
+	 * File: edit pages — warn that license/author/source facts live on the
+	 * semantic image item, with a direct "Update basic information" link and
+	 * a client-side Dismiss. The banner never blocks the wikitext edit.
+	 *
+	 * Hook name: EditPage::showEditForm:initial (the handler suffix is
+	 * onEditPage__showEditForm_initial).
+	 */
+	public static function onEditPage__showEditForm_initial( $editor, $out ): void {
+		if ( !$editor instanceof \MediaWiki\EditPage\EditPage
+			|| !$out instanceof \MediaWiki\Output\OutputPage
+		) {
+			return;
+		}
+		$title = $editor->getTitle();
+		if ( $title === null || $title->getNamespace() !== NS_FILE ) {
+			return;
+		}
+		$updateUrl = \MediaWiki\SpecialPage\SpecialPage::getTitleFor(
+			'UpdateFile',
+			$title->getPrefixedText()
+		)->getFullURL();
+		$html = '<div id="wb-file-edit-banner" class="wb-file-edit-banner">'
+			. \MediaWiki\Html\Html::warningBox(
+				'<p>' . wfMessage( 'embeddablecontent-file-edit-banner' )->parse() . '</p>'
+				. '<p><a class="mw-ui-button mw-ui-progressive" href="'
+				. htmlspecialchars( $updateUrl ) . '">'
+				. wfMessage( 'embeddablecontent-file-edit-banner-update' )->escaped() . '</a> '
+				. '<button type="button" class="mw-ui-button wb-file-edit-banner-dismiss">'
+				. wfMessage( 'embeddablecontent-file-edit-banner-dismiss' )->escaped() . '</button></p>'
+			)
+			. '</div>';
+		$out->addHTML( $html );
+		$out->addModules( 'ext.embeddableContent.fileeditbanner' );
+	}
+
 	public static function onBeforePageDisplay( OutputPage $out, $skin ): void {
 		$title = $out->getTitle();
 		if ( $title === null ) {
@@ -544,6 +580,18 @@ class Hooks {
 				$out->addJsConfigVars( 'wbFileName', $title->getText() );
 				$out->addJsConfigVars( 'wbFileUrl', $file->getFullUrl() );
 				$out->addModules( 'ext.embeddableContent.filepage' );
+				// The File page's semantic facts + new-version upload:
+				// Special:UpdateFile. Shown even for a legacy file without an
+				// item (the page then offers to create one).
+				$out->addJsConfigVars(
+					'wbUpdateBasicInfoUrl',
+					\MediaWiki\SpecialPage\SpecialPage::getTitleFor(
+						'UpdateFile',
+						$title->getPrefixedText()
+					)->getFullURL()
+				);
+				$out->addJsConfigVars( 'wbUpdateBasicInfoLabel', 'embeddablecontent-update-button' );
+				$out->addModules( 'ext.embeddableContent.updatebutton' );
 			}
 			return;
 		}
@@ -1287,6 +1335,13 @@ class Hooks {
 		} );
 		$parser->setFunctionHook( 'itemimage', static function ( Parser $parser, ...$args ) use ( $services ): array {
 			return ItemImage::onItemImage(
+				$services->get( 'EmbeddableContent.Config' ),
+				$parser,
+				$args
+			);
+		} );
+		$parser->setFunctionHook( 'imagefacts', static function ( Parser $parser, ...$args ) use ( $services ): array {
+			return \EmbeddableContent\ParserFunctions\ImageFacts::onImageFacts(
 				$services->get( 'EmbeddableContent.Config' ),
 				$parser,
 				$args

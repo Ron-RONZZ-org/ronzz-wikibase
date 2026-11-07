@@ -86,6 +86,17 @@ trait UpdateExternalEntityFlow {
 	 */
 	abstract protected function updateClassItemId( Item $item ): ?string;
 
+	/**
+	 * The class field on the Update form. Default: a hidden field (the class
+	 * is fixed). Special:UpdateCollective overrides this with an editable
+	 * select so a collective can be reclassified.
+	 *
+	 * @return array<string,mixed> fieldname => descriptor
+	 */
+	protected function updateClassFieldSpec( string $classItemId ): array {
+		return [ 'class' => [ 'type' => 'hidden', 'default' => $classItemId ] ];
+	}
+
 	// ------------------------------------------------------------- page flow
 
 	public function execute( $subPage ) {
@@ -145,11 +156,10 @@ trait UpdateExternalEntityFlow {
 		);
 
 		$record = $this->recordFromItem( $item );
-		// The class is fixed on update (hidden field) — re-classification
-		// is a different edit, not "basic information".
-		$fields = $this->reviewFieldSpecs( $record ) + [
-			'class' => [ 'type' => 'hidden', 'default' => $classItemId ],
-		];
+		// The class field is hidden by default (a class change is a
+		// different edit for most kinds); Special:UpdateCollective
+		// overrides updateClassFieldSpec() with an editable select.
+		$fields = $this->reviewFieldSpecs( $record ) + $this->updateClassFieldSpec( $classItemId );
 		if ( $this->updateReturnToClassic ) {
 			// Carries the classic-page return marker across the POST (the
 			// query string is lost by HTMLForm::setTitle's action URL).
@@ -225,6 +235,10 @@ trait UpdateExternalEntityFlow {
 			$record[$name] = ( $name === 'issuedYear' && $value !== '' ) ? (int)$value : $value;
 		}
 
+		// Inject the chosen class into the record so the flow service's
+		// statement builder writes the new `instance of` value (the
+		// collective reclassification; identity for the other kinds).
+		$record = $this->withChosenClass( $record, $classItemId );
 		$beforeError = $this->beforeCreate( $record );
 		if ( $beforeError !== null ) {
 			return $beforeError;

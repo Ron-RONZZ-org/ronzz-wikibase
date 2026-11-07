@@ -96,6 +96,12 @@
 				"EmbeddableContent.ProviderClient"
 			]
 		},
+		"UpdateFile": {
+			"class": "EmbeddableContent\\Spec\\SpecialUpdateFile",
+			"services": [
+				"EmbeddableContent.Config"
+			]
+		},
 		"UpdateCollective": {
 			"class": "EmbeddableContent\\Spec\\SpecialUpdateCollective",
 			"services": [
@@ -164,6 +170,12 @@
 				"EmbeddableContent.AuthoritySearch"
 			]
 		},
+		"authorresolve": {
+			"class": "EmbeddableContent\\Api\\ApiAuthorResolve",
+			"services": [
+				"EmbeddableContent.AuthorResolver"
+			]
+		},
 		"uploadmeta": {
 			"class": "EmbeddableContent\\Api\\ApiUploadMeta"
 		},
@@ -184,7 +196,9 @@
 			"services": [
 				"EmbeddableContent.SourceFlowService",
 				"EmbeddableContent.ClassicPageCreator",
-				"EmbeddableContent.Config"
+				"EmbeddableContent.Config",
+				"EmbeddableContent.AuthorResolver",
+				"EmbeddableContent.AuthorCreator"
 			]
 		},
 		"addsource-fields": {
@@ -256,6 +270,7 @@
 		"PageSaveComplete": "main",
 		"PageDeleteComplete": "main",
 		"HtmlPageLinkRendererBegin": "main",
+		"EditPage::showEditForm:initial": "main",
 		"SpecialSearchResultsAppend": "main"
 	},
 	"ResourceModules": {
@@ -295,6 +310,73 @@
 			],
 			"dependencies": [
 				"oojs-ui"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.fileeditbanner": {
+			"scripts": [
+				"fileeditbanner.js"
+			],
+			"dependencies": [
+				"mediawiki.storage"
+			],
+			"messages": [
+				"embeddablecontent-file-edit-banner",
+				"embeddablecontent-file-edit-banner-update",
+				"embeddablecontent-file-edit-banner-dismiss"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.authorsearch": {
+			"scripts": [
+				"authorsearch.js"
+			],
+			"styles": [
+				"authorsearch.css"
+			],
+			"dependencies": [
+				"mediawiki.api",
+				"mediawiki.notification",
+				"oojs-ui"
+			],
+			"messages": [
+				"embeddablecontent-authorsearch-skipped",
+				"embeddablecontent-authorsearch-reused",
+				"embeddablecontent-authorsearch-updated",
+				"embeddablecontent-authorsearch-created",
+				"embeddablecontent-authorsearch-candidates",
+				"embeddablecontent-authorsearch-missing",
+				"embeddablecontent-authorsearch-collective",
+				"embeddablecontent-authorsearch-addindividuals",
+				"embeddablecontent-authorsearch-dialog-title",
+				"embeddablecontent-authorsearch-choose",
+				"embeddablecontent-authorsearch-use",
+				"embeddablecontent-authorsearch-edit",
+				"embeddablecontent-authorsearch-create",
+				"embeddablecontent-authorsearch-skip",
+				"embeddablecontent-authorsearch-update-title",
+				"embeddablecontent-authorsearch-create-title",
+				"embeddablecontent-authorsearch-keepblank",
+				"embeddablecontent-authorsearch-save",
+				"embeddablecontent-authorsearch-back",
+				"embeddablecontent-authorsearch-empty",
+				"embeddablecontent-authorsearch-searching",
+				"embeddablecontent-authorsearch-error",
+				"embeddablecontent-authorsearch-given",
+				"embeddablecontent-authorsearch-family",
+				"embeddablecontent-authorsearch-description",
+				"embeddablecontent-authorsearch-orcid",
+				"embeddablecontent-authorsearch-viaf",
+				"embeddablecontent-authorsearch-isni",
+				"embeddablecontent-authorsearch-website",
+				"embeddablecontent-authorsearch-dateofbirth",
+				"embeddablecontent-authorsearch-dateofdeath"
 			],
 			"targets": [
 				"desktop",
