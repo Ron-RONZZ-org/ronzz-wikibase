@@ -412,6 +412,28 @@ report). See `SimpleMathJax/VENDORED.md`.
   public load). The 4 access-field templates that create pages
   (Book/ScholarlyArticle/Song/Film) gain `| Access || {{#source-access:}}` on
   the wiki.
+- **Internal-use access files (ADR `docs/decisions/internal-use-files.md`)**:
+  the AddSource/UpdateSource access field gains a **“No public licence
+  (internal use only)”** checkbox (`internalUse`, shown for `file`/`download`).
+  It hides the licence field, removes the licence requirement and records the
+  seeded **“All rights reserved”** licence (a `software license` preseed row;
+  resolved by label, never a hardcoded Q-id). The file is gated to logged-in
+  readers without a PHP request per image: `Spec\InternalFile` writes a marker
+  at `<markerDir>/images/<hash>/<name>` and sets a short-lived signed
+  `wb_media_auth` cookie; nginx checks the marker with `stat()` and the cookie
+  with `secure_link`. Public files have no marker and are untouched. Direct
+  `thumb.php`/`img_auth.php` are blocked (the 404 thumb handler calls the
+  script through FastCGI), so the gate cannot be bypassed. Anonymous readers
+  get the copyright message + login link on the File: page (description stays
+  visible), `Special:SourceFile` and `[[File:…]]` (an `ImageBeforeProduceHTML`
+  placeholder; internal files disable the parser cache). Logged-in readers
+  keep the normal File: page, embeds, thumbnails and the preview/download.
+  Config: `$wgEmbeddableContentMediaAuthSecret`,
+  `$wgEmbeddableContentMediaMarkerDirectory` (outside the web root),
+  `$wgEmbeddableContentInternalFileCategory`. The marker root is outside the
+  web root; `maintenance/syncInternalFileMarkers.php` rebuilds it from the
+  category after a restore. The page-flow E2E covers the app side;
+  `--media-gate` additionally verifies the production nginx gate.
 - **Entity descriptions up to 2000 chars (follow-up)**: the term store's
   `wbt_text.wbx_text` column is widened to `VARBINARY(2000)` (production ALTER
   + a CI step after first-boot install) and

@@ -150,6 +150,18 @@ def page_get(op, base: str, path: str) -> tuple[str, str]:
         raise FlowError(f"GET {base + path} -> HTTP {e.code}: {body[:1500]}") from None
 
 
+def fetch_response(op, url: str) -> tuple[int, str]:
+    """Status + body of a raw media fetch (no exception on 4xx — the internal
+    media gate redirects anonymous readers to the copyright message page,
+    whose final status is 403)."""
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    try:
+        with op.open(req, timeout=120) as resp:
+            return resp.status, resp.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode("utf-8", "replace")
+
+
 def page_post(op, url: str, fields: dict) -> tuple[str, str]:
     req = urllib.request.Request(url, data=urllib.parse.urlencode(fields).encode(),
                                  headers={"User-Agent": UA})
@@ -2435,26 +2447,35 @@ def flow_source_book_access_file(op, base: str, api: str, label: str,
                                  author_qid: str, license_qid: str,
                                  content: bytes | None = None,
                                  filename: str = "original.png",
-                                 ctype: str = "image/png") -> str:
+                                 ctype: str = "image/png",
+                                 internal: bool = False) -> str:
     """Access field, local-file mode (issue #35): AddSource/book/manual with
     accessMode=file uploads a file (multipart), license required; the file
     lands as File:<label>.<ext> (auto-named, original name ignored) and the
     item carries the file + license statements. The default content is a
-    1x1 PNG; pass content/filename/ctype for other types (e.g. a PDF)."""
+    1x1 PNG; pass content/filename/ctype for other types (e.g. a PDF).
+
+    internal=True sends the "no public licence (internal use only)"
+    checkbox instead of a licence; the server records "All rights
+    reserved" and gates the bytes to logged-in readers."""
     if content is None:
         content = base64.b64decode(
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
         )
     url, body = page_get(op, base, "/wiki/Special:AddSource/book/manual")
     token = edit_token(body)
-    url, body = page_post_multipart(op, url, {
+    fields = {
         "wptitle": label,
         "wpauthors": author_qid,
         "wpaccessMode": "file",
-        "wplicense": license_qid,
         "wpEditToken": token,
         "wpSubmit": "1",
-    }, {
+    }
+    if internal:
+        fields["wpinternalUse"] = "1"
+    else:
+        fields["wplicense"] = license_qid
+    url, body = page_post_multipart(op, url, fields, {
         # The OOUI form renders wp + field key as-is: "accessFile" -> "wpaccessFile".
         "wpaccessFile": (filename, content, ctype),
     })
@@ -4856,6 +4877,10 @@ def main() -> int:
     parser.add_argument("--user", default="SeedBot")
     parser.add_argument("--password-file", required=True)
     parser.add_argument("--keep", action="store_true", help="retain the created test items")
+    parser.add_argument("--media-gate", action="store_true",
+                        help="verify the nginx internal-media gate (anonymous 403 / "
+                             "logged-in 200); production only — the CI Apache stack "
+                             "serves /images/ directly")
     parser.add_argument("--sweep-only", action="store_true",
                         help="delete stale E2E scratch pages/items and exit")
     parser.add_argument("--sweep-dry-run", action="store_true",
@@ -5732,6 +5757,96 @@ def main() -> int:
         assert "<iframe" in body and "wb-sourcefile-preview" in body, \
             "PDF special page missing the embedded iframe preview"
         print("[ok] Special:SourceFile: PDF copy renders an embedded preview")
+
+        # 2h5b. Internal-use access file (copyright-restricted copy):
+        #   - the AddSource/UpdateSource forms carry the checkbox;
+        #   - the licence is auto-recorded as "All rights reserved";
+        #   - the File: page carries the internal-use category;
+        #   - anonymous readers get the copyright/login message on the File:
+        #     page, Special:SourceFile and [[File:]] (no download form);
+        #   - logged-in readers still get the preview + the download form;
+        #   - with --media-gate (production nginx), anonymous media is 403
+        #     and logged-in media is 200.
+        internal_label = f"Page-flow E2E internal {int(time.time())}"
+        _, internal_form = page_get(op, base, "/wiki/Special:AddSource/book/manual")
+        if "wpinternalUse" not in internal_form:
+            raise FlowError("AddSource/book/manual missing the internal-use checkbox")
+        if "No public licence (internal use only)" not in internal_form:
+            raise FlowError("AddSource/book/manual missing the internal-use checkbox label")
+        internal_book = track(flow_source_book_access_file(
+            op, base, api, internal_label, person, "",
+            content=E2E_PDF, filename="internal.pdf", ctype="application/pdf",
+            internal=True))
+        claims, _ = entity_claims(op, api, internal_book)
+        all_rights_qid = resolve("All rights reserved", "item")
+        assert first_value(claims, license_prop) == all_rights_qid, \
+            f"{internal_book} internal file licence must be All rights reserved " \
+            f"({first_value(claims, license_prop)!r}, expected {all_rights_qid})"
+        internal_file_title = f"File:{dest_file_name(internal_label + ' (Book)')}.pdf"
+        internal_wikitext = page_wikitext(op, api, internal_file_title)
+        assert "[[Category:Internal use only files]]" in internal_wikitext, \
+            f"{internal_file_title} missing the internal-use category: " \
+            f"{internal_wikitext[:300]!r}"
+        _, internal_update_form = page_get(
+            op, base, f"/wiki/Special:UpdateSource/{internal_book}")
+        if "wpinternalUse" not in internal_update_form:
+            raise FlowError("Special:UpdateSource missing the internal-use checkbox (UI parity)")
+
+        anon_op = make_opener(base)
+        _, anon_file_page = page_get(
+            anon_op, base, "/wiki/" + internal_file_title.replace(" ", "_"))
+        assert "Unfortunately, due to copyright restrictions" in anon_file_page, \
+            "anonymous File: page missing the copyright/login message"
+        assert "wb-internal-file-anon" in anon_file_page, \
+            "anonymous File: page missing the internal-file body class"
+        internal_special = ("/wiki/Special:SourceFile?item=%s&file=File%%3A%s.pdf"
+                            % (internal_book,
+                               urllib.parse.quote(dest_file_name(internal_label + " (Book)"))))
+        _, anon_special = page_get(anon_op, base, internal_special)
+        assert "Unfortunately, due to copyright restrictions" in anon_special, \
+            "anonymous Special:SourceFile missing the copyright/login message"
+        assert "wb-sourcefile-download" not in anon_special, \
+            "anonymous Special:SourceFile must not render the download form"
+        _, auth_special = page_get(op, base, internal_special)
+        assert "<iframe" in auth_special and "wb-sourcefile-preview" in auth_special, \
+            "logged-in internal PDF preview missing"
+        assert "name='wpaccept'" not in auth_special and 'name="wpaccept"' not in auth_special, \
+            "internal download must not require licence acceptance"
+        # [[File:]] parse is user-dependent: anon → placeholder, logged-in → image.
+        anon_parse = api_call(anon_op, api, {
+            "action": "parse", "title": "Main Page",
+            "text": f"[[File:{internal_file_title[5:]}]]", "format": "json"})
+        anon_parse_html = anon_parse.get("parse", {}).get("text", {}).get("*", "")
+        assert "wb-internal-file-placeholder" in anon_parse_html and \
+            "Unfortunately, due to copyright restrictions" in anon_parse_html, \
+            "anonymous [[File:]] did not render the internal-file placeholder"
+        auth_parse = api_call(op, api, {
+            "action": "parse", "title": "Main Page",
+            "text": f"[[File:{internal_file_title[5:]}]]", "format": "json"})
+        auth_parse_html = auth_parse.get("parse", {}).get("text", {}).get("*", "")
+        assert "wb-internal-file-placeholder" not in auth_parse_html, \
+            "logged-in [[File:]] must render the image, not the placeholder"
+        print(f"[ok] internal-use file -> {internal_book}: internal category + "
+              f"All rights reserved; anon message on File:/Special:SourceFile/[[File:]]; "
+              f"logged-in preview; UpdateSource checkbox present")
+
+        # The real byte gate is nginx (production). The CI stack runs Apache,
+        # which serves /images/ directly, so this check is opt-in.
+        if args.media_gate:
+            ii = api_call(op, api, {"action": "query", "titles": internal_file_title,
+                                    "prop": "imageinfo", "iiprop": "url", "format": "json"})
+            ii_pages = list(ii.get("query", {}).get("pages", {}).values())
+            media_url = (ii_pages[0].get("imageinfo", [{}])[0] or {}).get("url") if ii_pages else ""
+            assert media_url, f"{internal_file_title} has no media URL"
+            anon_status, anon_body = fetch_response(anon_op, media_url)
+            assert anon_status == 403 and "Unfortunately, due to copyright restrictions" in anon_body, \
+                f"anonymous internal-media request was not refused with the copyright message " \
+                f"(status={anon_status})"
+            auth_status, _ = fetch_response(op, media_url)
+            assert auth_status == 200, \
+                f"logged-in internal-media request was not allowed by the nginx gate " \
+                f"(status={auth_status})"
+            print(f"[ok] internal-media gate: anonymous 403 + message / logged-in 200 ({media_url})")
 
         # 2h6. Entity descriptions up to 2000 chars (issue follow-up): the
         #     term-store column was widened (VARBINARY(2000)) and the
