@@ -143,41 +143,40 @@ final class ImageUploadHelperTest extends TestCase {
 	public function testPageTextWithSource(): void {
 		$text = ImageUploadHelper::pageText( 'Ada Lovelace', 'portrait', 'https://upload.wikimedia.org/x.jpg' );
 		$this->assertStringContainsString( 'Portrait of Ada Lovelace.', $text );
-		$this->assertStringNotContainsString( 'uploaded via', $text );
-		$this->assertStringContainsString( 'Source: https://upload.wikimedia.org/x.jpg', $text );
+		$this->assertStringContainsString( '{{#image-facts:}}', $text );
+		$this->assertStringNotContainsString( 'Source: https://upload.wikimedia.org/x.jpg', $text );
 	}
 
 	public function testPageTextWithoutSource(): void {
 		$text = ImageUploadHelper::pageText( 'Flameshot', 'logo' );
 		$this->assertStringContainsString( 'Logo of Flameshot.', $text );
-		$this->assertStringNotContainsString( 'uploaded via', $text );
+		$this->assertStringContainsString( '{{#image-facts:}}', $text );
 		$this->assertStringNotContainsString( 'Source:', $text );
-		$this->assertStringNotContainsString( 'License', $text );
-		$this->assertStringNotContainsString( 'Attribution', $text );
+		$this->assertStringNotContainsString( '== License ==', $text );
+		$this->assertStringNotContainsString( '== Attribution ==', $text );
 	}
 
-	public function testPageTextWithAttributionCarriesSemanticLicenseReference(): void {
-		// A NEW upload's file page carries the license reference ([[Q42|label]],
-		// NEVER a {{Q42}} template call) + the attribution block — the same
-		// contract as Special:Upload (UploadHooks).
+	public function testPageTextUsesSemanticFactsBlock(): void {
+		// The facts live on the sitelinked image item; the page only carries
+		// the parser function (never a static {{Q42}} template call).
 		$text = ImageUploadHelper::pageText(
 			'Flameshot', 'logo', 'https://flameshot.org/logo.png',
 			'Q42', 'CC BY-SA 4.0', 'E2E Logo Author', 'E2E license note'
 		);
 		$this->assertStringContainsString( 'Logo of Flameshot.', $text );
-		$this->assertStringContainsString( '== License ==', $text );
-		$this->assertStringContainsString( '[[Q42|CC BY-SA 4.0]]', $text );
+		$this->assertStringContainsString( '{{#image-facts:}}', $text );
 		$this->assertStringNotContainsString( '{{Q42}}', $text );
-		$this->assertStringContainsString( '== Attribution ==', $text );
-		$this->assertStringContainsString( 'Author: E2E Logo Author', $text );
-		$this->assertStringContainsString( 'Additional license information: E2E license note', $text );
-		$this->assertStringContainsString( 'Source: https://flameshot.org/logo.png', $text );
+		$this->assertStringNotContainsString( '== License ==', $text );
+		$this->assertStringNotContainsString( '== Attribution ==', $text );
 	}
 
 	public function testPageTextWithoutLicenseSkipsBothBlocks(): void {
-		// Reuse-existing mode / no license: no License or Attribution blocks.
+		// Reuse-existing mode / no license: the semantic block is still the
+		// only page text (it renders nothing without facts).
 		$text = ImageUploadHelper::pageText( 'Flameshot', 'logo' );
-		$this->assertStringNotContainsString( '==', $text );
+		$this->assertStringNotContainsString( '== License ==', $text );
+		$this->assertStringNotContainsString( '== Attribution ==', $text );
+		$this->assertStringContainsString( '{{#image-facts:}}', $text );
 	}
 
 	public function testWiringSpanCarriesValidConfig(): void {

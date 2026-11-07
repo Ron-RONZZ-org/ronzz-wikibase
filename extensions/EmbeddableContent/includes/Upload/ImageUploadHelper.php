@@ -749,26 +749,11 @@ final class ImageUploadHelper {
 		string $author = '',
 		string $licenseInfo = ''
 	): string {
-		$text = ucfirst( $suffix ) . " of {$label}.";
-		if ( $licenseId !== '' ) {
-			// [[Q42|label]] — never a {{Q42}} template call (the UploadHooks
-			// contract: the license value is a semantic item id).
-			$text .= "\n\n== License ==\n[[" . $licenseId . '|' . htmlspecialchars( $licenseLabel ) . "]]\n";
-		}
-		$lines = [];
-		if ( $author !== '' ) {
-			$lines[] = 'Author: ' . $author;
-		}
-		if ( $licenseInfo !== '' ) {
-			$lines[] = 'Additional license information: ' . $licenseInfo;
-		}
-		if ( $sourceUrl !== '' ) {
-			$lines[] = 'Source: ' . $sourceUrl;
-		}
-		if ( $lines !== [] ) {
-			$text .= "\n== Attribution ==\n" . implode( "\n", $lines ) . "\n";
-		}
-		return $text;
+		// Semantic-first: the facts live on the sitelinked image item
+		// (ImageItemCreator); the page derives the Licensing/Attribution
+		// blocks from it. The extra parameters are kept for caller
+		// compatibility and are no longer written as static text.
+		return ucfirst( $suffix ) . " of {$label}.\n\n{{#image-facts:}}\n";
 	}
 
 	/**
