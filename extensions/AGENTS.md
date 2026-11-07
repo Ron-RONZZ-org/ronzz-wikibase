@@ -1737,6 +1737,19 @@ report). See `SimpleMathJax/VENDORED.md`.
 - **`affiliated with`** (P1416-aligned, multi-value) joins the person
   vocabulary (`personProperties.affiliatedWith`), Add/UpdatePerson field and
   `SemanticEntityFlowService`; **re-seed required**.
+- **Additional semantic statements**: an `additionalStatements` cloner on
+  every Add*/Update* form (`Fields/AdditionalStatementsCloner` +
+  `Spec/AdditionalStatements`). Supported datatypes: wikibase-item, string,
+  external-id, url, quantity, time. On Update* the cloner is prefilled with
+  the item's non-managed supported statements and applied as a diff
+  (unchanged rows keep their GUID/qualifiers/references). Managed properties
+  and `instance of` are rejected. Form-only; the API/MCP contracts are
+  unchanged.
+- **Author-year mention**: Source pages copy `[[Source:X|name-author]]`;
+  `Spec/AuthorYearMention` derives the current `Family1-Family2 (Year)` and
+  `onHtmlPageLinkRendererBegin` renders it italic, tagging the link so
+  `onParserAfterTidy` registers the source item as a parser-cache
+  dependency.
 
 ### WikibaseCitation
 

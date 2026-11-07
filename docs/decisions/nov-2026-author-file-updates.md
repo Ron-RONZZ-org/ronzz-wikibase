@@ -103,6 +103,32 @@ emitted as `personProperties.affiliatedWith`. `Special:AddPerson` and
 collective agent classes; `SemanticEntityFlowService` writes one statement
 per id. **Re-seed required.**
 
+### Additional semantic statements (Add* / Update*)
+
+Every Add* and Update* form (semantic entities, Source, content items) gains
+an `additionalStatements` cloner: rows of {property, value} for statements
+the form has no dedicated field for. `Spec/AdditionalStatements` validates
+the property datatype (wikibase-item, string, external-id, url, quantity,
+time), builds DataValues, and:
+- on **create**, appends the rows after the managed statements;
+- on **update**, prefills the cloner with the item's NON-managed supported
+  statements and applies the submit as a diff — unchanged rows keep their
+  GUID/qualifiers/references, removed rows are deleted, new rows added.
+  Managed properties (the form's own fields, plus `instance of`) are
+  rejected in the cloner. The API/MCP contracts are unchanged (form-only
+  for now).
+
+### Author-year internal mention
+
+The Source: "Copy internal mention" button gains a second choice that copies
+the stable marker `[[Source:X|name-author]]`. `Spec/AuthorYearMention`
+derives the current `Family1-Family2 (Year)` from the source item's
+`attributed to` + `date` at parse time; `Hooks::onHtmlPageLinkRendererBegin`
+renders it italic and tags the link with the item id, and
+`onParserAfterTidy` registers every tagged source item as a parser-cache
+dependency. A later author/year correction therefore updates every mention
+without editing the page.
+
 ## Deployment
 
 1. Extension rsync + php-fpm restart + message/objectcache/parser-cache purge.
