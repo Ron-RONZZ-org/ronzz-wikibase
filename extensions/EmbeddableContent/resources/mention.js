@@ -53,6 +53,8 @@
 		var snippet = '[[' + link + ']]';
 		var capitalizedLink = mw.config.get( 'wbMentionLinkCapitalized' ) || link;
 		var capitalizedSnippet = '[[' + capitalizedLink + ']]';
+		var authorYearAvailable = !!mw.config.get( 'wbMentionAuthorYearAvailable' );
+		var authorYearSnippet = '[[' + link + '|name-author]]';
 		var $button = $( '<button>' )
 			.attr( 'id', 'ca-wb-mention' )
 			.attr( 'type', 'button' )
@@ -63,18 +65,38 @@
 				copyText( snippet );
 			} );
 
-		mw.embeddableContent.mentionContext.attach( $button, {
+		var variants = {
 			plain: function () { return snippet; },
 			capitalized: function () { return capitalizedSnippet; },
 			copy: copyText
-		} );
+		};
+		if ( authorYearAvailable ) {
+			variants.authorYear = function () { return authorYearSnippet; };
+		}
+		mw.embeddableContent.mentionContext.attach( $button, variants );
 
 		// Ranked by the shared toolbar primitive: after "Copy internal
 		// citation" (when present), before "Copy embed code".
+		var row = mw.embeddableContent.toolbar.getRow();
 		mw.embeddableContent.toolbar.add(
-			mw.embeddableContent.toolbar.getRow(),
+			row,
 			$button,
 			mw.embeddableContent.toolbar.ORDER.mention
 		);
+		if ( authorYearAvailable ) {
+			mw.embeddableContent.toolbar.add(
+				row,
+				$( '<button>' )
+					.attr( 'id', 'ca-wb-mention-author-year' )
+					.attr( 'type', 'button' )
+					.addClass( 'wb-embed-toolbar-btn' )
+					.attr( 'title', mw.msg( 'embeddablecontent-mention-author-year-hint' ) )
+					.text( mw.msg( 'embeddablecontent-mention-author-year-button' ) )
+					.on( 'click', function () {
+						copyText( authorYearSnippet );
+					} ),
+				mw.embeddableContent.toolbar.ORDER.mention + 1
+			);
+		}
 	} );
 }() );

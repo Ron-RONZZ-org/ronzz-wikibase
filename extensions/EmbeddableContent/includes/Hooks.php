@@ -342,6 +342,34 @@ class Hooks {
 			$caption = HtmlArmor::getHtml( $caption );
 		}
 		if ( $caption !== null && $caption !== $defaultCaption ) {
+			// Author-year mention: the stable marker `[[Source:X|name-author]]`
+			// is rendered as the CURRENT italic author-year at parse time, so a
+			// later author/year correction never leaves a stale caption.
+			if ( InternalMention::isSourceNamespace( $target->getNamespace() )
+				&& strcasecmp( trim( (string)$caption ), 'name-author' ) === 0
+			) {
+				$itemId = self::sourceItemIdForTitle( $target );
+				$config = MediaWikiServices::getInstance()->get( 'EmbeddableContent.Config' );
+				$authorYear = $itemId !== null && $config instanceof \EmbeddableContent\EmbeddableContentConfig
+					? \EmbeddableContent\Spec\AuthorYearMention::caption( $config, $itemId )
+					: null;
+				if ( $authorYear !== null ) {
+					$text = new HtmlArmor(
+						'<i>' . htmlspecialchars( $authorYear, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) . '</i>'
+					);
+					$customAttribs['class'] = trim(
+						( $customAttribs['class'] ?? '' ) . ' wb-author-year-mention'
+					);
+					$customAttribs['data-wb-source-item'] = $itemId;
+					return;
+				}
+				// No resolvable author/year: fall back to the italic title
+				// mention rather than showing the raw marker.
+				$text = new HtmlArmor(
+					'<i>' . htmlspecialchars( $target->getText(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' ) . '</i>'
+				);
+				return;
+			}
 			return;
 		}
 		$namespace = $target->getNamespace();
@@ -902,6 +930,27 @@ class Hooks {
 	 */
 	public static function onParserAfterTidy( Parser $parser, string &$text ): void {
 		$text = \EmbeddableContent\Spec\HeadingAnchors::inject( $text );
+		// Author-year mentions carry the source item id on the rendered link;
+		// register each as a parser-cache dependency so a later author/year
+		// correction re-renders every page that mentions the source.
+		if ( preg_match_all( '/data-wb-source-item="(Q[1-9]\d*)"/', $text, $matches ) > 0 ) {
+			$services = MediaWikiServices::getInstance();
+			foreach ( array_unique( $matches[1] ) as $qid ) {
+				try {
+					$id = new \Wikibase\DataModel\Entity\ItemId( $qid );
+					$title = WikibaseRepo::getEntityTitleStoreLookup( $services )->getTitleForId( $id );
+					$revId = \EmbeddableContent\Spec\LatestRevision::id(
+						WikibaseRepo::getEntityRevisionLookup( $services ),
+						$id
+					);
+				} catch ( \Throwable $e ) {
+					continue;
+				}
+				if ( $title !== null && $title->exists() ) {
+					$parser->getOutput()->addTemplate( $title, $title->getArticleID(), $revId );
+				}
+			}
+		}
 	}
 
 	/**
@@ -1108,7 +1157,27 @@ class Hooks {
 				$title->getNamespace() === NS_MAIN
 			)
 		);
+		// Author-year variant: `[[Source:X|name-author]]` renders the CURRENT
+		// authors + year at parse time. Only offer it when the item actually
+		// has both.
+		$config = MediaWikiServices::getInstance()->get( 'EmbeddableContent.Config' );
+		$out->addJsConfigVars(
+			'wbMentionAuthorYearAvailable',
+			$config instanceof \EmbeddableContent\EmbeddableContentConfig
+				&& \EmbeddableContent\Spec\AuthorYearMention::caption( $config, $itemId ) !== null
+		);
 		$out->addModules( 'ext.embeddableContent.mention' );
+	}
+
+	/** The item id sitelinked to a Source: page, or null. */
+	private static function sourceItemIdForTitle( $target ): ?string {
+		try {
+			$id = WikibaseRepo::getStore()->newSiteLinkStore()
+				->getItemIdForLink( 'wikibase', $target->getPrefixedText() );
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+		return $id?->getSerialization();
 	}
 
 	/**

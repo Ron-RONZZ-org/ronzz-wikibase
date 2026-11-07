@@ -678,6 +678,8 @@
 			"messages": [
 				"embeddablecontent-mention-button",
 				"embeddablecontent-mention-hint",
+				"embeddablecontent-mention-author-year-button",
+				"embeddablecontent-mention-author-year-hint",
 				"embeddablecontent-gadget-copied"
 			],
 			"dependencies": [
@@ -699,7 +701,8 @@
 			],
 			"messages": [
 				"embeddablecontent-mention-menu-copy",
-				"embeddablecontent-mention-menu-capitalise"
+				"embeddablecontent-mention-menu-capitalise",
+				"embeddablecontent-mention-menu-author-year"
 			],
 			"targets": [
 				"desktop",

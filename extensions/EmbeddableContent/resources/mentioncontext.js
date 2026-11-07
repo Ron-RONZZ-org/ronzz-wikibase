@@ -62,6 +62,12 @@
 			{ variant: 'plain', label: mw.msg( 'embeddablecontent-mention-menu-copy' ) },
 			{ variant: 'capitalized', label: mw.msg( 'embeddablecontent-mention-menu-capitalise' ) }
 		];
+		if ( snippets.authorYear ) {
+			items.push( {
+				variant: 'authorYear',
+				label: mw.msg( 'embeddablecontent-mention-menu-author-year' )
+			} );
+		}
 		var $menu = $( '<div>' )
 			.addClass( 'wb-mention-menu' )
 			.attr( 'role', 'menu' );
@@ -72,9 +78,15 @@
 				.text( item.label )
 				.on( 'click', function () {
 					closeMenu();
-					snippets.copy( item.variant === 'capitalized'
-						? snippets.capitalized()
-						: snippets.plain() );
+					var text;
+					if ( item.variant === 'capitalized' ) {
+						text = snippets.capitalized();
+					} else if ( item.variant === 'authorYear' ) {
+						text = snippets.authorYear();
+					} else {
+						text = snippets.plain();
+					}
+					snippets.copy( text );
 				} )
 				.appendTo( $menu );
 		} );
