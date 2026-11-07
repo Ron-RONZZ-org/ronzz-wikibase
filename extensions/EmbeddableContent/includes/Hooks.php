@@ -269,6 +269,10 @@ class Hooks {
 			$user,
 			$flags
 		);
+		// A Source:<label>/archivedText save invalidates the parent Source:
+		// page (its {{#source-archive:}} row depends on the subpage's
+		// existence, which is not a template dependency).
+		\EmbeddableContent\SourceArchive\SourceArchive::onPageSaved( $wikiPage );
 	}
 
 	/**
@@ -295,6 +299,7 @@ class Hooks {
 		int $archivedRevisionCount
 	): void {
 		\EmbeddableContent\Flow\OrphanItemDeleter::handle( $page, $deleter, $reason );
+		\EmbeddableContent\SourceArchive\SourceArchive::onPageDeleted( $page );
 	}
 
 	/**
@@ -530,6 +535,23 @@ class Hooks {
 		$title = $out->getTitle();
 		if ( $title === null ) {
 			return;
+		}
+
+		// Source:<label>/archivedText: the automatic-archive disclaimer
+		// banner. OutputPage-level (not parser output) so it is not cached
+		// and can be dismissed for the current view only — a refresh brings
+		// it back. It prints with the page (browser Save-as-PDF / Ctrl-P).
+		if ( $out->isArticle()
+			&& \EmbeddableContent\SourceArchive\SourceArchiveBanner::isArchivePage( $title )
+		) {
+			$out->prependHTML(
+				\EmbeddableContent\SourceArchive\SourceArchiveBanner::html(
+					$title,
+					$out,
+					MediaWikiServices::getInstance()->get( 'EmbeddableContent.Config' )
+				)
+			);
+			$out->addModules( 'ext.embeddableContent.sourcearchive' );
 		}
 
 		// Internal-use media: logged-in readers carry a short-lived signed
@@ -1425,6 +1447,11 @@ class Hooks {
 				$parser,
 				$args
 			);
+		} );
+		// The "Archived text" row on a Source: page: emitted only when the
+		// Source:<label>/archivedText subpage exists.
+		$parser->setFunctionHook( 'sourcearchive', static function ( Parser $parser ): array {
+			return \EmbeddableContent\ParserFunctions\SourceArchiveRow::onSourceArchive( $parser );
 		} );
 		$parser->setFunctionHook( 'itemimage', static function ( Parser $parser, ...$args ) use ( $services ): array {
 			return ItemImage::onItemImage(

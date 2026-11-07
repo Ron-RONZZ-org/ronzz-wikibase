@@ -10,6 +10,7 @@
 {{#statement-row:Date|date}}
 {{#statement-row:URL|URL}}
 {{#quotations-of:}}
+{{#source-archive:}}
 |}
 <includeonly>[[Category:Sources]]</includeonly>
-<noinclude>This template reads its data from the item sitelinked to the page (see [[Help:Contributing/semanticDynamicContent]]). Rows with no data are hidden (<code>{{#statement-row:}}</code>). The Quotations row is emitted by <code>{{#quotations-of:}}</code> only when quotation items cite this source.</noinclude>
+<noinclude>This template reads its data from the item sitelinked to the page (see [[Help:Contributing/semanticDynamicContent]]). Rows with no data are hidden (<code>{{#statement-row:}}</code>). The Quotations row is emitted by <code>{{#quotations-of:}}</code> only when quotation items cite this source; the Archived text row by <code>{{#source-archive:}}</code> only when the <code>Source:&lt;label&gt;/archivedText</code> subpage exists.</noinclude>

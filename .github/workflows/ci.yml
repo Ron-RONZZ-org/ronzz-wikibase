@@ -218,6 +218,21 @@ jobs:
           $COMPOSE cp tools/install-plantuml.sh wikibase:/tmp/install-plantuml.sh
           $COMPOSE exec -T -u root wikibase bash /tmp/install-plantuml.sh
 
+      # Source-page archive (`Source:<label>/archivedText`): the HTML →
+      # wikitext conversion shells out to pandoc. Install it in the wiki
+      # container so the webpage AddSource E2E exercises the real path — the
+      # feature soft-fails (warning + no archive) when pandoc is missing,
+      # which would hide a regression. Debian's pandoc (2.17) supports
+      # `-f html -t mediawiki --wrap=none`.
+      - name: Install pandoc (source-page archive)
+        run: |
+          $COMPOSE exec -T -u root wikibase bash -c '
+            set -e
+            if ! command -v pandoc >/dev/null 2>&1; then
+              apt-get update && apt-get install -y --no-install-recommends pandoc
+            fi
+            pandoc --version | head -1'
+
       - name: D1 importers — vocabulary (property, class, language)
         run: |
           for type in property class language; do

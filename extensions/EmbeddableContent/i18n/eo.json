@@ -678,5 +678,13 @@
 	"embeddablecontent-updatefile-rejected": "La nova versio estis rifuzita: $1",
 	"embeddablecontent-file-edit-banner": "Se vi redaktas dosierajn metadatenojn (permesilo, aŭtoro, fonto), uzu anstataŭe «Ĝisdatigi bazajn informojn». Tiuj faktoj estas konservitaj en la semantika bildero; redakti la vikitekston ĉi tie ne ĝisdatigas ilin.",
 	"embeddablecontent-file-edit-banner-update": "Ĝisdatigi bazajn informojn",
-	"embeddablecontent-file-edit-banner-dismiss": "Ignori"
+	"embeddablecontent-file-edit-banner-dismiss": "Ignori",
+	"embeddablecontent-source-archive-check": "Akiri kaj arkivi la paĝan tekston",
+	"embeddablecontent-source-archive-check-help": "La paĝa teksto estas akirita nun kaj konservita kiel vikiteksta subpaĝo de la paĝo Source:.",
+	"embeddablecontent-source-archive-banner": "Ĉi tiu estas aŭtomata arkiva paĝo de ekstera teksta enhavo ĉe $1 tiel, kiel ĝi aperis je $2, sen iu ajn garantio pri pleneco aŭ ĝusteco de la enhavitaj informoj.",
+	"embeddablecontent-source-archive-dismiss": "Fermi",
+	"embeddablecontent-source-archive-media-note": "Aŭdovida enhavo: vidi ĉe la originala URL",
+	"embeddablecontent-source-archive-row-label": "Arkivita teksto",
+	"embeddablecontent-source-archive-row-link": "Arkivita teksto",
+	"embeddablecontent-source-archive-edit-summary": "Aŭtomata arkivo de ekstera teksto por $1"
 }

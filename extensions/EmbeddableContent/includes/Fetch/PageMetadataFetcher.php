@@ -20,6 +20,9 @@ namespace EmbeddableContent\Fetch;
  */
 final class PageMetadataFetcher {
 
+	/** Upper bound on the fetched HTML body (2 MB). */
+	public const MAX_HTML_BYTES = 2097152;
+
 	/** @var callable(string,float):string|null */
 	private $transport;
 
@@ -53,6 +56,28 @@ final class PageMetadataFetcher {
 			return null;
 		}
 		return HtmlMetadataParser::extract( $html );
+	}
+
+	/**
+	 * Fetches the raw HTML body (the source-archive conversion input).
+	 * Never throws: an unsafe URL, a network error, a timeout, a non-string
+	 * body or a body over MAX_HTML_BYTES yields null.
+	 */
+	public function fetchHtml( string $url, float $timeout = 8.0 ): ?string {
+		$url = SsrfGuard::validate( $url );
+		if ( $url === null ) {
+			return null;
+		}
+		try {
+			$transport = $this->transport ?? $this->defaultTransport();
+			$html = $transport( SsrfGuard::asciiUrl( $url ), $timeout );
+		} catch ( \Throwable $e ) {
+			return null;
+		}
+		if ( !is_string( $html ) || $html === '' || strlen( $html ) > self::MAX_HTML_BYTES ) {
+			return null;
+		}
+		return $html;
 	}
 
 	private function defaultTransport(): callable {

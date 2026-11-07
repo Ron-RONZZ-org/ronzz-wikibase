@@ -19,6 +19,7 @@ $magicWords = [];
 /** English (English) */
 $magicWords['en'] = [
 	'sourceaccess' => [ 0, 'source-access' ],
+	'sourcearchive' => [ 0, 'source-archive' ],
 	'itemimage' => [ 0, 'item-image' ],
 	'imagefacts' => [ 0, 'image-facts' ],
 	'content' => [ 0, 'content' ],
@@ -32,6 +33,7 @@ $magicWords['en'] = [
 /** French (français) */
 $magicWords['fr'] = [
 	'sourceaccess' => [ 0, 'source-access' ],
+	'sourcearchive' => [ 0, 'source-archive' ],
 	'itemimage' => [ 0, 'item-image' ],
 	'imagefacts' => [ 0, 'image-facts' ],
 	'content' => [ 0, 'contenu' ],
@@ -45,6 +47,7 @@ $magicWords['fr'] = [
 /** Esperanto (Esperanto) */
 $magicWords['eo'] = [
 	'sourceaccess' => [ 0, 'source-access' ],
+	'sourcearchive' => [ 0, 'source-archive' ],
 	'itemimage' => [ 0, 'item-image' ],
 	'imagefacts' => [ 0, 'image-facts' ],
 	'content' => [ 0, 'enhavo' ],

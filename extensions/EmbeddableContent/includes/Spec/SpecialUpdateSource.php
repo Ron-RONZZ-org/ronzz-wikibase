@@ -63,6 +63,11 @@ class SpecialUpdateSource extends SpecialAddSource {
 		return 'source';
 	}
 
+	/** The Update flow has no afterCreate step — no archive checkbox. */
+	protected function archivesPageText(): bool {
+		return false;
+	}
+
 	/**
 	 * A source update may create/change/remove the item's `part of` parent
 	 * (the child-items listing's relation) — invalidate the OLD and NEW

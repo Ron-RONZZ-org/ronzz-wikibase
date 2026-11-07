@@ -680,5 +680,13 @@
 	"embeddablecontent-updatefile-rejected": "The new version was rejected: $1",
 	"embeddablecontent-file-edit-banner": "If you are editing file metadata (license, author, source), use Update basic information instead. Those facts live on the semantic image item; editing the wikitext here does not update them.",
 	"embeddablecontent-file-edit-banner-update": "Update basic information",
-	"embeddablecontent-file-edit-banner-dismiss": "Dismiss"
+	"embeddablecontent-file-edit-banner-dismiss": "Dismiss",
+	"embeddablecontent-source-archive-check": "Fetch and archive the page text",
+	"embeddablecontent-source-archive-check-help": "The page text is fetched now and stored as a wikitext subpage of the Source: page.",
+	"embeddablecontent-source-archive-banner": "This is an automatic archive page of external text content at $1 as it appeared on $2, without any warranty on completeness or the accuracy of the information contained.",
+	"embeddablecontent-source-archive-dismiss": "Dismiss",
+	"embeddablecontent-source-archive-media-note": "Media content: view on original URL",
+	"embeddablecontent-source-archive-row-label": "Archived text",
+	"embeddablecontent-source-archive-row-link": "Archived text",
+	"embeddablecontent-source-archive-edit-summary": "Automatic archive of external text for $1"
 }

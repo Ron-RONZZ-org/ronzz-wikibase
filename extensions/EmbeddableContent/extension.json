@@ -361,6 +361,18 @@
 				"mobile"
 			]
 		},
+		"ext.embeddableContent.sourcearchive": {
+			"scripts": [
+				"sourcearchive.js"
+			],
+			"styles": [
+				"sourcearchive.css"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
 		"ext.embeddableContent.additionalstatements": {
 			"scripts": [
 				"additionalstatements.js"

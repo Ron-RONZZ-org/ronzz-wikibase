@@ -1297,6 +1297,17 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				// a webpage can carry a publication date.
 				if ( $this->currentClassKey === 'webpage' ) {
 					$fields += $this->issuedYearFieldSpec( $record );
+					// Fetch + archive the page text as the
+					// `Source:<label>/archivedText` wikitext subpage.
+					// Add-only: the Update form has no afterCreate step.
+					if ( $this->archivesPageText() ) {
+						$fields['archiveText'] = [
+							'type' => 'check',
+							'label-message' => 'embeddablecontent-source-archive-check',
+							'help-message' => 'embeddablecontent-source-archive-check-help',
+							'default' => true,
+						];
+					}
 				}
 				break;
 			case 'bookExcerpt':
@@ -2182,6 +2193,41 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			return null;
 		}
 		return parent::pageTitleForRecord( $record );
+	}
+
+	/**
+	 * Whether the flow archives the fetched page text. Add-only: the Update
+	 * pages have no afterCreate step, so the checkbox is suppressed there.
+	 */
+	protected function archivesPageText(): bool {
+		return true;
+	}
+
+	/**
+	 * A webpage (opt-in checkbox, default on) is fetched and its text
+	 * archived as the `Source:<label>/archivedText` wikitext subpage.
+	 * Best-effort: a failed fetch/conversion never blocks the item or its
+	 * classic page (SourceArchive logs and returns false).
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function afterCreate( string $itemId, array $record ): ?string {
+		$redirect = parent::afterCreate( $itemId, $record );
+
+		if ( $this->currentClassKey !== 'webpage' || empty( $record['archiveText'] ) ) {
+			return $redirect;
+		}
+		$url = trim( (string)( $record['url'] ?? '' ) );
+		$sourceTitle = $this->pageTitleForRecord( $record );
+		if ( $url !== '' && $sourceTitle !== null && $sourceTitle->exists() ) {
+			\EmbeddableContent\SourceArchive\SourceArchive::create(
+				$sourceTitle,
+				$url,
+				$this->getContext(),
+				$this->getUser()
+			);
+		}
+		return $redirect;
 	}
 
 	protected function pageTemplate(): string {

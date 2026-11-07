@@ -678,5 +678,13 @@
 	"embeddablecontent-updatefile-rejected": "La nouvelle version a été refusée : $1",
 	"embeddablecontent-file-edit-banner": "Si vous modifiez les métadonnées du fichier (licence, auteur, source), utilisez plutôt « Mettre à jour les informations de base ». Ces faits sont stockés sur l’élément sémantique d’image ; modifier le wikitexte ici ne les met pas à jour.",
 	"embeddablecontent-file-edit-banner-update": "Mettre à jour les informations de base",
-	"embeddablecontent-file-edit-banner-dismiss": "Ignorer"
+	"embeddablecontent-file-edit-banner-dismiss": "Ignorer",
+	"embeddablecontent-source-archive-check": "Récupérer et archiver le texte de la page",
+	"embeddablecontent-source-archive-check-help": "Le texte de la page est récupéré maintenant et enregistré comme sous-page wikitexte de la page Source:.",
+	"embeddablecontent-source-archive-banner": "Ceci est une page d'archive automatique d'un contenu textuel externe à $1 tel qu'il apparaissait le $2, sans aucune garantie d'exhaustivité ni d'exactitude des informations qu'elle contient.",
+	"embeddablecontent-source-archive-dismiss": "Masquer",
+	"embeddablecontent-source-archive-media-note": "Contenu multimédia : voir sur l'URL d'origine",
+	"embeddablecontent-source-archive-row-label": "Texte archivé",
+	"embeddablecontent-source-archive-row-link": "Texte archivé",
+	"embeddablecontent-source-archive-edit-summary": "Archive automatique du texte externe pour $1"
 }

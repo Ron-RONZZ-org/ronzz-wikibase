@@ -1,0 +1,44 @@
+/**
+ * The Source:<label>/archivedText disclaimer banner.
+ *
+ * Prominent on screen (amber panel, red left rule) and legible in print /
+ * Save-as-PDF (white background, black border; the dismiss button is
+ * hidden — it is meaningless on paper).
+ */
+.wb-sourcearchive-banner {
+	display: flex;
+	align-items: flex-start;
+	gap: 1em;
+	margin: 0 0 1em;
+	padding: 0.75em 1em;
+	border: 2px solid #fc3;
+	border-left: 8px solid #d33;
+	background: #fef6e7;
+	font-size: 0.95em;
+	line-height: 1.5;
+}
+
+.wb-sourcearchive-body {
+	flex: 1 1 auto;
+}
+
+.wb-sourcearchive-body p {
+	margin: 0;
+}
+
+.wb-sourcearchive-dismiss {
+	flex: 0 0 auto;
+	white-space: nowrap;
+}
+
+@media print {
+	.wb-sourcearchive-banner {
+		display: block;
+		border: 1px solid #000;
+		background: #fff;
+	}
+
+	.wb-sourcearchive-dismiss {
+		display: none !important;
+	}
+}
