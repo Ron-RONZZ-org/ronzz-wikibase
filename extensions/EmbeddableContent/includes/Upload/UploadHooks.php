@@ -66,29 +66,14 @@ final class UploadHooks {
 		// checkbox is ticked. Both fields stay in the form; the checkbox
 		// selects which one the server reads, and resources/uploadform.js
 		// hides the inactive one (JS-off still submits a coherent value).
-		$descriptor['UploadAuthor'] = [
-			'type' => 'text',
-			'section' => 'description',
-			'id' => 'wpUploadAuthor',
-			'cssclass' => 'wb-upload-author-text',
-			'label-message' => 'embeddablecontent-upload-author',
-			'maxlength' => 250,
-		];
-		$descriptor['UploadAuthorIsEntity'] = [
-			'type' => 'check',
-			'section' => 'description',
-			'id' => 'wpUploadAuthorIsEntity',
-			'label-message' => 'embeddablecontent-upload-author-entity-check',
-		];
-		$descriptor['UploadAuthorEntity'] = EntityCombobox::spec(
-			'embeddablecontent-upload-author-entity',
-			array_values( self::config()->agentClasses() ),
-			false,
-			[
-				'id' => 'wpUploadAuthorEntity',
-				'section' => 'description',
-				'cssclass' => 'wb-entity-combobox wb-upload-author-entity',
-			]
+		// The field group comes from the shared ImageUploadHelper (the same
+		// builder the Add* portrait/logo sections use).
+		$descriptor += ImageUploadHelper::authorFields(
+			'Upload',
+			'embeddablecontent-upload-author',
+			self::config(),
+			[ 'section' => 'description' ],
+			false
 		);
 		// Source: an optional entity (a Source:/work item) by default, or a
 		// plain-text provenance string when the checkbox is ticked. When a
@@ -400,17 +385,7 @@ final class UploadHooks {
 	 * @return array{text:string,entity:string}
 	 */
 	private static function authorFieldValues(): array {
-		$request = RequestContext::getMain()->getRequest();
-		if ( $request->getCheck( 'wpUploadAuthorIsEntity' ) ) {
-			return [
-				'text' => '',
-				'entity' => trim( (string)$request->getVal( 'wpUploadAuthorEntity', '' ) ),
-			];
-		}
-		return [
-			'text' => trim( (string)$request->getVal( 'wpUploadAuthor', '' ) ),
-			'entity' => '',
-		];
+		return ImageUploadHelper::authorFieldValues( RequestContext::getMain(), 'Upload' );
 	}
 
 	/**

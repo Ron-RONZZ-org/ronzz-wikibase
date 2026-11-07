@@ -233,6 +233,10 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 		$fields['logoFile'] = \EmbeddableContent\Upload\ImageUploadHelper::fileField(
 			'logo', 'embeddablecontent-collective-logo-file'
 		);
+		$fields['logoClipboard'] = \EmbeddableContent\Upload\ImageUploadHelper::clipboardField(
+			'logo',
+			$this->msg( 'embeddablecontent-upload-clipboard-hint' )->escaped()
+		);
 		foreach ( \EmbeddableContent\Upload\ImageUploadHelper::imageToolsFields( 'logo' ) as $key => $spec ) {
 			$fields[$key] = $spec;
 		}
@@ -249,9 +253,11 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 			'embeddablecontent-collective-logo-license-help',
 			$this->config
 		);
-		$fields['logoAuthor'] = \EmbeddableContent\Upload\ImageUploadHelper::authorField(
-			'logo', 'embeddablecontent-collective-logo-author'
-		);
+		foreach ( \EmbeddableContent\Upload\ImageUploadHelper::authorFields(
+			'logo', 'embeddablecontent-collective-logo-author', $this->config
+		) as $key => $spec ) {
+			$fields[$key] = $spec;
+		}
 		$fields['logoLicenseInfo'] = \EmbeddableContent\Upload\ImageUploadHelper::licenseInfoField(
 			'logo', 'embeddablecontent-collective-logo-license-info'
 		);

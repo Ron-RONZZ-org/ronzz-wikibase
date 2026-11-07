@@ -299,6 +299,10 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 			'portraitFile' => \EmbeddableContent\Upload\ImageUploadHelper::fileField(
 				'portrait', 'embeddablecontent-person-portrait-file'
 			),
+			'portraitClipboard' => \EmbeddableContent\Upload\ImageUploadHelper::clipboardField(
+				'portrait',
+				$this->msg( 'embeddablecontent-upload-clipboard-hint' )->escaped()
+			),
 			...\EmbeddableContent\Upload\ImageUploadHelper::imageToolsFields( 'portrait' ),
 			'portraitUrl' => \EmbeddableContent\Upload\ImageUploadHelper::urlField(
 				'portrait', 'embeddablecontent-person-portrait-url',
@@ -313,8 +317,8 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 				'embeddablecontent-person-portrait-license-help',
 				$this->config
 			),
-			'portraitAuthor' => \EmbeddableContent\Upload\ImageUploadHelper::authorField(
-				'portrait', 'embeddablecontent-person-portrait-author'
+			...\EmbeddableContent\Upload\ImageUploadHelper::authorFields(
+				'portrait', 'embeddablecontent-person-portrait-author', $this->config
 			),
 			'portraitLicenseInfo' => \EmbeddableContent\Upload\ImageUploadHelper::licenseInfoField(
 				'portrait', 'embeddablecontent-person-portrait-license-info'

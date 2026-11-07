@@ -95,13 +95,14 @@ final class ImageUploadHelper {
 
 	/**
 	 * Radio choosing the image source: file from the device | pasted URL |
-	 * reuse an existing file on this wiki. NO real source is pre-selected:
-	 * a "Choose a source…" placeholder option (value '') is checked by
-	 * default, and the file/url/existing inputs stay hidden until a real
-	 * source is picked (each input's hide-if is `!== Mode, <value>`).
-	 * NOTE: OOUI's RadioSelectInputWidget resets an unmatched value to the
-	 * FIRST option — an empty default alone would silently pre-check 'file'
-	 * — hence the explicit placeholder option carrying the '' value.
+	 * reuse an existing file on this wiki | paste from the clipboard. NO
+	 * real source is pre-selected: a "Choose a source…" placeholder option
+	 * (value '') is checked by default, and the file/url/existing/clipboard
+	 * inputs stay hidden until a real source is picked (each input's
+	 * hide-if is `!== Mode, <value>`). NOTE: OOUI's RadioSelectInputWidget
+	 * resets an unmatched value to the FIRST option — an empty default alone
+	 * would silently pre-check 'file' — hence the explicit placeholder
+	 * option carrying the '' value.
 	 */
 	public static function modeField( string $prefix, string $modeMsg, string $fileMsg, string $urlMsg, string $existingMsg ): array {
 		return [
@@ -112,21 +113,46 @@ final class ImageUploadHelper {
 				$fileMsg => 'file',
 				$urlMsg => 'url',
 				$existingMsg => 'existing',
+				'embeddablecontent-upload-mode-clipboard' => 'clipboard',
 			],
 			'default' => '',
 			'hide-if' => [ '===', $prefix . 'Include', '' ],
 		];
 	}
 
-	/** Local-file input (mode=file; also the browser-blob fallback target). */
+	/**
+	 * Local-file input (mode=file; also the browser-blob fallback target and
+	 * the target the clipboard paste fills, hence it stays visible in
+	 * clipboard mode).
+	 */
 	public static function fileField( string $prefix, string $msgKey ): array {
 		return [
 			'type' => 'file',
 			'label-message' => $msgKey,
-			'hide-if' => [ 'OR', [ '===', $prefix . 'Include', '' ], [ '!==', $prefix . 'Mode', 'file' ] ],
+			'hide-if' => [ 'OR',
+				[ '===', $prefix . 'Include', '' ],
+				[ 'AND',
+					[ '!==', $prefix . 'Mode', 'file' ],
+					[ '!==', $prefix . 'Mode', 'clipboard' ],
+				],
+			],
 			// resources/uploadimage.js renders the selected file's preview +
 			// pixel/byte size here (it used to preview only the URL mode).
 			'help' => '<div class="wb-image-preview wb-uploadmeta-preview"></div>',
+		];
+	}
+
+	/**
+	 * The clipboard-mode drop/paste target (a visual hint; the pasted bytes
+	 * land in the file input). resources/uploadimage.js binds the paste and
+	 * drop events and fills the file input via a DataTransfer FileList.
+	 */
+	public static function clipboardField( string $prefix, string $hintHtml ): array {
+		return [
+			'type' => 'info',
+			'default' => '<div class="wb-clipboard-target">' . $hintHtml . '</div>',
+			'raw' => true,
+			'hide-if' => [ 'OR', [ '===', $prefix . 'Include', '' ], [ '!==', $prefix . 'Mode', 'clipboard' ] ],
 		];
 	}
 
@@ -207,12 +233,105 @@ final class ImageUploadHelper {
 		] );
 	}
 
-	public static function authorField( string $prefix, string $msgKey ): array {
-		return [
+	/**
+	 * The author field group: a free-text name, or (checkbox) a semantic
+	 * ENTITY (an agent-class item) — the same model as Special:Upload.
+	 *
+	 * With `$sectionGating` (the Add* forms) the fields hide behind the
+	 * section toggle and swap on the checkbox through HTMLForm `hide-if`.
+	 * Special:Upload passes false: its `uploadform.js` owns the swap, so no
+	 * `hide-if` is emitted there (the fields always render).
+	 *
+	 * @param array<string,mixed> $extra merged over each field (e.g. the
+	 *   Upload form's `section`)
+	 * @return array<string,array<string,mixed>>
+	 */
+	public static function authorFields(
+		string $prefix,
+		string $textMsgKey,
+		EmbeddableContentConfig $config,
+		array $extra = [],
+		bool $sectionGating = true
+	): array {
+		$text = [
 			'type' => 'text',
-			'label-message' => $msgKey,
+			'label-message' => $textMsgKey,
 			'maxlength' => 250,
-			'hide-if' => [ 'OR', [ '===', $prefix . 'Include', '' ], [ '===', $prefix . 'Mode', 'existing' ] ],
+			'id' => 'wp' . $prefix . 'Author',
+			'cssclass' => 'wb-upload-author-text',
+		];
+		$check = [
+			'type' => 'check',
+			'label-message' => 'embeddablecontent-upload-author-entity-check',
+			'id' => 'wp' . $prefix . 'AuthorIsEntity',
+		];
+		$entity = EntityCombobox::spec(
+			'embeddablecontent-upload-author-entity',
+			array_values( $config->agentClasses() ),
+			false,
+			[
+				'id' => 'wp' . $prefix . 'AuthorEntity',
+				'cssclass' => 'wb-entity-combobox wb-upload-author-entity',
+			]
+		);
+		if ( $sectionGating ) {
+			$inactive = [
+				'OR',
+				[ '===', $prefix . 'Include', '' ],
+				[ '===', $prefix . 'Mode', 'existing' ],
+			];
+			$text['hide-if'] = [
+				'OR',
+				$inactive,
+				[ '===', $prefix . 'AuthorIsEntity', '1' ],
+			];
+			$check['hide-if'] = $inactive;
+			$entity['hide-if'] = [
+				'OR',
+				$inactive,
+				[ '!==', $prefix . 'AuthorIsEntity', '1' ],
+			];
+		}
+		return [
+			$prefix . 'Author' => array_merge( $text, $extra ),
+			$prefix . 'AuthorIsEntity' => array_merge( $check, $extra ),
+			$prefix . 'AuthorEntity' => array_merge( $entity, $extra ),
+		];
+	}
+
+	/**
+	 * The ACTIVE author mode's values from the request (Special:Upload): the
+	 * checkbox selects which of the two submitted fields counts.
+	 *
+	 * @return array{text:string,entity:string}
+	 */
+	public static function authorFieldValues( IContextSource $context, string $prefix ): array {
+		$request = $context->getRequest();
+		if ( $request->getCheck( 'wp' . $prefix . 'AuthorIsEntity' ) ) {
+			return [
+				'text' => '',
+				'entity' => trim( (string)$request->getVal( 'wp' . $prefix . 'AuthorEntity', '' ) ),
+			];
+		}
+		return [
+			'text' => trim( (string)$request->getVal( 'wp' . $prefix . 'Author', '' ) ),
+			'entity' => '',
+		];
+	}
+
+	/**
+	 * The ACTIVE author mode from a form record (the Add* forms submit both
+	 * fields; the checkbox selects which one counts). Pure — unit-tested.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array{useEntity:bool,text:string,entity:string}
+	 */
+	public static function authorModeValues( array $record, string $prefix ): array {
+		$useEntity = !empty( $record[$prefix . 'AuthorIsEntity'] );
+		return [
+			'useEntity' => $useEntity,
+			'text' => $useEntity ? '' : trim( (string)( $record[$prefix . 'Author'] ?? '' ) ),
+			'entity' => $useEntity ? trim( (string)( $record[$prefix . 'AuthorEntity'] ?? '' ) ) : '',
 		];
 	}
 
@@ -254,7 +373,8 @@ final class ImageUploadHelper {
 
 	/**
 	 * Runs the section's upload (the beforeCreate body): honours the
-	 * include-toggle, dispatches file|url|existing (file = browser upload,
+	 * include-toggle, dispatches file|url|existing|clipboard (file = browser
+	 * upload, clipboard = the same browser upload filled by a paste/drop,
 	 * url = SSRF-guarded UploadFromUrl, existing = reuse a File: page on
 	 * this wiki — no upload), uploads as File:<label>-<suffix>.<ext>,
 	 * enforces the license, and records the outcome on $record
@@ -302,11 +422,18 @@ final class ImageUploadHelper {
 			$record[$prefix . 'FileTitle'] = '';
 			$record[$prefix . 'License'] = '';
 			$record[$prefix . 'Author'] = '';
+			$record[$prefix . 'AuthorIsEntity'] = '';
+			$record[$prefix . 'AuthorEntity'] = '';
 			$record[$prefix . 'LicenseInfo'] = '';
 			return null;
 		}
 
 		$mode = (string)( $record[$prefix . 'Mode'] ?? '' );
+		// The checkbox selects which author field counts; the inactive field
+		// is ignored (never written as a fact).
+		$author = self::authorModeValues( $record, $prefix );
+		$record[$prefix . 'Author'] = $author['text'];
+		$record[$prefix . 'AuthorEntity'] = $author['entity'];
 		$title = null;
 		try {
 			if ( $mode === 'url' ) {
@@ -352,7 +479,9 @@ final class ImageUploadHelper {
 			// statement (the Add* statementSpecs no longer write the image
 			// facts).
 			if ( $mode !== 'existing' && $config !== null && $licenseItem !== null ) {
-				self::createImageItem( $prefix, $record, $title, $context, $user, $config, $msgKeys, $primaryLabel );
+				self::createImageItem(
+					$prefix, $record, $title, $context, $user, $config, $msgKeys, $primaryLabel, $author
+				);
 			}
 		} else {
 			$record[$prefix . 'FileTitle'] = '';
@@ -470,9 +599,11 @@ final class ImageUploadHelper {
 		User $user,
 		EmbeddableContentConfig $config,
 		array $msgKeys,
-		callable $primaryLabel
+		callable $primaryLabel,
+		array $author
 	): void {
 		$label = $primaryLabel( $record );
+		$authorEntity = $author['useEntity'] ? self::parseItemId( (string)$author['entity'] ) : null;
 		ImageItemCreator::createOrReuse(
 			$config,
 			$user,
@@ -480,10 +611,13 @@ final class ImageUploadHelper {
 			ucfirst( $prefix ) . " of {$label}.",
 			$title->getPrefixedText(),
 			(string)( $record[$prefix . 'License'] ?? '' ),
-			(string)( $record[$prefix . 'Author'] ?? '' ),
+			(string)$author['text'],
 			(string)( $record[$prefix . 'LicenseInfo'] ?? '' ),
 			self::uploadSourceUrl( $context, 'url', $record, $prefix ),
-			$context->msg( $msgKeys['editSummary'], $label )->inContentLanguage()->text()
+			$context->msg( $msgKeys['editSummary'], $label )->inContentLanguage()->text(),
+			false,
+			[],
+			$authorEntity !== null ? $authorEntity->getSerialization() : null
 		);
 	}
 

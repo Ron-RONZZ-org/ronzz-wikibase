@@ -391,6 +391,10 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 		$fields['logoFile'] = \EmbeddableContent\Upload\ImageUploadHelper::fileField(
 			'logo', 'embeddablecontent-software-logo-file'
 		);
+		$fields['logoClipboard'] = \EmbeddableContent\Upload\ImageUploadHelper::clipboardField(
+			'logo',
+			$this->msg( 'embeddablecontent-upload-clipboard-hint' )->escaped()
+		);
 		foreach ( \EmbeddableContent\Upload\ImageUploadHelper::imageToolsFields( 'logo' ) as $key => $spec ) {
 			$fields[$key] = $spec;
 		}
@@ -407,9 +411,11 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 			'embeddablecontent-software-logo-license-help',
 			$this->config
 		);
-		$fields['logoAuthor'] = \EmbeddableContent\Upload\ImageUploadHelper::authorField(
-			'logo', 'embeddablecontent-software-logo-author'
-		);
+		foreach ( \EmbeddableContent\Upload\ImageUploadHelper::authorFields(
+			'logo', 'embeddablecontent-software-logo-author', $this->config
+		) as $key => $spec ) {
+			$fields[$key] = $spec;
+		}
 		$fields['logoLicenseInfo'] = \EmbeddableContent\Upload\ImageUploadHelper::licenseInfoField(
 			'logo', 'embeddablecontent-software-logo-license-info'
 		);

@@ -124,3 +124,20 @@
 	padding: 2px;
 	background: var(--background-color-base, #fff);
 }
+
+/* Clipboard mode (Add* portrait/logo): the paste/drop target. The pasted
+ * bytes land in the file input; resources/uploadimage.js binds the events. */
+.wb-clipboard-target {
+	border: 2px dashed var(--border-color-subtle, #c8ccd1);
+	border-radius: 4px;
+	padding: 1em;
+	text-align: center;
+	color: var(--color-subtle, #54595d);
+	cursor: copy;
+}
+
+.wb-clipboard-target.wb-clipboard-active {
+	border-color: var(--color-progressive, #36c);
+	background-color: var(--background-color-progressive-subtle, rgba( 51, 102, 204, 0.06 ));
+	color: var(--color-progressive, #36c);
+}

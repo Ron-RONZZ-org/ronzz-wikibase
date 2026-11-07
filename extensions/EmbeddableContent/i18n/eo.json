@@ -686,5 +686,8 @@
 	"embeddablecontent-source-archive-media-note": "Aŭdovida enhavo: vidi ĉe la originala URL",
 	"embeddablecontent-source-archive-row-label": "Arkivita teksto",
 	"embeddablecontent-source-archive-row-link": "Arkivita teksto",
-	"embeddablecontent-source-archive-edit-summary": "Aŭtomata arkivo de ekstera teksto por $1"
+	"embeddablecontent-source-archive-edit-summary": "Aŭtomata arkivo de ekstera teksto por $1",
+	"embeddablecontent-upload-mode-clipboard": "Alglui el tondujo",
+	"embeddablecontent-upload-clipboard-hint": "Algluu bildon (Ctrl+V / ⌘V), aŭ faligu dosieron ĉi tien.",
+	"embeddablecontent-upload-clipboard-error": "Ne eblis legi la algluitan bildon. Bonvolu elekti dosieron anstataŭe."
 }

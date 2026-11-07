@@ -368,6 +368,105 @@
 		setInputFile( input, new File( [ file ], replaceExtension( file.name, ext ), { type: file.type } ) );
 	}
 
+	/** The first image file in a FileList, or null. */
+	function firstImageFile( files ) {
+		if ( !files ) {
+			return null;
+		}
+		for ( var i = 0; i < files.length; i++ ) {
+			if ( /^image\//.test( files[ i ].type ) ) {
+				return files[ i ];
+			}
+		}
+		return null;
+	}
+
+	/** The section's current source mode (the OOUI radio group carries the
+	 * value in a hidden input; mirrors uploadmeta.js). */
+	function modeValue( prefix ) {
+		var inputs = document.querySelectorAll( 'input[name="wp' + prefix + 'Mode"]' );
+		for ( var i = 0; i < inputs.length; i++ ) {
+			var el = inputs[ i ];
+			if ( el.type === 'radio' && el.checked ) {
+				return el.value;
+			}
+			if ( el.type !== 'radio' && el.type !== 'checkbox' && el.value ) {
+				return el.value;
+			}
+		}
+		return '';
+	}
+
+	/** Fill the file input from a pasted/dropped image (DataTransfer). */
+	function setClipboardFile( input, file ) {
+		try {
+			var dt = new DataTransfer();
+			dt.items.add( file );
+			input.files = dt.files;
+			return true;
+		} catch ( e ) {
+			return false;
+		}
+	}
+
+	function acceptClipboardFile( input, file ) {
+		if ( !file ) {
+			return;
+		}
+		if ( !setClipboardFile( input, file ) ) {
+			mw.notify( mw.msg( 'embeddablecontent-upload-clipboard-error' ), { type: 'warn' } );
+			return;
+		}
+		// The existing change listener runs the preview + resize.
+		input.dispatchEvent( new Event( 'change', { bubbles: true } ) );
+	}
+
+	/**
+	 * Clipboard mode: paste (anywhere in the section) or drop onto the
+	 * `.wb-clipboard-target` box fills the file input. Special:Upload is
+	 * skipped — resources/uploadform.js already owns paste/drop there.
+	 */
+	function wireClipboard( input, prefix, form ) {
+		if ( !form || prefix === 'Upload' || form.dataset.wbClipboardWired === '1' ) {
+			return;
+		}
+		form.dataset.wbClipboardWired = '1';
+
+		form.addEventListener( 'paste', function ( e ) {
+			if ( modeValue( prefix ) !== 'clipboard' ) {
+				return;
+			}
+			var data = ( e.originalEvent && e.originalEvent.clipboardData ) || e.clipboardData;
+			var file = firstImageFile( data && data.files );
+			if ( !file ) {
+				return;
+			}
+			e.preventDefault();
+			acceptClipboardFile( input, file );
+		} );
+
+		var target = form.querySelector( '.wb-clipboard-target' );
+		if ( !target ) {
+			return;
+		}
+		target.addEventListener( 'dragover', function ( e ) {
+			e.preventDefault();
+			target.classList.add( 'wb-clipboard-active' );
+		} );
+		target.addEventListener( 'dragleave', function () {
+			target.classList.remove( 'wb-clipboard-active' );
+		} );
+		target.addEventListener( 'drop', function ( e ) {
+			target.classList.remove( 'wb-clipboard-active' );
+			var file = firstImageFile( e.dataTransfer && e.dataTransfer.files );
+			if ( !file ) {
+				return;
+			}
+			e.preventDefault();
+			acceptClipboardFile( input, file );
+		} );
+	}
+
 	function wire( input ) {
 		var m = /^wp(.+)File$/.exec( input.name || '' );
 		if ( !m ) {
@@ -392,6 +491,7 @@
 		// Correct wpDestFile on submit-button click too (core's own dest-name
 		// autofill may run after our change handler).
 		var form = input.closest ? input.closest( 'form' ) : null;
+		wireClipboard( input, prefix, form );
 		if ( form && prefix === 'Upload' ) {
 			form.addEventListener( 'click', function ( e ) {
 				var target = e.target;

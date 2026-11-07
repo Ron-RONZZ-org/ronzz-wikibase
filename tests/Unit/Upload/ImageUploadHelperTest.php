@@ -195,7 +195,7 @@ final class ImageUploadHelperTest extends TestCase {
 		$this->assertSame( 'wpportraitLicenseInfo', $config['targets']['licenseInfo'] );
 	}
 
-	public function testModeFieldOffersThreeSourcesWithNoDefault(): void {
+	public function testModeFieldOffersFourSourcesWithNoDefault(): void {
 		$spec = ImageUploadHelper::modeField(
 			'logo',
 			'embeddablecontent-software-logo-mode',
@@ -215,6 +215,7 @@ final class ImageUploadHelperTest extends TestCase {
 				'embeddablecontent-software-logo-mode-file' => 'file',
 				'embeddablecontent-software-logo-mode-url' => 'url',
 				'embeddablecontent-upload-mode-existing' => 'existing',
+				'embeddablecontent-upload-mode-clipboard' => 'clipboard',
 			],
 			$spec['options-messages']
 		);
@@ -223,8 +224,16 @@ final class ImageUploadHelperTest extends TestCase {
 	public function testFileFieldVisibleOnlyWhenModeFile(): void {
 		$spec = ImageUploadHelper::fileField( 'portrait', 'embeddablecontent-person-portrait-file' );
 		$this->assertSame( 'file', $spec['type'] );
+		// The input also serves clipboard mode: the pasted bytes land here.
 		$this->assertSame(
-			[ 'OR', [ '===', 'portraitInclude', '' ], [ '!==', 'portraitMode', 'file' ] ],
+			[
+				'OR',
+				[ '===', 'portraitInclude', '' ],
+				[ 'AND',
+					[ '!==', 'portraitMode', 'file' ],
+					[ '!==', 'portraitMode', 'clipboard' ],
+				],
+			],
 			$spec['hide-if']
 		);
 	}
@@ -268,11 +277,29 @@ final class ImageUploadHelperTest extends TestCase {
 		);
 	}
 
-	public function testAuthorFieldHiddenWhenModeExisting(): void {
-		$spec = ImageUploadHelper::authorField( 'portrait', 'embeddablecontent-person-portrait-author' );
+	public function testAuthorFieldGroupHiddenWhenModeExisting(): void {
+		$fields = ImageUploadHelper::authorFields(
+			'portrait',
+			'embeddablecontent-person-portrait-author',
+			$this->configStub()
+		);
+		$this->assertArrayHasKey( 'portraitAuthor', $fields );
+		$this->assertArrayHasKey( 'portraitAuthorIsEntity', $fields );
+		$this->assertArrayHasKey( 'portraitAuthorEntity', $fields );
+
+		$inactive = [
+			'OR',
+			[ '===', 'portraitInclude', '' ],
+			[ '===', 'portraitMode', 'existing' ],
+		];
 		$this->assertSame(
-			[ 'OR', [ '===', 'portraitInclude', '' ], [ '===', 'portraitMode', 'existing' ] ],
-			$spec['hide-if']
+			[ 'OR', $inactive, [ '===', 'portraitAuthorIsEntity', '1' ] ],
+			$fields['portraitAuthor']['hide-if']
+		);
+		$this->assertSame( $inactive, $fields['portraitAuthorIsEntity']['hide-if'] );
+		$this->assertSame(
+			[ 'OR', $inactive, [ '!==', 'portraitAuthorIsEntity', '1' ] ],
+			$fields['portraitAuthorEntity']['hide-if']
 		);
 	}
 

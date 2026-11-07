@@ -1031,7 +1031,8 @@
 				"ext.embeddableContent.mentioncontext"
 			],
 			"messages": [
-				"embeddablecontent-upload-resizing"
+				"embeddablecontent-upload-resizing",
+				"embeddablecontent-upload-clipboard-error"
 			],
 			"targets": [
 				"desktop",

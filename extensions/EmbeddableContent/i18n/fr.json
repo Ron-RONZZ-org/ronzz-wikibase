@@ -686,5 +686,8 @@
 	"embeddablecontent-source-archive-media-note": "Contenu multimédia : voir sur l'URL d'origine",
 	"embeddablecontent-source-archive-row-label": "Texte archivé",
 	"embeddablecontent-source-archive-row-link": "Texte archivé",
-	"embeddablecontent-source-archive-edit-summary": "Archive automatique du texte externe pour $1"
+	"embeddablecontent-source-archive-edit-summary": "Archive automatique du texte externe pour $1",
+	"embeddablecontent-upload-mode-clipboard": "Coller depuis le presse-papiers",
+	"embeddablecontent-upload-clipboard-hint": "Collez une image (Ctrl+V / ⌘V), ou déposez un fichier ici.",
+	"embeddablecontent-upload-clipboard-error": "Impossible de lire l'image collée. Choisissez plutôt un fichier."
 }
