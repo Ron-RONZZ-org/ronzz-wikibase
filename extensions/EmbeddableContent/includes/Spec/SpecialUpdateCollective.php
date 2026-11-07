@@ -95,6 +95,17 @@ class SpecialUpdateCollective extends SpecialAddCollective {
 		];
 		$props = $this->config->collectivePropertyIds();
 		$record['website'] = $this->firstStringForProperty( $item, $props['officialWebsite'] ?? null );
+		// Group-of-humans membership: prefill the multi-entity list so
+		// existing members can be removed and new ones added.
+		$groupClass = $this->config->agentClasses()['groupOfHumans'] ?? null;
+		if ( $groupClass !== null && in_array( $groupClass, $this->itemClassIds( $item ), true ) ) {
+			$record['members'] = implode(
+				', ',
+				$this->entityIdsForProperty( $item, $props['hasMember'] ?? null )
+			);
+			$record['memberNames'] = '';
+			$record['memberChoices'] = '';
+		}
 		// Logo facts are NOT prefilled (the toggle defaults unchecked — the
 		// existing logo is preserved).
 		foreach ( [ 'logoInclude', 'logoMode', 'logoFile', 'logoUrl', 'logoExisting',

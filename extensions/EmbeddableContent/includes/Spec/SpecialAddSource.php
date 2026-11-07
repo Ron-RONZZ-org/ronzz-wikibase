@@ -14,7 +14,6 @@ use EmbeddableContent\Fetch\ProviderResult;
 use EmbeddableContent\Fetch\WorkRecord;
 use EmbeddableContent\Fetch\YouTubeProvider;
 use EmbeddableContent\Fields\EntityCombobox;
-use EmbeddableContent\Flow\AuthorCreator;
 use EmbeddableContent\Flow\SourceFieldMap;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Title\Title;
@@ -1008,16 +1007,6 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		return $this->flow;
 	}
 
-	/** @var AuthorCreator|null lazily built */
-	private ?AuthorCreator $authorCreator = null;
-
-	/** Creates/reuses the Person items decided by the author-name popup. */
-	private function authorCreator(): AuthorCreator {
-		$this->authorCreator ??= \MediaWiki\MediaWikiServices::getInstance()
-			->get( 'EmbeddableContent.AuthorCreator' );
-		return $this->authorCreator;
-	}
-
 	/**
 	 * Harvested works carry an author array (AuthorRecord objects or their
 	 * JSON-decoded array shape), not the form's Q-id string. Turn those
@@ -1554,6 +1543,10 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				// Authors are optional: a text of unknown authorship is
 				// legitimate (title is the only required field).
 				'required' => false,
+				// A picked group-of-humans is expanded to its members
+				// client-side by entitysuggest.js (the server repeats the
+				// expansion at save time).
+				'cssclass' => 'wb-entity-combobox wb-entity-combobox-multi wb-entity-combobox-expand-groups',
 			]
 		);
 	}
@@ -2327,7 +2320,11 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		// merge their ids into `authors` BEFORE the author validation. Every
 		// name must carry an explicit reuse/create/skip/update decision; a
 		// missing decision is a form error (never an inferred match).
-		$error = $this->applyAuthorChoices( $record );
+		$error = $this->applyPersonPanel( 'author', $record, false );
+		if ( $error !== null ) {
+			return $error;
+		}
+		$error = $this->expandAuthorGroups( $record );
 		if ( $error !== null ) {
 			return $error;
 		}
@@ -2744,72 +2741,39 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	}
 
 	/**
-	 * Applies the author-name panel's decisions: creates/reuses the decided
-	 * Person items and merges their ids into `$record['authors']`.
-	 *
-	 * The panel submits the raw names plus a JSON decision list (the popup
-	 * writes it). Every parsed name MUST have a decision; otherwise the
-	 * creation aborts with a form error rather than guessing a match — a
-	 * common name such as "John Smith" is never silently bound.
+	 * Expands a group-of-humans author to its `has member` Persons. A group
+	 * with members is replaced by the members; a group without members is
+	 * blocked when its label is a person-name list (unless the contributor
+	 * explicitly allowed a collective author). Other authors pass through.
 	 *
 	 * @param array<string,mixed> $record
 	 */
-	private function applyAuthorChoices( array &$record, bool $commit = false ): ?string {
-		$namesInput = trim( (string)( $record['authorNames'] ?? '' ) );
-		$choicesJson = trim( (string)( $record['authorChoices'] ?? '' ) );
-		if ( $namesInput === '' && $choicesJson === '' ) {
-			return null;
+	private function expandAuthorGroups( array &$record ): ?string {
+		$expansion = $this->groupMembers()->expand(
+			ItemIdList::split( (string)( $record['authors'] ?? '' ) ),
+			!empty( $record['authorCollectiveOk'] )
+		);
+		if ( $expansion['blocked'] !== [] ) {
+			$blocked = $expansion['blocked'][0];
+			return $this->msg(
+				'embeddablecontent-source-error-author-collective-namelist',
+				$blocked['label'],
+				$blocked['qid']
+			)->text();
 		}
-		if ( $namesInput === '' ) {
-			return $this->msg( 'embeddablecontent-source-error-authornames-missing' )->text();
-		}
-		$parsed = AuthorNameList::parse( $namesInput );
-		if ( $parsed['names'] === [] ) {
-			return $this->msg( 'embeddablecontent-source-error-authornames-empty' )->text();
-		}
-		$choices = [];
-		if ( $choicesJson !== '' ) {
-			$decoded = json_decode( $choicesJson, true );
-			if ( !is_array( $decoded ) ) {
-				return $this->msg( 'embeddablecontent-source-error-authorchoices-invalid' )->text();
-			}
-			$choices = $decoded;
-		}
-
-		if ( $commit ) {
-			$result = $this->authorCreator()->applyDecisions(
-				$parsed['names'],
-				$choices,
-				$this->getUser(),
-				$this->msg( 'embeddablecontent-author-create-summary' )->inContentLanguage()->text()
-			);
-			if ( $result['error'] !== null ) {
-				return $result['error'];
-			}
-			foreach ( $result['warnings'] as $warning ) {
-				wfDebugLog( 'EmbeddableContent', 'author-name: ' . $warning );
-			}
-			$newIds = $result['ids'];
-		} else {
-			// Review-step pre-flight: validate the decisions and merge the
-			// EXISTING reuse/update ids for validateAuthors, but do not
-			// create the Person items yet (the actual create happens after
-			// the duplicate guard, in createFromRecord/manualCreate).
-			$result = $this->authorCreator()->validateDecisions( $parsed['names'], $choices );
-			if ( $result['error'] !== null ) {
-				return $result['error'];
-			}
-			$newIds = $result['ids'];
-		}
-
-		$ids = ItemIdList::split( (string)( $record['authors'] ?? '' ) );
-		foreach ( $newIds as $id ) {
-			if ( !in_array( $id, $ids, true ) ) {
-				$ids[] = $id;
-			}
-		}
-		$record['authors'] = implode( ', ', $ids );
+		$record['authors'] = implode( ', ', $expansion['ids'] );
 		return null;
+	}
+
+	/** @var \EmbeddableContent\Spec\GroupMembers|null */
+	private $groupMembers = null;
+
+	private function groupMembers(): \EmbeddableContent\Spec\GroupMembers {
+		if ( $this->groupMembers === null ) {
+			$this->groupMembers = \MediaWiki\MediaWikiServices::getInstance()
+				->get( 'EmbeddableContent.GroupMembers' );
+		}
+		return $this->groupMembers;
 	}
 
 	/**
@@ -2940,7 +2904,11 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		// The duplicate/collision guards have passed: now it is safe to
 		// create/reuse the decided author Persons (the read-only pre-flight
 		// ran in beforeCreate).
-		$error = $this->applyAuthorChoices( $record, true );
+		$error = $this->applyPersonPanel( 'author', $record, true );
+		if ( $error !== null ) {
+			throw new \RuntimeException( $error );
+		}
+		$error = $this->expandAuthorGroups( $record );
 		if ( $error !== null ) {
 			throw new \RuntimeException( $error );
 		}
@@ -2948,7 +2916,11 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	}
 
 	protected function manualCreate( string $label, string $classItemId, array $record, bool $forceCreate = false ): string {
-		$error = $this->applyAuthorChoices( $record, true );
+		$error = $this->applyPersonPanel( 'author', $record, true );
+		if ( $error !== null ) {
+			throw new \RuntimeException( $error );
+		}
+		$error = $this->expandAuthorGroups( $record );
 		if ( $error !== null ) {
 			throw new \RuntimeException( $error );
 		}

@@ -10,7 +10,7 @@ the citation/author machinery correctly.
 This tool is READ-ONLY. It queries the instance's SPARQL endpoint for every
 group-of-humans item used as an author, lists the referencing sources, and
 optionally resolves the group label through ``action=authorresolve`` (the
-canonical name parser/matcher) so the split plan can be reviewed.
+canonical name parser/matcher) so the membership backfill plan can be reviewed.
 
 Usage::
 

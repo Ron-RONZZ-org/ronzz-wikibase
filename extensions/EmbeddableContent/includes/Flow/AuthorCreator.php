@@ -69,7 +69,7 @@ final class AuthorCreator {
 			if ( $decision === null ) {
 				return [
 					'ids' => [],
-					'error' => 'Every author name needs a decision: confirm an existing Person, '
+					'error' => 'Every person name needs a decision: confirm an existing Person, '
 						. 'create a new one, or skip it. Missing: ' . $name['original'],
 				];
 			}
@@ -80,7 +80,7 @@ final class AuthorCreator {
 			}
 			if ( $action === 'reuse' || $action === 'update' ) {
 				if ( $this->loadPerson( $qid ) === null ) {
-					return [ 'ids' => [], 'error' => "Author \"{$qid}\" is not an existing Person item." ];
+					return [ 'ids' => [], 'error' => "Person \"{$qid}\" is not an existing Person item." ];
 				}
 				$ids[] = $qid;
 				continue;
@@ -94,7 +94,7 @@ final class AuthorCreator {
 				}
 				continue;
 			}
-			return [ 'ids' => [], 'error' => "Unknown decision \"{$action}\" for author {$name['original']}." ];
+			return [ 'ids' => [], 'error' => "Unknown decision \"{$action}\" for person {$name['original']}." ];
 		}
 		return [ 'ids' => $ids, 'error' => null ];
 	}
@@ -137,7 +137,7 @@ final class AuthorCreator {
 		foreach ( $names as $index => $name ) {
 			$decision = $byIndex[$index] ?? null;
 			if ( $decision === null ) {
-				$result['error'] = 'Every author name needs a decision: confirm an existing Person, '
+				$result['error'] = 'Every person name needs a decision: confirm an existing Person, '
 					. 'create a new one, or skip it. Missing: ' . $name['original'];
 				return $result;
 			}
@@ -151,7 +151,7 @@ final class AuthorCreator {
 				case 'reuse':
 					$person = $this->loadPerson( $qid );
 					if ( $person === null ) {
-						$result['error'] = "Author \"{$qid}\" is not an existing Person item.";
+						$result['error'] = "Person \"{$qid}\" is not an existing Person item.";
 						return $result;
 					}
 					$result['ids'][] = $qid;
@@ -175,7 +175,7 @@ final class AuthorCreator {
 				case 'update':
 					$person = $this->loadPerson( $qid );
 					if ( $person === null ) {
-						$result['error'] = "Author \"{$qid}\" is not an existing Person item.";
+						$result['error'] = "Person \"{$qid}\" is not an existing Person item.";
 						return $result;
 					}
 					$error = $this->updatePerson( $person, $details, $user, $summary );
@@ -187,7 +187,7 @@ final class AuthorCreator {
 					$result['updated'][] = $qid;
 					break;
 				default:
-					$result['error'] = "Unknown decision \"{$action}\" for author {$name['original']}.";
+					$result['error'] = "Unknown decision \"{$action}\" for person {$name['original']}.";
 					return $result;
 			}
 		}

@@ -165,6 +165,31 @@
 					combo.setValue( picked.join( ', ' ) );
 					combo.setOptions( [] );
 					combo.getMenu().toggle( false );
+					// A group-of-humans author is expanded to its members so
+					// the contributor sees the actual authors and can remove
+					// one before saving (the server repeats the expansion).
+					if ( $el.hasClass( 'wb-entity-combobox-expand-groups' ) ) {
+						api.get( { action: 'groupmembers', qid: id } ).then( function ( data ) {
+							var members = data && data.groupmembers && data.groupmembers.members || [];
+							if ( !members.length ) {
+								return;
+							}
+							var expanded = [];
+							picked.forEach( function ( q ) {
+								if ( q === id ) {
+									members.forEach( function ( member ) {
+										var memberId = String( member.qid || '' );
+										if ( memberId && expanded.indexOf( memberId ) === -1 ) {
+											expanded.push( memberId );
+										}
+									} );
+								} else if ( expanded.indexOf( q ) === -1 ) {
+									expanded.push( q );
+								}
+							} );
+							combo.setValue( expanded.join( ', ' ) );
+						} );
+					}
 				} );
 			}
 		}

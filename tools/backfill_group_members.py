@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Split legacy "Group of humans" author items into individual Persons.
+"""Backfill membership for legacy "Group of humans" author groups.
 
 The migration counterpart of ``report_group_authors.py``. For every
 group-of-humans item used as a source's ``attributed to`` author:
@@ -8,28 +8,31 @@ group-of-humans item used as a source's ``attributed to`` author:
    name parser/matcher);
 2. reuse an exactly matching Person, or create a new Person through
    ``action=addsemanticentity``;
-3. replace the group claim on every referencing source with the Person
-   claims;
-4. once no source references the group, optionally delete the group item
-   and its ``Collective:`` page when the item has no other claims.
+3. add a ``has member`` claim for each Person on the GROUP item (the group is
+   kept as a reusable collaborator group);
+4. replace the group claim on every referencing source with the Person
+   claims, so the source stores its actual individual authors;
+5. rename the group label to the auto-label style (member names, with
+   ``et al.`` on overflow) — the label-sync hook renames the Collective:
+   page.
 
 Safety:
 * dry-run by default — nothing is written without ``--apply``;
 * a name with an ambiguous / probable-only / mononym / CJK / parenthetical
-  match, or a group with extra claims, is SKIPPED and reported for manual
-  review (never silently guessed);
+  match is SKIPPED and reported for manual review (never silently guessed);
 * exact-label duplicates are never reused when there is more than one.
 
 Usage::
 
-    python3 tools/split_group_authors.py \
+    python3 tools/backfill_group_members.py \
         --report group-authors.json \
         --api-url https://wikibase.ronzz.org/w/api.php \
         --user SeedBot --password-file seed/.seedbot.pass \
-        [--apply] [--delete-groups] [--verify]
+        [--apply] [--verify]
 
-Requires the deployed EmbeddableContent ``action=authorresolve``. The
-delete step requires the ``delete`` right.
+Requires the deployed EmbeddableContent ``action=authorresolve`` and the new
+``has member`` property (discovered through
+``action=addsemanticentity-fields`` unless --has-member-property is given).
 
 License: GPL-2.0-or-later
 """
@@ -39,6 +42,7 @@ from __future__ import annotations
 import argparse
 import http.cookiejar
 import json
+import re
 import sys
 import time
 import urllib.parse
@@ -209,26 +213,92 @@ def remaining_sources(sparql_url: str, group: str, property_id: str) -> int:
     return int(rows[0]["n"]["value"]) if rows else 0
 
 
-def delete_group(op, api: str, group: str, item: dict, token: str, summary: str) -> None:
-    claims = item.get("claims", {})
-    non_instance = [p for p in claims if p != "P1"]
-    if non_instance:
-        print(f"  SKIP delete {group}: still has claims {non_instance}", file=sys.stderr)
-        return
+def has_member_property(op, api: str) -> str:
+    data = api_get(op, api, {"action": "addsemanticentity-fields"})
+    value = (
+        data.get("semanticfields", {})
+        .get("propertyIds", {})
+        .get("collectiveProperties", {})
+        .get("hasMember")
+    )
+    if not value:
+        raise FlowError(
+            "hasMember is missing from addsemanticentity-fields; re-seed the vocabulary first."
+        )
+    return value
+
+
+def add_group_member(op, api: str, group: str, person: str, property_id: str,
+                     token: str, summary: str) -> bool:
+    entity = entities(op, api, [group]).get(group, {})
+    existing = {v["qid"] for v in author_values(entity.get("claims", {}), property_id)}
+    if person in existing:
+        return False
     api_post(op, api, {
-        "action": "delete",
-        "title": f"Item:{group}",
-        "reason": summary,
+        "action": "wbcreateclaim",
+        "entity": group,
+        "property": property_id,
+        "snaktype": "value",
+        "value": json.dumps({"entity-type": "item", "numeric-id": int(person[1:])}),
+        "summary": summary,
         "token": token,
     })
-    sitelink = (item.get("sitelinks", {}).get("wikibase") or {}).get("title")
-    if sitelink:
-        api_post(op, api, {
-            "action": "delete",
-            "title": sitelink,
-            "reason": summary,
-            "token": token,
-        })
+    return True
+
+
+def group_label(names: list[str], max_length: int = 250) -> str:
+    names = [n.strip() for n in names if n.strip()]
+    if not names:
+        return ""
+    label = ""
+    for index, name in enumerate(names):
+        candidate = name if not label else f"{label}, {name}"
+        remaining = len(names) - index - 1
+        reserve = remaining > 0 and len(candidate) + len(" et al.") > max_length
+        if len(candidate) <= max_length and not reserve:
+            label = candidate
+            continue
+        if label and len(label + " et al.") <= max_length:
+            return label + " et al."
+        if not label:
+            return name[:max_length]
+        return label[:max_length]
+    return label[:max_length]
+
+
+def title_label(label: str) -> str:
+    title = re.sub(r"[#<>\[\]{}|]", "-", label).strip()
+    return title[:1].upper() + title[1:] if title else title
+
+
+def rename_group(op, api: str, group: str, label: str, token: str, summary: str) -> None:
+    entity = entities(op, api, [group]).get(group, {})
+    old_title = ((entity.get("sitelinks") or {}).get("wikibase") or {}).get("title")
+    new_title = "Collective:" + title_label(label)
+    if old_title and old_title != new_title:
+        try:
+            api_post(op, api, {
+                "action": "move",
+                "from": old_title,
+                "to": new_title,
+                "reason": summary,
+                "movetalk": "1",
+                "token": token,
+            })
+            print(f"  moved page: {old_title} -> {new_title}")
+        except FlowError as exc:
+            print(f"  WARN page move failed: {exc}", file=sys.stderr)
+    data = {
+        "labels": {"en": {"language": "en", "value": label}},
+        "sitelinks": {"wikibase": {"site": "wikibase", "title": new_title}},
+    }
+    api_post(op, api, {
+        "action": "wbeditentity",
+        "id": group,
+        "data": json.dumps(data),
+        "summary": summary,
+        "token": token,
+    })
 
 
 def main() -> int:
@@ -242,8 +312,8 @@ def main() -> int:
     parser.add_argument("--password-file")
     parser.add_argument("--summary", default="Split a groups-of-humans author into individual Persons")
     parser.add_argument("--apply", action="store_true", help="write the changes (default: dry-run)")
-    parser.add_argument("--delete-groups", action="store_true",
-                        help="delete an unreferenced group item + Collective: page")
+    parser.add_argument("--has-member-property",
+                        help="has-member property id (default: discover via addsemanticentity-fields)")
     parser.add_argument("--verify", action="store_true")
     args = parser.parse_args()
 
@@ -262,6 +332,7 @@ def main() -> int:
             password = handle.read().strip()
         login(op, args.api_url, args.user, password)
     token = csrf(op, args.api_url) if args.apply else ""
+    has_member = args.has_member_property or has_member_property(op, args.api_url)
 
     for group in report.get("groups", []):
         qid = group["qid"]
@@ -291,6 +362,14 @@ def main() -> int:
         for entry in person_plan:
             target = entry.get("reuse") or f"CREATE {entry['name'].get('givenName')} {entry['name'].get('familyName')}"
             print(f"  person: {target}")
+        planned_names = []
+        for entry in person_plan:
+            planned_names.append(
+                entry["name"].get("givenName", "") + " " + entry["name"].get("familyName", "")
+            )
+        planned_label = group_label([n.strip() for n in planned_names])
+        print(f"  add has-member claims ({has_member})")
+        print(f"  rename group label -> {planned_label!r}")
         for source in group.get("sources", []):
             print(f"  source {source['qid']}: replace {qid} with the persons")
 
@@ -305,25 +384,50 @@ def main() -> int:
                     op, args.api_url, entry["name"], entry["name"], token, args.summary
                 ))
                 time.sleep(0.2)
-        print(f"  persons: {', '.join(persons)}")
+        member_labels = []
+        for entry, person in zip(person_plan, persons):
+            if "reuse" in entry:
+                # The exact candidate label is the best display name.
+                exact = [c for c in entry["name"].get("candidates", [])
+                         if c.get("score") == 1.0 and c.get("reason") == "exact"]
+                member_labels.append(exact[0]["label"] if exact else person)
+            else:
+                member_labels.append(
+                    (entry["name"].get("givenName", "") + " "
+                     + entry["name"].get("familyName", "")).strip()
+                )
+            if add_group_member(op, args.api_url, qid, person, has_member, token, args.summary):
+                print(f"  has member: {person}")
+            time.sleep(0.2)
         for source in group.get("sources", []):
             changed = replace_group_claims(
                 op, args.api_url, source["qid"], args.author_property, qid, persons, token, args.summary
             )
             print(f"  source {source['qid']}: {'updated' if changed else 'no group claim'}")
             time.sleep(0.2)
+        label = group_label(member_labels)
+        rename_group(op, args.api_url, qid, label, token, args.summary)
+        print(f"  label -> {label!r}")
         remaining = remaining_sources(args.sparql_url, qid, args.author_property)
         print(f"  remaining source references: {remaining}")
-        if remaining == 0 and args.delete_groups:
-            item = entities(op, args.api_url, [qid]).get(qid, {})
-            delete_group(op, args.api_url, qid, item, token, args.summary)
-            print(f"  deleted {qid}")
         if args.verify:
             for source in group.get("sources", []):
                 entity = entities(op, args.api_url, [source["qid"]]).get(source["qid"], {})
                 values = {v["qid"] for v in author_values(entity.get("claims", {}), args.author_property)}
                 ok = qid not in values and set(persons) <= values
                 print(f"  verify {source['qid']}: {'OK' if ok else 'MISMATCH'}")
+            group_entity = entities(op, args.api_url, [qid]).get(qid, {})
+            group_members = {
+                v["qid"] for v in author_values(group_entity.get("claims", {}), has_member)
+            }
+            missing = [p for p in persons if p not in group_members]
+            print(f"  verify members: {'OK' if not missing else 'MISMATCH ' + ','.join(missing)}")
+            label = group_label(member_labels)
+            stored = (
+                group_entity.get("labels", {}).get("en", {}).get("value", "")
+                if isinstance(group_entity, dict) else ""
+            )
+            print(f"  verify label: {'OK' if stored == label else 'MISMATCH'}")
     return 0
 
 

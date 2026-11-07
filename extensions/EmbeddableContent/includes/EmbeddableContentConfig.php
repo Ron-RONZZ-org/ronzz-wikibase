@@ -327,7 +327,7 @@ class EmbeddableContentConfig {
 	 */
 	public function collectivePropertyIds(): array {
 		return $this->requireStringMap( 'collectiveProperties', [
-			'parentOrganization', 'officialWebsite',
+			'parentOrganization', 'hasMember', 'officialWebsite',
 			'image', 'license',
 			'imageAuthor', 'imageLicenseInfo',
 		] );

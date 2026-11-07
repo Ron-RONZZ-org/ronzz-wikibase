@@ -6,6 +6,8 @@ namespace EmbeddableContent\Spec;
 
 use EmbeddableContent\Fetch\ProviderResult;
 use EmbeddableContent\Fields\EntityCombobox;
+use Wikibase\DataModel\Entity\ItemId;
+use Wikibase\Repo\WikibaseRepo;
 
 /**
  * Special:AddCollective — create a non-person agent item (organization,
@@ -58,6 +60,12 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 	 */
 	protected function semanticFlowRecord( string $kind, array $record ): array {
 		$out = $this->pickServiceFields( $record, \EmbeddableContent\Flow\SemanticEntityFieldMap::fieldsForKind( 'collective' ) );
+		// Empty members is MEANINGFUL on update (remove every has-member
+		// statement); pickServiceFields drops empty values, so carry the
+		// key explicitly.
+		if ( array_key_exists( 'members', $record ) ) {
+			$out['members'] = (string)$record['members'];
+		}
 		// The form's website field is keyed 'website'; the service contract
 		// calls it officialWebsite.
 		if ( !empty( $record['website'] ) ) {
@@ -109,7 +117,25 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 	}
 
 	protected function primaryLabel( array $record ): string {
-		return (string)( $record['label'] ?? '' );
+		$label = (string)( $record['label'] ?? '' );
+		if ( $label !== '' ) {
+			return $label;
+		}
+		// Group of humans with a pending create-member decision: the label
+		// is auto-generated from the created Persons at commit time. The
+		// create gate only needs a non-empty provisional label; the names
+		// panel supplies it until the Persons exist.
+		$groupClass = $this->config->agentClasses()['groupOfHumans'] ?? null;
+		$class = (string)( $record['collectiveClass'] ?? $this->getRequest()->getVal( 'wpclass', '' ) );
+		if ( $groupClass !== null && $class === $groupClass ) {
+			$parsed = AuthorNameList::parse( (string)( $record['memberNames'] ?? '' ) );
+			$names = array_map(
+				static fn ( array $name ): string => trim( $name['givenName'] . ' ' . $name['familyName'] ),
+				$parsed['names']
+			);
+			return GroupLabel::fromMembers( $names );
+		}
+		return '';
 	}
 
 	/** @return array<string,string> authority identifiers relevant to collectives */
@@ -130,27 +156,66 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 	}
 
 	protected function reviewFieldSpecs( array $record ): array {
-		$fields = $this->labelFieldSpec( 'label', 'embeddablecontent-add-label', (string)( $record['label'] ?? '' ) )
-			+ $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) )
-			+ $this->labelLanguageFieldSpec( $record )
-			+ [
-				// Optional parent organization (issue follow-up): a
-				// class-scoped entity combobox over agent items, writing the
-				// P749-aligned statement. Filled but invalid ids are skipped
-				// (the same lenient contract as the AddPerson place fields).
-				'parentOrganization' => EntityCombobox::spec(
-					'embeddablecontent-field-parentorganization',
-					$this->agentClassIds(),
-					false,
-					[
-						'default' => (string)( $record['parentOrganization'] ?? '' ),
-						'help' => $this->msg( 'embeddablecontent-field-parentorganization-help' )->parse(),
-					]
-				),
+		$fields = $this->labelFieldSpec( 'label', 'embeddablecontent-add-label', (string)( $record['label'] ?? '' ) );
+		// A Group of humans may leave the label blank: it is auto-generated
+		// from the members. Other collective classes still require it (the
+		// submit validation enforces the difference).
+		$fields['label']['required'] = false;
+		$fields['label']['help-message'] = 'embeddablecontent-collective-label-help';
+		$fields += $this->descriptionFieldSpec( (string)( $record['description'] ?? '' ) );
+		$fields += $this->labelLanguageFieldSpec( $record );
+		// Optional parent organization (issue follow-up): a class-scoped
+		// entity combobox over agent items, writing the P749-aligned
+		// statement. Filled but invalid ids are skipped (the same lenient
+		// contract as the AddPerson place fields).
+		$fields['parentOrganization'] = EntityCombobox::spec(
+			'embeddablecontent-field-parentorganization',
+			$this->agentClassIds(),
+			false,
+			[
+				'default' => (string)( $record['parentOrganization'] ?? '' ),
+				'help' => $this->msg( 'embeddablecontent-field-parentorganization-help' )->parse(),
 			]
-			// Official website (optional URL field, shared with AddSoftware/
-			// AddPerson — the P856-aligned property).
-			+ $this->websiteFieldSpec( $record );
+		);
+		$groupClass = $this->config->agentClasses()['groupOfHumans'] ?? null;
+		if ( $groupClass !== null ) {
+			$hide = [ '!==', 'class', $groupClass ];
+			$personClass = $this->config->agentClasses()['person'] ?? null;
+			$fields['members'] = EntityCombobox::spec(
+				'embeddablecontent-collective-members',
+				$personClass !== null ? [ $personClass ] : [],
+				true,
+				[
+					'default' => (string)( $record['members'] ?? '' ),
+					'help-message' => 'embeddablecontent-collective-members-help',
+					'hide-if' => $hide,
+				]
+			);
+			$fields['memberNames'] = [
+				'type' => 'textarea',
+				'rows' => 3,
+				'label-message' => 'embeddablecontent-collective-membernames',
+				'help-message' => 'embeddablecontent-collective-membernames-help',
+				'default' => (string)( $record['memberNames'] ?? '' ),
+				'hide-if' => $hide,
+			];
+			$fields['memberSearch'] = [
+				'type' => 'info',
+				'raw' => true,
+				'default' => '<button type="button" id="wb-member-search" class="mw-ui-button mw-ui-progressive">'
+					. htmlspecialchars( $this->msg( 'embeddablecontent-collective-membersearch' )->text() )
+					. '</button><div id="wb-member-results" class="wb-author-results"></div>',
+				'hide-if' => $hide,
+			];
+			$fields['memberChoices'] = [
+				'type' => 'hidden',
+				'default' => (string)( $record['memberChoices'] ?? '' ),
+				'hide-if' => $hide,
+			];
+		}
+		// Official website (optional URL field, shared with AddSoftware/
+		// AddPerson — the P856-aligned property).
+		$fields += $this->websiteFieldSpec( $record );
 		// Logo (optional): collapsed behind the "I will upload a logo
 		// image for this collective" toggle; the shared ImageUploadHelper
 		// owns the field specs + upload path (same machinery as
@@ -211,6 +276,10 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 	 * @return string|null error message, or null to proceed
 	 */
 	protected function beforeCreate( array &$record ): ?string {
+		$memberError = $this->beforeCreateMembers( $record );
+		if ( $memberError !== null ) {
+			return $memberError;
+		}
 		return \EmbeddableContent\Upload\ImageUploadHelper::handleUpload(
 			'logo',
 			$record,
@@ -241,6 +310,101 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 	// ------------------------------------------------------------- classic page
 	// The base afterCreate() writes a sitelinked Collective:<label> page
 	// (the issue-#26 AddSoftware pattern); this class declares the page facts.
+
+	/**
+	 * Group-of-humans members: read-only pre-flight (the Persons are
+	 * created in commitRecord after the duplicate guard). A blank label is
+	 * auto-generated from the members; create decisions may defer the label
+	 * to the commit step.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function beforeCreateMembers( array &$record ): ?string {
+		$groupClass = $this->config->agentClasses()['groupOfHumans'] ?? null;
+		$class = (string)( $record['collectiveClass'] ?? $this->getRequest()->getVal( 'wpclass', '' ) );
+		if ( $groupClass !== null && $class === $groupClass ) {
+			$error = $this->applyPersonPanel( 'member', $record, false );
+			if ( $error !== null ) {
+				return $error;
+			}
+			if ( trim( (string)( $record['label'] ?? '' ) ) === '' ) {
+				$memberIds = ItemIdList::split( (string)( $record['members'] ?? '' ) );
+				if ( $memberIds !== [] ) {
+					$record['label'] = $this->groupLabelFor( $memberIds );
+				} elseif ( !$this->hasCreateMemberDecisions( (string)( $record['memberChoices'] ?? '' ) ) ) {
+					return $this->msg( 'embeddablecontent-add-error-required' )->text();
+				}
+			}
+		} else {
+			// Members are a group-of-humans concept. Clear them on another
+			// class so a class change also removes stale has-member claims.
+			$record['members'] = '';
+			$record['memberNames'] = '';
+			$record['memberChoices'] = '';
+			if ( trim( (string)( $record['label'] ?? '' ) ) === '' ) {
+				return $this->msg( 'embeddablecontent-add-error-required' )->text();
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Creates the member Persons (after the duplicate guard) and fills the
+	 * auto-label when the contributor left the label blank.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function commitRecord( array &$record, string $classItemId = '' ): ?string {
+		$groupClass = $this->config->agentClasses()['groupOfHumans'] ?? null;
+		$class = $classItemId !== ''
+			? $classItemId
+			: (string)( $record['collectiveClass'] ?? $this->getRequest()->getVal( 'wpclass', '' ) );
+		if ( $groupClass === null || $class !== $groupClass ) {
+			$record['members'] = '';
+			return null;
+		}
+		$error = $this->applyPersonPanel( 'member', $record, true );
+		if ( $error !== null ) {
+			return $error;
+		}
+		if ( trim( (string)( $record['label'] ?? '' ) ) === '' ) {
+			$memberIds = ItemIdList::split( (string)( $record['members'] ?? '' ) );
+			if ( $memberIds === [] ) {
+				return $this->msg( 'embeddablecontent-add-error-required' )->text();
+			}
+			$record['label'] = $this->groupLabelFor( $memberIds );
+		}
+		return null;
+	}
+
+	/** @param string[] $memberIds */
+	private function groupLabelFor( array $memberIds ): string {
+		$labels = [];
+		foreach ( $memberIds as $id ) {
+			try {
+				$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $id ) );
+			} catch ( \Throwable $e ) {
+				$item = null;
+			}
+			$labels[] = $item instanceof \Wikibase\DataModel\Entity\Item
+				? ( EntityLabelText::of( $item ) ?? $id )
+				: $id;
+		}
+		return GroupLabel::fromMembers( $labels );
+	}
+
+	private function hasCreateMemberDecisions( string $choicesJson ): bool {
+		$choices = json_decode( $choicesJson, true );
+		if ( !is_array( $choices ) ) {
+			return false;
+		}
+		foreach ( $choices as $choice ) {
+			if ( is_array( $choice ) && ( $choice['action'] ?? '' ) === 'create' ) {
+				return true;
+			}
+		}
+		return false;
+	}
 
 	protected function pageNamespace(): ?int {
 		return defined( 'NS_COLLECTIVE' ) ? NS_COLLECTIVE : null;

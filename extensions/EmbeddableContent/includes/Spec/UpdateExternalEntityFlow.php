@@ -249,6 +249,10 @@ trait UpdateExternalEntityFlow {
 		if ( $beforeError !== null ) {
 			return $beforeError;
 		}
+		$commitError = $this->commitRecord( $record, $classItemId );
+		if ( $commitError !== null ) {
+			return $commitError;
+		}
 		return $this->updateItemAndRedirect( $itemId, $record, $classItemId );
 	}
 

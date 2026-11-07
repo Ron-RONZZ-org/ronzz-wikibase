@@ -1630,6 +1630,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 */
 	protected function createFromRecord( array $record, string $classItemId, bool $forceCreate = false ): string {
 		$record = $this->enrichRecord( $record );
+		$commitError = $this->commitRecord( $record, $classItemId );
+		if ( $commitError !== null ) {
+			throw new \RuntimeException( $commitError );
+		}
 		$flowKind = $this->semanticFlowKindKey();
 		if ( $flowKind !== null ) {
 			return $this->createViaSemanticFlow(
@@ -1660,6 +1664,18 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 */
 	protected function withChosenClass( array $record, string $classItemId ): array {
 		return $record;
+	}
+
+	/**
+	 * Post-validation, pre-create commit hook: subclasses may create the
+	 * Person items decided by a person-name panel (the group-of-humans
+	 * members) now that the duplicate guard has passed. Returns an error
+	 * string to abort, or null.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function commitRecord( array &$record, string $classItemId = '' ): ?string {
+		return null;
 	}
 
 	/**
@@ -1789,6 +1805,10 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 * @param array<string,mixed> $record
 	 */
 	protected function manualCreate( string $label, string $classItemId, array $record ): string {
+		$commitError = $this->commitRecord( $record, $classItemId );
+		if ( $commitError !== null ) {
+			throw new \RuntimeException( $commitError );
+		}
 		$flowKind = $this->semanticFlowKindKey();
 		if ( $flowKind !== null ) {
 			return $this->createViaSemanticFlow( $flowKind, $record );
@@ -2329,6 +2349,80 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 */
 	protected function manualFieldSpecs(): array {
 		return $this->reviewFieldSpecs( [] );
+	}
+
+	/**
+	 * Applies a person-name panel (author or member): parses the pasted
+	 * names, validates/creates the decided Person items, and merges the
+	 * resulting ids into the target record field (`authors` for prefix
+	 * "author", `members` for prefix "member"). `$commit = false` is the
+	 * review-step pre-flight (no Person writes); `true` is the actual create
+	 * (called after the duplicate guard).
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function applyPersonPanel( string $prefix, array &$record, bool $commit = false ): ?string {
+		$namesInput = trim( (string)( $record[$prefix . 'Names'] ?? '' ) );
+		$choicesJson = trim( (string)( $record[$prefix . 'Choices'] ?? '' ) );
+		if ( $namesInput === '' && $choicesJson === '' ) {
+			return null;
+		}
+		if ( $namesInput === '' ) {
+			return $this->msg( 'embeddablecontent-personpanel-error-names-missing' )->text();
+		}
+		$parsed = AuthorNameList::parse( $namesInput );
+		if ( $parsed['names'] === [] ) {
+			return $this->msg( 'embeddablecontent-personpanel-error-names-empty' )->text();
+		}
+		$choices = [];
+		if ( $choicesJson !== '' ) {
+			$decoded = json_decode( $choicesJson, true );
+			if ( !is_array( $decoded ) ) {
+				return $this->msg( 'embeddablecontent-personpanel-error-choices-invalid' )->text();
+			}
+			$choices = $decoded;
+		}
+		if ( $commit ) {
+			$result = $this->personCreator()->applyDecisions(
+				$parsed['names'],
+				$choices,
+				$this->getUser(),
+				$this->msg( 'embeddablecontent-person-create-summary' )->inContentLanguage()->text()
+			);
+			if ( $result['error'] !== null ) {
+				return $result['error'];
+			}
+			foreach ( $result['warnings'] as $warning ) {
+				wfDebugLog( 'EmbeddableContent', $prefix . '-panel: ' . $warning );
+			}
+			$newIds = $result['ids'];
+		} else {
+			$result = $this->personCreator()->validateDecisions( $parsed['names'], $choices );
+			if ( $result['error'] !== null ) {
+				return $result['error'];
+			}
+			$newIds = $result['ids'];
+		}
+		$target = $prefix === 'author' ? 'authors' : 'members';
+		$ids = ItemIdList::split( (string)( $record[$target] ?? '' ) );
+		foreach ( $newIds as $id ) {
+			if ( !in_array( $id, $ids, true ) ) {
+				$ids[] = $id;
+			}
+		}
+		$record[$target] = implode( ', ', $ids );
+		return null;
+	}
+
+	/** @var \EmbeddableContent\Flow\AuthorCreator|null */
+	private $personCreator = null;
+
+	private function personCreator(): \EmbeddableContent\Flow\AuthorCreator {
+		if ( $this->personCreator === null ) {
+			$this->personCreator = \MediaWiki\MediaWikiServices::getInstance()
+				->get( 'EmbeddableContent.AuthorCreator' );
+		}
+		return $this->personCreator;
 	}
 
 	/**

@@ -122,6 +122,8 @@ FICTIONAL_CHARACTER_PROPERTY_KINDS = {
 # the shared P275 license).
 COLLECTIVE_PROPERTY_KINDS = {
     "parent organization": "parentOrganization",
+    # Group-of-humans membership (P527-aligned): one item per member.
+    "has member": "hasMember",
     "official website": "officialWebsite",
     "image": "image",
     "license": "license",

@@ -1723,7 +1723,7 @@ report). See `SimpleMathJax/VENDORED.md`.
   `authorNameFormat`, `authorDecisions`, `authorDetails`,
   `authorUpdateExisting`, `allowCollectiveAuthor`; the MCP server adds
   `embeddable-resolve-authors` and the same parameters. Legacy cleanup:
-  `tools/report_group_authors.py` + `tools/split_group_authors.py`.
+  `tools/report_group_authors.py` + `tools/backfill_group_members.py`.
 - **Semantic-first File pages**: `{{#image-facts:}}` renders
   Licensing/Attribution from the sitelinked image item (parser-cache
   dependent); itemized uploads write it instead of static text. New
@@ -1737,6 +1737,19 @@ report). See `SimpleMathJax/VENDORED.md`.
 - **`affiliated with`** (P1416-aligned, multi-value) joins the person
   vocabulary (`personProperties.affiliatedWith`), Add/UpdatePerson field and
   `SemanticEntityFlowService`; **re-seed required**.
+- **Group-of-humans members**: new `has member` (P527-aligned,
+  `collectiveProperties.hasMember`). Add/UpdateCollective (class = group of
+  humans) gain a Person-scoped Members combobox (removable), a Member names
+  panel (the author panel generalized via `authorsearch.js` initPanel), and
+  an optional label auto-generated from member names (`Spec/GroupLabel`,
+  `et al.` on overflow). AddSource expands a group author to its
+  `has member` Persons (UI `action=groupmembers`, server form +
+  `action=addsource`); a memberless group with a name-list label is blocked
+  unless `authorCollectiveOk`. `action=addsemanticentity` + the MCP
+  `embeddable-add-semantic-entity` accept `members` and batch member params.
+  Legacy backfill: `tools/report_group_authors.py` +
+  `tools/backfill_group_members.py` (keep the group, add members, relink
+  sources, rename to the auto-label). **Re-seed required.**
 - **Additional semantic statements**: an `additionalStatements` cloner on
   every Add*/Update* form (`Fields/AdditionalStatementsCloner` +
   `Spec/AdditionalStatements`). The Property field is a combobox over

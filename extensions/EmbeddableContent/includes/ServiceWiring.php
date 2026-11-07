@@ -71,6 +71,14 @@ return [
 		return new PageMetadataFetcher();
 	},
 
+	'EmbeddableContent.GroupMembers' => static function ( MediaWikiServices $services ): \EmbeddableContent\Spec\GroupMembers {
+		// Group-of-humans membership reads/expansion for Source authors.
+		return new \EmbeddableContent\Spec\GroupMembers(
+			$services->get( 'EmbeddableContent.Config' ),
+			WikibaseRepo::getEntityLookup( $services )
+		);
+	},
+
 	'EmbeddableContent.PropertyCatalog' => static function ( MediaWikiServices $services ): \EmbeddableContent\Search\PropertyCatalog {
 		// Property combobox options for the additional-statements cloner.
 		return new \EmbeddableContent\Search\PropertyCatalog(
@@ -84,6 +92,14 @@ return [
 		return new \EmbeddableContent\Flow\AuthorResolver(
 			$services->get( 'EmbeddableContent.EntityTermSearch' ),
 			$services->get( 'EmbeddableContent.Config' )
+		);
+	},
+
+	'EmbeddableContent.PersonPanelPayload' => static function ( MediaWikiServices $services ): \EmbeddableContent\Flow\PersonPanelPayload {
+		// Shared author/member batch payload handling for the API modules.
+		return new \EmbeddableContent\Flow\PersonPanelPayload(
+			$services->get( 'EmbeddableContent.AuthorResolver' ),
+			$services->get( 'EmbeddableContent.AuthorCreator' )
 		);
 	},
 

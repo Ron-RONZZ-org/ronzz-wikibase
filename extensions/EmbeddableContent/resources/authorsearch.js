@@ -22,11 +22,11 @@
 ( function () {
 	'use strict';
 
-	function init() {
-		var button = document.getElementById( 'wb-author-search' );
-		var namesInput = document.querySelector( '[name="wpauthorNames"]' );
-		var choicesInput = document.querySelector( '[name="wpauthorChoices"]' );
-		var results = document.getElementById( 'wb-author-results' );
+	function initPanel( panel ) {
+		var button = document.getElementById( 'wb-' + panel + '-search' );
+		var namesInput = document.querySelector( '[name="wp' + panel + 'Names"]' );
+		var choicesInput = document.querySelector( '[name="wp' + panel + 'Choices"]' );
+		var results = document.getElementById( 'wb-' + panel + '-results' );
 		if ( !button || !namesInput || !choicesInput || !results ) {
 			return;
 		}
@@ -373,5 +373,8 @@
 		button.addEventListener( 'click', search );
 	}
 
-	mw.loader.using( [ 'mediawiki.api', 'mediawiki.notification', 'oojs-ui' ] ).then( init );
+	mw.loader.using( [ 'mediawiki.api', 'mediawiki.notification', 'oojs-ui' ] ).then( function () {
+		initPanel( 'author' );
+		initPanel( 'member' );
+	} );
 }() );

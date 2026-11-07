@@ -5,15 +5,12 @@ declare( strict_types = 1 );
 namespace EmbeddableContent\Api;
 
 use EmbeddableContent\EmbeddableContentConfig;
-use EmbeddableContent\Flow\AuthorCreator;
-use EmbeddableContent\Flow\AuthorResolver;
+use EmbeddableContent\Flow\PersonPanelPayload;
 use EmbeddableContent\Flow\ClassicPageCreator;
 use EmbeddableContent\Flow\ClassicPageSpec;
 use EmbeddableContent\Flow\SourceFlowService;
 use EmbeddableContent\Flow\StatementGuidAssigner;
 use EmbeddableContent\Spec\AuthorNameList;
-use EmbeddableContent\Spec\EntityLabelText;
-use EmbeddableContent\Spec\ItemIdList;
 use EmbeddableContent\Spec\CollisionFinder;
 use EmbeddableContent\Spec\ItemLabelLookup;
 use EmbeddableContent\Spec\LabelSanitizer;
@@ -51,9 +48,7 @@ class ApiAddSource extends ApiBase {
 	/** @var EmbeddableContentConfig */
 	private $config;
 
-	private AuthorResolver $authorResolver;
-
-	private AuthorCreator $authorCreator;
+	private PersonPanelPayload $personPanelPayload;
 
 	public function __construct(
 		$mainModule,
@@ -61,15 +56,13 @@ class ApiAddSource extends ApiBase {
 		SourceFlowService $flow,
 		ClassicPageCreator $pageCreator,
 		EmbeddableContentConfig $config,
-		AuthorResolver $authorResolver,
-		AuthorCreator $authorCreator
+		PersonPanelPayload $personPanelPayload
 	) {
 		parent::__construct( $mainModule, $moduleName );
 		$this->flow = $flow;
 		$this->pageCreator = $pageCreator;
 		$this->config = $config;
-		$this->authorResolver = $authorResolver;
-		$this->authorCreator = $authorCreator;
+		$this->personPanelPayload = $personPanelPayload;
 	}
 
 	public function execute() {
@@ -107,7 +100,15 @@ class ApiAddSource extends ApiBase {
 		$user = $this->getUser();
 		$summary = $params['summary'];
 		$authorResult = null;
-		$authorPayload = $this->applyAuthorPayload( $classKey, $params, $record, $user, $summary );
+		$record['allowCollectiveAuthor'] = !empty( $params['allowCollectiveAuthor'] ) ? '1' : '';
+		$authorPayload = $this->personPanelPayload->process(
+			'author',
+			$params,
+			$record,
+			$user,
+			$summary,
+			(string)( $params['labelLanguage'] ?? 'en' )
+		);
 		if ( is_array( $authorPayload ) && isset( $authorPayload['error'] ) ) {
 			$this->dieWithError( new RawMessage( (string)$authorPayload['error'] ), 'invalid_authors' );
 		}
@@ -420,171 +421,6 @@ class ApiAddSource extends ApiBase {
 			}
 		}
 		$this->getResult()->addValue( null, 'source', $result );
-	}
-
-	/**
-	 * Resolves/creates the authors supplied as a NAMES string.
-	 *
-	 * Two modes, both in one call:
-	 *  - no authorDecisions → return the batch resolution (every name +
-	 *    candidates) with authorConfirmationRequired=1 and write NOTHING;
-	 *  - authorDecisions → create/reuse/update the decided Person items,
-	 *    merge their ids into the record's authors, and continue creating
-	 *    the Source.
-	 *
-	 * @param array<string,mixed> $params
-	 * @param array<string,mixed> $record
-	 * @return array{error?:string,resolution?:array,warnings?:array,result?:array}|null
-	 */
-	private function applyAuthorPayload(
-		string $classKey,
-		array $params,
-		array &$record,
-		$user,
-		?string $summary
-	): ?array {
-		$namesInput = trim( (string)( $params['authorNames'] ?? '' ) );
-		if ( $namesInput === '' ) {
-			return null;
-		}
-		if ( !\EmbeddableContent\Flow\SourceFieldMap::acceptsField( $classKey, 'authors' ) ) {
-			return [ 'error' => "classKey {$classKey} does not expose authors." ];
-		}
-		$parsed = AuthorNameList::parse(
-			$namesInput,
-			(string)( $params['authorNameFormat'] ?? AuthorNameList::FORMAT_AUTO )
-		);
-		if ( $parsed['names'] === [] ) {
-			return [ 'error' => 'No person names could be parsed from authorNames.' ];
-		}
-
-		$decisions = $this->decodeJsonArray( (string)( $params['authorDecisions'] ?? '' ) );
-		if ( $decisions === null ) {
-			return [ 'error' => 'authorDecisions must be a JSON array.' ];
-		}
-		$details = $this->decodeJsonObject( (string)( $params['authorDetails'] ?? '' ) );
-		if ( $details === null ) {
-			return [ 'error' => 'authorDetails must be a JSON object.' ];
-		}
-		foreach ( $decisions as &$decision ) {
-			if ( !is_array( $decision ) ) {
-				continue;
-			}
-			$index = (int)( $decision['index'] ?? -1 );
-			if ( $index < 0 || !isset( $parsed['names'][$index] ) ) {
-				continue;
-			}
-			$provided = $this->detailsFor( $details, $index, $parsed['names'][$index]['original'] );
-			if ( $provided === [] ) {
-				continue;
-			}
-			$existing = is_array( $decision['person'] ?? null ) ? $decision['person'] : [];
-			$decision['person'] = array_merge( $provided, $existing );
-		}
-		unset( $decision );
-
-		if ( $decisions === [] ) {
-			return [
-				'resolution' => $this->authorResolver->resolveNames(
-					$namesInput,
-					$parsed['names'],
-					(string)( $params['labelLanguage'] ?? 'en' )
-				),
-				'warnings' => $parsed['warnings'],
-			];
-		}
-
-		$result = $this->authorCreator->applyDecisions(
-			$parsed['names'],
-			$decisions,
-			$user,
-			$summary ?? 'Create an author from action=addsource',
-			!empty( $params['authorUpdateExisting'] )
-		);
-		if ( $result['error'] !== null ) {
-			return [ 'error' => $result['error'] ];
-		}
-
-		$ids = ItemIdList::split( (string)( $record['authors'] ?? '' ) );
-		foreach ( $result['ids'] as $id ) {
-			if ( !in_array( $id, $ids, true ) ) {
-				$ids[] = $id;
-			}
-		}
-		$record['authors'] = implode( ', ', $ids );
-
-		if ( empty( $params['allowCollectiveAuthor'] ) ) {
-			$guardError = $this->collectiveGuard( $record['authors'] );
-			if ( $guardError !== null ) {
-				return [ 'error' => $guardError ];
-			}
-		}
-		return [ 'result' => $result ];
-	}
-
-	/**
-	 * @param array<string,mixed> $details
-	 * @return array<string,mixed>
-	 */
-	private function detailsFor( array $details, int $index, string $original ): array {
-		foreach ( [ (string)$index, $original ] as $key ) {
-			if ( isset( $details[$key] ) && is_array( $details[$key] ) ) {
-				return $details[$key];
-			}
-		}
-		return [];
-	}
-
-	/** @return array<int,mixed>|null */
-	private function decodeJsonArray( string $json ): ?array {
-		if ( trim( $json ) === '' ) {
-			return [];
-		}
-		$decoded = json_decode( $json, true );
-		return is_array( $decoded ) && array_is_list( $decoded ) ? $decoded : null;
-	}
-
-	/** @return array<string,mixed>|null */
-	private function decodeJsonObject( string $json ): ?array {
-		if ( trim( $json ) === '' ) {
-			return [];
-		}
-		$decoded = json_decode( $json, true );
-		return is_array( $decoded ) && !array_is_list( $decoded ) ? $decoded : null;
-	}
-
-	/**
-	 * Rejects a group-of-humans author whose label is a person-name list
-	 * (the legacy shortcut) unless the caller explicitly allowed it.
-	 */
-	private function collectiveGuard( string $authorIds ): ?string {
-		$groupClass = $this->config->agentClasses()['groupOfHumans'] ?? null;
-		if ( $groupClass === null ) {
-			return null;
-		}
-		foreach ( ItemIdList::split( $authorIds ) as $id ) {
-			if ( preg_match( '/^Q[1-9]\d*$/', $id ) !== 1 ) {
-				continue;
-			}
-			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $id ) );
-			if ( !$item instanceof Item ) {
-				continue;
-			}
-			if ( !\EmbeddableContent\EntityClassFilter::hasAnyClass(
-				$item,
-				[ $groupClass ],
-				$this->config->instanceOfPropertyId()
-			) ) {
-				continue;
-			}
-			$label = EntityLabelText::of( $item ) ?? $id;
-			$parsed = AuthorNameList::parse( $label );
-			if ( count( $parsed['names'] ) >= 2 ) {
-				return "author \"{$label}\" ({$id}) looks like a person-name list stored as a "
-					. 'Group of humans; pass the individuals via authorNames, or allowCollectiveAuthor=1.';
-			}
-		}
-		return null;
 	}
 
 	public function getAllowedParams() {

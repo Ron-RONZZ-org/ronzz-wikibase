@@ -15,6 +15,7 @@ use EmbeddableContent\EntityClassFilter;
 use EmbeddableContent\Fetch\YouTubeProvider;
 use EmbeddableContent\Spec\AdditionalStatements;
 use EmbeddableContent\Spec\EntityLabelText;
+use EmbeddableContent\Spec\GroupMembers;
 use EmbeddableContent\Spec\ItemIdList;
 use EmbeddableContent\Spec\JurisdictionList;
 use EmbeddableContent\Spec\LabelSanitizer;
@@ -73,7 +74,7 @@ final class SourceFlowService {
 	 * access flow feeds in (the uploaded file's URL and the license entity).
 	 * Accepted by prepare (no exposure check) and written by statementSpecs.
 	 */
-	private const INTERNAL_FIELDS = [ 'license', 'accessFileUrl', 'additionalStatements' ];
+	private const INTERNAL_FIELDS = [ 'license', 'accessFileUrl', 'additionalStatements', 'allowCollectiveAuthor' ];
 
 	/**
 	 * @param \Closure(string $messageKey, string[] $params): string $message
@@ -187,6 +188,11 @@ final class SourceFlowService {
 		}
 
 		$error = $this->prepareLaw( $classKey, $record );
+		if ( $error !== null ) {
+			return $error;
+		}
+
+		$error = $this->expandAuthorGroups( $record );
 		if ( $error !== null ) {
 			return $error;
 		}
@@ -711,6 +717,29 @@ final class SourceFlowService {
 	/**
 	 * @param array<string,mixed> $record
 	 */
+	/**
+	 * A group-of-humans author is replaced by its `has member` Persons. A
+	 * group without members is blocked when its label is a name list
+	 * (allowCollectiveAuthor bypasses this for a genuine collective).
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function expandAuthorGroups( array &$record ): ?string {
+		$ids = ItemIdList::split( (string)( $record['authors'] ?? '' ) );
+		if ( $ids === [] ) {
+			return null;
+		}
+		$members = new GroupMembers( $this->config, $this->lookup );
+		$expansion = $members->expand( $ids, !empty( $record['allowCollectiveAuthor'] ) );
+		if ( $expansion['blocked'] !== [] ) {
+			$blocked = $expansion['blocked'][0];
+			return "author \"{$blocked['label']}\" ({$blocked['qid']}) is a group-of-humans name list "
+				. 'without members; add its members or pass allowCollectiveAuthor=1.';
+		}
+		$record['authors'] = implode( ', ', $expansion['ids'] );
+		return null;
+	}
+
 	private function validateAuthors( string $classKey, array &$record, bool $creating ): ?string {
 		// Classes that do not expose authors (the legal texts: the court /
 		// jurisdiction carry the attribution) never validate one.

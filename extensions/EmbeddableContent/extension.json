@@ -176,6 +176,12 @@
 				"EmbeddableContent.AuthorResolver"
 			]
 		},
+		"groupmembers": {
+			"class": "EmbeddableContent\\Api\\ApiGroupMembers",
+			"services": [
+				"EmbeddableContent.GroupMembers"
+			]
+		},
 		"uploadmeta": {
 			"class": "EmbeddableContent\\Api\\ApiUploadMeta"
 		},
@@ -197,8 +203,7 @@
 				"EmbeddableContent.SourceFlowService",
 				"EmbeddableContent.ClassicPageCreator",
 				"EmbeddableContent.Config",
-				"EmbeddableContent.AuthorResolver",
-				"EmbeddableContent.AuthorCreator"
+				"EmbeddableContent.PersonPanelPayload"
 			]
 		},
 		"addsource-fields": {
@@ -225,7 +230,8 @@
 			"services": [
 				"EmbeddableContent.SemanticEntityFlowService",
 				"EmbeddableContent.ClassicPageCreator",
-				"EmbeddableContent.Config"
+				"EmbeddableContent.Config",
+				"EmbeddableContent.PersonPanelPayload"
 			]
 		},
 		"addsemanticentity-fields": {

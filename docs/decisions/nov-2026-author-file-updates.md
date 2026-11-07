@@ -57,11 +57,31 @@ imports:
   returns `authorConfirmationRequired` and writes nothing. The MCP server
   exposes `embeddable-resolve-authors` and the same parameters on
   `embeddable-add-citation-source`.
-- Legacy cleanup: `tools/report_group_authors.py` (read-only) and
-  `tools/split_group_authors.py` (dry-run default; `--apply`,
-  `--delete-groups`) relink the 28 groups to individual Persons and delete
-  the group item + `Collective:` page once unreferenced. Ambiguous,
-  mononym, CJK and probable-only matches are skipped for manual review.
+- **Group-of-humans membership** (a justified collaborator-group use case):
+  the new `has member` property (P527-aligned) stores a group's Person
+  members. `Special:AddCollective`/`UpdateCollective` (class = group of
+  humans) expose a Person-scoped Members combobox (existing members
+  removable) plus a Member names panel that reuses the author-name
+  parse/search/confirm/create flow. The label may be left blank: it is
+  auto-generated from the member names (`Name1, Name2, …`, `et al.` on
+  overflow — pure `Spec/GroupLabel`). `Special:AddSource` expands a
+  group-of-humans author to its `has member` Persons (client-side via
+  `action=groupmembers`, server-side in the form and `action=addsource`), so
+  the Source stores its actual individual authors. A group with no members
+  is blocked when its label is a person-name list (`authorCollectiveOk`
+  override); a genuine non-name-list collective stays a collective author.
+  `action=addsemanticentity` kind=collective and the MCP
+  `embeddable-add-semantic-entity` tool accept `members` plus batch
+  `memberNames`/`memberDecisions`/`memberDetails` (one resolve call, one
+  write call, shared `Flow/PersonPanelPayload`).
+- **Legacy 28-group backfill**: `tools/report_group_authors.py` (read-only)
+  and `tools/backfill_group_members.py` (dry-run default; `--apply`,
+  `--verify`) resolve each legacy label to Persons, add `has member`
+  statements on the group, relink every referencing source to the Persons,
+  and rename the group label to the auto-label style (moving the
+  `Collective:` page); the group is kept as a reusable collaborator group.
+  Ambiguous, mononym, CJK and probable-only matches are skipped for manual
+  review.
 - The old Q-id combobox remains as an advanced input. A group-of-humans
   author whose label parses as a person-name list is rejected unless the
   contributor ticks the collective override (form) or passes
@@ -139,7 +159,7 @@ without editing the page.
 2. Re-seed (new `affiliated with` property + config map).
 3. Run `maintenance/backfillImageFacts.php --dry-run`, then `--apply`.
 4. Run `tools/report_group_authors.py` and review
-   `tools/split_group_authors.py` in dry-run, then `--apply --delete-groups`.
+   `tools/backfill_group_members.py` in dry-run, then `--apply --verify`.
 5. Re-copy the field contract to the MCP server and regenerate its generated
    tools (`npm run gen:field-contract`, `npm run build`).
 
