@@ -275,6 +275,7 @@ def rename_group(op, api: str, group: str, label: str, token: str, summary: str)
     entity = entities(op, api, [group]).get(group, {})
     old_title = ((entity.get("sitelinks") or {}).get("wikibase") or {}).get("title")
     new_title = "Collective:" + title_label(label)
+    moved = False
     if old_title and old_title != new_title:
         try:
             api_post(op, api, {
@@ -285,20 +286,44 @@ def rename_group(op, api: str, group: str, label: str, token: str, summary: str)
                 "movetalk": "1",
                 "token": token,
             })
+            moved = True
             print(f"  moved page: {old_title} -> {new_title}")
         except FlowError as exc:
             print(f"  WARN page move failed: {exc}", file=sys.stderr)
-    data = {
-        "labels": {"en": {"language": "en", "value": label}},
-        "sitelinks": {"wikibase": {"site": "wikibase", "title": new_title}},
-    }
-    api_post(op, api, {
-        "action": "wbeditentity",
-        "id": group,
-        "data": json.dumps(data),
-        "summary": summary,
-        "token": token,
-    })
+
+    # The page move updates the item's sitelink through a hook; re-read so the
+    # label update does not race that edit.  Set the sitelink ourselves only
+    # when the move succeeded and the hook left the old title in place.
+    entity = entities(op, api, [group]).get(group, {})
+    current_title = ((entity.get("sitelinks") or {}).get("wikibase") or {}).get("title")
+    current_label = ((entity.get("labels") or {}).get("en") or {}).get("value")
+    if current_label == label and (not current_title or current_title == new_title):
+        print("  label already set")
+        return
+    data = {"labels": {"en": {"language": "en", "value": label}}}
+    if moved and current_title != new_title:
+        data["sitelinks"] = {"wikibase": {"site": "wikibase", "title": new_title}}
+    try:
+        api_post(op, api, {
+            "action": "wbeditentity",
+            "id": group,
+            "data": json.dumps(data),
+            "summary": summary,
+            "token": token,
+        })
+    except FlowError as exc:
+        if "edit-conflict" not in str(exc):
+            raise
+        # A move hook or a concurrent edit wrote the item after our read;
+        # retry the label alone, which cannot conflict with a sitelink write.
+        time.sleep(0.5)
+        api_post(op, api, {
+            "action": "wbeditentity",
+            "id": group,
+            "data": json.dumps({"labels": {"en": {"language": "en", "value": label}}}),
+            "summary": summary,
+            "token": token,
+        })
 
 
 def main() -> int:
@@ -355,7 +380,7 @@ def main() -> int:
             if len(exact) == 1:
                 person_plan.append({"reuse": exact[0]["qid"], "name": name})
             else:
-                person_plan.append({"create": name})
+                person_plan.append({"create": name, "name": name})
         if skip:
             print(f"  SKIP: {skip}", file=sys.stderr)
             continue

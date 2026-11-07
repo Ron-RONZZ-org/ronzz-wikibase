@@ -86,6 +86,21 @@ class AuthorNameListTest extends TestCase {
 		], self::names( AuthorNameList::parse( 'Ana L. Flores-Mireles, Jennifer N. Walker, Michael Caparon & Scott J. Hultgren' ) ) );
 	}
 
+	public function testLeadingConjunctionAfterCommaIsStripped(): void {
+		$result = AuthorNameList::parse( 'David Cherney, Tom Denton, and Andrew Waldron' );
+		$this->assertSame( [
+			[ 'givenName' => 'David', 'familyName' => 'Cherney' ],
+			[ 'givenName' => 'Tom', 'familyName' => 'Denton' ],
+			[ 'givenName' => 'Andrew', 'familyName' => 'Waldron' ],
+		], self::names( $result ) );
+
+		$result = AuthorNameList::parse( 'Ana Flores, & Scott Hultgren' );
+		$this->assertSame( [
+			[ 'givenName' => 'Ana', 'familyName' => 'Flores' ],
+			[ 'givenName' => 'Scott', 'familyName' => 'Hultgren' ],
+		], self::names( $result ) );
+	}
+
 	public function testEtAlAndContributorsAreDropped(): void {
 		$result = AuthorNameList::parse( 'Hass et al.' );
 		$this->assertSame( [ [ 'givenName' => '', 'familyName' => 'Hass' ] ], self::names( $result ) );
