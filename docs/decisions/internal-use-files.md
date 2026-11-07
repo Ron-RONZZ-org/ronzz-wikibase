@@ -170,7 +170,16 @@ location @media_gated_thumb {
     if ($secure_link = "") { return 302 /media-forbidden; }
     if ($secure_link = "0") { return 302 /media-forbidden; }
     expires off; add_header Cache-Control "private, no-store" always;
-    try_files $uri @thumb;
+    try_files $uri @media_gated_thumb_gen;
+}
+# Internal on-demand thumbnail: the generated response must stay uncacheable
+# too (the public @thumb location has no private cache header).
+location @media_gated_thumb_gen {
+    include fastcgi_params;
+    fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+    fastcgi_param SCRIPT_FILENAME $document_root/thumb.php;
+    fastcgi_param QUERY_STRING "f=$wb_file&thumbName=$wb_thumb";
+    add_header Cache-Control "private, no-store" always;
 }
 location @thumb {
     include fastcgi_params;
