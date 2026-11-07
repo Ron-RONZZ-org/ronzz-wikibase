@@ -331,7 +331,7 @@ final class InternalFile {
 		return [
 			'prefix' => '',
 			'path' => '/',
-			'secure' => $request->isSecure(),
+			'secure' => $request->getProtocol() === 'https',
 			'httpOnly' => true,
 			'sameSite' => 'lax',
 			'raw' => true,
