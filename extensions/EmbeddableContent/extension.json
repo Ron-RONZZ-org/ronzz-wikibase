@@ -26,6 +26,18 @@
 		"EmbeddableContentConfig": {
 			"value": [],
 			"description": "Instance-specific config map emitted by the seed (issue #6 D2 + issue #7): instanceOf, classes, agentClasses, sourceClasses, payloadProperties, programmingLanguage, describes, implementationOf, note, provenance, externalIds, citationMetadata, formatterUrl, sourceClassByWikidata, agentClassByWikidata, fallbackLanguages, lexers."
+		},
+		"EmbeddableContentMediaAuthSecret": {
+			"value": "",
+			"description": "Shared secret used to sign the internal-media cookie (wb_media_auth). Must match the secret in the nginx secure_link_md5 expression. Empty disables the cookie."
+		},
+		"EmbeddableContentMediaMarkerDirectory": {
+			"value": "",
+			"description": "Directory holding one marker file per internal-use media file (nginx checks it with stat()). Must be outside the web root and the upload directory."
+		},
+		"EmbeddableContentInternalFileCategory": {
+			"value": "Internal use only files",
+			"description": "Category recorded on File: pages of internal-use files (the human-readable marker)."
 		}
 	},
 	"ServiceWiringFiles": [
@@ -237,6 +249,9 @@
 		},
 		"imagecredit": {
 			"class": "EmbeddableContent\\Media\\ImageCredit"
+		},
+		"internalfile": {
+			"class": "EmbeddableContent\\Media\\InternalFileGuard"
 		}
 	},
 	"Hooks": {
@@ -247,7 +262,12 @@
 		"SkinTemplateNavigation::Universal": "main",
 		"ParserFirstCallInit": "main",
 		"ParserAfterTidy": "main",
-		"ImageBeforeProduceHTML": "imagecredit",
+		"ImageBeforeProduceHTML": [
+			"internalfile",
+			"imagecredit"
+		],
+		"ImageOpenShowImageInlineBefore": "main",
+		"UserLogoutComplete": "main",
 		"UploadFormInitDescriptor": "upload",
 		"UploadFormSourceDescriptors": "upload",
 		"UploadForm:BeforeProcessing": "upload",
@@ -255,6 +275,8 @@
 		"UploadComplete": "upload",
 		"PageSaveComplete": "main",
 		"PageDeleteComplete": "main",
+		"FileDeleteComplete": "main",
+		"FileUndeleteComplete": "main",
 		"HtmlPageLinkRendererBegin": "main",
 		"SpecialSearchResultsAppend": "main"
 	},
@@ -903,6 +925,15 @@
 		"ext.embeddableContent.imagecredit": {
 			"styles": [
 				"imagecredit.css"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.internalfile": {
+			"styles": [
+				"internalfile.css"
 			],
 			"targets": [
 				"desktop",

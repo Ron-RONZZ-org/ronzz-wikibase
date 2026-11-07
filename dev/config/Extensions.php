@@ -307,6 +307,15 @@ $wgMaxUploadSize = [
 	'url' => 100 * 1024 * 1024,
 ];
 
+// ---- Internal-use access files (media gate, CI parity) ----
+// Production nginx verifies the signed cookie and the marker directory with
+// secure_link/stat. The dev/CI stack runs Apache (no secure_link), so the
+// cookie is still issued and the MediaWiki-side behaviour is exercised, but
+// the bytes are not gated there. The marker root must be outside the web
+// root (the extension validates it).
+$wgEmbeddableContentMediaAuthSecret = 'ci-dev-media-auth-secret-not-a-real-secret';
+$wgEmbeddableContentMediaMarkerDirectory = '/tmp/wikibase-media-markers';
+
 // ---- Animated GIF thumbnails ----
 // MediaWiki freezes a GIF thumbnail to its first frame when the total frame
 // area exceeds $wgMaxAnimatedGifArea (default 12.5 MP). The instance's

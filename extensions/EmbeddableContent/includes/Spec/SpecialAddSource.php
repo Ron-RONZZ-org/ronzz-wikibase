@@ -1820,6 +1820,9 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 * The download/file modes expand the `license` field (entity combobox,
 	 * reusing the P275-aligned license property — options from the seed's
 	 * known license items, Special:Upload-style) with the copyright warning.
+	 * The `internalUse` checkbox ("No public licence (internal use only)")
+	 * replaces that licence: the server records "All rights reserved" and
+	 * gates the bytes to logged-in readers (Spec\InternalFile).
 	 *
 	 * @param array<string,mixed> $record
 	 * @return array<string,mixed>
@@ -1873,9 +1876,26 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 						'OR',
 						[ '===', 'accessMode', 'url' ],
 						[ '===', 'accessMode', 'na' ],
+						// "No public licence (internal use only)" replaces the
+						// licence: the server records "All rights reserved".
+						[ '===', 'internalUse', '1' ],
 					],
 				]
 			),
+			// Copyright-restricted copy: no public licence, stored for
+			// logged-in users only. The file itself is gated by the media
+			// cookie/nginx marker; the File: page stays public.
+			'internalUse' => [
+				'type' => 'check',
+				'label-message' => 'embeddablecontent-source-field-internal-use',
+				'default' => !empty( $record['internalUse'] ),
+				'help-message' => 'embeddablecontent-source-field-internal-use-help',
+				'hide-if' => [
+					'OR',
+					[ '===', 'accessMode', 'url' ],
+					[ '===', 'accessMode', 'na' ],
+				],
+			],
 		];
 	}
 
@@ -2275,17 +2295,33 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		}
 		$record['accessMode'] = $mode;
 		// The 'na' mode (access only via archives, physical copies, …) and
-		// the plain 'url' mode need no license and no upload.
+		// the plain 'url' mode need no license and no upload. A leftover
+		// internal checkbox value from an earlier file-mode step is ignored.
 		if ( $mode === 'url' || $mode === 'na' ) {
+			$record['internalUse'] = '';
 			return null;
 		}
 
-		$licenseId = trim( (string)( $record['license'] ?? '' ) );
-		$licenseItem = $this->parseItemId( $licenseId );
-		if ( $licenseItem === null ) {
-			return $this->msg( 'embeddablecontent-source-error-license' )->text();
+		// Copyright-restricted copy: no public licence. The licence fact is
+		// "All rights reserved" (resolved from the seeded licence map), not a
+		// user choice; the media gate uses the filesystem marker written by
+		// performAccessUpload().
+		$internal = !empty( $record['internalUse'] );
+		$record['internalUse'] = $internal ? '1' : '';
+		if ( $internal ) {
+			$allRights = InternalFile::allRightsReservedLicenseId( $this->config );
+			if ( $allRights === null ) {
+				return $this->msg( 'embeddablecontent-source-error-internal-license' )->text();
+			}
+			$record['license'] = $allRights;
+		} else {
+			$licenseId = trim( (string)( $record['license'] ?? '' ) );
+			$licenseItem = $this->parseItemId( $licenseId );
+			if ( $licenseItem === null ) {
+				return $this->msg( 'embeddablecontent-source-error-license' )->text();
+			}
+			$record['license'] = $licenseItem->getSerialization();
 		}
-		$record['license'] = $licenseItem->getSerialization();
 
 		try {
 			if ( $mode === 'file' ) {
@@ -2468,8 +2504,13 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		if ( $title === null ) {
 			return null;
 		}
+		$internal = !empty( $record['internalUse'] );
 		if ( $title->exists() ) {
-			return $title; // idempotent: already uploaded on an earlier run
+			// Idempotent: already uploaded on an earlier step — still make
+			// sure the marker/category match the current record (an earlier
+			// step may have failed after the upload).
+			InternalFile::setInternal( $title, $internal, $this->getUser() );
+			return $title;
 		}
 		$verify = $base->verifyUpload();
 		if ( ( $verify['status'] ?? null ) !== \MediaWiki\Upload\UploadBase::OK ) {
@@ -2484,6 +2525,11 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		// Auto-generated File: page text — description/meta-data/file name
 		// come from the item, never from the original filename (issue #35).
 		$pageText = $this->msg( 'embeddablecontent-source-access-file-page', $label, $description )->text();
+		if ( $internal ) {
+			// Human-readable marker; the nginx gate uses the filesystem
+			// marker written by InternalFile::setInternal() below.
+			$pageText .= "\n\n[[Category:" . InternalFile::categoryName() . "]]\n";
+		}
 		$status = $base->performUpload(
 			$this->msg( 'embeddablecontent-source-access-file-edit-summary', $label )->inContentLanguage()->text(),
 			$pageText,
@@ -2493,6 +2539,8 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		if ( !$status->isOK() ) {
 			throw new \RuntimeException( 'performUpload: ' . ( $status->getMessage()->getParams()[0] ?? 'rejected' ) );
 		}
+		// The File: page now exists; write/remove the marker + category.
+		InternalFile::setInternal( $title, $internal, $this->getUser() );
 		return $title;
 	}
 

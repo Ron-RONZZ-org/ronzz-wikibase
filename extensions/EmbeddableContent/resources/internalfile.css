@@ -1,0 +1,22 @@
+/**
+ * Internal-use files: the File: page keeps its description/metadata ("file
+ * info") but anonymous readers must not see the media controls. Logged-in
+ * readers get the normal File: page — their signed media cookie passes the
+ * nginx gate.
+ */
+.wb-internal-file-anon #file,
+.wb-internal-file-anon .fullMedia,
+.wb-internal-file-anon #filehistory,
+.wb-internal-file-anon .mw-filepage-other-resolutions,
+.wb-internal-file-anon .mw-imagepage-section-filehistory {
+	display: none !important;
+}
+
+.wb-internal-file-placeholder {
+	max-width: 48em;
+	margin: 0.75em 0;
+}
+
+.wb-internal-file-placeholder a {
+	font-weight: 600;
+}
