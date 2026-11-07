@@ -2367,6 +2367,14 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		if ( $namesInput === '' && $choicesJson === '' ) {
 			return null;
 		}
+		// A harvested names prefill with no decisions: the contributor
+		// submitted without confirming them — create the item without those
+		// authors instead of showing a blocking form error. Any input or a
+		// Search click clears the marker (resources/authorsearch.js).
+		if ( $choicesJson === '' && !empty( $record[$prefix . 'NamesHarvested'] ) ) {
+			$record[$prefix . 'Names'] = '';
+			return null;
+		}
 		if ( $namesInput === '' ) {
 			return $this->msg( 'embeddablecontent-personpanel-error-names-missing' )->text();
 		}

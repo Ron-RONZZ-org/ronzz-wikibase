@@ -27,6 +27,7 @@
 		var namesInput = document.querySelector( '[name="wp' + panel + 'Names"]' );
 		var choicesInput = document.querySelector( '[name="wp' + panel + 'Choices"]' );
 		var results = document.getElementById( 'wb-' + panel + '-results' );
+		var harvestedInput = document.querySelector( '[name="wp' + panel + 'NamesHarvested"]' );
 		if ( !button || !namesInput || !choicesInput || !results ) {
 			return;
 		}
@@ -49,6 +50,9 @@
 			decisions = {};
 			data = null;
 			results.textContent = '';
+			if ( harvestedInput ) {
+				harvestedInput.value = '';
+			}
 			syncChoices();
 		}
 
@@ -346,6 +350,9 @@
 		}
 
 		function search() {
+			if ( harvestedInput ) {
+				harvestedInput.value = '';
+			}
 			var names = namesInput.value.trim();
 			if ( names === '' ) {
 				mw.notify( mw.msg( 'embeddablecontent-authorsearch-empty' ), { type: 'warning' } );

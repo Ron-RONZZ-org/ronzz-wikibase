@@ -1039,6 +1039,10 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		}
 		if ( $names !== [] ) {
 			$record['authorNames'] = implode( '; ', $names );
+			// A harvested prefill is not a user decision: submitting the form
+			// without confirming the names creates the source without those
+			// authors instead of failing the required confirmation.
+			$record['authorNamesHarvested'] = '1';
 		}
 		unset( $record['authors'] );
 		return $record;
@@ -1512,6 +1516,12 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				'label-message' => 'embeddablecontent-source-field-authornames',
 				'help-message' => 'embeddablecontent-source-field-authornames-help',
 				'default' => (string)( $record['authorNames'] ?? '' ),
+			],
+			// Marks the names as a harvested prefill (not a user decision);
+			// resources/authorsearch.js clears it on input/Search.
+			'authorNamesHarvested' => [
+				'type' => 'hidden',
+				'default' => (string)( $record['authorNamesHarvested'] ?? '' ),
 			],
 			'authorSearch' => [
 				'type' => 'info',
