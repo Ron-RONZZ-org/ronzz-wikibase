@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import html
 import http.cookiejar
 import json
 import re
@@ -1164,16 +1165,16 @@ def flow_update_source(op, base: str, api: str, qid: str, new_description: str) 
     if not title or not authors:
         raise FlowError(f"UpdateSource/{qid} did not prefill title/authors: {find_error(body)}")
     token = edit_token(body)
+    access_prefill = html.unescape( input_value(body, "wpaccessEntries") )
     url, body = page_post(op, url, {
         "wptitle": title, "wpauthors": authors,
         "wpdescription": new_description,
         "wppublisher": input_value(body, "wppublisher"),
         "wppages": input_value(body, "wppages"),
         "wpissuedYear": input_value(body, "wpissuedYear"),
-        # The access section is collapsed by default on update — checking
-        # the include toggle exercises the visible (access-update) path.
-        "wpaccessInclude": "1",
-        "wpaccessMode": input_value(body, "wpaccessMode") or "na",
+        # The browser submits the prefilled hidden JSON; the update must
+        # replace the access statements with the same entries.
+        "wpaccessEntries": access_prefill,
         "wpclass": class_item,
         "wpEditToken": token, "wpSubmit": "1",
     })
@@ -4704,7 +4705,7 @@ def flow_update_source_access_collapsed(op, base: str, api: str, qid: str,
     url, body = page_get(op, base, f"/wiki/Special:UpdateSource/{qid}")
     if "wpaccessEntries" not in body or "wb-access-editor" not in body:
         raise FlowError(f"UpdateSource/{qid} missing the multi-access editor: {find_error(body)}")
-    prefill_json = input_value(body, "wpaccessEntries")
+    prefill_json = html.unescape( input_value(body, "wpaccessEntries") )
     try:
         prefill = json.loads(prefill_json)
     except ValueError:
@@ -4724,7 +4725,8 @@ def flow_update_source_access_collapsed(op, base: str, api: str, qid: str,
         "wppages": input_value(body, "wppages"),
         "wpissuedYear": input_value(body, "wpissuedYear"),
         "wpclass": class_item,
-        # NO wpaccessInclude — the collapsed default: access untouched.
+        # The browser submits the prefilled hidden JSON unchanged.
+        "wpaccessEntries": prefill_json,
         "wpEditToken": token, "wpSubmit": "1",
     })
     if qid not in url:
