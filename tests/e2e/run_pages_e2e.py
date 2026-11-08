@@ -1190,11 +1190,11 @@ def flow_update_source_classic_return(op, base: str, api: str, qid: str,
     carries the hidden frompage marker across the POST, and a successful
     submit redirects back to the item's classic Source: page (not Item:).
 
-    The POST also carries an `instance of` additional-statements row (the
-    browser cloner used to submit the prefilled instance-of row): that used
-    to reach AdditionalStatements::datatype() and fatal with
-    "Call to a member function getDataTypeId() on array". The class statement
-    is form-owned and must be ignored by the cloner diff."""
+    The Update form must NOT render the item's `instance of` as an
+    additional-statements row: Source statementSpecs omit it, and the
+    update cloner's managed set now adds it. The prefilled P1 row used to
+    reach AdditionalStatements::datatype() and fatal with "Call to a member
+    function getDataTypeId() on array"."""
     url, body = page_get(op, base, f"/wiki/Special:UpdateSource/{qid}?frompage=1")
     if "Update a source" not in body:
         raise FlowError(f"Special:UpdateSource/{qid} did not render: {find_error(body)}")
@@ -1204,6 +1204,14 @@ def flow_update_source_classic_return(op, base: str, api: str, qid: str,
     if expected_translation and expected_translation not in body:
         raise FlowError(
             f"UpdateSource/{qid} did not prefill the law translation cloner rows")
+    if instance_of_prop:
+        m = re.search(
+            r'<input[^>]*name="wpadditionalStatements\[0\]\[property\]"[^>]*>',
+            body)
+        if m and f'value="{instance_of_prop}"' in m.group(0):
+            raise FlowError(
+                f"UpdateSource/{qid} rendered instance-of {instance_of_prop} "
+                f"as an additional statement row")
     token = edit_token(body)
     url, body = page_post(op, url, {
         "wpparent": input_value(body, "wpparent"),
@@ -1212,11 +1220,6 @@ def flow_update_source_classic_return(op, base: str, api: str, qid: str,
         "wpdescription": input_value(body, "wpdescription"),
         "wpfrompage": "1",
         "wpclass": input_value(body, "wpclass"),
-        # Browser simulation: the additional-statements cloner posted the
-        # item's instance-of row (the UpdateSource getDataTypeId-on-array
-        # regression). It must be ignored as form-owned, not diffed.
-        "wpadditionalStatements[0][property]": instance_of_prop,
-        "wpadditionalStatements[0][value]": input_value(body, "wpclass"),
         "wpEditToken": token, "wpSubmit": "1",
     })
     if "/wiki/Source:" not in urllib.parse.unquote(url):

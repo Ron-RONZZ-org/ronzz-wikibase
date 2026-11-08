@@ -190,14 +190,29 @@ final class AdditionalStatements {
 		} catch ( \Throwable $e ) {
 			return null;
 		}
-		// PropertyInfoLookup::getPropertyInfo() returns the property-info
-		// ARRAY (Wikibase 1.43+), not an object. Calling getDataTypeId() on
-		// it was the "Call to a member function getDataTypeId() on array"
-		// fatal on Special:UpdateSource.
-		if ( !is_array( $info ) ) {
+		return self::datatypeFromInfo( $info );
+	}
+
+	/**
+	 * The datatype from a PropertyInfoLookup info value. Wikibase 1.43+
+	 * returns an ARRAY (KEY_DATA_TYPE); older objects exposed
+	 * getDataTypeId(). Pure so the array shape is unit-testable without a
+	 * live Wikibase store (the Special:UpdateSource
+	 * "Call to a member function getDataTypeId() on array" regression).
+	 *
+	 * @param mixed $info
+	 */
+	public static function datatypeFromInfo( $info ): ?string {
+		if ( is_array( $info ) ) {
+			// PropertyInfoLookup::KEY_DATA_TYPE === 'type'. The literal keeps
+			// this pure helper testable without the Wikibase extension on
+			// the unit-test autoloader.
+			$datatype = $info['type'] ?? null;
+		} elseif ( is_object( $info ) && method_exists( $info, 'getDataTypeId' ) ) {
+			$datatype = $info->getDataTypeId();
+		} else {
 			return null;
 		}
-		$datatype = $info[\Wikibase\Lib\Store\PropertyInfoLookup::KEY_DATA_TYPE] ?? null;
 		return is_string( $datatype ) && $datatype !== '' ? $datatype : null;
 	}
 
