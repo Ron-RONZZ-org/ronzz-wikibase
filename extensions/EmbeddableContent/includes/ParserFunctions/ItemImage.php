@@ -64,7 +64,11 @@ final class ItemImage {
 	}
 
 	private static function render( EmbeddableContentConfig $config, Parser $parser, array $args ): array {
-		$empty = [ 'text' => '', 'noparse' => false, 'isHTML' => true ];
+		$empty = [
+			'text' => '<!-- wb-item-image-empty-args: ' . htmlspecialchars( json_encode( $args ) ) . ' -->',
+			'noparse' => false,
+			'isHTML' => true,
+		];
 		$itemId = self::explicitItemId( $args );
 		if ( $itemId === null ) {
 			$title = $parser->getTitle();
