@@ -88,9 +88,12 @@ class SpecialUpdateCollective extends SpecialAddCollective {
 			'label' => $this->itemLabel( $item ),
 			'description' => $this->itemDescription( $item ),
 			'labelLanguage' => $this->itemTermLanguage( $item ),
-			'parentOrganization' => $this->firstEntityForProperty(
-				$item,
-				$this->config->collectivePropertyIds()['parentOrganization'] ?? null
+			'parentOrganization' => implode(
+				', ',
+				$this->entityIdsForProperty(
+					$item,
+					$this->config->collectivePropertyIds()['parentOrganization'] ?? null
+				)
 			),
 		];
 		$props = $this->config->collectivePropertyIds();

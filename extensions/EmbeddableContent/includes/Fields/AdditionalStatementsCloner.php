@@ -17,13 +17,18 @@ final class AdditionalStatementsCloner {
 	/**
 	 * @param list<array{property:string,value:string}> $rows prefilled rows
 	 * @param array<string,string> $propertyOptions "P123 — label" => "P123"
+	 * @param string $helpMessageKey Add* vs Update* help text
 	 * @return array<string,mixed> [ 'additionalStatements' => descriptor ]
 	 */
-	public static function spec( array $rows = [], array $propertyOptions = [] ): array {
+	public static function spec(
+		array $rows = [],
+		array $propertyOptions = [],
+		string $helpMessageKey = 'embeddablecontent-additional-statements-help'
+	): array {
 		return [ 'additionalStatements' => [
 			'type' => 'cloner',
 			'label-message' => 'embeddablecontent-additional-statements',
-			'help-message' => 'embeddablecontent-additional-statements-help',
+			'help-message' => $helpMessageKey,
 			'create-button-message' => 'embeddablecontent-additional-statements-add',
 			'delete-button-message' => 'embeddablecontent-additional-statements-delete',
 			'fields' => [

@@ -74,7 +74,13 @@ final class SourceFlowService {
 	 * access flow feeds in (the uploaded file's URL and the license entity).
 	 * Accepted by prepare (no exposure check) and written by statementSpecs.
 	 */
-	private const INTERNAL_FIELDS = [ 'license', 'accessFileUrl', 'additionalStatements', 'allowCollectiveAuthor' ];
+	private const INTERNAL_FIELDS = [
+		'license', 'accessFileUrl', 'additionalStatements',
+		// Q-ids that were explicitly declared as collectives (an ORG: row in
+		// the author panel). They bypass the legacy group-of-humans name-list
+		// guard; no form checkbox is needed.
+		'collectiveAuthorIds',
+	];
 
 	/**
 	 * @param \Closure(string $messageKey, string[] $params): string $message
@@ -422,9 +428,17 @@ final class SourceFlowService {
 			}
 		}
 
-		$parentId = trim( (string)( $record['parent'] ?? '' ) );
-		if ( $parentId !== '' && isset( $props['partOf'] ) && preg_match( '/^Q[1-9]\d*$/', $parentId ) === 1 ) {
-			$specs[$props['partOf']] = new EntityIdValue( new ItemId( $parentId ) );
+		$parentIds = ItemIdList::split( (string)( $record['parent'] ?? '' ) );
+		if ( $parentIds !== [] && isset( $props['partOf'] ) ) {
+			$values = [];
+			foreach ( $parentIds as $parentId ) {
+				if ( preg_match( '/^Q[1-9]\d*$/', $parentId ) === 1 ) {
+					$values[] = new EntityIdValue( new ItemId( $parentId ) );
+				}
+			}
+			if ( $values !== [] ) {
+				$specs[$props['partOf']] = $values;
+			}
 		}
 
 		return $specs;
@@ -719,8 +733,9 @@ final class SourceFlowService {
 	 */
 	/**
 	 * A group-of-humans author is replaced by its `has member` Persons. A
-	 * group without members is blocked when its label is a name list
-	 * (allowCollectiveAuthor bypasses this for a genuine collective).
+	 * group without members is blocked when its label is a name list —
+	 * unless the Q-id was explicitly declared as a collective (an ORG: row
+	 * in the author panel).
 	 *
 	 * @param array<string,mixed> $record
 	 */
@@ -730,11 +745,12 @@ final class SourceFlowService {
 			return null;
 		}
 		$members = new GroupMembers( $this->config, $this->lookup );
-		$expansion = $members->expand( $ids, !empty( $record['allowCollectiveAuthor'] ) );
+		$allowed = ItemIdList::split( (string)( $record['collectiveAuthorIds'] ?? '' ) );
+		$expansion = $members->expand( $ids, $allowed );
 		if ( $expansion['blocked'] !== [] ) {
 			$blocked = $expansion['blocked'][0];
 			return "author \"{$blocked['label']}\" ({$blocked['qid']}) is a group-of-humans name list "
-				. 'without members; add its members or pass allowCollectiveAuthor=1.';
+				. 'without members; add its members or declare it with ORG:.';
 		}
 		$record['authors'] = implode( ', ', $expansion['ids'] );
 		return null;
@@ -776,8 +792,8 @@ final class SourceFlowService {
 		if ( $expectedFormKey === null ) {
 			return null; // not a child class
 		}
-		$parentId = trim( (string)( $record['parent'] ?? '' ) );
-		if ( $parentId === '' ) {
+		$parentIds = ItemIdList::split( (string)( $record['parent'] ?? '' ) );
+		if ( $parentIds === [] ) {
 			if ( $creating ) {
 				return sprintf(
 					self::ERROR_PARENT_REQUIRED,
@@ -787,16 +803,18 @@ final class SourceFlowService {
 			}
 			return null; // update without parent keeps the existing part-of
 		}
-		if ( preg_match( '/^Q[1-9]\d*$/', $parentId ) !== 1 ) {
-			return "parent \"{$parentId}\" is not an item ID.";
-		}
 		$parentClassId = $this->config->sourceClasses()[$expectedFormKey] ?? null;
-		$parent = $this->lookup->getEntity( new ItemId( $parentId ) );
-		if ( !$parent instanceof Item ) {
-			return sprintf( self::ERROR_PARENT_MISSING, $parentId );
-		}
-		if ( $parentClassId !== null && !$this->itemHasClass( $parent, [ $parentClassId ] ) ) {
-			return sprintf( self::ERROR_PARENT_CLASS, $parentId, $this->classLabel( $expectedFormKey ) );
+		foreach ( $parentIds as $parentId ) {
+			if ( preg_match( '/^Q[1-9]\d*$/', $parentId ) !== 1 ) {
+				return "parent \"{$parentId}\" is not an item ID.";
+			}
+			$parent = $this->lookup->getEntity( new ItemId( $parentId ) );
+			if ( !$parent instanceof Item ) {
+				return sprintf( self::ERROR_PARENT_MISSING, $parentId );
+			}
+			if ( $parentClassId !== null && !$this->itemHasClass( $parent, [ $parentClassId ] ) ) {
+				return sprintf( self::ERROR_PARENT_CLASS, $parentId, $this->classLabel( $expectedFormKey ) );
+			}
 		}
 		return null;
 	}
@@ -812,7 +830,8 @@ final class SourceFlowService {
 		if ( SourceFieldMap::formKey( $classKey ) !== 'bookExcerpt' ) {
 			return null;
 		}
-		$parentId = trim( (string)( $record['parent'] ?? '' ) );
+		$parentIds = ItemIdList::split( (string)( $record['parent'] ?? '' ) );
+		$parentId = $parentIds[0] ?? '';
 		if ( preg_match( '/^Q[1-9]\d*$/', $parentId ) !== 1 ) {
 			return null; // missing/invalid parent is validateParent's error
 		}
@@ -874,14 +893,16 @@ final class SourceFlowService {
 		if ( $content !== '' ) {
 			$record['content'] = PayloadCodec::escape( $content );
 		}
-		$language = $this->parentLanguage( (string)( $record['parent'] ?? '' ) );
+		$parentIds = ItemIdList::split( (string)( $record['parent'] ?? '' ) );
+		$parentId = $parentIds[0] ?? '';
+		$language = $this->parentLanguage( $parentId );
 		$record['language'] = $language;
 		// The inherited language is also the term language the label/
 		// description are stored under (the law form has no language fields).
 		$record['labelLanguage'] = $language;
 		// A blank description auto-generates as "provision of {parent}".
 		if ( trim( (string)( $record['description'] ?? '' ) ) === '' ) {
-			$parent = $this->itemById( (string)( $record['parent'] ?? '' ) );
+			$parent = $this->itemById( $parentId );
 			$parentLabel = $parent !== null ? ( EntityLabelText::of( $parent ) ?? '' ) : '';
 			if ( $parentLabel !== '' ) {
 				$record['description'] = $this->message(
@@ -937,7 +958,8 @@ final class SourceFlowService {
 	 */
 	private function lawLabel( array $record ): string {
 		$reference = LabelSanitizer::stripMarkup( trim( (string)( $record['referenceCode'] ?? '' ) ) );
-		$item = $this->itemById( (string)( $record['parent'] ?? '' ) );
+		$parentIds = ItemIdList::split( (string)( $record['parent'] ?? '' ) );
+		$item = $this->itemById( $parentIds[0] ?? '' );
 		$parentLabel = $item !== null ? ( EntityLabelText::of( $item ) ?? '' ) : '';
 		if ( $reference === '' ) {
 			return $parentLabel;

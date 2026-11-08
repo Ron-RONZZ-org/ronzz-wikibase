@@ -1746,6 +1746,27 @@ report). See `SimpleMathJax/VENDORED.md`.
   `authorUpdateExisting`, `allowCollectiveAuthor`; the MCP server adds
   `embeddable-resolve-authors` and the same parameters. Legacy cleanup:
   `tools/report_group_authors.py` + `tools/backfill_group_members.py`.
+
+- **Author-panel UX + ORG: collectives** (ADR
+  `docs/decisions/nov-2026-author-panel-ux-org.md`): the panel now renders in
+  a `Fields/RawHtmlField` (an OOUI `info` field is a `<label>`; clicking a
+  result row activated the Search button — the "row refresh" bug), updates
+  rows **progressively** (confirmed rows keep their DOM node and stay on
+  top), blocks submit only while a row is neither confirmed nor removed, and
+  creates new Persons/Collectives **immediately** through
+  `action=addsemanticentity` (Q-id injected into the Author entity ID(s)
+  field; duplicate/collision guards get a choice dialog). The author list
+  supports `ORG:name` (no literal parentheses; use semicolons when the name
+  contains a comma): `AuthorNameList` returns `kind=person|collective`,
+  `AuthorResolver` searches the collective agent classes,
+  `AuthorCreator` creates/reuses/updates a collective (+ `Collective:`
+  page). The "genuinely an organisation" checkbox and the
+  `allowCollectiveAuthor` API parameter are **removed**; the explicit ORG:
+  row is the declaration, and its Q-ids ride `collectiveAuthorIds` so the
+  legacy group-of-humans name-list guard still blocks accidental direct
+  Q-id bindings. The group-of-humans banner's "Add all members at once"
+  expands only that group. Additional-statements help is split Add*/
+  Update* (`-help-update`).
 - **Semantic-first File pages**: `{{#image-facts:}}` renders
   Licensing/Attribution from the sitelinked image item (parser-cache
   dependent); itemized uploads write it instead of static text. New

@@ -172,7 +172,7 @@ class SemanticEntityFlowServiceTest extends TestCase {
 		$this->assertSame( 'Q7', $record['collectiveClass'] );
 		$specs = $service->statementSpecs( 'collective', $record );
 		$this->assertSame( 'Q7', $specs['P1']->getEntityId()->getSerialization() );
-		$this->assertSame( 'Q42', $specs['P60']->getEntityId()->getSerialization() );
+		$this->assertSame( 'Q42', $specs['P60'][0]->getEntityId()->getSerialization() );
 	}
 
 	public function testCollectiveClassPresetKeyUnknown(): void {

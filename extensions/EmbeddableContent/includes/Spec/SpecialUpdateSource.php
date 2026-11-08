@@ -59,6 +59,10 @@ class SpecialUpdateSource extends SpecialAddSource {
 		parent::__construct( $config, $client, 'UpdateSource' );
 	}
 
+	protected function isUpdateFlow(): bool {
+		return true;
+	}
+
 	protected function updateKindKey(): string {
 		return 'source';
 	}
@@ -82,10 +86,12 @@ class SpecialUpdateSource extends SpecialAddSource {
 	 */
 	protected function afterUpdate( \Wikibase\DataModel\Entity\Item $item, array $record, array $oldParents, array $oldOsmPlaces ): void {
 		$parents = $oldParents;
-		// NEW parent: the no-clobber contract only replaces part-of when the
-		// record provides one — a blank parent keeps the existing statement.
+		// NEW parents: the no-clobber contract only replaces part-of when the
+		// record provides one — a blank parent keeps the existing statements.
 		if ( !empty( $record['parent'] ) ) {
-			$parents[] = (string)$record['parent'];
+			foreach ( \EmbeddableContent\Spec\ItemIdList::split( (string)$record['parent'] ) as $parentId ) {
+				$parents[] = $parentId;
+			}
 		}
 		if ( $parents !== [] ) {
 			\EmbeddableContent\Spec\ChildItemLookup::invalidateParentPages( $parents );
@@ -181,7 +187,10 @@ class SpecialUpdateSource extends SpecialAddSource {
 			$record['duration'] = Duration::formatSeconds( $durationSeconds );
 		}
 
-		$record['parent'] = $this->firstEntityForProperty( $item, $source['partOf'] ?? null );
+		$record['parent'] = implode(
+			', ',
+			$this->entityIdsForProperty( $item, $source['partOf'] ?? null )
+		);
 
 		// A legal provision: the reference code + the clause payload
 		// (decoded) + the added translation rows (decoded for the form).

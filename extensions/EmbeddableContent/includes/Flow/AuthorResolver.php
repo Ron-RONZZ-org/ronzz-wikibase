@@ -6,6 +6,7 @@ namespace EmbeddableContent\Flow;
 
 use DataValues\StringValue;
 use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\EntityLabelMatcher;
 use EmbeddableContent\Search\EntityTermSearch;
 use EmbeddableContent\Spec\AuthorNameList;
 use EmbeddableContent\Spec\AuthorNameMatcher;
@@ -58,15 +59,23 @@ final class AuthorResolver {
 	public function resolveNames( string $rawInput, array $names, string $language = 'en', int $limit = 8 ): array {
 		$personClass = $this->config->agentClasses()['person'] ?? null;
 		$personScope = $personClass !== null ? [ $personClass ] : [];
+		$collectiveScope = array_values( array_diff(
+			$this->config->agentClasses(),
+			$personClass !== null ? [ $personClass ] : []
+		) );
 		$resolved = [];
 		foreach ( $names as $name ) {
-			$candidates = $this->candidatesFor( $name, $personScope, $language, $limit );
+			$kind = ( $name['kind'] ?? 'person' ) === 'collective' ? 'collective' : 'person';
+			$candidates = $kind === 'collective'
+				? $this->candidatesForCollective( $name, $collectiveScope, $language, $limit )
+				: $this->candidatesFor( $name, $personScope, $language, $limit );
 			$resolved[] = [
 				'original' => $name['original'],
 				'givenName' => $name['givenName'],
 				'familyName' => $name['familyName'],
 				'familyFirst' => $name['familyFirst'],
 				'flags' => $name['flags'],
+				'kind' => $kind,
 				// The client decides; always 'candidates' or 'missing'.
 				'status' => $candidates === [] ? 'missing' : 'candidates',
 				'candidates' => $candidates,
@@ -74,9 +83,15 @@ final class AuthorResolver {
 			];
 		}
 
-		[ $collectives, $byName ] = $this->collectiveSuggestions( $rawInput, $names, $language );
+		$personNames = [];
+		foreach ( $names as $i => $name ) {
+			if ( ( $name['kind'] ?? 'person' ) !== 'collective' ) {
+				$personNames[$i] = $name;
+			}
+		}
+		[ $collectives, $byName ] = $this->collectiveSuggestions( $rawInput, $personNames, $language );
 		foreach ( $resolved as $i => $row ) {
-			if ( isset( $byName[$i] ) ) {
+			if ( $row['kind'] === 'person' && isset( $byName[$i] ) ) {
 				$resolved[$i]['collective'] = $byName[$i];
 			}
 		}
@@ -146,6 +161,57 @@ final class AuthorResolver {
 	}
 
 	/**
+	 * Collective-author candidates: every agent class except person (an
+	 * organisation, company, band, institution, agency, …). The same
+	 * explicit-confirmation rule applies — nothing is auto-accepted.
+	 *
+	 * @param array{original:string,givenName:string,familyName:string,familyFirst:bool,flags:list<string>,kind?:string} $name
+	 * @param string[] $collectiveScope
+	 * @return list<array<string,mixed>>
+	 */
+	private function candidatesForCollective( array $name, array $collectiveScope, string $language, int $limit ): array {
+		$term = trim( (string)( $name['familyName'] ?? '' ) );
+		if ( $term === '' ) {
+			return [];
+		}
+		$entries = [];
+		foreach ( $this->search->search( $term, $language, $limit * 2, $collectiveScope ) as $entry ) {
+			$id = (string)( $entry['id'] ?? '' );
+			if ( $id !== '' ) {
+				$entries[$id] = $entry;
+			}
+		}
+		$candidates = [];
+		foreach ( $entries as $id => $entry ) {
+			$item = ( $this->entityLookup )( $id );
+			if ( !$item instanceof Item ) {
+				continue;
+			}
+			$label = (string)( $entry['label'] ?? $this->itemLabel( $item ) );
+			if ( $label === '' ) {
+				continue;
+			}
+			$score = EntityLabelMatcher::scorePair( $term, $label );
+			if ( $score < AuthorNameMatcher::GOOD_MATCH_THRESHOLD ) {
+				continue;
+			}
+			$candidates[] = [
+				'qid' => $id,
+				'label' => $label,
+				'description' => (string)( $entry['description'] ?? '' ),
+				'score' => $score,
+				'reason' => 'collective',
+				'authority' => $this->authorityFacts( $item ),
+			];
+		}
+		usort(
+			$candidates,
+			static fn ( array $a, array $b ): int => $b['score'] <=> $a['score']
+		);
+		return array_slice( $candidates, 0, $limit );
+	}
+
+	/**
 	 * Finds group-of-humans items whose label is itself a person-name list.
 	 * Returns the group list plus a per-input-name suggestion (index keyed).
 	 *
@@ -194,6 +260,9 @@ final class AuthorResolver {
 						),
 						$parsed['names']
 					),
+					// The parsed rows let the client create each member
+					// immediately ("Add all members at once").
+					'parsedNames' => $parsed['names'],
 				];
 			}
 		}

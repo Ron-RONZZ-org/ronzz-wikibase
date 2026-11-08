@@ -94,3 +94,52 @@
 	color: var( --color-subtle, #72777d );
 	font-size: 0.9em;
 }
+
+/* Progressive row states (no full re-render on every action). */
+.wb-author-rows {
+	transition: opacity 0.15s ease;
+}
+
+.wb-author-results.wb-author-loading .wb-author-rows {
+	opacity: 0.55;
+}
+
+.wb-author-row-confirmed {
+	background: var( --background-color-success-subtle, #eaf7ef );
+}
+
+.wb-author-row-removed {
+	opacity: 0.6;
+}
+
+.wb-author-row-removed .wb-author-name {
+	text-decoration: line-through;
+	color: var( --color-subtle, #72777d );
+}
+
+.wb-author-remove {
+	margin-left: 0.25em;
+	padding: 0 0.35em;
+	border: 1px solid var( --border-color-subtle, #c8ccd1 );
+	border-radius: 2px;
+	background: var( --background-color-base, #fff );
+	color: var( --color-base, #202122 );
+	cursor: pointer;
+	line-height: 1.4;
+}
+
+.wb-author-remove:hover {
+	background: var( --background-color-interactive-subtle, #eaecf0 );
+}
+
+.wb-author-banners:not( :empty ) {
+	margin-bottom: 0.75em;
+}
+
+.wb-author-dialog-actions {
+	flex-wrap: wrap;
+}
+
+.wb-author-dialog .wb-author-hint {
+	margin: 0.25em 0 0.75em;
+}

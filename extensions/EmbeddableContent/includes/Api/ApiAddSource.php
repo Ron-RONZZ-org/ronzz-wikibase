@@ -100,7 +100,6 @@ class ApiAddSource extends ApiBase {
 		$user = $this->getUser();
 		$summary = $params['summary'];
 		$authorResult = null;
-		$record['allowCollectiveAuthor'] = !empty( $params['allowCollectiveAuthor'] ) ? '1' : '';
 		$authorPayload = $this->personPanelPayload->process(
 			'author',
 			$params,
@@ -480,10 +479,6 @@ class ApiAddSource extends ApiBase {
 				self::PARAM_MAX_BYTES => 50000,
 			],
 			'authorUpdateExisting' => [
-				self::PARAM_TYPE => 'boolean',
-				self::PARAM_REQUIRED => false,
-			],
-			'allowCollectiveAuthor' => [
 				self::PARAM_TYPE => 'boolean',
 				self::PARAM_REQUIRED => false,
 			],

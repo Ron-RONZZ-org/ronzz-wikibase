@@ -1507,7 +1507,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			$confirm = $record['authorsConfirm'];
 			$help .= ' ' . $this->entityConfirmHtml(
 				'wpauthors',
-				$this->msg( 'embeddablecontent-source-field-authors' )->text(),
+				$this->msg( 'embeddablecontent-source-field-authors-confirm' )->text(),
 				(string)( $confirm['fetched'] ?? '' ),
 				(string)( $confirm['label'] ?? '' ),
 				(string)( $confirm['id'] ?? '' )
@@ -1517,10 +1517,27 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			. ' class="mw-ui-button mw-ui-progressive">'
 			. htmlspecialchars( $this->msg( 'embeddablecontent-source-field-authorsearch' )->text() )
 			. '</button>';
-		return [
+		// The quick-create dialogs choose a collective class. The class keys
+		// and item ids come from the config map; "person" and "group of
+		// humans" are excluded (a group needs members and is created through
+		// Special:AddCollective).
+		$collectiveClasses = [];
+		foreach ( $this->config->agentClasses() as $key => $id ) {
+			if ( $key === 'person' || $key === 'groupOfHumans' || $id === '' ) {
+				continue;
+			}
+			$collectiveClasses[] = [
+				'key' => $key,
+				'id' => $id,
+				'label' => $this->msg( 'embeddablecontent-agent-class-' . $key )->text(),
+			];
+		}
+		$this->getOutput()->addJsConfigVars( 'wbAuthorCollectiveClasses', $collectiveClasses );
+		$fields = [
 			// The recommended path: paste the whole author list, click
 			// Search, then confirm every name in the popup. The parsed names
-			// become Person items (or reuse confirmed ones) at submit time.
+			// are created/reused immediately (a new entity is written as soon
+			// as the contributor confirms it).
 			'authorNames' => [
 				'type' => 'textarea',
 				'rows' => 3,
@@ -1535,7 +1552,12 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				'default' => (string)( $record['authorNamesHarvested'] ?? '' ),
 			],
 			'authorSearch' => [
+				// RawHtmlField — NOT HTMLInfoField: an OOUI info field is a
+				// LabelWidget, and a click on a result-row button would fire
+				// the label's activation on the Search button (the row-click
+				// "refreshes the search" bug).
 				'type' => 'info',
+				'class' => \EmbeddableContent\Fields\RawHtmlField::class,
 				'raw' => true,
 				'default' => $searchButton
 					. '<div id="wb-author-results" class="wb-author-results"></div>',
@@ -1546,21 +1568,15 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				'type' => 'hidden',
 				'default' => (string)( $record['authorChoices'] ?? '' ),
 			],
-			// Escape hatch for a genuine organization author (the
-			// group-of-humans name-list guard in validateAuthors).
-			'authorCollectiveOk' => [
-				'type' => 'check',
-				'label-message' => 'embeddablecontent-source-field-authorcollectiveok',
-				'default' => !empty( $record['authorCollectiveOk'] ),
-			],
-		] + $this->entityComboboxField(
+		];
+		$fields += $this->entityComboboxField(
 			'authors',
 			'embeddablecontent-source-field-authors',
 			$this->agentClassIds(),
 			true,
 			[
 				'default' => (string)( $record['authors'] ?? '' ),
-				'help' => $help . ' ' . $this->msg( 'embeddablecontent-source-field-authors-advanced' )->parse(),
+				'help' => $help,
 				// Authors are optional: a text of unknown authorship is
 				// legitimate (title is the only required field).
 				'required' => false,
@@ -1570,6 +1586,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				'cssclass' => 'wb-entity-combobox wb-entity-combobox-multi wb-entity-combobox-expand-groups',
 			]
 		);
+		return $fields;
 	}
 
 	/**
@@ -2014,7 +2031,15 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			return [];
 		}
 		$parentLabel = $this->msg( 'embeddablecontent-source-class-' . $parentKey )->text();
-		$help = $this->msg( 'embeddablecontent-source-parent-help', $parentLabel, $parentKey )->parse();
+		$root = isset( $record['parentUnresolved'] ) && is_array( $record['parentUnresolved'] )
+			? (string)( $record['parentUnresolved']['root'] ?? '' )
+			: '';
+		$help = $this->msg( 'embeddablecontent-source-parent-help', $parentLabel )->parse();
+		// "Create it now" is ALWAYS available: the pop-up runs the real
+		// parent AddSource flow (website: root metadata auto-fetch; book/
+		// YouTube: search first; legislation: manual) and fills the field
+		// with the created Q-id.
+		$help .= ' ' . $this->parentCreateLink( 'parent', $parentKey, $parentLabel, $root );
 
 		if ( isset( $record['parentConfirm'] ) && is_array( $record['parentConfirm'] ) ) {
 			$confirm = $record['parentConfirm'];
@@ -2025,12 +2050,10 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				(string)( $confirm['label'] ?? '' ),
 				(string)( $confirm['id'] ?? '' )
 			);
-		} elseif ( isset( $record['parentUnresolved'] ) && is_array( $record['parentUnresolved'] ) ) {
-			$unresolved = $record['parentUnresolved'];
+		} elseif ( $root !== '' ) {
 			$help .= ' ' . $this->msg(
 				'embeddablecontent-source-parent-unresolved',
-				(string)( $unresolved['root'] ?? '' ),
-				$parentKey
+				$root
 			)->parse();
 		}
 
@@ -2038,7 +2061,9 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			'parent',
 			'embeddablecontent-source-field-parent',
 			$this->classScope( $this->config->sourceClasses()[$parentKey] ?? null ),
-			false,
+			// Multiple parents: an item can be part of several works
+			// (comma-separated; one `part of` statement per id).
+			true,
 			[
 				'default' => (string)( $record['parent'] ?? '' ),
 				'help' => $help,
@@ -2046,6 +2071,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			]
 		);
 	}
+
 
 	protected function classOptions(): array {
 		$key = $this->currentClassKey;
@@ -2700,7 +2726,10 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 * @param array<string,mixed> $record
 	 */
 	protected function fillBookExcerptFromParent( array &$record ): ?string {
-		$parentId = trim( (string)( $record['parent'] ?? '' ) );
+		// Multiple parents are allowed; the first one supplies the
+		// year/authors inference (a book excerpt normally has one book).
+		$parentIds = ItemIdList::split( (string)( $record['parent'] ?? '' ) );
+		$parentId = $parentIds[0] ?? '';
 		if ( preg_match( '/^Q[1-9]\d*$/', $parentId ) !== 1 ) {
 			return null; // missing/invalid parent is validateParent's error
 		}
@@ -2766,10 +2795,11 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		if ( ( $this->config->sourceParents()[$this->currentClassKey] ?? null ) !== 'book' ) {
 			return $record;
 		}
-		$parentId = trim( (string)( $record['parent'] ?? '' ) );
-		if ( $parentId === '' ) {
-			$parentId = trim( (string)$this->getRequest()->getVal( 'parent', '' ) );
+		$parentIds = ItemIdList::split( (string)( $record['parent'] ?? '' ) );
+		if ( $parentIds === [] ) {
+			$parentIds = ItemIdList::split( (string)$this->getRequest()->getVal( 'parent', '' ) );
 		}
+		$parentId = $parentIds[0] ?? '';
 		if ( preg_match( '/^Q[1-9]\d*$/', $parentId ) !== 1 ) {
 			return $record;
 		}
@@ -2847,15 +2877,15 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	/**
 	 * Expands a group-of-humans author to its `has member` Persons. A group
 	 * with members is replaced by the members; a group without members is
-	 * blocked when its label is a person-name list (unless the contributor
-	 * explicitly allowed a collective author). Other authors pass through.
+	 * blocked when its label is a person-name list unless the Q-id came
+	 * from an explicit ORG: row. Other authors pass through.
 	 *
 	 * @param array<string,mixed> $record
 	 */
 	private function expandAuthorGroups( array &$record ): ?string {
 		$expansion = $this->groupMembers()->expand(
 			ItemIdList::split( (string)( $record['authors'] ?? '' ) ),
-			!empty( $record['authorCollectiveOk'] )
+			ItemIdList::split( (string)( $record['collectiveAuthorIds'] ?? '' ) )
 		);
 		if ( $expansion['blocked'] !== [] ) {
 			$blocked = $expansion['blocked'][0];
@@ -2892,7 +2922,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		$ids = ItemIdList::split( (string)( $record['authors'] ?? '' ) );
 		$agentIds = array_values( $this->config->agentClasses() );
 		$groupClass = $this->config->agentClasses()['groupOfHumans'] ?? null;
-		$collectiveOk = !empty( $record['authorCollectiveOk'] );
+		$collectiveIds = ItemIdList::split( (string)( $record['collectiveAuthorIds'] ?? '' ) );
 		foreach ( $ids as $id ) {
 			if ( preg_match( '/^Q[1-9]\d*$/', $id ) !== 1 ) {
 				return $this->msg( 'embeddablecontent-add-error-baditemid', $id )->text();
@@ -2906,9 +2936,12 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			}
 			// The legacy shortcut: a "Group of humans" item whose label is a
 			// list of person names. Do not let a new source bind it as an
-			// author unless the contributor explicitly confirms it is a
-			// genuine collective author.
-			if ( !$collectiveOk && $groupClass !== null && $this->itemHasClass( $item, [ $groupClass ] ) ) {
+			// author unless the Q-id was explicitly declared as a collective
+			// (an ORG: row in the author panel).
+			if ( !in_array( $id, $collectiveIds, true )
+				&& $groupClass !== null
+				&& $this->itemHasClass( $item, [ $groupClass ] )
+			) {
 				$label = EntityLabelText::of( $item ) ?? $id;
 				$parsed = AuthorNameList::parse( $label );
 				if ( count( $parsed['names'] ) >= 2 ) {
@@ -2942,19 +2975,36 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		return is_string( $error ) ? $error : null;
 	}
 
+	/** Whether this is the Update* flow (blank no-clobber semantics). */
+	protected function isUpdateFlow(): bool {
+		return false;
+	}
+
 	protected function validateParent( array $record ): ?string {
 		$parentKey = $this->config->sourceParents()[$this->currentClassKey] ?? null;
 		if ( $parentKey === null ) {
 			return null; // not a child class
 		}
 		$parentClassId = $this->config->sourceClasses()[$parentKey] ?? null;
-		$parentId = trim( (string)( $record['parent'] ?? '' ) );
-		if ( $parentClassId === null || preg_match( '/^Q[1-9]\d*$/', $parentId ) !== 1 ) {
+		$parentIds = ItemIdList::split( (string)( $record['parent'] ?? '' ) );
+		if ( $parentClassId === null ) {
 			return $this->msg( 'embeddablecontent-source-error-parent-required' )->text();
 		}
-		$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $parentId ) );
-		if ( !$item instanceof Item || !$this->itemHasClass( $item, [ $parentClassId ] ) ) {
-			return $this->msg( 'embeddablecontent-source-error-parent-class', $parentId )->text();
+		if ( $parentIds === [] ) {
+			// An update without a parent keeps the existing `part of`
+			// statements (no-clobber); a create requires at least one.
+			return $this->isUpdateFlow()
+				? null
+				: $this->msg( 'embeddablecontent-source-error-parent-required' )->text();
+		}
+		foreach ( $parentIds as $parentId ) {
+			if ( preg_match( '/^Q[1-9]\d*$/', $parentId ) !== 1 ) {
+				return $this->msg( 'embeddablecontent-source-error-parent-required' )->text();
+			}
+			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $parentId ) );
+			if ( !$item instanceof Item || !$this->itemHasClass( $item, [ $parentClassId ] ) ) {
+				return $this->msg( 'embeddablecontent-source-error-parent-class', $parentId )->text();
+			}
 		}
 		return null;
 	}

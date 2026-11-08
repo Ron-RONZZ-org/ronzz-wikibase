@@ -55,7 +55,11 @@ final class AuthorCreator {
 	 * @param array<int,array{index?:int,action?:string,qid?:string,person?:array<string,mixed>}> $decisions
 	 * @return array{ids:list<string>,error:string|null}
 	 */
-	public function validateDecisions( array $names, array $decisions ): array {
+	public function validateDecisions(
+		array $names,
+		array $decisions,
+		array $allowedKinds = [ 'person', 'collective' ]
+	): array {
 		$byIndex = [];
 		foreach ( $decisions as $decision ) {
 			$index = (int)( $decision['index'] ?? -1 );
@@ -69,8 +73,17 @@ final class AuthorCreator {
 			if ( $decision === null ) {
 				return [
 					'ids' => [],
-					'error' => 'Every person name needs a decision: confirm an existing Person, '
-						. 'create a new one, or skip it. Missing: ' . $name['original'],
+					'error' => 'Every author needs a decision: confirm an existing entity, '
+						. 'create a new one, or remove it. Missing: ' . $name['original'],
+				];
+			}
+			$kind = $this->kindOf( $name );
+			if ( !in_array( $kind, $allowedKinds, true ) ) {
+				return [
+					'ids' => [],
+					'error' => $kind === 'collective'
+						? 'A collective cannot be a group member: ' . $name['original']
+						: 'A person cannot be a collective author: ' . $name['original'],
 				];
 			}
 			$action = (string)( $decision['action'] ?? '' );
@@ -79,22 +92,24 @@ final class AuthorCreator {
 				continue;
 			}
 			if ( $action === 'reuse' || $action === 'update' ) {
-				if ( $this->loadPerson( $qid ) === null ) {
-					return [ 'ids' => [], 'error' => "Person \"{$qid}\" is not an existing Person item." ];
+				if ( $this->loadAgent( $qid, $kind ) === null ) {
+					return [ 'ids' => [], 'error' => "{$qid} is not an existing {$kind} item." ];
 				}
 				$ids[] = $qid;
 				continue;
 			}
 			if ( $action === 'create' ) {
-				$details = is_array( $decision['person'] ?? null ) ? $decision['person'] : [];
-				$record = $this->personRecord( $name, $details );
-				$error = $this->flow->prepare( 'person', $record, true );
+				$details = is_array( $decision[$kind] ?? null ) ? $decision[$kind] : [];
+				$record = $kind === 'collective'
+					? $this->collectiveRecord( $name, $details )
+					: $this->personRecord( $name, $details );
+				$error = $this->flow->prepare( $kind, $record, true );
 				if ( $error !== null ) {
 					return [ 'ids' => [], 'error' => $error ];
 				}
 				continue;
 			}
-			return [ 'ids' => [], 'error' => "Unknown decision \"{$action}\" for person {$name['original']}." ];
+			return [ 'ids' => [], 'error' => "Unknown decision \"{$action}\" for {$name['original']}." ];
 		}
 		return [ 'ids' => $ids, 'error' => null ];
 	}
@@ -116,7 +131,8 @@ final class AuthorCreator {
 		array $decisions,
 		User $user,
 		string $summary,
-		bool $updateExisting = false
+		bool $updateExisting = false,
+		array $allowedKinds = [ 'person', 'collective' ]
 	): array {
 		$byIndex = [];
 		foreach ( $decisions as $decision ) {
@@ -131,33 +147,44 @@ final class AuthorCreator {
 			'created' => [],
 			'reused' => [],
 			'updated' => [],
+			'collectiveIds' => [],
 			'warnings' => [],
 			'error' => null,
 		];
 		foreach ( $names as $index => $name ) {
 			$decision = $byIndex[$index] ?? null;
 			if ( $decision === null ) {
-				$result['error'] = 'Every person name needs a decision: confirm an existing Person, '
-					. 'create a new one, or skip it. Missing: ' . $name['original'];
+				$result['error'] = 'Every author needs a decision: confirm an existing entity, '
+					. 'create a new one, or remove it. Missing: ' . $name['original'];
+				return $result;
+			}
+			$kind = $this->kindOf( $name );
+			if ( !in_array( $kind, $allowedKinds, true ) ) {
+				$result['error'] = $kind === 'collective'
+					? 'A collective cannot be a group member: ' . $name['original']
+					: 'A person cannot be a collective author: ' . $name['original'];
 				return $result;
 			}
 			$action = (string)( $decision['action'] ?? '' );
 			$qid = strtoupper( trim( (string)( $decision['qid'] ?? '' ) ) );
-			$details = is_array( $decision['person'] ?? null ) ? $decision['person'] : [];
+			$details = is_array( $decision[$kind] ?? null ) ? $decision[$kind] : [];
 
 			switch ( $action ) {
 				case 'skip':
 					break;
 				case 'reuse':
-					$person = $this->loadPerson( $qid );
-					if ( $person === null ) {
-						$result['error'] = "Person \"{$qid}\" is not an existing Person item.";
+					$entity = $this->loadAgent( $qid, $kind );
+					if ( $entity === null ) {
+						$result['error'] = "{$qid} is not an existing {$kind} item.";
 						return $result;
 					}
 					$result['ids'][] = $qid;
 					$result['reused'][] = $qid;
+					if ( $kind === 'collective' ) {
+						$result['collectiveIds'][] = $qid;
+					}
 					if ( $updateExisting && $details !== [] ) {
-						$error = $this->updatePerson( $person, $details, $user, $summary );
+						$error = $this->updateAgent( $entity, $kind, $details, $user, $summary );
 						if ( $error !== null ) {
 							$result['error'] = $error;
 							return $result;
@@ -166,50 +193,72 @@ final class AuthorCreator {
 					}
 					break;
 				case 'create':
-					$created = $this->createOrReusePerson( $name, $details, $user, $summary, $result );
+					$created = $this->createOrReuseAgent( $name, $kind, $details, $user, $summary, $result );
 					if ( $created === null ) {
 						return $result;
 					}
 					$result['ids'][] = $created;
+					if ( $kind === 'collective' ) {
+						$result['collectiveIds'][] = $created;
+					}
 					break;
 				case 'update':
-					$person = $this->loadPerson( $qid );
-					if ( $person === null ) {
-						$result['error'] = "Person \"{$qid}\" is not an existing Person item.";
+					$entity = $this->loadAgent( $qid, $kind );
+					if ( $entity === null ) {
+						$result['error'] = "{$qid} is not an existing {$kind} item.";
 						return $result;
 					}
-					$error = $this->updatePerson( $person, $details, $user, $summary );
+					$error = $this->updateAgent( $entity, $kind, $details, $user, $summary );
 					if ( $error !== null ) {
 						$result['error'] = $error;
 						return $result;
 					}
 					$result['ids'][] = $qid;
 					$result['updated'][] = $qid;
+					if ( $kind === 'collective' ) {
+						$result['collectiveIds'][] = $qid;
+					}
 					break;
 				default:
-					$result['error'] = "Unknown decision \"{$action}\" for person {$name['original']}.";
+					$result['error'] = "Unknown decision \"{$action}\" for {$name['original']}.";
 					return $result;
 			}
 		}
 		return $result;
 	}
 
+	/** @param array<string,mixed> $name */
+	private function kindOf( array $name ): string {
+		return ( $name['kind'] ?? 'person' ) === 'collective' ? 'collective' : 'person';
+	}
+
 	/**
-	 * Creates a Person, or reuses the exact-label Person when one exists.
+	 * Creates the decided entity, or reuses the exact-label entity when one
+	 * exists. A kind=collective row creates an organisation/collective item
+	 * (with its Collective: page) — the explicit ORG: declaration.
 	 *
-	 * @param array{original:string,givenName:string,familyName:string,familyFirst:bool,flags:list<string>} $name
+	 * @param array{original:string,givenName:string,familyName:string,familyFirst:bool,flags:list<string>,kind?:string} $name
 	 * @param array<string,mixed> $details
 	 * @param array{ids:list<string>,created:list<string>,reused:list<string>,updated:list<string>,warnings:list<string>,error:string|null} $result
 	 */
-	private function createOrReusePerson( array $name, array $details, User $user, string $summary, array &$result ): ?string {
-		$record = $this->personRecord( $name, $details );
-		$label = $this->flow->labelFor( 'person', $record );
+	private function createOrReuseAgent(
+		array $name,
+		string $kind,
+		array $details,
+		User $user,
+		string $summary,
+		array &$result
+	): ?string {
+		$record = $kind === 'collective'
+			? $this->collectiveRecord( $name, $details )
+			: $this->personRecord( $name, $details );
+		$label = $this->flow->labelFor( $kind, $record );
 		$language = SemanticEntityFlowService::termLanguage( $record );
 		$exact = ItemLabelLookup::findIdByLabel( $label, $language );
 		if ( $exact !== null ) {
-			$person = $this->loadPerson( $exact );
-			if ( $person === null ) {
-				$result['error'] = "The exact-label item {$exact} for \"{$label}\" is not a Person.";
+			$existing = $this->loadAgent( $exact, $kind );
+			if ( $existing === null ) {
+				$result['error'] = "The exact-label item {$exact} for \"{$label}\" is not a {$kind}.";
 				return null;
 			}
 			$result['reused'][] = $exact;
@@ -217,19 +266,23 @@ final class AuthorCreator {
 			return $exact;
 		}
 
-		$error = $this->flow->prepare( 'person', $record, true );
+		$error = $this->flow->prepare( $kind, $record, true );
 		if ( $error !== null ) {
 			$result['error'] = $error;
 			return null;
 		}
-		$item = $this->flow->buildItem( 'person', $record );
+		$item = $this->flow->buildItem( $kind, $record );
 		$store = WikibaseRepo::getEntityStore();
 		$store->saveEntity( $item, $summary, $user, EDIT_NEW );
 		StatementGuidAssigner::ensureGuids( $item, new GuidGenerator() );
 		$store->saveEntity( $item, $summary, $user, EDIT_UPDATE );
 		$itemId = $item->getId()->getSerialization();
 
-		$this->createPersonPage( $itemId, $label, $record, $user );
+		if ( $kind === 'collective' ) {
+			$this->createCollectivePage( $itemId, $label, $record, $user );
+		} else {
+			$this->createPersonPage( $itemId, $label, $record, $user );
+		}
 		$result['created'][] = $itemId;
 		return $itemId;
 	}
@@ -237,7 +290,10 @@ final class AuthorCreator {
 	/**
 	 * @param array<string,mixed> $details
 	 */
-	private function updatePerson( Item $item, array $details, User $user, string $summary ): ?string {
+	private function updateAgent( Item $item, string $kind, array $details, User $user, string $summary ): ?string {
+		if ( $kind === 'collective' ) {
+			return $this->updateCollective( $item, $details, $user, $summary );
+		}
 		$record = $this->personRecord(
 			[
 				'original' => '',
@@ -266,6 +322,33 @@ final class AuthorCreator {
 		$this->flow->applyUpdate( 'person', $item, $record );
 		$language = SemanticEntityFlowService::termLanguage( $record );
 		$label = trim( (string)( $record['givenName'] ?? '' ) . ' ' . (string)( $record['familyName'] ?? '' ) );
+		if ( $label !== '' ) {
+			$item->setLabel( $language, $label );
+		}
+		$description = trim( (string)( $record['description'] ?? '' ) );
+		if ( $description !== '' ) {
+			$item->setDescription( $language, $description );
+		}
+		WikibaseRepo::getEntityStore()->saveEntity( $item, $summary, $user, EDIT_UPDATE );
+		return null;
+	}
+
+	/**
+	 * @param array<string,mixed> $details
+	 */
+	private function updateCollective( Item $item, array $details, User $user, string $summary ): ?string {
+		$record = $this->collectiveRecord(
+			[ 'original' => '', 'givenName' => '', 'familyName' => '', 'familyFirst' => false, 'flags' => [] ],
+			$details,
+			false
+		);
+		$error = $this->flow->prepare( 'collective', $record, false );
+		if ( $error !== null ) {
+			return $error;
+		}
+		$this->flow->applyUpdate( 'collective', $item, $record );
+		$language = SemanticEntityFlowService::termLanguage( $record );
+		$label = trim( (string)( $record['label'] ?? '' ) );
 		if ( $label !== '' ) {
 			$item->setLabel( $language, $label );
 		}
@@ -311,6 +394,36 @@ final class AuthorCreator {
 		return $record;
 	}
 
+	/**
+	 * The flow record for a collective: the ORG name + the popup details.
+	 *
+	 * @param array<string,mixed> $name
+	 * @param array<string,mixed> $details
+	 * @return array<string,mixed>
+	 */
+	private function collectiveRecord( array $name, array $details, bool $useParsedName = true ): array {
+		$record = [];
+		$allowed = [
+			'label', 'description', 'labelLanguage', 'collectiveClass',
+			'parentOrganization', 'officialWebsite', 'wikidataId',
+		];
+		foreach ( $allowed as $field ) {
+			if ( array_key_exists( $field, $details ) && $details[$field] !== null && $details[$field] !== '' ) {
+				$record[$field] = $details[$field];
+			}
+		}
+		if ( $useParsedName && empty( $record['label'] ) && trim( (string)( $name['familyName'] ?? '' ) ) !== '' ) {
+			$record['label'] = trim( (string)$name['familyName'] );
+		}
+		if ( empty( $record['labelLanguage'] ) ) {
+			$record['labelLanguage'] = 'en';
+		}
+		if ( empty( $record['collectiveClass'] ) ) {
+			$record['collectiveClass'] = $this->config->agentClasses()['organization'] ?? 'organization';
+		}
+		return $record;
+	}
+
 	/** A Person item by id, or null (an existing non-Person id is rejected). */
 	private function loadPerson( string $qid ): ?Item {
 		if ( preg_match( '/^Q[1-9]\d*$/', $qid ) !== 1 ) {
@@ -332,6 +445,42 @@ final class AuthorCreator {
 	}
 
 	/**
+	 * Loads a Person or a collective (any non-person agent class) by id.
+	 */
+	private function loadAgent( string $qid, string $kind ): ?Item {
+		if ( $kind === 'person' ) {
+			return $this->loadPerson( $qid );
+		}
+		if ( preg_match( '/^Q[1-9]\d*$/', $qid ) !== 1 ) {
+			return null;
+		}
+		$entity = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $qid ) );
+		if ( !$entity instanceof Item ) {
+			return null;
+		}
+		$personClass = $this->config->agentClasses()['person'] ?? null;
+		if ( $personClass !== null && EntityClassFilter::hasAnyClass(
+			$entity,
+			[ $personClass ],
+			$this->config->instanceOfPropertyId()
+		) ) {
+			return null;
+		}
+		$collectiveClasses = array_values( array_diff(
+			$this->config->agentClasses(),
+			$personClass !== null ? [ $personClass ] : []
+		) );
+		if ( $collectiveClasses === [] ) {
+			return $entity;
+		}
+		return EntityClassFilter::hasAnyClass(
+			$entity,
+			$collectiveClasses,
+			$this->config->instanceOfPropertyId()
+		) ? $entity : null;
+	}
+
+	/**
 	 * Creates the classic Person: page + sitelink (the AddPerson machinery).
 	 *
 	 * @param array<string,mixed> $record
@@ -343,6 +492,25 @@ final class AuthorCreator {
 		$record['itemId'] = $itemId;
 		$this->pageCreator->createFor(
 			new ClassicPageSpec( NS_PERSON, 'Person' ),
+			$label,
+			$record,
+			$user
+		);
+	}
+
+	/**
+	 * Creates the classic Collective: page + sitelink (the AddCollective
+	 * machinery) for an ORG: author created from the panel.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	private function createCollectivePage( string $itemId, string $label, array $record, User $user ): void {
+		if ( !defined( 'NS_COLLECTIVE' ) ) {
+			return;
+		}
+		$record['itemId'] = $itemId;
+		$this->pageCreator->createFor(
+			new ClassicPageSpec( NS_COLLECTIVE, 'Collective' ),
 			$label,
 			$record,
 			$user

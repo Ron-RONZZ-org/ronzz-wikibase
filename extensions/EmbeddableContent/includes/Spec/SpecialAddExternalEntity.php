@@ -2390,12 +2390,15 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			}
 			$choices = $decoded;
 		}
+		$allowedKinds = $prefix === 'member' ? [ 'person' ] : [ 'person', 'collective' ];
 		if ( $commit ) {
 			$result = $this->personCreator()->applyDecisions(
 				$parsed['names'],
 				$choices,
 				$this->getUser(),
-				$this->msg( 'embeddablecontent-person-create-summary' )->inContentLanguage()->text()
+				$this->msg( 'embeddablecontent-person-create-summary' )->inContentLanguage()->text(),
+				false,
+				$allowedKinds
 			);
 			if ( $result['error'] !== null ) {
 				return $result['error'];
@@ -2404,8 +2407,14 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 				wfDebugLog( 'EmbeddableContent', $prefix . '-panel: ' . $warning );
 			}
 			$newIds = $result['ids'];
+			if ( $prefix === 'author' && !empty( $result['collectiveIds'] ) ) {
+				$record['collectiveAuthorIds'] = implode(
+					', ',
+					array_unique( $result['collectiveIds'] )
+				);
+			}
 		} else {
-			$result = $this->personCreator()->validateDecisions( $parsed['names'], $choices );
+			$result = $this->personCreator()->validateDecisions( $parsed['names'], $choices, $allowedKinds );
 			if ( $result['error'] !== null ) {
 				return $result['error'];
 			}
@@ -2452,7 +2461,13 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			->options( $this->getLanguage()->getCode() );
 		$this->getOutput()->addJsConfigVars( 'wbAdditionalStatementDatatypes', $catalog['datatypes'] );
 		$this->getOutput()->addModules( 'ext.embeddableContent.additionalstatements' );
-		return \EmbeddableContent\Fields\AdditionalStatementsCloner::spec( $rows, $catalog['options'] );
+		return \EmbeddableContent\Fields\AdditionalStatementsCloner::spec(
+			$rows,
+			$catalog['options'],
+			$item instanceof Item
+				? 'embeddablecontent-additional-statements-help-update'
+				: 'embeddablecontent-additional-statements-help'
+		);
 	}
 
 	/**
@@ -3046,6 +3061,27 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			// fall through
 		}
 		return $itemId;
+	}
+
+	/**
+	 * The "Create it now" link for a parent field. The JS
+	 * (ext.embeddableContent.parentdialog) intercepts it and opens the real
+	 * AddSource/AddCollective flow in a dialog; the href is the JS-off
+	 * fallback.
+	 */
+	protected function parentCreateLink( string $field, string $parentKey, string $parentLabel, string $root = '' ): string {
+		$fallback = $parentKey === 'collective'
+			? \SpecialPage::getTitleFor( 'AddCollective' )->getFullURL()
+			: $this->stepTitle( $parentKey )->getFullURL();
+		return $this->msg( 'embeddablecontent-source-parent-create', $parentLabel )->parse()
+			. ' <a href="' . htmlspecialchars( $fallback ) . '"'
+			. ' class="wb-parent-create"'
+			. ' data-parent-class="' . htmlspecialchars( $parentKey ) . '"'
+			. ' data-parent-label="' . htmlspecialchars( $parentLabel ) . '"'
+			. ' data-parent-url="' . htmlspecialchars( $root ) . '"'
+			. ' data-field="' . htmlspecialchars( $field ) . '">'
+			. $this->msg( 'embeddablecontent-source-parent-create-link' )->escaped()
+			. '</a>';
 	}
 
 	/** @return string[] */

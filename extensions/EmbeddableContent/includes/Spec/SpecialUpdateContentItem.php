@@ -135,6 +135,7 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 			$fields['translations']['default'] = $record['translations'];
 		}
 		if ( isset( $fields['additionalStatements'] ) && $this->updateItem instanceof Item ) {
+			$fields['additionalStatements']['help-message'] = 'embeddablecontent-additional-statements-help-update';
 			$kind = $this->getKind() === 'code' ? 'code-snippet' : $this->getKind();
 			$managed = array_keys( $this->contentFlow()->statementSpecs( $kind, $record ) );
 			$managed[] = $this->config->instanceOfPropertyId();
