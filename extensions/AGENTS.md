@@ -1816,7 +1816,12 @@ report). See `SimpleMathJax/VENDORED.md`.
   local file or URL (`ImageUploadHelper::replaceFile`, page text preserved).
   File edit pages show a warning banner with “Update basic information” /
   Dismiss. `maintenance/backfillImageFacts.php` migrates the existing static
-  blocks.
+  blocks. Item identity for an upload is the File: page **sitelink**, never a
+  bare label match: a same-label article/other item is not reused (the
+  collision is logged) and the upload gets its own image item
+  (`ItemIdentityPolicy`; the reverse `PageItemCreator` skips image/File: items
+  the same way). Without this, `File:Logic.png` reused the article item
+  "Logic" and silently dropped every fact (fixed 2026-11-08).
 - **`Special:UpdateCollective`** shows an editable Class select
   (reclassification via `withChosenClass()` → `instance of` replacement).
 - **`affiliated with`** (P1416-aligned, multi-value) joins the person

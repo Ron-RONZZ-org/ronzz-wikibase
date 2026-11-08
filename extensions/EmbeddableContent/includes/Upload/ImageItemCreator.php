@@ -6,6 +6,8 @@ namespace EmbeddableContent\Upload;
 
 use DataValues\StringValue;
 use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\EntityClassFilter;
+use EmbeddableContent\ItemIdentityPolicy;
 use MediaWiki\Title\Title;
 use MediaWiki\User\User;
 use Wikibase\DataModel\Entity\EntityIdValue;
@@ -41,7 +43,10 @@ use Wikimedia\Rdbms\DBError;
  *
  * Mirrors the base SpecialAddExternalEntity create-or-skip + sitelink
  * pattern (label reuse is idempotent; existing sitelink state is never
- * rewritten). Never fatal: a missing vocabulary key (unconfigured instance)
+ * rewritten). Identity by LABEL is guarded: a same-label item that is not
+ * this file page's image item (e.g. the article item "Logic" for
+ * File:Logic.png) is never reused — the upload gets its own item instead
+ * (ItemIdentityPolicy). Never fatal: a missing vocabulary key (unconfigured instance)
  * skips the item silently — the file upload itself is unaffected.
  *
  * @license GPL-2.0-or-later
@@ -87,7 +92,10 @@ final class ImageItemCreator {
 			return null;
 		}
 
-		$existing = self::findItemIdByLabel( $label );
+		$existing = self::findSitelinkedItemId( $filePageName );
+		if ( $existing === null ) {
+			$existing = self::findReusableLabelMatch( $label, $filePageName, $config );
+		}
 		if ( $existing !== null ) {
 			self::assertSitelink( $existing, $filePageName, $user, $editSummary );
 			if ( $replaceExistingFacts || $clearFields !== [] ) {
@@ -396,6 +404,81 @@ final class ImageItemCreator {
 		// Also write the sitelink table synchronously (the entity save's
 		// secondary data update may run deferred — the Add* pattern).
 		WikibaseRepo::getStore()->newSiteLinkStore()->saveLinksOfItem( $item );
+	}
+
+	/**
+	 * The item sitelinked to this File: page — the authoritative one-item-
+	 * per-file identity, or null when the page is unconnected.
+	 */
+	private static function findSitelinkedItemId( string $filePageName ): ?string {
+		try {
+			$id = WikibaseRepo::getStore()->newSiteLinkStore()
+				->getItemIdForLink( 'wikibase', $filePageName );
+		} catch ( \Throwable $e ) {
+			wfLogWarning( 'EmbeddableContent: sitelink lookup failed for '
+				. $filePageName . ': ' . $e->getMessage() );
+			return null;
+		}
+		return $id?->getSerialization();
+	}
+
+	/**
+	 * A LABEL match may be reused only when it IS this File: page's image
+	 * item (see ItemIdentityPolicy). A same-label item belonging to another
+	 * page (an article named like the uploaded file) is rejected — and
+	 * logged, so the collision is observable instead of silently dropping
+	 * the upload's facts. Returns null when a new item must be created.
+	 */
+	private static function findReusableLabelMatch(
+		string $label,
+		string $filePageName,
+		EmbeddableContentConfig $config
+	): ?string {
+		$candidate = self::findItemIdByLabel( $label );
+		if ( $candidate === null ) {
+			return null;
+		}
+		try {
+			$entity = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $candidate ) );
+		} catch ( \Throwable $e ) {
+			wfLogWarning( "EmbeddableContent: could not load label candidate {$candidate}: "
+				. $e->getMessage() );
+			return null;
+		}
+		if ( !$entity instanceof Item ) {
+			return null;
+		}
+		$sitelinkPage = self::sitelinkPage( $entity );
+		$isImageItem = self::isImageItem( $entity, $config );
+		if ( ItemIdentityPolicy::canAdoptFileLabelMatch( $filePageName, $sitelinkPage, $isImageItem ) ) {
+			return $candidate;
+		}
+		wfLogWarning( sprintf(
+			'EmbeddableContent: image item label collision for %s — %s is not this file page'
+				. ' (sitelink: %s, image class: %s); creating a new item',
+			$filePageName,
+			$candidate,
+			$sitelinkPage ?? '(none)',
+			$isImageItem ? 'yes' : 'no'
+		) );
+		return null;
+	}
+
+	/** The item's `wikibase` sitelink page name, or null. */
+	private static function sitelinkPage( Item $item ): ?string {
+		$links = $item->getSiteLinkList();
+		return $links->hasLinkWithSiteId( 'wikibase' )
+			? $links->getBySiteId( 'wikibase' )->getPageName()
+			: null;
+	}
+
+	/** Whether the item is `instance of` the configured image class. */
+	private static function isImageItem( Item $item, EmbeddableContentConfig $config ): bool {
+		$classId = $config->imageClasses()['image'] ?? null;
+		if ( $classId === null ) {
+			return false;
+		}
+		return EntityClassFilter::hasClass( $item, $classId, $config->instanceOfPropertyId() );
 	}
 
 	/** Item id whose English label matches exactly (case-insensitive), or null. */
