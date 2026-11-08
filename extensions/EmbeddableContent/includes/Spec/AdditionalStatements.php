@@ -190,7 +190,15 @@ final class AdditionalStatements {
 		} catch ( \Throwable $e ) {
 			return null;
 		}
-		return $info?->getDataTypeId();
+		// PropertyInfoLookup::getPropertyInfo() returns the property-info
+		// ARRAY (Wikibase 1.43+), not an object. Calling getDataTypeId() on
+		// it was the "Call to a member function getDataTypeId() on array"
+		// fatal on Special:UpdateSource.
+		if ( !is_array( $info ) ) {
+			return null;
+		}
+		$datatype = $info[\Wikibase\Lib\Store\PropertyInfoLookup::KEY_DATA_TYPE] ?? null;
+		return is_string( $datatype ) && $datatype !== '' ? $datatype : null;
 	}
 
 	private static function dataValue( string $datatype, string $value ): ?DataValue {
