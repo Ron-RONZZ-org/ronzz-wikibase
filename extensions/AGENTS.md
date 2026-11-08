@@ -889,6 +889,14 @@ report). See `SimpleMathJax/VENDORED.md`.
   form→record conversion of the Add* submit was extracted to
   `SpecialAddContentItem::flowRecordFromForm()` so the Add and the Update
   forms share one vocabulary (drift-proof, the API/forms contract rule).
+  **"Edit content" launched from the "Add more" popup returns to the
+  reopened form**: `addMoreEditUrl()` marks the popup's Update URL
+  `?fromaddmore=1`; `SpecialUpdateContentItem` carries it as a hidden field
+  and, on submit, redirects back to the Add* page with
+  `?addmore=1&created=<Qid>` (plus the carried provenance fields), so the
+  success popup reopens showing the just-edited item — Cancel returns to
+  the same reopened form. The AddSource law-flow contract, applied to the
+  content kinds.
 
 - **Upload UX fixes (upload-ux-fixes ADR, todo.md batch)**: (a)
   `uploadmeta.js` validate is latest-wins — a per-URL-field generation
