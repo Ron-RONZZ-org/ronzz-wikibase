@@ -4697,7 +4697,9 @@ def flow_source_marked_title_page(op, base: str, api: str, author_qid: str) -> t
 
 
 def flow_update_source_access_collapsed(op, base: str, api: str, qid: str,
-                                        new_description: str, file_prop: str) -> None:
+                                        new_description: str, file_prop: str,
+                                        license_prop: str = "",
+                                        license_qid: str = "") -> None:
     """UpdateSource access collapse: the access section (mode + URL +
     download/file + license) is hidden behind the "I will update the
     resource access instructions" checkbox; an unchecked submit (the
@@ -4736,8 +4738,21 @@ def flow_update_source_access_collapsed(op, base: str, api: str, qid: str,
     if entity_descriptions(op, api, qid) != new_description:
         raise FlowError(f"{qid} description not updated by the collapsed submit")
     claims, _ = entity_claims(op, api, qid)
-    if not first_value(claims, file_prop):
+    file_claims = claims.get(file_prop, [])
+    if not file_claims:
         raise FlowError(f"{qid} access FILE statement lost by the collapsed update")
+    if license_prop and license_qid:
+        qualifier_values = []
+        for stmt in file_claims:
+            for qual in stmt.get("qualifiers", {}).get(license_prop, []):
+                value = qual.get("datavalue", {}).get("value")
+                if isinstance(value, dict):
+                    value = value.get("id", value)
+                qualifier_values.append(value)
+        if license_qid not in qualifier_values:
+            raise FlowError(
+                f"{qid} access FILE licence qualifier lost by the collapsed update "
+                f"({qualifier_values!r})")
 
 
 def flow_cite_by_qid(op, base: str, api: str, book_qid: str, quote_qid: str, extra_source_qid: str) -> None:
@@ -5859,7 +5874,9 @@ def main() -> int:
         #     access statements UNTOUCHED — the file statement survives, a
         #     changed description still lands.
         collapsed_desc = f"Updated by the collapsed access update {int(time.time())}"
-        flow_update_source_access_collapsed(op, base, api, access_book, collapsed_desc, file_prop)
+        flow_update_source_access_collapsed(
+            op, base, api, access_book, collapsed_desc, file_prop,
+            license_prop, license_qid)
         claims, _ = entity_claims(op, api, access_book)
         assert first_value(claims, file_prop) and first_value(claims, license_prop) == license_qid, \
             f"{access_book} access statements clobbered by the collapsed update"
