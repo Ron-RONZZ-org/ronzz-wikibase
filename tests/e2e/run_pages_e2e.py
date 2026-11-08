@@ -856,8 +856,10 @@ def flow_source_class_first(op, base: str, api: str, class_key: str, search_fiel
     url, body = page_post(op, url, fields)
     m = re.search(rf"/wiki/Special:AddSource/{class_key}/([0-9a-f]+)$", url)
     if not m:
+        snippet = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", body))[:700]
         raise FlowError(
-            f"AddSource/{class_key} search did not redirect to a selection page: {url} {find_error(body)}")
+            f"AddSource/{class_key} search did not redirect to a selection page: "
+            f"{url} {find_error(body)} | {snippet}")
     token = m.group(1)
 
     # Regression (Add*-expiry fix): the candidate records live in a long-TTL
