@@ -85,7 +85,30 @@ final class ItemImage {
 
 		$titles = self::fileTitles( $entity, $config );
 		if ( $titles === [] ) {
-			return $empty;
+			$debug = [];
+			foreach ( array_unique( array_filter( [
+				$config->personPropertyIds()['image'] ?? null,
+				$config->collectivePropertyIds()['image'] ?? null,
+				$config->fossPropertyIds()['image'] ?? null,
+				$config->imagePropertyIds()['image'] ?? null,
+			] ) ) as $pid ) {
+				try {
+					$id = new NumericPropertyId( $pid );
+				} catch ( \Throwable $e ) {
+					continue;
+				}
+				foreach ( $entity->getStatements()->getByPropertyId( $id ) as $stmt ) {
+					$snak = $stmt->getMainSnak();
+					if ( $snak instanceof PropertyValueSnak && $snak->getDataValue() instanceof StringValue ) {
+						$debug[] = $pid . '=' . $snak->getDataValue()->getValue();
+					}
+				}
+			}
+			return [
+				'text' => '<!-- wb-item-image-empty: ' . htmlspecialchars( implode( ' | ', $debug ) ) . ' -->',
+				'noparse' => false,
+				'isHTML' => true,
+			];
 		}
 		$parser->getOutput()->addModules( 'ext.embeddableContent.imagegallery' );
 		try {
