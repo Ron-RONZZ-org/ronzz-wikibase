@@ -1530,7 +1530,15 @@ report). See `SimpleMathJax/VENDORED.md`.
   Source-filename area (switch to File + fill the picker + `change`, so the
   shared preview/resize runs), with a hint + drop highlight
   (`uploadform.css`) and a notification fallback when `FileList` is not
-  settable.
+  settable. **Clipboard submission fix (2026-11-08):** OOUI submits the
+  source through a hidden `wpSourceType` input; the paste path switched only
+  the visible File radio, so the hidden value stayed `Url` and the pasted
+  file was posted as a URL upload (submission never landed).
+  `selectSourceType()` now updates both. `uploadimage.js::syncDest()` no
+  longer dispatches a `change` on `#wpDestFile` when the name is unchanged,
+  and its submit-button sync is silent — core inserts an uploadwarning
+  spinner on every `change`, so repeated clicks accumulated spinners and
+  aborted API calls.
   (c) **Printable-version enhancements** — `ext.embeddableContent.print`
   (loaded on existing article pages; Special:/Item:/Property:/File:
   excluded) sets `wbPrintTitle = Title::getSubpageText()` (namespace +
@@ -1816,7 +1824,20 @@ report). See `SimpleMathJax/VENDORED.md`.
   comma-separated lists, one `part of`/`parent organization` statement per
   id; Update* prefills every stored id and a blank value keeps them
   (no-clobber), while book-excerpt/law inference uses the first parent.
-  No seed/config/LocalSettings change.
+
+  **Framing + author parity (2026-11-08):** the iframe only works when the
+  instance sends `X-Frame-Options: SAMEORIGIN`, not MediaWiki's default
+  `DENY` (`$wgEditPageFrameOptions = 'SAMEORIGIN'` in production
+  LocalSettings and `dev/config/Extensions.php` — otherwise the browser
+  shows the "page cannot be displayed in another site" error). The author
+  panel's CREATE path now opens the REAL `Special:AddPerson/manual` /
+  `Special:AddCollective/manual` page in the same dialog
+  (`authorsearch-dialogs.js::openRealCreateDialog`), so it has the dedicated
+  pages' full field set incl. portrait/logo upload; `givenName`,
+  `familyName` and the collective `label` ride the URL prefill.
+  `wbdialogkind=author` selects the author message; the parent path is
+  unchanged. The compact API form remains for editing an existing
+  candidate and for the batch "Add all members" path.
 - **Semantic-first File pages**: `{{#image-facts:}}` renders
   Licensing/Attribution from the sitelinked image item (parser-cache
   dependent); itemized uploads write it instead of static text. New
@@ -1859,7 +1880,12 @@ report). See `SimpleMathJax/VENDORED.md`.
   the item's non-managed supported statements and applied as a diff
   (unchanged rows keep their GUID/qualifiers/references). Managed properties
   and `instance of` are rejected. Form-only; the API/MCP contracts are
-  unchanged.
+  unchanged. **UpdateSource fix (2026-11-08):** `PropertyInfoLookup::
+  getPropertyInfo()` returns an info ARRAY in Wikibase 1.43+, not an object;
+  `datatype()` read `getDataTypeId()` on it and fataled with "Call to a
+  member function getDataTypeId() on array". The `instance of` property is
+  also added to the update cloner's managed set (Source statementSpecs omit
+  it, so it leaked in as an extra row and reached `applyDiff()`).
 - **Author-year mention**: Source pages copy `[[Source:X|name-author]]`;
   `Spec/AuthorYearMention` derives the current caption and
   `onHtmlPageLinkRendererBegin` renders it italic, tagging the link so
