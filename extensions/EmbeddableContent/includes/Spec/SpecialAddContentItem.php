@@ -89,19 +89,75 @@ abstract class SpecialAddContentItem extends SpecialPage {
 			return;
 		}
 		$this->getOutput()->addJsConfigVars( 'wbJustAddedItem', $id->getSerialization() );
-		$updatePages = [
+		$editUrl = $this->addMoreEditUrl( $id->getSerialization() );
+		if ( $editUrl !== null ) {
+			$this->getOutput()->addJsConfigVars( 'wbJustAddedEditUrl', $editUrl );
+		}
+		$this->getOutput()->addModules( 'ext.embeddableContent.addmore' );
+	}
+
+	/** The Update* page that edits this kind, or null when it has none. */
+	protected function updatePageName(): ?string {
+		return [
 			'quotation' => 'UpdateQuotation',
 			'math' => 'UpdateMath',
 			'code' => 'UpdateCodeSnippet',
-		];
-		$updatePage = $updatePages[$this->getKind()] ?? null;
-		if ( $updatePage !== null ) {
-			$this->getOutput()->addJsConfigVars(
-				'wbJustAddedEditUrl',
-				SpecialPage::getTitleFor( $updatePage, $id->getSerialization() )->getFullURL()
-			);
+		][$this->getKind()] ?? null;
+	}
+
+	/**
+	 * The Add* page that owns this kind's creation form. Resolved by name
+	 * (not `getPageTitle()`) because the Update* subclasses inherit this
+	 * method and must return the Add page, not their own title.
+	 */
+	protected function addPageName(): ?string {
+		return [
+			'quotation' => 'AddQuotation',
+			'math' => 'AddMath',
+			'code' => 'AddCodeSnippet',
+		][$this->getKind()] ?? null;
+	}
+
+	/**
+	 * The Update* page URL for the just-added item (the "Add more" popup's
+	 * primary button), or null when the kind has no Update page. The
+	 * fromaddmore marker makes the Update form return here on submit (the
+	 * popup reopens with the just-edited item) and on cancel — the AddSource
+	 * law-flow contract.
+	 */
+	protected function addMoreEditUrl( string $itemId ): ?string {
+		$updatePage = $this->updatePageName();
+		if ( $updatePage === null ) {
+			return null;
 		}
-		$this->getOutput()->addModules( 'ext.embeddableContent.addmore' );
+		return SpecialPage::getTitleFor( $updatePage, $itemId )->getFullURL( [ 'fromaddmore' => '1' ] );
+	}
+
+	/**
+	 * The URL the Update* form (opened from the "Add more" popup) returns to
+	 * on submit/cancel: this Add* page with ?addmore=1, the just-edited
+	 * item's id (`created`) so its success popup reopens, and the carried
+	 * provenance fields. Null when the kind has no Update page.
+	 *
+	 * @param array<string,string> $carry created + carried field values
+	 */
+	protected function updateAddMoreReturnUrl( array $carry = [] ): ?string {
+		$addPage = $this->addPageName();
+		if ( $addPage === null || $this->updatePageName() === null ) {
+			return null;
+		}
+		$params = [ 'addmore' => '1' ];
+		$created = trim( (string)( $carry['created'] ?? '' ) );
+		if ( $created !== '' ) {
+			$params['created'] = $created;
+		}
+		foreach ( self::CARRY_OVER_FIELDS as $name ) {
+			$value = trim( (string)( $carry[$name] ?? '' ) );
+			if ( $value !== '' ) {
+				$params[$name] = $value;
+			}
+		}
+		return SpecialPage::getTitleFor( $addPage )->getFullURL( $params );
 	}
 
 	/** @var \EmbeddableContent\Flow\SpecialContentFlowService|null lazily built */
@@ -378,7 +434,7 @@ abstract class SpecialAddContentItem extends SpecialPage {
 	}
 
 	/** Field names carried over between "Add more" submissions. */
-	private const CARRY_OVER_FIELDS = [
+	protected const CARRY_OVER_FIELDS = [
 		'attributedTo', 'source', 'sourceUrl', 'date',
 		'language', 'lexer', 'describes', 'implementationOf',
 	];
@@ -500,19 +556,20 @@ abstract class SpecialAddContentItem extends SpecialPage {
 	 * @param array<string,mixed> $data
 	 */
 	private function addMoreUrl( array $data ): string {
-		$params = [ 'addmore' => '1' ];
+		$carry = [];
 		// The created item rides the return trip so the reopened form can
 		// pop up its preview (maybeWireAddMorePopup).
 		if ( $this->createdItemId !== null ) {
-			$params['created'] = $this->createdItemId->getSerialization();
+			$carry['created'] = $this->createdItemId->getSerialization();
 		}
 		foreach ( self::CARRY_OVER_FIELDS as $name ) {
 			$value = trim( (string)( $data[$name] ?? '' ) );
 			if ( $value !== '' ) {
-				$params[$name] = $value;
+				$carry[$name] = $value;
 			}
 		}
-		return $this->getPageTitle()->getFullURL( $params );
+		return $this->updateAddMoreReturnUrl( $carry )
+			?? $this->getPageTitle()->getFullURL( [ 'addmore' => '1' ] );
 	}
 
 	public function onSubmitSuccess() {

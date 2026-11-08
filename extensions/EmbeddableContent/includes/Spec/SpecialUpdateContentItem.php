@@ -47,6 +47,13 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 	/** @var string|null the language of the prefilled label term */
 	protected ?string $updateLabelLanguage = null;
 
+	/**
+	 * Whether the update was launched from the Add* "Add more" success popup
+	 * (the fromaddmore marker on its "Edit content" button) — the submit then
+	 * reopens the Add* page with the popup showing the just-edited item.
+	 */
+	protected bool $updateReturnToAddMore = false;
+
 	public function execute( $subPage ) {
 		$this->setHeaders();
 		$this->getOutput()->addModuleStyles( 'ext.embeddableContent.embed' );
@@ -79,12 +86,28 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 			return;
 		}
 		$this->updateItem = $item;
+		// The "Add more" popup's "Edit content" button marks its URL
+		// fromaddmore=1: the submit reopens the Add* page with the success
+		// popup showing the just-edited item (the AddSource law-flow shape).
+		// The wp-prefixed value keeps the marker across a validation-error
+		// re-render (the POST loses the query string but carries the hidden
+		// field's value).
+		$request = $this->getRequest();
+		$this->updateReturnToAddMore = $request->getVal( 'fromaddmore' ) === '1'
+			|| (string)$request->getVal( 'wpfromaddmore' ) === '1';
 
 		// Prefill the shared Add* form from the item's statements, then
 		// drop the create-only "Add more" button.
 		$fields = $this->prefilledFields( $this->recordFromItem( $item ) );
+		if ( $this->updateReturnToAddMore ) {
+			// The query string is lost on POST; carry the marker across.
+			$fields['fromaddmore'] = [ 'type' => 'hidden', 'default' => '1' ];
+		}
 		$itemUrl = WikibaseRepo::getEntityTitleStoreLookup()
 			->getTitleForId( new ItemId( $itemId ) )->getFullURL();
+		$cancelTarget = $this->updateReturnToAddMore
+			? ( $this->updateAddMoreReturnUrl() ?? $itemUrl )
+			: $itemUrl;
 		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
 		$form->setTitle( $this->getPageTitle( $itemId ) )
 			->setSubmitTextMsg( 'embeddablecontent-update-submit' )
@@ -92,9 +115,10 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 			->setSubmitID( 'wb-ext-update-content' )
 			->setWrapperLegendMsg( 'embeddablecontent-update-content-legend' )
 			// Content items carry no classic page: Cancel returns to the
-			// item page. HTMLForm's built-in cancel primitive.
+			// item page, or to the reopened Add* form when the edit was
+			// launched from the "Add more" popup (fromaddmore).
 			->showCancel( true )
-			->setCancelTarget( $itemUrl );
+			->setCancelTarget( $cancelTarget );
 		$form->show();
 		if ( $this->getKind() === 'math' ) {
 			$this->addMathPreviewBox();
@@ -298,6 +322,9 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 			return $this->msg( 'embeddablecontent-update-notfound', '' )->text();
 		}
 		$itemId = $item->getId()->getSerialization();
+		// The addmore-return marker rides the hidden field (the query string
+		// is lost on POST).
+		$this->updateReturnToAddMore = (string)( $data['fromaddmore'] ?? '' ) === '1';
 
 		$converted = $this->flowRecordFromForm( $data );
 		if ( $converted['error'] !== null ) {
@@ -348,6 +375,22 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 			\EmbeddableContent\Spec\QuotationLookup::invalidateClassicPages( $invalid );
 		} catch ( \Throwable $e ) {
 			return $this->msg( 'embeddablecontent-update-error', get_class( $e ), $e->getMessage() )->text();
+		}
+		// The "Add more" return wins: back to the reopened Add* page with
+		// ?created=<Qid>, so its success popup shows the just-edited item
+		// (the AddSource law-flow contract).
+		if ( $this->updateReturnToAddMore ) {
+			$carry = [ 'created' => $itemId ];
+			foreach ( self::CARRY_OVER_FIELDS as $name ) {
+				if ( isset( $data[$name] ) ) {
+					$carry[$name] = (string)$data[$name];
+				}
+			}
+			$returnUrl = $this->updateAddMoreReturnUrl( $carry );
+			if ( $returnUrl !== null ) {
+				$this->getOutput()->redirect( $returnUrl );
+				return true;
+			}
 		}
 		$this->getOutput()->redirect(
 			WikibaseRepo::getEntityTitleStoreLookup()->getTitleForId( $item->getId() )->getFullURL()

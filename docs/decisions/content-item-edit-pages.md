@@ -67,6 +67,23 @@ the shared `.wb-embed-toolbar` (`updatebutton.js` reads
 semantic entities). A config without the content vocabulary degrades to no
 content button and never breaks the other mappings.
 
+### 4. "Edit content" from the "Add more" popup returns to the reopened form
+
+The "Add more" success popup (`resources/addmore.js`) offers "Edit content"
+for the just-added item. Its Update URL now carries `?fromaddmore=1`, and
+the Update form carries that marker as a hidden field (the query string is
+lost on POST). On a successful submit the form redirects back to the Add*
+page with `?addmore=1&created=<Qid>` (plus the submitted provenance fields
+carried over, the same `CARRY_OVER_FIELDS` the Add flow uses), so the
+success popup reopens and shows the just-edited item — the contributor can
+correct an entry and keep adding from the same form. Cancel returns to the
+same reopened Add* form (without the popup). Without the marker the Update
+form keeps its original behaviour (redirect to `Item:`).
+
+This is the `Special:AddSource`/`UpdateExternalEntityFlow` `fromaddmore`
+contract, applied to the content kinds (`SpecialAddContentItem::
+addMoreEditUrl()` / `updateAddMoreReturnUrl()`).
+
 ## Consequences
 
 - Editing a quotation/code/math item now shows real multi-line content and

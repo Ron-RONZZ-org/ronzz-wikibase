@@ -225,8 +225,9 @@ async function main() {
 			});
 			if (!popupState.preview.includes('ORIGINAL-TEXT')) {
 				failures.push('Add* popup preview did not show the just-added quotation');
-			} else if (!popupState.editHref || !popupState.editHref.includes('UpdateQuotation')) {
-				failures.push('Add* popup missing the "Edit content" link');
+			} else if (!popupState.editHref || !popupState.editHref.includes('UpdateQuotation')
+					|| !popupState.editHref.includes('fromaddmore=1')) {
+				failures.push('Add* popup "Edit content" link is missing UpdateQuotation/fromaddmore');
 			} else if (!popupState.hasEmbed || !popupState.hasCite) {
 				failures.push('Add* popup missing the Copy Embed / Copy citation actions');
 			} else {

@@ -1886,6 +1886,42 @@ def flow_update_content(op, base: str, api: str, qid: str, new_label: str,
     return url
 
 
+def flow_update_content_addmore_return(op, base: str, qid: str) -> None:
+    """The Add* "Add more" popup's "Edit content" button marks
+    Special:UpdateQuotation/<qid> with ?fromaddmore=1: the form carries the
+    marker, its CANCEL and a successful submit both return to the reopened
+    AddQuotation page — the submit with ?created=<qid>, so the success popup
+    shows the just-edited item (the AddSource law-flow contract)."""
+    url, body = page_get(op, base, f"/wiki/Special:UpdateQuotation/{qid}?fromaddmore=1")
+    if "Edit a quotation" not in body:
+        raise FlowError(
+            f"Special:UpdateQuotation/{qid} (fromaddmore) did not render: {find_error(body)}")
+    if 'name="wpfromaddmore"' not in body and "name='wpfromaddmore'" not in body:
+        raise FlowError(
+            f"UpdateQuotation/{qid}?fromaddmore=1 did not render the addmore-return marker")
+    href = urllib.parse.unquote(cancel_href(body))
+    if "Special:AddQuotation" not in href or "addmore=1" not in href:
+        raise FlowError(
+            f"UpdateQuotation/{qid} (fromaddmore) cancel did not target the "
+            f"AddQuotation form: {href!r}")
+
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "wplabel": input_value(body, "wplabel"),
+        "wppayload": textarea_value(body, "wppayload"),
+        "wplanguage": "en",
+        "wpattributedTo": input_value(body, "wpattributedTo"),
+        "wpfromaddmore": "1",
+        "wpEditToken": token, "wpSubmit": "1",
+    })
+    decoded = urllib.parse.unquote(url)
+    if "Special:AddQuotation" not in decoded or "addmore=1" not in decoded \
+            or f"created={qid}" not in decoded:
+        raise FlowError(
+            f"UpdateQuotation/{qid} (fromaddmore) submit did not return to the "
+            f"AddQuotation popup: {url} {find_error(body)}")
+
+
 def flow_source_picker_route(op, base: str) -> str:
     """Class picker (issue follow-up): the manual-entry checkbox is GONE (the
     user decides on the next page); picking a class routes to its class-scoped
@@ -6632,6 +6668,12 @@ def main() -> int:
                             resolve("attributed to", "property"))
         print(f"[ok] Edit content (Special:UpdateQuotation) -> {edit_qid}: "
               f"decoded multiline prefill, label+payload updated, author kept")
+        # 4c-bis. "Edit content" launched from the Add* "Add more" popup
+        #     (fromaddmore): submit/cancel return to the reopened Add
+        #     form, the submit re-opening the popup with the edited item.
+        flow_update_content_addmore_return(op, base, edit_qid)
+        print(f"[ok] Edit content (from Add-more popup) -> "
+              f"AddQuotation?addmore=1&created={edit_qid}")
 
         # 5. Special:AddMath with the 'describes' subject field (issue
         #    follow-up) + delimiter stripping: a $$…$$-wrapped payload must be
