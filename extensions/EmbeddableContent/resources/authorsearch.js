@@ -164,24 +164,38 @@
 				: { state: 'red', text: '!' };
 		}
 
+		function openRowDialog( row ) {
+			ns.dialogs.open( state, row, function ( result ) {
+				onDecision( row, result );
+			} );
+		}
+
 		function createRowEl( row ) {
 			var el = document.createElement( 'div' );
 			el.className = 'wb-author-row';
+			// The WHOLE row is the activation target. The status text
+			// ("No local match found — add one") was a plain span with no
+			// handler, so clicking the visible action did nothing; only the
+			// name button opened the dialog. The remove/undo button keeps its
+			// own handler, and a removed row is inert until undone.
+			el.addEventListener( 'click', function ( event ) {
+				if ( row.status === 'removed' ) {
+					return;
+				}
+				if ( event.target.closest && event.target.closest( '.wb-author-remove' ) ) {
+					return;
+				}
+				openRowDialog( row );
+			} );
 
 			var flag = document.createElement( 'span' );
 			flag.className = 'wb-author-flag';
+			// Kept as a focusable <button> so the row stays keyboard
+			// activatable (Enter/Space bubbles the click to the row).
 			var name = document.createElement( 'button' );
 			name.type = 'button';
 			name.className = 'wb-author-name';
 			name.textContent = row.original;
-			name.addEventListener( 'click', function () {
-				if ( row.status === 'removed' ) {
-					return;
-				}
-				ns.dialogs.open( state, row, function ( result ) {
-					onDecision( row, result );
-				} );
-			} );
 			var parsed = document.createElement( 'span' );
 			parsed.className = 'wb-author-parsed';
 			parsed.textContent = row.kind === 'collective'

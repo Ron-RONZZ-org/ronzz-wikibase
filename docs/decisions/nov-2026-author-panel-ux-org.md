@@ -92,11 +92,36 @@ say "Add or update additional semantic statements." The help key is chosen
 from the presence of the existing item (`AdditionalStatementsCloner::spec`
 takes a message key).
 
+## Dialog construction (fix)
+
+The first implementation created a bare `OO.ui.Dialog` and appended to
+`dialog.$body` before opening it. Two OOUI contracts were violated:
+
+1. `OO.ui.Window.initialize()` — which creates `$body` — only runs when the
+   window is opened, so the append threw
+   `Cannot read properties of undefined (reading 'append')`;
+2. `OO.ui.Dialog.static.name` is the empty string, so
+   `WindowManager.addWindows()` would have thrown "Windows must have a
+   `name` static property defined".
+
+Every row click therefore failed before a dialog could render: the "add
+one" action and the search-result rows looked dead. The author panel and the
+parent-creation dialog now build a named `OO.ui.ProcessDialog` subclass per
+open with a unique `static.name`, build the body in `initialize()`, and
+detach the window on the `openWindow(...).closed` promise. The whole author
+row is the activation target (the ✕/↶ button and removed rows excepted), so
+clicking the "No local match found — add one" text opens the creation
+dialog instead of doing nothing.
+
 ## Tests
 
 `AuthorNameListTest` (ORG rows, mixed lists, semicolon org names, empty ORG),
 the full PHPUnit suite, and the AddSource page-flow E2E. The browser UX is
-covered by the manual Playwright suite.
+covered by the manual Playwright suite —
+`tests/e2e/run_authorsearch_ux_e2e.mjs` (read-only): an unmatched row's
+"add one" status opens the "Add person" dialog, a candidate row opens the
+"Confirm author" dialog, Cancel closes it, and the run fails on any page or
+console error.
 
 ## Deployment
 

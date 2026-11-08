@@ -32,6 +32,108 @@
 		return $row;
 	}
 
+	/** Monotonic counter giving every open dialog a unique window name. */
+	var dialogSequence = 0;
+
+	/**
+	 * Open an OOUI dialog whose body is built in initialize().
+	 *
+	 * A bare `new OO.ui.Dialog()` cannot be registered with a
+	 * WindowManager:
+	 *  - `OO.ui.Window.initialize()` — which creates `$body` — only runs
+	 *    when the window is opened, so `dialog.$body.append(...)` before
+	 *    that throws `Cannot read properties of undefined (reading
+	 *    'append')`;
+	 *  - `OO.ui.Dialog.static.name` is the empty string, so
+	 *    `WindowManager.addWindows()` throws "Windows must have a `name`
+	 *    static property defined".
+	 * Both errors aborted every author-row click, so no dialog ever
+	 * opened. A ProcessDialog subclass with a unique name and an
+	 * initialize() that appends the body is the supported pattern (same
+	 * as addmore.js / sitelinktab.js).
+	 *
+	 * @param {Object} state the author-panel state (owns windowManager)
+	 * @param {Object} config { title, size, classes }
+	 * @param {Function} buildBody receives the dialog; it may append the
+	 *        content itself or return a jQuery node to append
+	 * @return {OO.ui.ProcessDialog}
+	 */
+	function openContentDialog( state, config, buildBody ) {
+		var name = 'embeddableContentAuthorDialog' + ( ++dialogSequence );
+		function ContentDialog( cfg ) {
+			ContentDialog.super.call( this, cfg );
+		}
+		OO.inheritClass( ContentDialog, OO.ui.ProcessDialog );
+		ContentDialog.static.name = name;
+		ContentDialog.static.title = config.title;
+		ContentDialog.static.actions = [];
+		ContentDialog.prototype.initialize = function () {
+			ContentDialog.super.prototype.initialize.call( this );
+			var content = buildBody( this );
+			if ( content ) {
+				this.$body.append( content );
+			}
+		};
+		var dialog = new ContentDialog( {
+			size: config.size,
+			classes: config.classes
+		} );
+		state.windowManager.addWindows( [ dialog ] );
+		// OOUI Windows emit no 'close' event; the openWindow lifecycle's
+		// `.closed` promise is the supported hook. Detaching the window on
+		// close keeps a long confirmation session from accumulating hidden
+		// dialogs in the manager.
+		state.windowManager.openWindow( dialog ).closed.then( function () {
+			state.windowManager.removeWindows( [ name ] );
+		} );
+		return dialog;
+	}
+
+	/**
+	 * Render a duplicate/collision choice into $host and resolve it.
+	 *
+	 * The create dialog keeps the choice INLINE (a single WindowManager
+	 * refuses a second open window, and a second modal manager cannot be
+	 * clicked through the first). The batch "Add all members at once" path
+	 * has no dialog open and uses a standalone dialog instead.
+	 *
+	 * @param {jQuery} $host container to render into
+	 * @param {string} message
+	 * @param {Array} choices [{ value, label, flags }]
+	 * @param {Function} resolve called with the chosen value (or null)
+	 * @param {Function|null} closeHost closes the host dialog on choice
+	 */
+	function renderChoice( $host, message, choices, resolve, closeHost ) {
+		$host.empty();
+		$host.append( $( '<p>' ).addClass( 'wb-author-hint' ).text( message ) );
+		var buttons = choices.map( function ( choice ) {
+			var button = new OO.ui.ButtonWidget( {
+				label: choice.label,
+				flags: choice.flags || []
+			} );
+			button.on( 'click', function () {
+				$host.empty();
+				if ( closeHost ) {
+					closeHost();
+				}
+				resolve( choice.value );
+			} );
+			return button;
+		} );
+		var cancel = new OO.ui.ButtonWidget( {
+			label: mw.msg( 'embeddablecontent-authorsearch-cancel' )
+		} );
+		cancel.on( 'click', function () {
+			$host.empty();
+			if ( closeHost ) {
+				closeHost();
+			}
+			resolve( null );
+		} );
+		buttons.push( cancel );
+		$host.append( actionRow( buttons ) );
+	}
+
 	function splitCandidateName( candidate ) {
 		var label = String( candidate.label || '' );
 		var comma = label.indexOf( ',' );
@@ -147,32 +249,39 @@
 		};
 	}
 
-	function confirmChoice( state, title, message, choices ) {
+	/**
+	 * Resolve a duplicate/collision choice.
+	 *
+	 * @param {Object} state
+	 * @param {string} title standalone-dialog title
+	 * @param {string} message
+	 * @param {Array} choices
+	 * @param {jQuery} [$host] when given, render the choice inline in that
+	 *        element (the create dialog is already open); otherwise open a
+	 *        standalone dialog (the batch-creation path).
+	 * @return {Promise}
+	 */
+	function confirmChoice( state, title, message, choices, $host ) {
 		return new Promise( function ( resolve ) {
-			var dialog = new OO.ui.Dialog( { title: title, size: 'medium' } );
-			var $body = $( '<div>' );
-			$body.append( $( '<p>' ).text( message ) );
-			var buttons = choices.map( function ( choice ) {
-				var button = new OO.ui.ButtonWidget( {
-					label: choice.label,
-					flags: choice.flags || []
-				} );
-				button.on( 'click', function () {
-					dialog.close();
-					resolve( choice.value );
-				} );
-				return button;
-			} );
-			var cancel = new OO.ui.ButtonWidget( { label: mw.msg( 'embeddablecontent-authorsearch-cancel' ) } );
-			cancel.on( 'click', function () {
-				dialog.close();
-				resolve( null );
-			} );
-			buttons.push( cancel );
-			$body.append( actionRow( buttons ) );
-			dialog.$body.append( $body );
-			state.windowManager.addWindows( [ dialog ] );
-			state.windowManager.openWindow( dialog );
+			if ( $host ) {
+				renderChoice( $host, message, choices, resolve, null );
+				return;
+			}
+			openContentDialog(
+				state,
+				{ title: title, size: 'medium' },
+				function ( dialog ) {
+					renderChoice(
+						dialog.$body,
+						message,
+						choices,
+						resolve,
+						function () {
+							dialog.close();
+						}
+					);
+				}
+			);
 		} );
 	}
 
@@ -183,7 +292,7 @@
 		return [ values.givenName, values.familyName ].filter( Boolean ).join( ' ' );
 	}
 
-	function attemptCreate( state, kind, values, qid, extra ) {
+	function attemptCreate( state, kind, values, qid, extra, $choiceHost ) {
 		var params = $.extend( {
 			action: 'addsemanticentity',
 			kind: kind,
@@ -224,13 +333,18 @@
 							value: 'create',
 							label: mw.msg( 'embeddablecontent-authorsearch-create-anyway' )
 						}
-					]
+					],
+					$choiceHost
 				).then( function ( choice ) {
 					if ( choice === 'use' ) {
 						return { qid: semantic.duplicateOf, label: semantic.duplicateLabel || semantic.duplicateOf };
 					}
 					if ( choice === 'create' ) {
-						return attemptCreate( state, kind, values, qid, $.extend( {}, extra, { confirmDuplicate: 1 } ) );
+						return attemptCreate(
+							state, kind, values, qid,
+							$.extend( {}, extra, { confirmDuplicate: 1 } ),
+							$choiceHost
+						);
 					}
 					return null;
 				} );
@@ -254,13 +368,18 @@
 							value: 'duplicate',
 							label: mw.msg( 'embeddablecontent-authorsearch-create-duplicate' )
 						}
-					]
+					],
+					$choiceHost
 				).then( function ( choice ) {
 					if ( choice === 'use' ) {
 						return { qid: semantic.collisionOf, label: semantic.collisionLabel || semantic.collisionOf };
 					}
 					if ( choice === 'duplicate' ) {
-						return attemptCreate( state, kind, values, qid, $.extend( {}, extra, { collisionAction: 'duplicate' } ) );
+						return attemptCreate(
+							state, kind, values, qid,
+							$.extend( {}, extra, { collisionAction: 'duplicate' } ),
+							$choiceHost
+						);
 					}
 					return null;
 				} );
@@ -269,8 +388,8 @@
 		} );
 	}
 
-	function createImmediately( state, kind, values, qid ) {
-		return attemptCreate( state, kind, values, qid, {} ).then( function ( result ) {
+	function createImmediately( state, kind, values, qid, $choiceHost ) {
+		return attemptCreate( state, kind, values, qid, {}, $choiceHost ).then( function ( result ) {
 			if ( !result || !result.qid ) {
 				throw new Error( 'Cancelled.' );
 			}
@@ -291,141 +410,163 @@
 			prefill = { givenName: row.givenName, familyName: row.familyName };
 		}
 		var details = row.kind === 'collective' ? collectiveFields( prefill ) : personFields( prefill );
-		var dialog = new OO.ui.Dialog( {
-			title: mw.msg(
-				editing
-					? ( row.kind === 'collective'
-						? 'embeddablecontent-authorsearch-update-collective-title'
-						: 'embeddablecontent-authorsearch-update-title' )
-					: ( row.kind === 'collective'
-						? 'embeddablecontent-authorsearch-create-collective-title'
-						: 'embeddablecontent-authorsearch-create-title' ),
-				row.original
-			),
-			size: 'large',
-			classes: [ 'wb-author-dialog' ]
-		} );
-		var $body = $( '<div>' );
-		if ( editing ) {
-			$body.append( $( '<p>' ).addClass( 'wb-author-hint' )
-				.text( mw.msg( 'embeddablecontent-authorsearch-keepblank' ) ) );
-		}
-		$body.append( details.$body );
-		var status = $( '<p>' ).addClass( 'wb-author-hint' );
-		$body.append( status );
-		var submit = new OO.ui.ButtonWidget( {
-			label: mw.msg(
-				editing
-					? 'embeddablecontent-authorsearch-save'
-					: ( row.kind === 'collective'
-						? 'embeddablecontent-authorsearch-create-collective'
-						: 'embeddablecontent-authorsearch-create' )
-			),
-			flags: [ 'primary', 'progressive' ]
-		} );
-		var cancel = new OO.ui.ButtonWidget( { label: mw.msg( 'embeddablecontent-authorsearch-cancel' ) } );
-		cancel.on( 'click', function () {
-			dialog.close();
-		} );
-		submit.on( 'click', function () {
-			var values = details.values();
-			if ( !entityLabel( row.kind, values ) ) {
-				status.text( mw.msg( 'embeddablecontent-authorsearch-name-required' ) );
-				return;
+		openContentDialog(
+			state,
+			{
+				title: mw.msg(
+					editing
+						? ( row.kind === 'collective'
+							? 'embeddablecontent-authorsearch-update-collective-title'
+							: 'embeddablecontent-authorsearch-update-title' )
+						: ( row.kind === 'collective'
+							? 'embeddablecontent-authorsearch-create-collective-title'
+							: 'embeddablecontent-authorsearch-create-title' ),
+					row.original
+				),
+				size: 'large',
+				classes: [ 'wb-author-dialog' ]
+			},
+			function ( dialog ) {
+				var $body = $( '<div>' );
+				if ( editing ) {
+					$body.append( $( '<p>' ).addClass( 'wb-author-hint' )
+						.text( mw.msg( 'embeddablecontent-authorsearch-keepblank' ) ) );
+				}
+				$body.append( details.$body );
+				var status = $( '<p>' ).addClass( 'wb-author-hint' );
+				$body.append( status );
+				// The duplicate/collision choice renders here, inside the
+				// open dialog (a second OOUI window cannot be opened on top).
+				var $choice = $( '<div>' ).addClass( 'wb-author-choice' );
+				$body.append( $choice );
+				var submit = new OO.ui.ButtonWidget( {
+					label: mw.msg(
+						editing
+							? 'embeddablecontent-authorsearch-save'
+							: ( row.kind === 'collective'
+								? 'embeddablecontent-authorsearch-create-collective'
+								: 'embeddablecontent-authorsearch-create' )
+					),
+					flags: [ 'primary', 'progressive' ]
+				} );
+				var cancel = new OO.ui.ButtonWidget( { label: mw.msg( 'embeddablecontent-authorsearch-cancel' ) } );
+				cancel.on( 'click', function () {
+					dialog.close();
+				} );
+				submit.on( 'click', function () {
+					var values = details.values();
+					if ( !entityLabel( row.kind, values ) ) {
+						status.text( mw.msg( 'embeddablecontent-authorsearch-name-required' ) );
+						return;
+					}
+					submit.setDisabled( true );
+					status.text( mw.msg( 'embeddablecontent-authorsearch-created-immediately' ) );
+					createImmediately(
+						state, row.kind, values,
+						editing ? candidate.qid : null,
+						$choice
+					).then( function ( result ) {
+						dialog.close();
+						onResult( { action: 'reuse', qid: result.qid, label: result.label, kind: row.kind } );
+					} ).catch( function ( error ) {
+						submit.setDisabled( false );
+						// Cancelling the duplicate/collision choice is not an
+						// error: leave the form usable and clear the status.
+						if ( error && error.message === 'Cancelled.' ) {
+							status.text( '' );
+							return;
+						}
+						status.text( mw.msg(
+							'embeddablecontent-authorsearch-create-failed',
+							error && error.message ? error.message : String( error || '' )
+						) );
+					} );
+				} );
+				// The help line sits directly above the Create button.
+				$body.append( $( '<p>' ).addClass( 'wb-author-hint' )
+					.text( mw.msg( 'embeddablecontent-authorsearch-created-immediately' ) ) );
+				$body.append( actionRow( [ submit, cancel ] ) );
+				return $body;
 			}
-			submit.setDisabled( true );
-			status.text( mw.msg( 'embeddablecontent-authorsearch-created-immediately' ) );
-			createImmediately( state, row.kind, values, editing ? candidate.qid : null ).then( function ( result ) {
-				dialog.close();
-				onResult( { action: 'reuse', qid: result.qid, label: result.label, kind: row.kind } );
-			} ).catch( function ( error ) {
-				submit.setDisabled( false );
-				status.text( mw.msg(
-					'embeddablecontent-authorsearch-create-failed',
-					error && error.message ? error.message : String( error || '' )
-				) );
-			} );
-		} );
-		// The help line sits directly above the Create button.
-		$body.append( $( '<p>' ).addClass( 'wb-author-hint' )
-			.text( mw.msg( 'embeddablecontent-authorsearch-created-immediately' ) ) );
-		$body.append( actionRow( [ submit, cancel ] ) );
-		dialog.$body.append( $body );
-		state.windowManager.addWindows( [ dialog ] );
-		state.windowManager.openWindow( dialog );
+		);
 	}
 
 	function openCandidateDialog( state, row, onResult ) {
-		var dialog = new OO.ui.Dialog( {
-			title: mw.msg( 'embeddablecontent-authorsearch-dialog-title', row.original ),
-			size: 'large',
-			classes: [ 'wb-author-dialog' ]
-		} );
-		var $body = $( '<div>' );
-		$body.append( $( '<p>' ).text( mw.msg( 'embeddablecontent-authorsearch-choose' ) ) );
-		var items = row.candidates.map( function ( candidate ) {
-			return new OO.ui.RadioOptionWidget( {
-				data: candidate.qid,
-				label: candidateLabel( candidate )
-			} );
-		} );
-		items.push( new OO.ui.RadioOptionWidget( {
-			data: '__new__',
-			label: row.kind === 'collective'
-				? mw.msg( 'embeddablecontent-authorsearch-create-collective' )
-				: mw.msg( 'embeddablecontent-authorsearch-create' )
-		} ) );
-		var radio = new OO.ui.RadioSelectWidget( { items: items } );
-		$body.append( radio.$element );
-		var confirm = new OO.ui.ButtonWidget( {
-			label: mw.msg( 'embeddablecontent-authorsearch-confirm' ),
-			flags: [ 'primary', 'progressive' ],
-			disabled: true
-		} );
-		var edit = new OO.ui.ButtonWidget( {
-			label: mw.msg( 'embeddablecontent-authorsearch-edit' ),
-			disabled: true
-		} );
-		var cancel = new OO.ui.ButtonWidget( { label: mw.msg( 'embeddablecontent-authorsearch-cancel' ) } );
-		var selected = null;
-		radio.on( 'select', function ( item ) {
-			selected = item;
-			confirm.setDisabled( !item );
-			edit.setDisabled( !item || item.getData() === '__new__' );
-		} );
-		function candidateFor( data ) {
-			return row.candidates.find( function ( candidate ) { return candidate.qid === data; } ) || null;
-		}
-		confirm.on( 'click', function () {
-			if ( !selected ) {
-				return;
+		openContentDialog(
+			state,
+			{
+				title: mw.msg( 'embeddablecontent-authorsearch-dialog-title', row.original ),
+				size: 'large',
+				classes: [ 'wb-author-dialog' ]
+			},
+			function ( dialog ) {
+				var $body = $( '<div>' );
+				$body.append( $( '<p>' ).text( mw.msg( 'embeddablecontent-authorsearch-choose' ) ) );
+				var items = row.candidates.map( function ( candidate ) {
+					return new OO.ui.RadioOptionWidget( {
+						data: candidate.qid,
+						label: candidateLabel( candidate )
+					} );
+				} );
+				items.push( new OO.ui.RadioOptionWidget( {
+					data: '__new__',
+					label: row.kind === 'collective'
+						? mw.msg( 'embeddablecontent-authorsearch-create-collective' )
+						: mw.msg( 'embeddablecontent-authorsearch-create' )
+				} ) );
+				var radio = new OO.ui.RadioSelectWidget( { items: items } );
+				$body.append( radio.$element );
+				var confirm = new OO.ui.ButtonWidget( {
+					label: mw.msg( 'embeddablecontent-authorsearch-confirm' ),
+					flags: [ 'primary', 'progressive' ],
+					disabled: true
+				} );
+				var edit = new OO.ui.ButtonWidget( {
+					label: mw.msg( 'embeddablecontent-authorsearch-edit' ),
+					disabled: true
+				} );
+				var cancel = new OO.ui.ButtonWidget( { label: mw.msg( 'embeddablecontent-authorsearch-cancel' ) } );
+				var selected = null;
+				radio.on( 'select', function ( item ) {
+					selected = item;
+					confirm.setDisabled( !item );
+					edit.setDisabled( !item || item.getData() === '__new__' );
+				} );
+				function candidateFor( data ) {
+					return row.candidates.find( function ( candidate ) {
+						return candidate.qid === data;
+					} ) || null;
+				}
+				confirm.on( 'click', function () {
+					if ( !selected ) {
+						return;
+					}
+					if ( selected.getData() === '__new__' ) {
+						dialog.close();
+						openCreateDialog( state, row, onResult, null );
+						return;
+					}
+					var candidate = candidateFor( selected.getData() );
+					dialog.close();
+					if ( candidate ) {
+						onResult( { action: 'reuse', qid: candidate.qid, label: candidate.label, kind: row.kind } );
+					}
+				} );
+				edit.on( 'click', function () {
+					if ( !selected || selected.getData() === '__new__' ) {
+						return;
+					}
+					var candidate = candidateFor( selected.getData() );
+					dialog.close();
+					if ( candidate ) {
+						openCreateDialog( state, row, onResult, candidate );
+					}
+				} );
+				cancel.on( 'click', function () { dialog.close(); } );
+				$body.append( actionRow( [ confirm, edit, cancel ] ) );
+				return $body;
 			}
-			if ( selected.getData() === '__new__' ) {
-				dialog.close();
-				openCreateDialog( state, row, onResult, null );
-				return;
-			}
-			var candidate = candidateFor( selected.getData() );
-			dialog.close();
-			if ( candidate ) {
-				onResult( { action: 'reuse', qid: candidate.qid, label: candidate.label, kind: row.kind } );
-			}
-		} );
-		edit.on( 'click', function () {
-			if ( !selected || selected.getData() === '__new__' ) {
-				return;
-			}
-			var candidate = candidateFor( selected.getData() );
-			dialog.close();
-			if ( candidate ) {
-				openCreateDialog( state, row, onResult, candidate );
-			}
-		} );
-		cancel.on( 'click', function () { dialog.close(); } );
-		$body.append( actionRow( [ confirm, edit, cancel ] ) );
-		dialog.$body.append( $body );
-		state.windowManager.addWindows( [ dialog ] );
-		state.windowManager.openWindow( dialog );
+		);
 	}
 
 	function open( state, row, onResult ) {
