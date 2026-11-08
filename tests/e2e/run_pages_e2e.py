@@ -148,7 +148,7 @@ def page_get(op, base: str, path: str) -> tuple[str, str]:
             return resp.geturl(), resp.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", "replace")
-        raise FlowError(f"GET {base + path} -> HTTP {e.code}: {body[:1500]}") from None
+        raise FlowError(f"GET {base + path} -> HTTP {e.code}: {find_error(body)} | {body[-1800:]}") from None
 
 
 def fetch_response(op, url: str) -> tuple[int, str]:
