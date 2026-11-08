@@ -2555,7 +2555,7 @@ def flow_multi_access_editor(op, base: str, api: str, label: str,
     action=accessupload, then submit a URL + file entry in the hidden
     `accessEntries` JSON. The classic Source: page must render both links
     (url1 + the file extension) with target=_blank."""
-    _, body = page_get(op, base, "/wiki/Special/AddSource/book/manual")
+    _, body = page_get(op, base, "/wiki/Special:AddSource/book/manual")
     token = edit_token(body)
     _, api_body = page_post_multipart(op, base + "/api.php", {
         "action": "accessupload",
@@ -2575,7 +2575,7 @@ def flow_multi_access_editor(op, base: str, api: str, label: str,
         { "type": "url", "url": "https://example.org/multi", "public": "1", "archive": "" },
         { "type": "file", "fileTitle": upload["fileTitle"], "public": "1", "license": license_qid },
     ]
-    _, body = page_get(op, base, "/wiki/Special/AddSource/book/manual")
+    _, body = page_get(op, base, "/wiki/Special:AddSource/book/manual")
     token = edit_token(body)
     page, body = page_post(op, page, {
         "wptitle": label,
@@ -2710,7 +2710,7 @@ def flow_multi_image_editor(op, base: str, api: str, label: str, license_qid: st
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
     )
     given, _, family = label.rpartition(" ")
-    _, body = page_get(op, base, "/wiki/Special/AddPerson/manual")
+    _, body = page_get(op, base, "/wiki/Special:AddPerson/manual")
     token = edit_token(body)
     _, api_body = page_post_multipart(op, base + "/api.php", {
         "action": "imageupload",
@@ -2726,7 +2726,7 @@ def flow_multi_image_editor(op, base: str, api: str, label: str, license_qid: st
         upload = json.loads(api_body)["imageupload"]
     except (ValueError, KeyError) as exc:
         raise FlowError(f"action=imageupload failed: {api_body[:500]!r}") from exc
-    _, body = page_get(op, base, "/wiki/Special/AddPerson/manual")
+    _, body = page_get(op, base, "/wiki/Special:AddPerson/manual")
     token = edit_token(body)
     page, body = page_post(op, page, {
         "wpgivenName": given,
