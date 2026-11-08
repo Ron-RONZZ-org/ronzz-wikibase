@@ -717,5 +717,13 @@
 	"embeddablecontent-authorsearch-created-immediately": "L’entité sera créée immédiatement.",
 	"embeddablecontent-source-parent-create": "$1 introuvable ?",
 	"embeddablecontent-source-parent-create-link": "Créez-le maintenant.",
-	"embeddablecontent-authorsearch-name-required": "Saisissez d’abord un nom."
+	"embeddablecontent-authorsearch-name-required": "Saisissez d’abord un nom.",
+	"embeddablecontent-parentdialog-title": "Créer un $1",
+	"embeddablecontent-parentdialog-close": "Fermer",
+	"embeddablecontent-parentdialog-created": "Parent créé : $1",
+	"embeddablecontent-parentdialog-failed": "Impossible de créer le parent. Réessayez.",
+	"embeddablecontent-parentdone-title": "Parent créé",
+	"embeddablecontent-parentdone-message": "Parent créé : $1 ($2).",
+	"embeddablecontent-parentdone-link": "Ouvrir l’élément",
+	"embeddablecontent-parentdialog-loading": "Chargement…"
 }

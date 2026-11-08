@@ -465,6 +465,35 @@
 				"mobile"
 			]
 		},
+		"ext.embeddableContent.parentdialog": {
+			"scripts": [
+				"parentdialog.js"
+			],
+			"styles": [
+				"parentdialog.css"
+			],
+			"dependencies": [
+				"mediawiki.api",
+				"mediawiki.notification",
+				"mediawiki.util",
+				"oojs-ui",
+				"ext.embeddableContent.entitysuggest"
+			],
+			"messages": [
+				"embeddablecontent-parentdialog-title",
+				"embeddablecontent-parentdialog-close",
+				"embeddablecontent-parentdialog-created",
+				"embeddablecontent-parentdialog-failed",
+				"embeddablecontent-parentdone-title",
+				"embeddablecontent-parentdone-message",
+				"embeddablecontent-parentdone-link",
+				"embeddablecontent-parentdialog-loading"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
 		"ext.embeddableContent.addmath": {
 			"scripts": [
 				"addmath.js"

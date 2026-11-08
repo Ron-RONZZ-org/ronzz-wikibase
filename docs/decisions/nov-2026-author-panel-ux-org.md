@@ -104,3 +104,30 @@ Extension rsync + php-fpm + message/objectcache purge. No seed/config-map/
 LocalSettings change. The `mediawiki-mcp-server` tool descriptions are
 updated separately (the `allowCollectiveAuthor` parameter is gone; ORG: is
 documented).
+
+## Parent-creation dialog (PR 2)
+
+The child-source `parent` field and the AddCollective `parentOrganization`
+field render a "Create it now" link (always visible). The link opens an OOUI
+dialog containing a same-origin iframe pointed at the REAL
+`Special:AddSource/<parentKey>` / `Special:AddCollective` flow:
+
+- website parent: the known site root is passed as `?url=<root>&autofetch=1`;
+  `executeUrlEntry()` calls `onUrlEntrySubmit()` directly so the root
+  metadata is fetched and the manual form opens prefilled;
+- book / YouTube channel: the normal search page is shown first;
+- legislation: the manual form;
+- parent organization: the normal AddCollective search/review flow.
+
+`wbparentdialog=1` sets a short-lived session marker. `afterCreate()`
+returns the `parentdone/<Qid>` step instead of the classic-page redirect;
+that step posts `{type:'wb-parent-created', qid, label}` to the opener, which
+appends the Q-id to the multi-value field. Links to an existing item (the
+duplicate guard's "Yes, that's right") are intercepted in the frame and post
+the same message. The opener sends a close beacon
+(`?wbparentdialog=close`) to clear the marker; it also expires after 2 h.
+
+Files: `resources/parentdialog.js` + `.css`, the base
+`SpecialAddExternalEntity` dialog helpers/routes, and the
+`SpecialAddSource::executeUrlEntry()` auto-fetch. No seed/config/LocalSettings
+change.

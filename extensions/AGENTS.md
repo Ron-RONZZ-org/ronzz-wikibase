@@ -1767,6 +1767,23 @@ report). See `SimpleMathJax/VENDORED.md`.
   Q-id bindings. The group-of-humans banner's "Add all members at once"
   expands only that group. Additional-statements help is split Add*/
   Update* (`-help-update`).
+
+- **Parent-creation dialog + multi-parent** (ADR
+  `docs/decisions/nov-2026-author-panel-ux-org.md` §Parent-creation dialog):
+  the child-source `parent` field and AddCollective `parentOrganization`
+  show an always-visible "Create it now" link. It opens an OOUI dialog with
+  a same-origin iframe running the REAL `Special:AddSource/<parentKey>` /
+  `Special:AddCollective` flow (`resources/parentdialog.js` + `.css`): the
+  website parent auto-fetches the known root metadata
+  (`?url=<root>&autofetch=1`), book/YouTube show search first, legislation
+  the manual form. `wbparentdialog=1` marks a short-lived session flow;
+  `afterCreate()` returns `parentdone/<Qid>`, which posts the Q-id to the
+  opener (existing-item links are intercepted in the frame too) and the
+  opener appends it to the multi-value field. Both parent fields now accept
+  comma-separated lists, one `part of`/`parent organization` statement per
+  id; Update* prefills every stored id and a blank value keeps them
+  (no-clobber), while book-excerpt/law inference uses the first parent.
+  No seed/config/LocalSettings change.
 - **Semantic-first File pages**: `{{#image-facts:}}` renders
   Licensing/Attribution from the sitelinked image item (parser-cache
   dependent); itemized uploads write it instead of static text. New
