@@ -161,6 +161,9 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// per-name confirmation popup) — a no-op on pages without the
 		// #wb-author-search button.
 		$this->getOutput()->addModules( 'ext.embeddableContent.authorsearch' );
+		// The parent-field "Create it now" dialog (an iframe running the
+		// real AddSource/AddCollective flow); a no-op without the link.
+		$this->getOutput()->addModules( 'ext.embeddableContent.parentdialog' );
 	}
 
 	public function execute( $subPage ) {
@@ -176,7 +179,12 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// external fetches) and the manual/review CREATION — those handlers
 		// enforce login (onSearchSubmit/onManualSubmit).
 		$this->registerCommonModules();
+		$this->handleParentDialogRequest();
 		$parts = explode( '/', trim( (string)$subPage ) );
+		if ( preg_match( '#^parentdone/(Q[1-9]\d*)$#', trim( (string)$subPage ), $match ) === 1 ) {
+			$this->executeParentDone( $match[1] );
+			return;
+		}
 		$first = $parts[0] ?? '';
 		if ( $first === '' ) {
 			$this->executeSearch();
@@ -276,6 +284,64 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 *
 	 * @param HTMLForm $form
 	 */
+	/**
+	 * The parent-creation dialog runs this Add* page inside a same-origin
+	 * iframe. `wbparentdialog=1` marks the flow; the final create redirects
+	 * to the `parentdone/<Qid>` step instead of the classic page, and that
+	 * step posts the Q-id back to the opener. `wbparentdialog=close` is the
+	 * opener's close-beacon (clears the flag).
+	 */
+	protected function handleParentDialogRequest(): void {
+		$value = (string)$this->getRequest()->getVal( 'wbparentdialog', '' );
+		if ( $value === 'close' ) {
+			$this->getRequest()->getSession()->remove( 'extadd:parentdialog' );
+			return;
+		}
+		if ( $value === '1' ) {
+			$this->getRequest()->getSession()->set( 'extadd:parentdialog', time() );
+		}
+		if ( $this->isParentDialog() ) {
+			$this->getOutput()->addBodyClasses( 'wb-parentdialog-frame' );
+			$this->getOutput()->addJsConfigVars( 'wbParentDialogFrame', true );
+		}
+	}
+
+	protected function isParentDialog(): bool {
+		$timestamp = $this->getRequest()->getSession()->get( 'extadd:parentdialog' );
+		return is_int( $timestamp ) && ( time() - $timestamp ) < 7200;
+	}
+
+	protected function executeParentDone( string $itemId ): void {
+		$this->setHeaders();
+		$this->getRequest()->getSession()->remove( 'extadd:parentdialog' );
+		$item = null;
+		try {
+			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
+		} catch ( \Throwable $e ) {
+			$item = null;
+		}
+		$label = $item instanceof Item ? ( EntityLabelText::of( $item ) ?? $itemId ) : $itemId;
+		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-parentdone-title' )->text() );
+		$this->getOutput()->addModules( 'ext.embeddableContent.parentdialog' );
+		$this->getOutput()->addBodyClasses( 'wb-parentdialog-frame' );
+		$this->getOutput()->addJsConfigVars( 'wbParentDialogFrame', true );
+		$this->getOutput()->addJsConfigVars( 'wbParentDialogCreatedQid', $itemId );
+		$itemUrl = WikibaseRepo::getEntityTitleStoreLookup()
+			->getTitleForId( new ItemId( $itemId ) )->getFullURL();
+		$this->getOutput()->addHTML(
+			'<div class="wb-parentdone">'
+			. '<p>' . $this->msg(
+				'embeddablecontent-parentdone-message',
+				$label,
+				$itemId
+			)->escaped() . '</p>'
+			. '<p><a href="' . htmlspecialchars( $itemUrl ) . '">'
+			. $this->msg( 'embeddablecontent-parentdone-link' )->escaped()
+			. '</a></p>'
+			. '</div>'
+		);
+	}
+
 	protected function showForm( HTMLForm $form ): void {
 		$form->prepareForm();
 		$result = $form->tryAuthorizedSubmit();
@@ -1992,6 +2058,11 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 * @return string|null redirect target URL, or null for the item redirect
 	 */
 	protected function afterCreate( string $itemId, array $record ): ?string {
+		// Parent-creation dialog: hand the new item id back to the opener
+		// instead of redirecting to the classic page.
+		if ( $this->isParentDialog() ) {
+			return $this->stepTitle( 'parentdone/' . $itemId )->getFullURL();
+		}
 		$title = $this->pageTitleForRecord( $record );
 		if ( $title === null ) {
 			// The kind creates a classic page (pageNamespace() + a non-empty
@@ -3070,9 +3141,11 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 * fallback.
 	 */
 	protected function parentCreateLink( string $field, string $parentKey, string $parentLabel, string $root = '' ): string {
+		// Always the ADD page, never the current Update* page: the dialog
+		// creates a new parent, and UpdateSource's subpage is a Q-id.
 		$fallback = $parentKey === 'collective'
 			? \SpecialPage::getTitleFor( 'AddCollective' )->getFullURL()
-			: $this->stepTitle( $parentKey )->getFullURL();
+			: \SpecialPage::getTitleFor( 'AddSource', $parentKey )->getFullURL();
 		return $this->msg( 'embeddablecontent-source-parent-create', $parentLabel )->parse()
 			. ' <a href="' . htmlspecialchars( $fallback ) . '"'
 			. ' class="wb-parent-create"'

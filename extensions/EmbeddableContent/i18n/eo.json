@@ -717,5 +717,13 @@
 	"embeddablecontent-authorsearch-created-immediately": "La ento estos kreita tuj.",
 	"embeddablecontent-source-parent-create": "$1 ne trovita?",
 	"embeddablecontent-source-parent-create-link": "Kreu ĝin nun.",
-	"embeddablecontent-authorsearch-name-required": "Unue enigu nomon."
+	"embeddablecontent-authorsearch-name-required": "Unue enigu nomon.",
+	"embeddablecontent-parentdialog-title": "Krei $1",
+	"embeddablecontent-parentdialog-close": "Fermi",
+	"embeddablecontent-parentdialog-created": "Patro kreita: $1",
+	"embeddablecontent-parentdialog-failed": "Ne eblis krei la patran eron. Provu denove.",
+	"embeddablecontent-parentdone-title": "Patro kreita",
+	"embeddablecontent-parentdone-message": "Patro kreita: $1 ($2).",
+	"embeddablecontent-parentdone-link": "Malfermi la eron",
+	"embeddablecontent-parentdialog-loading": "Ŝargante…"
 }

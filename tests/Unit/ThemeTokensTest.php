@@ -35,6 +35,7 @@ final class ThemeTokensTest extends TestCase {
 		'extensions/EmbeddableContent/resources/sitelinktab.css',
 		'extensions/EmbeddableContent/resources/addsource-labelpreview.css',
 		'extensions/EmbeddableContent/resources/authorsearch.css',
+		'extensions/EmbeddableContent/resources/parentdialog.css',
 		'extensions/EmbeddableContent/resources/userpagetitle.css',
 		'extensions/EmbeddableContent/resources/imagecredit.css',
 		'extensions/CSVTable/resources/ext.csvTable.css',

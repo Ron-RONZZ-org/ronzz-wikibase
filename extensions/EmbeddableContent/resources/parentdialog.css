@@ -1,0 +1,45 @@
+/* Parent-creation dialog + the iframe frame (the real Add* flow). */
+
+.wb-parentdialog .oo-ui-window-body {
+	padding: 0;
+}
+
+.wb-parentdialog-iframe {
+	display: block;
+	width: 100%;
+	height: 72vh;
+	border: 0;
+	background: var( --background-color-base, #fff );
+}
+
+/* Inside the dialog iframe: keep only the form content, not the site
+ * chrome (header/sidebars/footer). The server adds the body class. */
+body.wb-parentdialog-frame .vector-header-container,
+body.wb-parentdialog-frame .vector-column-start,
+body.wb-parentdialog-frame .vector-column-end,
+body.wb-parentdialog-frame .vector-sticky-header,
+body.wb-parentdialog-frame .vector-page-toolbar,
+body.wb-parentdialog-frame .mw-indicators,
+body.wb-parentdialog-frame .mw-footer-container,
+body.wb-parentdialog-frame .mw-footer {
+	display: none !important;
+}
+
+body.wb-parentdialog-frame main#content,
+body.wb-parentdialog-frame .mw-body {
+	margin: 0 !important;
+	padding: 0 !important;
+	max-width: none;
+}
+
+body.wb-parentdialog-frame #bodyContent {
+	padding: 0.5em 1em;
+}
+
+body.wb-parentdialog-frame .wb-parentdone {
+	padding: 1em;
+}
+
+.wb-parentdone {
+	color: var( --color-base, #202122 );
+}

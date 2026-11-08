@@ -152,6 +152,26 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				$this->msg( 'embeddablecontent-source-class-' . $this->currentClassKey )->text()
 			)->text()
 		);
+		// Parent-creation dialog, website: the root URL is already known.
+		// Auto-fetch it so the manual form opens with the metadata filled in
+		// (title/description/intro); a failed fetch degrades to the URL-only
+		// form. Normal URL-entry pages never auto-submit.
+		$autofetch = $this->getRequest()->getVal( 'autofetch' ) === '1';
+		$prefillUrl = trim( (string)$this->getRequest()->getVal( 'url', '' ) );
+		if ( $autofetch && $prefillUrl !== '' && $this->isParentDialog() ) {
+			$result = $this->onUrlEntrySubmit( [ 'url' => $prefillUrl ] );
+			if ( $result === true ) {
+				return;
+			}
+			if ( is_string( $result ) && $result !== '' ) {
+				$this->getOutput()->addHTML(
+					\MediaWiki\Html\Html::errorBox( htmlspecialchars( $result ) )
+				);
+				return;
+			}
+			// false: the duplicate warning was rendered; show the form with
+			// the acknowledge checkbox.
+		}
 		if ( $this->currentClassKey === 'website' ) {
 			$this->getOutput()->addHTML(
 				\MediaWiki\Html\Html::warningBox( $this->msg( 'embeddablecontent-source-website-explanation' )->parse() )
@@ -495,6 +515,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		// corresponds to …" banners kept rendering but their [Yes, that's
 		// right] / [No, let me correct] buttons had no handler.
 		$this->registerCommonModules();
+		$this->handleParentDialogRequest();
 
 		$parts = explode( '/', trim( (string)$subPage ) );
 		$first = $parts[0] ?? '';
@@ -511,6 +532,10 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			$this->getOutput()->addModules( 'ext.embeddableContent.translations' );
 		}
 		$second = $parts[1] ?? '';
+		if ( $second === 'parentdone' && ( $parts[2] ?? '' ) !== '' ) {
+			$this->executeParentDone( $parts[2] );
+			return;
+		}
 		if ( $second === '' ) {
 			if ( in_array( $first, self::URL_ENTRY_CLASSES, true ) ) {
 				// website/webpage: the first page is the URL entry — the
