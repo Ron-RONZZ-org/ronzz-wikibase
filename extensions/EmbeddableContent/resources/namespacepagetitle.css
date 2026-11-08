@@ -1,0 +1,15 @@
+/**
+ * Non-main content-page H1 (resources/namespacepagetitle.js).
+ *
+ * "in" is secondary to the title and the namespace name is the index link.
+ * Codex tokens cover Vector 2022 day/night; the fallbacks keep legacy
+ * Vector readable.
+ */
+.wb-namespace-in {
+	color: var( --color-subtle, #54595d );
+	font-weight: normal;
+}
+
+.wb-namespace-name a {
+	color: var( --color-progressive, #36c );
+}

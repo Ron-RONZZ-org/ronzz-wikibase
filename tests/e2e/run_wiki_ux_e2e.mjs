@@ -30,6 +30,10 @@
  *     window.print() (the capture-phase interception beats core's handler);
  *     the button joins the page's toolbar row (content-page toolbar /
  *     .wb-embed-toolbar);
+ *   - Archive print cover — a Source:<label>/archivedText page pre-selects the
+ *     cover, prints `<h1>{source title} ({class})</h1>` + the archive
+ *     provenance line, never the wiki contributors, and names the PDF after
+ *     the source work; its H1 namespace name links to Special:EntityIndex;
  *   - Page action toolbar order — the shared order primitive keeps one
  *     left→right sequence (update → internal citation → mention → embed →
  *     citation → print) on the block .wb-embed-toolbar and the inline
@@ -1636,6 +1640,81 @@ async function main() {
 					await new mw.Api().postWithToken('csrf', { action: 'delete', title });
 				} catch (e) { /* best-effort cleanup */ }
 			}, printTitle).catch(() => {});
+		}
+
+		// --- Archive page: H1 index link + archive print cover ----------
+		// The external-text archive page prints the SOURCE work and its
+		// provenance, never the wiki contributors; the cover option is
+		// pre-selected because the page's own heading is the external text.
+		const archiveLeaf = `Print UX archive ${Date.now()} (Webpage)`;
+		const archiveTitle = `Source:${archiveLeaf}/archivedText`;
+		await page.waitForFunction(() => window.mw && window.mw.loader && typeof window.mw.loader.using === 'function');
+		await page.evaluate(async (title) => {
+			await new Promise((r) => mw.loader.using('mediawiki.api', r));
+			await new mw.Api().postWithToken('csrf', {
+				action: 'edit', title, text: 'Archive UX fixture.', createonly: true,
+			});
+		}, archiveTitle);
+		try {
+			await page.goto(`${BASE_URL}/wiki/${encodeURIComponent(archiveTitle.replace(/ /g, '_'))}`,
+				{ waitUntil: 'domcontentloaded', timeout: 60000 });
+			await page.waitForSelector('#ca-wb-print', { timeout: 15000 });
+
+			// The namespace name is an index link; "in" stays plain text.
+			await page.waitForSelector('#firstHeading .wb-namespace-name a', { timeout: 15000 });
+			const nsLink = await page.evaluate(() => {
+				const link = document.querySelector('#firstHeading .wb-namespace-name a');
+				return link ? { href: link.href, label: link.textContent } : null;
+			});
+			if (!nsLink || !nsLink.href.includes('Special:EntityIndex') || nsLink.label !== 'Source') {
+				failures.push(`archive H1 namespace index link is ${JSON.stringify(nsLink)}`);
+			} else {
+				console.log('[ok] H1 namespace name links to Special:EntityIndex');
+			}
+
+			await page.evaluate(() => {
+				window.__printed = 0;
+				window.__printedTitle = null;
+				window.print = () => {
+					window.__printed++;
+					window.__printedTitle = document.title;
+				};
+			});
+			await page.click('#ca-wb-print');
+			await page.waitForSelector('.wb-print-popup', { timeout: 10000 });
+			if (!(await page.locator('.wb-print-popup input[type="checkbox"]').isChecked())) {
+				failures.push('archive print cover option is not pre-selected');
+			}
+			await page.click('.wb-print-popup .wb-print-popup-actions .oo-ui-buttonElement-button');
+			await page.waitForFunction(() => window.__printed === 1, null, { timeout: 10000 });
+			await page.waitForSelector('.wb-print-archive-cover .wb-print-title', { state: 'attached', timeout: 10000 });
+			const archiveCover = ((await page.locator('.wb-print-archive-cover h1.wb-print-title').textContent()) || '').trim();
+			const archiveMeta = ((await page.locator('.wb-print-archive-cover .wb-print-archive-meta').textContent()) || '').trim();
+			const archiveAuthors = await page.locator('.wb-print-archive-cover .wb-print-authors').count();
+			if (archiveCover !== archiveLeaf) {
+				failures.push(`archive cover title is ${JSON.stringify(archiveCover)}, expected ${JSON.stringify(archiveLeaf)}`);
+			} else if (!archiveMeta.startsWith('Text archived on')) {
+				failures.push(`archive cover provenance line is ${JSON.stringify(archiveMeta)}`);
+			} else if (archiveAuthors !== 0) {
+				failures.push(`archive cover has ${archiveAuthors} contributor lines (must be none)`);
+			} else {
+				console.log('[ok] archive cover prints the source title (class) and provenance, no authors');
+			}
+			const archiveFile = await page.evaluate(() => window.__printedTitle);
+			if (!String(archiveFile).startsWith('Print_UX_archive_') || !String(archiveFile).endsWith('(Webpage).pdf')) {
+				failures.push(`archive print filename is ${JSON.stringify(archiveFile)}`);
+			} else {
+				console.log(`[ok] archive print filename is ${archiveFile}`);
+			}
+			await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+		} finally {
+			await page.waitForFunction(() => window.mw && window.mw.loader && typeof window.mw.loader.using === 'function');
+			await page.evaluate(async (title) => {
+				await new Promise((r) => mw.loader.using('mediawiki.api', r));
+				try {
+					await new mw.Api().postWithToken('csrf', { action: 'delete', title });
+				} catch (e) { /* best-effort cleanup */ }
+			}, archiveTitle).catch(() => {});
 		}
 
 		// --- Content-page toolbar order (mention → citation → print) ---

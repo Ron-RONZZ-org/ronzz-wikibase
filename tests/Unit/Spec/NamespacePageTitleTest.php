@@ -47,4 +47,26 @@ class NamespacePageTitleTest extends TestCase {
 		$this->assertNull( NamespacePageTitle::format( 'Beloved', 'Source', '' ) );
 	}
 
+	public function testHtmlWrapsTheConnectorAndTheNamespaceName(): void {
+		$this->assertSame(
+			'Beloved <span class="wb-namespace-in">in</span> '
+				. '<span class="wb-namespace-name">Source</span>',
+			NamespacePageTitle::html( 'Beloved', 'Source', 'in' )
+		);
+	}
+
+	public function testHtmlEscapesEveryPart(): void {
+		$this->assertSame(
+			'Tom &amp; Jerry <span class="wb-namespace-in">&lt;in&gt;</span> '
+				. '<span class="wb-namespace-name">A&amp;B</span>',
+			NamespacePageTitle::html( 'Tom & Jerry', 'A&B', '<in>' )
+		);
+	}
+
+	public function testHtmlRejectsBlankParts(): void {
+		$this->assertNull( NamespacePageTitle::html( '', 'Source', 'in' ) );
+		$this->assertNull( NamespacePageTitle::html( 'Beloved', '', 'in' ) );
+		$this->assertNull( NamespacePageTitle::html( 'Beloved', 'Source', '' ) );
+	}
+
 }

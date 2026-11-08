@@ -1329,7 +1329,6 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 						$fields['archiveText'] = [
 							'type' => 'check',
 							'label-message' => 'embeddablecontent-source-archive-check',
-							'help-message' => 'embeddablecontent-source-archive-check-help',
 							'default' => true,
 						];
 					}

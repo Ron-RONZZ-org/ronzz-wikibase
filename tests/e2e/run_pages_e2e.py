@@ -4133,7 +4133,57 @@ def flow_namespace_title(op, base: str, api: str) -> None:
             raise FlowError(
                 f"{title} H1 does not render '{leaf} in Source' "
                 f"(namespace display-title regression)")
-        print(f"[ok] namespace display title: {title} -> '{leaf} in Source'")
+        if 'class="wb-namespace-in"' not in body or 'class="wb-namespace-name"' not in body:
+            raise FlowError(
+                f"{title} H1 does not split the connector and the namespace "
+                f"name into their index-link spans")
+        if '"wbNamespacePageTitle"' not in body or '"url"' not in body:
+            raise FlowError(
+                f"{title} does not carry the wbNamespacePageTitle index URL")
+        print(f"[ok] namespace display title: {title} -> '{leaf} in Source' "
+              f"(muted 'in' + index link wiring)")
+        _, index_body = page_get(
+            op, base,
+            "/wiki/Special:EntityIndex/Source?from=" + urllib.parse.quote(leaf))
+        if "mw-allpages-chunk" not in index_body or leaf not in index_body:
+            raise FlowError(
+                f"Special:EntityIndex/Source does not list {title}")
+        print(f"[ok] namespace index lists {title}")
+    finally:
+        api_call(op, api, {"action": "delete", "title": title, "token": token,
+                           "reason": "page-flow E2E cleanup (run_pages_e2e.py)",
+                           "format": "json"}, post=True)
+
+
+def flow_archive_print(op, base: str, api: str) -> None:
+    """Source:<work>/archivedText: the disclaimer banner markup and the
+    archive print cover config (source title + class, no contributor line).
+    Self-cleaning; the client-side cover itself is covered by the browser
+    UX suite."""
+    csrf = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = csrf["query"]["tokens"]["csrftoken"]
+    leaf = f"Print E2E archive {int(time.time())} (Webpage)"
+    title = f"Source:{leaf}/archivedText"
+    api_call(op, api, {"action": "edit", "title": title, "text": "archive fixture body",
+                       "token": token, "format": "json"}, post=True)
+    try:
+        _, body = page_get(op, base, "/wiki/" + urllib.parse.quote(title.replace(" ", "_")))
+        if "wb-sourcearchive-banner" not in body:
+            raise FlowError(f"{title} does not render the archive banner")
+        if not re.search(r'<br\s*/?>\s*<a[^>]*class="wb-sourcearchive-dismiss"', body):
+            raise FlowError(f"{title} dismiss control is not <br><a>")
+        if '"wbPrintArchive"' not in body:
+            raise FlowError(f"{title} does not carry the wbPrintArchive config")
+        if f'"title":"{leaf[:-len(" (Webpage)")]}"' not in body:
+            raise FlowError(f"{title} archive cover title is not the bare source title")
+        if '"class":"Webpage"' not in body:
+            raise FlowError(f"{title} archive cover class is not Webpage")
+        if f'"filename":"{leaf}"' not in body:
+            raise FlowError(f"{title} archive print filename is not the source title")
+        if f'"wbPrintTitle":"{leaf}"' not in body:
+            raise FlowError(f"{title} wbPrintTitle is not the source title "
+                            f"(must not be 'archivedText')")
+        print(f"[ok] archive banner + print cover config: {title} -> {leaf}")
     finally:
         api_call(op, api, {"action": "delete", "title": title, "token": token,
                            "reason": "page-flow E2E cleanup (run_pages_e2e.py)",
@@ -6130,6 +6180,8 @@ def main() -> int:
         flow_print_module(op, base, api)
         # 3a1c. Namespace display title: `Source:<page>` → "<page> in Source".
         flow_namespace_title(op, base, api)
+        # 3a1d. Archive page: banner markup + archive print cover config.
+        flow_archive_print(op, base, api)
 
         # 3a2. AddCollective logo (issue follow-up): the optional logo
         #     uploads as File:<label>-logo.png (AddSoftware pattern) with a

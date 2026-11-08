@@ -891,13 +891,24 @@ class Hooks {
 		$in = wfMessage( 'embeddablecontent-namespacepagetitle-in' )
 			->inLanguage( $title->getPageLanguage() )
 			->text();
-		$display = \EmbeddableContent\Spec\NamespacePageTitle::format(
+		$display = \EmbeddableContent\Spec\NamespacePageTitle::html(
 			$title->getText(),
 			(string)$title->getNsText(),
 			$in
 		);
 		if ( $display !== null ) {
 			$out->setPageTitle( $display );
+			// Progressive enhancement: the page-title sanitizer keeps the
+			// <span>s but strips <a>, so the namespace name becomes an
+			// index link client-side (the userpagetitle.js pattern). The
+			// numeric namespace id keeps the URL stable across localizations.
+			$out->addJsConfigVars( 'wbNamespacePageTitle', [
+				'url' => SpecialPage::getTitleFor(
+					'EntityIndex',
+					(string)$namespace
+				)->getLocalURL(),
+			] );
+			$out->addModules( 'ext.embeddableContent.namespacepagetitle' );
 		}
 	}
 
@@ -951,7 +962,23 @@ class Hooks {
 		) {
 			return;
 		}
-		$out->addJsConfigVars( 'wbPrintTitle', $title->getSubpageText() );
+		// An archive page has no contributors of its own to credit and no
+		// meaningful subpage title ("archivedText"): its print cover names the
+		// SOURCE work and its archive provenance instead (print.js).
+		$printTitle = $title->getSubpageText();
+		$archive = null;
+		if ( \EmbeddableContent\SourceArchive\SourceArchiveBanner::isArchivePage( $title ) ) {
+			$archive = \EmbeddableContent\SourceArchive\SourceArchiveBanner::coverData(
+				$title,
+				$out,
+				MediaWikiServices::getInstance()->get( 'EmbeddableContent.Config' )
+			);
+		}
+		if ( $archive !== null ) {
+			$printTitle = $archive['filename'];
+			$out->addJsConfigVars( 'wbPrintArchive', $archive );
+		}
+		$out->addJsConfigVars( 'wbPrintTitle', $printTitle );
 		// The classic per-kind namespaces (Source:/Person:/…) ARE content
 		// namespaces but carry the block `.wb-embed-toolbar` row, not the
 		// inline content-page toolbar — exclude them from the 'content'

@@ -1,0 +1,13 @@
+/**
+ * Special:EntityIndex — the alphabetical namespace index.
+ *
+ * The list reuses core's Special:AllPages column classes; only the page-size
+ * form needs local spacing.
+ */
+.wb-entityindex-limit {
+	margin: 0 0 1em;
+}
+
+.wb-entityindex-limit input[type="number"] {
+	width: 5em;
+}
