@@ -2593,6 +2593,39 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	}
 
 	/**
+	 * Hidden pre-multi-image fields (compatibility for older clients/E2E).
+	 * The file itself is read from the request by ImageUploadHelper; only
+	 * the scalar controls need to stay in the form's field list.
+	 *
+	 * @return array<string,mixed>
+	 */
+	protected function legacyImageFields( string $prefix ): array {
+		$fields = [];
+		foreach ( [ 'Include', 'Mode', 'Url', 'Existing', 'License', 'Author',
+			'AuthorIsEntity', 'AuthorEntity', 'LicenseInfo' ] as $suffix ) {
+			$fields[$prefix . $suffix] = [ 'type' => 'hidden', 'default' => '' ];
+		}
+		$fields[$prefix . 'Resize'] = [ 'type' => 'hidden', 'default' => '1' ];
+		$fields[$prefix . 'AutoExt'] = [ 'type' => 'hidden', 'default' => '1' ];
+		return $fields;
+	}
+
+	/**
+	 * Whether an older form submitted the legacy single-image fields.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function hasLegacyImageFields( array $record, string $prefix ): bool {
+		foreach ( [ 'Include', 'Mode', 'Url', 'Existing', 'License', 'Author',
+			'AuthorIsEntity', 'AuthorEntity', 'LicenseInfo', 'FileTitle' ] as $suffix ) {
+			if ( !empty( $record[$prefix . $suffix] ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Shared field builders for the review/manual forms.
 	 * The label/description builders return a full `fieldname => descriptor`
 	 * entry (array union `+` requires distinct top-level keys).

@@ -73,7 +73,7 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 		}
 		$imageEntries = \EmbeddableContent\Spec\MediaEntries::normalize( $record['imageEntries'] ?? [] );
 		if ( array_key_exists( 'imageEntries', $record )
-			&& ( $imageEntries !== [] || empty( $record['portraitFileTitle'] ) )
+			&& ( $imageEntries !== [] || !$this->hasLegacyImageFields( $record, 'portrait' ) )
 		) {
 			$out['imageFileUrls'] = \EmbeddableContent\Spec\MediaEntries::fileUrls( $imageEntries );
 		} elseif ( !empty( $record['portraitFileTitle'] ) ) {
@@ -283,6 +283,7 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 			]
 		)
 		+ $this->imageEntriesFieldSpec( $record )
+		+ $this->legacyImageFields( 'portrait' )
 		+ $this->externalIdFieldSpecs( $record );
 	}
 
@@ -435,7 +436,7 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 			}
 		}
 		$imageEntries = \EmbeddableContent\Spec\MediaEntries::normalize( $record['imageEntries'] ?? [] );
-		$useLegacyImage = $imageEntries === [] && !empty( $record['portraitFileTitle'] );
+		$useLegacyImage = $imageEntries === [] && $this->hasLegacyImageFields( $record, 'portrait' );
 		if ( array_key_exists( 'imageEntries', $record ) && !$useLegacyImage ) {
 			$record['imageEntries'] = $imageEntries;
 			$error = \EmbeddableContent\Spec\MediaEntries::validate( $imageEntries );

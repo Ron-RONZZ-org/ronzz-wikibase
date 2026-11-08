@@ -1993,6 +1993,15 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				'raw' => true,
 				'default' => $html,
 			],
+			// Compatibility: the pre-multi-access fields stay in the form's
+			// field list (hidden) so older clients/E2E POSTs still reach
+			// beforeCreate/flowRecord's legacy fallback. The new editor's
+			// accessEntries takes precedence when non-empty.
+			'accessMode' => [ 'type' => 'hidden', 'default' => (string)( $record['accessMode'] ?? '' ) ],
+			'accessUrl' => [ 'type' => 'hidden', 'default' => (string)( $record['accessUrl'] ?? '' ) ],
+			'downloadUrl' => [ 'type' => 'hidden', 'default' => (string)( $record['downloadUrl'] ?? '' ) ],
+			'license' => [ 'type' => 'hidden', 'default' => (string)( $record['license'] ?? '' ) ],
+			'internalUse' => [ 'type' => 'hidden', 'default' => !empty( $record['internalUse'] ) ? '1' : '' ],
 		];
 	}
 	/**

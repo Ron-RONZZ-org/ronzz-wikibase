@@ -74,7 +74,7 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 
 		$imageEntries = \EmbeddableContent\Spec\MediaEntries::normalize( $record['imageEntries'] ?? [] );
 		if ( array_key_exists( 'imageEntries', $record )
-			&& ( $imageEntries !== [] || empty( $record['logoFileTitle'] ) )
+			&& ( $imageEntries !== [] || !$this->hasLegacyImageFields( $record, 'logo' ) )
 		) {
 			$out['imageFileUrls'] = \EmbeddableContent\Spec\MediaEntries::fileUrls( $imageEntries );
 		} elseif ( !empty( $record['logoFileTitle'] ) ) {
@@ -234,6 +234,7 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 		// AddPerson — the P856-aligned property).
 		$fields += $this->websiteFieldSpec( $record );
 		$fields += $this->imageEntriesFieldSpec( $record );
+		$fields += $this->legacyImageFields( 'logo' );
 		return $fields + $this->externalIdFieldSpecs( $record );
 	}
 
@@ -260,7 +261,7 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 			return $memberError;
 		}
 		$imageEntries = \EmbeddableContent\Spec\MediaEntries::normalize( $record['imageEntries'] ?? [] );
-		$useLegacyImage = $imageEntries === [] && !empty( $record['logoFileTitle'] );
+		$useLegacyImage = $imageEntries === [] && $this->hasLegacyImageFields( $record, 'logo' );
 		if ( array_key_exists( 'imageEntries', $record ) && !$useLegacyImage ) {
 			$record['imageEntries'] = $imageEntries;
 			$error = \EmbeddableContent\Spec\MediaEntries::validate( $imageEntries );
