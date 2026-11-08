@@ -1848,10 +1848,13 @@ report). See `SimpleMathJax/VENDORED.md`.
   and `instance of` are rejected. Form-only; the API/MCP contracts are
   unchanged.
 - **Author-year mention**: Source pages copy `[[Source:X|name-author]]`;
-  `Spec/AuthorYearMention` derives the current `Family1-Family2 (Year)` and
+  `Spec/AuthorYearMention` derives the current caption and
   `onHtmlPageLinkRendererBegin` renders it italic, tagging the link so
   `onParserAfterTidy` registers the source item as a parser-cache
-  dependency.
+  dependency. The caption follows the author count: one author
+  `Family (Year)`, two or three `Family1-Family2[-Family3] (Year)`, four or
+  more `Family1 et al. (Year)` (`formatFamilies()`). This keeps a 20-author
+  clinical report from flooding the page.
 
 ### WikibaseCitation
 

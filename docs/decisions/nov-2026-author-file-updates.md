@@ -146,12 +146,17 @@ time), builds DataValues, and:
 
 The Source: "Copy internal mention" button gains a second choice that copies
 the stable marker `[[Source:X|name-author]]`. `Spec/AuthorYearMention`
-derives the current `Family1-Family2 (Year)` from the source item's
-`attributed to` + `date` at parse time; `Hooks::onHtmlPageLinkRendererBegin`
-renders it italic and tags the link with the item id, and
-`onParserAfterTidy` registers every tagged source item as a parser-cache
-dependency. A later author/year correction therefore updates every mention
-without editing the page.
+derives the current caption from the source item's `attributed to` + `date`
+at parse time; `Hooks::onHtmlPageLinkRendererBegin` renders it italic and
+tags the link with the item id, and `onParserAfterTidy` registers every
+tagged source item as a parser-cache dependency. A later author/year
+correction therefore updates every mention without editing the page.
+
+The caption is bounded by the author count (`formatFamilies()`):
+one author `Family (Year)`, two or three `Family1-Family2[-Family3] (Year)`,
+four or more `Family1 et al. (Year)`. Before this, every family was joined
+with hyphens, so a 20-author clinical report produced an unusably long
+caption. `AuthorYearMentionFormatTest` pins the four cases.
 
 ## Deployment
 
