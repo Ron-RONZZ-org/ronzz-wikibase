@@ -71,8 +71,23 @@ final class ItemImage {
 			return $empty;
 		}
 		$parser->getOutput()->addModules( 'ext.embeddableContent.imagegallery' );
+		try {
+			$html = self::galleryHtml( $titles );
+		} catch ( \Throwable $e ) {
+			// Defensive: a broken image must not take the whole page down.
+			\MediaWiki\Logger\LoggerFactory::getInstance( 'EmbeddableContent' )->warning(
+				'Item image gallery failed for {id}: {error}',
+				[ 'id' => $itemId->getSerialization(), 'error' => $e->getMessage() ]
+			);
+			return [
+				'text' => '<!-- wb-item-image-error: ' . htmlspecialchars( $e->getMessage() )
+					. ' @ ' . htmlspecialchars( basename( $e->getFile() ) . ':' . $e->getLine() ) . ' -->',
+				'noparse' => false,
+				'isHTML' => true,
+			];
+		}
 		return [
-			'text' => self::galleryHtml( $titles ),
+			'text' => $html,
 			'noparse' => false,
 			'isHTML' => true,
 		];
