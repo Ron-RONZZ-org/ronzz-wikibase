@@ -63,6 +63,50 @@ class CitationFormatterTest extends TestCase {
 		$this->assertStringStartsWith( 'TY  - JOUR', $this->formatter->format( $this->sampleCsl(), 'ris' ) );
 	}
 
+	/**
+	 * A journal article with 22 authors: APA 7 keeps the first 19 + an
+	 * ellipsis + the last, Vancouver keeps the first 6 + et al., and the
+	 * native serializers list every author. The type must be
+	 * `article-journal` for the serial container to render (the source type
+	 * map maps "scholarly article" to it).
+	 */
+	public function testJournalArticleWithManyAuthors(): void {
+		$authors = [];
+		for ( $i = 1; $i <= 22; $i++ ) {
+			$authors[] = [ 'given' => 'G', 'family' => 'Family' . $i ];
+		}
+		$csl = [
+			'type' => 'article-journal',
+			'title' => 'Early identification of autism spectrum disorder',
+			'author' => $authors,
+			'container-title' => 'Pediatrics',
+			'volume' => '136',
+			'issue' => 'Supplement_1',
+			'page' => 'S10-S40',
+			'issued' => [ 'date-parts' => [ [ 2015 ] ] ],
+			'DOI' => '10.1542/peds.2014-3667c',
+		];
+
+		$apa = $this->formatter->format( $csl, 'apa', 'text' );
+		$this->assertStringContainsString( 'Family19', $apa );
+		$this->assertStringNotContainsString( 'Family20', $apa );
+		$this->assertStringContainsString( 'Family22', $apa );
+		$this->assertStringContainsString( 'Pediatrics, 136(Supplement_1)', $apa );
+		$this->assertStringNotContainsString( 'In Pediatrics', $apa );
+
+		$vancouver = $this->formatter->format( $csl, 'vancouver', 'text' );
+		$this->assertStringContainsString( 'Family6', $vancouver );
+		$this->assertStringNotContainsString( 'Family7', $vancouver );
+		$this->assertStringContainsString( 'et al', $vancouver );
+
+		$bibtex = $this->formatter->format( $csl, 'bibtex', 'text' );
+		$this->assertStringContainsString( 'Family22', $bibtex );
+		$this->assertStringContainsString( ' and ', $bibtex );
+
+		$ris = $this->formatter->format( $csl, 'ris', 'text' );
+		$this->assertStringContainsString( 'AU  - Family22', $ris );
+	}
+
 	public function testUnknownStyleThrows(): void {
 		$this->expectException( \RuntimeException::class );
 		$this->formatter->format( $this->sampleCsl(), 'nonsense' );
