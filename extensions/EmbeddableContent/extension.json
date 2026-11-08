@@ -388,7 +388,8 @@
 		},
 		"ext.embeddableContent.authorsearch": {
 			"scripts": [
-				"authorsearch.js"
+				"authorsearch.js",
+				"authorsearch-dialogs.js"
 			],
 			"styles": [
 				"authorsearch.css"
@@ -396,25 +397,51 @@
 			"dependencies": [
 				"mediawiki.api",
 				"mediawiki.notification",
-				"oojs-ui"
+				"oojs-ui",
+				"ext.embeddableContent.entitysuggest"
 			],
 			"messages": [
 				"embeddablecontent-authorsearch-skipped",
 				"embeddablecontent-authorsearch-reused",
 				"embeddablecontent-authorsearch-updated",
 				"embeddablecontent-authorsearch-created",
+				"embeddablecontent-authorsearch-created-collective",
 				"embeddablecontent-authorsearch-candidates",
 				"embeddablecontent-authorsearch-missing",
 				"embeddablecontent-authorsearch-collective",
 				"embeddablecontent-authorsearch-addindividuals",
+				"embeddablecontent-authorsearch-dismiss",
 				"embeddablecontent-authorsearch-dialog-title",
 				"embeddablecontent-authorsearch-choose",
 				"embeddablecontent-authorsearch-use",
 				"embeddablecontent-authorsearch-edit",
 				"embeddablecontent-authorsearch-create",
+				"embeddablecontent-authorsearch-create-collective",
 				"embeddablecontent-authorsearch-skip",
+				"embeddablecontent-authorsearch-confirm",
+				"embeddablecontent-authorsearch-cancel",
+				"embeddablecontent-authorsearch-undo",
+				"embeddablecontent-authorsearch-unconfirmed",
+				"embeddablecontent-authorsearch-blocked",
+				"embeddablecontent-authorsearch-rerun",
+				"embeddablecontent-authorsearch-collective-class",
+				"embeddablecontent-authorsearch-collective-label",
+				"embeddablecontent-authorsearch-collective-description",
+				"embeddablecontent-authorsearch-collective-website",
+				"embeddablecontent-authorsearch-creating",
+				"embeddablecontent-authorsearch-create-failed",
+				"embeddablecontent-authorsearch-duplicate",
+				"embeddablecontent-authorsearch-use-existing",
+				"embeddablecontent-authorsearch-create-anyway",
+				"embeddablecontent-authorsearch-collision",
+				"embeddablecontent-authorsearch-create-duplicate",
+				"embeddablecontent-authorsearch-warnings",
+				"embeddablecontent-authorsearch-kind-collective",
+				"embeddablecontent-authorsearch-created-immediately",
 				"embeddablecontent-authorsearch-update-title",
+				"embeddablecontent-authorsearch-update-collective-title",
 				"embeddablecontent-authorsearch-create-title",
+				"embeddablecontent-authorsearch-create-collective-title",
 				"embeddablecontent-authorsearch-keepblank",
 				"embeddablecontent-authorsearch-save",
 				"embeddablecontent-authorsearch-back",
@@ -429,7 +456,9 @@
 				"embeddablecontent-authorsearch-isni",
 				"embeddablecontent-authorsearch-website",
 				"embeddablecontent-authorsearch-dateofbirth",
-				"embeddablecontent-authorsearch-dateofdeath"
+				"embeddablecontent-authorsearch-dateofdeath",
+				"embeddablecontent-authorsearch-name-required",
+				"embeddablecontent-agent-class-organization"
 			],
 			"targets": [
 				"desktop",

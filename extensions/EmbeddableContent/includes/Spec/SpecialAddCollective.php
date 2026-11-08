@@ -168,13 +168,21 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 		// entity combobox over agent items, writing the P749-aligned
 		// statement. Filled but invalid ids are skipped (the same lenient
 		// contract as the AddPerson place fields).
+		$parentOrganizationLabel = $this->msg( 'embeddablecontent-field-parentorganization' )->text();
 		$fields['parentOrganization'] = EntityCombobox::spec(
 			'embeddablecontent-field-parentorganization',
 			$this->agentClassIds(),
-			false,
+			// Multiple parents are allowed (comma-separated; one
+			// `parent organization` statement per id).
+			true,
 			[
 				'default' => (string)( $record['parentOrganization'] ?? '' ),
-				'help' => $this->msg( 'embeddablecontent-field-parentorganization-help' )->parse(),
+				'help' => $this->msg( 'embeddablecontent-field-parentorganization-help' )->parse()
+					. ' ' . $this->parentCreateLink(
+						'parentOrganization',
+						'collective',
+						$parentOrganizationLabel
+					),
 			]
 		);
 		$groupClass = $this->config->agentClasses()['groupOfHumans'] ?? null;
@@ -201,6 +209,10 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 			];
 			$fields['memberSearch'] = [
 				'type' => 'info',
+				// RawHtmlField (not HTMLInfoField): an OOUI info field is a
+				// LabelWidget, and clicking a result-row button would
+				// activate the Search button instead of the row.
+				'class' => \EmbeddableContent\Fields\RawHtmlField::class,
 				'raw' => true,
 				'default' => '<button type="button" id="wb-member-search" class="mw-ui-button mw-ui-progressive">'
 					. htmlspecialchars( $this->msg( 'embeddablecontent-collective-membersearch' )->text() )

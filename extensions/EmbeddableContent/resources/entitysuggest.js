@@ -195,8 +195,83 @@
 		}
 	}
 
+	/**
+	 * Programmatic value helpers for the multi-value entity comboboxes
+	 * (the author panel injects a confirmed Q-id, the parent dialog fills
+	 * the parent field). They keep the OOUI widget in sync when it is
+	 * infused; a plain input fallback covers non-OOUI renderings.
+	 */
+	function inputForCombo( name ) {
+		return document.querySelector( 'input[name="' + name + '"]' );
+	}
+
+	function comboValues( name ) {
+		var input = inputForCombo( name );
+		if ( !input ) {
+			return [];
+		}
+		var seen = {};
+		var out = [];
+		String( input.value || '' ).split( /[,;]\s*/ ).forEach( function ( segment ) {
+			var id = String( segment || '' ).trim().toUpperCase();
+			if ( /^Q[1-9]\d*$/.test( id ) && !seen[ id ] ) {
+				seen[ id ] = true;
+				out.push( id );
+			}
+		} );
+		return out;
+	}
+
+	function setComboValues( name, values ) {
+		var input = inputForCombo( name );
+		if ( !input ) {
+			return false;
+		}
+		var joined = values.join( ', ' );
+		var $widget = $( input ).closest( '.oo-ui-comboBoxInputWidget' );
+		if ( $widget.length ) {
+			try {
+				var combo = OO.ui.ComboBoxInputWidget.static.infuse( $widget );
+				combo.setValue( joined );
+				return true;
+			} catch ( e ) {
+				// Fall through to the native input.
+			}
+		}
+		input.value = joined;
+		input.dispatchEvent( new Event( 'input', { bubbles: true } ) );
+		input.dispatchEvent( new Event( 'change', { bubbles: true } ) );
+		return true;
+	}
+
+	function addComboValue( name, value ) {
+		var id = String( value || '' ).trim().toUpperCase();
+		if ( !/^Q[1-9]\d*$/.test( id ) ) {
+			return false;
+		}
+		var values = comboValues( name );
+		if ( values.indexOf( id ) === -1 ) {
+			values.push( id );
+		}
+		return setComboValues( name, values );
+	}
+
+	function removeComboValue( name, value ) {
+		var id = String( value || '' ).trim().toUpperCase();
+		var values = comboValues( name ).filter( function ( existing ) {
+			return existing !== id;
+		} );
+		return setComboValues( name, values );
+	}
+
 	mw.embeddableContent = mw.embeddableContent || {};
-	mw.embeddableContent.entitysuggest = { wire: wireCombo };
+	mw.embeddableContent.entitysuggest = {
+		wire: wireCombo,
+		values: comboValues,
+		setValues: setComboValues,
+		addValue: addComboValue,
+		removeValue: removeComboValue
+	};
 
 	mw.loader.using( 'oojs-ui' ).then( function () {
 		$( '.wb-entity-combobox.oo-ui-comboBoxInputWidget' ).each( function () {

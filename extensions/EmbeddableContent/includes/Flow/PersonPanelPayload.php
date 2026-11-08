@@ -74,8 +74,11 @@ final class PersonPanelPayload {
 			if ( $provided === [] ) {
 				continue;
 			}
-			$existing = is_array( $decision['person'] ?? null ) ? $decision['person'] : [];
-			$decision['person'] = array_merge( $provided, $existing );
+			$detailKey = ( $parsed['names'][$index]['kind'] ?? 'person' ) === 'collective'
+				? 'collective'
+				: 'person';
+			$existing = is_array( $decision[$detailKey] ?? null ) ? $decision[$detailKey] : [];
+			$decision[$detailKey] = array_merge( $provided, $existing );
 		}
 		unset( $decision );
 
@@ -91,7 +94,8 @@ final class PersonPanelPayload {
 			$decisions,
 			$user,
 			$summary ?? 'Create a person from the Add* person panel',
-			!empty( $params[$prefix . 'UpdateExisting'] )
+			!empty( $params[$prefix . 'UpdateExisting'] ),
+			$prefix === 'member' ? [ 'person' ] : [ 'person', 'collective' ]
 		);
 		if ( $result['error'] !== null ) {
 			return [ 'error' => $result['error'] ];
@@ -104,6 +108,9 @@ final class PersonPanelPayload {
 			}
 		}
 		$record[$target] = implode( ', ', $ids );
+		if ( $prefix === 'author' && !empty( $result['collectiveIds'] ) ) {
+			$record['collectiveAuthorIds'] = implode( ', ', array_unique( $result['collectiveIds'] ) );
+		}
 		return [ 'result' => $result ];
 	}
 

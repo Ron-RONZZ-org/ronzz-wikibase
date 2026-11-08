@@ -78,13 +78,14 @@ final class GroupMembers {
 	/**
 	 * Replaces a group-of-humans id with its `has member` Persons. A group
 	 * without members is blocked when its label parses as a person-name list
-	 * and `$allowNameListCollective` is false; a non-name-list group is kept
-	 * as a collective author.
+	 * unless its Q-id is in `$allowNameListCollectiveIds` (an explicit ORG:
+	 * declaration); a non-name-list group is kept as a collective author.
 	 *
 	 * @param string[] $ids
+	 * @param string[] $allowNameListCollectiveIds
 	 * @return array{ids:list<string>,blocked:list<array{qid:string,label:string}>}
 	 */
-	public function expand( array $ids, bool $allowNameListCollective = false ): array {
+	public function expand( array $ids, array $allowNameListCollectiveIds = [] ): array {
 		$out = [];
 		$blocked = [];
 		foreach ( $ids as $id ) {
@@ -110,7 +111,9 @@ final class GroupMembers {
 			}
 			$label = EntityLabelText::of( $item ) ?? $id;
 			$parsed = AuthorNameList::parse( $label );
-			if ( count( $parsed['names'] ) >= 2 && !$allowNameListCollective ) {
+			if ( count( $parsed['names'] ) >= 2
+				&& !in_array( $id, $allowNameListCollectiveIds, true )
+			) {
 				$blocked[] = [ 'qid' => $id, 'label' => $label ];
 				continue;
 			}

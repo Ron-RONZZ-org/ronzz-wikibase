@@ -145,8 +145,11 @@ final class SemanticEntityFlowService {
 		// (developer/license/operating-system/user-interface/has-use) accept
 		// comma-separated item ids (one statement per id), the rest are
 		// single ids.
-		$multiEntityFields = [ 'developer', 'license', 'operatingSystem', 'userInterface', 'hasUse', 'affiliatedWith', 'members' ];
-		foreach ( [ 'placeOfBirth', 'placeOfDeath', 'parentOrganization', 'instanceOf' ] as $entityField ) {
+		$multiEntityFields = [
+			'developer', 'license', 'operatingSystem', 'userInterface',
+			'hasUse', 'affiliatedWith', 'members', 'parentOrganization',
+		];
+		foreach ( [ 'placeOfBirth', 'placeOfDeath', 'instanceOf' ] as $entityField ) {
 			$id = trim( (string)( $record[$entityField] ?? '' ) );
 			if ( $id !== '' && preg_match( '/^Q[1-9]\d*$/', $id ) !== 1 ) {
 				return "{$entityField} \"{$id}\" is not an item ID.";
@@ -347,9 +350,12 @@ final class SemanticEntityFlowService {
 				if ( $class !== '' && preg_match( '/^Q[1-9]\d*$/', $class ) === 1 ) {
 					$specs[$this->config->instanceOfPropertyId()] = new EntityIdValue( new ItemId( $class ) );
 				}
-				$parent = trim( (string)( $record['parentOrganization'] ?? '' ) );
-				if ( $parent !== '' && isset( $collective['parentOrganization'] ) ) {
-					$specs[$collective['parentOrganization']] = new EntityIdValue( new ItemId( $parent ) );
+				$parentIds = $this->splitItemIds( (string)( $record['parentOrganization'] ?? '' ) );
+				if ( $parentIds !== [] && isset( $collective['parentOrganization'] ) ) {
+					$specs[$collective['parentOrganization']] = array_map(
+						static fn ( string $id ): EntityIdValue => new EntityIdValue( new ItemId( $id ) ),
+						$parentIds
+					);
 				}
 				if ( array_key_exists( 'members', $record ) && isset( $collective['hasMember'] ) ) {
 					$groupClass = $this->config->agentClasses()['groupOfHumans'] ?? null;

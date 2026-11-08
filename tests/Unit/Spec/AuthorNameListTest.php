@@ -153,4 +153,37 @@ class AuthorNameListTest extends TestCase {
 		$this->assertSame( [], $result['names'] );
 		$this->assertSame( [], $result['warnings'] );
 	}
+
+	public function testOrgPrefixCreatesACollectiveRow(): void {
+		$result = AuthorNameList::parse( 'ORG:Wikimedia Foundation' );
+		$this->assertCount( 1, $result['names'] );
+		$row = $result['names'][0];
+		$this->assertSame( 'collective', $row['kind'] );
+		$this->assertSame( 'Wikimedia Foundation', $row['familyName'] );
+		$this->assertSame( 'ORG:Wikimedia Foundation', $row['original'] );
+		$this->assertSame( [], $row['flags'] );
+	}
+
+	public function testMixedPersonAndOrgRowsKeepTheirOrder(): void {
+		$result = AuthorNameList::parse( 'Jane Doe, ORG:Wikimedia Foundation' );
+		$this->assertCount( 2, $result['names'] );
+		$this->assertSame( 'person', $result['names'][0]['kind'] );
+		$this->assertSame( 'Jane', $result['names'][0]['givenName'] );
+		$this->assertSame( 'collective', $result['names'][1]['kind'] );
+		$this->assertSame( 'Wikimedia Foundation', $result['names'][1]['familyName'] );
+	}
+
+	public function testSemicolonOrgNameMayContainAComma(): void {
+		$result = AuthorNameList::parse( 'ORG:Smith, Jones and Associates; Jane Doe' );
+		$this->assertCount( 2, $result['names'] );
+		$this->assertSame( 'collective', $result['names'][0]['kind'] );
+		$this->assertSame( 'Smith, Jones and Associates', $result['names'][0]['familyName'] );
+		$this->assertSame( 'person', $result['names'][1]['kind'] );
+	}
+
+	public function testEmptyOrgIsIgnoredWithAWarning(): void {
+		$result = AuthorNameList::parse( 'ORG:' );
+		$this->assertSame( [], $result['names'] );
+		$this->assertContains( 'org_empty', array_column( $result['warnings'], 'code' ) );
+	}
 }

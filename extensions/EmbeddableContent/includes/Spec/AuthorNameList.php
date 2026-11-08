@@ -66,6 +66,13 @@ final class AuthorNameList {
 			return [ 'names' => [], 'warnings' => $warnings ];
 		}
 
+		// Collectives: "ORG:Wikimedia Foundation". The prefix marks the
+		// segment as an organisation, not a person. The name runs to the
+		// next comma/semicolon (so an organisation name containing a comma
+		// must be in a semicolon-separated list). Parentheses are NOT part
+		// of the syntax.
+		[ $input, $organizations ] = self::extractOrganizations( $input, $warnings );
+
 		// Remove parenthetical alternates BEFORE splitting: a CJK
 		// transliteration like "Satoshi Watanabe (杉 森 伸 吉, 渡 辺 聡)"
 		// contains commas that must not become author separators.
@@ -85,12 +92,15 @@ final class AuthorNameList {
 				$row['text'],
 				$row['familyFirst'],
 				$warnings,
-				$row['original'] ?? null
+				$row['original'] ?? null,
+				$organizations
 			);
 			if ( $name === null ) {
 				continue;
 			}
-			$key = mb_strtolower( $name['givenName'] . '|' . $name['familyName'] );
+			$key = $name['kind'] === 'collective'
+				? 'collective|' . mb_strtolower( $name['familyName'] )
+				: 'person|' . mb_strtolower( $name['givenName'] . '|' . $name['familyName'] );
 			if ( isset( $seen[$key] ) ) {
 				$warnings[] = self::warning( 'duplicate', $name['original'], 'duplicate name ignored' );
 				continue;
@@ -100,6 +110,66 @@ final class AuthorNameList {
 		}
 
 		return [ 'names' => $names, 'warnings' => $warnings ];
+	}
+
+	/**
+	 * Replaces every `ORG:name` with a single safe token and returns the
+	 * map token => organization. The token survives the normal comma/
+	 * semicolon/and splitting, so the parsed order is preserved.
+	 *
+	 * @param array<int,array{code:string,message:string,name:string}> $warnings
+	 * @return array{0:string,1:array<string,array{name:string,original:string}>}
+	 */
+	private static function extractOrganizations( string $input, array &$warnings ): array {
+		$organizations = [];
+		$out = '';
+		$offset = 0;
+		// In a semicolon-separated list a comma may belong to the
+		// organization name ("ORG:Smith, Jones and Associates; Jane Doe").
+		$semicolonFormat = str_contains( $input, ';' );
+		while ( preg_match( '/\bORG\s*:/iu', $input, $match, PREG_OFFSET_CAPTURE, $offset ) === 1 ) {
+			$start = (int)$match[0][1];
+			$nameStart = $start + strlen( $match[0][0] );
+			$end = self::organizationNameEnd( $input, $nameStart, $semicolonFormat );
+			$name = trim( substr( $input, $nameStart, $end - $nameStart ) );
+			$original = 'ORG:' . $name;
+			if ( $name === '' ) {
+				$warnings[] = self::warning( 'org_empty', $original, 'ORG: with no organization name ignored' );
+				$out .= substr( $input, $offset, $start - $offset );
+				$offset = $end;
+				continue;
+			}
+			$token = 'WbOrgAuthor' . count( $organizations ) . 'Token';
+			$organizations[$token] = [ 'name' => $name, 'original' => $original ];
+			$out .= substr( $input, $offset, $start - $offset ) . ' ' . $token . ' ';
+			$offset = $end;
+		}
+		$out .= substr( $input, $offset );
+		return [ self::normalizeWhitespace( $out ), $organizations ];
+	}
+
+	/**
+	 * The end of the organization name starting at $start: the next
+	 * comma/semicolon at parenthesis depth 0, or the end of the string.
+	 * "ORG:" names therefore cannot contain an unparenthesized comma in a
+	 * comma-separated list — use semicolons when they do.
+	 */
+	private static function organizationNameEnd( string $input, int $start, bool $semicolonFormat = false ): int {
+		$depth = 0;
+		$length = strlen( $input );
+		for ( $i = $start; $i < $length; $i++ ) {
+			$char = $input[$i];
+			if ( $char === '(' ) {
+				$depth++;
+			} elseif ( $char === ')' && $depth > 0 ) {
+				$depth--;
+			} elseif ( $depth === 0
+				&& ( $char === ';' || ( !$semicolonFormat && $char === ',' ) )
+			) {
+				return $i;
+			}
+		}
+		return $length;
 	}
 
 	private static function detectFormat( string $input, string $format ): string {
@@ -283,7 +353,8 @@ final class AuthorNameList {
 		string $text,
 		bool $familyFirst,
 		array &$warnings,
-		?string $original = null
+		?string $original = null,
+		array $organizations = []
 	): ?array {
 		$original = trim( $original ?? $text );
 		if ( $original === '' ) {
@@ -297,6 +368,17 @@ final class AuthorNameList {
 		$cleaned = self::stripParenthetical( $text, $flags, $warnings );
 		if ( $cleaned === '' ) {
 			$cleaned = $text;
+		}
+		if ( isset( $organizations[$cleaned] ) ) {
+			$org = $organizations[$cleaned];
+			return [
+				'original' => $org['original'],
+				'givenName' => '',
+				'familyName' => $org['name'],
+				'familyFirst' => false,
+				'flags' => [],
+				'kind' => 'collective',
+			];
 		}
 		if ( self::isCjk( $cleaned ) ) {
 			$flags[] = 'cjk';
@@ -321,6 +403,7 @@ final class AuthorNameList {
 				'familyName' => $tokens[0],
 				'familyFirst' => $familyFirst,
 				'flags' => $flags,
+				'kind' => 'person',
 			];
 		}
 
@@ -336,6 +419,7 @@ final class AuthorNameList {
 			'familyName' => $family,
 			'familyFirst' => $familyFirst,
 			'flags' => $flags,
+			'kind' => 'person',
 		];
 	}
 
