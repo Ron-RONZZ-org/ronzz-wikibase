@@ -68,6 +68,7 @@ final class AuthorCreator {
 			}
 		}
 		$ids = [];
+		$collectiveIds = [];
 		foreach ( $names as $index => $name ) {
 			$decision = $byIndex[$index] ?? null;
 			if ( $decision === null ) {
@@ -93,9 +94,12 @@ final class AuthorCreator {
 			}
 			if ( $action === 'reuse' || $action === 'update' ) {
 				if ( $this->loadAgent( $qid, $kind ) === null ) {
-					return [ 'ids' => [], 'error' => "{$qid} is not an existing {$kind} item." ];
+					return [ 'ids' => [], 'collectiveIds' => [], 'error' => "{$qid} is not an existing {$kind} item." ];
 				}
 				$ids[] = $qid;
+				if ( $kind === 'collective' ) {
+					$collectiveIds[] = $qid;
+				}
 				continue;
 			}
 			if ( $action === 'create' ) {
@@ -111,7 +115,7 @@ final class AuthorCreator {
 			}
 			return [ 'ids' => [], 'error' => "Unknown decision \"{$action}\" for {$name['original']}." ];
 		}
-		return [ 'ids' => $ids, 'error' => null ];
+		return [ 'ids' => $ids, 'collectiveIds' => $collectiveIds, 'error' => null ];
 	}
 
 	/**

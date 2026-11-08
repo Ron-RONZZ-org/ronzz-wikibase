@@ -2490,6 +2490,12 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 				return $result['error'];
 			}
 			$newIds = $result['ids'];
+			if ( $prefix === 'author' && !empty( $result['collectiveIds'] ) ) {
+				$record['collectiveAuthorIds'] = implode(
+					', ',
+					array_unique( $result['collectiveIds'] )
+				);
+			}
 		}
 		$target = $prefix === 'author' ? 'authors' : 'members';
 		$ids = ItemIdList::split( (string)( $record[$target] ?? '' ) );
