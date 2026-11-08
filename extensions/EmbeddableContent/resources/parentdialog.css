@@ -43,3 +43,12 @@ body.wb-parentdialog-frame .wb-parentdone {
 .wb-parentdone {
 	color: var( --color-base, #202122 );
 }
+
+/* "Create it now" inside a field's help text: a real link-styled action
+ * (the help text is muted, so colour + underline is what makes it read as
+ * a button rather than a continuation of the sentence). */
+.wb-parent-create {
+	color: var( --color-progressive, #3366cc );
+	text-decoration: underline;
+	font-weight: 600;
+}
