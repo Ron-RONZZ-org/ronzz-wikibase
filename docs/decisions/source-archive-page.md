@@ -42,11 +42,21 @@ schema for a purely presentational feature.
    no warranty …") on the `/archivedText` page. It is OutputPage-level, not
    parser output (not cached, reads the committed first revision), and
    **prints with the page** (Save-as-PDF / Ctrl-P). Dismissal is
-   **transient**: the button removes the DOM node; a refresh shows it again.
+   **transient**: the dismiss link removes the DOM node; a refresh shows it
+   again. The control is `<br><a>Dismiss</a>` (Nov 2026; it was a
+   `<button>`); screen colours use Codex theme tokens so Vector 2022 night
+   mode stays readable, while print forces black on white and hides the
+   control.
 6. **URL and timestamp for the banner.** The timestamp is the subpage's first
    revision; the URL is the parent item's `url`, else `accessUrl` (a fallback
    to the parent page title when neither exists). No archive-specific
    statement is written.
+7. **Print cover (Nov 2026).** An archive page's print flow does not credit
+   wiki contributors: `print.js` renders a cover with
+   `<h1>{source title} ({class})</h1>` and "Text archived on {date} from
+   {url}" (`SourceArchiveBanner::coverData()`). The cover option is
+   default-checked; the Save-as-PDF filename uses the source title, not
+   `…_archivedText`.
 
 ## Sources consulted
 

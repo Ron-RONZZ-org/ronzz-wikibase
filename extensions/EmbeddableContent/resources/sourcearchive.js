@@ -5,7 +5,7 @@
  * is deliberately TRANSIENT — it removes the banner for the current view
  * only, so a page refresh shows it again (no storage). The banner itself is
  * plain HTML, so a JS-off reader always sees it (and it prints with the
- * page; the dismiss button is hidden by sourcearchive.css in print).
+ * page; the dismiss link is hidden by sourcearchive.css in print).
  */
 ( function () {
 	'use strict';
@@ -19,7 +19,8 @@
 		if ( !dismiss ) {
 			return;
 		}
-		dismiss.addEventListener( 'click', function () {
+		dismiss.addEventListener( 'click', function ( event ) {
+			event.preventDefault();
 			if ( banner.parentNode ) {
 				banner.parentNode.removeChild( banner );
 			}

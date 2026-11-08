@@ -46,6 +46,12 @@
 	/** The document.title saved before the first print-title swap. */
 	var documentTitleBackup = null;
 
+	/**
+	 * The Save-as-PDF filename override for the CURRENT print (an archive
+	 * page's source title), or null for the normal wgTitle-derived name.
+	 */
+	var printTitleOverride = null;
+
 	function closeActive() {
 		if ( activePopup ) {
 			activePopup.$element.remove();
@@ -79,7 +85,7 @@
 
 	/** Swap document.title for the Save-as-PDF filename (idempotent). */
 	function setPrintDocumentTitle() {
-		var name = pdfFileName( mw.config.get( 'wgTitle' ) );
+		var name = pdfFileName( printTitleOverride || mw.config.get( 'wgTitle' ) );
 		if ( name === '' ) {
 			return;
 		}
@@ -206,6 +212,7 @@
 		$( '.wb-print-header, .wb-print-cover' ).remove();
 		$( document.body ).removeClass( 'wb-printing' );
 		restoreDocumentTitle();
+		printTitleOverride = null;
 	}
 
 	/** Inject the print-only header (or cover page) and mark the body. */
@@ -224,8 +231,52 @@
 		$( document.body ).addClass( 'wb-printing' );
 	}
 
+	/**
+	 * Inject the archive cover: the SOURCE work (title + class) and its
+	 * archive provenance. The archive page's contributors are never credited
+	 * — the text is external, not wiki-authored.
+	 *
+	 * @param {{ title: string, class: string, date: string, url: string }} archive
+	 */
+	function injectArchiveCover( archive ) {
+		cleanup();
+		var $mount = $( '#mw-content-text' ).first();
+		if ( $mount.length === 0 ) {
+			$mount = $( document.body );
+		}
+		var title = archive.title || mw.config.get( 'wbPrintTitle' ) || '';
+		if ( archive.class ) {
+			title += ' (' + archive.class + ')';
+		}
+		var $cover = $( '<div class="wb-print-cover wb-print-archive-cover"></div>' );
+		$cover.append( $( '<h1 class="wb-print-title"></h1>' ).text( title ) );
+		if ( archive.date || archive.url ) {
+			var line = archive.url
+				? mw.msg( 'embeddablecontent-print-archive-cover', archive.date, archive.url )
+				: mw.msg( 'embeddablecontent-print-archive-cover-nourl', archive.date );
+			$cover.append( $( '<div class="wb-print-archive-meta"></div>' ).text( line ) );
+		}
+		$mount.prepend( $cover );
+		$( document.body ).addClass( 'wb-printing' );
+	}
+
 	/** Fetch the authors, inject the print DOM, then open the print dialog. */
 	function doPrint( withCover ) {
+		var archive = mw.config.get( 'wbPrintArchive' );
+		if ( archive ) {
+			if ( withCover ) {
+				injectArchiveCover( archive );
+			} else {
+				// No cover: a centered header naming the source work, still
+				// without the wiki contributor line.
+				inject( mw.config.get( 'wbPrintTitle' ) || '', '', false );
+			}
+			// inject() runs cleanup(), which clears the override — set it AFTER.
+			printTitleOverride = archive.filename || null;
+			setPrintDocumentTitle();
+			window.print();
+			return;
+		}
 		fetchAuthors().then( function ( names ) {
 			var title = mw.config.get( 'wbPrintTitle' ) || '';
 			var authorLine = names.length > 0
@@ -243,7 +294,11 @@
 	function open( $anchor ) {
 		closeActive();
 
-		var cover = new OO.ui.CheckboxInputWidget( { selected: false } );
+		// On an archive page the cover is the meaningful title page (the
+		// page's own heading is the external text), so pre-select it.
+		var cover = new OO.ui.CheckboxInputWidget( {
+			selected: !!mw.config.get( 'wbPrintArchive' )
+		} );
 		var coverField = new OO.ui.FieldLayout( cover, {
 			label: mw.msg( 'embeddablecontent-print-cover' ),
 			help: mw.msg( 'embeddablecontent-print-cover-help' ),

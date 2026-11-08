@@ -292,6 +292,7 @@ def check(args: argparse.Namespace) -> int:
             "AddCollective": "Add collective",
             "QuotationsOf": "Quotations of a source",
             "ChildItemsOf": "Child items of a source",
+            "EntityIndex": "All pages in a namespace",
         }
         status, body, _ = http_get(f"{base}/wiki/Special:SpecialPages")
         html = body.decode("utf-8", "replace")
@@ -314,6 +315,31 @@ def check(args: argparse.Namespace) -> int:
                 heading != "",
                 f"Special:{page}: empty page title (setHeaders/getDescription regression)",
             )
+
+    def check_entity_index() -> None:
+        """Special:EntityIndex — the namespace index is real, paginated and
+        its page-size input is clamped to 10–200 (default 100)."""
+        status, body, _ = http_get(f"{base}/wiki/Special:EntityIndex/Source")
+        html = body.decode("utf-8", "replace")
+        expect(status == 200, f"Special:EntityIndex/Source: HTTP {status}")
+        expect('class="mw-allpages-chunk"' in html or
+               "embeddablecontent-entityindex-empty" in html or
+               "This namespace has no pages" in html,
+               "Special:EntityIndex/Source: no index list or empty notice")
+        expect('name="limit"' in html and 'min="10"' in html and 'max="200"' in html,
+               "Special:EntityIndex/Source: page-size control missing/clamped wrong")
+
+        status, body, _ = http_get(f"{base}/wiki/Special:EntityIndex/Source?limit=5")
+        html = body.decode("utf-8", "replace")
+        expect(status == 200, f"Special:EntityIndex/Source?limit=5: HTTP {status}")
+        expect('value="10"' in html,
+               "Special:EntityIndex/Source?limit=5: limit was not clamped to 10")
+
+        status, body, _ = http_get(f"{base}/wiki/Special:EntityIndex/99999")
+        html = body.decode("utf-8", "replace")
+        expect(status == 200, f"Special:EntityIndex/99999: HTTP {status}")
+        expect("Unknown namespace" in html,
+               "Special:EntityIndex/99999: no unknown-namespace error")
 
     def check_embed_error_paths() -> None:
         # Regression (issue #11): Special:Embed with no/invalid subpage must
@@ -367,6 +393,7 @@ def check(args: argparse.Namespace) -> int:
     run("sparql instance-of check", check_sparql)
     run("entity-creation pages registered + login-gated (issue #7)", check_entity_creation_pages)
     run("special pages listed on Special:SpecialPages + non-empty titles (issue #11)", check_specialpages_listing)
+    run("entity index (Special:EntityIndex pagination + limit clamp)", check_entity_index)
     run("Special:Embed error paths render 200 (issue #11)", check_embed_error_paths)
     run("addsource-fields contract (webpage exposes authors — the drift regression)", lambda: check_addsource_fields(api))
     run("field-contract parity (-fields ⊆ write-module params)", check_field_contract_parity)

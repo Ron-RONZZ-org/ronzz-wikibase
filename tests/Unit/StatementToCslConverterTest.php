@@ -259,6 +259,72 @@ class StatementToCslConverterTest extends TestCase {
 		$this->assertArrayNotHasKey( 'author', $csl );
 	}
 
+	public function testAllAuthorStatementsAreKeptInItemOrder(): void {
+		// Regression (Q2937): 22 `attributed to` statements rendered as ONE
+		// author because addAuthor() used bestStatement(). Every non-deprecated
+		// statement must survive, in the item's stored (byline) order.
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31'
+		);
+		$item = new Item();
+		$item->setLabel( 'en', 'A paper with many authors' );
+		$item->getStatements()->addNewStatement(
+			new PropertyValueSnak( new PropertyId( 'P31' ), new EntityIdValue( new ItemId( 'Q5' ) ) )
+		);
+		$item->getStatements()->addNewStatement(
+			new PropertyValueSnak( new PropertyId( 'P6' ), new EntityIdValue( new ItemId( 'Q12' ) ) )
+		);
+		$item->getStatements()->addNewStatement(
+			new PropertyValueSnak( new PropertyId( 'P6' ), new EntityIdValue( new ItemId( 'Q10' ) ) )
+		);
+		$item->getStatements()->addNewStatement(
+			new PropertyValueSnak( new PropertyId( 'P6' ), new EntityIdValue( new ItemId( 'Q11' ) ) )
+		);
+
+		$csl = $converter->toCslJson( $item, 'en' );
+
+		$this->assertSame( [
+			[ 'given' => 'Grace', 'family' => 'Hopper' ],
+			[ 'given' => 'Ada', 'family' => 'Lovelace' ],
+			[ 'given' => 'Lucian', 'family' => 'of Samosata' ],
+		], $csl['author'] );
+	}
+
+	public function testDeprecatedAuthorBetweenLiveAuthorsIsSkipped(): void {
+		$converter = new StatementToCslConverter(
+			$this->makeEntityLookup(),
+			$this->makeMapLookup(),
+			new CslTypeMapper( $this->makeMapLookup() ),
+			'P31'
+		);
+		$item = new Item();
+		$item->setLabel( 'en', 'Author list with a deprecated entry' );
+		$item->getStatements()->addNewStatement(
+			new PropertyValueSnak( new PropertyId( 'P31' ), new EntityIdValue( new ItemId( 'Q5' ) ) )
+		);
+		$item->getStatements()->addNewStatement(
+			new PropertyValueSnak( new PropertyId( 'P6' ), new EntityIdValue( new ItemId( 'Q12' ) ) )
+		);
+		$deprecated = new Statement(
+			new PropertyValueSnak( new PropertyId( 'P6' ), new EntityIdValue( new ItemId( 'Q10' ) ) )
+		);
+		$deprecated->setRank( Statement::RANK_DEPRECATED );
+		$item->getStatements()->addStatement( $deprecated );
+		$item->getStatements()->addNewStatement(
+			new PropertyValueSnak( new PropertyId( 'P6' ), new EntityIdValue( new ItemId( 'Q11' ) ) )
+		);
+
+		$csl = $converter->toCslJson( $item, 'en' );
+
+		$this->assertSame( [
+			[ 'given' => 'Grace', 'family' => 'Hopper' ],
+			[ 'given' => 'Lucian', 'family' => 'of Samosata' ],
+		], $csl['author'] );
+	}
+
 	public function testTypeFollowsSourceClassAndSourceFieldsAreResolved(): void {
 		$converter = new StatementToCslConverter(
 			$this->makeEntityLookup(),

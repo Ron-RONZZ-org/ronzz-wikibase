@@ -1,25 +1,20 @@
 /**
  * The Source:<label>/archivedText disclaimer banner.
  *
- * Prominent on screen (amber panel, red left rule) and legible in print /
- * Save-as-PDF (white background, black border; the dismiss button is
- * hidden — it is meaningless on paper).
+ * Prominent on screen (amber warning panel, red left rule) using Codex theme
+ * tokens so Vector 2022 night mode keeps readable contrast. It stays legible
+ * in print / Save-as-PDF (forced black on white; the dismiss link and its
+ * line break are hidden — they are meaningless on paper).
  */
 .wb-sourcearchive-banner {
-	display: flex;
-	align-items: flex-start;
-	gap: 1em;
 	margin: 0 0 1em;
 	padding: 0.75em 1em;
-	border: 2px solid #fc3;
-	border-left: 8px solid #d33;
-	background: #fef6e7;
+	border: 2px solid var( --border-color-warning, #fc3 );
+	border-left: 8px solid var( --border-color-destructive, #d33 );
+	background: var( --background-color-warning-subtle, #fef6e7 );
+	color: var( --color-base, #202122 );
 	font-size: 0.95em;
 	line-height: 1.5;
-}
-
-.wb-sourcearchive-body {
-	flex: 1 1 auto;
 }
 
 .wb-sourcearchive-body p {
@@ -27,18 +22,18 @@
 }
 
 .wb-sourcearchive-dismiss {
-	flex: 0 0 auto;
-	white-space: nowrap;
+	cursor: pointer;
 }
 
 @media print {
 	.wb-sourcearchive-banner {
-		display: block;
 		border: 1px solid #000;
 		background: #fff;
+		color: #000;
 	}
 
-	.wb-sourcearchive-dismiss {
+	.wb-sourcearchive-dismiss,
+	.wb-sourcearchive-body > br {
 		display: none !important;
 	}
 }

@@ -47,6 +47,17 @@ class CitationMapReaderTest extends TestCase {
 		$this->assertSame( 'entry-encyclopedia', $map['programming language'] );
 	}
 
+	public function testScholarlyArticleMapsToTheSerialArticleType(): void {
+		// The CSL `article` type is generic; APA renders it as a monographic
+		// container ("In Pediatrics (Vols. …)"). A journal article is
+		// `article-journal`, which renders the serial source (Pediatrics,
+		// 136(Supplement_1), S10–S40).
+		$map = $this->reader->readTypeMap(
+			self::EXT . '/manifests/citation-source-type-map.json'
+		);
+		$this->assertSame( 'article-journal', $map['scholarly article'] );
+	}
+
 	public function testUnknownCslFieldThrows(): void {
 		$path = $this->writeTemp( '{ "author": "attributed to", "not-a-csl-field": "source" }' );
 		$this->expectException( CitationMapException::class );

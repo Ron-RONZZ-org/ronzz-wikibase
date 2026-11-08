@@ -59,6 +59,18 @@
 		line-height: 1.25;
 	}
 
+	/* The archive cover's title is a real <h1>: cancel the UA heading margin. */
+	body.wb-printing .wb-print-archive-cover .wb-print-title {
+		margin: 0;
+	}
+
+	body.wb-printing .wb-print-archive-meta {
+		font-family: Georgia, "Times New Roman", serif;
+		font-size: 1.1em;
+		margin-top: 1em;
+		line-height: 1.4;
+	}
+
 	body.wb-printing .wb-print-authors {
 		font-size: 1.2em;
 		margin-top: 0.8em;

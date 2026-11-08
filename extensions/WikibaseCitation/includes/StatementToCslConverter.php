@@ -226,32 +226,68 @@ class StatementToCslConverter {
 		if ( $propertyId === null ) {
 			return;
 		}
-		$statement = $this->bestStatement( $item, $propertyId );
-		if ( $statement === null ) {
-			return;
-		}
-		$snak = $statement->getMainSnak();
-		if ( !$snak instanceof PropertyValueSnak ) {
-			return;
-		}
-		$value = $snak->getDataValue();
-		if ( $value instanceof EntityIdValue ) {
-			$value = $value->getEntityId();
-		}
-		if ( $value instanceof ItemId ) {
-			$authorItem = $this->entityLookup->getEntity( $value );
-			if ( $authorItem instanceof Item ) {
-				$csl['author'] = $this->authorName( $authorItem, $preferredLanguage );
-				return;
+		// An author list is MANY statements on one property (the AddSource
+		// authors field writes one `attributed to` statement per author).
+		// `bestStatement()` would keep only the first — the Q2937 report:
+		// 22 recorded authors, but APA/Vancouver/BibTeX/RIS/JSON all showed
+		// one. Preserve the item's stored statement order: it is the byline
+		// order (statement GUIDs are random, so never sort by them).
+		$names = [];
+		foreach ( $this->allStatements( $item, $propertyId ) as $statement ) {
+			$snak = $statement->getMainSnak();
+			if ( !$snak instanceof PropertyValueSnak ) {
+				continue;
 			}
-			$value = $value->getSerialization();
-		} elseif ( $value instanceof StringValue ) {
-			$value = $value->getValue();
+			$value = $snak->getDataValue();
+			if ( $value instanceof EntityIdValue ) {
+				$value = $value->getEntityId();
+			}
+			$resolved = [];
+			if ( $value instanceof ItemId ) {
+				$authorItem = $this->entityLookup->getEntity( $value );
+				if ( $authorItem instanceof Item ) {
+					$resolved = $this->authorName( $authorItem, $preferredLanguage );
+				} else {
+					$value = $value->getSerialization();
+				}
+			} elseif ( $value instanceof StringValue ) {
+				$value = $value->getValue();
+			}
+			if ( $resolved === [] && is_string( $value ) && $value !== '' ) {
+				$resolved = $this->splitNameLabel( $value );
+			}
+			foreach ( $resolved as $name ) {
+				$names[] = $name;
+			}
 		}
-		if ( $value === null || $value === '' ) {
-			return;
+		if ( $names !== [] ) {
+			$csl['author'] = $names;
 		}
-		$csl['author'] = $this->splitNameLabel( (string)$value );
+	}
+
+	/**
+	 * All non-deprecated statements for a property, in the item's stored
+	 * order. Authors use this instead of `bestStatement()` because each
+	 * statement is one author, not an alternative value.
+	 *
+	 * @return Statement[]
+	 */
+	private function allStatements( Item $item, string $propertyId ): array {
+		$statements = [];
+		foreach ( $item->getStatements() as $statement ) {
+			$snak = $statement->getMainSnak();
+			if ( !$snak instanceof PropertyValueSnak ) {
+				continue;
+			}
+			if ( $snak->getPropertyId()->getSerialization() !== $propertyId ) {
+				continue;
+			}
+			if ( $statement->getRank() === Statement::RANK_DEPRECATED ) {
+				continue;
+			}
+			$statements[] = $statement;
+		}
+		return $statements;
 	}
 
 	/**

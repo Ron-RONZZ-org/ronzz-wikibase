@@ -37,4 +37,29 @@ final class NamespacePageTitle {
 		return $pageText . ' ' . $in . ' ' . $namespaceName;
 	}
 
+	/**
+	 * HTML form of {@see format()} for OutputPage::setPageTitle(): the
+	 * connector and the namespace name are wrapped in classes so the client
+	 * enhancement can turn the namespace name into its index link
+	 * (the page-title sanitizer allows <span> but not <a>) and CSS can mute
+	 * the connector. The caller passes the returned fragment to
+	 * OutputPage::setPageTitle(), which keeps these tags.
+	 *
+	 * @param string $pageText the title text WITHOUT the namespace
+	 * @param string $namespaceName the localized namespace name
+	 * @param string $in the localized connector word
+	 * @return string|null null when a part is blank
+	 */
+	public static function html( string $pageText, string $namespaceName, string $in ): ?string {
+		$pageText = trim( $pageText );
+		$namespaceName = trim( $namespaceName );
+		$in = trim( $in );
+		if ( $pageText === '' || $namespaceName === '' || $in === '' ) {
+			return null;
+		}
+		return htmlspecialchars( $pageText, ENT_QUOTES, 'UTF-8' )
+			. ' <span class="wb-namespace-in">' . htmlspecialchars( $in, ENT_QUOTES, 'UTF-8' ) . '</span> '
+			. '<span class="wb-namespace-name">' . htmlspecialchars( $namespaceName, ENT_QUOTES, 'UTF-8' ) . '</span>';
+	}
+
 }

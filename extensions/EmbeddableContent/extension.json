@@ -161,6 +161,9 @@
 			"services": [
 				"EmbeddableContent.Config"
 			]
+		},
+		"EntityIndex": {
+			"class": "EmbeddableContent\\Spec\\SpecialEntityIndex"
 		}
 	},
 	"APIModules": {
@@ -969,6 +972,27 @@
 				"mobile"
 			]
 		},
+		"ext.embeddableContent.namespacepagetitle": {
+			"scripts": [
+				"namespacepagetitle.js"
+			],
+			"styles": [
+				"namespacepagetitle.css"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.entityindex": {
+			"styles": [
+				"entityindex.css"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
 		"ext.embeddableContent.print": {
 			"scripts": [
 				"print.js"
@@ -989,6 +1013,8 @@
 				"embeddablecontent-print-cover-help",
 				"embeddablecontent-print-go",
 				"embeddablecontent-print-by",
+				"embeddablecontent-print-archive-cover",
+				"embeddablecontent-print-archive-cover-nourl",
 				"and",
 				"comma-separator"
 			],
