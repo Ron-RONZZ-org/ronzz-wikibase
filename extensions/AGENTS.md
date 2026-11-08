@@ -1771,7 +1771,14 @@ report). See `SimpleMathJax/VENDORED.md`.
   top), blocks submit only while a row is neither confirmed nor removed, and
   creates new Persons/Collectives **immediately** through
   `action=addsemanticentity` (Q-id injected into the Author entity ID(s)
-  field; duplicate/collision guards get a choice dialog). The author list
+  field; duplicate/collision guards get a choice dialog). The chooser and
+  creation dialogs are named `OO.ui.ProcessDialog` subclasses with the body
+  built in `initialize()` — a bare `OO.ui.Dialog` has an empty
+  `static.name` (rejected by `WindowManager.addWindows`) and no `$body`
+  until it is opened, so the original code threw on every row click and no
+  dialog ever appeared. The whole result row (including the "No local match
+  found — add one" status) is the activation target; only the ✕/↶ button is
+  excluded. The author list
   supports `ORG:name` (no literal parentheses; use semicolons when the name
   contains a comma): `AuthorNameList` returns `kind=person|collective`,
   `AuthorResolver` searches the collective agent classes,
@@ -1795,7 +1802,9 @@ report). See `SimpleMathJax/VENDORED.md`.
   the manual form. `wbparentdialog=1` marks a short-lived session flow;
   `afterCreate()` returns `parentdone/<Qid>`, which posts the Q-id to the
   opener (existing-item links are intercepted in the frame too) and the
-  opener appends it to the multi-value field. Both parent fields now accept
+  opener appends it to the multi-value field. The dialog uses the same
+  named-`ProcessDialog` pattern as the author panel (a bare `OO.ui.Dialog`
+  never opened here either). Both parent fields now accept
   comma-separated lists, one `part of`/`parent organization` statement per
   id; Update* prefills every stored id and a blank value keeps them
   (no-clobber), while book-excerpt/law inference uses the first parent.
@@ -1839,10 +1848,13 @@ report). See `SimpleMathJax/VENDORED.md`.
   and `instance of` are rejected. Form-only; the API/MCP contracts are
   unchanged.
 - **Author-year mention**: Source pages copy `[[Source:X|name-author]]`;
-  `Spec/AuthorYearMention` derives the current `Family1-Family2 (Year)` and
+  `Spec/AuthorYearMention` derives the current caption and
   `onHtmlPageLinkRendererBegin` renders it italic, tagging the link so
   `onParserAfterTidy` registers the source item as a parser-cache
-  dependency.
+  dependency. The caption follows the author count: one author
+  `Family (Year)`, two or three `Family1-Family2[-Family3] (Year)`, four or
+  more `Family1 et al. (Year)` (`formatFamilies()`). This keeps a 20-author
+  clinical report from flooding the page.
 
 ### WikibaseCitation
 

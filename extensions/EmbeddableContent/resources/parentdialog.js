@@ -65,6 +65,52 @@
 	$( document.body ).append( windowManager.$element );
 	var active = null;
 
+	/** Monotonic counter giving every open dialog a unique window name. */
+	var dialogSequence = 0;
+
+	/**
+	 * Open an OOUI dialog whose body is built in initialize().
+	 *
+	 * A bare `new OO.ui.Dialog()` cannot be used with a WindowManager:
+	 * `$body` is only created when the window is opened, and
+	 * `OO.ui.Dialog.static.name` is empty (addWindows rejects it). The
+	 * "Create it now" click therefore never opened a dialog. Use a named
+	 * ProcessDialog subclass and build the body in initialize().
+	 *
+	 * @param {Object} config { title, size, classes }
+	 * @param {Function} buildBody appends the content to the dialog's $body
+	 * @param {Function} [onClose] runs after the dialog has fully closed
+	 * @return {OO.ui.ProcessDialog}
+	 */
+	function openContentDialog( config, buildBody, onClose ) {
+		var name = 'embeddableContentParentDialog' + ( ++dialogSequence );
+		function ContentDialog( cfg ) {
+			ContentDialog.super.call( this, cfg );
+		}
+		OO.inheritClass( ContentDialog, OO.ui.ProcessDialog );
+		ContentDialog.static.name = name;
+		ContentDialog.static.title = config.title;
+		ContentDialog.static.actions = [];
+		ContentDialog.prototype.initialize = function () {
+			ContentDialog.super.prototype.initialize.call( this );
+			buildBody( this );
+		};
+		var dialog = new ContentDialog( {
+			size: config.size,
+			classes: config.classes
+		} );
+		windowManager.addWindows( [ dialog ] );
+		// OOUI Windows emit no 'close' event; the openWindow lifecycle's
+		// `.closed` promise is the supported hook.
+		windowManager.openWindow( dialog ).closed.then( function () {
+			windowManager.removeWindows( [ name ] );
+			if ( onClose ) {
+				onClose();
+			}
+		} );
+		return dialog;
+	}
+
 	function closeBeacon() {
 		try {
 			navigator.sendBeacon(
@@ -86,35 +132,33 @@
 			url.searchParams.set( 'url', root );
 			url.searchParams.set( 'autofetch', '1' );
 		}
-		var dialog = new OO.ui.Dialog( {
-			title: mw.msg( 'embeddablecontent-parentdialog-title', label ),
-			size: 'full',
-			classes: [ 'wb-parentdialog' ]
-		} );
 		var iframe = document.createElement( 'iframe' );
 		iframe.className = 'wb-parentdialog-iframe';
 		iframe.src = url.toString();
-		dialog.$body.append( iframe );
-		var close = new OO.ui.ButtonWidget( {
-			label: mw.msg( 'embeddablecontent-parentdialog-close' )
-		} );
-		close.on( 'click', function () {
-			closeBeacon();
-			dialog.close();
-			active = null;
-		} );
-		dialog.$body.append(
-			$( '<div>' ).addClass( 'wb-author-dialog-actions' ).append( close.$element )
-		);
-		if ( dialog.on ) {
-			dialog.on( 'close', function () {
+		var dialog = openContentDialog(
+			{
+				title: mw.msg( 'embeddablecontent-parentdialog-title', label ),
+				size: 'full',
+				classes: [ 'wb-parentdialog' ]
+			},
+			function ( dlg ) {
+				dlg.$body.append( iframe );
+				var close = new OO.ui.ButtonWidget( {
+					label: mw.msg( 'embeddablecontent-parentdialog-close' )
+				} );
+				close.on( 'click', function () {
+					dlg.close();
+				} );
+				dlg.$body.append(
+					$( '<div>' ).addClass( 'wb-author-dialog-actions' ).append( close.$element )
+				);
+			},
+			function () {
 				closeBeacon();
 				active = null;
-			} );
-		}
+			}
+		);
 		active = { dialog: dialog, iframe: iframe, field: field };
-		windowManager.addWindows( [ dialog ] );
-		windowManager.openWindow( dialog );
 	}
 
 	document.addEventListener( 'click', function ( event ) {

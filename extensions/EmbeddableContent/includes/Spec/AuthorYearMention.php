@@ -43,7 +43,35 @@ final class AuthorYearMention {
 		if ( $families === [] || $year === null ) {
 			return null;
 		}
-		return implode( '-', $families ) . ' (' . $year . ')';
+		return self::formatFamilies( $families, $year );
+	}
+
+	/**
+	 * Renders the caption from ordered author family names:
+	 *
+	 *   1 author   → "Family (Year)"
+	 *   2–3 authors → "Family1-Family2[-Family3] (Year)"
+	 *   4+ authors → "Family1 et al. (Year)"
+	 *
+	 * The "et al." form keeps a long author list (a 20-author clinical
+	 * report) from flooding a page; two or three families still read
+	 * naturally joined with hyphens. Empty families are ignored.
+	 *
+	 * @param string[] $families ordered family names
+	 * @return string the caption ('' when no family is given)
+	 */
+	public static function formatFamilies( array $families, string $year ): string {
+		$families = array_values( array_filter(
+			$families,
+			static fn ( string $family ): bool => trim( $family ) !== ''
+		) );
+		if ( $families === [] ) {
+			return '';
+		}
+		if ( count( $families ) <= 3 ) {
+			return implode( '-', $families ) . ' (' . $year . ')';
+		}
+		return $families[0] . ' et al. (' . $year . ')';
 	}
 
 	/**

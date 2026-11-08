@@ -14,6 +14,16 @@
 	border-bottom: 1px solid var( --border-color-subtle, #c8ccd1 );
 }
 
+/* The whole row opens its confirmation/creation dialog; a removed row is
+ * inert until undone. */
+.wb-author-row:not( .wb-author-row-removed ) {
+	cursor: pointer;
+}
+
+.wb-author-row-unconfirmed:hover {
+	background: var( --background-color-interactive-subtle, #eaecf0 );
+}
+
 .wb-author-flag {
 	display: inline-block;
 	width: 1.2em;
