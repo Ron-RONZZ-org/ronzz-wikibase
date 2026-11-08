@@ -74,6 +74,28 @@ async function dialogText(page) {
 	return page.locator('.oo-ui-dialog:visible').first().innerText().catch(() => '');
 }
 
+/**
+ * Run an author search and wait until the results have been REBUILT for it.
+ * The search button is disabled while action=authorresolve runs, and the
+ * previous search's rows stay in the DOM until then — waiting only for
+ * `.wb-author-row` returns the stale row (the first run clicked the old
+ * "add one" row during the candidate check).
+ */
+async function searchAndWaitForRow(page, name) {
+	await page.fill('textarea[name="wpauthorNames"]', name);
+	await page.click('#wb-author-search');
+	await page.waitForFunction(
+		(expected) => {
+			const button = document.getElementById('wb-author-search');
+			const row = document.querySelector('.wb-author-row .wb-author-name');
+			return button && !button.disabled && row && row.textContent.trim() === expected;
+		},
+		name,
+		{ timeout: 30000 }
+	);
+	await page.waitForTimeout(200);
+}
+
 async function closeDialog(page) {
 	// The Cancel button is the last one in the body action row for every
 	// author dialog (language-independent locator).
@@ -114,9 +136,7 @@ async function main() {
 
 		// ---------------------------------------------------------- unmatched
 		const unknown = 'Zztest ' + randomToken();
-		await page.fill('textarea[name="wpauthorNames"]', unknown);
-		await page.click('#wb-author-search');
-		await page.waitForSelector('.wb-author-row', { timeout: 30000 });
+		await searchAndWaitForRow(page, unknown);
 
 		const status = await page.locator('.wb-author-row .wb-author-status').first().innerText();
 		if (!/No local match found/i.test(status)) {
@@ -166,10 +186,7 @@ async function main() {
 		if (!candidateName) {
 			console.log('[skip] no locally resolvable sample author — candidate-row check skipped');
 		} else {
-			await page.fill('textarea[name="wpauthorNames"]', candidateName);
-			await page.click('#wb-author-search');
-			await page.waitForSelector('.wb-author-row', { timeout: 30000 });
-			await page.waitForTimeout(400);
+			await searchAndWaitForRow(page, candidateName);
 
 			// Click the PARSED span, not the name button: proves the whole
 			// row is the activation target.
