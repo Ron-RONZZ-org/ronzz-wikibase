@@ -17,6 +17,7 @@
 
 	var isFrame = !!mw.config.get( 'wbParentDialogFrame' );
 	var createdQid = mw.config.get( 'wbParentDialogCreatedQid' );
+	var dialogKind = mw.config.get( 'wbParentDialogKind' ) || 'parent';
 
 	function postToParent( qid, label ) {
 		if ( !window.parent || window.parent === window ) {
@@ -24,6 +25,7 @@
 		}
 		window.parent.postMessage( {
 			type: 'wb-parent-created',
+			kind: dialogKind,
 			qid: qid,
 			label: label || ''
 		}, window.location.origin );

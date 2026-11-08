@@ -58,7 +58,7 @@
 	 *        content itself or return a jQuery node to append
 	 * @return {OO.ui.ProcessDialog}
 	 */
-	function openContentDialog( state, config, buildBody ) {
+	function openContentDialog( state, config, buildBody, onClose ) {
 		var name = 'embeddableContentAuthorDialog' + ( ++dialogSequence );
 		function ContentDialog( cfg ) {
 			ContentDialog.super.call( this, cfg );
@@ -85,8 +85,112 @@
 		// dialogs in the manager.
 		state.windowManager.openWindow( dialog ).closed.then( function () {
 			state.windowManager.removeWindows( [ name ] );
+			if ( onClose ) {
+				onClose();
+			}
 		} );
 		return dialog;
+	}
+
+	/**
+	 * The author panel's CREATE flow runs the REAL Special:AddPerson /
+	 * Special:AddCollective page in a same-origin iframe (the parent-dialog
+	 * mechanism), so the popup has the same fields as the dedicated pages —
+	 * including portrait/logo upload, biography, places and external ids.
+	 * The given name / family name / collective label are prefilled through
+	 * the Add* forms' URL query prefill. The created Q-id is posted back by
+	 * the parentdone step.
+	 *
+	 * @param {Object} state
+	 * @param {Object} row
+	 * @param {Function} onResult receives { action:'reuse', qid, label, kind }
+	 */
+	function openRealCreateDialog( state, row, onResult ) {
+		var page = row.kind === 'collective'
+			? 'Special:AddCollective/manual'
+			: 'Special:AddPerson/manual';
+		var url = new URL( mw.util.getUrl( page ), window.location.origin );
+		url.searchParams.set( 'wbparentdialog', '1' );
+		url.searchParams.set( 'wbdialogkind', 'author' );
+		if ( row.kind === 'collective' ) {
+			var label = row.familyName || row.original || '';
+			if ( label ) {
+				url.searchParams.set( 'label', label );
+			}
+		} else {
+			// The author row already carries the split name; fall back to the
+			// parsed original when a row was built from a bare label.
+			var split = splitCandidateName( { label: row.original || '' } );
+			var given = row.givenName || split.givenName;
+			var family = row.familyName || split.familyName;
+			if ( given ) {
+				url.searchParams.set( 'givenName', given );
+			}
+			if ( family ) {
+				url.searchParams.set( 'familyName', family );
+			}
+		}
+
+		var iframe = document.createElement( 'iframe' );
+		iframe.className = 'wb-parentdialog-iframe';
+		iframe.src = url.toString();
+		var active = true;
+
+		function cleanup() {
+			active = false;
+			window.removeEventListener( 'message', onMessage );
+		}
+
+		function onMessage( event ) {
+			if ( !active || event.origin !== window.location.origin ) {
+				return;
+			}
+			if ( event.source !== iframe.contentWindow ) {
+				return;
+			}
+			var data = event.data || {};
+			if ( data.type !== 'wb-parent-created' || !/^Q[1-9]\d*$/.test( data.qid || '' ) ) {
+				return;
+			}
+			cleanup();
+			dialog.close();
+			onResult( {
+				action: 'reuse',
+				qid: data.qid,
+				label: data.label || row.original,
+				kind: row.kind
+			} );
+		}
+
+		var dialog = openContentDialog(
+			state,
+			{
+				title: mw.msg(
+					row.kind === 'collective'
+						? 'embeddablecontent-authorsearch-create-collective-title'
+						: 'embeddablecontent-authorsearch-create-title',
+					row.original
+				),
+				size: 'full',
+				classes: [ 'wb-author-dialog' ]
+			},
+			function ( dlg ) {
+				var $body = $( '<div>' );
+				$body.append( $( '<p>' ).addClass( 'wb-author-hint' )
+					.text( mw.msg( 'embeddablecontent-createdialog-loading' ) ) );
+				$body.append( iframe );
+				var cancel = new OO.ui.ButtonWidget( {
+					label: mw.msg( 'embeddablecontent-authorsearch-cancel' )
+				} );
+				cancel.on( 'click', function () {
+					dlg.close();
+				} );
+				$body.append( actionRow( [ cancel ] ) );
+				return $body;
+			},
+			cleanup
+		);
+		window.addEventListener( 'message', onMessage );
 	}
 
 	/**
@@ -398,6 +502,13 @@
 	}
 
 	function openCreateDialog( state, row, onResult, candidate ) {
+		// Creation runs the real AddPerson/AddCollective page (full parity:
+		// portrait/logo upload, biography, places, external ids). The
+		// existing-candidate EDIT path keeps the compact API form below.
+		if ( !candidate ) {
+			openRealCreateDialog( state, row, onResult );
+			return;
+		}
 		var editing = !!candidate;
 		var prefill = {};
 		if ( candidate ) {
