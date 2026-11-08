@@ -2592,12 +2592,11 @@ def flow_multi_access_editor(op, base: str, api: str, label: str,
     page_title = item_sitelink_page(op, api, qid)
     if not page_title:
         raise FlowError(f"{qid} has no Source: sitelink page")
-    url, rendered = page_get(
-        op, base, "/wiki/" + urllib.parse.quote(page_title.replace(" ", "_"), safe=":()"))
-    if "https://example.org/multi" not in rendered or "url1" not in rendered:
-        raise FlowError(f"{qid} Source page {page_title!r} did not render the URL access link")
-    if "Special:SourceFile" not in rendered or "pdf" not in rendered:
-        raise FlowError(f"{qid} Source page did not render the file access link")
+    cell = source_access_cell(op, api, page_title)
+    if "https://example.org/multi" not in cell or "url1" not in cell:
+        raise FlowError(f"{qid} access cell did not render the URL link: {cell!r}")
+    if "Special:SourceFile" not in cell or "pdf" not in cell:
+        raise FlowError(f"{qid} access cell did not render the file link: {cell!r}")
     print(f"[ok] multi-access editor -> {qid}: url1 + pdf links on the Source page")
     return qid
 
