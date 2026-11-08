@@ -108,15 +108,34 @@
 		return fileList.length > 0 ? fileList[ 0 ] : null;
 	}
 
-	/** Select the "Source filename" (File) radio, letting core reveal the picker. */
-	function switchToFileMode() {
-		var radio = document.getElementById( 'wpSourceTypeFile' );
+	/**
+	 * Select a Source radio and keep the OOUI RadioSelect's hidden value in
+	 * sync. OOUI renders the visible radios WITHOUT a name and submits the
+	 * selected value through a hidden `wpSourceType` input; setting only the
+	 * visible radio left the hidden input on the fresh-load default ("Url"),
+	 * so a pasted/dropped file was POSTed as a URL upload and never landed.
+	 */
+	function selectSourceType( value ) {
+		var radio = document.getElementById( 'wpSourceType' + value );
 		if ( radio && !radio.checked ) {
 			radio.checked = true;
 			// Core's mediawiki.special.upload radio handler syncs the URL /
 			// file field states; fire it so the file input is enabled.
 			radio.dispatchEvent( new Event( 'change', { bubbles: true } ) );
 		}
+		// The OOUI hidden value input (no type attribute) is what the form
+		// actually submits; php-mode radios have the name on the radio itself.
+		var hidden = document.querySelector(
+			'input[name="wpSourceType"]:not([type="radio"]):not([type="checkbox"])'
+		);
+		if ( hidden ) {
+			hidden.value = value;
+		}
+	}
+
+	/** Select the "Source filename" (File) radio, letting core reveal the picker. */
+	function switchToFileMode() {
+		selectSourceType( 'File' );
 	}
 
 	/** Put `file` into the file input and notify the shared modules. */

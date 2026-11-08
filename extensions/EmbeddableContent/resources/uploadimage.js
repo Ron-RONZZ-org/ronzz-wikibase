@@ -219,8 +219,17 @@
 		}
 	}
 
-	/** Correct Special:Upload's wpDestFile extension from the file's MIME. */
-	function syncDest( prefix, file ) {
+	/**
+	 * Correct Special:Upload's wpDestFile extension from the file's MIME.
+	 *
+	 * `silent` is for the submit-button click: core's mediawiki.special.upload
+	 * inserts an uploadwarning SPINNER after #wpDestFile on every `change`
+	 * event. Dispatching one on every click accumulated several spinners
+	 * (and aborted API calls) without the name actually changing. The value
+	 * is set only when it differs; click-time corrections stay silent (the
+	 * server re-checks the destination on POST).
+	 */
+	function syncDest( prefix, file, silent ) {
 		if ( prefix !== 'Upload' || !file ) {
 			return;
 		}
@@ -233,7 +242,14 @@
 			return;
 		}
 		var current = String( dest.value || '' ).trim();
-		dest.value = current ? replaceExtension( current, ext ) : file.name;
+		var next = current ? replaceExtension( current, ext ) : file.name;
+		if ( next === current ) {
+			return;
+		}
+		dest.value = next;
+		if ( silent ) {
+			return;
+		}
 		dest.dispatchEvent( new Event( 'change', { bubbles: true } ) );
 		dest.dispatchEvent( new Event( 'input', { bubbles: true } ) );
 	}
@@ -501,7 +517,10 @@
 				if ( !target.closest( 'input[type="submit"], button[type="submit"]' ) ) {
 					return;
 				}
-				syncDest( prefix, input.files && input.files[ 0 ] );
+				// Silent: the file `change` path already corrected the name
+				// and ran core's one uploadwarning check; a click must not
+				// add another spinner per press.
+				syncDest( prefix, input.files && input.files[ 0 ], true );
 			}, true );
 		}
 	}
