@@ -1127,9 +1127,8 @@ def flow_update_person_no_clobber(op, base: str, api: str, qid: str) -> str:
     url, body = page_get(op, base, f"/wiki/Special:UpdatePerson/{qid}")
     if "Update a person" not in body:
         raise FlowError(f"Special:UpdatePerson/{qid} did not render: {find_error(body)}")
-    if "replacing existing" not in body:
-        raise FlowError(f"UpdatePerson/{qid} include toggle lacks the "
-                        f"'(replacing existing)' wording")
+    if "wpimageEntries" not in body or "wb-media-editor" not in body:
+        raise FlowError(f"UpdatePerson/{qid} missing the multi-image editor")
     given = input_value(body, "wpgivenName")
     family = input_value(body, "wpfamilyName")
     class_item = input_value(body, "wpclass")
@@ -6414,9 +6413,8 @@ def main() -> int:
         # 3a4. Special:UpdateCollective (upload-ux batch): the update page
         #     renders the "(replacing existing)" logo toggle wording.
         url, body = page_get(op, base, f"/wiki/Special:UpdateCollective/{collective_reuse}")
-        if "replacing existing" not in body:
-            raise FlowError(f"UpdateCollective/{collective_reuse} include toggle lacks the "
-                            f"'(replacing existing)' wording")
+        if "wpimageEntries" not in body or "wb-media-editor" not in body:
+            raise FlowError(f"UpdateCollective/{collective_reuse} missing the multi-image editor")
 
         # 3b. Manual-entry fallback (issue #12): Special:AddPerson/manual
         #     creates from blank, no external record, no import reference.
