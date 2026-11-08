@@ -2586,7 +2586,7 @@ def flow_multi_access_editor(op, base: str, api: str, label: str,
     })
     qid = flow_final_item(op, base, api, page, body, "AddSource/book/manual (multi access)")
     claims, _ = entity_claims(op, api, qid)
-    url_prop = resolve("access URL", "property")
+    url_prop = resolve_label(op, api, "access URL", "property")
     if not first_value(claims, url_prop):
         raise FlowError(f"{qid} item has no access URL statement: {claims.get(url_prop)!r}")
     page_title = item_sitelink_page(op, api, qid)
