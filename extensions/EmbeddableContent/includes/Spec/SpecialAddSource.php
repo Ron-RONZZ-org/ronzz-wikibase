@@ -2074,11 +2074,6 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				(string)( $confirm['label'] ?? '' ),
 				(string)( $confirm['id'] ?? '' )
 			);
-		} elseif ( $root !== '' ) {
-			$help .= ' ' . $this->msg(
-				'embeddablecontent-source-parent-unresolved',
-				$root
-			)->parse();
 		}
 
 		return $this->entityComboboxField(

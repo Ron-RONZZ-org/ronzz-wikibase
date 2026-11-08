@@ -160,6 +160,12 @@ trait UpdateExternalEntityFlow {
 		// different edit for most kinds); Special:UpdateCollective
 		// overrides updateClassFieldSpec() with an editable select.
 		$managed = array_keys( $this->updateStatementSpecs( $record ) );
+		// `instance of` is the form's CLASS field, never an additional
+		// statement. Source statementSpecs omit it (buildItem adds it
+		// separately), which used to leak an "instance of" cloner row and
+		// made applyDiff() inspect P1 (the getDataTypeId-on-array fatal).
+		$managed[] = $this->config->instanceOfPropertyId();
+		$managed = array_values( array_unique( $managed ) );
 		$fields = $this->reviewFieldSpecs( $record )
 			+ $this->updateClassFieldSpec( $classItemId )
 			+ $this->additionalStatementsFieldSpec( $item, $managed );
@@ -387,10 +393,13 @@ trait UpdateExternalEntityFlow {
 		// added).
 		$additional = $record['additionalStatements'] ?? [];
 		if ( is_array( $additional ) && $additional !== [] ) {
+			$managed = array_keys( $specs );
+			// The class statement is form-owned: never diff it as an extra.
+			$managed[] = $this->config->instanceOfPropertyId();
 			$error = \EmbeddableContent\Spec\AdditionalStatements::applyDiff(
 				$item,
 				$additional,
-				array_keys( $specs )
+				array_values( array_unique( $managed ) )
 			);
 			if ( $error !== null ) {
 				throw new \RuntimeException( $error );

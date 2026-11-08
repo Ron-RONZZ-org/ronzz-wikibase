@@ -400,6 +400,7 @@
 			"dependencies": [
 				"mediawiki.api",
 				"mediawiki.notification",
+				"mediawiki.util",
 				"oojs-ui",
 				"ext.embeddableContent.entitysuggest"
 			],
@@ -433,6 +434,7 @@
 				"embeddablecontent-authorsearch-collective-website",
 				"embeddablecontent-authorsearch-creating",
 				"embeddablecontent-authorsearch-create-failed",
+				"embeddablecontent-createdialog-loading",
 				"embeddablecontent-authorsearch-duplicate",
 				"embeddablecontent-authorsearch-use-existing",
 				"embeddablecontent-authorsearch-create-anyway",

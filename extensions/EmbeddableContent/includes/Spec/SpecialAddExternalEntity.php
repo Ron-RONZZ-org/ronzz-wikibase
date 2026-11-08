@@ -295,10 +295,19 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		$value = (string)$this->getRequest()->getVal( 'wbparentdialog', '' );
 		if ( $value === 'close' ) {
 			$this->getRequest()->getSession()->remove( 'extadd:parentdialog' );
+			$this->getRequest()->getSession()->remove( 'extadd:parentdialogkind' );
 			return;
 		}
 		if ( $value === '1' ) {
 			$this->getRequest()->getSession()->set( 'extadd:parentdialog', time() );
+			// parent | author — the author panel reuses the same frame flow
+			// (the real AddPerson/AddCollective pages) but reports back into
+			// the author row instead of a parent entity field.
+			$kind = (string)$this->getRequest()->getVal( 'wbdialogkind', 'parent' );
+			$this->getRequest()->getSession()->set(
+				'extadd:parentdialogkind',
+				$kind === 'author' ? 'author' : 'parent'
+			);
 		}
 		if ( $this->isParentDialog() ) {
 			$this->getOutput()->addBodyClasses( 'wb-parentdialog-frame' );
@@ -313,7 +322,9 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 
 	protected function executeParentDone( string $itemId ): void {
 		$this->setHeaders();
+		$dialogKind = (string)$this->getRequest()->getSession()->get( 'extadd:parentdialogkind', 'parent' );
 		$this->getRequest()->getSession()->remove( 'extadd:parentdialog' );
+		$this->getRequest()->getSession()->remove( 'extadd:parentdialogkind' );
 		$item = null;
 		try {
 			$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
@@ -326,15 +337,15 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		$this->getOutput()->addBodyClasses( 'wb-parentdialog-frame' );
 		$this->getOutput()->addJsConfigVars( 'wbParentDialogFrame', true );
 		$this->getOutput()->addJsConfigVars( 'wbParentDialogCreatedQid', $itemId );
+		$this->getOutput()->addJsConfigVars( 'wbParentDialogKind', $dialogKind );
 		$itemUrl = WikibaseRepo::getEntityTitleStoreLookup()
 			->getTitleForId( new ItemId( $itemId ) )->getFullURL();
+		$message = $dialogKind === 'author'
+			? $this->msg( 'embeddablecontent-createdialog-message', $label, $itemId )
+			: $this->msg( 'embeddablecontent-parentdone-message', $label, $itemId );
 		$this->getOutput()->addHTML(
 			'<div class="wb-parentdone">'
-			. '<p>' . $this->msg(
-				'embeddablecontent-parentdone-message',
-				$label,
-				$itemId
-			)->escaped() . '</p>'
+			. '<p>' . $message->escaped() . '</p>'
 			. '<p><a href="' . htmlspecialchars( $itemUrl ) . '">'
 			. $this->msg( 'embeddablecontent-parentdone-link' )->escaped()
 			. '</a></p>'

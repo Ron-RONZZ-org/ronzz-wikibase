@@ -725,7 +725,7 @@
 	"embeddablecontent-source-field-authors-confirm": "Author",
 	"embeddablecontent-authorsearch-kind-collective": "Collective",
 	"embeddablecontent-authorsearch-created-immediately": "Entity will be created immediately.",
-	"embeddablecontent-source-parent-create": "$1 not found?",
+	"embeddablecontent-source-parent-create": "$1 entity not found?",
 	"embeddablecontent-source-parent-create-link": "Create it now.",
 	"embeddablecontent-authorsearch-name-required": "Enter a name first.",
 	"embeddablecontent-parentdialog-title": "Create a $1",
@@ -734,6 +734,8 @@
 	"embeddablecontent-parentdialog-failed": "Could not create the parent. Try again.",
 	"embeddablecontent-parentdone-title": "Parent created",
 	"embeddablecontent-parentdone-message": "Parent created: $1 ($2).",
+	"embeddablecontent-createdialog-message": "Created: $1 ($2).",
 	"embeddablecontent-parentdone-link": "Open the item",
-	"embeddablecontent-parentdialog-loading": "Loading…"
+	"embeddablecontent-parentdialog-loading": "Loading…",
+	"embeddablecontent-createdialog-loading": "Loading…"
 }

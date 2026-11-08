@@ -42,6 +42,15 @@ wfLoadExtension( 'WikibaseCitation' );
 wfLoadExtension( 'ThemeToggle' );
 $wgDefaultSkin = 'vector-2022';
 
+// ---- Same-origin framing for the in-page creation dialogs ----
+// "Create it now" / the author panel open the REAL Add* flow in a
+// same-origin iframe. MediaWiki's default X-Frame-Options: DENY blocks
+// every frame (live error: "… ne permesas al Floorp montri la paĝon …
+// enmetita en alian retejon"). SAMEORIGIN keeps the clickjacking guard
+// against other origins while allowing the wiki's own dialogs. Mirrors
+// production LocalSettings.php (RonzzIT:Deployment/Wikibase).
+$wgEditPageFrameOptions = 'SAMEORIGIN';
+
 // Discussion forum (DPLforum, vendored at extensions/DPLforum). Registers
 // the Forum: (110) / Forum_talk: (111) namespaces via its extension.json.
 wfLoadExtension( 'DPLforum' );

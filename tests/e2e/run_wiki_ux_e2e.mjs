@@ -1039,6 +1039,55 @@ async function main() {
 			console.log('[ok] Special:Upload restores the remembered File source');
 		}
 
+		// Clipboard paste (reported regression): the visible File radio was
+		// selected but OOUI submits through a hidden wpSourceType input; if
+		// that stays "Url", the pasted file is posted as a URL upload and
+		// never lands. Also the destination-name sync must not fire a core
+		// uploadwarning check on every submit-button click (the accumulating
+		// spinners).
+		await page.waitForSelector('#mw-upload-form', { timeout: 15000 });
+		await page.evaluate(async () => {
+			// A 1x1 PNG.
+			const b64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nXQAAAAASUVORK5CYII=';
+			const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+			const file = new File([bytes], 'clip.png', { type: 'image/png' });
+			const dt = new DataTransfer();
+			dt.items.add(file);
+			const evt = new Event('paste', { bubbles: true, cancelable: true });
+			Object.defineProperty(evt, 'clipboardData', { value: dt });
+			document.getElementById('mw-upload-form').dispatchEvent(evt);
+		});
+		await page.waitForFunction(() => {
+			const input = document.getElementById('wpUploadFile');
+			return input && input.files && input.files.length === 1;
+		}, { timeout: 15000 }).catch(() => {});
+		await page.waitForFunction(() => {
+			const dest = document.getElementById('wpDestFile');
+			return dest && /\.png$/i.test(dest.value);
+		}, { timeout: 15000 }).catch(() => {});
+		const clipboardState = await page.evaluate(() => {
+			const fileInput = document.getElementById('wpUploadFile');
+			const hidden = document.querySelector(
+				'input[name="wpSourceType"]:not([type="radio"]):not([type="checkbox"])'
+			);
+			const dest = document.getElementById('wpDestFile');
+			return {
+				files: fileInput && fileInput.files ? fileInput.files.length : 0,
+				fileRadio: !!(document.getElementById('wpSourceTypeFile') || {}).checked,
+				hiddenValue: hidden ? hidden.value : null,
+				dest: dest ? dest.value : '',
+			};
+		});
+		if (clipboardState.files !== 1 || !clipboardState.fileRadio) {
+			failures.push(`clipboard paste did not fill the file input/File radio: ${JSON.stringify(clipboardState)}`);
+		} else if (clipboardState.hiddenValue !== null && clipboardState.hiddenValue !== 'File') {
+			failures.push(`clipboard paste left the submitted wpSourceType=${JSON.stringify(clipboardState.hiddenValue)}, expected File`);
+		} else if (!/\.png$/i.test(clipboardState.dest)) {
+			failures.push(`clipboard paste did not sync the destination name: ${JSON.stringify(clipboardState.dest)}`);
+		} else {
+			console.log('[ok] clipboard paste selects the File source and submits wpSourceType=File');
+		}
+
 		// Author / source mode toggles: the plain-text field is shown by
 		// default, the entity combobox appears only when its checkbox is
 		// ticked (and the server reads the mode the checkbox selects).

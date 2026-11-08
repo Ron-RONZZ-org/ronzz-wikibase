@@ -60,10 +60,15 @@ def make_opener(base_url: str) -> urllib.request.OpenerDirector:
 
 
 def get(opener: urllib.request.OpenerDirector, url: str) -> str:
+    return get_with_headers(opener, url)[0]
+
+
+def get_with_headers(opener: urllib.request.OpenerDirector, url: str) -> tuple[str, dict]:
     request = urllib.request.Request(url, headers={"User-Agent": UA})
     try:
         with opener.open(request, timeout=30) as response:
-            return response.read().decode("utf-8", errors="replace")
+            headers = {k.lower(): v for k, v in response.headers.items()}
+            return response.read().decode("utf-8", errors="replace"), headers
     except urllib.error.HTTPError as error:
         raise CheckError(f"GET {url} failed: HTTP {error.code}") from error
 
@@ -99,11 +104,22 @@ def main() -> int:
             "missing the parent-organization Create it now link",
         )
 
-        website = get(opener, f"{base}/wiki/Special:AddSource/website?wbparentdialog=1")
+        website, website_headers = get_with_headers(
+            opener, f"{base}/wiki/Special:AddSource/website?wbparentdialog=1")
         check(
             "website dialog frame",
             "wb-parentdialog-frame" in website and "Special:AddSource/website" in website,
             "the website URL-entry page is not marked as a parent-dialog frame",
+        )
+        # X-Frame-Options: the dialog runs the real Add* page in a
+        # same-origin iframe. DENY (MediaWiki's default) blocks it with the
+        # browser "page embedded in another site" error; SAMEORIGIN is the
+        # fix (prod LocalSettings + dev/config/Extensions.php).
+        xfo = (website_headers.get("x-frame-options") or "").strip().upper()
+        check(
+            "same-origin framing for the creation dialogs",
+            xfo == "SAMEORIGIN",
+            f"Special:AddSource sends X-Frame-Options={xfo or '<none>'!r}, expected SAMEORIGIN",
         )
 
         book_search = get(opener, f"{base}/wiki/Special:AddSource/book?wbparentdialog=1")

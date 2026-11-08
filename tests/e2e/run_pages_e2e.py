@@ -1184,10 +1184,17 @@ def flow_update_source(op, base: str, api: str, qid: str, new_description: str) 
 
 
 def flow_update_source_classic_return(op, base: str, api: str, qid: str,
-                                      expected_translation: str = "") -> None:
+                                      expected_translation: str = "",
+                                      instance_of_prop: str = "") -> None:
     """Task 2 (classic-page return): Special:UpdateSource/<qid>?frompage=1
     carries the hidden frompage marker across the POST, and a successful
-    submit redirects back to the item's classic Source: page (not Item:)."""
+    submit redirects back to the item's classic Source: page (not Item:).
+
+    The Update form must NOT render the item's `instance of` as an
+    additional-statements row: Source statementSpecs omit it, and the
+    update cloner's managed set now adds it. The prefilled P1 row used to
+    reach AdditionalStatements::datatype() and fatal with "Call to a member
+    function getDataTypeId() on array"."""
     url, body = page_get(op, base, f"/wiki/Special:UpdateSource/{qid}?frompage=1")
     if "Update a source" not in body:
         raise FlowError(f"Special:UpdateSource/{qid} did not render: {find_error(body)}")
@@ -1197,6 +1204,14 @@ def flow_update_source_classic_return(op, base: str, api: str, qid: str,
     if expected_translation and expected_translation not in body:
         raise FlowError(
             f"UpdateSource/{qid} did not prefill the law translation cloner rows")
+    if instance_of_prop:
+        m = re.search(
+            r'<input[^>]*name="wpadditionalStatements\[0\]\[property\]"[^>]*>',
+            body)
+        if m and f'value="{instance_of_prop}"' in m.group(0):
+            raise FlowError(
+                f"UpdateSource/{qid} rendered instance-of {instance_of_prop} "
+                f"as an additional statement row")
     token = edit_token(body)
     url, body = page_post(op, url, {
         "wpparent": input_value(body, "wpparent"),
@@ -1338,7 +1353,7 @@ def flow_source_law(op, base: str, api: str, resolve) -> tuple[str, str]:
     page_body = page_get(op, base, "/wiki/" + page_title.replace(" ", "_"))[1]
     if "frompage=1" not in page_body:
         raise FlowError(f"{page_title}: Update basic information URL lacks the frompage marker")
-    flow_update_source_classic_return(op, base, api, law, translation)
+    flow_update_source_classic_return(op, base, api, law, translation, instance_of)
     print(f"[ok] AddSource/law -> {law}: clause in inherited fr + translation, "
           f"part-of legislation, {{#content:}} Source page, update returns to it")
     return law, legislation
