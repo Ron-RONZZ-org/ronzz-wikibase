@@ -3141,11 +3141,11 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 * fallback.
 	 */
 	protected function parentCreateLink( string $field, string $parentKey, string $parentLabel, string $root = '' ): string {
+		// Always the ADD page, never the current Update* page: the dialog
+		// creates a new parent, and UpdateSource's subpage is a Q-id.
 		$fallback = $parentKey === 'collective'
 			? \SpecialPage::getTitleFor( 'AddCollective' )->getFullURL()
-			// The class-first AddSource URL (NOT stepTitle, which prefixes
-			// the CHILD class and would produce /<child>/<parent>).
-			: $this->getPageTitle( $parentKey )->getFullURL();
+			: \SpecialPage::getTitleFor( 'AddSource', $parentKey )->getFullURL();
 		return $this->msg( 'embeddablecontent-source-parent-create', $parentLabel )->parse()
 			. ' <a href="' . htmlspecialchars( $fallback ) . '"'
 			. ' class="wb-parent-create"'
