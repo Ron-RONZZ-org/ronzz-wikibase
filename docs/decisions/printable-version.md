@@ -70,6 +70,15 @@ a **Print** button. On print:
 output cannot be retro-fitted after the fact, and the `wb-printing` class is
 what gates the title swap (an untouched print never loses its title).
 
+**Archive pages are special-cased (Nov 2026).** On
+`Source:<label>/archivedText`, `Hooks::wirePrintModule()` sets
+`wbPrintArchive` (source title, class, archive date, URL, filename) and
+`wbPrintTitle` becomes the source title, never `archivedText`. The popup keeps
+the cover option but pre-selects it. The cover names the external work
+(`<h1>{source title} ({class})</h1>` + "Text archived on {date} from {url}"),
+no contributor API call or "by …" line is made, and the Save-as-PDF filename
+uses the source title.
+
 ## Consequences
 
 - No server config/vocabulary change; a purely client-side feature plus one

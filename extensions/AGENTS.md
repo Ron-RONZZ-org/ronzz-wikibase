@@ -1543,6 +1543,22 @@ report). See `SimpleMathJax/VENDORED.md`.
   offers an "Add a cover page" popup option (centered serif cover,
   `page-break-after: always`). Ctrl-P without either entry point keeps the
   browser default (`body.wb-printing` gates the title swap).
+
+- **Nov-2026 index/print batch (ADR
+  `docs/decisions/nov-2026-source-index-archive-print-citations.md`)**:
+  (a) content-page H1s render the namespace name as an index link —
+  `NamespacePageTitle::html()` emits muted `wb-namespace-in` /
+  `wb-namespace-name` spans (the page-title sanitizer strips `<a>`), and
+  `resources/namespacepagetitle.js` wraps the name in an `<a>`;
+  (b) new `Special:EntityIndex/<namespace>` lists top-level, non-redirect
+  pages alphabetically with `from` cursor pagination and a 10–200 `limit`
+  (default 100, `Spec/EntityIndexPaging`), reached from that H1;
+  (c) archive pages (`Source:*/archivedText`) carry `<br><a>Dismiss</a>`
+  (theme-token banner colours) and a special print cover
+  (`wbPrintArchive`, `Spec/ArchiveCover`) naming the source work + archive
+  provenance, with no contributor line and a source-title PDF filename; the
+  cover option is default-checked;
+  (d) the AddSource archive-help line is removed.
   No vocabulary/seed/config-map change; deploy = extension rsync + php-fpm
   restart (+ the runbook's objectcache/message purge).
 - **Canonical page-action-toolbar order (ADR
@@ -1837,6 +1853,14 @@ report). See `SimpleMathJax/VENDORED.md`.
   vendored CSL styles in `styles/`) and native BibTeX/RIS serializers.
 - Issue #7: CSL type follows the **source** class; harvested source fields
   (published in, publisher, pages, volume, issue, DOI, ISBN). No Node sidecar.
+- **Multi-author + serial article (Nov 2026)**: `addAuthor()` emits EVERY
+  non-deprecated `attributed to` statement in the item's stored order (each
+  statement is one author; GUIDs are random, never sort by them) — the Q2937
+  report (22 authors rendered as one). `citation-source-type-map.json` maps
+  `scholarly article` to `article-journal` (APA renders the serial source,
+  not an "In … (Vols. …)" monograph). The style decides the display: APA 7
+  truncates 21+ authors to first 19 + … + last; Vancouver 6 + et al.;
+  BibTeX/RIS list all. Deploy = `importCitationMap.php --force`.
 - **Cite-by-QID (issues #24 v1 + #25 v2, spec `docs/decisions/cite-by-qid.md`)**:
   `{{#cite:Q42|style=|output=}}` parser function (usable inside `<ref>` with the
   stock Cite extension) + `{{#citations:}}` bibliography collector, both backed
