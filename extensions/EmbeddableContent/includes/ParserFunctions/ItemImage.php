@@ -47,6 +47,23 @@ final class ItemImage {
 	 * @return array{text:string,noparse:bool,isHTML:bool}
 	 */
 	public static function onItemImage( EmbeddableContentConfig $config, Parser $parser, array $args ): array {
+		try {
+			return self::render( $config, $parser, $args );
+		} catch ( \Throwable $e ) {
+			\MediaWiki\Logger\LoggerFactory::getInstance( 'EmbeddableContent' )->warning(
+				'Item image failed: {error} @ {where}',
+				[ 'error' => $e->getMessage(), 'where' => basename( $e->getFile() ) . ':' . $e->getLine() ]
+			);
+			return [
+				'text' => '<!-- wb-item-image-error: ' . htmlspecialchars( $e->getMessage() )
+					. ' @ ' . htmlspecialchars( basename( $e->getFile() ) . ':' . $e->getLine() ) . ' -->',
+				'noparse' => false,
+				'isHTML' => true,
+			];
+		}
+	}
+
+	private static function render( EmbeddableContentConfig $config, Parser $parser, array $args ): array {
 		$empty = [ 'text' => '', 'noparse' => false, 'isHTML' => true ];
 		$itemId = self::explicitItemId( $args );
 		if ( $itemId === null ) {
