@@ -153,7 +153,8 @@ final class ItemImage {
 				. '</a></figure>';
 		}
 		if ( $slides === [] ) {
-			return '';
+			$names = array_map( static fn ( Title $t ): string => $t->getPrefixedText(), $titles );
+			return '<!-- wb-item-image-nofile: ' . htmlspecialchars( implode( ' | ', $names ) ) . ' -->';
 		}
 		$multiple = count( $slides ) > 1;
 		$html = '<div class="wb-image-gallery" data-count="' . count( $slides ) . '">'
