@@ -2575,7 +2575,7 @@ def flow_multi_access_editor(op, base: str, api: str, label: str,
         { "type": "url", "url": "https://example.org/multi", "public": "1", "archive": "" },
         { "type": "file", "fileTitle": upload["fileTitle"], "public": "1", "license": license_qid },
     ]
-    _, body = page_get(op, base, "/wiki/Special:AddSource/book/manual")
+    page, body = page_get(op, base, "/wiki/Special:AddSource/book/manual")
     token = edit_token(body)
     page, body = page_post(op, page, {
         "wptitle": label,
