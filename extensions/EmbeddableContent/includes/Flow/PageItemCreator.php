@@ -4,6 +4,9 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\Flow;
 
+use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\EntityClassFilter;
+use EmbeddableContent\ItemIdentityPolicy;
 use MediaWiki\Logger\LoggerFactory;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Page\WikiPage;
@@ -85,8 +88,11 @@ final class PageItemCreator {
 
 		$existing = self::findItemIdByLabel( $label );
 		if ( $existing !== null ) {
-			self::sitelink( $existing, $title, $user );
-			return;
+			if ( self::canAdoptLabelMatch( $existing, $title ) ) {
+				self::sitelink( $existing, $title, $user );
+				return;
+			}
+			self::logImageLabelCollision( $existing, $title );
 		}
 
 		$item = new Item();
@@ -145,6 +151,68 @@ final class PageItemCreator {
 			return null;
 		}
 		return $id?->getSerialization();
+	}
+
+	/**
+	 * Whether a LABEL match may be reused for this Main-namespace page. An
+	 * image item (or an item sitelinked to a File: page) belongs to a file,
+	 * never to a same-titled article — e.g. the article "Logic" must not
+	 * adopt the image item of File:Logic.png. Any other match keeps the
+	 * legacy reuse (a failure to inspect the candidate falls back to reuse,
+	 * which can never duplicate an item).
+	 */
+	private static function canAdoptLabelMatch( string $itemId, Title $title ): bool {
+		try {
+			$entity = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
+		} catch ( \Throwable $e ) {
+			self::logWarning( "could not load label candidate $itemId", $title, $e );
+			return true;
+		}
+		if ( !$entity instanceof Item ) {
+			return true;
+		}
+		$links = $entity->getSiteLinkList();
+		$sitelinkTitle = $links->hasLinkWithSiteId( 'wikibase' )
+			? Title::newFromText( $links->getBySiteId( 'wikibase' )->getPageName() )
+			: null;
+		$sitelinkIsFilePage = $sitelinkTitle !== null && $sitelinkTitle->getNamespace() === NS_FILE;
+		return ItemIdentityPolicy::canAdoptPageLabelMatch(
+			self::isImageItem( $entity ),
+			$sitelinkIsFilePage
+		);
+	}
+
+	/** Whether the item is `instance of` the configured image class. */
+	private static function isImageItem( Item $item ): bool {
+		try {
+			$config = MediaWikiServices::getInstance()->get( 'EmbeddableContent.Config' );
+			if ( !$config instanceof EmbeddableContentConfig ) {
+				return false;
+			}
+			$classId = $config->imageClasses()['image'] ?? null;
+			if ( $classId === null ) {
+				return false;
+			}
+			return EntityClassFilter::hasClass( $item, $classId, $config->instanceOfPropertyId() );
+		} catch ( \Throwable $e ) {
+			// Non-fatal: an unconfigured instance keeps the legacy reuse.
+			LoggerFactory::getInstance( 'EmbeddableContent' )->warning(
+				'PageItemCreator: image-class probe failed for {item}: {error}',
+				[
+					'item' => $item->getId()?->getSerialization() ?? 'unknown',
+					'error' => $e->getMessage(),
+				]
+			);
+			return false;
+		}
+	}
+
+	/** Log the rejected file-image label match (observable, never fatal). */
+	private static function logImageLabelCollision( string $itemId, Title $title ): void {
+		LoggerFactory::getInstance( 'EmbeddableContent' )->warning(
+			'PageItemCreator: label match {item} belongs to a file image item, not {page}; creating a new item',
+			[ 'item' => $itemId, 'page' => $title->getPrefixedText() ]
+		);
 	}
 
 	/** Item id whose content-language label matches exactly (case-insensitive), or null. */
