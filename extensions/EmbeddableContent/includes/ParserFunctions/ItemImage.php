@@ -55,8 +55,8 @@ final class ItemImage {
 				[ 'error' => $e->getMessage(), 'where' => basename( $e->getFile() ) . ':' . $e->getLine() ]
 			);
 			return [
-				'text' => '<!-- wb-item-image-error: ' . htmlspecialchars( $e->getMessage() )
-					. ' @ ' . htmlspecialchars( basename( $e->getFile() ) . ':' . $e->getLine() ) . ' -->',
+				'text' => '<span class="wb-item-image-debug">image-error: ' . htmlspecialchars( $e->getMessage() )
+					. ' @ ' . htmlspecialchars( basename( $e->getFile() ) . ':' . $e->getLine() ) . '</span>',
 				'noparse' => false,
 				'isHTML' => true,
 			];
@@ -65,7 +65,7 @@ final class ItemImage {
 
 	private static function render( EmbeddableContentConfig $config, Parser $parser, array $args ): array {
 		$empty = [
-			'text' => '<!-- wb-item-image-empty-args: ' . htmlspecialchars( json_encode( $args ) ) . ' -->',
+			'text' => '<span class="wb-item-image-debug">image-empty-args: ' . htmlspecialchars( json_encode( $args ) ) . '</span>',
 			'noparse' => false,
 			'isHTML' => true,
 		];
@@ -109,7 +109,7 @@ final class ItemImage {
 				}
 			}
 			return [
-				'text' => '<!-- wb-item-image-empty: ' . htmlspecialchars( implode( ' | ', $debug ) ) . ' -->',
+				'text' => '<span class="wb-item-image-debug">image-empty: ' . htmlspecialchars( implode( ' | ', $debug ) ) . '</span>',
 				'noparse' => false,
 				'isHTML' => true,
 			];
@@ -124,8 +124,8 @@ final class ItemImage {
 				[ 'id' => $itemId->getSerialization(), 'error' => $e->getMessage() ]
 			);
 			return [
-				'text' => '<!-- wb-item-image-error: ' . htmlspecialchars( $e->getMessage() )
-					. ' @ ' . htmlspecialchars( basename( $e->getFile() ) . ':' . $e->getLine() ) . ' -->',
+				'text' => '<span class="wb-item-image-debug">image-error: ' . htmlspecialchars( $e->getMessage() )
+					. ' @ ' . htmlspecialchars( basename( $e->getFile() ) . ':' . $e->getLine() ) . '</span>',
 				'noparse' => false,
 				'isHTML' => true,
 			];
@@ -158,7 +158,7 @@ final class ItemImage {
 		}
 		if ( $slides === [] ) {
 			$names = array_map( static fn ( Title $t ): string => $t->getPrefixedText(), $titles );
-			return '<!-- wb-item-image-nofile: ' . htmlspecialchars( implode( ' | ', $names ) ) . ' -->';
+			return '<span class="wb-item-image-debug">image-nofile: ' . htmlspecialchars( implode( ' | ', $names ) ) . '</span>';
 		}
 		$multiple = count( $slides ) > 1;
 		$html = '<div class="wb-image-gallery" data-count="' . count( $slides ) . '">'
