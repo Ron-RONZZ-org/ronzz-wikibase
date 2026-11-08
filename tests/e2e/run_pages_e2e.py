@@ -4704,6 +4704,13 @@ def flow_update_source_access_collapsed(op, base: str, api: str, qid: str,
     url, body = page_get(op, base, f"/wiki/Special:UpdateSource/{qid}")
     if "wpaccessEntries" not in body or "wb-access-editor" not in body:
         raise FlowError(f"UpdateSource/{qid} missing the multi-access editor: {find_error(body)}")
+    prefill_json = input_value(body, "wpaccessEntries")
+    try:
+        prefill = json.loads(prefill_json)
+    except ValueError:
+        prefill = []
+    if not prefill:
+        raise FlowError(f"UpdateSource/{qid} accessEntries prefill is empty: {prefill_json!r}")
     title = input_value(body, "wptitle")
     authors = input_value(body, "wpauthors")
     class_item = input_value(body, "wpclass")
