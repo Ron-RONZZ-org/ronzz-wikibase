@@ -37,6 +37,23 @@ class SpecialEntityIndex extends SpecialPage {
 		parent::__construct( 'EntityIndex' );
 	}
 
+	/**
+	 * MediaWiki 1.46's default description key is the lowercased page name
+	 * (`entityindex`); our i18n uses the legacy `special-<name>` key. The
+	 * override keeps the page listed on Special:SpecialPages (T360723 skips
+	 * pages whose description message is disabled) and gives it a title —
+	 * the same pattern as the other EmbeddableContent special pages.
+	 *
+	 * @inheritDoc
+	 */
+	public function getDescription() {
+		return $this->msg( 'special-entityindex' );
+	}
+
+	protected function getGroupName(): string {
+		return 'wikibase';
+	}
+
 	public function execute( $subPage ) {
 		$this->setHeaders();
 		$this->getOutput()->addModuleStyles( [
