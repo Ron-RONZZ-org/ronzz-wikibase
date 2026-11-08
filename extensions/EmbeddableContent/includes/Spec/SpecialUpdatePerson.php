@@ -153,12 +153,12 @@ class SpecialUpdatePerson extends SpecialAddPerson {
 			$this->entityIdsForProperty( $item, $props['affiliatedWith'] ?? null )
 		);
 
-		// Portrait facts are NOT prefilled into the upload section (the
-		// toggle defaults unchecked — the existing portrait is preserved).
-		foreach ( [ 'portraitInclude', 'portraitMode', 'portraitFile', 'portraitUrl', 'portraitExisting',
-			'portraitLicense', 'portraitAuthor', 'portraitLicenseInfo' ] as $key ) {
-			$record[$key] = '';
-		}
+		// Multi-image prefill: every image statement becomes one editor entry;
+		// the image item already carries the licence/author facts.
+		$record['imageEntries'] = \EmbeddableContent\Spec\MediaEntries::fromItem(
+			$item,
+			$props['image'] ?? ''
+		);
 
 		foreach ( $this->externalIdRecordMap() as $key => $field ) {
 			$record[$field] = $this->firstStringForProperty(

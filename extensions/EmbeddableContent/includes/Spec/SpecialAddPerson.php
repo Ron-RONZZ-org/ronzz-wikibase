@@ -71,7 +71,12 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 				$out[$flowLabelField] = (string)$record[$formLabelField];
 			}
 		}
-		if ( !empty( $record['portraitFileTitle'] ) ) {
+		$imageEntries = \EmbeddableContent\Spec\MediaEntries::normalize( $record['imageEntries'] ?? [] );
+		if ( array_key_exists( 'imageEntries', $record )
+			&& ( $imageEntries !== [] || empty( $record['portraitFileTitle'] ) )
+		) {
+			$out['imageFileUrls'] = \EmbeddableContent\Spec\MediaEntries::fileUrls( $imageEntries );
+		} elseif ( !empty( $record['portraitFileTitle'] ) ) {
 			$title = \MediaWiki\Title\Title::makeTitle( NS_FILE, (string)$record['portraitFileTitle'] );
 			if ( $title !== null ) {
 				$out['imageFileUrl'] = $title->getFullURL();
@@ -277,53 +282,7 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 				'help-message' => 'embeddablecontent-field-affiliatedwith-help',
 			]
 		)
-		+ [
-			// Portrait (optional): collapsed behind the "I will upload a
-			// portrait image for this person" toggle; local-file upload OR
-			// pasted URL (validated via the shared uploadmeta button), the
-			// file uploaded on create as File:<label>-portrait.<ext>. The
-			// license is mandatory only when a portrait is actually provided
-			// (enforced in beforeCreate, not by HTMLForm); author + license
-			// info are free text. All field specs come from the shared
-			// ImageUploadHelper (deduplicated with AddSoftware + Special:Upload).
-			'portraitInclude' => \EmbeddableContent\Upload\ImageUploadHelper::includeField(
-				'portrait', $this->portraitIncludeMsgKey()
-			),
-			'portraitMode' => \EmbeddableContent\Upload\ImageUploadHelper::modeField(
-				'portrait',
-				'embeddablecontent-person-portrait-mode',
-				'embeddablecontent-person-portrait-mode-file',
-				'embeddablecontent-person-portrait-mode-url',
-				'embeddablecontent-upload-mode-existing'
-			),
-			'portraitFile' => \EmbeddableContent\Upload\ImageUploadHelper::fileField(
-				'portrait', 'embeddablecontent-person-portrait-file'
-			),
-			'portraitClipboard' => \EmbeddableContent\Upload\ImageUploadHelper::clipboardField(
-				'portrait',
-				$this->msg( 'embeddablecontent-upload-clipboard-hint' )->escaped()
-			),
-			...\EmbeddableContent\Upload\ImageUploadHelper::imageToolsFields( 'portrait' ),
-			'portraitUrl' => \EmbeddableContent\Upload\ImageUploadHelper::urlField(
-				'portrait', 'embeddablecontent-person-portrait-url',
-				$this->msg( 'embeddablecontent-person-portrait-license' )->text()
-			),
-			'portraitExisting' => \EmbeddableContent\Upload\ImageUploadHelper::existingField(
-				'portrait', 'embeddablecontent-upload-existing'
-			),
-			'portraitLicense' => \EmbeddableContent\Upload\ImageUploadHelper::licenseField(
-				'portrait',
-				'embeddablecontent-person-portrait-license',
-				'embeddablecontent-person-portrait-license-help',
-				$this->config
-			),
-			...\EmbeddableContent\Upload\ImageUploadHelper::authorFields(
-				'portrait', 'embeddablecontent-person-portrait-author', $this->config
-			),
-			'portraitLicenseInfo' => \EmbeddableContent\Upload\ImageUploadHelper::licenseInfoField(
-				'portrait', 'embeddablecontent-person-portrait-license-info'
-			),
-		]
+		+ $this->imageEntriesFieldSpec( $record )
 		+ $this->externalIdFieldSpecs( $record );
 	}
 
@@ -474,6 +433,16 @@ class SpecialAddPerson extends SpecialAddExternalEntity {
 			if ( $value !== '' && !\EmbeddableContent\Spec\OsmPlace::isValidId( $value ) ) {
 				return $this->msg( 'embeddablecontent-field-place-osm-error' )->text();
 			}
+		}
+		$imageEntries = \EmbeddableContent\Spec\MediaEntries::normalize( $record['imageEntries'] ?? [] );
+		$useLegacyImage = $imageEntries === [] && !empty( $record['portraitFileTitle'] );
+		if ( array_key_exists( 'imageEntries', $record ) && !$useLegacyImage ) {
+			$record['imageEntries'] = $imageEntries;
+			$error = \EmbeddableContent\Spec\MediaEntries::validate( $imageEntries );
+			if ( $error !== null ) {
+				return $this->msg( 'embeddablecontent-image-error', $error )->text();
+			}
+			return null;
 		}
 		return \EmbeddableContent\Upload\ImageUploadHelper::handleUpload(
 			'portrait',

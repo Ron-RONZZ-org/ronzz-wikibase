@@ -388,16 +388,33 @@ report). See `SimpleMathJax/VENDORED.md`.
   property is no longer written; `tools/migrate_string_publishers.py`
   converts existing string statements (find-or-create publisher item →
   entity statement → remove string statement; `--dry-run`/`--verify`).
-- **AddSource access field (issue #35)** on book/scholarlyArticle/song/film/
-  bookExcerpt: `accessMode` toggle url (non-direct `access URL` statement,
-  P953-aligned) | download (server-side `UploadFromUrl`, SSRF-guarded) |
-  file (browser `UploadFromFile`). download/file require a license entity
-  (reuses the P275 license property) + show the copyright warning, and save
-  the file as `File:<label>.<ext>` (auto-named, original filename ignored,
-  auto-generated page text) linked via the `file` property (P1325-aligned).
-  `$wgFileExtensions` must include pdf/epub/djvu (production + dev config).
-  A filled-in access field that cannot be honoured aborts creation with a
-  form error.
+- **Multi-access editor (Nov 2026, replaces the single accessMode field)**:
+  the AddSource/UpdateSource access section is a repeatable list
+  (`resources/accesseditor.js` + hidden `accessEntries` JSON): zero-to-many
+  entries, each URL or file. URL entries get a public/login status and an
+  optional "fetch and archive text content"; file entries upload locally or
+  fetch from a URL through `action=accessupload` (`AccessUploadHelper`), with
+  a per-entry licence (public) or "No public access" (login-only). The legacy
+  single-access fields remain accepted as a fallback for API/older forms.
+  Storage: one statement per entry on `access URL` (P953) / `file` (P1325),
+  with qualifiers `access status` (public|login), `license` (P275, files) and
+  `archived text` (the `Source:<label>/archivedText[/n]` title). The seed
+  manifests/config map gained `access status` + `archived text` (re-seed
+  required). `AccessEntries` normalizes/validates/builds/reads the entries;
+  `Special:SourceFile` reads the matching file's licence qualifier. The
+  UpdateSource "I will update the resource access instructions" gate is
+  **removed** — the editor is always visible; an empty list clears the
+  access statements.
+- **AddSource/Source: access rendering (multi-access)**: `{{#source-access:}}`
+  lists the visible entries as `url1 | pdf | epub` links (URLs numbered,
+  files labelled by extension), every link `target=_blank`. Login-only
+  entries are omitted for anonymous readers and the cell appends
+  "Login to view additional access modes"; logged-in readers see every
+  entry, and the parser cache is bypassed when hidden entries exist.
+  `{{#source-archive:}}` reads each URL entry's `archivedText` qualifier
+  (plus the legacy `/archivedText` subpage) and joins the existing archives.
+  Archived subpages are created per entry after create/update
+  (`SourceArchive::createAt`; `/archivedText`, `/archivedText/2`, …).
 - **Source: access row + Special:SourceFile (follow-up, ADR
   `docs/decisions/add-flow-followup-2.md`)**: the `{{#source-access:}}` parser
   function (magic word `sourceaccess`, spelling `source-access`, en/fr/eo)
@@ -969,13 +986,27 @@ report). See `SimpleMathJax/VENDORED.md`.
   fallback otherwise), fixing pages created before the param existed (e.g.
   `Collective:National Geographic Partners`, item Q880) without a backfill.
   The parser function resolves the page's sitelinked item (or an explicit
-  `{{#item-image:Q42}}`), reads the `image` statement URL (union of the
+  `{{#item-image:Q42}}`), reads **every** `image` statement (union of the
   configured image property ids across the person/collective/foss/image
-  config sections), renders `[[File:<title>|frameless|220px]]` and registers
-  the item as a parser-cache dependency — the `{{#source-access:}}` pattern.
-  The URL→title extraction percent-decodes the path segment. E2E: a scratch
-  page transcluding `{{#item-image:<qid>}}` must render the uploaded file
-  (the CI stack has no page templates, hence the explicit-id argument).
+  config sections), renders a one-at-a-time **gallery** with previous/next
+  buttons (`resources/imagegallery.js` + `.css`; a single image has no
+  buttons) and registers the item as a parser-cache dependency — the
+  `{{#source-access:}}` pattern. The URL→title extraction percent-decodes
+  the path segment. E2E: a scratch page transcluding
+  `{{#item-image:<qid>}}` must render the uploaded file (the CI stack has no
+  page templates, hence the explicit-id argument).
+- **Multi-image Add/Update editor (Nov 2026)**: AddPerson/AddCollective/
+  AddSoftware replace the single portrait/logo include toggle with a
+  repeatable image list (`resources/mediaeditor.js` + hidden
+  `imageEntries` JSON). Each entry is uploaded through
+  `action=imageupload` (`ApiImageUpload` → `ImageUploadHelper`), which
+  creates the File page + image item with the licence/author facts; an
+  "existing file" mode reuses a File: page. The form writes one `image`
+  statement per entry (`MediaEntries`; `SemanticEntityFlowService` accepts
+  `imageFileUrls`). Update* prefills every image statement and an empty
+  list clears them (the image property is managed). The legacy
+  `portraitFileTitle`/`logoFileTitle` path remains a fallback for old
+  forms.
 
 - **Source quotation listing + auto-link (issue #79, ADR
   `docs/decisions/source-quotations-listing.md`)**: quotation items whose

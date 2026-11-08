@@ -5,71 +5,69 @@ declare( strict_types = 1 );
 namespace EmbeddableContent\Content;
 
 /**
- * Renders the "Access" infobox cell of a Source: page (issue follow-up).
+ * Renders the "Access" infobox cell of a Source: page (multi-access).
  *
  * Pure and MediaWiki-free so the branching logic is unit-testable: the
  * parser-function wrapper (SourceAccess) resolves the page's item, collects
- * the statement values and supplies the localized "N/A" text; this class
- * only decides what the cell shows:
+ * the access entries and supplies the localized strings + hrefs; this class
+ * only formats them:
  *
- *   1. a copy stored on this wiki (the `file` property)  → the file name,
- *      linked to Special:SourceFile (which hosts the PDF preview, the
- *      licence and the gated download);
- *   2. else a non-direct access URL (the `access URL` property) → a
- *      clickable external link;
- *   3. else → "N/A" (no access fact recorded).
+ *   * one link per VISIBLE access entry, separated by ` | `;
+ *   * URL entries are labelled url1, url2, … in display order;
+ *   * file entries are labelled with their extension (pdf, epub, …);
+ *   * every link opens in a new tab (`target=_blank`, `rel=noopener`);
+ *   * when hidden (login-only) entries exist and the viewer is anonymous,
+ *     the "Login to view additional access modes" link is appended;
+ *   * no entries → the localized "N/A" text.
  *
  * @license GPL-2.0-or-later
  */
 final class SourceAccessRenderer {
 
 	/**
-	 * @param string[] $fileTitles validated File: titles (DBkey form, e.g.
-	 *   "File:War and Peace.pdf"), one per `file` statement
-	 * @param string[] $accessUrls non-direct access URLs (url datatype), one
-	 *   per `access URL` statement
-	 * @param string $itemId the sitelinked item id (Q-id, for the special
-	 *   file page's licence lookup)
+	 * @param list<array{kind:string,href:string,label:string}> $links
+	 *   visible entries, in display order
 	 * @param string $naText localized "N/A" cell text
-	 * @return string wikitext for the access cell (parsed by the template)
+	 * @param bool $hasHidden whether login-only entries exist
+	 * @param string $loginUrl Special:UserLogin URL ('' = omit)
+	 * @param string $loginText localized "Login to view additional access
+	 *   modes" text
 	 */
-	public static function render( array $fileTitles, array $accessUrls, string $itemId, string $naText ): string {
-		// Defensive: the wrapper validates, but empty values from the store
-		// must not render a link to nothing.
-		$fileTitles = array_values( array_filter( $fileTitles, static fn ( $t ) => $t !== '' ) );
-		$accessUrls = array_values( array_filter( $accessUrls, static fn ( $u ) => $u !== '' ) );
-		if ( $fileTitles !== [] ) {
-			$title = self::plainText( (string)reset( $fileTitles ) );
-			// Wikilinks cannot carry a query in MW 1.46 ([[Special:X?q=…]]
-			// links a literal page title) — {{fullurl:}} is the idiom for
-			// special pages with parameters, wrapped as an external link.
-			$target = '{{fullurl:Special:SourceFile|item=' . $itemId
-				. '&file=' . rawurlencode( (string)reset( $fileTitles ) ) . '}}';
-			return '[' . $target . ' ' . $title . ']';
+	public static function render(
+		array $links,
+		string $naText,
+		bool $hasHidden,
+		string $loginUrl,
+		string $loginText
+	): string {
+		if ( $links === [] ) {
+			return htmlspecialchars( $naText );
 		}
-		if ( $accessUrls !== [] ) {
-			$url = self::linkSafe( (string)reset( $accessUrls ) );
-			return "[" . $url . " " . $url . "]";
+		$parts = [];
+		$urlIndex = 0;
+		foreach ( $links as $link ) {
+			$href = (string)( $link['href'] ?? '' );
+			if ( $href === '' ) {
+				continue;
+			}
+			$label = trim( (string)( $link['label'] ?? '' ) );
+			if ( $label === '' ) {
+				$label = 'url' . ( ++$urlIndex );
+			}
+			$parts[] = '<a href="' . htmlspecialchars( $href ) . '"'
+				. ' target="_blank" rel="noopener noreferrer">'
+				. htmlspecialchars( $label ) . '</a>';
 		}
-		return $naText;
+		if ( $parts === [] ) {
+			return htmlspecialchars( $naText );
+		}
+		$html = implode( ' | ', $parts );
+		if ( $hasHidden && $loginUrl !== '' ) {
+			$html .= ' · <a href="' . htmlspecialchars( $loginUrl ) . '"'
+				. ' target="_blank" rel="noopener noreferrer">'
+				. htmlspecialchars( $loginText ) . '</a>';
+		}
+		return $html;
 	}
 
-	/**
-	 * Wikitext-safe label for a File: title: MediaWiki titles cannot contain
-	 * [ ] | { } < > # — but the value arrives from a DB statement, so strip
-	 * defensively rather than trust the store.
-	 */
-	private static function plainText( string $value ): string {
-		return (string)preg_replace( '/[\[\]|{}<>]/', '', $value );
-	}
-
-	/**
-	 * External-link-safe URL: the `access URL` value was URL-validated at
-	 * creation (FragmentSanitizer), but a url datatype can still carry
-	 * characters that break the [url label] syntax — encode spaces and the
-	 * closing bracket so the link always parses.
-	 */
-	private static function linkSafe( string $url ): string {
-		return str_replace( [ ' ', ']' ], [ '%20', '%5D' ], $url );
-	}
 }

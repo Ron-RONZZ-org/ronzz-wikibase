@@ -235,6 +235,11 @@ SOURCE_PROPERTY_KINDS = {
     "license": "license",
     "access URL": "accessUrl",
     "file": "file",
+    # Per-access metadata (browser multi-access editor): the public/login
+    # status and the archived-text subpage title, stored as qualifiers on
+    # the access URL/file statement.
+    "access status": "accessStatus",
+    "archived text": "archivedText",
     # Zotero-aligned batch: legal/official-document facts. Territorial
     # jurisdiction mirrors the OSM place-of-birth pattern (external-id +
     # parallel human-readable label).

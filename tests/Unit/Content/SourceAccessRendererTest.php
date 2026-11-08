@@ -9,110 +9,122 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * SourceAccessRenderer — the "Access" infobox cell of a Source: page
- * (ADR docs/decisions/source-access-rendering.md).
+ * (multi-access).
  *
- * Pure branching logic: a stored copy (file) wins, then a non-direct
- * access URL, then the localized "N/A" fallback. File names link to
- * Special:SourceFile with the owning item id; URLs render as clickable
- * external links.
+ * Pure formatting: URL entries are labelled url1/url2…, file entries by
+ * extension, every link opens in a new tab, and the login hint appears when
+ * hidden entries exist.
  *
  * @license GPL-2.0-or-later
  */
 final class SourceAccessRendererTest extends TestCase {
 
-	public function testFileWinsOverAccessUrl(): void {
-		$cell = SourceAccessRenderer::render(
-			[ 'File:War and Peace.pdf' ],
-			[ 'https://example.org/landing' ],
-			'Q42',
-			'N/A'
-		);
-		// Wikilinks cannot carry a query in MW 1.46 — the file links to the
-		// special page via {{fullurl:}} wrapped in an external link.
-		$this->assertSame(
-			'[{{fullurl:Special:SourceFile|item=Q42&file=File%3AWar%20and%20Peace.pdf}} File:War and Peace.pdf]',
-			$cell
-		);
-	}
-
-	public function testFileParamIsUrlEncoded(): void {
-		$cell = SourceAccessRenderer::render(
-			[ 'File:Q&A.pdf' ],
-			[],
-			'Q7',
-			'N/A'
-		);
-		$this->assertStringContainsString( 'file=File%3AQ%26A.pdf', $cell );
-		// The label keeps the human-readable title.
-		$this->assertStringContainsString( ' File:Q&A.pdf]', $cell );
-	}
-
-	public function testAccessUrlRendersClickableLink(): void {
-		$cell = SourceAccessRenderer::render(
-			[],
-			[ 'https://example.org/full-work' ],
-			'Q42',
-			'N/A'
-		);
-		$this->assertSame( '[https://example.org/full-work https://example.org/full-work]', $cell );
-	}
-
-	public function testAccessUrlWithSpacesIsEncoded(): void {
-		$cell = SourceAccessRenderer::render(
-			[],
-			[ 'https://example.org/a b' ],
-			'Q42',
-			'N/A'
-		);
-		$this->assertSame( '[https://example.org/a%20b https://example.org/a%20b]', $cell );
-	}
-
 	public function testNoAccessRendersNa(): void {
-		$cell = SourceAccessRenderer::render( [], [], 'Q42', 'N/A' );
-		$this->assertSame( 'N/A', $cell );
+		$this->assertSame(
+			'N/A',
+			SourceAccessRenderer::render( [], 'N/A', false, '', 'Login' )
+		);
 	}
 
 	public function testLocalizedNaTextIsUsed(): void {
-		$cell = SourceAccessRenderer::render( [], [], 'Q42', 'S.O.' );
-		$this->assertSame( 'S.O.', $cell );
-	}
-
-	public function testFirstFileWinsWhenMultiple(): void {
-		$cell = SourceAccessRenderer::render(
-			[ 'File:A.pdf', 'File:B.pdf' ],
-			[],
-			'Q1',
-			'N/A'
+		$this->assertSame(
+			'S.O.',
+			SourceAccessRenderer::render( [], 'S.O.', false, '', 'Login' )
 		);
-		$this->assertStringContainsString( 'file=File%3AA.pdf', $cell );
 	}
 
-	public function testFirstAccessUrlWinsWhenMultiple(): void {
+	public function testUrlEntriesAreNumbered(): void {
 		$cell = SourceAccessRenderer::render(
-			[],
-			[ 'https://example.org/one', 'https://example.org/two' ],
-			'Q1',
-			'N/A'
+			[
+				[ 'kind' => 'url', 'href' => 'https://example.org/one', 'label' => '' ],
+				[ 'kind' => 'url', 'href' => 'https://example.org/two', 'label' => '' ],
+			],
+			'N/A',
+			false,
+			'',
+			'Login'
 		);
-		$this->assertSame( '[https://example.org/one https://example.org/one]', $cell );
+		$this->assertStringContainsString( '>url1</a>', $cell );
+		$this->assertStringContainsString( '>url2</a>', $cell );
+		$this->assertStringContainsString( 'href="https://example.org/one"', $cell );
+		$this->assertStringContainsString( 'target="_blank"', $cell );
+		$this->assertStringContainsString( 'rel="noopener noreferrer"', $cell );
 	}
 
-	public function testHostileTitleCharsAreStrippedFromLabel(): void {
-		// A DB-backed file title must not be able to inject link syntax.
+	public function testFileLabelsUseExtension(): void {
 		$cell = SourceAccessRenderer::render(
-			[ 'File:A]]B|C.pdf' ],
-			[],
-			'Q1',
-			'N/A'
+			[ [ 'kind' => 'file', 'href' => 'https://wiki/Special:SourceFile?file=X.pdf', 'label' => 'pdf' ] ],
+			'N/A',
+			false,
+			'',
+			'Login'
 		);
-		// The LABEL (after the first space, inside the external link) must
-		// be free of raw link syntax — the closing ] of the link itself is
-		// expected.
-		$this->assertStringContainsString( ' File:ABC.pdf]', $cell );
-		$this->assertStringNotContainsString( ']]', $cell );
+		$this->assertStringContainsString( '>pdf</a>', $cell );
+		$this->assertStringContainsString( 'Special:SourceFile', $cell );
 	}
 
-	public function testEmptyValuesRenderNa(): void {
-		$this->assertSame( 'N/A', SourceAccessRenderer::render( [ '' ], [ '' ], 'Q42', 'N/A' ) );
+	public function testMixedEntriesJoinWithPipe(): void {
+		$cell = SourceAccessRenderer::render(
+			[
+				[ 'kind' => 'url', 'href' => 'https://example.org', 'label' => '' ],
+				[ 'kind' => 'file', 'href' => 'https://wiki/Special:SourceFile?file=X.epub', 'label' => 'epub' ],
+			],
+			'N/A',
+			false,
+			'',
+			'Login'
+		);
+		$this->assertStringContainsString( ' | ', $cell );
+		$this->assertStringContainsString( '>url1</a>', $cell );
+		$this->assertStringContainsString( '>epub</a>', $cell );
+	}
+
+	public function testHiddenEntriesAppendLoginHint(): void {
+		$cell = SourceAccessRenderer::render(
+			[ [ 'kind' => 'url', 'href' => 'https://example.org', 'label' => '' ] ],
+			'N/A',
+			true,
+			'https://wiki/Special:UserLogin',
+			'Login to view additional access modes'
+		);
+		$this->assertStringContainsString( 'Special:UserLogin', $cell );
+		$this->assertStringContainsString( 'Login to view additional access modes', $cell );
+	}
+
+	public function testHiddenEntriesWithoutLoginUrlOmitHint(): void {
+		$cell = SourceAccessRenderer::render(
+			[ [ 'kind' => 'url', 'href' => 'https://example.org', 'label' => '' ] ],
+			'N/A',
+			true,
+			'',
+			'Login to view additional access modes'
+		);
+		$this->assertStringNotContainsString( 'Login to view', $cell );
+	}
+
+	public function testHostileHrefLabelIsEscaped(): void {
+		$cell = SourceAccessRenderer::render(
+			[ [ 'kind' => 'file', 'href' => 'https://wiki/?x=<script>"', 'label' => '<b>pdf</b>' ] ],
+			'N/A',
+			false,
+			'',
+			'Login'
+		);
+		$this->assertStringNotContainsString( '<script>', $cell );
+		$this->assertStringNotContainsString( '<b>', $cell );
+		$this->assertStringContainsString( '&lt;b&gt;pdf&lt;/b&gt;', $cell );
+	}
+
+	public function testEmptyHrefIsSkipped(): void {
+		$this->assertSame(
+			'N/A',
+			SourceAccessRenderer::render(
+				[ [ 'kind' => 'url', 'href' => '', 'label' => '' ] ],
+				'N/A',
+				false,
+				'',
+				'Login'
+			)
+		);
 	}
 }

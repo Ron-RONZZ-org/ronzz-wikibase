@@ -101,7 +101,8 @@ class SemanticEntityFlowServiceTest extends TestCase {
 		$this->assertInstanceOf( TimeValue::class, $specs['P50'] );
 		$this->assertSame( '0000-0001-0002-0003', $specs['P13']->getValue() );
 		$this->assertSame( 'https://example.org/ada', $specs['P36']->getValue() );
-		$this->assertSame( 'https://example.org/File:Ada-portrait.png', $specs['P63']->getValue() );
+		$this->assertIsArray( $specs['P63'] );
+		$this->assertSame( 'https://example.org/File:Ada-portrait.png', $specs['P63'][0]->getValue() );
 	}
 
 	public function testPersonPlaceLabelRequiresItsOsmId(): void {

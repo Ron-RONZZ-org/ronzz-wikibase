@@ -2559,6 +2559,40 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	}
 
 	/**
+	 * The multi-image editor (portrait / logo / images). The hidden
+	 * `imageEntries` field carries a JSON list of File: titles; uploads run
+	 * through action=imageupload before the form is submitted, so the form
+	 * itself only writes one image statement per entry.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,mixed>
+	 */
+	protected function imageEntriesFieldSpec( array $record ): array {
+		$entries = \EmbeddableContent\Spec\MediaEntries::normalize( $record['imageEntries'] ?? [] );
+		$json = (string)json_encode( $entries, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+		$this->getOutput()->addModules( 'ext.embeddableContent.mediaeditor' );
+		$this->getOutput()->addJsConfigVars( 'wbAccessLicenseOptions', $this->config->licenseItems() );
+		$html = '<div class="wb-media-editor">'
+			. '<div class="wb-access-list"></div>'
+			. '<button type="button" class="wb-access-add">'
+			. $this->msg( 'embeddablecontent-media-add' )->escaped()
+			. '</button>'
+			. '</div>';
+		return [
+			'imageEntries' => [
+				'type' => 'hidden',
+				'id' => 'wpimageEntries',
+				'default' => $json,
+			],
+			'imageEditor' => [
+				'type' => 'info',
+				'raw' => true,
+				'default' => $html,
+			],
+		];
+	}
+
+	/**
 	 * Shared field builders for the review/manual forms.
 	 * The label/description builders return a full `fieldname => descriptor`
 	 * entry (array union `+` requires distinct top-level keys).

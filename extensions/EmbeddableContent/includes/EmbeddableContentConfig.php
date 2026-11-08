@@ -302,6 +302,9 @@ class EmbeddableContentConfig {
 		return $this->requireStringMap( 'sourceProperties', [
 			'partOf', 'duration', 'url', 'youtubeChannelId', 'youtubeVideoId', 'chapters',
 			'license', 'accessUrl', 'file',
+			// Multi-access: per-statement public/login status + archived-text
+			// subpage title (qualifiers on the access URL/file statement).
+			'accessStatus', 'archivedText',
 			// Zotero-aligned batch: legal/official-document facts.
 			'court', 'territorialJurisdictionOsm', 'territorialJurisdictionLabel',
 			'caseNumber', 'patentNumber', 'reportNumber', 'legislationNumber',

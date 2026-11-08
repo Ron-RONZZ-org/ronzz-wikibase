@@ -72,7 +72,12 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 			$out['officialWebsite'] = (string)$record['website'];
 		}
 
-		if ( !empty( $record['logoFileTitle'] ) ) {
+		$imageEntries = \EmbeddableContent\Spec\MediaEntries::normalize( $record['imageEntries'] ?? [] );
+		if ( array_key_exists( 'imageEntries', $record )
+			&& ( $imageEntries !== [] || empty( $record['logoFileTitle'] ) )
+		) {
+			$out['imageFileUrls'] = \EmbeddableContent\Spec\MediaEntries::fileUrls( $imageEntries );
+		} elseif ( !empty( $record['logoFileTitle'] ) ) {
 			$title = \MediaWiki\Title\Title::makeTitle( NS_FILE, (string)$record['logoFileTitle'] );
 			if ( $title !== null ) {
 				$out['imageFileUrl'] = $title->getFullURL();
@@ -228,51 +233,7 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 		// Official website (optional URL field, shared with AddSoftware/
 		// AddPerson — the P856-aligned property).
 		$fields += $this->websiteFieldSpec( $record );
-		// Logo (optional): collapsed behind the "I will upload a logo
-		// image for this collective" toggle; the shared ImageUploadHelper
-		// owns the field specs + upload path (same machinery as
-		// AddSoftware's logo, AddPerson's portrait and Special:Upload).
-		$fields['logoInclude'] = \EmbeddableContent\Upload\ImageUploadHelper::includeField(
-			'logo', $this->logoIncludeMsgKey()
-		);
-		$fields['logoMode'] = \EmbeddableContent\Upload\ImageUploadHelper::modeField(
-			'logo',
-			'embeddablecontent-collective-logo-mode',
-			'embeddablecontent-software-logo-mode-file',
-			'embeddablecontent-software-logo-mode-url',
-			'embeddablecontent-upload-mode-existing'
-		);
-		$fields['logoFile'] = \EmbeddableContent\Upload\ImageUploadHelper::fileField(
-			'logo', 'embeddablecontent-collective-logo-file'
-		);
-		$fields['logoClipboard'] = \EmbeddableContent\Upload\ImageUploadHelper::clipboardField(
-			'logo',
-			$this->msg( 'embeddablecontent-upload-clipboard-hint' )->escaped()
-		);
-		foreach ( \EmbeddableContent\Upload\ImageUploadHelper::imageToolsFields( 'logo' ) as $key => $spec ) {
-			$fields[$key] = $spec;
-		}
-		$fields['logoUrl'] = \EmbeddableContent\Upload\ImageUploadHelper::urlField(
-			'logo', 'embeddablecontent-collective-logo-url',
-			$this->msg( 'embeddablecontent-collective-logo-license' )->text()
-		);
-		$fields['logoExisting'] = \EmbeddableContent\Upload\ImageUploadHelper::existingField(
-			'logo', 'embeddablecontent-upload-existing'
-		);
-		$fields['logoLicense'] = \EmbeddableContent\Upload\ImageUploadHelper::licenseField(
-			'logo',
-			'embeddablecontent-collective-logo-license',
-			'embeddablecontent-collective-logo-license-help',
-			$this->config
-		);
-		foreach ( \EmbeddableContent\Upload\ImageUploadHelper::authorFields(
-			'logo', 'embeddablecontent-collective-logo-author', $this->config
-		) as $key => $spec ) {
-			$fields[$key] = $spec;
-		}
-		$fields['logoLicenseInfo'] = \EmbeddableContent\Upload\ImageUploadHelper::licenseInfoField(
-			'logo', 'embeddablecontent-collective-logo-license-info'
-		);
+		$fields += $this->imageEntriesFieldSpec( $record );
 		return $fields + $this->externalIdFieldSpecs( $record );
 	}
 
@@ -297,6 +258,16 @@ class SpecialAddCollective extends SpecialAddExternalEntity {
 		$memberError = $this->beforeCreateMembers( $record );
 		if ( $memberError !== null ) {
 			return $memberError;
+		}
+		$imageEntries = \EmbeddableContent\Spec\MediaEntries::normalize( $record['imageEntries'] ?? [] );
+		$useLegacyImage = $imageEntries === [] && !empty( $record['logoFileTitle'] );
+		if ( array_key_exists( 'imageEntries', $record ) && !$useLegacyImage ) {
+			$record['imageEntries'] = $imageEntries;
+			$error = \EmbeddableContent\Spec\MediaEntries::validate( $imageEntries );
+			if ( $error !== null ) {
+				return $this->msg( 'embeddablecontent-image-error', $error )->text();
+			}
+			return null;
 		}
 		return \EmbeddableContent\Upload\ImageUploadHelper::handleUpload(
 			'logo',

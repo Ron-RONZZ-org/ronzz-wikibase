@@ -73,7 +73,7 @@ final class SemanticEntityFlowService {
 		// follow-up): the value picked from Nominatim at creation/update,
 		// written as parallel string statements.
 		'placeOfBirthLabel', 'placeOfDeathLabel',
-		'imageFileUrl',
+		'imageFileUrl', 'imageFileUrls',
 		'additionalStatements',
 	];
 
@@ -296,9 +296,16 @@ final class SemanticEntityFlowService {
 						$specs[$person['affiliatedWith']][] = new EntityIdValue( new ItemId( $id ) );
 					}
 				}
-				$imageUrl = trim( (string)( $record['imageFileUrl'] ?? '' ) );
-				if ( $imageUrl !== '' && isset( $person['image'] ) ) {
-					$specs[$person['image']] = new StringValue( $imageUrl );
+				$imageUrls = $this->imageUrls( $record );
+				if ( ( $imageUrls !== [] || array_key_exists( 'imageFileUrls', $record ) )
+					&& isset( $person['image'] )
+				) {
+					$specs[$person['image']] = $imageUrls === []
+						? []
+						: array_map(
+							static fn ( string $url ): StringValue => new StringValue( $url ),
+							$imageUrls
+						);
 				}
 				break;
 
@@ -338,9 +345,16 @@ final class SemanticEntityFlowService {
 				if ( $wikidata !== '' && $wikidataProp !== null ) {
 					$specs[$wikidataProp] = new StringValue( $wikidata );
 				}
-				$imageUrl = trim( (string)( $record['imageFileUrl'] ?? '' ) );
-				if ( $imageUrl !== '' && isset( $foss['image'] ) ) {
-					$specs[$foss['image']] = new StringValue( $imageUrl );
+				$imageUrls = $this->imageUrls( $record );
+				if ( ( $imageUrls !== [] || array_key_exists( 'imageFileUrls', $record ) )
+					&& isset( $foss['image'] )
+				) {
+					$specs[$foss['image']] = $imageUrls === []
+						? []
+						: array_map(
+							static fn ( string $url ): StringValue => new StringValue( $url ),
+							$imageUrls
+						);
 				}
 				break;
 
@@ -376,9 +390,16 @@ final class SemanticEntityFlowService {
 				if ( $wikidata !== '' && $wikidataProp !== null ) {
 					$specs[$wikidataProp] = new StringValue( $wikidata );
 				}
-				$imageUrl = trim( (string)( $record['imageFileUrl'] ?? '' ) );
-				if ( $imageUrl !== '' && isset( $collective['image'] ) ) {
-					$specs[$collective['image']] = new StringValue( $imageUrl );
+				$imageUrls = $this->imageUrls( $record );
+				if ( ( $imageUrls !== [] || array_key_exists( 'imageFileUrls', $record ) )
+					&& isset( $collective['image'] )
+				) {
+					$specs[$collective['image']] = $imageUrls === []
+						? []
+						: array_map(
+							static fn ( string $url ): StringValue => new StringValue( $url ),
+							$imageUrls
+						);
 				}
 				break;
 
@@ -586,6 +607,30 @@ final class SemanticEntityFlowService {
 	}
 
 	/** @return string[] */
+	/**
+	 * The record's image file URLs: the multi-image list first, then the
+	 * legacy single `imageFileUrl` (deduplicated).
+	 *
+	 * @param array<string,mixed> $record
+	 * @return string[]
+	 */
+	private function imageUrls( array $record ): array {
+		$urls = [];
+		if ( isset( $record['imageFileUrls'] ) && is_array( $record['imageFileUrls'] ) ) {
+			foreach ( $record['imageFileUrls'] as $url ) {
+				$url = trim( (string)$url );
+				if ( $url !== '' && $this->isHttpUrl( $url ) ) {
+					$urls[] = $url;
+				}
+			}
+		}
+		$single = trim( (string)( $record['imageFileUrl'] ?? '' ) );
+		if ( $single !== '' && $this->isHttpUrl( $single ) ) {
+			$urls[] = $single;
+		}
+		return array_values( array_unique( $urls ) );
+	}
+
 	private function splitItemIds( string $value ): array {
 		$out = [];
 		foreach ( preg_split( '/[,;]/', $value ) ?: [] as $part ) {

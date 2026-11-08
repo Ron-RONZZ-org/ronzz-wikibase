@@ -2547,6 +2547,53 @@ E2E_PDF = (b"%PDF-1.4\n"
            b"%%EOF\n")
 
 
+def flow_multi_access_editor(op, base: str, api: str, label: str,
+                            author_qid: str, license_qid: str) -> str:
+    """The multi-access editor end-to-end: upload one access file through
+    action=accessupload, then submit a URL + file entry in the hidden
+    `accessEntries` JSON. The classic Source: page must render both links
+    (url1 + the file extension) with target=_blank."""
+    _, body = page_get(op, base, "/wiki/Special/AddSource/book/manual")
+    token = edit_token(body)
+    _, api_body = page_post_multipart(op, base + "/api.php", {
+        "action": "accessupload",
+        "format": "json",
+        "mode": "file",
+        "label": label,
+        "internal": "0",
+        "token": token,
+    }, {
+        "file": ("multi.pdf", E2E_PDF, "application/pdf"),
+    })
+    try:
+        upload = json.loads(api_body)["accessupload"]
+    except (ValueError, KeyError) as exc:
+        raise FlowError(f"action=accessupload failed: {api_body[:500]!r}") from exc
+    entries = [
+        { "type": "url", "url": "https://example.org/multi", "public": "1", "archive": "" },
+        { "type": "file", "fileTitle": upload["fileTitle"], "public": "1", "license": license_qid },
+    ]
+    _, body = page_get(op, base, "/wiki/Special/AddSource/book/manual")
+    token = edit_token(body)
+    page, body = page_post(op, page, {
+        "wptitle": label,
+        "wpauthors": author_qid,
+        "wpaccessEntries": json.dumps(entries),
+        "wpEditToken": token,
+        "wpSubmit": "1",
+    })
+    qid = flow_final_item(op, base, api, page, body, "AddSource/book/manual (multi access)")
+    url, rendered = page_get(
+        op, base, "/wiki/" + urllib.parse.quote(
+            f"Source:{label} (Book)".replace(" ", "_"), safe=":()"))
+    if "https://example.org/multi" not in rendered or "url1" not in rendered:
+        raise FlowError(f"{qid} Source page did not render the URL access link")
+    if "Special:SourceFile" not in rendered or "pdf" not in rendered:
+        raise FlowError(f"{qid} Source page did not render the file access link")
+    print(f"[ok] multi-access editor -> {qid}: url1 + pdf links on the Source page")
+    return qid
+
+
 def flow_source_book_access_url(op, base: str, api: str, label: str,
                                 author_qid: str, url: str) -> str:
     """Access field, URL mode (issue #35): a non-direct access URL statement
@@ -2653,6 +2700,50 @@ def label_pos(body: str, text: str) -> int:
     return m.start() if m else -1
 
 
+def flow_multi_image_editor(op, base: str, api: str, label: str, license_qid: str) -> str:
+    """The multi-image editor end-to-end: upload one image through
+    action=imageupload, submit it in the hidden `imageEntries` JSON, and
+    check the Person: page renders the gallery (wb-image-gallery)."""
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    )
+    given, _, family = label.rpartition(" ")
+    _, body = page_get(op, base, "/wiki/Special/AddPerson/manual")
+    token = edit_token(body)
+    _, api_body = page_post_multipart(op, base + "/api.php", {
+        "action": "imageupload",
+        "format": "json",
+        "mode": "file",
+        "license": license_qid,
+        "label": label,
+        "token": token,
+    }, {
+        "wpmediaFile": ("multi.png", png, "image/png"),
+    })
+    try:
+        upload = json.loads(api_body)["imageupload"]
+    except (ValueError, KeyError) as exc:
+        raise FlowError(f"action=imageupload failed: {api_body[:500]!r}") from exc
+    _, body = page_get(op, base, "/wiki/Special/AddPerson/manual")
+    token = edit_token(body)
+    page, body = page_post(op, page, {
+        "wpgivenName": given,
+        "wpfamilyName": family,
+        "wpimageEntries": json.dumps([ { "fileTitle": upload["fileTitle"] } ]),
+        "wpEditToken": token,
+        "wpSubmit": "1",
+    })
+    qid = flow_final_item(op, base, api, page, body, "AddPerson/manual (multi image)")
+    page_title = item_sitelink_page(op, api, qid)
+    if not page_title:
+        raise FlowError(f"{qid} has no classic page for the gallery")
+    _, rendered = page_get(op, base, "/wiki/" + urllib.parse.quote(page_title.replace(" ", "_")))
+    if "wb-image-gallery" not in rendered or "-media.png" not in rendered:
+        raise FlowError(f"{qid} Person page did not render the image gallery")
+    print(f"[ok] multi-image editor -> {qid}: gallery with the uploaded image")
+    return qid
+
+
 def flow_person_portrait(op, base: str, api: str, label: str, license_qid: str) -> tuple[str, str]:
     """Special:AddPerson/manual + a LOCAL PORTRAIT upload (upload
     enhancements): the portrait section is collapsed behind the
@@ -2692,6 +2783,18 @@ def radio_checked(body: str, name: str, value: str) -> bool:
                 re.search(r"value=[\"']" + re.escape(value) + r"[\"']", tag):
             return "checked" in tag
     return False
+
+
+def flow_media_editor_present(op, base: str) -> None:
+    """The multi-image editor is the AddPerson/AddCollective/AddSoftware
+    image surface (the old portrait/logo include toggle is gone)."""
+    for path in ( "/wiki/Special:AddPerson/manual",
+                  "/wiki/Special:AddCollective/manual",
+                  "/wiki/Special:AddSoftware/manual" ):
+        _, body = page_get(op, base, path)
+        if "wb-media-editor" not in body or "wpimageEntries" not in body:
+            raise FlowError(f"{path} missing the multi-image editor")
+    print("[ok] AddPerson/AddCollective/AddSoftware render the multi-image editor")
 
 
 def flow_person_portrait_source_restore(op, base: str, license_qid: str) -> None:
@@ -4600,8 +4703,8 @@ def flow_update_source_access_collapsed(op, base: str, api: str, qid: str,
     no re-upload, the file statement survives. A changed description still
     lands."""
     url, body = page_get(op, base, f"/wiki/Special:UpdateSource/{qid}")
-    if "wpaccessInclude" not in body:
-        raise FlowError(f"UpdateSource/{qid} missing the accessInclude checkbox: {find_error(body)}")
+    if "wpaccessEntries" not in body or "wb-access-editor" not in body:
+        raise FlowError(f"UpdateSource/{qid} missing the multi-access editor: {find_error(body)}")
     title = input_value(body, "wptitle")
     authors = input_value(body, "wpauthors")
     class_item = input_value(body, "wpclass")
@@ -5804,8 +5907,11 @@ def main() -> int:
         url_book = track(flow_source_book_access_url(
             op, base, api, url_label, person, "https://example.org/e2e-access"))
         url_cell = source_access_cell(op, api, f"Source:{url_label} (Book)")
-        assert "https://example.org/e2e-access" in url_cell and "external" in url_cell, \
-            f"url-mode access row not rendered as a clickable link: {url_cell}"
+        assert "https://example.org/e2e-access" in url_cell and 'target="_blank"' in url_cell, \
+            f"url-mode access row not rendered as a new-tab link: {url_cell}"
+        multi_label = f"Page-flow E2E multi access {int(time.time())}"
+        track(flow_multi_access_editor(
+            op, base, api, multi_label, person, license_qid))
         na_label = f"Page-flow E2E access-na {int(time.time())}"
         na_desc = "A regression-test book with no fetched content."
         na_book = track(flow_source_book_access_na(op, base, api, na_label, person, na_desc))
@@ -5870,10 +5976,8 @@ def main() -> int:
         #     and logged-in media is 200.
         internal_label = f"Page-flow E2E internal {int(time.time())}"
         _, internal_form = page_get(op, base, "/wiki/Special:AddSource/book/manual")
-        if "wpinternalUse" not in internal_form:
-            raise FlowError("AddSource/book/manual missing the internal-use checkbox")
-        if "No public licence (internal use only)" not in internal_form:
-            raise FlowError("AddSource/book/manual missing the internal-use checkbox label")
+        if "wpaccessEntries" not in internal_form or "wb-access-editor" not in internal_form:
+            raise FlowError("AddSource/book/manual missing the multi-access editor")
         internal_book = track(flow_source_book_access_file(
             op, base, api, internal_label, person, "",
             content=E2E_PDF, filename="internal.pdf", ctype="application/pdf",
@@ -5890,8 +5994,8 @@ def main() -> int:
             f"{internal_wikitext[:300]!r}"
         _, internal_update_form = page_get(
             op, base, f"/wiki/Special:UpdateSource/{internal_book}")
-        if "wpinternalUse" not in internal_update_form:
-            raise FlowError("Special:UpdateSource missing the internal-use checkbox (UI parity)")
+        if "wpaccessEntries" not in internal_update_form or "wb-access-editor" not in internal_update_form:
+            raise FlowError("Special:UpdateSource missing the multi-access editor (UI parity)")
 
         anon_op = make_opener(base)
         _, anon_file_page = page_get(
@@ -6545,6 +6649,8 @@ def main() -> int:
         #     first: the person carries only the `image` statement.
         person_portrait_label = f"Page-flow E2E portrait {int(time.time())}"
         portrait_qid, portrait_file = flow_person_portrait(op, base, api, person_portrait_label, license_item)
+        track(flow_multi_image_editor(
+            op, base, api, f"Page-flow E2E multi image {int(time.time())}", license_item))
         portrait_qid = track(portrait_qid)
         portrait_file = f"File:{dest_file_name(person_portrait_label)}-portrait.png"
         r = api_call(op, api, {"action": "query", "titles": portrait_file, "format": "json"})
@@ -6572,7 +6678,7 @@ def main() -> int:
         # 3e2b. Source-radio preservation on an Add* converted-upload error
         #      (upload fix): the blob fallback's internal file conversion must
         #      not switch the user's source selection on the error re-render.
-        flow_person_portrait_source_restore(op, base, license_item)
+        flow_media_editor_present(op, base)
 
         # 3e3. Special:Upload (upload enhancements): the semantic license
         #     combobox + attribution fields + single size note render, and a

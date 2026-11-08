@@ -37,8 +37,18 @@ final class SourceArchive {
 	 * page): `<base>/archivedText`.
 	 */
 	public static function titleFor( Title $sourceTitle ): ?Title {
+		return self::titleForIndex( $sourceTitle, 1 );
+	}
+
+	/**
+	 * The archived-text title for the Nth archived access URL: the legacy
+	 * `<base>/archivedText` for the first, `<base>/archivedText/<n>` for the
+	 * rest.
+	 */
+	public static function titleForIndex( Title $sourceTitle, int $index ): ?Title {
 		$base = $sourceTitle->isSubpage() ? $sourceTitle->getBaseTitle() : $sourceTitle;
-		return Title::newFromText( $base->getPrefixedText() . '/' . self::SUBPAGE );
+		$suffix = $index <= 1 ? '' : '/' . $index;
+		return Title::newFromText( $base->getPrefixedText() . '/' . self::SUBPAGE . $suffix );
 	}
 
 	/**
@@ -54,9 +64,19 @@ final class SourceArchive {
 		UserIdentity $user
 	): bool {
 		$title = self::titleFor( $sourceTitle );
-		if ( $title === null ) {
-			return false;
-		}
+		return $title !== null && self::createAt( $title, $sourceUrl, $context, $user );
+	}
+
+	/**
+	 * Fetches, converts and saves an explicit archive title (multi-access).
+	 * No-op when the page already exists (idempotent). Never throws.
+	 */
+	public static function createAt(
+		Title $title,
+		string $sourceUrl,
+		IContextSource $context,
+		UserIdentity $user
+	): bool {
 		if ( $title->exists() ) {
 			return true;
 		}
@@ -80,6 +100,13 @@ final class SourceArchive {
 		}
 		if ( $wikitext === null ) {
 			return false;
+		}
+
+		// The SOURCE page: one level up from `…/archivedText`, two from the
+		// indexed `…/archivedText/<n>`.
+		$sourceTitle = $title->getBaseTitle();
+		if ( $sourceTitle->getSubpageText() === self::SUBPAGE ) {
+			$sourceTitle = $sourceTitle->getBaseTitle();
 		}
 
 		try {
@@ -134,6 +161,9 @@ final class SourceArchive {
 		return defined( 'NS_SOURCE' )
 			&& $title->getNamespace() === NS_SOURCE
 			&& $title->isSubpage()
-			&& $title->getSubpageText() === self::SUBPAGE;
+			&& preg_match(
+				'#/' . preg_quote( self::SUBPAGE, '#' ) . '(?:/\d+)?$#',
+				$title->getText()
+			) === 1;
 	}
 }

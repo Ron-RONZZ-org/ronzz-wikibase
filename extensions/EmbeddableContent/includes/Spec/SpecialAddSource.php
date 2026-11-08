@@ -1966,77 +1966,35 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 	 * @return array<string,mixed>
 	 */
 	protected function accessFieldSpec( array $record ): array {
-		$mode = (string)( $record['accessMode'] ?? 'url' );
+		// Multi-access editor: a repeatable list of URL/file entries with a
+		// per-entry licence or "No public access" flag and an optional
+		// archived-text subpage for URL entries. The JS module owns the
+		// dialog/list; the hidden field carries the JSON payload.
+		$entries = \EmbeddableContent\Spec\AccessEntries::normalize(
+			$record['accessEntries'] ?? []
+		);
+		$json = (string)json_encode( $entries, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+		$this->getOutput()->addJsConfigVars( 'wbAccessLicenseOptions', $this->config->licenseItems() );
+		$this->getOutput()->addModules( 'ext.embeddableContent.accesseditor' );
+		$html = '<div class="wb-access-editor" data-field="accessEntries">'
+			. '<div class="wb-access-list"></div>'
+			. '<button type="button" class="wb-access-add">'
+			. $this->msg( 'embeddablecontent-access-add' )->escaped()
+			. '</button>'
+			. '</div>';
 		return [
-			'accessMode' => [
-				'type' => 'radio',
-				'label-message' => 'embeddablecontent-source-field-access-mode',
-				'options-messages' => [
-					'embeddablecontent-source-field-access-mode-url' => 'url',
-					'embeddablecontent-source-field-access-mode-download' => 'download',
-					'embeddablecontent-source-field-access-mode-file' => 'file',
-					'embeddablecontent-source-field-access-mode-na' => 'na',
-				],
-				'default' => $mode,
-				'help-message' => 'embeddablecontent-source-field-access-mode-help',
+			'accessEntries' => [
+				'type' => 'hidden',
+				'id' => 'wpaccessEntries',
+				'default' => $json,
 			],
-			'accessUrl' => [
-				'type' => 'url',
-				'label-message' => 'embeddablecontent-source-field-access-url',
-				'default' => (string)( $record['accessUrl'] ?? '' ),
-				'maxlength' => 250,
-				'hide-if' => [ '!==', 'accessMode', 'url' ],
-			],
-			'downloadUrl' => [
-				'type' => 'url',
-				'label-message' => 'embeddablecontent-source-field-access-download',
-				'default' => (string)( $record['downloadUrl'] ?? '' ),
-				'maxlength' => 500,
-				'help-message' => 'embeddablecontent-source-field-access-download-help',
-				'hide-if' => [ '!==', 'accessMode', 'download' ],
-			],
-			'accessFile' => [
-				'type' => 'file',
-				'label-message' => 'embeddablecontent-source-field-access-file',
-				'hide-if' => [ '!==', 'accessMode', 'file' ],
-			],
-			// Required is NOT set here: the license is only mandatory in the
-			// download/file modes, and HTMLForm validates required fields
-			// even when hide-if hides them client-side — the requirement is
-			// enforced in beforeCreate (validateAccessField) instead.
-			'license' => EntityCombobox::licenseSpec(
-				'embeddablecontent-source-field-license',
-				'embeddablecontent-source-field-license-help',
-				$this->config,
-				[
-					'default' => (string)( $record['license'] ?? '' ),
-					'hide-if' => [
-						'OR',
-						[ '===', 'accessMode', 'url' ],
-						[ '===', 'accessMode', 'na' ],
-						// "No public licence (internal use only)" replaces the
-						// licence: the server records "All rights reserved".
-						[ '===', 'internalUse', '1' ],
-					],
-				]
-			),
-			// Copyright-restricted copy: no public licence, stored for
-			// logged-in users only. The file itself is gated by the media
-			// cookie/nginx marker; the File: page stays public.
-			'internalUse' => [
-				'type' => 'check',
-				'label-message' => 'embeddablecontent-source-field-internal-use',
-				'default' => !empty( $record['internalUse'] ),
-				'help-message' => 'embeddablecontent-source-field-internal-use-help',
-				'hide-if' => [
-					'OR',
-					[ '===', 'accessMode', 'url' ],
-					[ '===', 'accessMode', 'na' ],
-				],
+			'accessEditor' => [
+				'type' => 'info',
+				'raw' => true,
+				'default' => $html,
 			],
 		];
 	}
-
 	/**
 	 * Parent-class combobox for child classes (bookExcerpt→book,
 	 * youtubeVideo→youtubeChannel, webpage→website), with the
@@ -2272,6 +2230,19 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				$this->getUser()
 			);
 		}
+		if ( !empty( $record['accessEntries'] ) ) {
+			try {
+				$item = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
+				if ( $item instanceof Item ) {
+					$this->archiveAccessEntries( $item, $record );
+				}
+			} catch ( \Throwable $e ) {
+				\MediaWiki\Logger\LoggerFactory::getInstance( 'EmbeddableContent' )->warning(
+					'Access archive step failed for {id}: {error}',
+					[ 'id' => $itemId, 'error' => $e->getMessage() ]
+				);
+			}
+		}
 		return $redirect;
 	}
 
@@ -2419,12 +2390,32 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			$record['territorialJurisdictionLabel'] = JurisdictionList::encodeLabels( $labels );
 		}
 
-		// Access field (issue #35): license + upload for the download/file
-		// modes; a filled-in access field that cannot be honoured aborts the
-		// creation with a form error (never silent).
-		$error = $this->validateAccessField( $record );
-		if ( $error !== null ) {
-			return $error;
+		// Access: the multi-entry editor owns the access URL/file statements.
+		// The JSON hidden field is normalized here; an invalid entry aborts
+		// with a form error (never silent). The legacy single-access path is
+		// kept for the API and older forms.
+		$entries = \EmbeddableContent\Spec\AccessEntries::normalize( $record['accessEntries'] ?? [] );
+		$useLegacyAccess = !$this->isUpdateFlow()
+			&& $entries === []
+			&& $this->hasLegacyAccessFields( $record );
+		if ( array_key_exists( 'accessEntries', $record ) && !$useLegacyAccess ) {
+			$record['accessEntries'] = $entries;
+			$error = \EmbeddableContent\Spec\AccessEntries::validate( $entries, $this->config );
+			if ( $error !== null ) {
+				return $error;
+			}
+			$error = \EmbeddableContent\Spec\AccessEntries::applyFileMarkers( $entries, $this->getUser() );
+			if ( $error !== null ) {
+				return $error;
+			}
+			foreach ( [ 'accessMode', 'accessUrl', 'downloadUrl', 'fileTitle', 'license', 'internalUse' ] as $legacyKey ) {
+				$record[$legacyKey] = '';
+			}
+		} else {
+			$error = $this->validateAccessField( $record );
+			if ( $error !== null ) {
+				return $error;
+			}
 		}
 
 		// bookExcerpt: description autogen + year/authors from the parent
@@ -3229,19 +3220,132 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				$out[$field] = (string)$value;
 			}
 		}
-		if ( !empty( $record['fileTitle'] ) ) {
-			$fileTitle = \MediaWiki\Title\Title::makeTitle( NS_FILE, (string)$record['fileTitle'] );
-			if ( $fileTitle !== null ) {
-				$out['accessFileUrl'] = $fileTitle->getFullURL();
+		$entries = \EmbeddableContent\Spec\AccessEntries::normalize( $record['accessEntries'] ?? [] );
+		$useLegacyAccess = !$this->isUpdateFlow()
+			&& $entries === []
+			&& $this->hasLegacyAccessFields( $record );
+		if ( array_key_exists( 'accessEntries', $record ) && !$useLegacyAccess ) {
+			// Multi-access: the JSON/hidden list owns the access statements.
+			$out['accessEntries'] = $entries;
+		} else {
+			if ( !empty( $record['fileTitle'] ) ) {
+				$fileTitle = \MediaWiki\Title\Title::makeTitle( NS_FILE, (string)$record['fileTitle'] );
+				if ( $fileTitle !== null ) {
+					$out['accessFileUrl'] = $fileTitle->getFullURL();
+				}
 			}
-		}
-		if ( !empty( $record['license'] ) ) {
-			$out['license'] = (string)$record['license'];
+			if ( !empty( $record['license'] ) ) {
+				$out['license'] = (string)$record['license'];
+			}
 		}
 		if ( isset( $record['additionalStatements'] ) && is_array( $record['additionalStatements'] ) ) {
 			$out['additionalStatements'] = $record['additionalStatements'];
 		}
 		return $out;
+	}
+
+	/**
+	 * Whether the record carries the legacy single-access fields (API/older
+	 * forms). The new editor always submits `accessEntries` (possibly empty);
+	 * on ADD an empty list with legacy fields falls back to the old path.
+	 * Updates always use the new path so an empty list clears access.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function hasLegacyAccessFields( array $record ): bool {
+		foreach ( [ 'accessMode', 'accessUrl', 'downloadUrl', 'fileTitle', 'license', 'internalUse' ] as $key ) {
+			if ( !empty( $record[$key] ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Archive the text of every URL access entry marked for archiving.
+	 * Each entry gets its own `Source:<label>/archivedText[/n]` subpage; the
+	 * page title is persisted as the statement's `archivedText` qualifier.
+	 * Best-effort: a failed fetch/convert never blocks the item/page.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function archiveAccessEntries( Item $item, array $record, ?Title $sourceTitle = null ): void {
+		$entries = \EmbeddableContent\Spec\AccessEntries::normalize( $record['accessEntries'] ?? [] );
+		if ( $entries === [] ) {
+			return;
+		}
+		if ( $sourceTitle === null ) {
+			$links = $item->getSiteLinkList();
+			if ( $links->hasLinkWithSiteId( 'wikibase' ) ) {
+				$sourceTitle = Title::newFromText( $links->getBySiteId( 'wikibase' )->getPageName() );
+			}
+		}
+		if ( $sourceTitle === null ) {
+			return;
+		}
+		$used = [];
+		foreach ( $entries as $entry ) {
+			if ( !empty( $entry['archivedTitle'] ) ) {
+				$used[$entry['archivedTitle']] = true;
+			}
+		}
+		$nextIndex = 1;
+		$changed = false;
+		foreach ( $entries as $i => $entry ) {
+			if ( $entry['type'] !== \EmbeddableContent\Spec\AccessEntries::TYPE_URL
+				|| empty( $entry['archive'] )
+			) {
+				continue;
+			}
+			$archiveTitle = null;
+			if ( !empty( $entry['archivedTitle'] ) ) {
+				$archiveTitle = Title::newFromText( (string)$entry['archivedTitle'] );
+			}
+			while ( $archiveTitle === null ) {
+				$candidate = \EmbeddableContent\SourceArchive\SourceArchive::titleForIndex( $sourceTitle, $nextIndex++ );
+				if ( $candidate === null ) {
+					break;
+				}
+				if ( !isset( $used[$candidate->getPrefixedText()] ) ) {
+					$archiveTitle = $candidate;
+				}
+			}
+			if ( $archiveTitle === null ) {
+				continue;
+			}
+			if ( !\EmbeddableContent\SourceArchive\SourceArchive::createAt(
+				$archiveTitle,
+				(string)$entry['url'],
+				$this->getContext(),
+				$this->getUser()
+			) ) {
+				continue;
+			}
+			$used[$archiveTitle->getPrefixedText()] = true;
+			if ( ( $entry['archivedTitle'] ?? '' ) !== $archiveTitle->getPrefixedText() ) {
+				$entries[$i]['archivedTitle'] = $archiveTitle->getPrefixedText();
+				$changed = true;
+			}
+		}
+		if ( !$changed ) {
+			return;
+		}
+		\EmbeddableContent\Spec\AccessEntries::setArchivedTitles( $item, $entries, $this->config );
+		try {
+			WikibaseRepo::getEntityStore()->saveEntity(
+				$item,
+				$this->msg( 'embeddablecontent-source-access-archive-summary', $sourceTitle->getText() )
+					->inContentLanguage()->text(),
+				$this->getUser(),
+				EDIT_UPDATE
+			);
+			$sourceTitle->invalidateCache();
+		} catch ( \Throwable $e ) {
+			\MediaWiki\Logger\LoggerFactory::getInstance( 'EmbeddableContent' )->warning(
+				'Access archive title persist failed for {title}: {error}',
+				[ 'title' => $sourceTitle->getPrefixedText(), 'error' => $e->getMessage() ]
+			);
+		}
 	}
 
 	// ------------------------------------------------------------- duration helpers

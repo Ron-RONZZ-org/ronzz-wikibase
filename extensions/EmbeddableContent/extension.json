@@ -257,6 +257,12 @@
 		},
 		"filesearch": {
 			"class": "EmbeddableContent\\Api\\ApiFileSearch"
+		},
+		"accessupload": {
+			"class": "EmbeddableContent\\Api\\ApiAccessUpload"
+		},
+		"imageupload": {
+			"class": "EmbeddableContent\\Api\\ApiImageUpload"
 		}
 	},
 	"Actions": {
@@ -1141,6 +1147,90 @@
 			"targets": [
 				"desktop",
 				"mobile"
+			]
+		},
+		"ext.embeddableContent.accesseditor": {
+			"scripts": [
+				"accesseditor.js"
+			],
+			"styles": [
+				"accesseditor.css"
+			],
+			"dependencies": [
+				"oojs-ui",
+				"mediawiki.api",
+				"mediawiki.util",
+				"mediawiki.notification"
+			],
+			"messages": [
+				"embeddablecontent-access-add",
+				"embeddablecontent-access-dialog-title",
+				"embeddablecontent-access-edit-title",
+				"embeddablecontent-access-type",
+				"embeddablecontent-access-type-url",
+				"embeddablecontent-access-type-file",
+				"embeddablecontent-access-url",
+				"embeddablecontent-access-archive",
+				"embeddablecontent-access-file-mode",
+				"embeddablecontent-access-file-upload",
+				"embeddablecontent-access-file-url",
+				"embeddablecontent-access-file",
+				"embeddablecontent-access-license",
+				"embeddablecontent-access-license-none",
+				"embeddablecontent-access-internal",
+				"embeddablecontent-access-public",
+				"embeddablecontent-access-login-only",
+				"embeddablecontent-access-empty",
+				"embeddablecontent-access-edit",
+				"embeddablecontent-access-remove",
+				"embeddablecontent-access-save",
+				"embeddablecontent-access-cancel",
+				"embeddablecontent-access-uploading",
+				"embeddablecontent-access-upload-failed",
+				"embeddablecontent-access-invalid-url",
+				"embeddablecontent-access-current-file"
+			]
+		},
+		"ext.embeddableContent.mediaeditor": {
+			"scripts": [
+				"mediaeditor.js"
+			],
+			"styles": [
+				"accesseditor.css"
+			],
+			"dependencies": [
+				"oojs-ui",
+				"mediawiki.api",
+				"mediawiki.util"
+			],
+			"messages": [
+				"embeddablecontent-access-cancel",
+				"embeddablecontent-access-file",
+				"embeddablecontent-access-file-upload",
+				"embeddablecontent-access-file-url",
+				"embeddablecontent-access-uploading",
+				"embeddablecontent-access-upload-failed",
+				"embeddablecontent-access-license",
+				"embeddablecontent-access-license-none",
+				"embeddablecontent-access-remove",
+				"embeddablecontent-image-license-required",
+				"embeddablecontent-access-edit",
+				"embeddablecontent-media-add",
+				"embeddablecontent-media-dialog-title",
+				"embeddablecontent-media-existing",
+				"embeddablecontent-media-author",
+				"embeddablecontent-media-license-info",
+				"embeddablecontent-media-source",
+				"embeddablecontent-media-empty",
+				"embeddablecontent-media-no-file"
+			]
+		},
+		"ext.embeddableContent.imagegallery": {
+			"scripts": [
+				"imagegallery.js"
+			],
+			"styles": [
+				"imagegallery.css"
 			]
 		}
 	},

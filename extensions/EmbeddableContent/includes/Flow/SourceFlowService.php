@@ -13,6 +13,7 @@ use EmbeddableContent\Duration;
 use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\EntityClassFilter;
 use EmbeddableContent\Fetch\YouTubeProvider;
+use EmbeddableContent\Spec\AccessEntries;
 use EmbeddableContent\Spec\AdditionalStatements;
 use EmbeddableContent\Spec\EntityLabelText;
 use EmbeddableContent\Spec\GroupMembers;
@@ -75,7 +76,7 @@ final class SourceFlowService {
 	 * Accepted by prepare (no exposure check) and written by statementSpecs.
 	 */
 	private const INTERNAL_FIELDS = [
-		'license', 'accessFileUrl', 'additionalStatements',
+		'license', 'accessFileUrl', 'additionalStatements', 'accessEntries',
 		// Q-ids that were explicitly declared as collectives (an ORG: row in
 		// the author panel). They bypass the legacy group-of-humans name-list
 		// guard; no form checkbox is needed.
@@ -220,6 +221,15 @@ final class SourceFlowService {
 		$parentError = $this->validateParent( $classKey, $record, $creating );
 		if ( $parentError !== null ) {
 			return $parentError;
+		}
+
+		if ( array_key_exists( 'accessEntries', $record ) ) {
+			$entries = AccessEntries::normalize( $record['accessEntries'] );
+			$accessError = AccessEntries::validate( $entries, $this->config );
+			if ( $accessError !== null ) {
+				return $accessError;
+			}
+			$record['accessEntries'] = $entries;
 		}
 
 		if ( array_key_exists( 'additionalStatements', $record ) ) {
@@ -405,19 +415,25 @@ final class SourceFlowService {
 		if ( !empty( $record['youtubeVideoId'] ) && isset( $props['youtubeVideoId'] ) ) {
 			$specs[$props['youtubeVideoId']] = new StringValue( (string)$record['youtubeVideoId'] );
 		}
-		$accessUrl = trim( (string)( $record['accessUrl'] ?? '' ) );
-		if ( $accessUrl !== '' && isset( $props['accessUrl'] ) && $this->isHttpUrl( $accessUrl ) ) {
-			$specs[$props['accessUrl']] = new StringValue( $accessUrl );
-		}
-		// Access facts from the browser forms (the uploaded file's URL and the
-		// license entity) — internal record keys, not part of the API contract.
-		$fileUrl = trim( (string)( $record['accessFileUrl'] ?? '' ) );
-		if ( $fileUrl !== '' && isset( $props['file'] ) && $this->isHttpUrl( $fileUrl ) ) {
-			$specs[$props['file']] = new StringValue( $fileUrl );
-		}
-		$licenseId = trim( (string)( $record['license'] ?? '' ) );
-		if ( $licenseId !== '' && isset( $props['license'] ) && preg_match( '/^Q[1-9]\d*$/', $licenseId ) === 1 ) {
-			$specs[$props['license']] = new EntityIdValue( new ItemId( $licenseId ) );
+		// Multi-access entries own the access URL/file/license statements;
+		// when the record carries the key (even an empty list), the legacy
+		// single-access fields are not written.
+		if ( !array_key_exists( 'accessEntries', $record ) ) {
+			$accessUrl = trim( (string)( $record['accessUrl'] ?? '' ) );
+			if ( $accessUrl !== '' && isset( $props['accessUrl'] ) && $this->isHttpUrl( $accessUrl ) ) {
+				$specs[$props['accessUrl']] = new StringValue( $accessUrl );
+			}
+			// Access facts from the browser forms (the uploaded file's URL and
+			// the license entity) — internal record keys, not part of the API
+			// contract.
+			$fileUrl = trim( (string)( $record['accessFileUrl'] ?? '' ) );
+			if ( $fileUrl !== '' && isset( $props['file'] ) && $this->isHttpUrl( $fileUrl ) ) {
+				$specs[$props['file']] = new StringValue( $fileUrl );
+			}
+			$licenseId = trim( (string)( $record['license'] ?? '' ) );
+			if ( $licenseId !== '' && isset( $props['license'] ) && preg_match( '/^Q[1-9]\d*$/', $licenseId ) === 1 ) {
+				$specs[$props['license']] = new EntityIdValue( new ItemId( $licenseId ) );
+			}
 		}
 
 		$authorIds = ItemIdList::split( (string)( $record['authors'] ?? '' ) );
@@ -534,6 +550,13 @@ final class SourceFlowService {
 				);
 			}
 		}
+		if ( array_key_exists( 'accessEntries', $record ) ) {
+			AccessEntries::addStatements(
+				$item,
+				AccessEntries::normalize( $record['accessEntries'] ),
+				$this->config
+			);
+		}
 		$classItemId = $this->config->sourceClasses()[SourceFieldMap::formKey( $classKey )] ?? null;
 		if ( $classItemId !== null ) {
 			$item->getStatements()->addNewStatement(
@@ -579,6 +602,9 @@ final class SourceFlowService {
 		foreach ( $this->statementSpecs( $classKey, $provided ) as $propertyId => $_ ) {
 			$ids[] = $propertyId;
 		}
+		if ( array_key_exists( 'accessEntries', $record ) ) {
+			$ids = array_merge( $ids, AccessEntries::managedPropertyIds( $this->config ) );
+		}
 		return array_values( array_unique( $ids ) );
 	}
 
@@ -610,6 +636,14 @@ final class SourceFlowService {
 						new PropertyValueSnak( $this->propertyId( $propertyId ), $single )
 					);
 				}
+			}
+			if ( array_key_exists( 'accessEntries', $record ) ) {
+				AccessEntries::addStatements(
+					$item,
+					AccessEntries::normalize( $record['accessEntries'] ),
+					$this->config,
+					new GuidGenerator()
+				);
 			}
 			// The item id is known on updates — assign GUIDs to the newly
 			// added statements now (the entity-page client matches statements
