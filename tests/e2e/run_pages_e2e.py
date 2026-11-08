@@ -2585,11 +2585,17 @@ def flow_multi_access_editor(op, base: str, api: str, label: str,
         "wpSubmit": "1",
     })
     qid = flow_final_item(op, base, api, page, body, "AddSource/book/manual (multi access)")
+    claims, _ = entity_claims(op, api, qid)
+    url_prop = resolve("access URL", "property")
+    if not first_value(claims, url_prop):
+        raise FlowError(f"{qid} item has no access URL statement: {claims.get(url_prop)!r}")
+    page_title = item_sitelink_page(op, api, qid)
+    if not page_title:
+        raise FlowError(f"{qid} has no Source: sitelink page")
     url, rendered = page_get(
-        op, base, "/wiki/" + urllib.parse.quote(
-            f"Source:{label} (Book)".replace(" ", "_"), safe=":()"))
+        op, base, "/wiki/" + urllib.parse.quote(page_title.replace(" ", "_"), safe=":()"))
     if "https://example.org/multi" not in rendered or "url1" not in rendered:
-        raise FlowError(f"{qid} Source page did not render the URL access link")
+        raise FlowError(f"{qid} Source page {page_title!r} did not render the URL access link")
     if "Special:SourceFile" not in rendered or "pdf" not in rendered:
         raise FlowError(f"{qid} Source page did not render the file access link")
     print(f"[ok] multi-access editor -> {qid}: url1 + pdf links on the Source page")
