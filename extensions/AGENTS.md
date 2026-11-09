@@ -391,11 +391,18 @@ report). See `SimpleMathJax/VENDORED.md`.
 - **Multi-access editor (Nov 2026, replaces the single accessMode field)**:
   the AddSource/UpdateSource access section is a repeatable list
   (`resources/accesseditor.js` + hidden `accessEntries` JSON): zero-to-many
-  entries, each URL or file. URL entries get a public/login status and an
-  optional "fetch and archive text content"; file entries upload locally or
-  fetch from a URL through `action=accessupload` (`AccessUploadHelper`), with
-  a per-entry licence (public) or "No public access" (login-only). The legacy
-  single-access fields remain accepted as a fallback for API/older forms.
+  entries, each URL or file. URL entries are always public and can optionally
+  fetch and archive their text content; file entries upload locally or fetch
+  from a URL through `action=accessupload` (`AccessUploadHelper`), with a
+  per-entry licence (public) or "No public access" (login-only). The
+  "Add access" control is an OOUI `ButtonWidget` mounted by the editor JS
+  (never a raw `<button>`), the dialog's type/file-source radios are
+  `RadioSelectInputWidget` **`options`** (not `items` — the latter is silently
+  ignored and yields an empty value), and the save handler validates the
+  chosen source client-side (file required for an upload, http(s) URL for a
+  fetch) and sends the API's `file`/`url` mode before `action=accessupload`.
+  The legacy single-access fields remain accepted as a fallback for API/older
+  forms.
   Storage: one statement per entry on `access URL` (P953) / `file` (P1325),
   with qualifiers `access status` (public|login), `license` (P275, files) and
   `archived text` (the `Source:<label>/archivedText[/n]` title). The seed

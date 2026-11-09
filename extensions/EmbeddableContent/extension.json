@@ -1188,7 +1188,8 @@
 				"embeddablecontent-access-uploading",
 				"embeddablecontent-access-upload-failed",
 				"embeddablecontent-access-invalid-url",
-				"embeddablecontent-access-current-file"
+				"embeddablecontent-access-current-file",
+				"embeddablecontent-source-error-access-file-required"
 			]
 		},
 		"ext.embeddableContent.mediaeditor": {
@@ -1222,7 +1223,8 @@
 				"embeddablecontent-media-license-info",
 				"embeddablecontent-media-source",
 				"embeddablecontent-media-empty",
-				"embeddablecontent-media-no-file"
+				"embeddablecontent-media-no-file",
+				"embeddablecontent-access-invalid-url"
 			]
 		},
 		"ext.embeddableContent.imagegallery": {

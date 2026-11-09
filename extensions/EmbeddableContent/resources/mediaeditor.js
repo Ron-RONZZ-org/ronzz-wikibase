@@ -113,10 +113,10 @@
 				Dialog.super.prototype.initialize.call( this );
 				var $body = $( '<div>' ).addClass( 'wb-access-dialog' );
 				var mode = new OO.ui.RadioSelectInputWidget( {
-					items: [
-						new OO.ui.RadioOptionWidget( { data: 'file', label: mw.msg( 'embeddablecontent-access-file-upload' ) } ),
-						new OO.ui.RadioOptionWidget( { data: 'url', label: mw.msg( 'embeddablecontent-access-file-url' ) } ),
-						new OO.ui.RadioOptionWidget( { data: 'existing', label: mw.msg( 'embeddablecontent-media-existing' ) } )
+					options: [
+						{ data: 'file', label: mw.msg( 'embeddablecontent-access-file-upload' ) },
+						{ data: 'url', label: mw.msg( 'embeddablecontent-access-file-url' ) },
+						{ data: 'existing', label: mw.msg( 'embeddablecontent-media-existing' ) }
 					],
 					value: 'file'
 				} );
@@ -193,6 +193,10 @@
 					};
 					if ( value === 'url' ) {
 						payload.url = String( urlInput.getValue() || '' ).trim();
+						if ( !/^https?:\/\//i.test( payload.url ) ) {
+							status.text( mw.msg( 'embeddablecontent-access-invalid-url' ) );
+							return;
+						}
 					}
 					if ( value === 'existing' ) {
 						payload.existing = String( existingInput.getValue() || '' ).trim();
@@ -236,9 +240,14 @@
 			}
 			var entries = readEntries( $hidden );
 			renderCards( $editor, $hidden, entries );
-			$editor.find( '.wb-access-add' ).on( 'click', function () {
+			var add = new OO.ui.ButtonWidget( {
+				label: mw.msg( 'embeddablecontent-media-add' ),
+				flags: [ 'progressive' ]
+			} );
+			add.on( 'click', function () {
 				openDialog( $editor, $hidden, entries );
 			} );
+			$editor.find( '.wb-access-add-mount' ).append( add.$element );
 		} );
 	} );
 }() );

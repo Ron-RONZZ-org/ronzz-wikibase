@@ -153,9 +153,9 @@
 				Dialog.super.prototype.initialize.call( this );
 				var $body = $( '<div>' ).addClass( 'wb-access-dialog' );
 				var typeRadio = new OO.ui.RadioSelectInputWidget( {
-					items: [
-						new OO.ui.RadioOptionWidget( { data: 'url', label: mw.msg( 'embeddablecontent-access-type-url' ) } ),
-						new OO.ui.RadioOptionWidget( { data: 'file', label: mw.msg( 'embeddablecontent-access-type-file' ) } )
+					options: [
+						{ data: 'url', label: mw.msg( 'embeddablecontent-access-type-url' ) },
+						{ data: 'file', label: mw.msg( 'embeddablecontent-access-type-file' ) }
 					]
 				} );
 				typeRadio.setValue( entry.type || 'url' );
@@ -178,9 +178,9 @@
 				$body.append( $urlSection );
 
 				var fileMode = new OO.ui.RadioSelectInputWidget( {
-					items: [
-						new OO.ui.RadioOptionWidget( { data: 'upload', label: mw.msg( 'embeddablecontent-access-file-upload' ) } ),
-						new OO.ui.RadioOptionWidget( { data: 'url', label: mw.msg( 'embeddablecontent-access-file-url' ) } )
+					options: [
+						{ data: 'upload', label: mw.msg( 'embeddablecontent-access-file-upload' ) },
+						{ data: 'url', label: mw.msg( 'embeddablecontent-access-file-url' ) }
 					],
 					value: 'upload'
 				} );
@@ -260,6 +260,19 @@
 						status.text( mw.msg( 'embeddablecontent-access-invalid-url' ) );
 						return;
 					}
+					var fileModeValue = fileMode.getValue();
+					var fileUrlValue = String( fileUrl.getValue() || '' ).trim();
+					if ( type === 'file' && fileModeValue === 'url' && !/^https?:\/\//i.test( fileUrlValue ) ) {
+						status.text( mw.msg( 'embeddablecontent-access-invalid-url' ) );
+						return;
+					}
+					var currentFile = entry.fileTitle || '';
+					if ( type === 'file' && fileModeValue === 'upload'
+						&& currentFile === '' && !fileInput[ 0 ].files.length
+					) {
+						status.text( mw.msg( 'embeddablecontent-source-error-access-file-required' ) );
+						return;
+					}
 					var publicAccess = !internal.isSelected();
 					var base = {
 						type: type,
@@ -290,21 +303,24 @@
 						finish( null );
 						return;
 					}
-					if ( entry.fileTitle && fileMode.getValue() === 'upload' && !fileInput[ 0 ].files.length ) {
-						finish( entry.fileTitle );
+					if ( currentFile !== '' && fileModeValue === 'upload' && !fileInput[ 0 ].files.length ) {
+						finish( currentFile );
 						return;
 					}
 					save.setDisabled( true );
 					status.text( mw.msg( 'embeddablecontent-access-uploading' ) );
-					var file = fileMode.getValue() === 'upload' ? fileInput[ 0 ].files[ 0 ] : null;
+					var file = fileModeValue === 'upload' ? fileInput[ 0 ].files[ 0 ] : null;
 					var payload = {
 						label: itemLabel(),
 						internal: publicAccess ? '0' : '1'
 					};
-					if ( fileMode.getValue() === 'url' ) {
-						payload.url = String( fileUrl.getValue() || '' ).trim();
+					if ( fileModeValue === 'url' ) {
+						payload.url = fileUrlValue;
 					}
-					upload( file ? 'file' : 'url', payload, file ).then( function ( data ) {
+					// The API's `mode` is file|url, never the UI's
+					// "upload" file-source value.
+					var uploadMode = type === 'url' || fileModeValue === 'url' ? 'url' : 'file';
+					upload( uploadMode, payload, file ).then( function ( data ) {
 						finish( data.accessupload.fileTitle );
 					} ).catch( function ( error ) {
 						save.setDisabled( false );
@@ -330,9 +346,14 @@
 			}
 			var entries = readEntries( $hidden );
 			renderCards( $editor, $hidden, entries );
-			$editor.find( '.wb-access-add' ).on( 'click', function () {
+			var add = new OO.ui.ButtonWidget( {
+				label: mw.msg( 'embeddablecontent-access-add' ),
+				flags: [ 'progressive' ]
+			} );
+			add.on( 'click', function () {
 				openDialog( $editor, $hidden, entries );
 			} );
+			$editor.find( '.wb-access-add-mount' ).append( add.$element );
 		} );
 	} );
 }() );
