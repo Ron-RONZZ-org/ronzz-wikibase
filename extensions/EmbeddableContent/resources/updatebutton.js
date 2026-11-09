@@ -23,15 +23,35 @@
 		// information" for the semantic entities, "Edit content" for the
 		// quotation/math/code-snippet content items.
 		var labelKey = mw.config.get( 'wbUpdateBasicInfoLabel' ) || 'embeddablecontent-update-button';
-		// The update button is the PRIMARY action; the shared toolbar
-		// primitive keeps it first in the row (rank 10) regardless of which
-		// module renders first.
-		mw.embeddableContent.toolbar.add(
-			mw.embeddableContent.toolbar.getRow(),
-			$( '<a class="wb-embed-toolbar-btn wb-update-basic-btn"></a>' )
-				.attr( 'href', url )
-				.text( mw.msg( labelKey ) ),
-			mw.embeddableContent.toolbar.ORDER.update
-		);
+		var $button = $( '<a class="wb-embed-toolbar-btn wb-update-basic-btn"></a>' )
+			.attr( 'href', url )
+			.text( mw.msg( labelKey ) );
+		// The update button is the PRIMARY action (rank 10). On a File: page
+		// it joins the EXISTING file toolbar (copy embed / copy link) instead
+		// of creating its own block row below the title; elsewhere it joins
+		// the shared block row.
+		function place( $row ) {
+			mw.embeddableContent.toolbar.add(
+				$row,
+				$button,
+				mw.embeddableContent.toolbar.ORDER.update
+			);
+		}
+		if ( mw.config.get( 'wgNamespaceNumber' ) === 6 ) {
+			var $fileToolbar = $( '.wb-file-toolbar' ).first();
+			if ( $fileToolbar.length ) {
+				place( $fileToolbar );
+				return;
+			}
+			// resources/filepage.js may still be building the toolbar; join
+			// it as soon as it fires the ready hook.
+			mw.hook( 'embeddableContent.fileToolbarReady' ).add( function ( $toolbar ) {
+				if ( $toolbar && !$button.parent().length ) {
+					place( $toolbar );
+				}
+			} );
+			return;
+		}
+		place( mw.embeddableContent.toolbar.getRow() );
 	} );
 }() );

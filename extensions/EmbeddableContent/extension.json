@@ -746,6 +746,7 @@
 			],
 			"messages": [
 				"embeddablecontent-update-button",
+				"embeddablecontent-update-metadata",
 				"embeddablecontent-update-content-button"
 			],
 			"targets": [
@@ -890,6 +891,26 @@
 				"mobile"
 			]
 		},
+		"ext.embeddableContent.pdfviewer": {
+			"scripts": [
+				"pdfviewer.js"
+			],
+			"styles": [
+				"pdfviewer.css"
+			],
+			"dependencies": [
+				"mediawiki.util"
+			],
+			"messages": [
+				"embeddablecontent-pdf-fullscreen",
+				"embeddablecontent-pdf-fullscreen-exit",
+				"embeddablecontent-pdf-newtab"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
 		"ext.embeddableContent.filepage": {
 			"scripts": [
 				"filepage.js"
@@ -899,7 +920,9 @@
 			],
 			"dependencies": [
 				"mediawiki.notification",
-				"mediawiki.util"
+				"mediawiki.util",
+				"ext.embeddableContent.toolbar",
+				"ext.embeddableContent.pdfviewer"
 			],
 			"messages": [
 				"embeddablecontent-file-copyembed",
@@ -1096,6 +1119,7 @@
 			],
 			"messages": [
 				"embeddablecontent-upload-author",
+				"embeddablecontent-upload-author-source",
 				"embeddablecontent-upload-license",
 				"embeddablecontent-upload-missing-confirm",
 				"embeddablecontent-upload-drop-unsupported",
@@ -1160,7 +1184,8 @@
 				"oojs-ui",
 				"mediawiki.api",
 				"mediawiki.util",
-				"mediawiki.notification"
+				"mediawiki.notification",
+				"ext.embeddableContent.entitysuggest"
 			],
 			"messages": [
 				"embeddablecontent-access-add",
@@ -1176,7 +1201,12 @@
 				"embeddablecontent-access-file-url",
 				"embeddablecontent-access-file",
 				"embeddablecontent-access-license",
+				"embeddablecontent-access-license-help",
 				"embeddablecontent-access-license-none",
+				"embeddablecontent-access-language",
+				"embeddablecontent-access-language-help",
+				"embeddablecontent-access-invalid-language",
+				"embeddablecontent-image-license-required",
 				"embeddablecontent-access-internal",
 				"embeddablecontent-access-public",
 				"embeddablecontent-access-login-only",
@@ -1202,7 +1232,8 @@
 			"dependencies": [
 				"oojs-ui",
 				"mediawiki.api",
-				"mediawiki.util"
+				"mediawiki.util",
+				"ext.embeddableContent.entitysuggest"
 			],
 			"messages": [
 				"embeddablecontent-access-cancel",
@@ -1212,6 +1243,7 @@
 				"embeddablecontent-access-uploading",
 				"embeddablecontent-access-upload-failed",
 				"embeddablecontent-access-license",
+				"embeddablecontent-access-license-help",
 				"embeddablecontent-access-license-none",
 				"embeddablecontent-access-remove",
 				"embeddablecontent-image-license-required",
@@ -1220,11 +1252,18 @@
 				"embeddablecontent-media-dialog-title",
 				"embeddablecontent-media-existing",
 				"embeddablecontent-media-author",
+				"embeddablecontent-media-author-entity-required",
 				"embeddablecontent-media-license-info",
 				"embeddablecontent-media-source",
 				"embeddablecontent-media-empty",
 				"embeddablecontent-media-no-file",
-				"embeddablecontent-access-invalid-url"
+				"embeddablecontent-access-invalid-url",
+				"embeddablecontent-upload-mode-clipboard",
+				"embeddablecontent-upload-clipboard-hint",
+				"embeddablecontent-upload-clipboard-error",
+				"embeddablecontent-upload-author-entity-check",
+				"embeddablecontent-upload-author-entity",
+				"embeddablecontent-upload-author-entity-help"
 			]
 		},
 		"ext.embeddableContent.imagegallery": {

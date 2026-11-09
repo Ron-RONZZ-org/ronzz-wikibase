@@ -102,7 +102,11 @@
 		$( '#mw-content-text' ).first().prepend( $notice );
 	}
 
-	mw.loader.using( [ 'mediawiki.notification', 'mediawiki.util' ] ).then( function () {
+	mw.loader.using( [
+		'mediawiki.notification',
+		'mediawiki.util',
+		'ext.embeddableContent.toolbar'
+	] ).then( function () {
 		var name = mw.config.get( 'wbFileName' );
 		var url = mw.config.get( 'wbFileUrl' );
 		if ( !name || $( '#firstHeading' ).length === 0 ) {
@@ -110,24 +114,50 @@
 		}
 		var snippet = '[[File:' + name + ']]';
 
-		// Two copy buttons, inline to the right of the title (created once).
+		// The File page's action toolbar, inline to the right of the title
+		// (created once). The update button (resources/updatebutton.js)
+		// joins this SAME row — it used to create its own block row below
+		// the title. The ranks keep the canonical order (update → copy
+		// embed → copy link → upload another).
 		if ( $( '#ca-wb-file-copyembed' ).length === 0 ) {
-			var $toolbar = $( '<span class="wb-file-toolbar"></span>' )
-				.append( makeButton(
-					'ca-wb-file-copyembed',
-					'embeddablecontent-file-copyembed',
-					'embeddablecontent-file-copyembed-hint',
-					function () { copyText( snippet ); }
-				) );
+			var $toolbar = $( '<span class="wb-file-toolbar"></span>' );
+			$toolbar.append( makeButton(
+				'ca-wb-file-copyembed',
+				'embeddablecontent-file-copyembed',
+				'embeddablecontent-file-copyembed-hint',
+				function () { copyText( snippet ); }
+			).attr( 'data-wb-order', 40 ) );
 			if ( url ) {
 				$toolbar.append( makeButton(
 					'ca-wb-file-copylink',
 					'embeddablecontent-file-copylink',
 					'embeddablecontent-file-copylink-hint',
 					function () { copyText( url ); }
-				) );
+				).attr( 'data-wb-order', 41 ) );
 			}
 			$( '#firstHeading' ).append( $toolbar );
+			mw.hook( 'embeddableContent.fileToolbarReady' ).fire( $toolbar );
+		}
+
+		// PDFs: embed the browser's native viewer with a fullscreen control
+		// (no third-party PDF library; same same-origin iframe mechanism as
+		// Special:SourceFile).
+		if ( url && mw.config.get( 'wbFileMime' ) === 'application/pdf'
+			&& $( '.wb-pdf-viewer' ).length === 0
+		) {
+			var $viewer = $( '<div class="wb-pdf-viewer"></div>' )
+				.append( $( '<div class="wb-pdf-toolbar"></div>' ) )
+				.append( $( '<iframe>' ).attr( {
+					src: url,
+					title: name,
+					loading: 'lazy'
+				} ) );
+			$( '#mw-content-text' ).first().prepend( $viewer );
+			mw.loader.using( 'ext.embeddableContent.pdfviewer' ).then( function () {
+				if ( mw.embeddableContent.pdfviewer ) {
+					mw.embeddableContent.pdfviewer.attach( $viewer );
+				}
+			} );
 		}
 
 		// Upload hand-off (one-shot params appended by BeforePageRedirect).
@@ -187,6 +217,7 @@
 							rel: 'noopener'
 						} )
 						.addClass( 'wb-embed-toolbar-btn' )
+						.attr( 'data-wb-order', 45 )
 						.text( mw.msg( 'embeddablecontent-upload-another-next' ) )
 				);
 			}

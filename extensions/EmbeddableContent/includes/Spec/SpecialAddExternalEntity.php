@@ -2572,6 +2572,11 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		$json = (string)json_encode( $entries, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
 		$this->getOutput()->addModules( 'ext.embeddableContent.mediaeditor' );
 		$this->getOutput()->addJsConfigVars( 'wbAccessLicenseOptions', $this->config->licenseItems() );
+		$this->getOutput()->addJsConfigVars( 'wbAccessLicenseClass', $this->config->softwareLicenseClass() ?? '' );
+		$this->getOutput()->addJsConfigVars(
+			'wbAgentClasses',
+			array_values( $this->config->agentClasses() )
+		);
 		$html = '<div class="wb-media-editor">'
 			. '<div class="wb-access-list"></div>'
 			// The editor JS mounts an OOUI ButtonWidget here (the form's own

@@ -115,6 +115,10 @@ final class AccessUploadHelper {
 			throw new \RuntimeException( 'verifyUpload rejected (' . $detail . ')' );
 		}
 		$pageText = $context->msg( 'embeddablecontent-source-access-file-page', $label, $description )->text();
+		// The license now lives on the file's access-file item; render it
+		// (and any attribution) through the same parser function the
+		// Special:Upload File pages use.
+		$pageText .= "\n\n{{#image-facts:}}";
 		if ( $internal ) {
 			$pageText .= "\n\n[[Category:" . InternalFile::categoryName() . "]]\n";
 		}

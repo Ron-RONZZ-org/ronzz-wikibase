@@ -251,12 +251,13 @@ final class ImageItemCreator {
 		$props = $config->imagePropertyIds();
 		$provenance = $config->provenancePropertyIds();
 
-		$authorEntityId = self::normalizeItemId( $authorEntity );
+		// The author field is a MULTI entity combobox: one `attributed to`
+		// statement per comma/semicolon-separated item id.
+		$authorEntityIds = self::normalizeItemIds( $authorEntity );
 		$sourceEntityId = self::normalizeItemId( $sourceEntity );
 
 		// "Source specified but not author": inherit the source's own
 		// `attributed to` statements (the AddSource author model).
-		$authorEntityIds = $authorEntityId !== null ? [ $authorEntityId ] : [];
 		if ( $authorEntityIds === [] && $sourceEntityId !== null ) {
 			$authorEntityIds = self::attributedToIds(
 				$sourceEntityId,
@@ -347,6 +348,27 @@ final class ImageItemCreator {
 	private static function normalizeItemId( ?string $itemId ): ?string {
 		$value = self::itemIdValue( $itemId );
 		return $value === null ? null : $value->getEntityId()->getSerialization();
+	}
+
+	/**
+	 * A comma/semicolon-separated author list → deduplicated, validated item
+	 * ids (invalid tokens are ignored; the caller's UI requires valid picks).
+	 *
+	 * @return string[]
+	 */
+	private static function normalizeItemIds( ?string $itemIds ): array {
+		$out = [];
+		foreach ( preg_split( '/[,;]/', (string)$itemIds ) ?: [] as $token ) {
+			$value = self::itemIdValue( trim( $token ) );
+			if ( $value === null ) {
+				continue;
+			}
+			$id = $value->getEntityId()->getSerialization();
+			if ( !in_array( $id, $out, true ) ) {
+				$out[] = $id;
+			}
+		}
+		return $out;
 	}
 
 	/**

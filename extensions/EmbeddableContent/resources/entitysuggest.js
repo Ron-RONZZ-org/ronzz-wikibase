@@ -37,13 +37,16 @@
 	 * the exception aborts the loop — leaving EVERY combobox on the page
 	 * unwired. Target the widget element itself via its OOUI class.
 	 */
-	function wireCombo( $el ) {
+	function wireWidget( combo, multi ) {
+		if ( !combo ) {
+			return;
+		}
+		var $el = combo.$element;
 		if ( $el.data( 'wbEntityWired' ) ) {
 			return;
 		}
 		$el.data( 'wbEntityWired', true );
 		{
-			var multi = $el.hasClass( 'wb-entity-combobox-multi' );
 			// Infuse FIRST: the OOUI HTMLForm auto-infusion re-creates the
 			// widget from its `data-ooui` JSON and DROPS server-rendered DOM
 			// attributes, so the old `data-wb-classes` attribute read here
@@ -52,7 +55,6 @@
 			// (OOUIComboboxField::getInputOOUI -> setData), which is part of
 			// the serialized config and survives infusion; the attribute is
 			// kept only as a fallback for non-infused rendering.
-			var combo = OO.ui.ComboBoxInputWidget.static.infuse( $el );
 			var comboData = combo.getData() || {};
 			var scope = String( comboData.wbClasses || $el.attr( 'data-wb-classes' ) || '' );
 			var api = new mw.Api();
@@ -168,7 +170,7 @@
 					// A group-of-humans author is expanded to its members so
 					// the contributor sees the actual authors and can remove
 					// one before saving (the server repeats the expansion).
-					if ( $el.hasClass( 'wb-entity-combobox-expand-groups' ) ) {
+					if ( combo.$element.hasClass( 'wb-entity-combobox-expand-groups' ) ) {
 						api.get( { action: 'groupmembers', qid: id } ).then( function ( data ) {
 							var members = data && data.groupmembers && data.groupmembers.members || [];
 							if ( !members.length ) {
@@ -193,6 +195,16 @@
 				} );
 			}
 		}
+	}
+
+	/**
+	 * Infuse a server-rendered combobox element and wire it.
+	 */
+	function wireCombo( $el ) {
+		wireWidget(
+			OO.ui.ComboBoxInputWidget.static.infuse( $el ),
+			$el.hasClass( 'wb-entity-combobox-multi' )
+		);
 	}
 
 	/**
@@ -267,6 +279,7 @@
 	mw.embeddableContent = mw.embeddableContent || {};
 	mw.embeddableContent.entitysuggest = {
 		wire: wireCombo,
+		wireWidget: wireWidget,
 		values: comboValues,
 		setValues: setComboValues,
 		addValue: addComboValue,

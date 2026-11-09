@@ -203,8 +203,10 @@ class SpecialSourceFile extends SpecialPage {
 			// MIME-locked to application/pdf at upload (no HTML/script can
 			// be served through it); PDF-embedded JavaScript, when present,
 			// runs inside PDFium's own isolated sandbox regardless.
-			return Html::rawElement( 'div', [ 'class' => 'wb-sourcefile-preview' ],
-				Html::rawElement( 'iframe', [
+			$this->getOutput()->addModules( 'ext.embeddableContent.pdfviewer' );
+			return Html::rawElement( 'div', [ 'class' => 'wb-sourcefile-preview wb-pdf-viewer' ],
+				Html::rawElement( 'div', [ 'class' => 'wb-pdf-toolbar' ] )
+				. Html::rawElement( 'iframe', [
 					'src' => $file->getUrl(),
 					'width' => '100%',
 					'height' => '640',

@@ -45,18 +45,66 @@ final class SourceAccessRenderer {
 		}
 		$parts = [];
 		$urlIndex = 0;
+		// File entries are grouped by extension so a multi-format source
+		// renders `PDF: en|fr | EPUB: en`; a group with a language-less
+		// (legacy) entry falls back to the historical per-entry links.
+		$fileGroups = [];
+		$order = [];
 		foreach ( $links as $link ) {
 			$href = (string)( $link['href'] ?? '' );
 			if ( $href === '' ) {
 				continue;
 			}
 			$label = trim( (string)( $link['label'] ?? '' ) );
-			if ( $label === '' ) {
-				$label = 'url' . ( ++$urlIndex );
+			$language = strtolower( trim( (string)( $link['language'] ?? '' ) ) );
+			if ( ( $link['kind'] ?? '' ) !== 'file' ) {
+				$urlIndex += 1;
+				$name = $label !== '' ? $label : 'url' . $urlIndex;
+				$parts[] = self::urlPart( $href, $name, $language );
+				continue;
 			}
-			$parts[] = '<a href="' . htmlspecialchars( $href ) . '"'
-				. ' target="_blank" rel="noopener noreferrer">'
-				. htmlspecialchars( $label ) . '</a>';
+			if ( $label === '' ) {
+				$label = 'file';
+			}
+			$key = 'file:' . $label;
+			if ( !isset( $fileGroups[$key] ) ) {
+				$fileGroups[$key] = [];
+				$order[] = $key;
+			}
+			$fileGroups[$key][] = [
+				'href' => $href,
+				'label' => $label,
+				'language' => $language,
+			];
+		}
+		foreach ( $order as $key ) {
+			$group = $fileGroups[$key];
+			$allHaveLanguage = true;
+			foreach ( $group as $entry ) {
+				if ( $entry['language'] === '' ) {
+					$allHaveLanguage = false;
+					break;
+				}
+			}
+			$label = $group[0]['label'];
+			if ( $allHaveLanguage ) {
+				$languageLinks = [];
+				$seen = [];
+				foreach ( $group as $entry ) {
+					$lang = $entry['language'];
+					if ( $lang === '' || isset( $seen[$lang] ) ) {
+						continue;
+					}
+					$seen[$lang] = true;
+					$languageLinks[] = self::link( $entry['href'], $lang );
+				}
+				$parts[] = htmlspecialchars( strtoupper( $label ) ) . ': '
+					. implode( '|', $languageLinks );
+				continue;
+			}
+			foreach ( $group as $entry ) {
+				$parts[] = self::urlPart( $entry['href'], $entry['label'], '' );
+			}
 		}
 		if ( $parts === [] ) {
 			return htmlspecialchars( $naText );
@@ -68,6 +116,20 @@ final class SourceAccessRenderer {
 				. htmlspecialchars( $loginText ) . '</a>';
 		}
 		return $html;
+	}
+
+	/** A URL entry: `url1: <a>en</a>` (or a plain `url1` link). */
+	private static function urlPart( string $href, string $label, string $language ): string {
+		if ( $language === '' ) {
+			return self::link( $href, $label );
+		}
+		return htmlspecialchars( $label ) . ': ' . self::link( $href, $language );
+	}
+
+	private static function link( string $href, string $text ): string {
+		return '<a href="' . htmlspecialchars( $href ) . '"'
+			. ' target="_blank" rel="noopener noreferrer">'
+			. htmlspecialchars( $text ) . '</a>';
 	}
 
 }

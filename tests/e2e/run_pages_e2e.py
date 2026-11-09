@@ -2573,7 +2573,8 @@ def flow_multi_access_editor(op, base: str, api: str, label: str,
         raise FlowError(f"action=accessupload failed: {api_body[:500]!r}") from exc
     entries = [
         { "type": "url", "url": "https://example.org/multi", "public": "1", "archive": "" },
-        { "type": "file", "fileTitle": upload["fileTitle"], "public": "1", "license": license_qid },
+        { "type": "file", "fileTitle": upload["fileTitle"], "public": "1",
+          "license": license_qid, "language": "en" },
     ]
     page, body = page_get(op, base, "/wiki/Special:AddSource/book/manual")
     token = edit_token(body)
@@ -2589,15 +2590,28 @@ def flow_multi_access_editor(op, base: str, api: str, label: str,
     url_prop = resolve_label(op, api, "access URL", "property")
     if not first_value(claims, url_prop):
         raise FlowError(f"{qid} item has no access URL statement: {claims.get(url_prop)!r}")
+    has_file_prop = resolve_label(op, api, "has access file", "property")
+    has_file_claims = claims.get(has_file_prop, [])
+    if not has_file_claims:
+        raise FlowError(
+            f"{qid} item has no `has access file` statement (legacy file shape still written?)")
+    file_item = has_file_claims[0].get("mainsnak", {}).get("datavalue", {}).get("value", {}).get("id")
+    license_prop = resolve_label(op, api, "license", "property")
+    file_claims, _ = entity_claims(op, api, file_item)
+    if first_value(file_claims, license_prop) != license_qid:
+        raise FlowError(
+            f"access-file item {file_item} missing the license ({license_qid}): "
+            f"{first_value(file_claims, license_prop)!r}")
     page_title = item_sitelink_page(op, api, qid)
     if not page_title:
         raise FlowError(f"{qid} has no Source: sitelink page")
     cell = source_access_cell(op, api, page_title)
     if "https://example.org/multi" not in cell or "url1" not in cell:
         raise FlowError(f"{qid} access cell did not render the URL link: {cell!r}")
-    if "Special:SourceFile" not in cell or "pdf" not in cell:
-        raise FlowError(f"{qid} access cell did not render the file link: {cell!r}")
-    print(f"[ok] multi-access editor -> {qid}: url1 + pdf links on the Source page")
+    if "Special:SourceFile" not in cell or "PDF:" not in cell or ">en</a>" not in cell:
+        raise FlowError(f"{qid} access cell did not render the language-grouped file link: {cell!r}")
+    print(f"[ok] multi-access editor -> {qid}: url1 + PDF: en link, "
+          f"access-file item {file_item} carries the license")
     return qid
 
 
@@ -4743,9 +4757,14 @@ def flow_update_source_access_collapsed(op, base: str, api: str, qid: str,
         raise FlowError(f"{qid} description not updated by the collapsed submit")
     claims, _ = entity_claims(op, api, qid)
     file_claims = claims.get(file_prop, [])
-    if not file_claims:
-        raise FlowError(f"{qid} access FILE statement lost by the collapsed update")
-    if license_prop and license_qid:
+    has_prop = resolve_label(op, api, "has access file", "property")
+    access_claims = file_claims or claims.get(has_prop, [])
+    if not access_claims:
+        raise FlowError(
+            f"{qid} access statements lost by the collapsed update "
+            f"(file={bool(file_claims)}, has access file={bool(claims.get(has_prop))})")
+    if file_claims and license_prop and license_qid:
+        # Legacy shape: the license is a qualifier on the file statement.
         qualifier_values = []
         for stmt in file_claims:
             for qual in stmt.get("qualifiers", {}).get(license_prop, []):
@@ -5882,10 +5901,11 @@ def main() -> int:
             op, base, api, access_book, collapsed_desc, file_prop,
             license_prop, license_qid)
         claims, _ = entity_claims(op, api, access_book)
-        assert claims.get(file_prop), \
-            f"{access_book} access FILE statement clobbered by the collapsed update"
+        assert claims.get(file_prop) or claims.get(resolve("has access file", "property")), \
+            f"{access_book} access statements clobbered by the collapsed update"
         print(f"[ok] Special:UpdateSource/{access_book}: collapsed access section — "
-              f"file + license statements survived, description updated")
+              f"access statements survived (migrated to the semantic access-file link), "
+              f"description updated")
 
         # 2h1c. Q1232 regression: a harvested title with HTML markup
         #     (<i>…</i> — OpenAlex italics) must be stripped before it

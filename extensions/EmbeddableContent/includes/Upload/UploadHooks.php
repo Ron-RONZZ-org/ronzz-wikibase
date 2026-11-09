@@ -416,10 +416,18 @@ final class UploadHooks {
 	 */
 	private static function attributionValue( string $entity, string $plainText ): string {
 		$entity = trim( $entity );
-		if ( preg_match( '/^Q[1-9]\d*$/i', $entity ) === 1 ) {
-			$entity = strtoupper( $entity );
-			return '[[:Item:' . $entity . '|'
-				. htmlspecialchars( self::licenseLabel( $entity ) ) . ']]';
+		if ( $entity !== '' ) {
+			$links = [];
+			foreach ( preg_split( '/[,;]/', $entity ) ?: [] as $token ) {
+				$token = strtoupper( trim( $token ) );
+				if ( preg_match( '/^Q[1-9]\d*$/', $token ) === 1 ) {
+					$links[] = '[[:Item:' . $token . '|'
+						. htmlspecialchars( self::licenseLabel( $token ) ) . ']]';
+				}
+			}
+			if ( $links !== [] ) {
+				return implode( ', ', $links );
+			}
 		}
 		return htmlspecialchars( $plainText );
 	}

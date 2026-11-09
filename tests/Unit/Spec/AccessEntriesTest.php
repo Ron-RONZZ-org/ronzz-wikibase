@@ -24,6 +24,22 @@ final class AccessEntriesTest extends TestCase {
 		$this->assertSame( '', $entries[1]['public'] );
 	}
 
+	public function testNormalizeKeepsLanguageAndFileId(): void {
+		$entries = AccessEntries::normalize( [
+			[ 'type' => 'file', 'fileTitle' => 'File:A.pdf', 'public' => '1', 'license' => 'Q1',
+				'language' => ' EN ', 'fileId' => 'q42' ],
+		] );
+		$this->assertSame( 'EN', $entries[0]['language'] );
+		$this->assertSame( 'Q42', $entries[0]['fileId'] );
+	}
+
+	public function testNormalizeDropsInvalidFileId(): void {
+		$entries = AccessEntries::normalize( [
+			[ 'type' => 'file', 'fileTitle' => 'File:A.pdf', 'fileId' => 'not-a-qid' ],
+		] );
+		$this->assertArrayNotHasKey( 'fileId', $entries[0] );
+	}
+
 	public function testNormalizeAcceptsArray(): void {
 		$entries = AccessEntries::normalize( [
 			[ 'type' => 'url', 'url' => 'https://example.org/x', 'public' => '1' ],

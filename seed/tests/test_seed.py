@@ -290,6 +290,25 @@ class ConfigBuilderTest(unittest.TestCase):
         self.assertIn("'imageLicenseInfo' => 'P71'", snippet)
         self.assertIn("'parentOrganization' => 'P72'", snippet)
 
+    def test_config_fragment_access_file_sections(self):
+        """Access-file entities: the class map + the source → access-file item
+        link property (`has access file`)."""
+        snippet = config_builder.build_config(
+            property_ids={
+                "instance of": "P31",
+                "has access file": "P80",
+                "file": "P56",
+                "license": "P34",
+                "language": "P77",
+            },
+            class_ids={"access file": "Q200"},
+            lexer_ids={},
+            fallback_languages=["fr", "en", "eo"],
+        )
+        self.assertIn("'accessFileClasses'", snippet)
+        self.assertIn("'accessFile' => 'Q200'", snippet)
+        self.assertIn("'hasAccessFile' => 'P80'", snippet)
+
     def test_config_fragment_official_website_shared(self):
         """The shared official-website URL property (P856-aligned) lands in
         the person AND collective property maps with the same property id

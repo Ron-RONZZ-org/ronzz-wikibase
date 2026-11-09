@@ -96,7 +96,7 @@ class ApiImageFacts extends ApiBase {
 			);
 		}
 
-		$authorEntity = $this->itemIdParam( $params['authorEntity'] ?? null, 'authorEntity' );
+		$authorEntity = $this->itemIdsParam( $params['authorEntity'] ?? null, 'authorEntity' );
 		$sourceEntity = $this->itemIdParam( $params['sourceEntity'] ?? null, 'sourceEntity' );
 
 		$label = (string)preg_replace( '/\.[^.]+$/', '', $title->getText() );
@@ -153,6 +153,29 @@ class ApiImageFacts extends ApiBase {
 		return strtoupper( $value );
 	}
 
+	/** Comma/semicolon-separated item ids (the multi-value author field). */
+	private function itemIdsParam( ?string $value, string $name ): ?string {
+		$value = trim( (string)$value );
+		if ( $value === '' ) {
+			return null;
+		}
+		$ids = [];
+		foreach ( preg_split( '/[,;]/', $value ) ?: [] as $token ) {
+			$token = trim( $token );
+			if ( preg_match( '/^Q[1-9]\d*$/i', $token ) !== 1 ) {
+				$this->dieWithError(
+					new RawMessage( "{$name} \"{$token}\" is not an item ID (Q<n>)." ),
+					'invalid_' . strtolower( $name )
+				);
+			}
+			$id = strtoupper( $token );
+			if ( !in_array( $id, $ids, true ) ) {
+				$ids[] = $id;
+			}
+		}
+		return implode( ', ', $ids );
+	}
+
 	public function getAllowedParams() {
 		return [
 			'filename' => [
@@ -180,7 +203,8 @@ class ApiImageFacts extends ApiBase {
 			'authorEntity' => [
 				self::PARAM_TYPE => 'string',
 				self::PARAM_REQUIRED => false,
-				self::PARAM_MAX_BYTES => 16,
+				// Several comma-separated Q-ids.
+				self::PARAM_MAX_BYTES => 500,
 			],
 			'sourceEntity' => [
 				self::PARAM_TYPE => 'string',

@@ -80,6 +80,7 @@ final class SourceAccess {
 					'kind' => 'url',
 					'href' => (string)$entry['url'],
 					'label' => '',
+					'language' => strtolower( (string)( $entry['language'] ?? '' ) ),
 				];
 				continue;
 			}
@@ -95,6 +96,7 @@ final class SourceAccess {
 					'file' => $fileTitle,
 				] ),
 				'label' => $ext !== '' ? $ext : 'file',
+				'language' => strtolower( (string)( $entry['language'] ?? '' ) ),
 			];
 		}
 

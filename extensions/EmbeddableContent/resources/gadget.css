@@ -15,6 +15,7 @@
 	color: var(--color-base, #202122);
 	border-radius: 2px;
 	padding: 4px 12px;
+	font-family: inherit;
 	font-size: 0.9em;
 	cursor: pointer;
 }

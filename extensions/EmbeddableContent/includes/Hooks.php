@@ -653,6 +653,7 @@ class Hooks {
 			if ( $file !== false ) {
 				$out->addJsConfigVars( 'wbFileName', $title->getText() );
 				$out->addJsConfigVars( 'wbFileUrl', $file->getFullUrl() );
+				$out->addJsConfigVars( 'wbFileMime', (string)$file->getMimeType() );
 				$out->addModules( 'ext.embeddableContent.filepage' );
 				// The File page's semantic facts + new-version upload:
 				// Special:UpdateFile. Shown even for a legacy file without an
@@ -664,7 +665,7 @@ class Hooks {
 						$title->getPrefixedText()
 					)->getFullURL()
 				);
-				$out->addJsConfigVars( 'wbUpdateBasicInfoLabel', 'embeddablecontent-update-button' );
+				$out->addJsConfigVars( 'wbUpdateBasicInfoLabel', 'embeddablecontent-update-metadata' );
 				$out->addModules( 'ext.embeddableContent.updatebutton' );
 			}
 			return;
