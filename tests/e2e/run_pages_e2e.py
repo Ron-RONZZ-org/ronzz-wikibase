@@ -2741,6 +2741,11 @@ def flow_multi_image_editor(op, base: str, api: str, label: str, license_qid: st
         "wpSubmit": "1",
     })
     qid = flow_final_item(op, base, api, page, body, "AddPerson/manual (multi image)")
+    claims, _ = entity_claims(op, api, qid)
+    image_prop = resolve_label(op, api, "image", "property")
+    if not first_value(claims, image_prop):
+        raise FlowError(f"{qid} item has no image statement: {claims.get(image_prop)!r}")
+    flow_item_image_renders(op, base, api, qid, "-media.png")
     page_title = item_sitelink_page(op, api, qid)
     if not page_title:
         raise FlowError(f"{qid} has no classic page for the gallery")
