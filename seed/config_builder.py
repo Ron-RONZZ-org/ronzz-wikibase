@@ -240,6 +240,10 @@ SOURCE_PROPERTY_KINDS = {
     # the access URL/file statement.
     "access status": "accessStatus",
     "archived text": "archivedText",
+    # Access files as semantic entities: the source → access-file item link.
+    # The item carries `file` (File: URL) + `license`; the statement carries
+    # the public/login status and the language qualifiers.
+    "has access file": "hasAccessFile",
     # Zotero-aligned batch: legal/official-document facts. Territorial
     # jurisdiction mirrors the OSM place-of-birth pattern (external-id +
     # parallel human-readable label).
@@ -305,6 +309,13 @@ FOSS_LICENSE_CLASS_KINDS = {
 # the Add* portrait/logo facts).
 IMAGE_CLASS_KINDS = {
     "image": "image",
+}
+
+# Access files (PDF/EPUB/HTML/…) uploaded through the AddSource access
+# editor are itemized like uploads: a sitelinked `access file` item carries
+# the File: URL + license, and the source links via `has access file`.
+ACCESS_FILE_CLASS_KINDS = {
+    "access file": "accessFile",
 }
 
 IMAGE_PROPERTY_KINDS = {
@@ -426,6 +437,11 @@ def build_config(
         if label in class_ids:
             image_classes[kind] = class_ids[label]
 
+    access_file_classes: dict[str, str] = {}
+    for label, kind in ACCESS_FILE_CLASS_KINDS.items():
+        if label in class_ids:
+            access_file_classes[kind] = class_ids[label]
+
     image_props: dict[str, str] = {}
     for label, kind in IMAGE_PROPERTY_KINDS.items():
         if label in property_ids:
@@ -529,6 +545,7 @@ def build_config(
         "softwareClasses": software_classes,
         "imageClasses": image_classes,
         "imageProperties": image_props,
+        "accessFileClasses": access_file_classes,
         "fictionalCharacterClasses": fictional_character_classes,
         "fictionalCharacterProperties": fictional_character_props,
         "payloadProperties": payload_props,

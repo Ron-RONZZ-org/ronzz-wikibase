@@ -237,6 +237,16 @@ class EmbeddableContentConfig {
 	}
 
 	/**
+	 * Access-file class ids (the class of the item-per-file created for an
+	 * AddSource access file).
+	 *
+	 * @return array<string,string> canonical key => item id
+	 */
+	public function accessFileClasses(): array {
+		return $this->requireStringMap( 'accessFileClasses', [ 'accessFile' ] );
+	}
+
+	/**
 	 * Issue #7: source/work class ids (Special:AddSource class picker).
 	 *
 	 * @return array<string,string> canonical key => item id
@@ -305,6 +315,8 @@ class EmbeddableContentConfig {
 			// Multi-access: per-statement public/login status + archived-text
 			// subpage title (qualifiers on the access URL/file statement).
 			'accessStatus', 'archivedText',
+			// Access file entities: the source → access-file item link.
+			'hasAccessFile',
 			// Zotero-aligned batch: legal/official-document facts.
 			'court', 'territorialJurisdictionOsm', 'territorialJurisdictionLabel',
 			'caseNumber', 'patentNumber', 'reportNumber', 'legislationNumber',

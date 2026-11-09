@@ -143,6 +143,13 @@ typeahead is scoped to agent classes; house CSS uses Codex theme tokens; BCE
 dates are signed `-YYYY-MM-DD` values stored with the Julian calendar model;
 the metadata-only `transcript` source class).
 
+Nov 2026 access-file entities / upload multi-author / File PDF viewer:
+`access-file-entities.md` (per-file `access file` items + `has access file`
+links, per-access language, `PDF: en|fr` Source rendering, backfill),
+`upload-multi-author-inference.md` (multi-value author entity + source author
+inference on Special:Upload/UpdateFile), `file-pdf-viewer.md` (browser-native
+PDF viewer + fullscreen on File: pages and Special:SourceFile).
+
 Nov 2026 smart-mention / collision / upload batch:
 `nov-2026-smart-mentions-collisions-uploads.md` (unpiped classic-namespace
 mentions render the bare entity name and Source: is italic; the "Copy

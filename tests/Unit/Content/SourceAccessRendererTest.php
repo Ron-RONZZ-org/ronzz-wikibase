@@ -79,6 +79,61 @@ final class SourceAccessRendererTest extends TestCase {
 		$this->assertStringContainsString( '>epub</a>', $cell );
 	}
 
+	public function testFileLanguagesGroupByExtension(): void {
+		$cell = SourceAccessRenderer::render(
+			[
+				[ 'kind' => 'file', 'href' => 'https://wiki/Special:SourceFile?file=X.pdf&l=en', 'label' => 'pdf', 'language' => 'en' ],
+				[ 'kind' => 'file', 'href' => 'https://wiki/Special:SourceFile?file=X-fr.pdf&l=fr', 'label' => 'pdf', 'language' => 'fr' ],
+			],
+			'N/A',
+			false,
+			'',
+			'Login'
+		);
+		$this->assertStringContainsString( 'PDF: ', $cell );
+		$this->assertStringContainsString( '>en</a>', $cell );
+		$this->assertStringContainsString( '>fr</a>', $cell );
+		$this->assertStringContainsString( '>en</a>|<a', $cell );
+	}
+
+	public function testFileLanguageGroupDeduplicatesLanguages(): void {
+		$cell = SourceAccessRenderer::render(
+			[
+				[ 'kind' => 'file', 'href' => 'https://wiki/a.pdf', 'label' => 'pdf', 'language' => 'en' ],
+				[ 'kind' => 'file', 'href' => 'https://wiki/b.pdf', 'label' => 'pdf', 'language' => 'en' ],
+			],
+			'N/A',
+			false,
+			'',
+			'Login'
+		);
+		$this->assertSame( 1, substr_count( $cell, '>en</a>' ) );
+	}
+
+	public function testUrlEntryCarriesItsLanguage(): void {
+		$cell = SourceAccessRenderer::render(
+			[ [ 'kind' => 'url', 'href' => 'https://example.org', 'label' => '', 'language' => 'fr' ] ],
+			'N/A',
+			false,
+			'',
+			'Login'
+		);
+		$this->assertStringContainsString( 'url1: ', $cell );
+		$this->assertStringContainsString( '>fr</a>', $cell );
+	}
+
+	public function testLegacyFileWithoutLanguageKeepsPlainExtensionLink(): void {
+		$cell = SourceAccessRenderer::render(
+			[ [ 'kind' => 'file', 'href' => 'https://wiki/x.pdf', 'label' => 'pdf', 'language' => '' ] ],
+			'N/A',
+			false,
+			'',
+			'Login'
+		);
+		$this->assertStringContainsString( '>pdf</a>', $cell );
+		$this->assertStringNotContainsString( 'PDF:', $cell );
+	}
+
 	public function testHiddenEntriesAppendLoginHint(): void {
 		$cell = SourceAccessRenderer::render(
 			[ [ 'kind' => 'url', 'href' => 'https://example.org', 'label' => '' ] ],

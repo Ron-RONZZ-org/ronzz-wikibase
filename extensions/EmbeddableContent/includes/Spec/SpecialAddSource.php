@@ -1975,6 +1975,11 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		);
 		$json = (string)json_encode( $entries, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
 		$this->getOutput()->addJsConfigVars( 'wbAccessLicenseOptions', $this->config->licenseItems() );
+		$this->getOutput()->addJsConfigVars( 'wbAccessLicenseClass', $this->config->softwareLicenseClass() ?? '' );
+		$this->getOutput()->addJsConfigVars(
+			'wbAccessLanguageOptions',
+			\EmbeddableContent\Spec\LanguageCatalog::options()
+		);
 		$this->getOutput()->addModules( 'ext.embeddableContent.accesseditor' );
 		$html = '<div class="wb-access-editor" data-field="accessEntries">'
 			. '<div class="wb-access-list"></div>'
@@ -2417,6 +2422,20 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			if ( $error !== null ) {
 				return $error;
 			}
+			// Semantic access-file entities: create/reuse the sitelinked
+			// item per file and stamp its id on the entry. The pure flow
+			// service then writes `has access file`; without the vocabulary
+			// it falls back to the legacy `file` URL statement.
+			$error = \EmbeddableContent\Spec\AccessEntries::resolveFileItems(
+				$entries,
+				$this->config,
+				$this->getUser(),
+				$this->msg( 'embeddablecontent-access-file-item-edit-summary' )->inContentLanguage()->text()
+			);
+			if ( $error !== null ) {
+				return $error;
+			}
+			$record['accessEntries'] = $entries;
 			foreach ( [ 'accessMode', 'accessUrl', 'downloadUrl', 'fileTitle', 'license', 'internalUse' ] as $legacyKey ) {
 				$record[$legacyKey] = '';
 			}

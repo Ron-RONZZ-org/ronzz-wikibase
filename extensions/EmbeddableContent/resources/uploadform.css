@@ -3,6 +3,13 @@
  * drag-and-drop / paste affordance (resources/uploadform.js).
  */
 
+/* The "Upload another" submit is a <button>, which does not inherit the form
+ * font in every browser (the other submits are inputs) — unify the toolbar
+ * buttons' font. */
+#wpUploadAnother {
+	font-family: inherit;
+}
+
 .wb-upload-drop-hint {
 	color: var(--color-subtle, #54595d);
 	font-size: 90%;

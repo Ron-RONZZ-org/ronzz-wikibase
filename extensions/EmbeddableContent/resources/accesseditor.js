@@ -10,11 +10,98 @@
 ( function () {
 	'use strict';
 
-	mw.loader.using( [ 'oojs-ui', 'mediawiki.api', 'mediawiki.util', 'mediawiki.notification' ] ).then( function () {
+	mw.loader.using( [
+		'oojs-ui',
+		'mediawiki.api',
+		'mediawiki.util',
+		'mediawiki.notification',
+		'ext.embeddableContent.entitysuggest'
+	] ).then( function () {
 		var sequence = 0;
 		var windowManager = new OO.ui.WindowManager();
 		$( document.body ).append( windowManager.$element );
 		var licenseOptions = mw.config.get( 'wbAccessLicenseOptions' ) || {};
+		var languageOptions = mw.config.get( 'wbAccessLanguageOptions' ) || {};
+		var licenseClass = String( mw.config.get( 'wbAccessLicenseClass' ) || '' );
+
+		var LANGUAGE_CODE = /^[a-z]{2,8}(?:-[a-z0-9]{2,8})*$/i;
+
+		/** Static combobox options for the known license items. */
+		function licenseOptionList() {
+			return Object.keys( licenseOptions ).map( function ( label ) {
+				return { data: String( licenseOptions[ label ] ), label: label };
+			} );
+		}
+
+		/** The label for a stored license id (falls back to the Q-id). */
+		function licenseLabel( id ) {
+			var value = String( id || '' ).trim().toUpperCase();
+			var labels = Object.keys( licenseOptions );
+			for ( var i = 0; i < labels.length; i++ ) {
+				if ( String( licenseOptions[ labels[ i ] ] ).toUpperCase() === value ) {
+					return labels[ i ];
+				}
+			}
+			return value;
+		}
+
+		/** Resolve the combobox text (a picked Q-id, a typed Q-id or a known label) to a Q-id. */
+		function resolveLicense( value ) {
+			var text = String( value || '' ).trim();
+			if ( /^Q[1-9]\d*$/i.test( text ) ) {
+				return text.toUpperCase();
+			}
+			return licenseOptions[ text ] !== undefined ? String( licenseOptions[ text ] ) : '';
+		}
+
+		function languageOptionList() {
+			return Object.keys( languageOptions ).map( function ( label ) {
+				return { data: String( languageOptions[ label ] ), label: label };
+			} );
+		}
+
+		function languageLabel( code ) {
+			var value = String( code || '' ).trim().toLowerCase();
+			var labels = Object.keys( languageOptions );
+			for ( var i = 0; i < labels.length; i++ ) {
+				if ( String( languageOptions[ labels[ i ] ] ).toLowerCase() === value ) {
+					return labels[ i ];
+				}
+			}
+			return value;
+		}
+
+		/** Resolve the combobox text (a picked code, a typed code or a known label). */
+		function resolveLanguage( value ) {
+			var text = String( value || '' ).trim();
+			if ( LANGUAGE_CODE.test( text ) ) {
+				return text.toLowerCase();
+			}
+			return languageOptions[ text ] !== undefined
+				? String( languageOptions[ text ] ).toLowerCase()
+				: '';
+		}
+
+		/** The form's current primary source language (the default for a new entry). */
+		function sourceLanguage() {
+			var field = document.querySelector( '[name="wplanguage"]' );
+			var value = field ? String( field.value || '' ).trim() : '';
+			if ( value === 'Other' || value === '__other__' ) {
+				var other = document.querySelector( '[name="wpotherLanguage"]' );
+				value = other ? String( other.value || '' ).trim() : '';
+			}
+			return LANGUAGE_CODE.test( value ) ? value.toLowerCase() : 'en';
+		}
+
+		function wireEntityCombo( combo, scope ) {
+			if ( !combo || !mw.embeddableContent || !mw.embeddableContent.entitysuggest
+				|| typeof mw.embeddableContent.entitysuggest.wireWidget !== 'function'
+			) {
+				return;
+			}
+			combo.setData( { wbClasses: String( scope || '' ) } );
+			mw.embeddableContent.entitysuggest.wireWidget( combo, false );
+		}
 
 		function apiUrl() {
 			return ( mw.config.get( 'wgScriptPath' ) || '' ) + '/api.php';
@@ -67,9 +154,12 @@
 			var names = labels( entries );
 			entries.forEach( function ( entry, index ) {
 				var title = entry.type === 'url' ? entry.url : entry.fileTitle;
+				var language = String( entry.language || '' ).trim();
 				var $card = $( '<div>' ).addClass( 'wb-access-card' );
 				$card.append( $( '<span>' ).addClass( 'wb-access-card-label' )
-					.text( names[ index ] + ': ' + title ) );
+					.text( names[ index ]
+						+ ( language ? ' (' + language + ')' : '' )
+						+ ': ' + title ) );
 				$card.append( $( '<span>' ).addClass( 'wb-access-card-status' )
 					.text( entry.public
 						? mw.msg( 'embeddablecontent-access-public' )
@@ -207,16 +297,16 @@
 				$fileSection.append( $fileUploadLayout, $fileUrlLayout );
 
 				var internal = new OO.ui.CheckboxInputWidget( { selected: !entry.public } );
-				var license = new OO.ui.DropdownInputWidget( {
-					options: [ { data: '', label: mw.msg( 'embeddablecontent-access-license-none' ) } ].concat(
-						Object.keys( licenseOptions ).map( function ( label ) {
-							return { data: licenseOptions[ label ], label: label };
-						} )
-					),
-					value: entry.license || ''
+				// Classic semantic entity combobox (known options + typed
+				// entity search scoped to the license class).
+				var license = new OO.ui.ComboBoxInputWidget( {
+					options: licenseOptionList(),
+					value: entry.license ? licenseLabel( entry.license ) : ''
 				} );
+				wireEntityCombo( license, licenseClass );
 				var $licenseLayout = new OO.ui.FieldLayout( license, {
 					label: mw.msg( 'embeddablecontent-access-license' ),
+					help: mw.msg( 'embeddablecontent-access-license-help' ),
 					align: 'top'
 				} ).$element;
 				$fileSection.append( new OO.ui.FieldLayout( internal, {
@@ -225,6 +315,17 @@
 				} ).$element );
 				$fileSection.append( $licenseLayout );
 				$body.append( $fileSection );
+				// Language applies to every entry, URL or file; a new entry
+				// defaults to the form's current source language.
+				var language = new OO.ui.ComboBoxInputWidget( {
+					options: languageOptionList(),
+					value: languageLabel( entry.language || sourceLanguage() )
+				} );
+				$body.append( new OO.ui.FieldLayout( language, {
+					label: mw.msg( 'embeddablecontent-access-language' ),
+					help: mw.msg( 'embeddablecontent-access-language-help' ),
+					align: 'top'
+				} ).$element );
 
 				var status = $( '<p>' ).addClass( 'wb-access-status' );
 				$body.append( status );
@@ -274,10 +375,23 @@
 						return;
 					}
 					var publicAccess = !internal.isSelected();
+					var licenseValue = publicAccess ? resolveLicense( license.getValue() ) : '';
+					if ( type === 'file' && publicAccess && licenseValue === '' ) {
+						status.text( mw.msg( 'embeddablecontent-image-license-required' ) );
+						return;
+					}
+					var languageValue = resolveLanguage( language.getValue() );
+					if ( String( language.getValue() || '' ).trim() !== '' && languageValue === '' ) {
+						status.text( mw.msg( 'embeddablecontent-access-invalid-language' ) );
+						return;
+					}
 					var base = {
 						type: type,
 						public: publicAccess ? '1' : ''
 					};
+					if ( languageValue !== '' ) {
+						base.language = languageValue;
+					}
 					function finish( fileTitle ) {
 						if ( type === 'url' ) {
 							base.url = value;
@@ -285,7 +399,7 @@
 							base.archivedTitle = entry.archivedTitle || '';
 						} else {
 							base.fileTitle = fileTitle;
-							base.license = publicAccess ? String( license.getValue() || '' ) : '';
+							base.license = publicAccess ? licenseValue : '';
 						}
 						if ( !base.public && type === 'file' ) {
 							base.license = '';

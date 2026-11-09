@@ -268,10 +268,13 @@ final class ImageUploadHelper {
 		$entity = EntityCombobox::spec(
 			'embeddablecontent-upload-author-entity',
 			array_values( $config->agentClasses() ),
-			false,
+			true,
 			[
 				'id' => 'wp' . $prefix . 'AuthorEntity',
-				'cssclass' => 'wb-entity-combobox wb-upload-author-entity',
+				// The multi class must ride the field: the explicit cssclass
+				// overrides the builder's, so include it here.
+				'cssclass' => 'wb-entity-combobox wb-entity-combobox-multi wb-upload-author-entity',
+				'help-message' => 'embeddablecontent-upload-author-entity-help',
 			]
 		);
 		if ( $sectionGating ) {
@@ -603,7 +606,10 @@ final class ImageUploadHelper {
 		array $author
 	): void {
 		$label = $primaryLabel( $record );
-		$authorEntity = $author['useEntity'] ? self::parseItemId( (string)$author['entity'] ) : null;
+		// Comma/semicolon-separated entity ids (the multi-value author
+		// combobox); ImageItemCreator normalizes each and writes one
+		// `attributed to` statement per author.
+		$authorEntity = $author['useEntity'] ? trim( (string)$author['entity'] ) : '';
 		ImageItemCreator::createOrReuse(
 			$config,
 			$user,
@@ -617,7 +623,7 @@ final class ImageUploadHelper {
 			$context->msg( $msgKeys['editSummary'], $label )->inContentLanguage()->text(),
 			false,
 			[],
-			$authorEntity !== null ? $authorEntity->getSerialization() : null
+			$authorEntity !== '' ? $authorEntity : null
 		);
 	}
 

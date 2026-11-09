@@ -591,8 +591,16 @@
 			var authorEmpty = authorEntityMode && authorEntityMode.checked
 				? !fieldValue( 'wpUploadAuthorEntity' ).trim()
 				: !fieldValue( 'wpUploadAuthor' ).trim();
-			if ( authorEmpty ) {
-				missing.push( mw.msg( 'embeddablecontent-upload-author' ) );
+			// The source supplies the author when the author is blank (the
+			// semantic item inherits its `attributed to` statements), so the
+			// empty-author warning only fires when BOTH are empty.
+			var sourceTextMode = document.getElementById( 'wpUploadSourceIsText' );
+			var sourceValue = sourceTextMode && sourceTextMode.checked
+				? fieldValue( 'wpUploadSourceText' )
+				: fieldValue( 'wpUploadSource' );
+			var sourceEmpty = !sourceValue.trim();
+			if ( authorEmpty && sourceEmpty ) {
+				missing.push( mw.msg( 'embeddablecontent-upload-author-source' ) );
 			}
 			if ( !fieldValue( 'wpLicense' ).trim() ) {
 				missing.push( mw.msg( 'embeddablecontent-upload-license' ) );

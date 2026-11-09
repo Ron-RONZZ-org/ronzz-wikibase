@@ -118,7 +118,10 @@ class SpecialUpdateFile extends SpecialPage {
 			'licenseInfo' => $this->firstString( $item, $props['imageLicenseInfo'] ?? null ),
 			'sourceText' => $this->firstString( $item, $props['imageSource'] ?? null ),
 			'sourceUrl' => $this->firstString( $item, $provenance['sourceUrl'] ?? null ),
-			'authorEntity' => $this->firstEntity( $item, $provenance['attributedTo'] ?? null ),
+			'authorEntity' => implode(
+				', ',
+				$this->entityIds( $item, $provenance['attributedTo'] ?? null )
+			),
 			'sourceEntity' => $this->firstEntity( $item, $provenance['source'] ?? null ),
 		];
 	}
@@ -149,7 +152,7 @@ class SpecialUpdateFile extends SpecialPage {
 			'authorEntity' => EntityCombobox::spec(
 				'embeddablecontent-updatefile-authorentity',
 				$agentClasses,
-				false,
+				true,
 				[ 'default' => (string)( $record['authorEntity'] ?? '' ) ]
 			),
 			'sourceEntity' => EntityCombobox::spec(
@@ -237,7 +240,10 @@ class SpecialUpdateFile extends SpecialPage {
 		}
 
 		$license = $this->itemIdOrNull( (string)( $data['license'] ?? '' ) );
-		$authorEntity = $this->itemIdOrNull( (string)( $data['authorEntity'] ?? '' ) );
+		$authorEntity = trim( (string)( $data['authorEntity'] ?? '' ) );
+		if ( $authorEntity !== '' && !$this->allItemIds( $authorEntity ) ) {
+			return $this->msg( 'embeddablecontent-updatefile-badauthor' )->text();
+		}
 		$sourceEntity = $this->itemIdOrNull( (string)( $data['sourceEntity'] ?? '' ) );
 		$sourceUrl = trim( (string)( $data['sourceUrl'] ?? '' ) );
 		if ( $sourceUrl !== '' && \EmbeddableContent\Fetch\SsrfGuard::validate( $sourceUrl ) === null ) {
@@ -300,6 +306,20 @@ class SpecialUpdateFile extends SpecialPage {
 		return preg_match( '/^Q[1-9]\d*$/', $value ) === 1 ? $value : null;
 	}
 
+	/** Whether every comma/semicolon-separated token is an item id. */
+	private function allItemIds( string $value ): bool {
+		$tokens = preg_split( '/[,;]/', $value ) ?: [];
+		if ( $tokens === [] ) {
+			return false;
+		}
+		foreach ( $tokens as $token ) {
+			if ( preg_match( '/^Q[1-9]\d*$/i', trim( $token ) ) !== 1 ) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 	private function firstString( Item $item, ?string $propertyId ): string {
 		if ( $propertyId === null || $propertyId === '' ) {
 			return '';
@@ -324,6 +344,21 @@ class SpecialUpdateFile extends SpecialPage {
 			}
 		}
 		return '';
+	}
+
+	/** @return string[] every entity id of a property (statement order). */
+	private function entityIds( Item $item, ?string $propertyId ): array {
+		if ( $propertyId === null || $propertyId === '' ) {
+			return [];
+		}
+		$ids = [];
+		foreach ( $item->getStatements()->getByPropertyId( new NumericPropertyId( $propertyId ) ) as $statement ) {
+			$snak = $statement->getMainSnak();
+			if ( $snak instanceof PropertyValueSnak && $snak->getDataValue() instanceof EntityIdValue ) {
+				$ids[] = $snak->getDataValue()->getEntityId()->getSerialization();
+			}
+		}
+		return array_values( array_unique( $ids ) );
 	}
 
 	private function itemDescription( Item $item ): string {

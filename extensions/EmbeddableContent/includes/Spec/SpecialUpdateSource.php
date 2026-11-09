@@ -193,7 +193,19 @@ class SpecialUpdateSource extends SpecialAddSource {
 		$record['language'] = $languageValues[0] ?? '';
 		$record['additionalLanguages'] = implode( ', ', array_slice( $languageValues, 1 ) );
 		$record['accessUrl'] = $this->firstStringForProperty( $item, $source['accessUrl'] ?? null );
-		$record['fileTitle'] = $this->accessFileTitle( $item, $source['file'] ?? null );
+		// Multi-access editor prefill: every access statement + qualifier.
+		// The first file entry also feeds the legacy single-access fields
+		// (mode derivation, internal-use marker).
+		$record['accessEntries'] = \EmbeddableContent\Spec\AccessEntries::fromItem( $item, $this->config );
+		$firstFile = null;
+		foreach ( $record['accessEntries'] as $entry ) {
+			if ( $entry['type'] === \EmbeddableContent\Spec\AccessEntries::TYPE_FILE ) {
+				$firstFile = $entry;
+				break;
+			}
+		}
+		$record['fileTitle'] = $firstFile['fileTitle']
+			?? $this->accessFileTitle( $item, $source['file'] ?? null );
 		$accessFileTitle = $record['fileTitle'] !== ''
 			? \MediaWiki\Title\Title::newFromText( $record['fileTitle'] )
 			: null;
@@ -201,7 +213,8 @@ class SpecialUpdateSource extends SpecialAddSource {
 			&& InternalFile::isInternal( $accessFileTitle )
 			? '1'
 			: '';
-		$record['license'] = $this->firstEntityForProperty( $item, $source['license'] ?? null );
+		$record['license'] = $firstFile['license']
+			?? $this->firstEntityForProperty( $item, $source['license'] ?? null );
 		// accessMode derivation: an uploaded file → file; else a bare
 		// license (no access URL) → download; else the access URL → url;
 		// else not applicable. A stored download is indistinguishable from
@@ -211,8 +224,6 @@ class SpecialUpdateSource extends SpecialAddSource {
 			? 'file'
 			: ( $record['accessUrl'] !== '' ? 'url' : ( $record['license'] !== '' ? 'download' : 'na' ) );
 		$record['downloadUrl'] = '';
-		// Multi-access editor prefill: every access statement + qualifier.
-		$record['accessEntries'] = \EmbeddableContent\Spec\AccessEntries::fromItem( $item, $this->config );
 
 		$year = $this->yearForProperty( $item, $this->config->provenancePropertyIds()['date'] ?? null );
 		if ( $year !== null ) {

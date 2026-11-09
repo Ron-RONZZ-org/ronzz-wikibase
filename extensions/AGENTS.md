@@ -403,18 +403,26 @@ report). See `SimpleMathJax/VENDORED.md`.
   fetch) and sends the API's `file`/`url` mode before `action=accessupload`.
   The legacy single-access fields remain accepted as a fallback for API/older
   forms.
-  Storage: one statement per entry on `access URL` (P953) / `file` (P1325),
-  with qualifiers `access status` (public|login), `license` (P275, files) and
-  `archived text` (the `Source:<label>/archivedText[/n]` title). The seed
-  manifests/config map gained `access status` + `archived text` (re-seed
-  required). `AccessEntries` normalizes/validates/builds/reads the entries;
-  `Special:SourceFile` reads the matching file's licence qualifier. The
-  UpdateSource "I will update the resource access instructions" gate is
-  **removed** — the editor is always visible; an empty list clears the
-  access statements.
+  Storage (Nov 2026 access-file entities): a file entry creates/reuses a
+  sitelinked `access file` item (`AccessFileItemCreator`: `instance of access
+  file`, `file` = File: URL, `license`) and the source writes `has access
+  file` (item-valued) with `access status` + `language` qualifiers. A URL
+  entry keeps `access URL` with `access status`, `language` and `archived
+  text` (the `Source:<label>/archivedText[/n]` title). Legacy `file` URL
+  statements remain readable (deduped by file title) and are written only
+  when the access-file vocabulary is absent. The license combobox in the
+  dialog is the classic entity combobox; language defaults to the source
+  language. `{{#source-access:}}` groups files by extension (`PDF: en|fr`).
+  `tools/backfill_access_files.py` migrates legacy `file` statements. The
+  seed manifests/config map gained `has access file` + `access file`
+  (re-seed required). The UpdateSource "I will update the resource access
+  instructions" gate is **removed** — the editor is always visible; an empty
+  list clears the access statements.
 - **AddSource/Source: access rendering (multi-access)**: `{{#source-access:}}`
   lists the visible entries as `url1 | pdf | epub` links (URLs numbered,
-  files labelled by extension), every link `target=_blank`. Login-only
+  files labelled by extension); with a language, file groups render
+  `PDF: en|fr` (each code links to its `Special:SourceFile`) and URL entries
+  render `url1: en`. Every link `target=_blank`. Login-only
   entries are omitted for anonymous readers and the cell appends
   "Login to view additional access modes"; logged-in readers see every
   entry, and the parser cache is bypassed when hidden entries exist.
@@ -797,7 +805,12 @@ report). See `SimpleMathJax/VENDORED.md`.
   attribution block (`[[Q42|label]]`, never a `{{Q42}}` template call), and
   marker-gated `UploadComplete` item-per-upload via `ImageItemCreator`
   (sitelinked `image`-class item with image/license/imageAuthor/
-  imageLicenseInfo/source statements). Vocabulary: `image` class +
+  imageLicenseInfo/source statements). The author entity field is
+  **multi-value** (comma/semicolon Q-ids) on Special:Upload, UpdateFile, the
+  Add\* sections and the Add-image dialog; an empty author + a source entity
+  inherits the source's `attributed to` authors (create AND update). The
+  pre-submit warning only fires for author+source empty (license unchanged).
+  Vocabulary: `image` class +
   `image author` (P2093) + `additional license information` (unaligned)
   properties, config `imageClasses`/`imageProperties` + person/FOSS keys.
   MsUpload (production-only, not in dev/CI) coexistence is a deploy-time
@@ -1330,7 +1343,12 @@ report). See `SimpleMathJax/VENDORED.md`.
   and loads `ext.embeddableContent.filepage`, which renders two buttons
   inline right of the file-name title: "Copy internal embed code"
   (`[[File:xxx]]`) and "Copy direct link" (the media URL). The same module
-  completes the `Special:Upload` hand-off (below).
+  completes the `Special:Upload` hand-off (below). The File page's update
+  button is **"Update metadata"** (Special:UpdateFile) and joins this same
+  file toolbar instead of a separate block row. PDF uploads gain a
+  browser-native iframe viewer (`resources/pdfviewer.js`, no third-party PDF
+  library) with a fullscreen control and an open-in-new-tab link; the same
+  module wraps `Special:SourceFile`'s preview.
   (b) **Alphabetical pickers** — `Spec/LabelSorter` (ICU `Collator`,
   locale-aware) sorts Special:AddSource's source-type radio picker and
   Special:AddCollective's class select; the latter also gains localized
