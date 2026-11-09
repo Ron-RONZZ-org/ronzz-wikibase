@@ -602,7 +602,7 @@ async function main() {
 				{ waitUntil: 'domcontentloaded', timeout: 60000 });
 			const mount = page.locator('.wb-access-editor .wb-access-add-mount');
 			await mount.locator('.oo-ui-buttonElement').waitFor({ timeout: 15000 });
-			const addButton = mount.locator('button.oo-ui-buttonElement-button');
+			const addButton = mount.locator('.oo-ui-buttonElement-button');
 			if (await addButton.count() !== 1) {
 				failures.push('Add access is not rendered as an OOUI button');
 			} else {
@@ -625,7 +625,7 @@ async function main() {
 				console.log('[ok] access dialog renders real type radio inputs');
 			}
 			// Default type = URL: adding one produces a card and no upload.
-			await dialog.locator('.wb-access-url-section input.oo-ui-inputWidget-input')
+			await dialog.locator('.wb-access-url-section input[type="text"].oo-ui-inputWidget-input')
 				.fill('https://example.org/access-editor-ux');
 			await dialog.locator('.wb-access-dialog-actions .oo-ui-buttonElement').first().click();
 			await page.locator('.wb-access-card-label', { hasText: 'url1:' }).waitFor({ timeout: 10000 });
