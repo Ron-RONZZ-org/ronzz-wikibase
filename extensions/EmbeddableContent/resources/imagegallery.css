@@ -1,0 +1,59 @@
+/* Infobox image gallery ({{#item-image:}}). */
+
+.wb-image-gallery {
+	position: relative;
+	display: inline-block;
+	max-width: 220px;
+	vertical-align: top;
+}
+
+.wb-image-gallery-track {
+	display: block;
+}
+
+.wb-image-gallery-slide {
+	display: block;
+	margin: 0;
+}
+
+.wb-image-gallery-slide[hidden] {
+	display: none;
+}
+
+.wb-image-gallery-slide img {
+	max-width: 220px;
+	height: auto;
+}
+
+.wb-image-gallery-prev,
+.wb-image-gallery-next {
+	position: absolute;
+	top: 50%;
+	transform: translateY( -50% );
+	width: 1.7em;
+	height: 2.4em;
+	padding: 0;
+	border: 0;
+	border-radius: 3px;
+	background: rgba( 0, 0, 0, 0.45 );
+	color: #fff;
+	font-size: 1.2em;
+	line-height: 1;
+	cursor: pointer;
+	opacity: 0.75;
+}
+
+.wb-image-gallery-prev {
+	left: 0.2em;
+}
+
+.wb-image-gallery-next {
+	right: 0.2em;
+}
+
+.wb-image-gallery-prev:hover,
+.wb-image-gallery-next:hover,
+.wb-image-gallery-prev:focus,
+.wb-image-gallery-next:focus {
+	opacity: 1;
+}

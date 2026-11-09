@@ -76,7 +76,9 @@ class SpecialSourceFile extends SpecialPage {
 
 		// Licence information from the owning item's `license` statement.
 		$itemId = $this->parseItemId( $itemParam );
-		$license = $itemId !== null ? $this->licenseInfo( $itemId ) : null;
+		$license = $itemId !== null
+			? $this->licenseInfo( $itemId, $file->getTitle()->getPrefixedText() )
+			: null;
 
 		// Internal-use copy: the page itself (title + licence = "file
 		// info") stays public; the media and the download are login-gated.
@@ -231,53 +233,69 @@ class SpecialSourceFile extends SpecialPage {
 	// ------------------------------------------------------------- licence
 
 	/**
-	 * Licence facts of the owning item: the `license` statement (P275-aligned,
-	 * entity) → the licence item's label (+ its URL statement when recorded).
-	 * null when the item has no licence (defensive — the download/file modes
-	 * require one at creation) or the item id is unresolvable.
+	 * Licence facts of the owning item: the matching access file's licence
+	 * qualifier (multi-access), else the legacy top-level `license` statement
+	 * (P275-aligned, entity) → the licence item's label (+ URL when recorded).
+	 * null when no licence is recorded (defensive) or the item is unresolvable.
 	 *
 	 * @return array{label:string,url:string|null,itemId:string}|null
 	 */
-	private function licenseInfo( ItemId $itemId ): ?array {
+	private function licenseInfo( ItemId $itemId, ?string $fileTitle = null ): ?array {
 		$entity = WikibaseRepo::getEntityLookup()->getEntity( $itemId );
 		if ( !$entity instanceof Item ) {
 			return null;
 		}
 		$props = $this->config->sourcePropertyIds();
-		$licensePropId = $props['license'] ?? null;
-		if ( $licensePropId === null ) {
+		$licenseId = null;
+		if ( $fileTitle !== null ) {
+			foreach ( \EmbeddableContent\Spec\AccessEntries::fromItem( $entity, $this->config ) as $entry ) {
+				if ( $entry['type'] === \EmbeddableContent\Spec\AccessEntries::TYPE_FILE
+					&& $entry['fileTitle'] === $fileTitle
+					&& !empty( $entry['license'] )
+				) {
+					$licenseId = new ItemId( $entry['license'] );
+					break;
+				}
+			}
+		}
+		if ( $licenseId === null ) {
+			$licensePropId = $props['license'] ?? null;
+			if ( $licensePropId === null ) {
+				return null;
+			}
+			try {
+				// PropertyId is an interface in the DataModel — NumericPropertyId is the concrete class.
+				$propertyId = new NumericPropertyId( $licensePropId );
+			} catch ( \Throwable $e ) {
+				return null;
+			}
+			foreach ( $entity->getStatements()->getByPropertyId( $propertyId ) as $statement ) {
+				$snak = $statement->getMainSnak();
+				if ( $snak instanceof PropertyValueSnak && $snak->getDataValue() instanceof EntityIdValue ) {
+					$candidate = $snak->getDataValue()->getEntityId();
+					if ( $candidate instanceof ItemId ) {
+						$licenseId = $candidate;
+						break;
+					}
+				}
+			}
+		}
+		if ( $licenseId === null ) {
 			return null;
 		}
-		try {
-			// PropertyId is an interface in the DataModel — NumericPropertyId is the concrete class.
-			$propertyId = new NumericPropertyId( $licensePropId );
-		} catch ( \Throwable $e ) {
+		$licenseEntity = WikibaseRepo::getEntityLookup()->getEntity( $licenseId );
+		if ( !$licenseEntity instanceof Item ) {
 			return null;
 		}
-		foreach ( $entity->getStatements()->getByPropertyId( $propertyId ) as $statement ) {
-			$snak = $statement->getMainSnak();
-			if ( !$snak instanceof PropertyValueSnak || !$snak->getDataValue() instanceof EntityIdValue ) {
-				continue;
-			}
-			$licenseId = $snak->getDataValue()->getEntityId();
-			if ( !$licenseId instanceof ItemId ) {
-				continue;
-			}
-			$licenseEntity = WikibaseRepo::getEntityLookup()->getEntity( $licenseId );
-			if ( !$licenseEntity instanceof Item ) {
-				continue;
-			}
-			$label = $this->itemLabel( $licenseEntity );
-			if ( $label === null ) {
-				continue;
-			}
-			return [
-				'label' => $label,
-				'url' => $this->licenseUrl( $licenseEntity, $props ),
-				'itemId' => $licenseId->getSerialization(),
-			];
+		$label = $this->itemLabel( $licenseEntity );
+		if ( $label === null ) {
+			return null;
 		}
-		return null;
+		return [
+			'label' => $label,
+			'url' => $this->licenseUrl( $licenseEntity, $props ),
+			'itemId' => $licenseId->getSerialization(),
+		];
 	}
 
 	/** URL of the licence item's `url` statement (the licence text), or null. */

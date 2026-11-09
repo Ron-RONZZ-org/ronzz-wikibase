@@ -82,6 +82,7 @@ class SpecialUpdateSoftware extends SpecialAddSoftware {
 		];
 
 		$props = $this->config->fossPropertyIds();
+		$record['imageEntries'] = \EmbeddableContent\Spec\MediaEntries::fromItem( $item, $props['image'] ?? '' );
 		$record['website'] = $this->firstStringForProperty( $item, $props['officialWebsite'] ?? null );
 		$record['sourceRepository'] = $this->firstStringForProperty( $item, $props['sourceRepository'] ?? null );
 		$record['documentationUrl'] = $this->firstStringForProperty( $item, $props['documentationUrl'] ?? null );

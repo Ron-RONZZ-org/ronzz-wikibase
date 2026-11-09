@@ -387,6 +387,11 @@ trait UpdateExternalEntityFlow {
 			}
 		}
 
+		// Extra statements owned by a kind-specific editor (the multi-access
+		// entries on UpdateSource). Runs after the managed-property
+		// replacement so the new statements are not removed again.
+		$this->addExtraUpdateStatements( $item, $record );
+
 		// Additional statements: diff the cloner against the item's
 		// non-managed supported statements (unchanged rows keep their
 		// GUID/qualifiers/references; removed rows are deleted; new rows are
@@ -464,6 +469,16 @@ trait UpdateExternalEntityFlow {
 		}
 		$title = Title::newFromText( $sitelinks->getBySiteId( 'wikibase' )->getPageName() );
 		return $title !== null ? $title->getFullURL() : null;
+	}
+
+	/**
+	 * Add kind-specific statements after the generic managed-property
+	 * replacement. The default is a no-op; Special:UpdateSource adds the
+	 * multi-access statements here.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function addExtraUpdateStatements( Item $item, array $record ): void {
 	}
 
 	/**

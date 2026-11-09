@@ -2559,6 +2559,73 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	}
 
 	/**
+	 * The multi-image editor (portrait / logo / images). The hidden
+	 * `imageEntries` field carries a JSON list of File: titles; uploads run
+	 * through action=imageupload before the form is submitted, so the form
+	 * itself only writes one image statement per entry.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,mixed>
+	 */
+	protected function imageEntriesFieldSpec( array $record ): array {
+		$entries = \EmbeddableContent\Spec\MediaEntries::normalize( $record['imageEntries'] ?? [] );
+		$json = (string)json_encode( $entries, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+		$this->getOutput()->addModules( 'ext.embeddableContent.mediaeditor' );
+		$this->getOutput()->addJsConfigVars( 'wbAccessLicenseOptions', $this->config->licenseItems() );
+		$html = '<div class="wb-media-editor">'
+			. '<div class="wb-access-list"></div>'
+			. '<button type="button" class="wb-access-add">'
+			. $this->msg( 'embeddablecontent-media-add' )->escaped()
+			. '</button>'
+			. '</div>';
+		return [
+			'imageEntries' => [
+				'type' => 'hidden',
+				'id' => 'wpimageEntries',
+				'default' => $json,
+			],
+			'imageEditor' => [
+				'type' => 'info',
+				'raw' => true,
+				'default' => $html,
+			],
+		];
+	}
+
+	/**
+	 * Hidden pre-multi-image fields (compatibility for older clients/E2E).
+	 * The file itself is read from the request by ImageUploadHelper; only
+	 * the scalar controls need to stay in the form's field list.
+	 *
+	 * @return array<string,mixed>
+	 */
+	protected function legacyImageFields( string $prefix ): array {
+		$fields = [];
+		foreach ( [ 'Include', 'Mode', 'Url', 'Existing', 'License', 'Author',
+			'AuthorIsEntity', 'AuthorEntity', 'LicenseInfo' ] as $suffix ) {
+			$fields[$prefix . $suffix] = [ 'type' => 'hidden', 'default' => '' ];
+		}
+		$fields[$prefix . 'Resize'] = [ 'type' => 'hidden', 'default' => '1' ];
+		$fields[$prefix . 'AutoExt'] = [ 'type' => 'hidden', 'default' => '1' ];
+		return $fields;
+	}
+
+	/**
+	 * Whether an older form submitted the legacy single-image fields.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function hasLegacyImageFields( array $record, string $prefix ): bool {
+		foreach ( [ 'Include', 'Mode', 'Url', 'Existing', 'License', 'Author',
+			'AuthorIsEntity', 'AuthorEntity', 'LicenseInfo', 'FileTitle' ] as $suffix ) {
+			if ( !empty( $record[$prefix . $suffix] ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Shared field builders for the review/manual forms.
 	 * The label/description builders return a full `fieldname => descriptor`
 	 * entry (array union `+` requires distinct top-level keys).

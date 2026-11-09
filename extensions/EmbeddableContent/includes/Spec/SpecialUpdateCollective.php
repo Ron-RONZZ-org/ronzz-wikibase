@@ -97,6 +97,7 @@ class SpecialUpdateCollective extends SpecialAddCollective {
 			),
 		];
 		$props = $this->config->collectivePropertyIds();
+		$record['imageEntries'] = \EmbeddableContent\Spec\MediaEntries::fromItem( $item, $props['image'] ?? '' );
 		$record['website'] = $this->firstStringForProperty( $item, $props['officialWebsite'] ?? null );
 		// Group-of-humans membership: prefill the multi-entity list so
 		// existing members can be removed and new ones added.

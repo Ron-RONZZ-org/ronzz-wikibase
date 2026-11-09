@@ -1,0 +1,94 @@
+/* Multi-access editor (Special:AddSource / Special:UpdateSource). */
+
+.wb-access-editor {
+	margin-top: 0.5em;
+}
+
+.wb-access-list {
+	display: flex;
+	flex-direction: column;
+	gap: 0.4em;
+	margin-bottom: 0.6em;
+}
+
+.wb-access-empty {
+	color: var( --color-subtle, #72777d );
+	font-style: italic;
+	margin: 0.3em 0;
+}
+
+.wb-access-card {
+	display: flex;
+	align-items: center;
+	gap: 0.6em;
+	flex-wrap: wrap;
+	border: 1px solid var( --border-color-subtle, #c8ccd1 );
+	border-radius: 4px;
+	padding: 0.45em 0.7em;
+	background: var( --background-color-neutral-subtle, #f8f9fa );
+}
+
+.wb-access-card-label {
+	font-weight: 600;
+	color: var( --color-base, #202122 );
+	overflow-wrap: anywhere;
+}
+
+.wb-access-card-status {
+	color: var( --color-subtle, #72777d );
+	font-size: 0.9em;
+}
+
+.wb-access-card-status::before {
+	content: "·";
+	margin-right: 0.4em;
+}
+
+.wb-access-card-actions {
+	margin-left: auto;
+	display: inline-flex;
+	gap: 0.2em;
+}
+
+.wb-access-add {
+	background: var( --background-color-progressive, #3366cc );
+	color: #fff;
+	border: 0;
+	border-radius: 4px;
+	padding: 0.45em 0.9em;
+	cursor: pointer;
+	font-weight: 600;
+}
+
+.wb-access-add:hover,
+.wb-access-add:focus {
+	background: var( --color-progressive--hover, #2a4b8d );
+}
+
+.wb-access-dialog .oo-ui-fieldLayout {
+	margin-bottom: 0.7em;
+}
+
+.wb-access-dialog-actions {
+	display: flex;
+	gap: 0.5em;
+	margin-top: 1em;
+}
+
+.wb-access-existing {
+	color: var( --color-subtle, #72777d );
+	margin: 0.2em 0;
+}
+
+.wb-access-status {
+	min-height: 1.4em;
+	color: var( --color-warning, #ac6600 );
+	margin: 0.5em 0 0;
+}
+
+.wb-access-file-section,
+.wb-access-url-section {
+	border-top: 1px solid var( --border-color-subtle, #c8ccd1 );
+	padding-top: 0.7em;
+	margin-top: 0.2em;
+}

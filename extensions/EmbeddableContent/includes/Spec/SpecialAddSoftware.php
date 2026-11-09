@@ -127,7 +127,12 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 				unset( $out['programmingLanguage'] );
 			}
 		}
-		if ( !empty( $record['logoFileTitle'] ) ) {
+		$imageEntries = \EmbeddableContent\Spec\MediaEntries::normalize( $record['imageEntries'] ?? [] );
+		if ( array_key_exists( 'imageEntries', $record )
+			&& ( $imageEntries !== [] || !$this->hasLegacyImageFields( $record, 'logo' ) )
+		) {
+			$out['imageFileUrls'] = \EmbeddableContent\Spec\MediaEntries::fileUrls( $imageEntries );
+		} elseif ( !empty( $record['logoFileTitle'] ) ) {
 			$title = \MediaWiki\Title\Title::makeTitle( NS_FILE, (string)$record['logoFileTitle'] );
 			if ( $title !== null ) {
 				$out['imageFileUrl'] = $title->getFullURL();
@@ -371,54 +376,8 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 			}
 		}
 
-		// Logo (optional): collapsed behind the "I will upload a logo image
-		// for this software" toggle; local file upload OR pasted URL
-		// (validated via the shared uploadmeta button), uploaded on create
-		// as File:<Name>-logo.<ext>. The license is mandatory when a logo is
-		// provided (enforced in beforeCreate); author + license info are
-		// free text. All field specs come from the shared ImageUploadHelper
-		// (deduplicated with AddPerson's portrait + Special:Upload).
-		$fields['logoInclude'] = \EmbeddableContent\Upload\ImageUploadHelper::includeField(
-			'logo', $this->logoIncludeMsgKey()
-		);
-		$fields['logoMode'] = \EmbeddableContent\Upload\ImageUploadHelper::modeField(
-			'logo',
-			'embeddablecontent-software-logo-mode',
-			'embeddablecontent-software-logo-mode-file',
-			'embeddablecontent-software-logo-mode-url',
-			'embeddablecontent-upload-mode-existing'
-		);
-		$fields['logoFile'] = \EmbeddableContent\Upload\ImageUploadHelper::fileField(
-			'logo', 'embeddablecontent-software-logo-file'
-		);
-		$fields['logoClipboard'] = \EmbeddableContent\Upload\ImageUploadHelper::clipboardField(
-			'logo',
-			$this->msg( 'embeddablecontent-upload-clipboard-hint' )->escaped()
-		);
-		foreach ( \EmbeddableContent\Upload\ImageUploadHelper::imageToolsFields( 'logo' ) as $key => $spec ) {
-			$fields[$key] = $spec;
-		}
-		$fields['logoUrl'] = \EmbeddableContent\Upload\ImageUploadHelper::urlField(
-			'logo', 'embeddablecontent-software-logo-url',
-			$this->msg( 'embeddablecontent-software-logo-license' )->text()
-		);
-		$fields['logoExisting'] = \EmbeddableContent\Upload\ImageUploadHelper::existingField(
-			'logo', 'embeddablecontent-upload-existing'
-		);
-		$fields['logoLicense'] = \EmbeddableContent\Upload\ImageUploadHelper::licenseField(
-			'logo',
-			'embeddablecontent-software-logo-license',
-			'embeddablecontent-software-logo-license-help',
-			$this->config
-		);
-		foreach ( \EmbeddableContent\Upload\ImageUploadHelper::authorFields(
-			'logo', 'embeddablecontent-software-logo-author', $this->config
-		) as $key => $spec ) {
-			$fields[$key] = $spec;
-		}
-		$fields['logoLicenseInfo'] = \EmbeddableContent\Upload\ImageUploadHelper::licenseInfoField(
-			'logo', 'embeddablecontent-software-logo-license-info'
-		);
+		$fields += $this->imageEntriesFieldSpec( $record );
+		$fields += $this->legacyImageFields( 'logo' );
 		return $fields;
 	}
 
@@ -541,6 +500,16 @@ class SpecialAddSoftware extends SpecialAddExternalEntity {
 				$this->config,
 				(string)( $record['license'] ?? '' )
 			);
+		}
+		$imageEntries = \EmbeddableContent\Spec\MediaEntries::normalize( $record['imageEntries'] ?? [] );
+		$useLegacyImage = $imageEntries === [] && $this->hasLegacyImageFields( $record, 'logo' );
+		if ( array_key_exists( 'imageEntries', $record ) && !$useLegacyImage ) {
+			$record['imageEntries'] = $imageEntries;
+			$error = \EmbeddableContent\Spec\MediaEntries::validate( $imageEntries );
+			if ( $error !== null ) {
+				return $this->msg( 'embeddablecontent-image-error', $error )->text();
+			}
+			return null;
 		}
 		return \EmbeddableContent\Upload\ImageUploadHelper::handleUpload(
 			'logo',

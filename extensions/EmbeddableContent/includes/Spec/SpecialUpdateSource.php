@@ -20,10 +20,10 @@ use Wikibase\DataModel\Entity\Item;
  * item's instance-of (the /<classKey> subpage of AddSource has no analogue
  * here: one page, any source class).
  *
- * The access section is relaxed on update: an EXISTING uploaded file is
- * preserved when the mode stays file/download and no new file/URL is
- * provided (the Add* flow requires an upload because it creates the file;
- * the update only re-declares the fact).
+ * The access section is always active (the old "I will update the resource
+ * access instructions" gate was removed): the editor is prefilled from the
+ * item's access statements and a submit replaces them. The legacy
+ * single-access path (relaxedAccessField) is kept for API/older records.
  *
  * @license GPL-2.0-or-later
  */
@@ -46,7 +46,35 @@ class SpecialUpdateSource extends SpecialAddSource {
 				throw new \RuntimeException( $error );
 			}
 		}
-		return $this->sourceFlow()->statementSpecs( $classKey, $flowRecord );
+		$specs = $this->sourceFlow()->statementSpecs( $classKey, $flowRecord );
+		if ( array_key_exists( 'accessEntries', $flowRecord ) ) {
+			// Empty specs mean "remove every statement on this property";
+			// the actual access statements are added by
+			// addExtraUpdateStatements() (they carry qualifiers).
+			foreach ( \EmbeddableContent\Spec\AccessEntries::managedPropertyIds( $this->config ) as $propertyId ) {
+				$specs[$propertyId] = [];
+			}
+		}
+		return $specs;
+	}
+
+	/**
+	 * The multi-access statements are not simple property=>value specs (they
+	 * carry qualifiers), so the trait calls this after the generic managed
+	 * replacement.
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function addExtraUpdateStatements( \Wikibase\DataModel\Entity\Item $item, array $record ): void {
+		if ( !array_key_exists( 'accessEntries', $record ) ) {
+			return;
+		}
+		\EmbeddableContent\Spec\AccessEntries::addStatements(
+			$item,
+			\EmbeddableContent\Spec\AccessEntries::normalize( $record['accessEntries'] ),
+			$this->config,
+			new \Wikibase\DataModel\Services\Statement\GuidGenerator()
+		);
 	}
 
 
@@ -96,6 +124,13 @@ class SpecialUpdateSource extends SpecialAddSource {
 		if ( $parents !== [] ) {
 			\EmbeddableContent\Spec\ChildItemLookup::invalidateParentPages( $parents );
 		}
+		// Multi-access archives: the source page may be renamed below; target
+		// the NEW label's Source: title so the subpages follow the page.
+		$label = trim( (string)( $record['title'] ?? '' ) );
+		$sourceTitle = $label !== ''
+			? \EmbeddableContent\Spec\PageTitle::fromLabel( $label, NS_SOURCE )
+			: null;
+		$this->archiveAccessEntries( $item, $record, $sourceTitle );
 	}
 
 	/**
@@ -176,6 +211,8 @@ class SpecialUpdateSource extends SpecialAddSource {
 			? 'file'
 			: ( $record['accessUrl'] !== '' ? 'url' : ( $record['license'] !== '' ? 'download' : 'na' ) );
 		$record['downloadUrl'] = '';
+		// Multi-access editor prefill: every access statement + qualifier.
+		$record['accessEntries'] = \EmbeddableContent\Spec\AccessEntries::fromItem( $item, $this->config );
 
 		$year = $this->yearForProperty( $item, $this->config->provenancePropertyIds()['date'] ?? null );
 		if ( $year !== null ) {
@@ -360,35 +397,6 @@ class SpecialUpdateSource extends SpecialAddSource {
 	}
 
 	/**
-	 * The access section is OPT-IN on update (users seldom change access
-	 * facts): an "I will update the resource access instructions" checkbox
-	 * reveals the whole section, and an unchecked submit leaves the item's
-	 * access statements untouched (beforeCreate neutralizes the record
-	 * keys). The Add* flow keeps the section always visible — a new source
-	 * must declare its access fact at creation.
-	 *
-	 * @param array<string,mixed> $record
-	 * @return array<string,mixed>
-	 */
-	protected function accessFieldSpec( array $record ): array {
-		$fields = parent::accessFieldSpec( $record );
-		$include = [
-			'accessInclude' => [
-				'type' => 'check',
-				'label-message' => 'embeddablecontent-update-source-access-include',
-				'default' => false,
-			],
-		];
-		$gate = [ '===', 'accessInclude', '' ];
-		foreach ( $fields as $name => $spec ) {
-			$fields[$name]['hide-if'] = isset( $spec['hide-if'] )
-				? [ 'OR', $gate, $spec['hide-if'] ]
-				: $gate;
-		}
-		return $include + $fields;
-	}
-
-	/**
 	 * Update-path validation: the Add* cross-field checks minus the
 	 * create-time access-upload requirement (see relaxedAccessField), plus
 	 * the collapsed-access neutralization (an unchecked accessInclude keeps
@@ -404,11 +412,6 @@ class SpecialUpdateSource extends SpecialAddSource {
 				return $error;
 			}
 		}
-		if ( empty( $record['accessInclude'] ) ) {
-			foreach ( [ 'accessMode', 'accessUrl', 'downloadUrl', 'fileTitle', 'license' ] as $key ) {
-				$record[$key] = '';
-			}
-		}
 		$rawDuration = trim( (string)( $record['duration'] ?? '' ) );
 		if ( $rawDuration !== '' ) {
 			$seconds = Duration::parseSeconds( $rawDuration );
@@ -418,9 +421,25 @@ class SpecialUpdateSource extends SpecialAddSource {
 			$record['durationSeconds'] = $seconds;
 		}
 
-		$error = $this->relaxedAccessField( $record );
-		if ( $error !== null ) {
-			return $error;
+		if ( array_key_exists( 'accessEntries', $record ) ) {
+			$entries = \EmbeddableContent\Spec\AccessEntries::normalize( $record['accessEntries'] );
+			$record['accessEntries'] = $entries;
+			$error = \EmbeddableContent\Spec\AccessEntries::validate( $entries, $this->config );
+			if ( $error !== null ) {
+				return $error;
+			}
+			$error = \EmbeddableContent\Spec\AccessEntries::applyFileMarkers( $entries, $this->getUser() );
+			if ( $error !== null ) {
+				return $error;
+			}
+			foreach ( [ 'accessMode', 'accessUrl', 'downloadUrl', 'fileTitle', 'license', 'internalUse' ] as $legacyKey ) {
+				$record[$legacyKey] = '';
+			}
+		} else {
+			$error = $this->relaxedAccessField( $record );
+			if ( $error !== null ) {
+				return $error;
+			}
 		}
 
 		if ( $this->currentClassKey === 'bookExcerpt' ) {
