@@ -42,6 +42,13 @@ class WikibaseApi:
         self._opener = urllib.request.build_opener(
             urllib.request.HTTPCookieProcessor( http.cookiejar.CookieJar() )
         )
+        # A descriptive User-Agent is required by Wikimedia/MediaWiki and
+        # Cloudflare rejects urllib's default "Python-urllib/3.x" with 403
+        # (error 1010) — the seed/backfill tools run against the public host.
+        self._opener.addheaders = [(
+            "User-Agent",
+            "ronzz-wikibase-seed/1.0 (https://wikibase.ronzz.org; ron@ronzz.org)",
+        )]
 
     # ------------------------------------------------------------------ auth
 

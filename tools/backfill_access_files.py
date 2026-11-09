@@ -120,20 +120,70 @@ def first_value(claims: dict, prop_id: str) -> str:
 
 
 def sitelinked_item(api: WikibaseApi, file_title: str) -> str | None:
+    """The item sitelinked to the File: page via the Wikibase sitelink store.
+
+    Uses wbgetentities (not page_props): a fresh item's page_props
+    `wikibase_item` fills in only after a job run, so a just-created item
+    would be missed and the backfill would try to recreate it (duplicate
+    label/description). The sitelink store is updated synchronously.
+    """
     query = urllib.parse.urlencode({
-        "action": "query",
-        "prop": "pageprops",
+        "action": "wbgetentities",
+        "sites": "wikibase",
         "titles": file_title,
-        "ppprop": "wikibase_item",
+        "props": "info",
         "format": "json",
     })
     data = api._get(query)  # noqa: SLF001 (same package tooling)
+    for entity_id, entity in data.get("entities", {}).items():
+        if entity_id.startswith("Q") and "missing" not in entity:
+            return entity_id
+    return None
+
+
+def ensure_sitelink(api: WikibaseApi, file_title: str, item_id: str) -> None:
+    """Idempotently point the item's wikibase sitelink at the File: page."""
+    api._post(  # noqa: SLF001
+        "action=wbeditentity",
+        token=api.require_csrf(),
+        id=item_id,
+        data=json.dumps({
+            "sitelinks": {"wikibase": {"site": "wikibase", "title": file_title}},
+        }, ensure_ascii=False),
+        summary="Backfill: link the access-file page",
+    )
+
+
+def ensure_file_page_facts(api: WikibaseApi, file_title: str) -> None:
+    """Append {{#image-facts:}} to a File page that predates the item model."""
+    query = urllib.parse.urlencode({
+        "action": "query",
+        "prop": "revisions",
+        "rvprop": "content",
+        "rvslots": "main",
+        "titles": file_title,
+        "format": "json",
+    })
+    data = api._get(query)  # noqa: SLF001
     pages = data.get("query", {}).get("pages", {})
     for page in pages.values():
-        item = page.get("pageprops", {}).get("wikibase_item")
-        if item:
-            return item
-    return None
+        if "missing" in page:
+            return
+        revisions = page.get("revisions", [])
+        if not revisions:
+            return
+        text = (
+            revisions[0].get("slots", {}).get("main", {}).get("*")
+            or revisions[0].get("*", "")
+        )
+        if "{{#image-facts:" in text:
+            return
+        api.edit_page(
+            file_title,
+            text.rstrip() + "\n\n{{#image-facts:}}\n",
+            "Backfill: render the access-file facts",
+        )
+        return
 
 
 def create_file_item(api: WikibaseApi, file_title: str, summary: str) -> str:
@@ -154,7 +204,15 @@ def create_file_item(api: WikibaseApi, file_title: str, summary: str) -> str:
     )
     entity_id = result.get("entity", {}).get("id")
     if not entity_id:
-        raise WikibaseApiError(f"could not create the access-file item for {file_title}")
+        # A concurrent/previous run may have created the item already; the
+        # sitelink store is the authoritative identity.
+        existing = sitelinked_item(api, file_title)
+        if existing:
+            return existing
+        raise WikibaseApiError(
+            f"could not create the access-file item for {file_title}: "
+            f"{result.get('error', result)}"
+        )
     return entity_id
 
 
@@ -203,12 +261,67 @@ SELECT ?item ?file ?license WHERE {{
             continue
         license_id = row.get("license", {}).get("value", "").rsplit("/", 1)[-1]
         claims = api.get_claims(source)
+        # The query matches every item carrying a `file` statement — which
+        # includes the access-file items themselves. They are not sources:
+        # skip them, and clean up a self-link created by an earlier pass.
+        if first_value(claims, props.get("instanceOf", "")) == class_id:
+            if claims.get(props["hasAccessFile"]):
+                if args.dry_run:
+                    print(f"  [dry-run] {source}: remove the self access-file link")
+                else:
+                    entity = api.get_entity(source)
+                    remaining = {
+                        k: v for k, v in claims.items()
+                        if k != props["hasAccessFile"]
+                    }
+                    # clear=1 replaces the entity with exactly this data, so
+                    # the statement is actually removed (a plain merge keeps
+                    # the existing claim list).
+                    api._post(  # noqa: SLF001
+                        "action=wbeditentity",
+                        token=api.require_csrf(),
+                        id=source,
+                        clear="1",
+                        data=json.dumps({
+                            "labels": entity.get("labels", {}),
+                            "descriptions": entity.get("descriptions", {}),
+                            "aliases": entity.get("aliases", {}),
+                            "sitelinks": entity.get("sitelinks", {}),
+                            "claims": remaining,
+                        }, ensure_ascii=False),
+                        summary="Backfill: remove the self access-file link",
+                    )
+                    print(f"  {source}: removed the self access-file link")
+            if not args.dry_run:
+                ensure_sitelink(api, file_title, source)
+                ensure_file_page_facts(api, file_title)
+            continue
+        if not license_id:
+            # Legacy single-access items store the license as a MAIN statement
+            # on the source, not as a qualifier on `file`.
+            license_id = first_value(claims, props.get("license", ""))
         existing = claims.get(props["hasAccessFile"], [])
-        already = any(
+        existing_id = next((
             c.get("mainsnak", {}).get("datavalue", {}).get("value", {}).get("id")
             for c in existing
-        )
-        if already:
+            if c.get("mainsnak", {}).get("datavalue", {}).get("value", {}).get("id")
+        ), "")
+        if existing_id and license_id:
+            # Repair a previously-created file item that lacks the license
+            # (the first backfill pass could miss the source-level license).
+            if args.dry_run:
+                print(f"  [dry-run] {source}: repair license on {existing_id}")
+            else:
+                api.add_claims(existing_id, {
+                    props["license"]: [claim(props["license"], item_value(license_id))],
+                }, "Backfill: access-file license")
+                ensure_sitelink(api, file_title, existing_id)
+                ensure_file_page_facts(api, file_title)
+            continue
+        if existing_id:
+            if not args.dry_run:
+                ensure_sitelink(api, file_title, existing_id)
+                ensure_file_page_facts(api, file_title)
             continue
         file_item = sitelinked_item(api, file_title)
         if file_item is None:
@@ -222,6 +335,8 @@ SELECT ?item ?file ?license WHERE {{
             **({props["license"]: [claim(props["license"], item_value(license_id))]}
                if license_id else {}),
         }, "Backfill: access-file facts")
+        ensure_sitelink(api, file_title, file_item)
+        ensure_file_page_facts(api, file_title)
         status = "public"
         language = first_value(claims, props.get("language", "")) or "en"
         api.add_claims(source, {
