@@ -591,6 +591,68 @@ async function main() {
 			console.log('[ok] Special:AddSource picker is alphabetical');
 		}
 
+		// --- Special:AddSource multi-access editor ----------------------
+		// Regression: the editor used to mount a hand-styled raw <button>
+		// and build its type radios with `items` (a RadioSelectInputWidget
+		// option key OOUI ignores), so no radios rendered, the value was
+		// empty, and "Add access" posted mode=url without a url
+		// (apierror-missingparam-url).
+		try {
+			await page.goto(`${BASE_URL}/wiki/Special:AddSource/book/manual`,
+				{ waitUntil: 'domcontentloaded', timeout: 60000 });
+			const mount = page.locator('.wb-access-editor .wb-access-add-mount');
+			await mount.locator('.oo-ui-buttonElement').waitFor({ timeout: 15000 });
+			const addButton = mount.locator('button.oo-ui-buttonElement-button');
+			if (await addButton.count() !== 1) {
+				failures.push('Add access is not rendered as an OOUI button');
+			} else {
+				console.log('[ok] Add access is an OOUI button');
+			}
+			let uploadRequests = 0;
+			page.on('request', (req) => {
+				if (/[?&]action=accessupload\b/.test(req.url())) {
+					uploadRequests += 1;
+				}
+			});
+			await addButton.click();
+			const dialog = page.locator('.wb-access-dialog');
+			await dialog.waitFor({ timeout: 15000 });
+			const typeGroup = dialog.locator('.oo-ui-radioSelectInputWidget').first();
+			const typeRadioCount = await typeGroup.locator('input[type="radio"]').count();
+			if (typeRadioCount !== 2) {
+				failures.push(`access dialog rendered ${typeRadioCount} type radios, expected 2`);
+			} else {
+				console.log('[ok] access dialog renders real type radio inputs');
+			}
+			// Default type = URL: adding one produces a card and no upload.
+			await dialog.locator('.wb-access-url-section input.oo-ui-inputWidget-input')
+				.fill('https://example.org/access-editor-ux');
+			await dialog.locator('.wb-access-dialog-actions .oo-ui-buttonElement').first().click();
+			await page.locator('.wb-access-card-label', { hasText: 'url1:' }).waitFor({ timeout: 10000 });
+			console.log('[ok] access dialog adds a URL entry card');
+
+			// Reopen, choose File without a file: the client must show the
+			// inline error, never call action=accessupload.
+			await addButton.click();
+			const dialog2 = page.locator('.wb-access-dialog');
+			await dialog2.waitFor({ timeout: 15000 });
+			await dialog2.locator('.oo-ui-radioSelectInputWidget').first()
+				.locator('.oo-ui-radioOptionWidget').nth(1).click();
+			await dialog2.locator('.wb-access-dialog-actions .oo-ui-buttonElement').first().click();
+			const statusText = (await dialog2.locator('.wb-access-status').innerText()).trim();
+			if (!/Select a file to upload/i.test(statusText)) {
+				failures.push(`access dialog missing the no-file error: ${JSON.stringify(statusText)}`);
+			} else {
+				console.log('[ok] access dialog blocks a file entry without a file');
+			}
+			if (uploadRequests !== 0) {
+				failures.push(`access dialog called accessupload ${uploadRequests} time(s) before a file was chosen`);
+			}
+			await dialog2.locator('.wb-access-dialog-actions .oo-ui-buttonElement').last().click();
+		} catch (e) {
+			failures.push('AddSource multi-access editor check failed: ' + e.message);
+		}
+
 		// --- Special:AddCollective class select -------------------------
 		await page.goto(`${BASE_URL}/wiki/Special:AddCollective/manual`, { waitUntil: 'domcontentloaded', timeout: 60000 });
 		// OOUI DropdownInputWidget = a VISUALLY HIDDEN native <select> (the

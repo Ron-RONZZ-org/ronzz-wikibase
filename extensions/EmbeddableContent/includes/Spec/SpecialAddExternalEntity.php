@@ -2574,9 +2574,9 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		$this->getOutput()->addJsConfigVars( 'wbAccessLicenseOptions', $this->config->licenseItems() );
 		$html = '<div class="wb-media-editor">'
 			. '<div class="wb-access-list"></div>'
-			. '<button type="button" class="wb-access-add">'
-			. $this->msg( 'embeddablecontent-media-add' )->escaped()
-			. '</button>'
+			// The editor JS mounts an OOUI ButtonWidget here (the form's own
+			// button primitive; a raw <button> did not match the form).
+			. '<span class="wb-access-add-mount"></span>'
 			. '</div>';
 		return [
 			'imageEntries' => [

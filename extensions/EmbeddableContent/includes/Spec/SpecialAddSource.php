@@ -1978,9 +1978,9 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		$this->getOutput()->addModules( 'ext.embeddableContent.accesseditor' );
 		$html = '<div class="wb-access-editor" data-field="accessEntries">'
 			. '<div class="wb-access-list"></div>'
-			. '<button type="button" class="wb-access-add">'
-			. $this->msg( 'embeddablecontent-access-add' )->escaped()
-			. '</button>'
+			// The editor JS mounts an OOUI ButtonWidget here (the form's own
+			// button primitive; a raw <button> did not match the form).
+			. '<span class="wb-access-add-mount"></span>'
 			. '</div>';
 		return [
 			'accessEntries' => [
