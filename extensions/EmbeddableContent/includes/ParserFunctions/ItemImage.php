@@ -135,7 +135,13 @@ final class ItemImage {
 				continue;
 			}
 			$thumb = $file->createThumb( self::THUMB_WIDTH );
-			$src = $thumb !== false && $thumb !== null ? $thumb->getUrl() : $file->getFullUrl();
+			if ( is_string( $thumb ) && $thumb !== '' ) {
+				$src = $thumb;
+			} elseif ( is_object( $thumb ) && method_exists( $thumb, 'getUrl' ) ) {
+				$src = (string)$thumb->getUrl();
+			} else {
+				$src = $file->getFullUrl();
+			}
 			$label = htmlspecialchars( $title->getText() );
 			$slides[] = '<figure class="wb-image-gallery-slide">'
 				. '<a href="' . htmlspecialchars( $title->getFullURL() ) . '"'
