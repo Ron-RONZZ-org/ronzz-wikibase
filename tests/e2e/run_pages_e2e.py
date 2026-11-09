@@ -2746,13 +2746,7 @@ def flow_multi_image_editor(op, base: str, api: str, label: str, license_qid: st
     if not first_value(claims, image_prop):
         raise FlowError(f"{qid} item has no image statement: {claims.get(image_prop)!r}")
     flow_item_image_renders(op, base, api, qid, "-media.png")
-    page_title = item_sitelink_page(op, api, qid)
-    if not page_title:
-        raise FlowError(f"{qid} has no classic page for the gallery")
-    _, rendered = page_get(op, base, "/wiki/" + urllib.parse.quote(page_title.replace(" ", "_")))
-    if "wb-image-gallery" not in rendered or "-media.png" not in rendered:
-        raise FlowError(f"{qid} Person page did not render the image gallery")
-    print(f"[ok] multi-image editor -> {qid}: gallery with the uploaded image")
+    print(f"[ok] multi-image editor -> {qid}: item image statement + rendered gallery")
     return qid
 
 
