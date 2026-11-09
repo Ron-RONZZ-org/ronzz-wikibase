@@ -55,22 +55,12 @@ final class ItemImage {
 				'Item image failed: {error} @ {where}',
 				[ 'error' => $e->getMessage(), 'where' => basename( $e->getFile() ) . ':' . $e->getLine() ]
 			);
-			return [
-				'text' => '<span class="wb-item-image-debug">image-error: '
-					. htmlspecialchars( $e->getMessage() ) . '</span>',
-				'noparse' => false,
-				'isHTML' => true,
-			];
+			return [ 'text' => '', 'noparse' => false, 'isHTML' => true ];
 		}
 	}
 
 	private static function render( EmbeddableContentConfig $config, Parser $parser, array $args ): array {
-		$empty = [
-			'text' => '<span class="wb-item-image-debug">image-empty-args: '
-				. htmlspecialchars( json_encode( $args ) ) . '</span>',
-			'noparse' => false,
-			'isHTML' => true,
-		];
+		$empty = [ 'text' => '', 'noparse' => false, 'isHTML' => true ];
 		$itemId = self::explicitItemId( $args );
 		if ( $itemId === null ) {
 			$title = $parser->getTitle();
@@ -91,31 +81,7 @@ final class ItemImage {
 
 		$titles = self::fileTitles( $entity, $config );
 		if ( $titles === [] ) {
-			$debug = [];
-			foreach ( array_unique( array_filter( [
-				$config->personPropertyIds()['image'] ?? null,
-				$config->collectivePropertyIds()['image'] ?? null,
-				$config->fossPropertyIds()['image'] ?? null,
-				$config->imagePropertyIds()['image'] ?? null,
-			] ) ) as $pid ) {
-				try {
-					$id = new NumericPropertyId( $pid );
-				} catch ( \Throwable $e ) {
-					continue;
-				}
-				foreach ( $entity->getStatements()->getByPropertyId( $id ) as $stmt ) {
-					$snak = $stmt->getMainSnak();
-					if ( $snak instanceof PropertyValueSnak && $snak->getDataValue() instanceof StringValue ) {
-						$debug[] = $pid . '=' . $snak->getDataValue()->getValue();
-					}
-				}
-			}
-			return [
-				'text' => '<span class="wb-item-image-debug">image-empty: '
-					. htmlspecialchars( implode( ' | ', $debug ) ) . '</span>',
-				'noparse' => false,
-				'isHTML' => true,
-			];
+			return $empty;
 		}
 		$parser->getOutput()->addModules( [ 'ext.embeddableContent.imagegallery' ] );
 		return [
@@ -151,9 +117,7 @@ final class ItemImage {
 				. '</a></figure>';
 		}
 		if ( $slides === [] ) {
-			$names = array_map( static fn ( Title $t ): string => $t->getPrefixedText(), $titles );
-			return '<span class="wb-item-image-debug">image-nofile: '
-				. htmlspecialchars( implode( ' | ', $names ) ) . '</span>';
+			return '';
 		}
 		$multiple = count( $slides ) > 1;
 		$html = '<div class="wb-image-gallery" data-count="' . count( $slides ) . '">'

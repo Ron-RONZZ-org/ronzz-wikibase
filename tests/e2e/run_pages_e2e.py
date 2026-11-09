@@ -2731,7 +2731,7 @@ def flow_multi_image_editor(op, base: str, api: str, label: str, license_qid: st
         upload = json.loads(api_body)["imageupload"]
     except (ValueError, KeyError) as exc:
         raise FlowError(f"action=imageupload failed: {api_body[:500]!r}") from exc
-    _, body = page_get(op, base, "/wiki/Special:AddPerson/manual")
+    page, body = page_get(op, base, "/wiki/Special:AddPerson/manual")
     token = edit_token(body)
     page, body = page_post(op, page, {
         "wpgivenName": given,
