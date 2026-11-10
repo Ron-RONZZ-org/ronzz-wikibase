@@ -1214,20 +1214,46 @@ def flow_update_source_classic_return(op, base: str, api: str, qid: str,
             raise FlowError(
                 f"UpdateSource/{qid} rendered instance-of {instance_of_prop} "
                 f"as an additional statement row")
+    parent = input_value(body, "wpparent")
+    reference_code = input_value(body, "wpreferenceCode")
+    content = textarea_value(body, "wpcontent")
+    description = input_value(body, "wpdescription")
+    class_item = input_value(body, "wpclass")
+
+    # A FAILED submit re-renders the form from the POST (which carries no
+    # query string). The hidden wpfrompage marker must survive so the next
+    # corrected submit still returns to the classic page, not to Item:.
     token = edit_token(body)
     url, body = page_post(op, url, {
-        "wpparent": input_value(body, "wpparent"),
-        "wpreferenceCode": input_value(body, "wpreferenceCode"),
-        "wpcontent": textarea_value(body, "wpcontent"),
-        "wpdescription": input_value(body, "wpdescription"),
+        "wpparent": "Q999999999",
+        "wpreferenceCode": reference_code,
+        "wpcontent": content,
+        "wpdescription": description,
         "wpfrompage": "1",
-        "wpclass": input_value(body, "wpclass"),
+        "wpclass": class_item,
+        "wpEditToken": token, "wpSubmit": "1",
+    })
+    if "/wiki/Source:" in urllib.parse.unquote(url):
+        raise FlowError(f"UpdateSource/{qid} accepted an invalid parent")
+    if 'name="wpfrompage"' not in body and "name='wpfrompage'" not in body:
+        raise FlowError(
+            f"UpdateSource/{qid} lost the classic-return marker after a failed submit")
+
+    # Correct the field and resubmit from the re-rendered form.
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "wpparent": parent,
+        "wpreferenceCode": reference_code,
+        "wpcontent": content,
+        "wpdescription": description,
+        "wpfrompage": "1",
+        "wpclass": class_item,
         "wpEditToken": token, "wpSubmit": "1",
     })
     if "/wiki/Source:" not in urllib.parse.unquote(url):
         raise FlowError(
-            f"UpdateSource/{qid} (frompage) did not return to the classic page: "
-            f"{url} {find_error(body)}")
+            f"UpdateSource/{qid} (frompage) did not return to the classic page "
+            f"after a corrected submit: {url} {find_error(body)}")
 
 
 def flow_update_source_addmore_return(op, base: str, api: str, qid: str,
