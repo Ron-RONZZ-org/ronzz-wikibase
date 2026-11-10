@@ -26,6 +26,7 @@
  * License: GPL-2.0-or-later
  */
 
+import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 function arg(name, def) {
@@ -36,6 +37,10 @@ function arg(name, def) {
 const BASE_URL = arg('--base-url', 'https://wikibase.ronzz.org');
 const HEADED = process.argv.includes('--headed');
 const CHROME_PATH = process.env.CHROME_PATH || undefined;
+// Special:Upload's form (and therefore its author panel) is login-gated;
+// the upload section is skipped without credentials.
+const USER = arg('--user', '');
+const PASSWORD_FILE = arg('--password-file', '');
 
 const failures = [];
 const pageErrors = [];
@@ -53,6 +58,29 @@ function ignoredConsole(msg) {
 
 function randomToken() {
 	return 'Qzx' + Math.random().toString(36).slice(2, 10);
+}
+
+async function login(page) {
+	if (!USER || !PASSWORD_FILE) {
+		return false;
+	}
+	const password = readFileSync(PASSWORD_FILE, 'utf8').trim();
+	if (!password) {
+		return false;
+	}
+	await page.goto(`${BASE_URL}/wiki/Main_Page`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+	const ok = await page.evaluate(async ({ user, pass }) => {
+		try {
+			await new mw.Api().login(user, pass);
+			return mw.user.isAnon() === false;
+		} catch (e) {
+			return false;
+		}
+	}, { user: USER, pass: password });
+	if (!ok) {
+		failures.push(`login failed for ${USER}`);
+	}
+	return ok;
 }
 
 async function waitForPanel(page, buttonId) {
@@ -107,6 +135,48 @@ async function confirmFirstCandidate(page) {
 	await page.waitForTimeout(500);
 }
 
+/**
+ * Special:Upload — the author panel exists in the form but is visible only
+ * while the "Specify the author as a semantic entity" checkbox is ticked.
+ */
+async function checkUploadPanel( page ) {
+	await page.goto( `${BASE_URL}/wiki/Special:Upload`, {
+		waitUntil: 'networkidle',
+		timeout: 60000
+	} );
+	const checkbox = page.locator( '#wpUploadAuthorIsEntity' );
+	if ( ( await checkbox.count() ) === 0 ) {
+		failures.push( 'Special:Upload has no semantic-author checkbox' );
+		return;
+	}
+	const panelButton = page.locator( '#wb-UploadAuthor-search' );
+	if ( ( await panelButton.count() ) === 0 ) {
+		failures.push( 'Special:Upload does not render the author-name panel' );
+		return;
+	}
+	if ( await panelButton.isVisible() ) {
+		failures.push( 'the upload author panel is visible before the semantic-entity checkbox is ticked' );
+	} else {
+		console.log( '[ok] upload author panel hidden in plain-text author mode' );
+	}
+	await checkbox.check();
+	await page.waitForTimeout( 300 );
+	if ( !( await panelButton.isVisible() ) ) {
+		failures.push( 'the upload author panel did not appear when the semantic-entity checkbox was ticked' );
+	} else if ( !( await page.locator( 'textarea[name="wpUploadAuthorNames"]' ).isVisible() ) ) {
+		failures.push( 'the upload author-name field is not visible in semantic-entity mode' );
+	} else {
+		console.log( '[ok] upload author panel appears in semantic-entity mode' );
+	}
+	await checkbox.uncheck();
+	await page.waitForTimeout( 300 );
+	if ( await panelButton.isVisible() ) {
+		failures.push( 'the upload author panel did not hide when the checkbox was unticked' );
+	} else {
+		console.log( '[ok] upload author panel hides again in plain-text mode' );
+	}
+}
+
 async function main() {
 	const browser = await chromium.launch({
 		headless: !HEADED,
@@ -121,8 +191,10 @@ async function main() {
 	});
 
 	const samples = ['Ada Lovelace', 'Albert Einstein', 'Kainan Jarrette', 'Diana Daly'];
+	let loggedIn = false;
 
 	try {
+		loggedIn = await login(page);
 		// -------------------------------------------------- AddQuotation panel
 		await page.goto(`${BASE_URL}/wiki/Special:AddQuotation`, {
 			waitUntil: 'networkidle',
@@ -155,40 +227,10 @@ async function main() {
 		}
 
 		// ------------------------------------------------------ Upload panel
-		await page.goto(`${BASE_URL}/wiki/Special:Upload`, {
-			waitUntil: 'networkidle',
-			timeout: 60000
-		});
-		const checkbox = page.locator('#wpUploadAuthorIsEntity');
-		if ((await checkbox.count()) === 0) {
-			failures.push('Special:Upload has no semantic-author checkbox');
+		if ( loggedIn ) {
+			await checkUploadPanel( page );
 		} else {
-			const panelButton = page.locator('#wb-UploadAuthor-search');
-			if ((await panelButton.count()) === 0) {
-				failures.push('Special:Upload does not render the author-name panel');
-			} else {
-				if (await panelButton.isVisible()) {
-					failures.push('the upload author panel is visible before the semantic-entity checkbox is ticked');
-				} else {
-					console.log('[ok] upload author panel hidden in plain-text author mode');
-				}
-				await checkbox.check();
-				await page.waitForTimeout(300);
-				if (!(await panelButton.isVisible())) {
-					failures.push('the upload author panel did not appear when the semantic-entity checkbox was ticked');
-				} else if (!(await page.locator('textarea[name="wpUploadAuthorNames"]').isVisible())) {
-					failures.push('the upload author-name field is not visible in semantic-entity mode');
-				} else {
-					console.log('[ok] upload author panel appears in semantic-entity mode');
-				}
-				await checkbox.uncheck();
-				await page.waitForTimeout(300);
-				if (await panelButton.isVisible()) {
-					failures.push('the upload author panel did not hide when the checkbox was unticked');
-				} else {
-					console.log('[ok] upload author panel hides again in plain-text mode');
-				}
-			}
+			console.log( '[skip] Special:Upload is login-gated — upload panel check skipped (pass --user/--password-file)' );
 		}
 
 		// A nonsense name must not throw (the panel's error path).

@@ -348,7 +348,7 @@ abstract class SpecialAddContentItem extends SpecialPage {
 				'namesHelp' => 'embeddablecontent-source-field-authornames-help',
 				'search' => 'embeddablecontent-source-field-authorsearch',
 			],
-			$this
+			$this->getContext()
 		);
 		$fields += [
 			'attributedTo' => $entityCombobox(

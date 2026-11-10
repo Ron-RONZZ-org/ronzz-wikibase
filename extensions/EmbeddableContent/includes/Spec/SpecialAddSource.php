@@ -1556,7 +1556,7 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				'namesHelp' => 'embeddablecontent-source-field-authornames-help',
 				'search' => 'embeddablecontent-source-field-authorsearch',
 			],
-			$this,
+			$this->getContext(),
 			$record
 		);
 		$fields += $this->entityComboboxField(
