@@ -2700,7 +2700,9 @@ def flow_api_access_file(op, base: str, api: str, label: str) -> tuple[str, str,
         "accessFile": json.dumps(access_file), "token": token,
     }, post=True)
     again = (r3.get("source") or {}).get("accessFile") or {}
-    if not again.get("alreadyLinked"):
+    # MediaWiki flag convention: presence with '1' means true (a bare PHP
+    # boolean serialises to '').
+    if again.get("alreadyLinked") != "1":
         raise FlowError(f"the second accessFile attach was not a no-op: {json.dumps(r3)[:800]}")
     claims_after, _ = entity_claims(op, api, qid)
     if len(claims_after.get(has_file_prop, [])) != len(has_file_claims):

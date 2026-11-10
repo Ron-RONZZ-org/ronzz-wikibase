@@ -473,8 +473,13 @@ class ApiAddSource extends ApiBase {
 	 * never touched — unlike the browser form's replace-list `accessEntries`
 	 * field, this is add-only and a no-op when the file is already linked.
 	 *
+	 * The result uses the API's flag convention: `public` and `alreadyLinked`
+	 * are present (value `'1'`) only when true; MediaWiki serialises a bare
+	 * boolean as an empty string, which clients cannot distinguish from
+	 * false.
+	 *
 	 * @param array<string,string> $entry normalized by AccessFileRequest
-	 * @return array{error?:string,fileId?:string,fileTitle?:string,public?:bool,alreadyLinked?:bool}
+	 * @return array{error?:string,fileId?:string,fileTitle?:string,public?:string,alreadyLinked?:string}
 	 */
 	private function attachAccessFile(
 		Item $item,
@@ -531,12 +536,17 @@ class ApiAddSource extends ApiBase {
 				StatementGuidAssigner::ensureGuids( $item, new GuidGenerator() );
 			}
 		}
-		return [
+		$result = [
 			'fileId' => $fileId,
 			'fileTitle' => (string)( $entry['fileTitle'] ?? '' ),
-			'public' => !empty( $entry['public'] ),
-			'alreadyLinked' => $alreadyLinked,
 		];
+		if ( !empty( $entry['public'] ) ) {
+			$result['public'] = '1';
+		}
+		if ( $alreadyLinked ) {
+			$result['alreadyLinked'] = '1';
+		}
+		return $result;
 	}
 
 	/** The item's English label, else its first label, else ''. */
