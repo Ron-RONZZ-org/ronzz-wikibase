@@ -78,17 +78,22 @@ final class ChildItemsOf {
 	}
 
 	/**
-	 * The plural child-class row label, localized: the parser's function
+	 * The plural child-class row label, localized: the parser's target
 	 * language first, then the configured fallbacks (English last). Missing
 	 * message → the raw child class key (a config without the label degrades
 	 * to the key text, never an error).
+	 *
+	 * `Parser::getFunctionLang()` is NOT usable here: it was deprecated in
+	 * MW 1.40 and removed in MW 1.46 (the production page fatal). Its
+	 * documented replacement is `getTargetLanguage()`, which is what every
+	 * other parser function in this extension already uses.
 	 */
 	private static function rowLabel( Parser $parser, string $childKey ): string {
 		$messageKey = 'embeddablecontent-childitems-label-' . $childKey;
 		$langs = [];
-		$functionLang = $parser->getFunctionLang();
-		if ( $functionLang !== null ) {
-			$langs[] = $functionLang->getCode();
+		$language = $parser->getTargetLanguage();
+		if ( $language !== null ) {
+			$langs[] = $language->getCode();
 		}
 		$langs = array_values( array_unique( array_merge( $langs, [ 'en' ] ) ) );
 		foreach ( $langs as $lang ) {
