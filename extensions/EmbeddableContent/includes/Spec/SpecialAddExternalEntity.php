@@ -74,6 +74,14 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 */
 	private ?string $pageTitleWarning = null;
 
+	/**
+	 * The token of the last provider search run in this request (set by
+	 * onSearchSubmit). The auto-search path uses it to render a
+	 * token-prefilled "create the item manually instead" link on zero hits,
+	 * so the manual form still autofills from the searched name.
+	 */
+	private ?string $lastSearchToken = null;
+
 	public function __construct(
 		string $pageName,
 		EmbeddableContentConfig $config,
@@ -391,15 +399,62 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 
 	protected function executeSearch(): void {
 		$this->getOutput()->setPageTitle( $this->searchStepTitleMessage()->text() );
-		$form = HTMLForm::factory( 'ooui', $this->buildSearchFields(), $this->getContext() );
+		$fields = $this->applyRequestPrefill( $this->buildSearchFields() );
+		// SEARCH-FIRST (the author/parent create dialogs): a prefilled name
+		// on a dialog-marked page runs the provider search immediately, so
+		// the external-authority results are the first thing the contributor
+		// sees. Zero hits / provider errors fall through to the normal form
+		// below, which always carries the "Create the item manually instead"
+		// link (the link and the zero-hit page also carry the search token,
+		// so the manual form stays prefilled).
+		if ( $this->shouldAutoSearch() ) {
+			$data = [];
+			foreach ( $fields as $name => $spec ) {
+				$value = trim( (string)$this->getRequest()->getVal( $name, '' ) );
+				if ( $value !== '' ) {
+					$data[$name] = $value;
+				}
+			}
+			if ( $data !== [] ) {
+				$result = $this->runSearch( $data, false );
+				if ( $result === true ) {
+					return;
+				}
+				if ( is_string( $result ) && $result !== '' ) {
+					$this->getOutput()->addHTML(
+						\MediaWiki\Html\Html::noticeBox(
+							htmlspecialchars( $result ),
+							'embeddablecontent-warning'
+						)
+					);
+				}
+			}
+		}
+		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
 		$form->setTitle( $this->stepTitle() )
 			->setSubmitTextMsg( 'embeddablecontent-extsearch-submit' )
 			->setSubmitCallback( [ $this, 'onSearchSubmit' ] )
 			->setSubmitID( 'wb-ext-add-search' )
 			->setWrapperLegendMsg( $this->searchStepLegendMessage() );
 		$this->showForm( $form );
-		// Manual fallback (issue #12): always offered, also shown on zero hits.
-		$this->getOutput()->addHTML( $this->manualFallbackHtml() );
+		// Manual fallback (issue #12): always offered, also shown on zero
+		// hits. The auto-search path carries the token so the manual form
+		// stays prefilled from the searched name.
+		$this->getOutput()->addHTML( $this->manualFallbackHtml(
+			$this->lastSearchToken !== null ? [ 'token' => $this->lastSearchToken ] : []
+		) );
+	}
+
+	/**
+	 * Whether the search step should run its provider search on page load.
+	 * The create dialogs pass `?autofetch=1` (and set the short-lived
+	 * parent-dialog marker), exactly like the website URL-entry autofetch.
+	 * A plain deep link with `?name=…` only PREFILLS the form — it never
+	 * triggers an external fetch.
+	 */
+	protected function shouldAutoSearch(): bool {
+		return $this->getRequest()->getVal( 'autofetch' ) === '1'
+			&& $this->isParentDialog();
 	}
 
 	/**
@@ -438,6 +493,21 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 * @return bool
 	 */
 	public function onSearchSubmit( array $data ) {
+		// HTMLForm invokes a submit callback as ( $data, $form ); keep this
+		// wrapper single-argument and run the shared body below (the
+		// auto-search path calls runSearch() directly).
+		return $this->runSearch( $data, true );
+	}
+
+	/**
+	 * The search-submit body. `$addManualFallback = false` is the
+	 * auto-search path (executeSearch renders the form + the token-prefilled
+	 * manual link itself).
+	 *
+	 * @param array<string,mixed> $data
+	 * @return bool|string
+	 */
+	protected function runSearch( array $data, bool $addManualFallback ) {
 		$loginError = $this->loginRequiredError();
 		if ( $loginError !== null ) {
 			return $loginError;
@@ -459,6 +529,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		// typed (issue #35) — the zero-hit page renders a manual link with
 		// the token, the selection page's link carries it too.
 		$token = \MWCryptRand::generateHex( 16 );
+		$this->lastSearchToken = $token;
 		// Store plain arrays (records are value objects; the session must be
 		// serializable and the selection step must not depend on classes).
 		$records = array_map(
@@ -469,7 +540,9 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		$this->setTokenValue( $token, ':search', $data );
 
 		if ( $result->records === [] ) {
-			$this->getOutput()->addHTML( $this->manualFallbackHtml( [ 'token' => $token ] ) );
+			if ( $addManualFallback ) {
+				$this->getOutput()->addHTML( $this->manualFallbackHtml( [ 'token' => $token ] ) );
+			}
 			return $this->msg( 'embeddablecontent-extsearch-nohits' )->text();
 		}
 
@@ -2441,76 +2514,43 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 * review-step pre-flight (no Person writes); `true` is the actual create
 	 * (called after the duplicate guard).
 	 *
+	 * The parse/validate/create logic lives in Flow\PersonPanel (shared with
+	 * the content Add* author panel); this method owns the AddSource/
+	 * AddCollective record shape and the `collectiveAuthorIds` side effect.
+	 *
 	 * @param array<string,mixed> $record
 	 */
 	protected function applyPersonPanel( string $prefix, array &$record, bool $commit = false ): ?string {
-		$namesInput = trim( (string)( $record[$prefix . 'Names'] ?? '' ) );
-		$choicesJson = trim( (string)( $record[$prefix . 'Choices'] ?? '' ) );
-		if ( $namesInput === '' && $choicesJson === '' ) {
-			return null;
+		$result = $this->personPanel()->apply(
+			$prefix,
+			$record,
+			$this->getUser(),
+			$this->msg( 'embeddablecontent-person-create-summary' )->inContentLanguage()->text(),
+			$prefix === 'member' ? [ 'person' ] : [ 'person', 'collective' ],
+			$commit
+		);
+		if ( $result['error'] !== null ) {
+			return $result['error'];
 		}
-		// A harvested names prefill with no decisions: the contributor
-		// submitted without confirming them — create the item without those
-		// authors instead of showing a blocking form error. Any input or a
-		// Search click clears the marker (resources/authorsearch.js).
-		if ( $choicesJson === '' && !empty( $record[$prefix . 'NamesHarvested'] ) ) {
+		if ( $result['errorKey'] !== null ) {
+			return $this->msg( $result['errorKey'] )->text();
+		}
+		foreach ( $result['warnings'] as $warning ) {
+			wfDebugLog( 'EmbeddableContent', $prefix . '-panel: ' . $warning );
+		}
+		if ( $result['harvested'] ) {
 			$record[$prefix . 'Names'] = '';
 			return null;
 		}
-		if ( $namesInput === '' ) {
-			return $this->msg( 'embeddablecontent-personpanel-error-names-missing' )->text();
-		}
-		$parsed = AuthorNameList::parse( $namesInput );
-		if ( $parsed['names'] === [] ) {
-			return $this->msg( 'embeddablecontent-personpanel-error-names-empty' )->text();
-		}
-		$choices = [];
-		if ( $choicesJson !== '' ) {
-			$decoded = json_decode( $choicesJson, true );
-			if ( !is_array( $decoded ) ) {
-				return $this->msg( 'embeddablecontent-personpanel-error-choices-invalid' )->text();
-			}
-			$choices = $decoded;
-		}
-		$allowedKinds = $prefix === 'member' ? [ 'person' ] : [ 'person', 'collective' ];
-		if ( $commit ) {
-			$result = $this->personCreator()->applyDecisions(
-				$parsed['names'],
-				$choices,
-				$this->getUser(),
-				$this->msg( 'embeddablecontent-person-create-summary' )->inContentLanguage()->text(),
-				false,
-				$allowedKinds
+		if ( $prefix === 'author' && $result['collectiveIds'] !== [] ) {
+			$record['collectiveAuthorIds'] = implode(
+				', ',
+				array_unique( $result['collectiveIds'] )
 			);
-			if ( $result['error'] !== null ) {
-				return $result['error'];
-			}
-			foreach ( $result['warnings'] as $warning ) {
-				wfDebugLog( 'EmbeddableContent', $prefix . '-panel: ' . $warning );
-			}
-			$newIds = $result['ids'];
-			if ( $prefix === 'author' && !empty( $result['collectiveIds'] ) ) {
-				$record['collectiveAuthorIds'] = implode(
-					', ',
-					array_unique( $result['collectiveIds'] )
-				);
-			}
-		} else {
-			$result = $this->personCreator()->validateDecisions( $parsed['names'], $choices, $allowedKinds );
-			if ( $result['error'] !== null ) {
-				return $result['error'];
-			}
-			$newIds = $result['ids'];
-			if ( $prefix === 'author' && !empty( $result['collectiveIds'] ) ) {
-				$record['collectiveAuthorIds'] = implode(
-					', ',
-					array_unique( $result['collectiveIds'] )
-				);
-			}
 		}
 		$target = $prefix === 'author' ? 'authors' : 'members';
 		$ids = ItemIdList::split( (string)( $record[$target] ?? '' ) );
-		foreach ( $newIds as $id ) {
+		foreach ( $result['ids'] as $id ) {
 			if ( !in_array( $id, $ids, true ) ) {
 				$ids[] = $id;
 			}
@@ -2519,15 +2559,15 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		return null;
 	}
 
-	/** @var \EmbeddableContent\Flow\AuthorCreator|null */
-	private $personCreator = null;
+	/** @var \EmbeddableContent\Flow\PersonPanel|null */
+	private $personPanel = null;
 
-	private function personCreator(): \EmbeddableContent\Flow\AuthorCreator {
-		if ( $this->personCreator === null ) {
-			$this->personCreator = \MediaWiki\MediaWikiServices::getInstance()
-				->get( 'EmbeddableContent.AuthorCreator' );
+	private function personPanel(): \EmbeddableContent\Flow\PersonPanel {
+		if ( $this->personPanel === null ) {
+			$this->personPanel = \MediaWiki\MediaWikiServices::getInstance()
+				->get( 'EmbeddableContent.PersonPanel' );
 		}
-		return $this->personCreator;
+		return $this->personPanel;
 	}
 
 	/**

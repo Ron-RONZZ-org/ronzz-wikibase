@@ -3586,6 +3586,23 @@ def flow_addspecialcontent_api(op, api: str, person: str, instance_of: str,
     assert first_value(claims2, attributed_to_prop) == person, \
         "update clobbered the attribution (no-clobber violated)"
     print(f"[ok] action=addspecialcontent (qid update) -> {qid}: payload replaced, attribution kept")
+
+    # Multi-author `attributedTo` (the author-name panel writes a list): one
+    # `attributed to` statement per id. The second id is the quotation class
+    # item — any existing item id is a valid statement value here; the
+    # assertion is the statement COUNT + the two values.
+    r3 = api_call(op, api, {
+        "action": "addspecialcontent", "kind": "quotation", "qid": qid,
+        "attributedTo": f"{person}, {quotation_class}", "token": token, "format": "json",
+    }, post=True)
+    if "content" not in r3 or not r3["content"].get("updated"):
+        raise FlowError(f"action=addspecialcontent multi-author update failed: {r3}")
+    claims3, _ = entity_claims(op, api, qid)
+    values = claim_values(claims3, attributed_to_prop)
+    expected = {person, quotation_class}
+    assert len(values) == 2 and set(values) == expected, \
+        f"multi-author attributedTo wrote {values}, expected {sorted(expected)}"
+    print(f"[ok] action=addspecialcontent multi-author -> {qid}: 2 attributed-to statements")
     return qid
 
 

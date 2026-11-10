@@ -140,10 +140,18 @@ final class SpecialContentFlowService {
 			return "labelLanguage \"{$labelLanguage}\" is not a valid language code.";
 		}
 
-		foreach ( [ 'programmingLanguage', 'attributedTo', 'source' ] as $entityField ) {
+		foreach ( [ 'programmingLanguage', 'source' ] as $entityField ) {
 			$value = trim( (string)( $record[$entityField] ?? '' ) );
 			if ( $value !== '' && preg_match( '/^[QqPp][1-9]\d*$/', $value ) !== 1 ) {
 				return "{$entityField} \"{$value}\" is not an item ID.";
+			}
+		}
+		// `attributedTo` is a list (the author panel confirms several names;
+		// the API accepts a comma-separated string too).
+		foreach ( $this->splitItemIds( (string)( $record['attributedTo'] ?? '' ) ) as $id ) {
+			// Authors are ITEMS (a P-id would reach ItemId() and throw).
+			if ( preg_match( '/^Q[1-9]\d*$/i', $id ) !== 1 ) {
+				return "attributedTo contains \"{$id}\", which is not an item ID.";
 			}
 		}
 		foreach ( [ 'describes', 'implementationOf' ] as $listField ) {
@@ -244,11 +252,18 @@ final class SpecialContentFlowService {
 		}
 
 		$provenance = $this->config->provenancePropertyIds();
-		foreach ( [ 'attributedTo', 'source' ] as $entityField ) {
-			$id = trim( (string)( $record[$entityField] ?? '' ) );
-			if ( $id !== '' && isset( $provenance[$entityField] ) && preg_match( '/^Q[1-9]\d*$/', $id ) === 1 ) {
-				$specs[$provenance[$entityField]] = new EntityIdValue( new ItemId( $id ) );
-			}
+		// `attributedTo` is multi-value: one `attributed to` statement per
+		// confirmed author (WikibaseStatement order preserved).
+		$authorIds = $this->splitItemIds( (string)( $record['attributedTo'] ?? '' ) );
+		if ( $authorIds !== [] && isset( $provenance['attributedTo'] ) ) {
+			$specs[$provenance['attributedTo']] = array_map(
+				static fn ( string $id ): EntityIdValue => new EntityIdValue( new ItemId( strtoupper( $id ) ) ),
+				$authorIds
+			);
+		}
+		$sourceId = trim( (string)( $record['source'] ?? '' ) );
+		if ( $sourceId !== '' && isset( $provenance['source'] ) && preg_match( '/^Q[1-9]\d*$/', $sourceId ) === 1 ) {
+			$specs[$provenance['source']] = new EntityIdValue( new ItemId( $sourceId ) );
 		}
 		$sourceUrl = trim( (string)( $record['sourceUrl'] ?? '' ) );
 		if ( $sourceUrl !== '' && isset( $provenance['sourceUrl'] ) && $this->isHttpUrl( $sourceUrl ) ) {
@@ -373,7 +388,7 @@ final class SpecialContentFlowService {
 		$out = [];
 		foreach ( preg_split( '/[,;]/', $value ) ?: [] as $part ) {
 			$part = trim( $part );
-			if ( $part !== '' ) {
+			if ( $part !== '' && !in_array( $part, $out, true ) ) {
 				$out[] = $part;
 			}
 		}

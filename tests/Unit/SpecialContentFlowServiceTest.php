@@ -108,7 +108,40 @@ class SpecialContentFlowServiceTest extends TestCase {
 		$payload = $specs['P2'];
 		$this->assertInstanceOf( MonolingualTextValue::class, $payload );
 		$this->assertSame( 'fr', $payload->getLanguageCode() );
-		$this->assertSame( 'Q6', $specs['P6']->getEntityId()->getSerialization() );
+		$this->assertSame( [ 'Q6' ], array_map(
+			static fn ( $v ) => $v->getEntityId()->getSerialization(),
+			$specs['P6']
+		) );
+	}
+
+	public function testStatementSpecsForMultipleAuthors(): void {
+		$service = $this->makeService();
+		$record = [
+			'label' => 'Joint work', 'content' => 'Hello', 'language' => 'en',
+			'attributedTo' => 'Q6, Q7;q8',
+		];
+
+		$specs = $service->statementSpecs( 'quotation', $record );
+
+		// One `attributed to` statement per author, in the submitted order,
+		// normalized to upper-case item ids.
+		$this->assertSame( [ 'Q6', 'Q7', 'Q8' ], array_map(
+			static fn ( $v ) => $v->getEntityId()->getSerialization(),
+			$specs['P6']
+		) );
+	}
+
+	public function testMultipleAuthorsValidateEachItemId(): void {
+		$service = $this->makeService();
+		$record = [ 'label' => 'x', 'content' => 'hi', 'attributedTo' => 'Q6, not-an-id' ];
+		$error = $service->prepare( 'quotation', $record, true );
+		$this->assertIsString( $error );
+		$this->assertStringContainsString( 'attributedTo contains "not-an-id"', $error );
+
+		$duplicate = [ 'label' => 'x', 'content' => 'hi', 'attributedTo' => 'Q6, Q6' ];
+		$this->assertNull( $service->prepare( 'quotation', $duplicate, true ) );
+		$specs = $service->statementSpecs( 'quotation', $duplicate );
+		$this->assertCount( 1, $specs['P6'] );
 	}
 
 	public function testStatementSpecsForCodeSnippetWithSubjects(): void {

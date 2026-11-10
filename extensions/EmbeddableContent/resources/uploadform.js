@@ -685,6 +685,17 @@
 			if ( entityRow ) {
 				entityRow.style.display = entity ? '' : 'none';
 			}
+			// The name→match→confirm panel belongs to the semantic-entity
+			// mode only (resources/authorsearch.js).
+			[
+				rowFor( 'wpUploadAuthorNames' ),
+				rowFor( 'wb-UploadAuthor-search' ),
+				rowFor( 'wpUploadAuthorChoices' )
+			].forEach( function ( row ) {
+				if ( row ) {
+					row.style.display = entity ? '' : 'none';
+				}
+			} );
 		}
 
 		function syncSourceMode() {

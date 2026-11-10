@@ -1950,6 +1950,27 @@ report). See `SimpleMathJax/VENDORED.md`.
   `Family (Year)`, two or three `Family1-Family2[-Family3] (Year)`, four or
   more `Family1 et al. (Year)` (`formatFamilies()`). This keeps a 20-author
   clinical report from flooding the page.
+- **Search-first author creation + content/upload author panels (Nov 2026,
+  ADR `docs/decisions/nov-2026-author-panel-search-first.md`)**: the
+  AddSource author/member create dialog now opens the REAL
+  `Special:AddPerson`/`AddCollective` **search step** in its iframe
+  (`?name=<row>&autofetch=1&wbparentdialog=1`); `executeSearch()` applies
+  `Spec/RequestPrefill` and auto-calls `onSearchSubmit()` when the
+  parent-dialog marker + `autofetch=1` are set, and the "create manually
+  instead" link is always present (token-prefilled on the zero-hit/selection
+  paths). The panel has one renderer (`Fields/PersonPanelFields`, Search
+  button `data-target`), one server half (`Flow/PersonPanel` — the
+  AddSource/AddCollective `applyPersonPanel` delegates to it) and one JS
+  writer (`resources/authorsearch.js` writes to any `data-target` field).
+  `Special:AddQuotation/AddMath/AddCodeSnippet` (and the Update* siblings)
+  gain the same panel + a **multi-value `attributedTo`** — one `attributed
+  to` statement per confirmed author; `SpecialContentFlowService`
+  validates/writes the list, `recordFromItem` prefills every author, and
+  `invalidateClassicPages` splits the list. Special:Upload shows the panel
+  only in "specify the author as a semantic entity" mode; the confirmed ids
+  land in the existing multi-value `wpUploadAuthorEntity` field. The field
+  contract is unchanged (field names only; a single Q-id stays valid).
+  Deploy = rsync + php-fpm + message/parser-cache purge.
 
 ### WikibaseCitation
 

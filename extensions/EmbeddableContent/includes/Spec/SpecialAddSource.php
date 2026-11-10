@@ -1537,62 +1537,28 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 				(string)( $confirm['id'] ?? '' )
 			);
 		}
-		$searchButton = '<button type="button" id="wb-author-search"'
-			. ' class="mw-ui-button mw-ui-progressive">'
-			. htmlspecialchars( $this->msg( 'embeddablecontent-source-field-authorsearch' )->text() )
-			. '</button>';
-		// The quick-create dialogs choose a collective class. The class keys
-		// and item ids come from the config map; "person" and "group of
-		// humans" are excluded (a group needs members and is created through
-		// Special:AddCollective).
-		$collectiveClasses = [];
-		foreach ( $this->config->agentClasses() as $key => $id ) {
-			if ( $key === 'person' || $key === 'groupOfHumans' || $id === '' ) {
-				continue;
-			}
-			$collectiveClasses[] = [
-				'key' => $key,
-				'id' => $id,
-				'label' => $this->msg( 'embeddablecontent-agent-class-' . $key )->text(),
-			];
-		}
-		$this->getOutput()->addJsConfigVars( 'wbAuthorCollectiveClasses', $collectiveClasses );
-		$fields = [
-			// The recommended path: paste the whole author list, click
-			// Search, then confirm every name in the popup. The parsed names
-			// are created/reused immediately (a new entity is written as soon
-			// as the contributor confirms it).
-			'authorNames' => [
-				'type' => 'textarea',
-				'rows' => 3,
-				'label-message' => 'embeddablecontent-source-field-authornames',
-				'help-message' => 'embeddablecontent-source-field-authornames-help',
-				'default' => (string)( $record['authorNames'] ?? '' ),
+		// The shared person-name panel fields (names + Search + results +
+		// decisions), the same builder the content Add* forms and
+		// Special:Upload use — the JS contract lives in PersonPanelFields.
+		$this->getOutput()->addJsConfigVars(
+			'wbAuthorCollectiveClasses',
+			\EmbeddableContent\Fields\PersonPanelFields::collectiveClasses(
+				$this->config,
+				fn ( string $key ): string => $this->msg( $key )->text()
+			)
+		);
+		$fields = \EmbeddableContent\Fields\PersonPanelFields::spec(
+			'author',
+			'author',
+			'wpauthors',
+			[
+				'names' => 'embeddablecontent-source-field-authornames',
+				'namesHelp' => 'embeddablecontent-source-field-authornames-help',
+				'search' => 'embeddablecontent-source-field-authorsearch',
 			],
-			// Marks the names as a harvested prefill (not a user decision);
-			// resources/authorsearch.js clears it on input/Search.
-			'authorNamesHarvested' => [
-				'type' => 'hidden',
-				'default' => (string)( $record['authorNamesHarvested'] ?? '' ),
-			],
-			'authorSearch' => [
-				// RawHtmlField — NOT HTMLInfoField: an OOUI info field is a
-				// LabelWidget, and a click on a result-row button would fire
-				// the label's activation on the Search button (the row-click
-				// "refreshes the search" bug).
-				'type' => 'info',
-				'class' => \EmbeddableContent\Fields\RawHtmlField::class,
-				'raw' => true,
-				'default' => $searchButton
-					. '<div id="wb-author-results" class="wb-author-results"></div>',
-			],
-			// The popup writes the per-name decisions here (JSON). A hidden
-			// field so the form round-trips them; the server re-validates.
-			'authorChoices' => [
-				'type' => 'hidden',
-				'default' => (string)( $record['authorChoices'] ?? '' ),
-			],
-		];
+			$this->getContext(),
+			$record
+		);
 		$fields += $this->entityComboboxField(
 			'authors',
 			'embeddablecontent-source-field-authors',

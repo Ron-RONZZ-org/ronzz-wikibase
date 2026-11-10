@@ -36,8 +36,19 @@
 		return ( row.kind || 'person' ) + '|' + normalize( row.original ) + '|' + normalize( row.familyName );
 	}
 
-	function targetField( panel ) {
-		return panel === 'author' ? 'wpauthors' : 'wpmembers';
+	/**
+	 * The form field the confirmed item ids are written into. The server
+	 * sets `data-target` on the Search button (one panel module serves the
+	 * AddSource author field, the AddCollective member field, the content
+	 * Add* attributed-to field and Special:Upload's author entity field);
+	 * the fallback keeps older server renderings working.
+	 */
+	function targetField( panel, button ) {
+		var target = button && button.getAttribute ? button.getAttribute( 'data-target' ) : '';
+		if ( target ) {
+			return target;
+		}
+		return panel === 'member' ? 'wpmembers' : 'wpauthors';
 	}
 
 	function addValue( field, value ) {
@@ -73,7 +84,7 @@
 
 		var state = {
 			panel: panel,
-			field: targetField( panel ),
+			field: targetField( panel, button ),
 			button: button,
 			namesInput: namesInput,
 			choicesInput: choicesInput,
@@ -576,6 +587,13 @@
 		var form = state.namesInput.closest( 'form' );
 		if ( form ) {
 			form.addEventListener( 'submit', function ( event ) {
+				// A HIDDEN panel must never block the form: Special:Upload
+				// shows the panel only in semantic-entity mode, so a leftover
+				// unconfirmed row from that mode cannot stop a plain-text
+				// author upload.
+				if ( state.namesInput.offsetParent === null ) {
+					return;
+				}
 				if ( hasBlockingRows() ) {
 					event.preventDefault();
 					event.stopImmediatePropagation();
@@ -596,5 +614,8 @@
 	mw.loader.using( [ 'mediawiki.api', 'mediawiki.notification', 'oojs-ui', 'ext.embeddableContent.entitysuggest' ] ).then( function () {
 		initPanel( 'author' );
 		initPanel( 'member' );
+		// Special:Upload's semantic-entity author section (only rendered
+		// there; initPanel returns early when the button is absent).
+		initPanel( 'UploadAuthor' );
 	} );
 }() );
