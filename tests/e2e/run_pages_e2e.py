@@ -2615,6 +2615,102 @@ def flow_multi_access_editor(op, base: str, api: str, label: str,
     return qid
 
 
+def flow_api_access_file(op, base: str, api: str, label: str) -> tuple[str, str, str]:
+    """The append-only `accessFile` field of action=addsource — the machine
+    path the MCP tool uses, in the tool's own order: create the source first
+    (the item label names the file), upload the bytes through
+    action=accessupload with internal=1, then attach the file with a qid
+    update. Asserts the semantic access-file item, the login-only status
+    qualifier, the internal-use category, and that a second attach is a
+    no-op (alreadyLinked). Returns (source qid, access-file item, File title).
+    """
+    # 1. Create the source (metadata only) — the label names the file.
+    _, body = page_get(op, base, "/wiki/Special:AddSource/book/manual")
+    token = edit_token(body)
+    r = api_call(op, api, {
+        "action": "addsource", "format": "json", "class": "book",
+        "title": label, "token": token,
+    }, post=True)
+    source = r.get("source", {})
+    qid = source.get("entityId")
+    item_label = source.get("label")
+    if not qid or not item_label:
+        raise FlowError(f"action=addsource (create) returned no item/label: {json.dumps(r)[:800]}")
+
+    # 2. Upload the bytes (internal use only).
+    _, api_body = page_post_multipart(op, base + "/api.php", {
+        "action": "accessupload", "format": "json", "mode": "file",
+        "label": item_label, "internal": "1", "token": token,
+    }, {"file": ("mcp-access.pdf", E2E_PDF, "application/pdf")})
+    try:
+        upload = json.loads(api_body)["accessupload"]
+    except (ValueError, KeyError) as exc:
+        raise FlowError(f"action=accessupload (accessFile) failed: {api_body[:500]!r}") from exc
+
+    # 3. Attach it — append-only, one File: page.
+    access_file = {"fileTitle": upload["fileTitle"], "internal": True, "language": "en"}
+    r2 = api_call(op, api, {
+        "action": "addsource", "format": "json", "class": "book", "qid": qid,
+        "accessFile": json.dumps(access_file), "token": token,
+    }, post=True)
+    attached = (r2.get("source") or {}).get("accessFile") or {}
+    if not attached.get("fileId"):
+        raise FlowError(f"accessFile was not attached: {json.dumps(r2)[:800]}")
+    if attached.get("alreadyLinked"):
+        raise FlowError("the first accessFile attach must not report alreadyLinked")
+    if attached.get("public"):
+        raise FlowError("an internal accessFile must not be public")
+
+    claims, _ = entity_claims(op, api, qid)
+    has_file_prop = resolve_label(op, api, "has access file", "property")
+    status_prop = resolve_label(op, api, "access status", "property")
+    has_file_claims = claims.get(has_file_prop, [])
+    if not has_file_claims:
+        raise FlowError(f"{qid} has no `has access file` statement")
+    file_item = has_file_claims[0]["mainsnak"]["datavalue"]["value"]["id"]
+    if file_item != attached["fileId"]:
+        raise FlowError(f"`has access file` points at {file_item}, not {attached['fileId']}")
+    status = (has_file_claims[0].get("qualifiers", {}).get(status_prop) or [{}])[0]
+    status_value = (status.get("datavalue") or {}).get("value")
+    if status_value != "login":
+        raise FlowError(f"access status qualifier is {status_value!r}, expected 'login'")
+
+    access_file_class = resolve_label(op, api, "access file", "item")
+    instance_of_prop = resolve_label(op, api, "instance of", "property")
+    file_prop = resolve_label(op, api, "file", "property")
+    license_prop = resolve_label(op, api, "license", "property")
+    file_claims, _ = entity_claims(op, api, file_item)
+    if first_value(file_claims, instance_of_prop) != access_file_class:
+        raise FlowError(f"{file_item} is not instance of access file")
+    if not first_value(file_claims, file_prop):
+        raise FlowError(f"{file_item} has no `file` statement")
+    if not first_value(file_claims, license_prop):
+        raise FlowError(f"{file_item} has no `license` statement (internal-use copy)")
+
+    # The File: page carries the internal-use category (the human-readable
+    # marker; the nginx gate reads the filesystem marker written alongside).
+    file_page = "/wiki/File:" + urllib.parse.quote(upload["fileTitle"].replace(" ", "_"))
+    _, file_body = page_get(op, base, file_page)
+    if "Internal use only files" not in file_body:
+        raise FlowError(f"{upload['fileTitle']} is missing Category:Internal use only files")
+
+    # 4. Idempotency: the same attach is a no-op, not a second statement.
+    r3 = api_call(op, api, {
+        "action": "addsource", "format": "json", "class": "book", "qid": qid,
+        "accessFile": json.dumps(access_file), "token": token,
+    }, post=True)
+    again = (r3.get("source") or {}).get("accessFile") or {}
+    if not again.get("alreadyLinked"):
+        raise FlowError(f"the second accessFile attach was not a no-op: {json.dumps(r3)[:800]}")
+    claims_after, _ = entity_claims(op, api, qid)
+    if len(claims_after.get(has_file_prop, [])) != len(has_file_claims):
+        raise FlowError("the second attach duplicated the `has access file` statement")
+
+    print(f"[ok] API accessFile -> {qid}: File:{upload['fileTitle']} "
+          f"(access-file item {file_item}, login-only, internal category, idempotent)")
+    return qid, file_item, upload["fileTitle"]
+
+
 def flow_source_book_access_url(op, base: str, api: str, label: str,
                                 author_qid: str, url: str) -> str:
     """Access field, URL mode (issue #35): a non-direct access URL statement
@@ -5963,6 +6059,14 @@ def main() -> int:
         multi_label = f"Page-flow E2E multi access {int(time.time())}"
         track(flow_multi_access_editor(
             op, base, api, multi_label, person, license_qid))
+        # 2h3b. action=addsource `accessFile` (the MCP tool's machine path):
+        #      create -> accessupload(internal) -> attach, idempotent.
+        api_access_label = f"Page-flow E2E API access {int(time.time())}"
+        api_access_qid, api_access_item, api_access_file_title = flow_api_access_file(
+            op, base, api, api_access_label)
+        track(api_access_qid)
+        track(api_access_item)
+        created_pages.append("File:" + api_access_file_title)
         na_label = f"Page-flow E2E access-na {int(time.time())}"
         na_desc = "A regression-test book with no fetched content."
         na_book = track(flow_source_book_access_na(op, base, api, na_label, person, na_desc))

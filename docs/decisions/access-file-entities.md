@@ -33,6 +33,10 @@ could not render `PDF: en|fr`.
    the license stored on the file item renders on the `File:` page.
 6. **Backfill**: `tools/backfill_access_files.py` creates the file item +
    `has access file` link for legacy `file` statements (dry-run by default).
+7. **Machine clients** (ADR `mcp-access-files.md`): `action=addsource` gains an
+   append-only `accessFile` field (one `File:` page per call, `internal` by
+   default, no-op when already linked). The browser form's `accessEntries`
+   stays a replace-list and is not part of the API contract.
 
 ## Consequences
 

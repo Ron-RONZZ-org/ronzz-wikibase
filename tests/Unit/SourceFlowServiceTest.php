@@ -550,6 +550,60 @@ class SourceFlowServiceTest extends TestCase {
 		$this->assertIsString( $service->prepare( 'law', $record, true ) );
 	}
 
+	// ------------------------------------------------------- access file
+
+	public function testAccessFileIsNormalizedForACitableClass(): void {
+		$service = $this->makeService();
+		$record = [
+			'title' => 'A Book',
+			'accessFile' => json_encode( [
+				'fileTitle' => 'Foo.pdf',
+				'internal' => true,
+				'language' => 'en',
+			] ),
+		];
+		$this->assertNull( $service->prepare( 'book', $record, true ) );
+		$this->assertSame(
+			[ 'type' => 'file', 'fileTitle' => 'Foo.pdf', 'public' => '', 'language' => 'en' ],
+			$record['accessFile']
+		);
+	}
+
+	public function testAccessFileIsAcceptedOnUpdate(): void {
+		$service = $this->makeService();
+		$record = [ 'accessFile' => [ 'fileTitle' => 'Foo.pdf', 'internal' => true ] ];
+		$this->assertNull( $service->prepare( 'scholarly-article', $record, false ) );
+		$this->assertSame( '', $record['accessFile']['public'] );
+	}
+
+	public function testAccessFileIsRejectedForALegalProvision(): void {
+		$service = $this->makeService();
+		$record = [ 'accessFile' => [ 'fileTitle' => 'Act.pdf', 'internal' => true ] ];
+		$error = $service->prepare( 'law', $record, false );
+		$this->assertIsString( $error );
+		$this->assertStringContainsString( 'does not expose', $error );
+	}
+
+	public function testAccessFileRejectsAPublicFileWithoutALicense(): void {
+		$service = $this->makeService();
+		$record = [ 'accessFile' => [ 'fileTitle' => 'Foo.pdf' ] ];
+		$this->assertSame(
+			'a public accessFile needs a license item id (Q…).',
+			$service->prepare( 'book', $record, false )
+		);
+	}
+
+	public function testAccessFileIsUniversalExceptLaw(): void {
+		foreach ( SourceFieldMap::CLASS_KEYS as $classKey ) {
+			$expected = $classKey !== 'law';
+			$this->assertSame(
+				$expected,
+				SourceFieldMap::acceptsField( $classKey, 'accessFile' ),
+				"accessFile exposure for {$classKey}"
+			);
+		}
+	}
+
 	// ------------------------------------------------------------- helpers
 
 	private function hasStatement( Item $item, string $property, ?string $entityId ): bool {

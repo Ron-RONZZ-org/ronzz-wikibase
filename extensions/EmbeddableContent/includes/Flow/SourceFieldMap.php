@@ -82,6 +82,12 @@ final class SourceFieldMap {
 		'youtubeChannelId',
 		'youtubeVideoId',
 		'accessUrl',
+		// Attach ONE File: page as an access file of the source (append-only;
+		// the browser form's multi-entry editor uses `accessEntries`, which is
+		// an internal replace-list field and is NOT part of this contract).
+		// Accepted by every citable class except `law` (a provision inherits
+		// its legislation's access).
+		'accessFile',
 		'parent',
 		// Zotero/CSL-aligned batch: legal/official-document facts.
 		'court',
@@ -196,13 +202,25 @@ final class SourceFieldMap {
 		'law' => [ 'referenceCode', 'content', 'translations', 'description', 'parent' ],
 	];
 
+	/**
+	 * Fields every citable class accepts, whatever its metadata shape: a work
+	 * can always carry an access copy.
+	 */
+	private const UNIVERSAL_FIELDS = [ 'accessFile' ];
+
 	/** @return string[] */
 	public static function fieldsForClass( string $classKey ): array {
-		return self::CLASS_FIELDS[$classKey] ?? [];
+		$fields = self::CLASS_FIELDS[$classKey] ?? [];
+		// A legal provision is a clause of its legislation: the access copy
+		// belongs to the parent act, not to the clause.
+		if ( $classKey === 'law' ) {
+			return $fields;
+		}
+		return array_values( array_unique( array_merge( $fields, self::UNIVERSAL_FIELDS ) ) );
 	}
 
 	public static function acceptsField( string $classKey, string $field ): bool {
-		return in_array( $field, self::CLASS_FIELDS[$classKey] ?? [], true );
+		return in_array( $field, self::fieldsForClass( $classKey ), true );
 	}
 
 	public static function isEntityTyped( string $field ): bool {

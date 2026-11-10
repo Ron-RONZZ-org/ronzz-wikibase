@@ -418,6 +418,17 @@ report). See `SimpleMathJax/VENDORED.md`.
   (re-seed required). The UpdateSource "I will update the resource access
   instructions" gate is **removed** — the editor is always visible; an empty
   list clears the access statements.
+  **Machine clients (ADR `docs/decisions/mcp-access-files.md`)**: the
+  field contract gains an append-only `accessFile` object on `action=addsource`
+  (one `File:` page per call; `internal` defaults the licence to the seeded
+  "All rights reserved", public requires a licence Q-id; a file already
+  linked is a no-op). `Spec/AccessFileRequest` normalizes it; `ApiAddSource`
+  then runs `AccessEntries::validate` → `applyFileMarkers` →
+  `resolveFileItems` → `addStatements` (append, never the form's
+  replace-list `accessEntries`). The MCP `embeddable-add-citation-source`
+  tool runs create → `accessupload` → attach so an OWUI chat attachment can
+  become a source's access file; the OWUI fork's `list_chat_files` builtin
+  supplies the stored path.
 - **AddSource/Source: access rendering (multi-access)**: `{{#source-access:}}`
   lists the visible entries as `url1 | pdf | epub` links (URLs numbered,
   files labelled by extension); with a language, file groups render
