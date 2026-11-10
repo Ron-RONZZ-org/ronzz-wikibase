@@ -677,7 +677,7 @@
 	"embeddablecontent-collision-delete-reason": "Remplacé par un nouvel élément lors d’une collision Add* ($1)",
 	"embeddablecontent-collision-delete-forbidden": "Vous n’avez pas la permission de supprimer l’élément existant.",
 	"embeddablecontent-collision-page-failed": "La page classique n’a pas pu être créée.",
-	"embeddablecontent-add-attributedto-help": "Facultatif lorsqu’une source est sélectionnée — une source ayant exactement un auteur est héritée. Si la source a plusieurs auteurs, choisissez-en un ici.",
+	"embeddablecontent-add-attributedto-help": "Facultatif lorsqu’une source est sélectionnée — une source ayant exactement un auteur est héritée. Si la source a plusieurs auteurs, choisissez-les ici (une déclaration par auteur).",
 	"embeddablecontent-add-error-source-multiple-authors": "La source a plusieurs auteurs. Veuillez préciser l’auteur dans le champ « Attribué à ».",
 	"embeddablecontent-updatefile-title": "Modifier le fichier",
 	"embeddablecontent-updatefile-legend": "Informations sur le fichier",

@@ -679,7 +679,7 @@
 	"embeddablecontent-collision-delete-reason": "Replaced by a new item during an Add* collision ($1)",
 	"embeddablecontent-collision-delete-forbidden": "You do not have permission to delete the existing item.",
 	"embeddablecontent-collision-page-failed": "The classic page could not be created.",
-	"embeddablecontent-add-attributedto-help": "Optional when a source is selected — a source with exactly one author is inherited. If the source has several authors, pick one here.",
+	"embeddablecontent-add-attributedto-help": "Optional when a source is selected — a source with exactly one author is inherited. If the source has several authors, pick them here (one statement per author).",
 	"embeddablecontent-add-error-source-multiple-authors": "The source has multiple authors. Please specify the author in the “Attributed to” field.",
 	"embeddablecontent-updatefile-title": "Update file",
 	"embeddablecontent-updatefile-legend": "File information",

@@ -103,6 +103,15 @@ return [
 		);
 	},
 
+	'EmbeddableContent.PersonPanel' => static function ( MediaWikiServices $services ): \EmbeddableContent\Flow\PersonPanel {
+		// Shared form half of the author/member panels (AddSource,
+		// AddCollective, the content Add* author panel): validate the
+		// per-name decisions and create/reuse the decided entities.
+		return new \EmbeddableContent\Flow\PersonPanel(
+			$services->get( 'EmbeddableContent.AuthorCreator' )
+		);
+	},
+
 	'EmbeddableContent.AuthorCreator' => static function ( MediaWikiServices $services ): \EmbeddableContent\Flow\AuthorCreator {
 		// Creates/reuses the Person items decided by the AddSource author
 		// panel (the same flow service + Person: page machinery as AddPerson).

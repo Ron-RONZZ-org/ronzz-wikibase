@@ -132,7 +132,15 @@ final class QuotationLookup {
 	 * @param string[] $itemIds source and/or author item ids
 	 */
 	public static function invalidateClassicPages( array $itemIds ): void {
-		foreach ( array_unique( array_filter( $itemIds, 'is_string' ) ) as $itemId ) {
+		// The callers pass both single ids and comma-separated lists (the
+		// multi-value `attributed to` field), so split every entry.
+		$ids = [];
+		foreach ( array_filter( $itemIds, 'is_string' ) as $value ) {
+			foreach ( ItemIdList::split( $value ) as $id ) {
+				$ids[$id] = $id;
+			}
+		}
+		foreach ( $ids as $itemId ) {
 			if ( preg_match( '/^Q[1-9]\d*$/i', $itemId ) !== 1 ) {
 				continue;
 			}

@@ -677,7 +677,7 @@
 	"embeddablecontent-collision-delete-reason": "Anstataŭigita per nova ero dum Add* kolizio ($1)",
 	"embeddablecontent-collision-delete-forbidden": "Vi ne rajtas forigi la ekzistantan eron.",
 	"embeddablecontent-collision-page-failed": "La klasika paĝo ne povis esti kreita.",
-	"embeddablecontent-add-attributedto-help": "Laŭvola kiam fonto estas elektita — fonto kun ekzakte unu aŭtoro estas heredata. Se la fonto havas plurajn aŭtorojn, elektu unu ĉi tie.",
+	"embeddablecontent-add-attributedto-help": "Laŭvola kiam fonto estas elektita — fonto kun ekzakte unu aŭtoro estas heredata. Se la fonto havas plurajn aŭtorojn, elektu ilin ĉi tie (unu aserto por aŭtoro).",
 	"embeddablecontent-add-error-source-multiple-authors": "La fonto havas plurajn aŭtorojn. Bonvolu precizigi la aŭtoron en la kampo “Atribuita al”.",
 	"embeddablecontent-updatefile-title": "Ĝisdatigi dosieron",
 	"embeddablecontent-updatefile-legend": "Dosieraj informoj",

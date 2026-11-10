@@ -35,6 +35,7 @@
  * License: GPL-2.0-or-later
  */
 
+import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 function arg(name, def) {
@@ -45,6 +46,12 @@ function arg(name, def) {
 const BASE_URL = arg('--base-url', 'https://wikibase.ronzz.org');
 const HEADED = process.argv.includes('--headed');
 const CHROME_PATH = process.env.CHROME_PATH || undefined;
+// Optional login: the search-first create dialog auto-submits the external
+// authority search, which is login-gated. Without credentials the run still
+// verifies the search STEP is opened (not /manual) and the manual fallback
+// link is rendered.
+const USER = arg('--user', '');
+const PASSWORD_FILE = arg('--password-file', '');
 
 const failures = [];
 const pageErrors = [];
@@ -72,6 +79,29 @@ async function dialogCount(page) {
 
 async function dialogText(page) {
 	return page.locator('.oo-ui-dialog:visible').first().innerText().catch(() => '');
+}
+
+async function login(page) {
+	if (!USER || !PASSWORD_FILE) {
+		return false;
+	}
+	const password = readFileSync(PASSWORD_FILE, 'utf8').trim();
+	if (!password) {
+		return false;
+	}
+	await page.goto(`${BASE_URL}/wiki/Main_Page`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+	const ok = await page.evaluate(async ({ user, pass }) => {
+		try {
+			await new mw.Api().login(user, pass);
+			return mw.user.isAnon() === false;
+		} catch (e) {
+			return false;
+		}
+	}, { user: USER, pass: password });
+	if (!ok) {
+		failures.push(`login failed for ${USER}`);
+	}
+	return ok;
 }
 
 /**
@@ -120,6 +150,7 @@ async function main() {
 	});
 
 	try {
+		await login(page);
 		await page.goto(`${BASE_URL}/wiki/Special:AddSource/book/manual`, {
 			waitUntil: 'networkidle',
 			timeout: 60000
@@ -156,6 +187,33 @@ async function main() {
 				failures.push(`the create dialog is not "Add person": ${JSON.stringify(text.slice(0, 160))}`);
 			} else {
 				console.log('[ok] "add one" opens the create-person dialog');
+			}
+			// SEARCH-FIRST: the iframe runs Special:AddPerson (the search
+			// step), never /manual. The row's name rides `?name=` and the
+			// external-authority search auto-submits (`?autofetch=1`).
+			const iframe = page.locator('.oo-ui-dialog:visible iframe.wb-parentdialog-iframe').first();
+			if ((await iframe.count()) === 0) {
+				failures.push('the create dialog did not render the parent-dialog iframe');
+			} else {
+				const src = await iframe.getAttribute('src');
+				if (!/Special:AddPerson/.test(src || '') || /\/manual/.test(src || '')) {
+					failures.push(`create dialog does not open the search step: ${JSON.stringify(src)}`);
+				} else if (!/[?&]name=/.test(src || '') || !/[?&]autofetch=1/.test(src || '')) {
+					failures.push(`create dialog did not prefill/auto-search the name: ${JSON.stringify(src)}`);
+				} else {
+					console.log('[ok] create dialog opens the AddPerson search step with the name + autofetch');
+				}
+				// The manual fallback must stay reachable: the search page,
+				// the zero-hit page and the selection page all render it.
+				try {
+					await page.frameLocator('iframe.wb-parentdialog-iframe')
+						.locator('a[href*="Special:AddPerson/manual"]')
+						.first()
+						.waitFor({ timeout: 60000 });
+					console.log('[ok] create dialog keeps the "create manually instead" link');
+				} catch (e) {
+					failures.push('create dialog lost the "create manually instead" link');
+				}
 			}
 			await closeDialog(page);
 			if ((await dialogCount(page)) !== 0) {

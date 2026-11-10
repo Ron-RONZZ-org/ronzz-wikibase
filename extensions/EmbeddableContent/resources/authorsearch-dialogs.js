@@ -97,38 +97,39 @@
 	 * Special:AddCollective page in a same-origin iframe (the parent-dialog
 	 * mechanism), so the popup has the same fields as the dedicated pages —
 	 * including portrait/logo upload, biography, places and external ids.
-	 * The given name / family name / collective label are prefilled through
-	 * the Add* forms' URL query prefill. The created Q-id is posted back by
-	 * the parentdone step.
+	 * It opens the SEARCH step with the row's name prefilled and
+	 * auto-submitted (`?name=…&autofetch=1`): external-authority results
+	 * come first, and the "create the item manually instead" link stays
+	 * available on the search/selection page. The created Q-id is posted
+	 * back by the parentdone step.
 	 *
 	 * @param {Object} state
 	 * @param {Object} row
 	 * @param {Function} onResult receives { action:'reuse', qid, label, kind }
 	 */
 	function openRealCreateDialog( state, row, onResult ) {
-		var page = row.kind === 'collective'
-			? 'Special:AddCollective/manual'
-			: 'Special:AddPerson/manual';
+		// SEARCH-FIRST: the real AddPerson/AddCollective page runs its
+		// external-authority search with the row's name already typed
+		// (?autofetch=1). Hits open the selection step; zero hits keep the
+		// search form AND the "Create the item manually instead" link (the
+		// link carries the stored search token, so the manual form is still
+		// prefilled). The `/manual` URL is never opened directly.
+		var page = row.kind === 'collective' ? 'Special:AddCollective' : 'Special:AddPerson';
 		var url = new URL( mw.util.getUrl( page ), window.location.origin );
 		url.searchParams.set( 'wbparentdialog', '1' );
 		url.searchParams.set( 'wbdialogkind', 'author' );
-		if ( row.kind === 'collective' ) {
-			var label = row.familyName || row.original || '';
-			if ( label ) {
-				url.searchParams.set( 'label', label );
-			}
-		} else {
-			// The author row already carries the split name; fall back to the
-			// parsed original when a row was built from a bare label.
-			var split = splitCandidateName( { label: row.original || '' } );
-			var given = row.givenName || split.givenName;
-			var family = row.familyName || split.familyName;
-			if ( given ) {
-				url.searchParams.set( 'givenName', given );
-			}
-			if ( family ) {
-				url.searchParams.set( 'familyName', family );
-			}
+		// A collective row's `original` is "ORG:<name>" (the parser's
+		// marker); search the real organisation name (`familyName`), never
+		// the ORG: prefixed string.
+		var name = row.kind === 'collective'
+			? ( row.familyName || row.original || '' )
+			: ( [ row.givenName, row.familyName ].filter( Boolean ).join( ' ' )
+				|| row.original
+				|| row.familyName
+				|| '' );
+		if ( name ) {
+			url.searchParams.set( 'name', name );
+			url.searchParams.set( 'autofetch', '1' );
 		}
 
 		var iframe = document.createElement( 'iframe' );

@@ -603,6 +603,20 @@ class Hooks {
 			$out->addModules( 'ext.embeddableContent.entitysuggest' );
 			$out->addModules( 'ext.embeddableContent.uploadmeta' );
 			$out->addModules( 'ext.embeddableContent.entityconfirm' );
+			// The semantic-entity author NAME panel (paste names → Search →
+			// confirm each match; the ids land in the entity field). The
+			// collective class list feeds the quick-create dialog.
+			$out->addModules( 'ext.embeddableContent.authorsearch' );
+			// The create dialog's same-origin iframe styling (shared with the
+			// parent-creation dialog).
+			$out->addModules( 'ext.embeddableContent.parentdialog' );
+			$out->addJsConfigVars(
+				'wbAuthorCollectiveClasses',
+				\EmbeddableContent\Fields\PersonPanelFields::collectiveClasses(
+					MediaWikiServices::getInstance()->get( 'EmbeddableContent.Config' ),
+					static fn ( string $key ): string => wfMessage( $key )->text()
+				)
+			);
 			// Source-field gating, the empty author/license warning and the
 			// same-origin fetch upload submission (2026-10 batch).
 			$out->addModules( 'ext.embeddableContent.uploadform' );

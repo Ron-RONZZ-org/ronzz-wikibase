@@ -68,13 +68,37 @@ final class UploadHooks {
 		// hides the inactive one (JS-off still submits a coherent value).
 		// The field group comes from the shared ImageUploadHelper (the same
 		// builder the Add* portrait/logo sections use).
-		$descriptor += ImageUploadHelper::authorFields(
+		$authorFields = ImageUploadHelper::authorFields(
 			'Upload',
 			'embeddablecontent-upload-author',
 			self::config(),
 			[ 'section' => 'description' ],
 			false
 		);
+		// The author-NAME panel (the AddSource logic): in semantic-entity mode
+		// the contributor pastes names, runs action=authorresolve and confirms
+		// every match; the confirmed ids land in the multi-value
+		// UploadAuthorEntity field below. resources/uploadform.js shows the
+		// panel only while the checkbox is ticked.
+		$authorPanel = \EmbeddableContent\Fields\PersonPanelFields::spec(
+			'UploadAuthor',
+			'UploadAuthor',
+			'wpUploadAuthorEntity',
+			[
+				'names' => 'embeddablecontent-source-field-authornames',
+				'namesHelp' => 'embeddablecontent-source-field-authornames-help',
+				'search' => 'embeddablecontent-source-field-authorsearch',
+			],
+			RequestContext::getMain(),
+			[],
+			[ 'section' => 'description' ]
+		);
+		$descriptor += [
+			'UploadAuthor' => $authorFields['UploadAuthor'],
+			'UploadAuthorIsEntity' => $authorFields['UploadAuthorIsEntity'],
+		] + $authorPanel + [
+			'UploadAuthorEntity' => $authorFields['UploadAuthorEntity'],
+		];
 		// Source: an optional entity (a Source:/work item) by default, or a
 		// plain-text provenance string when the checkbox is ticked. When a
 		// source entity is given and no entity author is, the upload item

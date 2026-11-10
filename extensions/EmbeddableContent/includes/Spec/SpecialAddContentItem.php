@@ -322,11 +322,42 @@ abstract class SpecialAddContentItem extends SpecialPage {
 					: 'embeddablecontent-add-entityid-help',
 			] );
 		};
+		// Author-name panel ("adopt the AddSource logic"): paste the author
+		// names, click Search and confirm every match before saving. The
+		// confirmed ids are merged into `attributedTo`; the combobox stays
+		// below for direct Q-id entry. The server half is Flow\PersonPanel
+		// (shared with AddSource/AddCollective).
+		$this->getOutput()->addModules( 'ext.embeddableContent.authorsearch' );
+		// The create dialog runs the real AddPerson/AddCollective page in a
+		// same-origin iframe; its styles (and the frame's message listener)
+		// live in the shared parent-dialog module.
+		$this->getOutput()->addModules( 'ext.embeddableContent.parentdialog' );
+		$this->getOutput()->addJsConfigVars(
+			'wbAuthorCollectiveClasses',
+			\EmbeddableContent\Fields\PersonPanelFields::collectiveClasses(
+				$this->config,
+				fn ( string $key ): string => $this->msg( $key )->text()
+			)
+		);
+		$fields += \EmbeddableContent\Fields\PersonPanelFields::spec(
+			'author',
+			'author',
+			'wpattributedTo',
+			[
+				'names' => 'embeddablecontent-source-field-authornames',
+				'namesHelp' => 'embeddablecontent-source-field-authornames-help',
+				'search' => 'embeddablecontent-source-field-authorsearch',
+			],
+			$this
+		);
 		$fields += [
 			'attributedTo' => $entityCombobox(
 				'embeddablecontent-add-attributedto',
 				false,
-				false,
+				// Several authors per item (one `attributed to` statement
+				// each): the author-name panel confirms a list, and a
+				// quotation can legitimately have several authors.
+				true,
 				$agentClassIds
 			),
 			'sourceUrl' => [
@@ -478,6 +509,11 @@ abstract class SpecialAddContentItem extends SpecialPage {
 		$kind = $converted['kind'];
 		$flowRecord = $converted['record'];
 
+		$panelError = $this->applyAuthorPanel( $data, $flowRecord );
+		if ( $panelError !== null ) {
+			return $panelError;
+		}
+
 		// A blank quotation author is inherited from a single-author source;
 		// a multi-author source asks the user to choose instead of guessing.
 		if ( $kind === 'quotation' ) {
@@ -578,6 +614,64 @@ abstract class SpecialAddContentItem extends SpecialPage {
 	}
 
 	/**
+	 * Apply the author-name panel (the AddSource author panel's logic) to the
+	 * content flow record: parse the pasted names, create/reuse the decided
+	 * Persons/collectives and merge their ids into `attributedTo`. Every
+	 * parsed name must have an explicit decision — the panel blocks submit,
+	 * this is the server-side safety net (and the JS-off path).
+	 *
+	 * Runs on Add AND Update (shared form): a blank panel is a no-op, so an
+	 * update keeps the stored authors.
+	 *
+	 * @param array<string,mixed> $data the submitted form data
+	 * @param array<string,mixed> $record the flow record (mutated)
+	 */
+	protected function applyAuthorPanel( array $data, array &$record ): ?string {
+		$result = $this->personPanel()->apply(
+			'author',
+			$data,
+			$this->getUser(),
+			$this->msg( 'embeddablecontent-person-create-summary' )->inContentLanguage()->text(),
+			[ 'person', 'collective' ],
+			true
+		);
+		if ( $result['error'] !== null ) {
+			return $result['error'];
+		}
+		if ( $result['errorKey'] !== null ) {
+			return $this->msg( $result['errorKey'] )->text();
+		}
+		foreach ( $result['warnings'] as $warning ) {
+			\MediaWiki\Logger\LoggerFactory::getInstance( 'EmbeddableContent' )->warning(
+				'author-panel: {warning}',
+				[ 'warning' => $warning ]
+			);
+		}
+		if ( $result['ids'] === [] ) {
+			return null;
+		}
+		$ids = ItemIdList::split( (string)( $record['attributedTo'] ?? '' ) );
+		foreach ( $result['ids'] as $id ) {
+			if ( !in_array( $id, $ids, true ) ) {
+				$ids[] = $id;
+			}
+		}
+		$record['attributedTo'] = implode( ', ', $ids );
+		return null;
+	}
+
+	/** @var \EmbeddableContent\Flow\PersonPanel|null */
+	private $personPanel = null;
+
+	private function personPanel(): \EmbeddableContent\Flow\PersonPanel {
+		if ( $this->personPanel === null ) {
+			$this->personPanel = \MediaWiki\MediaWikiServices::getInstance()
+				->get( 'EmbeddableContent.PersonPanel' );
+		}
+		return $this->personPanel;
+	}
+
+	/**
 	 * Converts the Add\* / Update\* content form's submitted values into a
 	 * flow
 	 * record — the action=addspecialcontent / SpecialContentFlowService
@@ -655,17 +749,25 @@ abstract class SpecialAddContentItem extends SpecialPage {
 			}
 		}
 
-		foreach ( [ 'attributedTo' => 'attributed to', 'source' => 'source' ] as $field => $label ) {
-			$raw = trim( (string)( $data[$field] ?? '' ) );
-			if ( $raw === '' ) {
-				continue;
-			}
-			$id = $this->parseOptionalItemId( $raw );
+		// `source` is a single item; `attributedTo` is a LIST — the author
+		// panel confirms several names (one `attributed to` statement each).
+		$source = trim( (string)( $data['source'] ?? '' ) );
+		if ( $source !== '' ) {
+			$id = $this->parseOptionalItemId( $source );
 			if ( $id === null ) {
-				$errors[] = $this->msg( 'embeddablecontent-add-error-baditemid', $label )->text();
+				$errors[] = $this->msg( 'embeddablecontent-add-error-baditemid', 'source' )->text();
 			} else {
-				$record[$field] = $id->getSerialization();
+				$record['source'] = $id->getSerialization();
 			}
+		}
+		$authorResult = $this->splitItemIds( (string)( $data['attributedTo'] ?? '' ), 'attributed to' );
+		if ( $authorResult['error'] !== null ) {
+			$errors[] = $authorResult['error'];
+		} elseif ( $authorResult['ids'] !== [] ) {
+			$record['attributedTo'] = implode( ', ', array_map(
+				static fn ( ItemId $id ): string => $id->getSerialization(),
+				$authorResult['ids']
+			) );
 		}
 
 		$sourceUrl = trim( (string)( $data['sourceUrl'] ?? '' ) );

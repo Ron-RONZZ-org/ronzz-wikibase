@@ -255,14 +255,25 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 		}
 
 		$provenance = $this->config->provenancePropertyIds();
-		foreach ( [ 'attributedTo', 'source' ] as $field ) {
-			$propertyId = $provenance[$field] ?? null;
-			if ( $propertyId === null ) {
-				continue;
+		// `attributedTo` is multi-value (the author panel confirms a list):
+		// prefill EVERY stored author so an update carries them all.
+		$authorPropertyId = $provenance['attributedTo'] ?? null;
+		if ( $authorPropertyId !== null ) {
+			$ids = [];
+			foreach ( $this->statementValues( $item, $authorPropertyId ) as $value ) {
+				if ( isset( $value['entity'] ) && !in_array( $value['entity'], $ids, true ) ) {
+					$ids[] = $value['entity'];
+				}
 			}
-			foreach ( $this->statementValues( $item, $propertyId ) as $value ) {
+			if ( $ids !== [] ) {
+				$record['attributedTo'] = implode( ', ', $ids );
+			}
+		}
+		$sourcePropertyId = $provenance['source'] ?? null;
+		if ( $sourcePropertyId !== null ) {
+			foreach ( $this->statementValues( $item, $sourcePropertyId ) as $value ) {
 				if ( isset( $value['entity'] ) ) {
-					$record[$field] = $value['entity'];
+					$record['source'] = $value['entity'];
 					break;
 				}
 			}
@@ -331,6 +342,10 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 			return $converted['error'];
 		}
 		$record = $converted['record'];
+		$panelError = $this->applyAuthorPanel( $data, $record );
+		if ( $panelError !== null ) {
+			return $panelError;
+		}
 		// No label-language field renders on the form — flowRecordFromForm
 		// would default to the UI language and write a second-language
 		// term. The label is prefilled from one term language; write it
