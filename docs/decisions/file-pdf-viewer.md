@@ -25,6 +25,11 @@ same-origin iframe using the browser's built-in viewer.
 - No assets/dependencies; the browser's viewer handles rendering.
 - The fullscreen control is progressive enhancement: a browser without the
   Fullscreen API still shows the iframe and the new-tab link.
+- Fullscreen sizing uses `position: fixed; inset: 0` with a `100%` flex iframe
+  (not `100vw/100vh` + `height: auto`), so the PDF area fills the real viewport
+  including mobile/Safari dynamic browser bars. `Special:SourceFile` has no
+  inline iframe border (the CSS owns it), so the fullscreen border reset
+  applies.
 
 ## References
 

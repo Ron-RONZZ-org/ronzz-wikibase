@@ -82,3 +82,33 @@
 	margin-top: 0.8em;
 	text-align: right;
 }
+
+/* Download menu (PDF / HTML / wikitext). */
+.wb-download-menu {
+	display: flex;
+	flex-direction: column;
+	min-width: 13em;
+}
+
+.wb-download-menu .oo-ui-buttonElement {
+	display: block;
+}
+
+.wb-download-menu .oo-ui-buttonElement-button {
+	display: block;
+	width: 100%;
+	padding: 0.5em 0.75em;
+	text-align: left;
+}
+
+.wb-download-menu .oo-ui-buttonElement-button:hover {
+	background: var( --background-color-neutral-subtle, #f8f9fa );
+}
+
+/* A small caret signals that the Download button opens a menu. */
+#ca-wb-print::after {
+	content: "▾";
+	margin-left: 0.35em;
+	font-size: 0.85em;
+	opacity: 0.75;
+}

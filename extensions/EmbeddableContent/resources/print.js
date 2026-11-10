@@ -1,25 +1,30 @@
 /**
- * "Printable version" enhancements (the print batch). Loaded on every
- * existing article page (Hooks::onBeforePageDisplay sets wbPrintTitle =
+ * Page download / printable-version enhancements. Loaded on every existing
+ * article page (Hooks::onBeforePageDisplay sets wbPrintTitle =
  * Title::getSubpageText() — the namespace and the subpage parent are
  * dropped, e.g. "User:Rongzhou/Construction site visit report" prints as
  * "Construction site visit report", "Source:L111-1 of Code de
  * l'éducation (Legislation)" as "L111-1 of Code de l'éducation
  * (Legislation)").
  *
- * Two entry points, one flow:
+ * Two entry points:
  *   - the core sidebar "Printable version" link (`#t-print a`, whose
  *     `javascript:print();` is intercepted in the CAPTURE phase — core's
- *     own `#t-print a` handler calls `window.print()` first otherwise);
- *   - a "Print this page" button that JOINS the page's existing action
- *     toolbar row (the inline `.wb-content-page-toolbar` on ordinary content
- *     pages, else the shared `.wb-embed-toolbar` row below the title —
- *     `wbPrintToolbar` picks the surface; the row is created-or-reused, so
- *     the button shares one row with the other page actions).
+ *     own `#t-print a` handler calls `window.print()` first otherwise) opens
+ *     the PDF flow directly;
+ *   - a "Download" button that JOINS the page's existing action toolbar row
+ *     (the inline `.wb-content-page-toolbar` on ordinary content pages, else
+ *     the shared `.wb-embed-toolbar` row below the title — `wbPrintToolbar`
+ *     picks the surface). It opens a menu with three options:
+ *       PDF      → the print popup below (cover page + Print; save as PDF);
+ *       HTML     → a standalone .html file of the rendered article;
+ *       Wikitext → a .wiki file of the raw wikitext expanded through
+ *                  action=expandtemplates (`{{#content:Q…}}`, templates,
+ *                  parser functions → their expanded wikitext).
  *
- * Both open the shared print popup (the citationpopup.js OOUI
- * PopupWidget pattern): an "Add a cover page" checkbox + a Print button.
- * On print the module fetches the page's registered, non-bot contributors
+ * The PDF popup (the citationpopup.js OOUI PopupWidget pattern) has an
+ * "Add a cover page" checkbox + a Print button. On print the module fetches
+ * the page's registered, non-bot contributors
  * (action=query&prop=contributors&pcexcludegroup=bot), renders the title
  * and a centered "by A, B, and C" line (and the optional centered cover
  * page, page-break-after), then calls window.print() and cleans up on
@@ -36,7 +41,8 @@
  * afterprint. The printed HEADER keeps using wbPrintTitle (the subpage
  * parent is dropped there).
  *
- * Exposes: mw.embeddableContent.print.open( $anchor ).
+ * Exposes: mw.embeddableContent.print.open( $anchor ) → the Download menu,
+ * and mw.embeddableContent.print.print( $anchor ) → the PDF popup.
  */
 ( function () {
 	'use strict';
@@ -60,15 +66,16 @@
 	}
 
 	/**
-	 * The browser Save-as-PDF suggested filename for the current page:
-	 * the namespace-stripped title (wgTitle, subpage slashes preserved)
-	 * with whitespace/slashes and filesystem-illegal characters normalised
-	 * to "_". Empty titles leave document.title untouched.
+	 * The suggested download filename for the current page: the
+	 * namespace-stripped title (wgTitle, subpage slashes preserved) with
+	 * whitespace/slashes and filesystem-illegal characters normalised to
+	 * "_". Empty titles yield "".
 	 *
 	 * @param {string} title
+	 * @param {string} extension without the dot
 	 * @return {string}
 	 */
-	function pdfFileName( title ) {
+	function downloadFileName( title, extension ) {
 		var name = String( title || '' );
 		if ( name.normalize ) {
 			name = name.normalize( 'NFC' );
@@ -79,8 +86,19 @@
 		name = name.replace( /[\/\\:*?"<>|\u0000-\u001F\u007F]+/g, '_' );
 		name = name.replace( /\s+/g, '_' );
 		name = name.replace( /_+/g, '_' ).replace( /^_+|_+$/g, '' );
-		name = name.replace( /\.pdf$/i, '' );
-		return name === '' ? '' : name + '.pdf';
+		name = name.replace( new RegExp( '\\.' + extension + '$', 'i' ), '' );
+		return name === '' ? '' : name + '.' + extension;
+	}
+
+	/** The Save-as-PDF suggested filename for the current page. */
+	function pdfFileName( title ) {
+		return downloadFileName( title, 'pdf' );
+	}
+
+	/** The source/title used for non-PDF download filenames and headers. */
+	function downloadTitle() {
+		var archive = mw.config.get( 'wbPrintArchive' );
+		return ( archive && archive.filename ) || mw.config.get( 'wgTitle' ) || '';
 	}
 
 	/** Swap document.title for the Save-as-PDF filename (idempotent). */
@@ -290,10 +308,181 @@
 		} );
 	}
 
-	/** Open the print popup (cover-page option + Print) anchored to $anchor. */
-	function open( $anchor ) {
-		closeActive();
+	/** Escape a plain string for HTML text/attribute output. */
+	function escapeHtml( value ) {
+		return $( '<div>' ).text( String( value || '' ) ).html();
+	}
 
+	/** Trigger a client-side download for generated text content. */
+	function triggerDownload( name, text, mime ) {
+		if ( name === '' ) {
+			return;
+		}
+		var blob = new Blob( [ text ], { type: mime } );
+		var url = URL.createObjectURL( blob );
+		var link = document.createElement( 'a' );
+		link.href = url;
+		link.download = name;
+		link.style.display = 'none';
+		document.body.appendChild( link );
+		link.click();
+		window.setTimeout( function () {
+			URL.revokeObjectURL( url );
+			link.remove();
+		}, 0 );
+	}
+
+	function notifyDownloadError( error ) {
+		mw.notify(
+			mw.msg(
+				'embeddablecontent-download-error',
+				error && error.message ? error.message : String( error )
+			),
+			{ type: 'error' }
+		);
+	}
+
+	/**
+	 * Make root-relative URLs absolute in a parsed HTML fragment, so the
+	 * downloaded file's links and images still resolve when opened locally
+	 * (the fragment carries `/wiki/…` and `/images/…` paths).
+	 */
+	function absolutizeHtml( html ) {
+		var origin = mw.config.get( 'wgServer' ) || window.location.origin;
+		var doc = new DOMParser().parseFromString( html, 'text/html' );
+		[ 'a[href]', 'img[src]', 'source[src]', 'video[src]', 'audio[src]', 'link[href]' ]
+			.forEach( function ( selector ) {
+				var attr = selector.indexOf( '[src]' ) !== -1 ? 'src' : 'href';
+				doc.querySelectorAll( selector ).forEach( function ( el ) {
+					var value = el.getAttribute( attr ) || '';
+					if ( value.charAt( 0 ) === '/' && value.charAt( 1 ) !== '/' ) {
+						el.setAttribute( attr, origin + value );
+					}
+				} );
+			} );
+		return doc.body.innerHTML;
+	}
+
+	/** Build a standalone, minimally styled HTML document around the article. */
+	function wrapHtmlDocument( fragment, title ) {
+		var lang = mw.config.get( 'wgContentLanguage' ) || 'en';
+		return '<!DOCTYPE html>\n<html lang="' + escapeHtml( lang ) + '">\n'
+			+ '<head>\n<meta charset="utf-8">\n'
+			+ '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+			+ '<title>' + escapeHtml( title ) + '</title>\n'
+			+ '<style>\n'
+			+ 'body{max-width:52em;margin:2em auto;padding:0 1em;'
+			+ 'font-family:Georgia,"Times New Roman",serif;line-height:1.6;color:#202122;background:#fff}\n'
+			+ 'img,video{max-width:100%;height:auto}\n'
+			+ 'table{border-collapse:collapse}th,td{border:1px solid #c8ccd1;padding:.3em .5em;vertical-align:top}\n'
+			+ 'pre,code{font-family:monospace;background:#f8f9fa}pre{padding:.8em;overflow:auto}\n'
+			+ '</style>\n</head>\n<body>\n'
+			+ '<h1>' + escapeHtml( title ) + '</h1>\n'
+			+ fragment + '\n</body>\n</html>\n';
+	}
+
+	/** Fetch the current revision's rendered article HTML. */
+	function fetchRenderedHtml() {
+		return new mw.Api().get( {
+			action: 'parse',
+			page: mw.config.get( 'wgPageName' ),
+			prop: 'text',
+			formatversion: 2,
+			disableeditsection: 1,
+			disablelimitreport: 1,
+			disabletoc: 1
+		} ).then( function ( data ) {
+			var html = data && data.parse && data.parse.text;
+			if ( typeof html !== 'string' || html === '' ) {
+				throw new Error( mw.msg( 'embeddablecontent-download-empty' ) );
+			}
+			return html;
+		} );
+	}
+
+	/** Download the article as a standalone rendered HTML file. */
+	function downloadHtml() {
+		fetchRenderedHtml().then( function ( html ) {
+			var title = downloadTitle();
+			triggerDownload(
+				downloadFileName( title, 'html' ),
+				wrapHtmlDocument( absolutizeHtml( html ), title ),
+				'text/html;charset=utf-8'
+			);
+		} ).catch( notifyDownloadError );
+	}
+
+	/**
+	 * Fetch the raw wikitext and expand it through action=expandtemplates, so
+	 * parser functions and transclusions (`{{#content:Q…}}`,
+	 * `{{#statements:}}`, templates, …) become their expanded wikitext.
+	 */
+	function fetchExpandedWikitext() {
+		var api = new mw.Api();
+		var page = mw.config.get( 'wgPageName' );
+		return api.get( {
+			action: 'parse',
+			page: page,
+			prop: 'wikitext',
+			formatversion: 2
+		} ).then( function ( data ) {
+			var raw = data && data.parse && data.parse.wikitext;
+			if ( typeof raw !== 'string' || raw === '' ) {
+				throw new Error( mw.msg( 'embeddablecontent-download-empty' ) );
+			}
+			return api.post( {
+				action: 'expandtemplates',
+				title: page,
+				text: raw,
+				prop: 'wikitext',
+				formatversion: 2
+			} );
+		} ).then( function ( data ) {
+			var expanded = data && data.expandtemplates && data.expandtemplates.wikitext;
+			if ( typeof expanded !== 'string' ) {
+				throw new Error( mw.msg( 'embeddablecontent-download-empty' ) );
+			}
+			return expanded;
+		} );
+	}
+
+	/** Download the article as expanded wikitext. */
+	function downloadWikitext() {
+		fetchExpandedWikitext().then( function ( wikitext ) {
+			triggerDownload(
+				downloadFileName( downloadTitle(), 'wiki' ),
+				wikitext,
+				'text/plain;charset=utf-8'
+			);
+		} ).catch( notifyDownloadError );
+	}
+
+	/** Append a popup to the body and track it as the active one. */
+	function showPopup( $anchor, $content, label ) {
+		closeActive();
+		var popup = new OO.ui.PopupWidget( {
+			$content: $content,
+			$floatableContainer: $anchor,
+			padded: true,
+			autoFlip: true,
+			head: true,
+			label: label
+		} );
+		popup.on( 'toggle', function ( visible ) {
+			if ( !visible ) {
+				popup.$element.remove();
+				if ( activePopup === popup ) {
+					activePopup = null;
+				}
+			}
+		} );
+		$( document.body ).append( popup.$element );
+		activePopup = popup;
+		popup.toggle( true );
+	}
+
+	/** Open the print (PDF) popup: cover-page option + Print. */
+	function openPrintPopup( $anchor ) {
 		// On an archive page the cover is the meaningful title page (the
 		// page's own heading is the external text), so pre-select it.
 		var cover = new OO.ui.CheckboxInputWidget( {
@@ -317,25 +506,37 @@
 			.append( coverField.$element )
 			.append( $( '<div class="wb-print-popup-actions"></div>' ).append( printButton.$element ) );
 
-		var popup = new OO.ui.PopupWidget( {
-			$content: $content,
-			$floatableContainer: $anchor,
-			padded: true,
-			autoFlip: true,
-			head: true,
-			label: mw.msg( 'embeddablecontent-print-button' )
-		} );
-		popup.on( 'toggle', function ( visible ) {
-			if ( !visible ) {
-				popup.$element.remove();
-				if ( activePopup === popup ) {
-					activePopup = null;
+		showPopup( $anchor, $content, mw.msg( 'embeddablecontent-print-button' ) );
+	}
+
+	/** Open the Download menu: PDF / HTML / wikitext. */
+	function openDownloadMenu( $anchor ) {
+		var options = [
+			{ key: 'pdf', label: mw.msg( 'embeddablecontent-download-pdf' ) },
+			{ key: 'html', label: mw.msg( 'embeddablecontent-download-html' ) },
+			{ key: 'wikitext', label: mw.msg( 'embeddablecontent-download-wikitext' ) }
+		];
+		var $content = $( '<div class="wb-download-menu"></div>' );
+		options.forEach( function ( option ) {
+			var button = new OO.ui.ButtonWidget( {
+				label: option.label,
+				framed: false,
+				classes: [ 'wb-download-option' ]
+			} );
+			button.$element.attr( 'data-download', option.key );
+			button.on( 'click', function () {
+				closeActive();
+				if ( option.key === 'pdf' ) {
+					openPrintPopup( $anchor );
+				} else if ( option.key === 'html' ) {
+					downloadHtml();
+				} else {
+					downloadWikitext();
 				}
-			}
+			} );
+			$content.append( button.$element );
 		} );
-		$( document.body ).append( popup.$element );
-		activePopup = popup;
-		popup.toggle( true );
+		showPopup( $anchor, $content, mw.msg( 'embeddablecontent-download-menu-title' ) );
 	}
 
 	/**
@@ -363,7 +564,7 @@
 		return $toolbar;
 	}
 
-	/** The "Print this page" button, rendered into the page-toolbar row. */
+	/** The "Download" menu button, rendered into the page-toolbar row. */
 	function addToolbarButton() {
 		if ( $( '#firstHeading' ).length === 0 || $( '#ca-wb-print' ).length > 0 ) {
 			return;
@@ -373,10 +574,11 @@
 			$( '<button>' )
 				.attr( 'id', 'ca-wb-print' )
 				.attr( 'type', 'button' )
-				.addClass( 'wb-embed-toolbar-btn' )
-				.attr( 'title', mw.msg( 'embeddablecontent-print-button-hint' ) )
-				.text( mw.msg( 'embeddablecontent-print-button' ) )
-				.on( 'click', function () { open( $( this ) ); } ),
+				.attr( 'aria-haspopup', 'true' )
+				.addClass( 'wb-embed-toolbar-btn wb-download-btn' )
+				.attr( 'title', mw.msg( 'embeddablecontent-download-button-hint' ) )
+				.text( mw.msg( 'embeddablecontent-download-button' ) )
+				.on( 'click', function () { openDownloadMenu( $( this ) ); } ),
 			mw.embeddableContent.toolbar.ORDER.print
 		);
 	}
@@ -401,13 +603,13 @@
 		}
 		e.preventDefault();
 		e.stopPropagation();
-		open( $( link ) );
+		openPrintPopup( $( link ) );
 	}
 
 	mw.embeddableContent = mw.embeddableContent || {};
-	mw.embeddableContent.print = { open: open };
+	mw.embeddableContent.print = { open: openDownloadMenu, print: openPrintPopup };
 
-	mw.loader.using( [ 'mediawiki.api', 'oojs-ui' ] ).then( function () {
+	mw.loader.using( [ 'mediawiki.api', 'mediawiki.notification', 'oojs-ui' ] ).then( function () {
 		window.addEventListener( 'afterprint', cleanup );
 		// Belt-and-braces: some browsers fire beforeprint after our
 		// setPrintDocumentTitle() but before the dialog reads the title.

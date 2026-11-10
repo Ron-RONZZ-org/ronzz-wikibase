@@ -671,20 +671,43 @@
 			if ( !el ) {
 				return null;
 			}
-			return el.closest( 'tr' ) || el.closest( '.mw-htmlform-field' ) || null;
+			return el.closest( 'tr' ) ||
+				el.closest( '[class*="mw-htmlform-field"]' ) ||
+				null;
+		}
+
+		/**
+		 * HTMLForm renders a field's help as a SEPARATE `<tr>` after the
+		 * field row (`<td class="htmlform-tip">…`), so hiding the field row
+		 * alone leaves its help text visible (the Special:Upload author-list
+		 * help did exactly that). Hide/show the adjacent help row together
+		 * with the field.
+		 */
+		function isHelpRow( row ) {
+			return !!( row && row.tagName === 'TR' && row.cells &&
+				row.cells.length === 1 && row.cells[ 0 ].classList.contains( 'htmlform-tip' ) );
+		}
+
+		function setRowVisible( row, visible ) {
+			if ( !row ) {
+				return;
+			}
+			row.style.display = visible ? '' : 'none';
+			if ( row.tagName !== 'TR' ) {
+				return;
+			}
+			var next = row.nextElementSibling;
+			while ( isHelpRow( next ) ) {
+				next.style.display = visible ? '' : 'none';
+				next = next.nextElementSibling;
+			}
 		}
 
 		function syncAuthorMode() {
 			var checkbox = document.getElementById( 'wpUploadAuthorIsEntity' );
 			var entity = !!( checkbox && checkbox.checked );
-			var textRow = rowFor( 'wpUploadAuthor' );
-			var entityRow = rowFor( 'wpUploadAuthorEntity' );
-			if ( textRow ) {
-				textRow.style.display = entity ? 'none' : '';
-			}
-			if ( entityRow ) {
-				entityRow.style.display = entity ? '' : 'none';
-			}
+			setRowVisible( rowFor( 'wpUploadAuthor' ), !entity );
+			setRowVisible( rowFor( 'wpUploadAuthorEntity' ), entity );
 			// The name→match→confirm panel belongs to the semantic-entity
 			// mode only (resources/authorsearch.js).
 			[
@@ -692,23 +715,15 @@
 				rowFor( 'wb-UploadAuthor-search' ),
 				rowFor( 'wpUploadAuthorChoices' )
 			].forEach( function ( row ) {
-				if ( row ) {
-					row.style.display = entity ? '' : 'none';
-				}
+				setRowVisible( row, entity );
 			} );
 		}
 
 		function syncSourceMode() {
 			var checkbox = document.getElementById( 'wpUploadSourceIsText' );
 			var text = !!( checkbox && checkbox.checked );
-			var entityRow = rowFor( 'wpUploadSource' );
-			var textRow = rowFor( 'wpUploadSourceText' );
-			if ( entityRow ) {
-				entityRow.style.display = text ? 'none' : '';
-			}
-			if ( textRow ) {
-				textRow.style.display = text ? '' : 'none';
-			}
+			setRowVisible( rowFor( 'wpUploadSource' ), !text );
+			setRowVisible( rowFor( 'wpUploadSourceText' ), text );
 		}
 
 		$form.on( 'change', '#wpUploadAuthorIsEntity', syncAuthorMode );

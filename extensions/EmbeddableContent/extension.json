@@ -1034,6 +1034,7 @@
 			],
 			"dependencies": [
 				"mediawiki.api",
+				"mediawiki.notification",
 				"oojs-ui",
 				"ext.embeddableContent.toolbar"
 			],
@@ -1047,7 +1048,15 @@
 				"embeddablecontent-print-archive-cover",
 				"embeddablecontent-print-archive-cover-nourl",
 				"and",
-				"comma-separator"
+				"comma-separator",
+				"embeddablecontent-download-button",
+				"embeddablecontent-download-button-hint",
+				"embeddablecontent-download-menu-title",
+				"embeddablecontent-download-pdf",
+				"embeddablecontent-download-html",
+				"embeddablecontent-download-wikitext",
+				"embeddablecontent-download-error",
+				"embeddablecontent-download-empty"
 			],
 			"targets": [
 				"desktop",

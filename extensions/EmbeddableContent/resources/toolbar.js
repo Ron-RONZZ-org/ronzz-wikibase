@@ -17,7 +17,7 @@
  *   40  Copy embed code     (the flavour chooser 41, the language select 42
  *                            stay grouped right after the button)
  *   50  Copy citation
- *   60  Print this page
+ *   60  Download (PDF / HTML / wikitext)
  *
  * The block row lives INSIDE `#bodyContent`, immediately before
  * `#mw-content-text` — below the whole page-title chrome. Vector 2022 puts

@@ -32,7 +32,7 @@ One shared primitive, **`ext.embeddableContent.toolbar`**
 | 30 | Copy internal mention |
 | 40 | Copy embed code (flavour chooser **41**, language select **42** stay grouped right after it) |
 | 50 | Copy citation |
-| 60 | Print this page |
+| 60 | Download (PDF / HTML / wikitext) |
 
 Because the sort re-orders the **DOM**, the keyboard tab order matches the
 visual order. A sort that would not change the order is skipped, so a live

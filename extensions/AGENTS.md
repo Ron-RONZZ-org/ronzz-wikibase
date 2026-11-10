@@ -394,7 +394,8 @@ report). See `SimpleMathJax/VENDORED.md`.
   entries, each URL or file. URL entries are always public and can optionally
   fetch and archive their text content; file entries upload locally or fetch
   from a URL through `action=accessupload` (`AccessUploadHelper`), with a
-  per-entry licence (public) or "No public access" (login-only). The
+  per-entry licence (public) or "No public access" (internal; the card status
+  reads "internal", stored as `access status = login`). The
   "Add access" control is an OOUI `ButtonWidget` mounted by the editor JS
   (never a raw `<button>`), the dialog's type/file-source radios are
   `RadioSelectInputWidget` **`options`** (not `items` — the latter is silently
@@ -1348,7 +1349,10 @@ report). See `SimpleMathJax/VENDORED.md`.
   file toolbar instead of a separate block row. PDF uploads gain a
   browser-native iframe viewer (`resources/pdfviewer.js`, no third-party PDF
   library) with a fullscreen control and an open-in-new-tab link; the same
-  module wraps `Special:SourceFile`'s preview.
+  module wraps `Special:SourceFile`'s preview. Fullscreen uses
+  `position:fixed; inset:0` and a 100% flex iframe (not `100vw/100vh` +
+  `height:auto`), and the SourceFile iframe carries no inline border so the
+  fullscreen reset applies.
   (b) **Alphabetical pickers** — `Spec/LabelSorter` (ICU `Collator`,
   locale-aware) sorts Special:AddSource's source-type radio picker and
   Special:AddCollective's class select; the latter also gains localized
@@ -1602,19 +1606,22 @@ report). See `SimpleMathJax/VENDORED.md`.
   toolbars in print, prints a centered `by A, B, and C` line from the
   registered, non-bot contributors ordered by revision count
   (`prop=contributors&pcexcludegroup=bot` + a capped revision-count walk;
-  Oxford comma, localized separators), adds a "Print this page" button that
+  Oxford comma, localized separators), adds a **Download** button that
   **joins the page's existing action toolbar** (one row): the inline
   `.wb-content-page-toolbar` on ordinary content pages, else the shared
   `.wb-embed-toolbar` row (`Hooks::wirePrintModule` sets `wbPrintToolbar`;
   `print.js` creates-or-reuses the row; `contentpagetoolbar.js` appends to the
-  same inline row), intercepts the
+  same inline row). Its menu offers **PDF** (the print popup / cover page),
+  **HTML** (standalone `action=parse` document with absolute links), and
+  **Wikitext** (raw wikitext expanded through `action=expandtemplates`, so
+  `{{#content:}}`/templates become actual wikitext). The module intercepts the
   core sidebar `javascript:print();` link **in the capture phase** (core's
   `mediawiki.page.ready` binds its own `#t-print a` handler that calls
   `window.print()`; a bubble-phase listener ran too late and the print dialog
   opened alongside the popup — capture + `stopPropagation` beats it), and
-  offers an "Add a cover page" popup option (centered serif cover,
-  `page-break-after: always`). Ctrl-P without either entry point keeps the
-  browser default (`body.wb-printing` gates the title swap).
+  opens an "Add a cover page" popup option for the PDF path (centered serif
+  cover, `page-break-after: always`). Ctrl-P without either entry point keeps
+  the browser default (`body.wb-printing` gates the title swap).
 
 - **Nov-2026 index/print batch (ADR
   `docs/decisions/nov-2026-source-index-archive-print-citations.md`)**:

@@ -42,17 +42,33 @@
 .wb-pdf-viewer:-webkit-full-screen {
 	display: flex;
 	flex-direction: column;
-	width: 100vw;
-	height: 100vh;
+	position: fixed;
+	inset: 0;
+	width: auto;
+	height: auto;
+	max-width: none;
+	max-height: none;
 	margin: 0;
 	padding: 0;
 	background: #000000;
+	overflow: hidden;
+}
+
+/* The toolbar is the only fixed-height child; the iframe takes the rest.
+ * 100% (not 100vw/100vh) fills the real fullscreen viewport on mobile /
+ * Safari dynamic toolbars and avoids the flex `height:auto` shrink. */
+.wb-pdf-viewer:fullscreen .wb-pdf-toolbar,
+.wb-pdf-viewer:-webkit-full-screen .wb-pdf-toolbar {
+	flex: 0 0 auto;
+	margin: 6px;
 }
 
 .wb-pdf-viewer:fullscreen iframe,
 .wb-pdf-viewer:-webkit-full-screen iframe {
-	flex: 1;
-	height: auto;
+	flex: 1 1 auto;
+	width: 100%;
+	height: 100%;
+	min-height: 0;
 	border: 0;
 	border-radius: 0;
 }
