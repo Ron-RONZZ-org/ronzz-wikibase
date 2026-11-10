@@ -416,7 +416,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 				}
 			}
 			if ( $data !== [] ) {
-				$result = $this->onSearchSubmit( $data, false );
+				$result = $this->runSearch( $data, false );
 				if ( $result === true ) {
 					return;
 				}
@@ -492,7 +492,22 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 	 * @param array<string,mixed> $data
 	 * @return bool
 	 */
-	public function onSearchSubmit( array $data, bool $addManualFallback = true ) {
+	public function onSearchSubmit( array $data ) {
+		// HTMLForm invokes a submit callback as ( $data, $form ); keep this
+		// wrapper single-argument and run the shared body below (the
+		// auto-search path calls runSearch() directly).
+		return $this->runSearch( $data, true );
+	}
+
+	/**
+	 * The search-submit body. `$addManualFallback = false` is the
+	 * auto-search path (executeSearch renders the form + the token-prefilled
+	 * manual link itself).
+	 *
+	 * @param array<string,mixed> $data
+	 * @return bool|string
+	 */
+	protected function runSearch( array $data, bool $addManualFallback ) {
 		$loginError = $this->loginRequiredError();
 		if ( $loginError !== null ) {
 			return $loginError;
