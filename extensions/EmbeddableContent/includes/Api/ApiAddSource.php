@@ -10,6 +10,7 @@ use EmbeddableContent\Flow\ClassicPageCreator;
 use EmbeddableContent\Flow\ClassicPageSpec;
 use EmbeddableContent\Flow\SourceFlowService;
 use EmbeddableContent\Flow\StatementGuidAssigner;
+use EmbeddableContent\Spec\AccessEntries;
 use EmbeddableContent\Spec\AuthorNameList;
 use EmbeddableContent\Spec\CollisionFinder;
 use EmbeddableContent\Spec\ItemLabelLookup;
@@ -246,6 +247,18 @@ class ApiAddSource extends ApiBase {
 			if ( $labelWithSuffix !== null ) {
 				$item->setLabel( $language, $labelWithSuffix );
 			}
+			// Append-only access file: resolve the file's semantic item, set
+			// the internal-use marker and add the statement BEFORE the first
+			// save, so a rejected file leaves no source behind.
+			$accessResult = null;
+			if ( is_array( $record['accessFile'] ?? null ) ) {
+				$accessResult = $this->attachAccessFile(
+					$item, $record['accessFile'], $user, $summary, true
+				);
+				if ( isset( $accessResult['error'] ) ) {
+					$this->dieWithError( new RawMessage( (string)$accessResult['error'] ), 'invalid_access_file' );
+				}
+			}
 			$summaryText = $summary ?? 'Add source item';
 			$store->saveEntity( $item, $summaryText, $user, EDIT_NEW );
 			// The first save assigns the item id; statements must carry
@@ -280,6 +293,10 @@ class ApiAddSource extends ApiBase {
 					$result['pageTitle'] = $pageTitle;
 				}
 			}
+			$result['label'] = $labelWithSuffix ?? $label;
+			if ( $accessResult !== null ) {
+				$result['accessFile'] = $accessResult;
+			}
 		} else {
 			$entity = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $qid ) );
 			if ( !$entity instanceof Item ) {
@@ -289,6 +306,16 @@ class ApiAddSource extends ApiBase {
 			// refresh the OLD parent's listing row too.
 			$previousParents = self::parentIdsOf( $entity, $this->config );
 			$this->flow->applyUpdate( $classKey, $entity, $record );
+			// Append-only access file (no-op when the item already links it).
+			$accessResult = null;
+			if ( is_array( $record['accessFile'] ?? null ) ) {
+				$accessResult = $this->attachAccessFile(
+					$entity, $record['accessFile'], $user, $summary, false
+				);
+				if ( isset( $accessResult['error'] ) ) {
+					$this->dieWithError( new RawMessage( (string)$accessResult['error'] ), 'invalid_access_file' );
+				}
+			}
 			$revision = $store->saveEntity(
 				$entity,
 				$summary ?? 'Update source item',
@@ -300,7 +327,11 @@ class ApiAddSource extends ApiBase {
 				'entityType' => 'item',
 				'latestRevisionId' => $revision->getRevisionId(),
 				'updated' => '1',
+				'label' => self::labelText( $entity ),
 			];
+			if ( $accessResult !== null ) {
+				$result['accessFile'] = $accessResult;
+			}
 			$invalidParents = $previousParents;
 			if ( !empty( $record['parent'] ) ) {
 				$invalidParents[] = $record['parent'];
@@ -393,6 +424,15 @@ class ApiAddSource extends ApiBase {
 			);
 		}
 		$this->flow->applyUpdate( $classKey, $entity, $record );
+		$accessResult = null;
+		if ( is_array( $record['accessFile'] ?? null ) ) {
+			$accessResult = $this->attachAccessFile(
+				$entity, $record['accessFile'], $user, $summary, false
+			);
+			if ( isset( $accessResult['error'] ) ) {
+				$this->dieWithError( new RawMessage( (string)$accessResult['error'] ), 'invalid_access_file' );
+			}
+		}
 		$entity->setLabel( $language, $label );
 		if ( $targetTitle !== null ) {
 			$entity->getSiteLinkList()->setNewSiteLink( 'wikibase', $targetTitle->getPrefixedText() );
@@ -411,7 +451,11 @@ class ApiAddSource extends ApiBase {
 			'entityType' => 'item',
 			'latestRevisionId' => $revision->getRevisionId(),
 			'reused' => '1',
+			'label' => self::labelText( $entity ),
 		];
+		if ( $accessResult !== null ) {
+			$result['accessFile'] = $accessResult;
+		}
 		if ( $pageSpec !== null ) {
 			$record['itemId'] = $result['entityId'];
 			$pageTitle = $this->pageCreator->createFor( $pageSpec, $label, $record, $user );
@@ -420,6 +464,101 @@ class ApiAddSource extends ApiBase {
 			}
 		}
 		$this->getResult()->addValue( null, 'source', $result );
+	}
+
+	/**
+	 * Append ONE access-file entry to an item: resolve the file's semantic
+	 * access-file item, apply (or clear) the internal-use marker, and add the
+	 * `has access file` statement + qualifiers. Existing access entries are
+	 * never touched — unlike the browser form's replace-list `accessEntries`
+	 * field, this is add-only and a no-op when the file is already linked.
+	 *
+	 * The result uses the API's flag convention: `public` and `alreadyLinked`
+	 * are present (value `'1'`) only when true; MediaWiki serialises a bare
+	 * boolean as an empty string, which clients cannot distinguish from
+	 * false.
+	 *
+	 * @param array<string,string> $entry normalized by AccessFileRequest
+	 * @return array{error?:string,fileId?:string,fileTitle?:string,public?:string,alreadyLinked?:string}
+	 */
+	private function attachAccessFile(
+		Item $item,
+		array $entry,
+		\MediaWiki\User\User $user,
+		?string $summary,
+		bool $creating
+	): array {
+		$entries = [ $entry ];
+		$error = AccessEntries::validate( $entries, $this->config );
+		if ( $error !== null ) {
+			return [ 'error' => $error ];
+		}
+		$error = AccessEntries::applyFileMarkers( $entries, $user );
+		if ( $error !== null ) {
+			return [ 'error' => $error ];
+		}
+		$error = AccessEntries::resolveFileItems(
+			$entries,
+			$this->config,
+			$user,
+			$summary ?? 'Add access file'
+		);
+		if ( $error !== null ) {
+			return [ 'error' => $error ];
+		}
+		$entry = $entries[0];
+		$fileId = (string)( $entry['fileId'] ?? '' );
+		$targetTitle = AccessEntries::fileTitle( (string)( $entry['fileTitle'] ?? '' ) );
+		$targetKey = $targetTitle !== null ? $targetTitle->getPrefixedText() : '';
+		$alreadyLinked = false;
+		foreach ( AccessEntries::fromItem( $item, $this->config ) as $existing ) {
+			if ( $fileId !== '' && ( $existing['fileId'] ?? '' ) === $fileId ) {
+				$alreadyLinked = true;
+				break;
+			}
+			$existingTitle = AccessEntries::fileTitle( (string)( $existing['fileTitle'] ?? '' ) );
+			if ( $fileId === '' && $targetKey !== ''
+				&& $existingTitle !== null
+				&& $existingTitle->getPrefixedText() === $targetKey
+			) {
+				$alreadyLinked = true;
+				break;
+			}
+		}
+		if ( !$alreadyLinked ) {
+			AccessEntries::addStatements(
+				$item,
+				[ $entry ],
+				$this->config,
+				$creating ? null : new GuidGenerator()
+			);
+			if ( !$creating ) {
+				StatementGuidAssigner::ensureGuids( $item, new GuidGenerator() );
+			}
+		}
+		$result = [
+			'fileId' => $fileId,
+			'fileTitle' => (string)( $entry['fileTitle'] ?? '' ),
+		];
+		if ( !empty( $entry['public'] ) ) {
+			$result['public'] = '1';
+		}
+		if ( $alreadyLinked ) {
+			$result['alreadyLinked'] = '1';
+		}
+		return $result;
+	}
+
+	/** The item's English label, else its first label, else ''. */
+	private static function labelText( Item $item ): string {
+		$labels = $item->getLabels();
+		if ( $labels->hasTermForLanguage( 'en' ) ) {
+			return $labels->getByLanguage( 'en' )->getText();
+		}
+		foreach ( $labels as $term ) {
+			return $term->getText();
+		}
+		return '';
 	}
 
 	public function getAllowedParams() {

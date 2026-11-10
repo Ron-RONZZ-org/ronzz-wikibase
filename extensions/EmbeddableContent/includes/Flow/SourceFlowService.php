@@ -14,6 +14,7 @@ use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\EntityClassFilter;
 use EmbeddableContent\Fetch\YouTubeProvider;
 use EmbeddableContent\Spec\AccessEntries;
+use EmbeddableContent\Spec\AccessFileRequest;
 use EmbeddableContent\Spec\AdditionalStatements;
 use EmbeddableContent\Spec\EntityLabelText;
 use EmbeddableContent\Spec\GroupMembers;
@@ -187,6 +188,17 @@ final class SourceFlowService {
 			if ( $url !== '' && !$this->isHttpUrl( $url ) ) {
 				return "{$urlField} \"{$url}\" is not an http(s) URL.";
 			}
+		}
+
+		// The append-only access file (one File: page per call). This
+		// normalizes the shape only; the File: page and the licence item are
+		// checked in the MW-bound step, before any write.
+		if ( array_key_exists( 'accessFile', $record ) ) {
+			$entry = AccessFileRequest::normalize( $record['accessFile'] );
+			if ( is_string( $entry ) ) {
+				return $entry;
+			}
+			$record['accessFile'] = $entry;
 		}
 
 		$error = $this->fillBookExcerptFromParent( $classKey, $record );
