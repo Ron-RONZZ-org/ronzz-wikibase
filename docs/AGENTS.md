@@ -42,7 +42,7 @@ deployed, how to operate it, and why it is designed the way it is.
   — the Source-page "Copy embed code" button), `addsource-law-addmore.md` (the
   `law` form's "Add more" submit + success popup), `form-url-prefill.md` (URL
   query-param prefill for the Add*/Update* forms), `printable-version.md` (the
-  "Print this page" toolbar button + cover page), and
+  "Download" toolbar menu: PDF / HTML / wikitext + cover page), and
   `classic-page-label-sync.md` (a direct label edit renames the sitelinked
   classic page, leaving a redirect; backtracking moves it back), and
   `math-note-split-and-page-actions.md` (the math pre/post-content notes, the

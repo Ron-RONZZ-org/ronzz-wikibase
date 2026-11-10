@@ -23,13 +23,15 @@
  *   - Vector 2022 + ThemeToggle — the sun/moon button next to the Appearance
  *     menu switches the native day/night theme and the choice survives a
  *     reload;
- *   - Printable version — a "Print this page" button opens the print popup
- *     (cover-page option); the printed title drops the namespace + subpage
- *     parent, the cover carries the centered title + authors, and the core
- *     sidebar "Printable version" link opens the same popup WITHOUT firing
- *     window.print() (the capture-phase interception beats core's handler);
- *     the button joins the page's toolbar row (content-page toolbar /
- *     .wb-embed-toolbar);
+ *   - Page download — the "Download" button opens PDF / HTML / wikitext
+ *     options; PDF opens the print popup (cover-page option), the printed
+ *     title drops the namespace + subpage parent, the cover carries the
+ *     centered title + authors, and the core sidebar "Printable version"
+ *     link opens the same popup WITHOUT firing window.print() (the
+ *     capture-phase interception beats core's handler); HTML download is a
+ *     standalone document, wikitext download is expanded (no raw
+ *     `{{#content:}}`); the button joins the page's toolbar row
+ *     (content-page toolbar / .wb-embed-toolbar);
  *   - Archive print cover — a Source:<label>/archivedText page pre-selects the
  *     cover, prints `<h1>{source title} ({class})</h1>` + the archive
  *     provenance line, never the wiki contributors, and names the PDF after
@@ -112,6 +114,14 @@ async function api(params) {
 	return res.json();
 }
 
+/** Click the Download button and pick the PDF entry (the print popup). */
+async function openPrintFromDownloadMenu(page) {
+	await page.click('#ca-wb-print');
+	await page.waitForSelector('.wb-download-menu', { timeout: 10000 });
+	await page.click('.wb-download-menu [data-download="pdf"] .oo-ui-buttonElement-button');
+	await page.waitForSelector('.wb-print-popup', { timeout: 10000 });
+}
+
 /**
  * The wanted controls' ids in a toolbar row, in DOM order — the canonical
  * left→right order is asserted against this. The update button carries no id
@@ -178,6 +188,52 @@ async function main() {
 			console.log('[ok] File: copy-link button copies the direct media URL');
 		}
 
+		// --- PDF fullscreen fills the real viewport ----------------------
+		const pdfs = await api({
+			action: 'query', list: 'allimages', aimime: 'application/pdf',
+			ailimit: '1', format: 'json',
+		});
+		const pdf = pdfs.query?.allimages?.[0];
+		if (!pdf) {
+			console.log('[info] no PDF file on the instance — skipping fullscreen check');
+		} else {
+			await page.goto(`${BASE_URL}/wiki/File:${encodeURIComponent(pdf.name.replace(/ /g, '_'))}`,
+				{ waitUntil: 'domcontentloaded', timeout: 60000 });
+			await page.waitForSelector('.wb-pdf-viewer .wb-pdf-fullscreen-btn', { timeout: 15000 });
+			await page.locator('.wb-pdf-fullscreen-btn').click();
+			await page.waitForTimeout(500);
+			const fullscreen = await page.evaluate(() => {
+				const viewer = document.querySelector('.wb-pdf-viewer');
+				const frame = viewer && viewer.querySelector('iframe');
+				const vr = viewer && viewer.getBoundingClientRect();
+				const fr = frame && frame.getBoundingClientRect();
+				return {
+					active: document.fullscreenElement === viewer,
+					viewer: vr && { w: Math.round(vr.width), h: Math.round(vr.height) },
+					frame: fr && { w: Math.round(fr.width), h: Math.round(fr.height) },
+					vw: window.innerWidth,
+					vh: window.innerHeight,
+				};
+			});
+			if (!fullscreen.active) {
+				failures.push('PDF View full screen did not enter fullscreen');
+			} else if (!fullscreen.viewer ||
+				Math.abs(fullscreen.viewer.w - fullscreen.vw) > 1 ||
+				Math.abs(fullscreen.viewer.h - fullscreen.vh) > 1) {
+				failures.push(`PDF fullscreen wrapper is ${JSON.stringify(fullscreen.viewer)}, viewport ${fullscreen.vw}x${fullscreen.vh}`);
+			} else if (!fullscreen.frame ||
+				fullscreen.frame.w !== fullscreen.vw || fullscreen.frame.h <= 0) {
+				failures.push(`PDF fullscreen iframe is ${JSON.stringify(fullscreen.frame)}`);
+			} else {
+				console.log(`[ok] PDF fullscreen fills ${fullscreen.vw}x${fullscreen.vh} and the iframe fills the remaining height`);
+			}
+			await page.evaluate(() => {
+				if (document.fullscreenElement && document.exitFullscreen) {
+					document.exitFullscreen();
+				}
+			});
+		}
+
 		// --- classic content page: "Copy internal mention" ---------------
 		// The toolbar is inline inside the title (the File: page pattern) and
 		// copies a [[Page name]] internal link. In the Main namespace the
@@ -216,14 +272,14 @@ async function main() {
 			}
 		}
 
-		// The "Print this page" button joins the CONTENT-page toolbar row
+		// The "Download" button joins the CONTENT-page toolbar row
 		// (wbPrintToolbar='content') together with mention/citation — one row.
 		await page.goto(`${BASE_URL}/wiki/Main_Page`, { waitUntil: 'domcontentloaded', timeout: 60000 });
 		await page.waitForSelector('#ca-wb-print', { timeout: 15000 });
 		if (await page.locator('.wb-content-page-toolbar #ca-wb-print').count() !== 1) {
-			failures.push('print button is not inside the content-page toolbar on a content page');
+			failures.push('download button is not inside the content-page toolbar on a content page');
 		} else {
-			console.log('[ok] print button joins the content-page toolbar row');
+			console.log('[ok] download button joins the content-page toolbar row');
 		}
 
 		// --- Vector 2022 + ThemeToggle ---------------------------------
@@ -638,6 +694,39 @@ async function main() {
 			await dialog2.waitFor({ timeout: 15000 });
 			await dialog2.locator('.oo-ui-radioSelectInputWidget').first()
 				.locator('.oo-ui-radioOptionWidget').nth(1).click();
+			const accessLayout = await dialog2.evaluate(() => {
+				const helps = Array.from(
+					document.querySelectorAll('.wb-access-dialog .oo-ui-fieldLayout-help')
+				).map((help) => {
+					const rect = help.getBoundingClientRect();
+					const label = help.parentElement.querySelector(':scope > .oo-ui-labelElement-label');
+					return {
+						visible: rect.width > 0 && rect.height > 0,
+						afterLabel: label
+							? rect.left - label.getBoundingClientRect().right
+							: 0,
+					};
+				}).filter((help) => help.visible);
+				const body = document.querySelector('.wb-access-dialog')
+					.closest('.oo-ui-window-body');
+				return { helps, overflow: body ? body.scrollWidth - body.clientWidth : 0 };
+			});
+			if (accessLayout.helps.length === 0) {
+				failures.push('access dialog rendered no visible field help');
+			} else if (accessLayout.helps.some((help) => help.afterLabel < 0)) {
+				failures.push('access dialog field help is not after its label text');
+			} else if (accessLayout.overflow > 0) {
+				failures.push(`access dialog overflows horizontally by ${accessLayout.overflow}px`);
+			} else {
+				console.log('[ok] access dialog help icons sit after the label text');
+			}
+			const internalStatus = await page.evaluate(
+				() => mw.msg('embeddablecontent-access-login-only'));
+			if (internalStatus !== 'internal') {
+				failures.push(`access status label is ${JSON.stringify(internalStatus)}, expected "internal"`);
+			} else {
+				console.log('[ok] access status label is "internal"');
+			}
 			await dialog2.locator('.wb-access-dialog-actions .oo-ui-buttonElement').first().click();
 			const statusText = (await dialog2.locator('.wb-access-status').innerText()).trim();
 			if (!/Select a file to upload/i.test(statusText)) {
@@ -1161,9 +1250,18 @@ async function main() {
 			const row = document.querySelector('tr.wb-upload-author-entity');
 			return row !== null && getComputedStyle(row).display === 'none';
 		}, { timeout: 15000 }).catch(() => {});
+		const authorNamesRow = page.locator('textarea[name="wpUploadAuthorNames"]')
+			.locator('xpath=ancestor::tr');
+		const authorNamesHelp = page.locator('textarea[name="wpUploadAuthorNames"]')
+			.locator('xpath=ancestor::tr/following-sibling::tr[1]');
 		if (!(await authorTextRow.isVisible()) || (await authorEntityRow.isVisible()) ||
 			!(await sourceEntityRow.isVisible()) || (await sourceTextRow.isVisible())) {
 			failures.push('Special:Upload author/source modes are not in their default state');
+		}
+		if (await authorNamesHelp.isVisible()) {
+			failures.push('Special:Upload shows the author-list help while the semantic-entity checkbox is off');
+		} else {
+			console.log('[ok] Special:Upload hides the author-list help until semantic-entity mode');
 		}
 		await page.check('#wpUploadAuthorIsEntity');
 		await page.check('#wpUploadSourceIsText');
@@ -1181,6 +1279,8 @@ async function main() {
 		if ((await authorTextRow.isVisible()) || !(await authorEntityRow.isVisible()) ||
 			(await sourceEntityRow.isVisible()) || !(await sourceTextRow.isVisible())) {
 			failures.push('Special:Upload author/source toggle did not swap the visible field');
+		} else if (!(await authorNamesRow.isVisible()) || !(await authorNamesHelp.isVisible())) {
+			failures.push('Special:Upload did not reveal the author names + help in semantic-entity mode');
 		} else {
 			console.log('[ok] Special:Upload author/source mode toggles');
 		}
@@ -1614,7 +1714,7 @@ async function main() {
 		await page.evaluate(async (title) => {
 			await new Promise((r) => mw.loader.using('mediawiki.api', r));
 			await new mw.Api().postWithToken('csrf', {
-				action: 'edit', title, text: 'Printable-version UX fixture.', createonly: true,
+				action: 'edit', title, text: 'Printable-version UX fixture. {{#content:Q96}}', createonly: true,
 			});
 		}, printTitle);
 		try {
@@ -1649,12 +1749,12 @@ async function main() {
 				console.log('[ok] user subpage H1 is "<title> by @<user>" with a linked author');
 			}
 
-			// The button joins the shared .wb-embed-toolbar row (this page is
+			// The Download button joins the shared .wb-embed-toolbar row (this page is
 			// not a content page → the 'embed' surface).
 			if (await page.locator('.wb-embed-toolbar #ca-wb-print').count() !== 1) {
-				failures.push('print button is not inside the .wb-embed-toolbar row (non-content page)');
+				failures.push('download button is not inside the .wb-embed-toolbar row (non-content page)');
 			} else {
-				console.log('[ok] print button joins the .wb-embed-toolbar row');
+				console.log('[ok] download button joins the .wb-embed-toolbar row');
 			}
 
 			const leaf = printTitle.split('/').pop();
@@ -1683,9 +1783,9 @@ async function main() {
 				};
 			});
 
-			// The toolbar button opens the popup with the cover-page option.
-			await page.click('#ca-wb-print');
-			await page.waitForSelector('.wb-print-popup', { timeout: 10000 });
+			// The Download button opens the menu; PDF opens the print popup
+			// with the cover-page option.
+			await openPrintFromDownloadMenu(page);
 			if (await page.locator('.wb-print-popup input[type="checkbox"]').count() !== 1) {
 				failures.push('print popup lacks the "Add a cover page" option');
 			} else {
@@ -1726,6 +1826,43 @@ async function main() {
 				failures.push(`document.title not restored after print (${JSON.stringify(restoredTitle)} != ${JSON.stringify(originalTitle)})`);
 			} else {
 				console.log('[ok] document.title restored after print');
+			}
+
+			// HTML download: a standalone document of the rendered article.
+			await page.click('#ca-wb-print');
+			await page.waitForSelector('.wb-download-menu', { timeout: 10000 });
+			const [htmlDownload] = await Promise.all([
+				page.waitForEvent('download', { timeout: 15000 }),
+				page.click('.wb-download-menu [data-download="html"] .oo-ui-buttonElement-button'),
+			]);
+			const htmlText = readFileSync(await htmlDownload.path(), 'utf8');
+			if (!htmlDownload.suggestedFilename().endsWith('.html')) {
+				failures.push(`HTML download filename is ${JSON.stringify(htmlDownload.suggestedFilename())}`);
+			} else if (!htmlText.includes('Printable-version UX fixture.')) {
+				failures.push('HTML download does not contain the article text');
+			} else if (!htmlText.includes('<html lang=') || !htmlText.includes('<h1>')) {
+				failures.push('HTML download is not a standalone document');
+			} else {
+				console.log('[ok] Download → HTML produces a standalone rendered HTML file');
+			}
+
+			// Wikitext download: dynamic content expanded (no raw parser
+			// function survives; action=expandtemplates owns the expansion).
+			await page.click('#ca-wb-print');
+			await page.waitForSelector('.wb-download-menu', { timeout: 10000 });
+			const [wikiDownload] = await Promise.all([
+				page.waitForEvent('download', { timeout: 20000 }),
+				page.click('.wb-download-menu [data-download="wikitext"] .oo-ui-buttonElement-button'),
+			]);
+			const wikiText = readFileSync(await wikiDownload.path(), 'utf8');
+			if (!wikiDownload.suggestedFilename().endsWith('.wiki')) {
+				failures.push(`wikitext download filename is ${JSON.stringify(wikiDownload.suggestedFilename())}`);
+			} else if (!wikiText.includes('Printable-version UX fixture.')) {
+				failures.push('wikitext download does not contain the article text');
+			} else if (wikiText.includes('{{#content:')) {
+				failures.push('wikitext download still contains the raw {{#content:}} parser function');
+			} else {
+				console.log('[ok] Download → wikitext expands {{#content:}} to actual wikitext');
 			}
 
 			// The core sidebar "Printable version" link opens the same popup —
@@ -1791,8 +1928,7 @@ async function main() {
 					window.__printedTitle = document.title;
 				};
 			});
-			await page.click('#ca-wb-print');
-			await page.waitForSelector('.wb-print-popup', { timeout: 10000 });
+			await openPrintFromDownloadMenu(page);
 			if (!(await page.locator('.wb-print-popup input[type="checkbox"]').isChecked())) {
 				failures.push('archive print cover option is not pre-selected');
 			}

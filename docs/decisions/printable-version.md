@@ -1,8 +1,8 @@
-# Decision: Printable-version enhancements
+# Decision: Page download / printable-version enhancements
 
 - **Status**: Accepted (Oct 2026)
 - **Scope**: `wikibase.ronzz.org` — the core sidebar "Printable version" link
-  and a new "Print this page" toolbar button
+  and the page-toolbar "Download" button (PDF / HTML / wikitext)
 - **Decider**: Rongzhou (`ron@ronzz.org`)
 
 ## Context
@@ -23,16 +23,23 @@ are excluded (`Hooks::onBeforePageDisplay` → `wirePrintModule`). It sets
 parent are dropped (`getSubpageText()` returns the part after the last `/` in
 a subpage-enabled namespace, else the namespace-stripped text).
 
-Two entry points share one flow:
+Two entry points share the PDF flow:
 
-1. **"Print this page"** — a button that **joins the page's existing action
+1. **"Download"** — a button that **joins the page's existing action
    toolbar** (one row, not a second line): the inline `.wb-content-page-toolbar`
    on ordinary content pages, else the shared `.wb-embed-toolbar` row below the
    title (classic per-kind pages and any other article page).
    `Hooks::wirePrintModule` sets `wbPrintToolbar` (`content`/`embed`); `print.js`
    creates the row when absent and reuses it otherwise, and
    `contentpagetoolbar.js` appends to the same inline row — so both modules land
-   in one row regardless of load order (print loads first).
+   in one row regardless of load order (print loads first). The button opens a
+   menu: **PDF** (the print popup below), **HTML** (a standalone document of
+   `action=parse&prop=text` with root-relative URLs absolutised and minimal
+   readable CSS), and **Wikitext** (the raw wikitext expanded through
+   `action=expandtemplates&prop=wikitext`, so `{{#content:Q…}}`, templates and
+   parser functions become their expanded wikitext). HTML/wikitext downloads
+   are client-side `Blob` downloads named from the namespace-stripped title
+   (`.html` / `.wiki`).
 2. **The core sidebar link** — `a[href="javascript:print();"]` is intercepted
    in the **capture phase** (skin-agnostic). MediaWiki core's
    `mediawiki.page.ready` binds its OWN `#t-print a` handler that calls
@@ -41,10 +48,10 @@ Two entry points share one flow:
    `preventDefault()`s and `stopPropagation()`s before core's handler runs, so
    only the cover-page popup opens.
 
-The "Print this page" button carries the shared rank `60`
+The "Download" button carries the shared rank `60`
 (`data-wb-order`), so the order primitive
 (`ext.embeddableContent.toolbar`, ADR `page-toolbar-order.md`) keeps it LAST
-in the row regardless of module load order. Both open one OOUI `PopupWidget`
+in the row regardless of module load order. The PDF option (and the sidebar link) opens one OOUI `PopupWidget`
 (the `citationpopup.js` pattern) offering an **"Add a cover page"** checkbox +
 a **Print** button. On print:
 
@@ -83,6 +90,8 @@ uses the source title.
 
 - No server config/vocabulary change; a purely client-side feature plus one
   JS-config var. Deploy = extension rsync + php-fpm restart.
+- HTML/wikitext downloads use the read-only `action=parse` and
+  `action=expandtemplates` APIs; no server-side export endpoint is added.
 - The contributor list is a live API call at print time (no per-page-load
   query); it degrades to "no author line" on failure and never blocks the
   print.

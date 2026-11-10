@@ -960,8 +960,8 @@ class Hooks {
 	/**
 	 * Wire the printable-version module on an existing article page: the
 	 * namespace- and subpage-stripped title (`Title::getSubpageText()`, the
-	 * `wbPrintTitle` JS config) plus the "Print this page" toolbar button and
-	 * the core sidebar "Printable version" link interception. Special pages,
+	 * `wbPrintTitle` JS config) plus the "Download" toolbar menu and the
+	 * core sidebar "Printable version" link interception. Special pages,
 	 * Wikibase entity pages and File: pages are skipped (the File: page
 	 * already has its own copy toolbar).
 	 *

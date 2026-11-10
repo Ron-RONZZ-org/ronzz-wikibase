@@ -66,7 +66,7 @@
 			return;
 		}
 		// Reuse the inline page-toolbar row when it already exists — print.js
-		// loads first and creates it (its "Print this page" button shares this
+		// loads first and creates it (its "Download" button shares this
 		// row); otherwise create it.
 		var $toolbar = $( '.wb-content-page-toolbar' ).first();
 		if ( $toolbar.length === 0 ) {

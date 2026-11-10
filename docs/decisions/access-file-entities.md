@@ -47,6 +47,10 @@ could not render `PDF: en|fr`.
   (the file item).
 - Legacy `file` statements are left in place by the backfill (the read path
   dedupes); removing them is an explicit item edit.
+- The editor labels the login-gated status **"internal"** on the added-entry
+  card (storage stays `access status = login`), matching the internal-use file
+  marker. The access dialog's help icons sit after their field labels so the
+  dialog scrollbar never covers them.
 
 ## References
 

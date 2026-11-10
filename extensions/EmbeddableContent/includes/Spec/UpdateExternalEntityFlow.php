@@ -134,7 +134,14 @@ trait UpdateExternalEntityFlow {
 		}
 		$this->updateItemId = $itemId;
 		$this->updateItem = $item;
-		$this->updateReturnToClassic = $this->getRequest()->getVal( 'frompage' ) === '1';
+		// The marker arrives on the URL for the first GET, and as the hidden
+		// wpfrompage field when a failed submit re-renders the form (the POST
+		// URL carries no query string). Without the POST half the re-rendered
+		// form drops the marker and the next successful submit redirects to
+		// Item: instead of the classic page.
+		$request = $this->getRequest();
+		$this->updateReturnToClassic = $request->getVal( 'frompage' ) === '1'
+			|| (string)$request->getVal( 'wpfrompage' ) === '1';
 
 		$classItemId = $this->updateClassItemId( $item );
 		if ( $classItemId === null ) {
@@ -147,9 +154,12 @@ trait UpdateExternalEntityFlow {
 		// The "Add more" return (the popup's Update button marks its URL
 		// fromaddmore=1): only honoured when the class supports it (the
 		// updateAddMoreReturnUrl hook), so a stray marker on another class
-		// degrades to the normal return.
-		$this->updateReturnToAddMore = $this->getRequest()->getVal( 'fromaddmore' ) === '1'
-			&& $this->updateAddMoreReturnUrl() !== null;
+		// degrades to the normal return. The wpfromaddmore half keeps the
+		// marker across a validation-error re-render (see frompage above).
+		$this->updateReturnToAddMore = (
+			$request->getVal( 'fromaddmore' ) === '1'
+			|| (string)$request->getVal( 'wpfromaddmore' ) === '1'
+		) && $this->updateAddMoreReturnUrl() !== null;
 
 		$this->getOutput()->setPageTitle(
 			$this->msg( 'embeddablecontent-update-' . $this->updateKindKey() . '-title' )->text()
