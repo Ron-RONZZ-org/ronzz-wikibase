@@ -272,6 +272,13 @@ backslash of `\|` stays, so MathJax still receives `\|`. Non-math pipes
 (table separators, links) are untouched. The pass is a no-op when the span
 contains no pipe.
 
+The guard also covers **wikilink and `[[File:…]]` text**: `InternalParseBeforeLinks`
+runs before `handleInternalLinks()`, and a file caption is split into image
+options by every `|` (`Parser::makeImageInternal`), so
+`[[File:X.png|thumb|$D \approx 20\,|\theta|$ …]]` used to truncate its caption
+to `$ …` (the `Chinchilla_prescription#Empirical_determination` report). The
+same strip-marker pass keeps the caption whole.
+
 **Testing**: `tests/Unit/SimpleMathJaxQuotesTest.php` (`$|\theta|$`,
 `$\|x\|$`, `||`, display math, an environment span, non-math pipes
 untouched) and a server-side assertion in `tests/e2e/run_math_e2e.py` (a
