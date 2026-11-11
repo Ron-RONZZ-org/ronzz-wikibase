@@ -123,7 +123,37 @@ jobs:
               --title "$title" --body-file "$body"
           fi
           gh pr merge "$number" --repo "$GITHUB_REPOSITORY" --auto --merge \
-            --subject "$title" --body "Automated wiki sync."
+            --subject "$title" --body "Automated wiki sync." || \
+            echo "auto-merge could not be armed; falling back to the polling merge"
+          # GitHub's auto-merge can strand a PR that is already CLEAN when the
+          # request lands (and does not always retry after checks finish), so
+          # poll and merge directly once the required checks are green.
+          for i in $(seq 1 90); do
+            state=$(gh pr view "$number" --repo "$GITHUB_REPOSITORY" --json state --jq .state)
+            if [ "$state" = "MERGED" ]; then
+              echo "PR #$number merged"
+              exit 0
+            fi
+            merge_state=$(gh pr view "$number" --repo "$GITHUB_REPOSITORY" --json mergeStateStatus --jq .mergeStateStatus)
+            case "$merge_state" in
+              CLEAN|HAS_HOOKS|UNSTABLE)
+                echo "auto-merge did not fire; merging directly (mergeStateStatus=$merge_state)"
+                gh pr merge "$number" --repo "$GITHUB_REPOSITORY" --merge \
+                  --subject "$title" --body "Automated wiki sync." || true
+                ;;
+              BEHIND)
+                echo "PR #$number is behind main; updating the branch"
+                gh pr update-branch "$number" --repo "$GITHUB_REPOSITORY" || true
+                ;;
+              DIRTY)
+                echo "PR #$number has conflicts" >&2
+                exit 1
+                ;;
+            esac
+            sleep 10
+          done
+          echo "PR #$number did not merge within 15 minutes" >&2
+          exit 1
 
       - name: Commit pulled wiki changes
         if: steps.mode.outputs.value == 'pull' && steps.sync.outputs.code == '0' && env.HAS_SYNC_TOKEN != 'true'
