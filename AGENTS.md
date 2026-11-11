@@ -281,13 +281,17 @@ but cannot drive web-page flows.
   success. Any other path runs the full stack.
 - **No `push` trigger.** A merge commit is the tree the PR's `pull_request`
   checks already tested, so `main` does not re-run CI. `main` has classic
-  branch protection with `strict` required checks `unit` + `integration`
-  (and `enforce_admins`). The repo is user-owned, so classic protection
-  cannot allowlist the GitHub Actions app; the required checks therefore
-  gate PR merges while the hourly `wiki-pages.yml` auto-commit
-  (`github-actions[bot]`, `GITHUB_TOKEN`) can still push generated
-  `wiki_pages/` state directly. If PR-only protection becomes mandatory,
-  the sync bot must open a PR instead of pushing to `main`.
+  branch protection requiring a pull request (0 approvals) plus `strict`
+  required checks `unit` + `integration` (and `enforce_admins`).
+- **The wiki-pages sync publishes via an auto-merged PR.**
+  `wiki-pages.yml` pushes `wiki-pages-pull` / `wiki-pages-push`, creates or
+  updates the PR with `WIKI_SYNC_GH_TOKEN` (a fine-grained PAT: contents +
+  pull requests write), and merges when the checks pass (auto-merge, with a
+  polling direct-merge fallback for GitHub's stranded-auto-merge cases). A
+  `GITHUB_TOKEN`-created PR would not trigger CI. The direct-push fallback
+  exists only when the secret is missing; with PR-only protection it fails
+  loudly. Sync merges carry `[wiki-sync]` and do not re-run the repo→wiki
+  step.
 - **Recommended loop on resource-tight machines** (this box: ~3.6 GiB free —
   the full stack needs ~2.5 GiB): edit → local unit tests → push → PR CI
   gate. Use `workflow_dispatch` for ad-hoc full validation; only run the
