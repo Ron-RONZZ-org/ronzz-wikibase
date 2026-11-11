@@ -2777,6 +2777,65 @@ def flow_source_book_access_na(op, base: str, api: str, label: str,
     return flow_final_item(op, base, api, page, body, "AddSource/book/manual (access na)")
 
 
+def append_page_text(op, api: str, page_title: str, text: str) -> None:
+    """Append wikitext to a page (used to warm a page's parser cache with a
+    parser function the CI template set may not provide)."""
+    r = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = r["query"]["tokens"]["csrftoken"]
+    r = api_call(op, api, {
+        "action": "edit", "title": page_title, "appendtext": text,
+        "token": token, "summary": "E2E: warm the access row", "format": "json",
+    }, post=True)
+    if r.get("edit", {}).get("result") != "Success":
+        raise FlowError(f"append to {page_title} failed: {r!r}")
+
+
+def page_parse_text(op, api: str, page_title: str) -> str:
+    """Rendered HTML of a PAGE (action=parse&page=), i.e. through the parser
+    cache — unlike source_access_cell(), which parses a text fragment and
+    bypasses the page cache."""
+    r = api_call(op, api, {"action": "parse", "page": page_title,
+                           "prop": "text", "format": "json"})
+    return r.get("parse", {}).get("text", {}).get("*", "")
+
+
+def flow_update_source_add_access_url(op, base: str, api: str, qid: str,
+                                      access_url: str) -> None:
+    """UpdateSource: append a public access URL to the prefilled access
+    editor and submit. Used to prove the post-save sync purge: the Source:
+    page's parser cache must be invalidated by the update request itself, not
+    only by the async refreshLinks job (up to 5 min)."""
+    url, body = page_get(op, base, f"/wiki/Special:UpdateSource/{qid}")
+    if "Update a source" not in body:
+        raise FlowError(f"Special:UpdateSource/{qid} did not render: {find_error(body)}")
+    title = input_value(body, "wptitle")
+    authors = input_value(body, "wpauthors")
+    class_item = input_value(body, "wpclass")
+    if not title or not authors:
+        raise FlowError(f"UpdateSource/{qid} did not prefill title/authors: {find_error(body)}")
+    prefill = html.unescape( input_value(body, "wpaccessEntries") )
+    try:
+        entries = json.loads(prefill) if prefill else []
+    except ValueError:
+        entries = []
+    if not isinstance(entries, list):
+        entries = []
+    entries.append({"type": "url", "url": access_url, "public": "1"})
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "wptitle": title, "wpauthors": authors,
+        "wpdescription": input_value(body, "wpdescription"),
+        "wppublisher": input_value(body, "wppublisher"),
+        "wppages": input_value(body, "wppages"),
+        "wpissuedYear": input_value(body, "wpissuedYear"),
+        "wpclass": class_item,
+        "wpaccessEntries": json.dumps(entries),
+        "wpEditToken": token, "wpSubmit": "1",
+    })
+    if qid not in url:
+        raise FlowError(f"UpdateSource/{qid} access update did not redirect: {url} {find_error(body)}")
+
+
 def source_access_cell(op, api: str, page_title: str) -> str:
     """Renders the {{#source-access:}} cell in the context of the given
     Source: page (the parser function resolves the page's sitelinked item
@@ -6125,6 +6184,31 @@ def main() -> int:
             f"Source:{na_label} (Book) missing the description placeholder: {na_page[:200]!r}"
         print("[ok] Source: access row: file -> Special:SourceFile link, "
               "URL -> clickable link, none -> N/A")
+
+        # 2h3c. UpdateSource purges the classic page synchronously: the
+        #      infobox must show a just-added access entry immediately, not
+        #      the cached "N/A" until the async refreshLinks job runs (the
+        #      reported bug: item saved via UpdateSource, page still N/A).
+        purge_label = f"Page-flow E2E access purge {int(time.time())}"
+        purge_book = track(flow_source_book_access_na(op, base, api, purge_label, person))
+        purge_title = f"Source:{purge_label} (Book)"
+        # The CI stack has no push of the wiki_pages templates, so the Source
+        # page's {{Book}} is red; append the access parser function directly
+        # to give the page a renderable access row (still the page cache the
+        # update must purge).
+        append_page_text(op, api, purge_title, "\n\n{{#source-access:}}")
+        warmed = page_parse_text(op, api, purge_title)
+        assert "N/A" in warmed, f"pre-update Source page did not render N/A: {warmed[:300]!r}"
+        flow_update_source_add_access_url(
+            op, base, api, purge_book, "https://example.org/e2e-purge")
+        # The async job queue runs every 5 min — a short wait cannot mask a
+        # missing synchronous purge.
+        time.sleep(2)
+        after = page_parse_text(op, api, purge_title)
+        assert "https://example.org/e2e-purge" in after and "N/A" not in after, \
+            f"UpdateSource did not purge the Source page (stale parser cache): {after[:400]!r}"
+        print("[ok] UpdateSource purges the Source page synchronously "
+              "(access edit visible immediately)")
 
         # 2h4. Special:SourceFile (issue follow-up): the PNG copy from 2h
         #     renders the licence + the gated download (no iframe for a

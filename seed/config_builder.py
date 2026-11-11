@@ -615,10 +615,11 @@ def build_config(
         # map, as a plain list.
         "$wgWikibaseCitationSourceClasses = " + php_array(list(source_classes.values())) + ";",
         "$wgWBRepoSettings['sandboxEntityIds'] = [ 'mainItem' => 'Q999999998', 'auxItem' => 'Q999999999' ];",
-        # Instance data rights: CC BY-SA 4.0 (fetched page content carries
-        # CC BY-SA attributions; contributor content is CC BY-SA licensed).
-        "$wgWBRepoSettings['dataRightsUrl'] = 'https://creativecommons.org/licenses/by-sa/4.0/';",
-        "$wgWBRepoSettings['rdfDataRightsUrl'] = 'https://creativecommons.org/licenses/by-sa/4.0/';",
+        # Instance data rights: CC BY-NC-SA 4.0 (matches the site licence in
+        # LocalSettings.php; contributor content and the structured data are
+        # released under the same terms).
+        "$wgWBRepoSettings['dataRightsUrl'] = 'https://creativecommons.org/licenses/by-nc-sa/4.0/';",
+        "$wgWBRepoSettings['rdfDataRightsUrl'] = 'https://creativecommons.org/licenses/by-nc-sa/4.0/';",
         "",
     ]
     return "\n".join(line for line in lines if "=> None" not in line and "=>null" not in line)

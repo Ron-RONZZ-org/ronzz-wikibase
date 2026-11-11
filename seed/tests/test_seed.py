@@ -360,8 +360,8 @@ class ConfigBuilderTest(unittest.TestCase):
         self.assertIn("'GNU GPL-3.0' => 'Q201'", snippet)
         self.assertIn("'image' => 'P32'", snippet)
         self.assertIn("'license' => 'P34'", snippet)  # personProperties keys
-        # CC BY-SA 4.0 data rights (was CC0).
-        self.assertIn("['dataRightsUrl'] = 'https://creativecommons.org/licenses/by-sa/4.0/'", snippet)
+        # CC BY-NC-SA 4.0 data rights (was CC0, then CC BY-SA 4.0).
+        self.assertIn("['dataRightsUrl'] = 'https://creativecommons.org/licenses/by-nc-sa/4.0/'", snippet)
         self.assertNotIn("publicdomain/zero/1.0", snippet)
 
     def test_foss_license_class_emitted(self):

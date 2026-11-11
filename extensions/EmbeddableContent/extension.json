@@ -1024,6 +1024,30 @@
 				"mobile"
 			]
 		},
+		"ext.embeddableContent.license": {
+			"scripts": [
+				"license.js"
+			],
+			"messages": [
+				"embeddablecontent-download-license-wikitext",
+				"embeddablecontent-license-badge-alt",
+				"embeddablecontent-license-notice",
+				"embeddablecontent-license-pdf-title",
+				"embeddablecontent-license-pdf-free",
+				"embeddablecontent-license-pdf-share",
+				"embeddablecontent-license-pdf-adapt",
+				"embeddablecontent-license-pdf-irrevocable",
+				"embeddablecontent-license-pdf-terms",
+				"embeddablecontent-license-pdf-attribution",
+				"embeddablecontent-license-pdf-noncommercial",
+				"embeddablecontent-license-pdf-sharealike",
+				"embeddablecontent-license-pdf-noadditional"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
 		"ext.embeddableContent.print": {
 			"scripts": [
 				"print.js"
@@ -1036,7 +1060,8 @@
 				"mediawiki.api",
 				"mediawiki.notification",
 				"oojs-ui",
-				"ext.embeddableContent.toolbar"
+				"ext.embeddableContent.toolbar",
+				"ext.embeddableContent.license"
 			],
 			"messages": [
 				"embeddablecontent-print-button",

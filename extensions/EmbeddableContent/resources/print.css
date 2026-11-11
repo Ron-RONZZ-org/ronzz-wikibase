@@ -8,7 +8,8 @@
  */
 
 .wb-print-header,
-.wb-print-cover {
+.wb-print-cover,
+.wb-print-license {
 	display: none;
 }
 
@@ -74,6 +75,66 @@
 	body.wb-printing .wb-print-authors {
 		font-size: 1.2em;
 		margin-top: 0.8em;
+	}
+
+	/* The licence page: own page after the cover (or after the title header
+	 * when no cover is selected), content starts on the next page. */
+	body.wb-printing .wb-print-license {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		min-height: 90vh;
+		text-align: center;
+		page-break-after: always;
+		font-family: Georgia, "Times New Roman", serif;
+		color: #202122;
+	}
+
+	body.wb-printing .wb-license-glyphs {
+		display: flex;
+		gap: 0.4em;
+		margin-bottom: 0.8em;
+	}
+
+	/* No cover: the title/author header and the licence share page 1 (the
+	 * header is small); the licence still breaks before the content. */
+	body.wb-printing .wb-print-header + .wb-print-license {
+		min-height: 0;
+		page-break-before: avoid;
+		margin-top: 2em;
+	}
+
+	body.wb-printing .wb-license-glyph {
+		width: 30px;
+		height: 30px;
+	}
+
+	body.wb-printing .wb-license-heading {
+		margin: 0;
+		font-size: 1.4em;
+	}
+
+	body.wb-printing .wb-license-name {
+		margin: 0.2em 0 1em;
+		font-size: 1em;
+		font-weight: normal;
+	}
+
+	body.wb-printing .wb-print-license ul {
+		text-align: left;
+		max-width: 34em;
+		margin: 0.3em auto 0.8em;
+		padding-left: 1.2em;
+	}
+
+	body.wb-printing .wb-print-license li {
+		margin: 0.35em 0;
+	}
+
+	body.wb-printing .wb-license-deed {
+		font-size: 0.9em;
+		word-break: break-all;
 	}
 }
 

@@ -98,4 +98,44 @@ final class SimpleMathJaxQuotesTest extends TestCase {
 		$this->assertSame( $expected, \SimpleMathJaxQuotes::protectQuotesInMath(
 			$input, $protect, [ [ '$', '$' ] ], [ [ '$$', '$$' ] ], true, true ) );
 	}
+
+	/**
+	 * Pipes inside math are protected from MediaWiki's table parser; pipes
+	 * outside math stay untouched. A `\|` keeps its backslash (only the pipe
+	 * character is place-held).
+	 *
+	 * @dataProvider providePipeCases
+	 */
+	public function testProtectPipesInMath( string $input, string $expected ): void {
+		$protect = static function ( string $pipe ): string {
+			return '«' . $pipe . '»';
+		};
+		$this->assertSame(
+			$expected,
+			\SimpleMathJaxQuotes::protectPipesInMath(
+				$input, $protect, [ [ '$', '$' ] ], [ [ '$$', '$$' ] ], true, true )
+		);
+	}
+
+	/**
+	 * @return array<int,array{string,string}>
+	 */
+	public static function providePipeCases(): array {
+		return [
+			// A norm in a wikitable header/cell (the reported case).
+			[ '! $ |\theta|$', '! $ «|»\theta«|»$' ],
+			// \| keeps the backslash; only the pipe is hidden.
+			[ '$\|\theta\|$', '$\«|»\theta\«|»$' ],
+			// Double bars are two pipes.
+			[ '$||x||$', '$«|»«|»x«|»«|»$' ],
+			// Display math.
+			[ '$$|x|$$', '$$«|»x«|»$$' ],
+			// A pipe in an environment span.
+			[ '\begin{align} |x| &= 1 \end{align}', '\begin{align} «|»x«|» &= 1 \end{align}' ],
+			// Pipes outside math are never touched.
+			[ '| a || b | c |', '| a || b | c |' ],
+			// No pipe: byte-identical.
+			[ '$x + y$', '$x + y$' ],
+		];
+	}
 }

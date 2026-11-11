@@ -79,6 +79,27 @@ final class SimpleMathJaxMultilineTest extends TestCase {
 				'$$\\text{\\tag{x}} \\\\ a = b$$',
 				'$$\\begin{gathered}\\text{\\tag{x}} \\\\ a = b\\end{gathered}$$',
 			],
+			// A top-level `\label` makes a bare display block taggable so
+			// MathJax registers the label (and numbers the equation).
+			'single-line label uses gather' => [
+				'$$x = 1 \\label{eq:x}$$',
+				'$$\\begin{gather}x = 1 \\label{eq:x}\\end{gather}$$',
+			],
+			'multiline label uses gather' => [
+				'$$a = b \\\\ c = d \\label{eq:x}$$',
+				'$$\\begin{gather}a = b \\\\ c = d \\label{eq:x}\\end{gather}$$',
+			],
+			// A label inside a braced group is not top-level.
+			'label inside a braced group stays gathered' => [
+				'$$\\text{\\label{x}} \\\\ a = b$$',
+				'$$\\begin{gathered}\\text{\\label{x}} \\\\ a = b\\end{gathered}$$',
+			],
+			// A top-level `\tag` already tags a single-line display, so a
+			// tag + label block needs no wrapper.
+			'tag plus label single-line untouched' => [
+				'$$x = 1 \\tag{1}\\label{eq:x}$$',
+				'$$x = 1 \\tag{1}\\label{eq:x}$$',
+			],
 			// A top-level environment FOLLOWED by a top-level break is still
 			// multiline — wrap the whole content.
 			'environment plus top-level break' => [
@@ -135,5 +156,15 @@ final class SimpleMathJaxMultilineTest extends TestCase {
 		$twice = \SimpleMathJaxMultiline::wrapMultilineDisplayMath( $once, self::DISPLAY );
 		$this->assertSame( $once, $twice );
 		$this->assertSame( '$$\\begin{gather}a \\\\ b \\tag{1}\\end{gather}$$', $once );
+	}
+
+	public function testLabelWrapIsIdempotent(): void {
+		$once = \SimpleMathJaxMultiline::wrapMultilineDisplayMath(
+			'$$x = 1 \\label{eq:x}$$',
+			self::DISPLAY
+		);
+		$twice = \SimpleMathJaxMultiline::wrapMultilineDisplayMath( $once, self::DISPLAY );
+		$this->assertSame( $once, $twice );
+		$this->assertSame( '$$\\begin{gather}x = 1 \\label{eq:x}\\end{gather}$$', $once );
 	}
 }

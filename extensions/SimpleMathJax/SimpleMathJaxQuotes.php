@@ -48,6 +48,79 @@ class SimpleMathJaxQuotes {
 		bool $processEscapes = true,
 		bool $protectEnvironments = true
 	): string {
+		return self::mapMathSpans(
+			$text,
+			static function ( string $span ) use ( $protect ): string {
+				return self::protectSpan( $span, $protect );
+			},
+			$inlineDelims,
+			$displayDelims,
+			$processEscapes,
+			$protectEnvironments
+		);
+	}
+
+	/**
+	 * Protect every `|` inside a math span with a place-holder.
+	 *
+	 * MediaWiki's table parser (`Parser::handleTables()`) treats a raw `|` on
+	 * a table cell line as the attribute/content separator, so a formula such
+	 * as `$|\theta|$` in a cell is split at the first pipe and the math
+	 * breaks; `\|` is no help because wikitext does not honour the
+	 * backslash. This pass runs in `InternalParseBeforeLinks` — core calls it
+	 * BEFORE `handleTables` — and hides each pipe behind a strip marker, so
+	 * the table parser never sees it; the marker is restored to `|` in the
+	 * final HTML before MathJax reads the text node.
+	 *
+	 * @param string $text wikitext/parser text to scan
+	 * @param callable $protect callback(string $pipe): string — turns a `|`
+	 *   into a place-holder that survives table parsing
+	 * @param array[] $inlineDelims list of [open, close] inline pairs
+	 * @param array[] $displayDelims list of [open, close] display pairs
+	 * @param bool $processEscapes honour \$ and \\ (MathJax processEscapes)
+	 * @param bool $protectEnvironments also protect \begin{env}…\end{env}
+	 * @return string text with pipes inside math protected
+	 */
+	public static function protectPipesInMath(
+		string $text,
+		callable $protect,
+		array $inlineDelims,
+		array $displayDelims,
+		bool $processEscapes = true,
+		bool $protectEnvironments = true
+	): string {
+		return self::mapMathSpans(
+			$text,
+			static function ( string $span ) use ( $protect ): string {
+				return self::protectPipes( $span, $protect );
+			},
+			$inlineDelims,
+			$displayDelims,
+			$processEscapes,
+			$protectEnvironments
+		);
+	}
+
+	/**
+	 * Walk $text and hand each math span's CONTENT to $transform, copying
+	 * delimiters and non-math text unchanged.
+	 *
+	 * @param string $text
+	 * @param callable $transform callback(string $content): string
+	 * @param array[] $inlineDelims
+	 * @param array[] $displayDelims
+	 * @param bool $processEscapes
+	 * @param bool $protectEnvironments
+	 * @return string
+	 */
+	private static function mapMathSpans(
+		string $text,
+		callable $transform,
+		array $inlineDelims,
+		array $displayDelims,
+		bool $processEscapes,
+		bool $protectEnvironments
+	): string {
 		if ( $text === '' || ( $inlineDelims === [] && $displayDelims === [] && !$protectEnvironments ) ) {
 			return $text;
 		}
@@ -95,8 +168,8 @@ class SimpleMathJaxQuotes {
 						// of \end{…}; findClose returns just PAST the close.
 						$contentLen = $end - $envEnd - 1 - strlen( $close );
 						$out .= substr( $text, $i, $envEnd + 1 - $i );
-						$out .= self::protectSpan(
-							substr( $text, $envEnd + 1, $contentLen ), $protect );
+						$out .= $transform(
+							substr( $text, $envEnd + 1, $contentLen ) );
 						$out .= $close;
 						$i = $end;
 						continue;
@@ -115,8 +188,8 @@ class SimpleMathJaxQuotes {
 						// of the closer; findClose returns just PAST it.
 						$contentLen = $end - $i - $oL - strlen( $close );
 						$out .= $open;
-						$out .= self::protectSpan(
-							substr( $text, $i + $oL, $contentLen ), $protect );
+						$out .= $transform(
+							substr( $text, $i + $oL, $contentLen ) );
 						$out .= $close;
 						$i = $end;
 						$matched = true;
@@ -212,6 +285,29 @@ class SimpleMathJaxQuotes {
 			$j++;
 		}
 		return $j < $len && $text[$j] === "\n";
+	}
+
+	/**
+	 * Replace every `|` in $span via $protect. The pipe is protected even
+	 * when it follows a backslash (`\|`): only the pipe character is hidden,
+	 * the backslash stays, so MathJax still sees `\|` after the marker is
+	 * restored.
+	 *
+	 * @param string $span
+	 * @param callable $protect
+	 * @return string
+	 */
+	private static function protectPipes( string $span, callable $protect ): string {
+		if ( $span === '' || strpos( $span, '|' ) === false ) {
+			return $span;
+		}
+		return preg_replace_callback(
+			'/\|/',
+			static function ( array $m ) use ( $protect ) {
+				return $protect( $m[0] );
+			},
+			$span
+		) ?? $span;
 	}
 
 	/**

@@ -458,6 +458,13 @@ trait UpdateExternalEntityFlow {
 		if ( $heal !== null ) {
 			return $heal;
 		}
+		// The classic page was parsed from the OLD item revision. Purge it
+		// synchronously so the post-save redirect renders the new statements;
+		// the parser-cache template dependency would otherwise invalidate it
+		// only through the asynchronous refreshLinks job (up to the 5-minute
+		// job-queue interval — the "access NA" report after an UpdateSource
+		// save).
+		$this->purgeClassicPage( $item );
 		// The update was launched from the item's classic page: return
 		// there. The page may have been RENAMED above, so read the CURRENT
 		// sitelink (never a user-supplied title — no open-redirect surface).
@@ -465,6 +472,33 @@ trait UpdateExternalEntityFlow {
 			return $this->classicPageUrl( $item );
 		}
 		return null;
+	}
+
+	/**
+	 * Purge the item's sitelinked classic page (its `wikibase` sitelink) so
+	 * the update's redirect shows the new item data. Best-effort: on failure
+	 * the async refreshLinks job still refreshes the page within ~5 minutes.
+	 */
+	private function purgeClassicPage( Item $item ): void {
+		$sitelinks = $item->getSiteLinkList();
+		if ( !$sitelinks->hasLinkWithSiteId( 'wikibase' ) ) {
+			return;
+		}
+		$title = Title::newFromText( $sitelinks->getBySiteId( 'wikibase' )->getPageName() );
+		if ( $title === null || !$title->exists() ) {
+			return;
+		}
+		try {
+			\MediaWiki\MediaWikiServices::getInstance()
+				->getWikiPageFactory()
+				->newFromTitle( $title )
+				->doPurge();
+		} catch ( \Throwable $e ) {
+			\MediaWiki\Logger\LoggerFactory::getInstance( 'EmbeddableContent' )->warning(
+				'Classic-page purge failed for {title}: {error}',
+				[ 'title' => $title->getPrefixedText(), 'error' => $e->getMessage() ]
+			);
+		}
 	}
 
 	/**

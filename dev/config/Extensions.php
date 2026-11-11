@@ -334,6 +334,13 @@ $wgEmbeddableContentMediaMarkerDirectory = '/tmp/wikibase-media-markers';
 $wgMaxImageArea = 60000000;
 $wgMaxAnimatedGifArea = $wgMaxImageArea;
 
+// ---- Instance licence: CC BY-NC-SA 4.0 ----
+// Mirrors production LocalSettings.php (RonzzIT:Deployment/Wikibase). The
+// badge is core's bundled 88x31 asset, so no CDN / upload is involved.
+$wgRightsUrl = 'https://creativecommons.org/licenses/by-nc-sa/4.0/';
+$wgRightsText = 'CC BY-NC-SA 4.0';
+$wgRightsIcon = "{$wgResourceBasePath}/resources/assets/licenses/cc-by-nc-sa.png";
+
 if ( file_exists( __DIR__ . '/ronzz-wikibase-config.php' ) ) {
 	require_once __DIR__ . '/ronzz-wikibase-config.php';
 }
