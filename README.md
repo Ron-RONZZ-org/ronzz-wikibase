@@ -191,22 +191,29 @@ python3 -m unittest discover -s seed/tests
 
 ### CI (recommended for the integration layer)
 
-GitHub Actions runs **two jobs** on every push/PR (public repo → unlimited
-minutes; the full stack runs on 16 GB runners, so it never touches your
-machine):
+GitHub Actions runs **two required jobs on every pull request** (public repo →
+unlimited minutes; the full stack runs on 16 GB runners, so it never touches
+your machine):
 
-- `unit` — PHPUnit + seed tooling (~2–3 min)
+- `unit` — PHPUnit + seed tooling (~1.5–3 min)
 - `integration` — real wikibase-docker stack (MW 1.46 + WDQS): D1 importers →
   D2 seed → config-map restart → E2E acceptance → XSS suite → **page-flow E2E**
   (issue-#7 Special pages) → forum E2E → **diagrams E2E**
   (PlantUML/GraphViz/Mscgen/Mermaid tags + SANDBOX probe)
 
+There is **no CI run on `push`**: the merge commit is the tree the PR checks
+already tested, so `main` does not re-run the pipeline. Branch protection on
+`main` requires `unit` + `integration` (strict). **Docs-only PRs** (markdown,
+`LICENSE`, `wiki_pages/`) still report `integration` but skip the stack — the
+job diffs the PR against its base and gates every heavy step, so it finishes
+in seconds.
+
 **Recommended loop** (especially on a resource-tight machine): edit → local
-unit tests above → push → CI gate. For an on-demand full validation without
-pushing, run the workflow manually:
+unit tests above → push branch → open PR → CI gate. For an on-demand full
+validation without opening a PR, run the workflow manually:
 [Actions → CI → Run workflow](https://github.com/Ron-RONZZ-org/ronzz-wikibase/actions)
-(`workflow_dispatch`). For interactive stack debugging, see `dev/README.md`
-(local stack, ~2.5 GiB RAM).
+(`workflow_dispatch` always runs the full stack). For interactive stack
+debugging, see `dev/README.md` (local stack, ~2.5 GiB RAM).
 
 E2E acceptance + XSS suite (against a seeded instance):
 
