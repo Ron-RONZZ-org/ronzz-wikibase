@@ -6,10 +6,10 @@ namespace EmbeddableContent\Fetch;
 
 use DataValues\StringValue;
 use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\PropertyIdFactory;
 use EmbeddableContent\Search\EntityTermSearch;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
-use Wikibase\DataModel\Entity\PropertyId;
 use Wikibase\DataModel\Snak\PropertyValueSnak;
 use Wikibase\Repo\WikibaseRepo;
 
@@ -221,10 +221,7 @@ class LocalAuthorityResolver {
 	}
 
 	private function claimHasValue( Item $item, string $propertyId, string $value ): bool {
-		$property = new PropertyId( $propertyId );
-		if ( !$item->getStatements()->hasProperty( $property ) ) {
-			return false;
-		}
+		$property = PropertyIdFactory::create( $propertyId );
 		foreach ( $item->getStatements()->getByPropertyId( $property )->getIterator() as $statement ) {
 			$snak = $statement->getMainSnak();
 			if ( !$snak instanceof PropertyValueSnak ) {

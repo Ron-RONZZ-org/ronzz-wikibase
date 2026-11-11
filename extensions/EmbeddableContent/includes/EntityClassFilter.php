@@ -6,7 +6,6 @@ namespace EmbeddableContent;
 
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
-use Wikibase\DataModel\Entity\PropertyId;
 
 /**
  * Pure `instance of` helpers, shared by every place that filters items by
@@ -47,12 +46,7 @@ final class EntityClassFilter {
 		if ( $classItemIds === [] ) {
 			return false;
 		}
-		// NumericPropertyId exists in the MediaWiki runtime's newer
-		// wikibase/data-model but not in the repo's unit-test vendor
-		// (9.6.1) — fall back to the base PropertyId there.
-		$propertyId = class_exists( \Wikibase\DataModel\Entity\NumericPropertyId::class )
-			? new \Wikibase\DataModel\Entity\NumericPropertyId( $instanceOfPropertyId )
-			: new PropertyId( $instanceOfPropertyId );
+		$propertyId = PropertyIdFactory::create( $instanceOfPropertyId );
 		foreach ( $item->getStatements()->getByPropertyId( $propertyId ) as $statement ) {
 			$value = $statement->getMainSnak()->getDataValue();
 			if ( $value instanceof EntityIdValue

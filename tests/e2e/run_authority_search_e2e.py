@@ -102,6 +102,34 @@ def check_live(api_url: str) -> None:
         f"resolveLocal=1 returned no local.authors: {work}",
     )
 
+    # Harvest carries author Wikidata Q-ids, so resolveLocal enters the
+    # authority-match path (claimHasValue). A direct PropertyId instantiation
+    # passed the unit suite (data-model 9.6.1) and 500'd on the deployed
+    # interface (the embeddable-authority-search report); this is the
+    # production-runtime regression gate.
+    harvest = api(
+        api_url,
+        {
+            "action": "authority-search",
+            "kind": "work",
+            "mode": "harvest",
+            "wikidataId": "Q21563817",
+            "resolveLocal": "1",
+            "format": "json",
+        },
+    )
+    records = harvest.get("authoritysearch", {}).get("records", [])
+    expect(len(records) > 0, f"harvest returned no records: {harvest}")
+    local = records[0].get("local", {})
+    expect(
+        "authors" in local,
+        f"harvest resolveLocal returned no local.authors: {records[0]}",
+    )
+    expect(
+        any(author.get("matchedBy") == "wikidata" for author in local["authors"]),
+        f"harvest did not match an author by Wikidata id: {local['authors']}",
+    )
+
     person = api(
         api_url,
         {

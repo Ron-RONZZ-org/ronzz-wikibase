@@ -7,6 +7,7 @@ namespace EmbeddableContent\Flow;
 use DataValues\StringValue;
 use DataValues\TimeValue;
 use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\PropertyIdFactory;
 use EmbeddableContent\Spec\AdditionalStatements;
 use EmbeddableContent\Spec\EntityLabelText;
 use EmbeddableContent\Spec\GroupLabel;
@@ -15,8 +16,6 @@ use Wikibase\DataModel\DataValue;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
-use Wikibase\DataModel\Entity\NumericPropertyId;
-use Wikibase\DataModel\Entity\PropertyId;
 use Wikibase\DataModel\Services\Lookup\EntityLookup;
 use Wikibase\DataModel\Services\Statement\GuidGenerator;
 use Wikibase\DataModel\Snak\PropertyValueSnak;
@@ -459,7 +458,7 @@ final class SemanticEntityFlowService {
 		foreach ( $this->statementSpecs( $kind, $record ) as $propertyId => $value ) {
 			foreach ( is_array( $value ) ? $value : [ $value ] as $single ) {
 				$item->getStatements()->addNewStatement(
-					new PropertyValueSnak( $this->propertyId( $propertyId ), $single )
+					new PropertyValueSnak( PropertyIdFactory::create( $propertyId ), $single )
 				);
 			}
 		}
@@ -475,7 +474,7 @@ final class SemanticEntityFlowService {
 			foreach ( $built['values'] as $propertyId => $values ) {
 				foreach ( $values as $single ) {
 					$item->getStatements()->addNewStatement(
-						new PropertyValueSnak( $this->propertyId( $propertyId ), $single )
+						new PropertyValueSnak( PropertyIdFactory::create( $propertyId ), $single )
 					);
 				}
 			}
@@ -513,7 +512,7 @@ final class SemanticEntityFlowService {
 			foreach ( $this->statementSpecs( $kind, $record ) as $propertyId => $value ) {
 				foreach ( is_array( $value ) ? $value : [ $value ] as $single ) {
 					$item->getStatements()->addNewStatement(
-						new PropertyValueSnak( $this->propertyId( $propertyId ), $single )
+						new PropertyValueSnak( PropertyIdFactory::create( $propertyId ), $single )
 					);
 				}
 			}
@@ -694,19 +693,6 @@ final class SemanticEntityFlowService {
 		if ( $from !== $to && $terms->hasTermForLanguage( $from ) ) {
 			$terms->removeByLanguage( $from );
 		}
-	}
-
-	/**
-	 * Property-id factory across data-model versions: the Wikibase bundle
-	 * (production, 9.7+) made PropertyId an interface with NumericPropertyId
-	 * as the concrete class; the unit-test image's 9.6.1 has PropertyId
-	 * concrete and no NumericPropertyId. Instantiate whichever exists.
-	 */
-	private function propertyId( string $serialization ): PropertyId {
-		if ( class_exists( NumericPropertyId::class ) ) {
-			return new NumericPropertyId( $serialization );
-		}
-		return new PropertyId( $serialization );
 	}
 
 }
