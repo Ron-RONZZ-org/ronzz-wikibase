@@ -376,9 +376,9 @@
       "synced_at": "2026-10-31T10:09:08+00:00"
     },
     "Template:Translation": {
-      "revid": 15969,
-      "sha256": "ddc8353662629cc7649e9cd847f8e4255baed9060d6964cb6ac74988be6fd3f1",
-      "synced_at": "2026-11-11T18:12:56+00:00"
+      "revid": 15973,
+      "sha256": "3212eb74e513558f465dea65a82befcd0db0f58cfb7b948ab1c043ea6415c979",
+      "synced_at": "2026-11-11T18:18:52+00:00"
     },
     "Template:Treaty": {
       "revid": 9037,
@@ -411,6 +411,6 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     }
   },
-  "updated": "2026-11-11T18:12:56+00:00",
+  "updated": "2026-11-11T18:18:52+00:00",
   "version": 1
 }
