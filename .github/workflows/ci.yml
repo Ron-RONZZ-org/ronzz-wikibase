@@ -1,23 +1,18 @@
 name: CI
 
-# Docs-only changes (markdown + the licence) do not run the pipeline: the
-# `unit` job would pass anyway and the `integration` job (a full 16 GB
-# wikibase-docker stack) is wasted. `paths-ignore` skips the workflow when
-# ONLY these paths changed; any code change still runs it. `main` has no
-# branch protection requiring the check, so a skipped run cannot strand a PR.
+# Runs on pull requests only (plus manual dispatch): the merge commit is the
+# tree the PR's `pull_request` checks already tested, so a post-merge run
+# would repeat the same work. Branch protection on `main` requires the
+# `unit` and `integration` checks, so they must be reported on EVERY PR.
+#
+# Docs-only PRs (markdown + the licence + the sync-managed wiki_pages/) must
+# not spin up the 16 GB wikibase-docker stack. The `integration` job still
+# starts (a required check cannot be skipped — a skipped job is not a
+# success), but its first step diffs the PR against its base and every heavy
+# step is gated behind that path check. A docs-only PR therefore runs the
+# ~1-minute unit job and a ~20-second no-op integration job.
 on:
-  push:
-    paths-ignore:
-      - '**/*.md'
-      - 'LICENSE'
-      # Wiki page content is sync-managed (wiki-pages.yml); editing it does
-      # not exercise the PHP/stack CI.
-      - 'wiki_pages/**'
   pull_request:
-    paths-ignore:
-      - '**/*.md'
-      - 'LICENSE'
-      - 'wiki_pages/**'
   workflow_dispatch:
 
 # The integration job runs a full wikibase-docker stack (MW 1.46 + WDQS) —
@@ -79,8 +74,28 @@ jobs:
       COMPOSE: docker compose -f dev/docker-compose.ci.yml
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect code changes
+        id: changes
+        run: |
+          set -euo pipefail
+          # Manual dispatch has no base ref: always run the full stack.
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          if git diff --name-only "origin/${{ github.base_ref }}...HEAD" \
+            | grep -qvE '\.md$|^LICENSE$|^wiki_pages/'; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Cache stack images
+        if: steps.changes.outputs.code == 'true'
         uses: actions/cache@v4
         with:
           path: /tmp/ci-images
@@ -89,6 +104,7 @@ jobs:
             wikibase-images-
 
       - name: Load or pull stack images
+        if: steps.changes.outputs.code == 'true'
         run: |
           if [ -f /tmp/ci-images/images.tar ]; then
             docker load -i /tmp/ci-images/images.tar
@@ -99,6 +115,7 @@ jobs:
           fi
 
       - name: Start the stack
+        if: steps.changes.outputs.code == 'true'
         run: |
           mkdir -p dev/config seed/generated
           # `up -d` can exit non-zero when the wikibase container dies early
@@ -108,6 +125,7 @@ jobs:
           $COMPOSE ps
 
       - name: Wait for the wiki API (first boot installs MediaWiki+Wikibase)
+        if: steps.changes.outputs.code == 'true'
         run: |
           for attempt in 1 2 3; do
             for i in $(seq 1 100); do
@@ -141,6 +159,7 @@ jobs:
       # early), so it is an explicit step here — production does the same
       # ALTER in the runbook deploy sequence.
       - name: Widen the term-text column (descriptions up to 2000 chars)
+        if: steps.changes.outputs.code == 'true'
         run: |
           $COMPOSE exec -T mysql mysql -u wikiuser -psqlpass my_wiki -e \
             "ALTER TABLE wbt_text MODIFY wbx_text VARBINARY(2000) NOT NULL;"
@@ -153,6 +172,7 @@ jobs:
       # any WDQS-dependent check on a sitelinked item fails. site_data /
       # site_config are PHP-serialized empty arrays.
       - name: Register the local Wikibase site (sites table)
+        if: steps.changes.outputs.code == 'true'
         run: |
           $COMPOSE exec -T mysql mysql -u wikiuser -psqlpass my_wiki -e \
             "INSERT IGNORE INTO sites (site_id, site_global_key, site_type, site_group, site_source, site_language, site_protocol, site_domain, site_data, site_forward, site_config) VALUES (1, 'wikibase', 'mediawiki', 'ronzz', 'local', 'en', 'http', 'wikibase', 'a:0:{}', 1, 'a:0:{}');"
@@ -164,6 +184,7 @@ jobs:
       # ext-intl is ignored: the WBS image (runtime) has it, the composer
       # container does not.
       - name: Install WikibaseCitation composer deps (citeproc-php)
+        if: steps.changes.outputs.code == 'true'
         run: |
           docker run --rm -e HOME=/tmp \
             -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/app \
@@ -177,6 +198,7 @@ jobs:
       # restart so the guarded wfLoadExtension('Cite') in Extensions.php
       # activates it before the E2E runs.
       - name: Install the stock Cite extension (issue #24)
+        if: steps.changes.outputs.code == 'true'
         run: |
           $COMPOSE exec -T -u root wikibase bash -c '
             set -e
@@ -207,6 +229,7 @@ jobs:
       # pinned jar + SANDBOX wrapper come from tools/install-plantuml.sh.
       # <mermaid> is client-side (bundled mermaid.js) and needs no packages.
       - name: Install diagram rendering binaries (graphviz mscgen + pinned plantuml jar)
+        if: steps.changes.outputs.code == 'true'
         run: |
           $COMPOSE exec -T -u root wikibase bash -c '
             set -e
@@ -225,6 +248,7 @@ jobs:
       # which would hide a regression. Debian's pandoc (2.17) supports
       # `-f html -t mediawiki --wrap=none`.
       - name: Install pandoc (source-page archive)
+        if: steps.changes.outputs.code == 'true'
         run: |
           $COMPOSE exec -T -u root wikibase bash -c '
             set -e
@@ -234,6 +258,7 @@ jobs:
             pandoc --version | head -1'
 
       - name: D1 importers — vocabulary (property, class, language)
+        if: steps.changes.outputs.code == 'true'
         run: |
           for type in property class language; do
             $COMPOSE exec -T wikibase php maintenance/run.php \
@@ -246,11 +271,13 @@ jobs:
       # the E2E's self-cite DOI assertion fail on the CI stack (same gap
       # found + fixed on production Aug 20 2026).
       - name: D1 citation maps (WikibaseCitation importCitationMap)
+        if: steps.changes.outputs.code == 'true'
         run: |
           $COMPOSE exec -T wikibase php maintenance/run.php \
             /var/www/html/extensions/WikibaseCitation/maintenance/importCitationMap.php --force || exit 1
 
       - name: D2 seed — dogfood entities + config emission
+        if: steps.changes.outputs.code == 'true'
         run: |
           python3 -m seed.seed_instance \
             --user "$MW_ADMIN_NAME" --password "$MW_ADMIN_PASS" \
@@ -266,6 +293,7 @@ jobs:
       # mount, so the assets must exist in the checkout on the RUNNER HOST
       # (not inside the container) before the math E2E fetches them.
       - name: Install MathJax assets (SimpleMathJax local mode)
+        if: steps.changes.outputs.code == 'true'
         run: tools/install-mathjax.sh
 
       # GeoGebra ([[File:x.ggb]]): the app bundle (~48 MB web3d codebase) is
@@ -273,6 +301,7 @@ jobs:
       # Installed on the runner HOST — the nginx `ggb` service bind-mounts the
       # checkout's player dir.
       - name: Install GeoGebra app bundle (GeoGebra local mode)
+        if: steps.changes.outputs.code == 'true'
         run: tools/install-geogebra.sh
 
       # Pyodide4MediaWiki (client-side Python): the Pyodide distribution (core
@@ -281,6 +310,7 @@ jobs:
       # container bind-mounts the checkout's extension dir read-only. This also
       # smoke-tests the install script's pinned-checksum chain on a clean runner.
       - name: Install Pyodide assets (Pyodide4MediaWiki local mode)
+        if: steps.changes.outputs.code == 'true'
         run: tools/install-pyodide.sh
 
       # CORS for .ggb: the sandboxed player (the `ggb` service) fetches the
@@ -288,6 +318,7 @@ jobs:
       # WBS image's Apache needs mod_headers + a conf snippet, applied by the
       # restart in the next step.
       - name: Enable CORS for .ggb (player cross-origin fetch)
+        if: steps.changes.outputs.code == 'true'
         run: |
           $COMPOSE exec -T -u root wikibase bash -c '
             set -e
@@ -296,6 +327,7 @@ jobs:
             cat /etc/apache2/conf-enabled/zz-geogebra-cors.conf'
 
       - name: Restart the wiki to load the emitted config map
+        if: steps.changes.outputs.code == 'true'
         run: |
           $COMPOSE restart wikibase
           for i in $(seq 1 300); do
@@ -321,6 +353,7 @@ jobs:
           $COMPOSE --profile updater up -d wdqs-updater
 
       - name: E2E acceptance (3 embed surfaces, 5 citation styles, SPARQL)
+        if: steps.changes.outputs.code == 'true'
         run: |
           python3 tests/e2e/run_e2e.py check \
             --api-url "$API_URL" --base-url "$BASE_URL" --sparql-url "$SPARQL_URL" \
@@ -339,6 +372,7 @@ jobs:
           exit ${E2E_RC:-0}
 
       - name: Query GUI E2E (SPARQL correctness + autocomplete API contract)
+        if: steps.changes.outputs.code == 'true'
         run: |
           python3 tests/e2e/run_query_gui_e2e.py check \
             --sparql-url "$SPARQL_URL" \
@@ -350,18 +384,21 @@ jobs:
             --person-class "$(jq -r '."classes"."person"' seed/generated/ids.json)"
 
       - name: XSS suite (injections must not survive)
+        if: steps.changes.outputs.code == 'true'
         run: |
           python3 tests/e2e/run_e2e.py xss \
             --api-url "$API_URL" --base-url "$BASE_URL" \
             --user "$MW_ADMIN_NAME" --password "$MW_ADMIN_PASS"
 
       - name: Rich-content E2E (quotation wikitext + math note + noNote)
+        if: steps.changes.outputs.code == 'true'
         run: |
           python3 tests/e2e/run_e2e.py rich \
             --api-url "$API_URL" --base-url "$BASE_URL" \
             --user "$MW_ADMIN_NAME" --password "$MW_ADMIN_PASS"
 
       - name: Page-flow E2E (AddPerson/AddSource/AddCollective + AddQuotation form, issue #7)
+        if: steps.changes.outputs.code == 'true'
         run: |
           echo -n "$MW_ADMIN_PASS" > /tmp/e2e-pass
           python3 tests/e2e/run_pages_e2e.py \
@@ -369,10 +406,12 @@ jobs:
             --user "$MW_ADMIN_NAME" --password-file /tmp/e2e-pass
 
       - name: Parent-dialog E2E (Create it now links + iframe frame marker)
+        if: steps.changes.outputs.code == 'true'
         run: |
           python3 tests/e2e/run_parentdialog_e2e.py --base-url "$BASE_URL"
 
       - name: Section-actions E2E (content-page append/delete + auto-summary)
+        if: steps.changes.outputs.code == 'true'
         run: |
           echo -n "$MW_ADMIN_PASS" > /tmp/e2e-pass
           python3 tests/e2e/run_section_actions_e2e.py \
@@ -380,6 +419,7 @@ jobs:
             --user "$MW_ADMIN_NAME" --password-file /tmp/e2e-pass
 
       - name: Search E2E (Special:Search "Items" section — entity labels)
+        if: steps.changes.outputs.code == 'true'
         run: |
           echo -n "$MW_ADMIN_PASS" > /tmp/e2e-pass
           python3 tests/e2e/run_search_e2e.py \
@@ -387,6 +427,7 @@ jobs:
             --user "$MW_ADMIN_NAME" --password-file /tmp/e2e-pass
 
       - name: Forum E2E (DPLforum — Forum namespace + forum listing tag)
+        if: steps.changes.outputs.code == 'true'
         run: |
           echo -n "$MW_ADMIN_PASS" > /tmp/e2e-pass
           python3 tests/e2e/run_forum_e2e.py \
@@ -394,6 +435,7 @@ jobs:
             --user "$MW_ADMIN_NAME" --password-file /tmp/e2e-pass
 
       - name: Diagrams E2E (PlantUML/GraphViz/Mscgen/Mermaid tags + XSS)
+        if: steps.changes.outputs.code == 'true'
         run: |
           echo -n "$MW_ADMIN_PASS" > /tmp/e2e-pass
           python3 tests/e2e/run_diagrams_e2e.py \
@@ -401,6 +443,7 @@ jobs:
             --user "$MW_ADMIN_NAME" --password-file /tmp/e2e-pass
 
       - name: Math E2E (SimpleMathJax — $...$ inline LaTeX, server-side contract)
+        if: steps.changes.outputs.code == 'true'
         run: |
           echo -n "$MW_ADMIN_PASS" > /tmp/e2e-pass
           python3 tests/e2e/run_math_e2e.py \
@@ -408,6 +451,7 @@ jobs:
             --user "$MW_ADMIN_NAME" --password-file /tmp/e2e-pass
 
       - name: LanguageBar E2E (automatic languages bar on content pages)
+        if: steps.changes.outputs.code == 'true'
         run: |
           echo -n "$MW_ADMIN_PASS" > /tmp/e2e-pass
           python3 tests/e2e/run_languagebar_e2e.py \
@@ -415,11 +459,13 @@ jobs:
             --user "$MW_ADMIN_NAME" --password-file /tmp/e2e-pass
 
       - name: CodeBlockSpaces E2E (no NBSP inside code blocks)
+        if: steps.changes.outputs.code == 'true'
         # Read-only: parses inline text= payloads via action=parse, no page
         # and no credentials needed.
         run: python3 tests/e2e/run_codeblock_spaces_e2e.py --api-url "$API_URL"
 
       - name: GeoGebra E2E (interactive [[File:x.ggb]] embeds + cross-origin player)
+        if: steps.changes.outputs.code == 'true'
         run: |
           echo -n "$MW_ADMIN_PASS" > /tmp/e2e-pass
           python3 tests/e2e/run_geogebra_e2e.py \
@@ -428,6 +474,7 @@ jobs:
             --player-url "http://127.0.0.1:8083/player.html"
 
       - name: CSVTable E2E (uploaded CSV rendered as a wiki table)
+        if: steps.changes.outputs.code == 'true'
         run: |
           echo -n "$MW_ADMIN_PASS" > /tmp/e2e-pass
           python3 tests/e2e/run_csv_e2e.py \
@@ -435,6 +482,7 @@ jobs:
             --user "$MW_ADMIN_NAME" --password-file /tmp/e2e-pass
 
       - name: Image-facts E2E (action=imagefacts — API upload itemization)
+        if: steps.changes.outputs.code == 'true'
         run: |
           echo -n "$MW_ADMIN_PASS" > /tmp/e2e-pass
           python3 tests/e2e/run_imagefacts_e2e.py \
@@ -446,8 +494,9 @@ jobs:
       # a plain block loads nothing). The browser run itself is covered by
       # tests/e2e/run_pyodide_ux_e2e.mjs (Playwright, manual/production).
       - name: Pyodide4MediaWiki E2E (client-side runner contract)
+        if: steps.changes.outputs.code == 'true'
         run: python3 tests/e2e/run_pyodide_e2e.py --api-url "$API_URL"
 
       - name: Tear down the stack
-        if: always()
+        if: always() && steps.changes.outputs.code == 'true'
         run: $COMPOSE down -v
