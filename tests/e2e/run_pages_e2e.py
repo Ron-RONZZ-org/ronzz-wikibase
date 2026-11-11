@@ -2777,6 +2777,19 @@ def flow_source_book_access_na(op, base: str, api: str, label: str,
     return flow_final_item(op, base, api, page, body, "AddSource/book/manual (access na)")
 
 
+def append_page_text(op, api: str, page_title: str, text: str) -> None:
+    """Append wikitext to a page (used to warm a page's parser cache with a
+    parser function the CI template set may not provide)."""
+    r = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})
+    token = r["query"]["tokens"]["csrftoken"]
+    r = api_call(op, api, {
+        "action": "edit", "title": page_title, "appendtext": text,
+        "token": token, "summary": "E2E: warm the access row", "format": "json",
+    }, post=True)
+    if r.get("edit", {}).get("result") != "Success":
+        raise FlowError(f"append to {page_title} failed: {r!r}")
+
+
 def page_parse_text(op, api: str, page_title: str) -> str:
     """Rendered HTML of a PAGE (action=parse&page=), i.e. through the parser
     cache — unlike source_access_cell(), which parses a text fragment and
@@ -6179,6 +6192,11 @@ def main() -> int:
         purge_label = f"Page-flow E2E access purge {int(time.time())}"
         purge_book = track(flow_source_book_access_na(op, base, api, purge_label, person))
         purge_title = f"Source:{purge_label} (Book)"
+        # The CI stack has no push of the wiki_pages templates, so the Source
+        # page's {{Book}} is red; append the access parser function directly
+        # to give the page a renderable access row (still the page cache the
+        # update must purge).
+        append_page_text(op, api, purge_title, "\n\n{{#source-access:}}")
         warmed = page_parse_text(op, api, purge_title)
         assert "N/A" in warmed, f"pre-update Source page did not render N/A: {warmed[:300]!r}"
         flow_update_source_add_access_url(
