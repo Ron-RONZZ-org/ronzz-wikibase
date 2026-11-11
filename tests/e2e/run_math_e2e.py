@@ -320,6 +320,37 @@ def assert_pipe_guard(op, api: str) -> None:
     print("[ok] pipes inside math survive wikitable parsing (cell intact)")
 
 
+def assert_file_link_pipe_guard(op, api: str) -> None:
+    r"""A `|` inside math in a `[[File:…]]` caption is consumed by
+    `Parser::makeImageInternal()`'s option split (unlike a normal wikilink
+    label, every caption pipe is an option separator). The pipe guard runs in
+    `InternalParseBeforeLinks`, before `handleInternalLinks()`, so the caption
+    must survive intact.
+
+    Reported on `Chinchilla_prescription#Empirical_determination`: the caption
+    was truncated to "_\text{opt}$ around." — the math before the pipe was
+    parsed as a file option.
+    """
+    inline = api_parse_wikitext(
+        op, api,
+        '[[File:DoesNotExist-e2e.png|thumb|As seen, $D \\approx 20\\,|\\theta|$ now.|350px]]')
+    if 'As seen, $D \\approx 20\\,|\\theta|$ now.' not in inline:
+        raise FlowError(
+            "a `|` inside $…$ in a [[File:]] caption split the caption/options: "
+            f"{inline[:400]!r}")
+    if '<figcaption>$ now.</figcaption>' in inline:
+        raise FlowError(
+            f"[[File:]] caption truncated at the math pipe: {inline[:400]!r}")
+
+    display = api_parse_wikitext(
+        op, api,
+        '[[File:DoesNotExist-e2e.png|thumb|$$a|b$$ caption|350px]]')
+    if '$$a|b$$ caption' not in display:
+        raise FlowError(
+            f"a `|` inside $$…$$ in a [[File:]] caption split the options: {display[:400]!r}")
+    print("[ok] pipes inside math in [[File:]] captions survive the option split")
+
+
 def assert_server_markers(body: str, title: str) -> None:
     """<math> tags -> escaped smj-container markers; display=block -> displaymjx."""
     if 'class="smj-container"' not in body:
@@ -413,6 +444,7 @@ def math_flow(op, api: str, base: str, keep: bool) -> None:
         assert_multiline_display(op, api)
         assert_label_wrapper(op, api)
         assert_pipe_guard(op, api)
+        assert_file_link_pipe_guard(op, api)
         body = page_get(op, base, rendered_path(page))
         assert_server_markers(body, page)
         assert_no_xss(body, page)
