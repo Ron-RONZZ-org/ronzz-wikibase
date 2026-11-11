@@ -263,6 +263,63 @@ def assert_multiline_display(op, api: str) -> None:
           "\\tag uses gather, cases untouched")
 
 
+def assert_label_wrapper(op, api: str) -> None:
+    r"""A top-level `\\label` is wrapped in the taggable `gather` (both a
+    single-line display and a multiline block), so with `tex.tags='ams'`
+    MathJax numbers the equation and `\eqref` can resolve. A label inside a
+    braced group is not top-level and keeps the default `gathered` wrapper."""
+    single = api_parse_wikitext(op, api, "$$x = 1 \\label{eq:x}$$")
+    if "\\begin{gather}" not in single or "\\label{eq:x}" not in single:
+        raise FlowError(
+            "a single-line display with a top-level \\label was not wrapped "
+            f"in \\begin{{gather}}: {single[:300]!r}")
+
+    multiline = api_parse_wikitext(op, api, "$$a = b \\\\ c = d \\label{eq:y}$$")
+    if "\\begin{gather}" not in multiline or "\\begin{gathered}" in multiline:
+        raise FlowError(
+            "a multiline display with a top-level \\label did not use "
+            f"gather: {multiline[:300]!r}")
+
+    braced = api_parse_wikitext(op, api, "$$\\text{\\label{x}} \\\\ a = b$$")
+    if "\\begin{gathered}" not in braced:
+        raise FlowError(
+            f"a label inside a braced group was wrongly treated as top-level: {braced[:300]!r}")
+
+    print("[ok] top-level \\label is wrapped in gather (label registers)")
+
+
+def assert_pipe_guard(op, api: str) -> None:
+    """A raw `|` inside math in a wikitable must not be taken as the cell /
+    attribute separator.
+
+    `Parser::internalParse()` runs `onInternalParseBeforeLinks` BEFORE
+    `handleTables()`, so the pipe guard hides each math pipe behind a strip
+    marker; the table parser sees one intact cell and the marker is restored
+    to `|` in the final HTML. Without the guard `! $ |\theta|$` splits at the
+    first pipe ($ as attributes, `\theta|$` as content).
+    """
+    table = api_parse_wikitext(
+        op, api,
+        '{| class="wikitable"\n'
+        '! $ |\\theta|$\n'
+        '! $D$\n'
+        '|-\n'
+        '| $\\frac{D}{\\|\\theta\\|}$\n'
+        '| 20\n'
+        '|}')
+    if "$ |\\theta|$" not in table:
+        raise FlowError(
+            "a `|` inside a wikitable header's math split the cell: "
+            f"{table[:400]!r}")
+    if "$\\frac{D}{\\|\\theta\\|}$" not in table:
+        raise FlowError(
+            "a `\\|` inside a wikitable cell's math split the cell: "
+            f"{table[:400]!r}")
+    if table.count("<th") < 2 or table.count("<td") < 2:
+        raise FlowError(f"wikitable cells were mangled: {table[:400]!r}")
+    print("[ok] pipes inside math survive wikitable parsing (cell intact)")
+
+
 def assert_server_markers(body: str, title: str) -> None:
     """<math> tags -> escaped smj-container markers; display=block -> displaymjx."""
     if 'class="smj-container"' not in body:
@@ -354,6 +411,8 @@ def math_flow(op, api: str, base: str, keep: bool) -> None:
     try:
         assert_apostrophe_guard(op, api)
         assert_multiline_display(op, api)
+        assert_label_wrapper(op, api)
+        assert_pipe_guard(op, api)
         body = page_get(op, base, rendered_path(page))
         assert_server_markers(body, page)
         assert_no_xss(body, page)

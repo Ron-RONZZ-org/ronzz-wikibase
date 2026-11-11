@@ -38,14 +38,23 @@ class SimpleMathJaxMultiline {
 
 	/**
 	 * Wrap every display-math span whose content has a top-level `\\` in a
-	 * multiline environment.
+	 * multiline environment, and every span that carries a top-level
+	 * `\label{…}` in the taggable `gather` environment (see below).
 	 *
 	 * `gathered` is the default (a centered inner environment). When the
-	 * content also carries a top-level `\tag{…}`, `gather` is used instead:
-	 * MathJax only allows `\tag` in a taggable OUTER environment, so
+	 * content also carries a top-level `\tag{…}` or `\label{…}`, `gather` is
+	 * used instead: MathJax only registers a label (and only allows `\tag`) in
+	 * a taggable OUTER environment, so
 	 * `\begin{gathered}…\tag{1}…\end{gathered}` throws
 	 * "\\tag not allowed in gathered environment" (the Cubic_spline_interpolation
-	 * report).
+	 * report) and a `\label` there is never numbered.
+	 *
+	 * A SINGLE-LINE display span with a top-level `\label` (e.g.
+	 * `$$x = 1 \label{eq:x}$$`) is also wrapped in `gather`: with
+	 * `tex.tags = 'ams'` MathJax numbers the tagged environment, so the label
+	 * registers and `\eqref` resolves. A span that carries only a top-level
+	 * `\tag` needs no wrapper (MathJax tags a bare display equation through
+	 * its finalizer).
 	 *
 	 * @param string $text wikitext/parser text to scan
 	 * @param array[] $displayDelims list of [open, close] display pairs
@@ -84,8 +93,12 @@ class SimpleMathJaxMultiline {
 					$content = substr( $text, $i + $oL, $end - $i - $oL - strlen( $close ) );
 					$content = self::stripLineIndent( $content );
 					$scan = self::scanTopLevel( $content );
-					if ( $scan['lineBreak'] ) {
-						$environment = $scan['tag'] ? 'gather' : 'gathered';
+					// A top-level `\label` needs the taggable `gather` both in
+					// a multiline block and in a single-line one; a bare
+					// `\tag` already tags a display equation without a wrapper.
+					$needsWrap = $scan['lineBreak'] || ( $scan['label'] && !$scan['tag'] );
+					if ( $needsWrap ) {
+						$environment = ( $scan['tag'] || $scan['label'] ) ? 'gather' : 'gathered';
 						$content = '\begin{' . $environment . '}' . $content
 							. '\end{' . $environment . '}';
 					}
@@ -122,15 +135,16 @@ class SimpleMathJaxMultiline {
 	}
 
 	/**
-	 * Scan the display content for the two top-level markers that decide the
-	 * wrapper environment: a `\\` line break and a `\tag{…}` command, both
-	 * outside every environment and braced group.
+	 * Scan the display content for the top-level markers that decide the
+	 * wrapper environment: a `\\` line break, a `\tag{…}` and a `\label{…}`,
+	 * all outside every environment and braced group.
 	 *
-	 * @return array{lineBreak:bool, tag:bool}
+	 * @return array{lineBreak:bool, tag:bool, label:bool}
 	 */
 	private static function scanTopLevel( string $content ): array {
 		$lineBreak = false;
 		$tag = false;
+		$label = false;
 		$len = strlen( $content );
 		$envDepth = 0;
 		$braceDepth = 0;
@@ -165,6 +179,14 @@ class SimpleMathJaxMultiline {
 					// `\tag{…}` / `\tag*{…}` — not a longer control sequence.
 					$tag = true;
 				}
+				if (
+					$envDepth === 0 && $braceDepth === 0
+					&& substr( $content, $i, 6 ) === '\label'
+					&& ( $i + 6 >= $len || preg_match( '/[A-Za-z]/', $content[$i + 6] ) !== 1 )
+				) {
+					// `\label{…}` — not a longer control sequence.
+					$label = true;
+				}
 				$i += 2; // control sequence / escape: backslash + one char
 				continue;
 			}
@@ -175,6 +197,6 @@ class SimpleMathJaxMultiline {
 			}
 			$i++;
 		}
-		return [ 'lineBreak' => $lineBreak, 'tag' => $tag ];
+		return [ 'lineBreak' => $lineBreak, 'tag' => $tag, 'label' => $label ];
 	}
 }

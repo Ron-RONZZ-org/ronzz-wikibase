@@ -217,6 +217,17 @@ Verified against the MathJax ams implementation: `gathered`+`\tag` yields a
 `merror`, while `gather`+`\tag` renders an `mlabeledtr` with the tag (and
 `\tag` at the top level of display math works without any wrapper).
 
+**Labelled equations (2026-11-11)**: a top-level `\label{…}` needs a taggable
+outer environment too. The pass now also scans for a top-level `\label` and
+wraps the span in `gather` — both a multiline block and a SINGLE-LINE
+`$$x = 1 \label{eq:x}$$` span (the configuration sets `tex.tags = 'ams'`, so
+`gather` is numbered and the label registers). A span with a top-level `\tag`
+but no `\label` still needs no wrapper (the display-math finalizer tags it);
+a `\label` inside a braced group or an explicit environment is not top-level
+and is left alone. The `Chinchilla_prescription` report: `\eqref` rendered
+`??` because `tags` defaulted to `'none'` and the labelled equations carried
+no `\tag`.
+
 **Leading-blank strip (2026-09-29)**: the same pass removes per-line leading
 blanks from every display span. A wikitext line that begins with a space is
 MediaWiki's preformatted-text marker (`<pre>`); when it sits inside a
@@ -235,3 +246,34 @@ one; a tagged block renders its `(2)` tag without an error).
 
 **Status**: house patch (not (yet) proposed upstream — the upstream quote
 guard PR covers the companion change only). On re-vendor, re-apply or drop.
+
+## Local patch — pipes inside math in wikitables (2026-11-11)
+
+**Modified files**: the same `InternalParseBeforeLinks` handler
+(`SimpleMathJaxHooks.php`) + `SimpleMathJaxQuotes.php` (the scanner gained
+`protectPipesInMath()`; the span walk was factored into a shared
+`mapMathSpans()` so the `''` and `|` passes use ONE MathJax `FindTeX`-shaped
+delimiter search).
+
+**Why**: MediaWiki's table parser treats a raw `|` on a cell line as the
+attribute/content separator. `Parser::internalParse()` calls
+`onInternalParseBeforeLinks` and THEN `handleTables()`, so a formula such as
+`! $ |\theta|$` in a wikitable header was split at the first pipe (`$ ` →
+attributes, `\theta|$` → content) and the math broke; `\|` does not help
+because wikitext does not honour the backslash. The `{{!}}` workaround was
+the only option (reported on `Chinchilla_prescription`'s worked-examples
+table, 2026-11-11).
+
+**Fix**: the same handler now replaces every `|` inside a math span with a
+`Parser::insertStripItem()` marker before `handleTables()` runs. The table
+parser never sees the pipe; the marker is restored to `|` in the final HTML
+before MathJax reads the text node. Only the pipe character is hidden — the
+backslash of `\|` stays, so MathJax still receives `\|`. Non-math pipes
+(table separators, links) are untouched. The pass is a no-op when the span
+contains no pipe.
+
+**Testing**: `tests/Unit/SimpleMathJaxQuotesTest.php` (`$|\theta|$`,
+`$\|x\|$`, `||`, display math, an environment span, non-math pipes
+untouched) and a server-side assertion in `tests/e2e/run_math_e2e.py` (a
+wikitable with `$|\theta|$` parses to one cell and the pipe survives in the
+math span).

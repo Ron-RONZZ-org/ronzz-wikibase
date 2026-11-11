@@ -157,6 +157,22 @@ class SimpleMathJaxHooks {
 
 		$text = SimpleMathJaxMultiline::wrapMultilineDisplayMath( $text, $wgSmjDisplayMath );
 
+		// Protect raw `|` inside math from the table parser (handleTables runs
+		// right after this hook): a pipe on a cell line is taken as the
+		// attribute/content separator, so `$|\theta|$` in a wikitable cell
+		// would split the cell and break the math. The strip marker is
+		// restored to `|` before MathJax runs.
+		$text = SimpleMathJaxQuotes::protectPipesInMath(
+			$text,
+			static function ( $pipe ) use ( $parser ) {
+				return $parser->insertStripItem( $pipe );
+			},
+			$wgSmjExtraInlineMath,
+			$wgSmjDisplayMath,
+			true, // processEscapes — $wgSmjDirectMathJax 'full'
+			true  // \begin…\end environments
+		);
+
 		$text = SimpleMathJaxQuotes::protectQuotesInMath(
 			$text,
 			static function ( $run ) use ( $parser ) {

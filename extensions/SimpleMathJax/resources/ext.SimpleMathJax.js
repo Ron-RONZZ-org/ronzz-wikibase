@@ -14,6 +14,12 @@ window.MathJax = {
     processEnvironments: true,
     processRefs: mw.config.get('wgSmjDirectMathJax') == 'full',
     processEscapes: mw.config.get('wgSmjDirectMathJax') == 'full',
+    // AMS equation numbering. MathJax defaults to 'none', where a \label on
+    // an untagged equation is never registered and \eqref renders "??".
+    // 'ams' numbers unstarred AMS environments (equation/align/gather), and
+    // SimpleMathJaxMultiline wraps a display block carrying a top-level
+    // \label in a taggable gather, so `$$…\label{eq:x}$$` is numbered too.
+    tags: 'ams',
     packages: mw.config.exists('wgSmjPreloadChem') ? {'[+]': ['autoload','mhchem']} : {'[+]': ['autoload']},
     macros: {
       AA: "{\u00c5}",

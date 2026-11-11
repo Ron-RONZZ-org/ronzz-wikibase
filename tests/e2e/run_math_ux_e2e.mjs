@@ -88,6 +88,9 @@ Multiline: $$a = b \\\\ c = d$$
 
 Tagged multiline: $$p = q \\\\ r = s \\tag{2}$$
 
+Labelled: $$E = mc^2 \\label{eq:demo}$$
+Reference: $\\eqref{eq:demo}$
+
 Overline: $\\overline{\\langle v, u \\rangle}$
 
 Code stays literal:
@@ -258,6 +261,29 @@ async function main() {
 			failures.push(`tagged multiline display math rendered ${tagged.rows} row(s), tag=${tagged.tag}; expected >= 2 rows and the (2) tag`);
 		} else {
 			console.log(`[ok] tagged multiline display math rendered ${tagged.rows} rows with tag (2)`);
+		}
+
+		// A \label in a single-line display equation is wrapped in the
+		// taggable gather by the server and numbered (tex.tags = 'ams'), so
+		// \eqref resolves instead of rendering "??".
+		const labelled = await page.evaluate(() => {
+			const containers = [...document.querySelectorAll('mjx-container')];
+			const eq = containers.find((c) => c.textContent.replace(/\s+/g, '').includes('E=mc2'));
+			return {
+				equation: !!eq,
+				tag: eq ? eq.textContent.includes('(1)') : false,
+				tagId: !!document.querySelector('mjx-mtd[id^="mjx-eqn"]'),
+				question: document.body.innerText.includes('??'),
+			};
+		});
+		if (!labelled.equation) {
+			failures.push('labelled display math did not render a MathJax container');
+		} else if (!labelled.tag || !labelled.tagId) {
+			failures.push('labelled display math rendered without its (1) tag — the label was not registered');
+		} else if (labelled.question) {
+			failures.push('an \\eqref rendered "??" — the label did not resolve');
+		} else {
+			console.log('[ok] \\label + \\eqref resolved to the (1) equation tag');
 		}
 
 		// The code block must NOT have been typeset (MathJax skips pre/code).
