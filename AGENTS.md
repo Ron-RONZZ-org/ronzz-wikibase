@@ -265,18 +265,33 @@ but cannot drive web-page flows.
 ### CI (GitHub Actions — public repo, unlimited minutes)
 
 - **`unit` job** — pure-PHP PHPUnit (Dockerfile.test image) + seed tooling
-  (unittest, `--dry-run`). Runs on every push/PR; ~2–3 min.
+  (unittest, `--dry-run`). Runs on every PR (and manual dispatch); ~1.5–3 min.
 - **`integration` job** — full wikibase-docker stack (MW 1.46 + MariaDB +
   WDQS) on a 16 GB runner: D1 importers → D2 seed → wiki restart with the
   emitted config map → E2E acceptance (3 embed surfaces, 5 citation styles,
   SPARQL) → XSS suite → page-flow E2E (`run_pages_e2e.py`, issue-#7 Special
   pages) → forum E2E (`run_forum_e2e.py`, DPLforum: Forum: namespace +
-  `<forum>` listing). Triggered on push/PR and via **`workflow_dispatch`**
-  (on-demand full validation without pushing). Depends on `unit`.
+  `<forum>` listing). Runs in parallel with `unit`; `workflow_dispatch`
+  always runs the full stack.
+- **Docs-only PRs do not run the stack.** The `integration` job always starts
+  (branch protection requires the check; a skipped job is not a success), but
+  its first step diffs the PR against `base_ref` and every heavy step is
+  gated on that path check. Docs-only = `**/*.md`, root `LICENSE`, and
+  `wiki_pages/**`; those PRs get `unit` plus a ~5–20 s no-op `integration`
+  success. Any other path runs the full stack.
+- **No `push` trigger.** A merge commit is the tree the PR's `pull_request`
+  checks already tested, so `main` does not re-run CI. `main` has classic
+  branch protection with `strict` required checks `unit` + `integration`
+  (and `enforce_admins`). The repo is user-owned, so classic protection
+  cannot allowlist the GitHub Actions app; the required checks therefore
+  gate PR merges while the hourly `wiki-pages.yml` auto-commit
+  (`github-actions[bot]`, `GITHUB_TOKEN`) can still push generated
+  `wiki_pages/` state directly. If PR-only protection becomes mandatory,
+  the sync bot must open a PR instead of pushing to `main`.
 - **Recommended loop on resource-tight machines** (this box: ~3.6 GiB free —
-  the full stack needs ~2.5 GiB): edit → local unit tests → push → CI gate.
-  Use `workflow_dispatch` for ad-hoc full validation; only run the stack
-  locally (`dev/README.md`) when interactive debugging is needed.
+  the full stack needs ~2.5 GiB): edit → local unit tests → push → PR CI
+  gate. Use `workflow_dispatch` for ad-hoc full validation; only run the
+  stack locally (`dev/README.md`) when interactive debugging is needed.
 
 ### Known environment quirk (do not re-debug)
 
