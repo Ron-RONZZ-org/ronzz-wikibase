@@ -4,6 +4,7 @@ declare( strict_types = 1 );
 
 namespace Tests\Unit;
 
+use DataValues\StringValue;
 use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\Fetch\AuthorRecord;
 use EmbeddableContent\Fetch\AuthoritySearch;
@@ -11,8 +12,12 @@ use EmbeddableContent\Fetch\PageMetadataFetcher;
 use EmbeddableContent\Fetch\ProviderClient;
 use EmbeddableContent\Fetch\ProviderResult;
 use EmbeddableContent\Fetch\WorkRecord;
+use EmbeddableContent\PropertyIdFactory;
 use EmbeddableContent\Search\EntityTermSearch;
 use PHPUnit\Framework\TestCase;
+use Wikibase\DataModel\Entity\Item;
+use Wikibase\DataModel\Entity\ItemId;
+use Wikibase\DataModel\Snak\PropertyValueSnak;
 
 /**
  * The machine-facing authority-search orchestration: provider dispatch,
@@ -24,12 +29,18 @@ use PHPUnit\Framework\TestCase;
  */
 class AuthoritySearchTest extends TestCase {
 
-	private function search( ProviderClient $client, EntityTermSearch $entitySearch, EmbeddableContentConfig $config ): AuthoritySearch {
+	private function search(
+		ProviderClient $client,
+		EntityTermSearch $entitySearch,
+		EmbeddableContentConfig $config,
+		?callable $entityLookup = null
+	): AuthoritySearch {
 		return new AuthoritySearch(
 			$client,
 			new PageMetadataFetcher( static fn (): string => '' ),
 			$entitySearch,
-			$config
+			$config,
+			$entityLookup
 		);
 	}
 
@@ -94,6 +105,45 @@ class AuthoritySearchTest extends TestCase {
 		$this->assertSame( 'Q100', $record['suggestedAddFields']['publisher'] );
 		$this->assertSame( 'Q200', $record['suggestedAddFields']['journal'] );
 		$this->assertSame( 'Q300', $record['suggestedAddFields']['authors'] );
+	}
+
+	public function testResolveLocalMatchesAuthorByAuthorityId(): void {
+		$client = $this->createMock( ProviderClient::class );
+		$client->method( 'harvestWork' )->with( 'Q21563817' )->willReturn( new ProviderResult( [ new WorkRecord(
+			title: 'EPR',
+			authors: [ new AuthorRecord( label: 'Albert Einstein', wikidataId: 'Q937' ) ]
+		) ] ) );
+
+		$entitySearch = $this->createMock( EntityTermSearch::class );
+		$entitySearch->method( 'search' )->willReturnCallback(
+			static function ( string $term ): array {
+				return $term === 'Albert Einstein'
+					? [ [ 'id' => 'Q2616', 'label' => 'Albert Einstein' ] ]
+					: [];
+			}
+		);
+
+		$config = $this->createMock( EmbeddableContentConfig::class );
+		$config->method( 'agentClasses' )->willReturn( [ 'person' => 'Q5' ] );
+		$config->method( 'sourceClasses' )->willReturn( [ 'book' => 'Q9' ] );
+		$config->method( 'externalIdPropertyIds' )->willReturn( [ 'wikidata' => 'P12' ] );
+
+		$item = new Item( new ItemId( 'Q2616' ) );
+		$item->getStatements()->addNewStatement(
+			new PropertyValueSnak( PropertyIdFactory::create( 'P12' ), new StringValue( 'Q937' ) )
+		);
+
+		$record = $this->search(
+			$client,
+			$entitySearch,
+			$config,
+			static fn ( string $id ): ?Item => $id === 'Q2616' ? $item : null
+		)->search( 'work', 'harvest', [ 'wikidataId' => 'Q21563817', 'resolveLocal' => true ] )['records'][0];
+
+		$this->assertSame( 'Q2616', $record['local']['authors'][0]['qid'] );
+		$this->assertSame( 'wikidata', $record['local']['authors'][0]['matchedBy'] );
+		$this->assertTrue( $record['local']['authors'][0]['exact'] );
+		$this->assertSame( 'Q2616', $record['suggestedAddFields']['authors'] );
 	}
 
 	public function testWorkSearchUsesTheClassScope(): void {

@@ -13,6 +13,7 @@ use EmbeddableContent\Duration;
 use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\EntityClassFilter;
 use EmbeddableContent\Fetch\YouTubeProvider;
+use EmbeddableContent\PropertyIdFactory;
 use EmbeddableContent\Spec\AccessEntries;
 use EmbeddableContent\Spec\AccessFileRequest;
 use EmbeddableContent\Spec\AdditionalStatements;
@@ -26,8 +27,6 @@ use Wikibase\DataModel\DataValue;
 use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
-use Wikibase\DataModel\Entity\NumericPropertyId;
-use Wikibase\DataModel\Entity\PropertyId;
 use Wikibase\DataModel\Services\Lookup\EntityLookup;
 use Wikibase\DataModel\Services\Statement\GuidGenerator;
 use Wikibase\DataModel\Snak\PropertyValueSnak;
@@ -558,7 +557,7 @@ final class SourceFlowService {
 		foreach ( $this->statementSpecs( $classKey, $record ) as $propertyId => $value ) {
 			foreach ( is_array( $value ) ? $value : [ $value ] as $single ) {
 				$item->getStatements()->addNewStatement(
-					new PropertyValueSnak( $this->propertyId( $propertyId ), $single )
+					new PropertyValueSnak( PropertyIdFactory::create( $propertyId ), $single )
 				);
 			}
 		}
@@ -573,7 +572,7 @@ final class SourceFlowService {
 		if ( $classItemId !== null ) {
 			$item->getStatements()->addNewStatement(
 				new PropertyValueSnak(
-					$this->propertyId( $this->config->instanceOfPropertyId() ),
+					PropertyIdFactory::create( $this->config->instanceOfPropertyId() ),
 					new EntityIdValue( new ItemId( $classItemId ) )
 				)
 			);
@@ -592,7 +591,7 @@ final class SourceFlowService {
 			foreach ( $built['values'] as $propertyId => $values ) {
 				foreach ( $values as $single ) {
 					$item->getStatements()->addNewStatement(
-						new PropertyValueSnak( $this->propertyId( $propertyId ), $single )
+						new PropertyValueSnak( PropertyIdFactory::create( $propertyId ), $single )
 					);
 				}
 			}
@@ -645,7 +644,7 @@ final class SourceFlowService {
 			foreach ( $this->statementSpecs( $classKey, $record ) as $propertyId => $value ) {
 				foreach ( is_array( $value ) ? $value : [ $value ] as $single ) {
 					$item->getStatements()->addNewStatement(
-						new PropertyValueSnak( $this->propertyId( $propertyId ), $single )
+						new PropertyValueSnak( PropertyIdFactory::create( $propertyId ), $single )
 					);
 				}
 			}
@@ -977,7 +976,7 @@ final class SourceFlowService {
 		if ( $parent === null || $property === null ) {
 			return 'en';
 		}
-		foreach ( $parent->getStatements()->getByPropertyId( $this->propertyId( $property ) ) as $statement ) {
+		foreach ( $parent->getStatements()->getByPropertyId( PropertyIdFactory::create( $property ) ) as $statement ) {
 			$value = $statement->getMainSnak()->getDataValue();
 			if ( $value instanceof StringValue && $value->getValue() !== '' ) {
 				return $value->getValue();
@@ -1091,7 +1090,7 @@ final class SourceFlowService {
 		if ( $dateProperty === null ) {
 			return null;
 		}
-		foreach ( $item->getStatements()->getByPropertyId( $this->propertyId( $dateProperty ) ) as $statement ) {
+		foreach ( $item->getStatements()->getByPropertyId( PropertyIdFactory::create( $dateProperty ) ) as $statement ) {
 			$value = $statement->getMainSnak()->getDataValue();
 			if ( $value instanceof TimeValue ) {
 				return (int)substr( $value->getTime(), 1, 4 );
@@ -1103,7 +1102,7 @@ final class SourceFlowService {
 	/** @return string[] entity ids of the item's statements on the property */
 	private function entityValuesFor( Item $item, string $propertyId ): array {
 		$out = [];
-		foreach ( $item->getStatements()->getByPropertyId( $this->propertyId( $propertyId ) ) as $statement ) {
+		foreach ( $item->getStatements()->getByPropertyId( PropertyIdFactory::create( $propertyId ) ) as $statement ) {
 			$value = $statement->getMainSnak()->getDataValue();
 			if ( $value instanceof EntityIdValue ) {
 				$out[] = $value->getEntityId()->getSerialization();
@@ -1128,19 +1127,6 @@ final class SourceFlowService {
 
 	private function message( string $key, array $params ): string {
 		return ( $this->message )( $key, $params );
-	}
-
-	/**
-	 * Property-id factory across data-model versions: the Wikibase bundle
-	 * (production, 9.7+) made PropertyId an interface with NumericPropertyId
-	 * as the concrete class; the unit-test image's 9.6.1 has PropertyId
-	 * concrete and no NumericPropertyId. Instantiate whichever exists.
-	 */
-	private function propertyId( string $serialization ): PropertyId {
-		if ( class_exists( NumericPropertyId::class ) ) {
-			return new NumericPropertyId( $serialization );
-		}
-		return new PropertyId( $serialization );
 	}
 
 }
