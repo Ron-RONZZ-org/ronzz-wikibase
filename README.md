@@ -203,10 +203,12 @@ your machine):
 
 There is **no CI run on `push`**: the merge commit is the tree the PR checks
 already tested, so `main` does not re-run the pipeline. Branch protection on
-`main` requires `unit` + `integration` (strict). **Docs-only PRs** (markdown,
-`LICENSE`, `wiki_pages/`) still report `integration` but skip the stack — the
-job diffs the PR against its base and gates every heavy step, so it finishes
-in seconds.
+`main` requires a pull request (0 approvals) plus `unit` + `integration`
+(strict). The hourly `wiki_pages/` sync publishes its changes through an
+auto-merged PR (`WIKI_SYNC_GH_TOKEN`), so it is protected by the same rule.
+**Docs-only PRs** (markdown, `LICENSE`, `wiki_pages/`) still report
+`integration` but skip the stack — the job diffs the PR against its base and
+gates every heavy step, so it finishes in seconds.
 
 **Recommended loop** (especially on a resource-tight machine): edit → local
 unit tests above → push branch → open PR → CI gate. For an on-demand full
