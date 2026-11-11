@@ -96,10 +96,35 @@ uses the source title.
   query); it degrades to "no author line" on failure and never blocks the
   print.
 
+## Licensing of downloaded content (Nov 2026)
+
+The instance licence is CC BY-NC-SA 4.0 (`$wgRightsUrl`/`$wgRightsText`/
+`$wgRightsIcon` in `LocalSettings.php`; the footer badge is core's bundled
+`resources/assets/licenses/cc-by-nc-sa.png`). Every download carries it:
+
+- **Wikitext (.wiki)** — the notice sentence
+  (`embeddablecontent-download-license-wikitext`) is prepended to the
+  expanded wikitext, as a wikitext link so a re-import renders it.
+- **HTML** — a footer at the END of the standalone document: the 88×31 badge
+  plus a one-line notice, both linked to the CC deed.
+- **PDF** — a print-only licence page inserted immediately after the cover
+  (or after the title/author header when no cover is selected; the header and
+  licence then share page 1, and the content starts on page 2): the four
+  30×30 deed glyphs (CC, BY, NC, SA), the licence name and the deed's
+  "You are free to" / "Under the following terms" summary. The glyphs are the
+  Creative Commons press-kit SVGs under `resources/license-icons/` (attribution
+  in its README); the badge is the core asset — no CDN is involved.
+
+The menu wording is `Download` / `PDF` / `HTML` / `Wikitext (.wiki)`. The
+strings/markup live in `resources/license.js` (`ext.embeddableContent.license`,
+a dependency of the print module) so `print.js` stays focused on the print
+flow.
+
 ## References
 
-- `extensions/EmbeddableContent/resources/print.js`, `print.css`
+- `extensions/EmbeddableContent/resources/print.js`, `print.css`,
+  `license.js`, `license-icons/`
 - `extensions/EmbeddableContent/includes/Hooks.php` (`wirePrintModule`)
 - `extensions/EmbeddableContent/resources/citationpopup.js` — the popup pattern
-- `tests/e2e/run_wiki_ux_e2e.mjs` — button/popup/cover; `run_pages_e2e.py` —
-  module load + `wbPrintTitle`
+- `tests/e2e/run_wiki_ux_e2e.mjs` — button/popup/cover/licence;
+  `run_pages_e2e.py` — module load + `wbPrintTitle`

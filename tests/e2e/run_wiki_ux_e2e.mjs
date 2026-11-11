@@ -1783,6 +1783,24 @@ async function main() {
 				};
 			});
 
+			// The Download menu wording (exact): Download / PDF / HTML /
+			// Wikitext (.wiki).
+			await page.click('#ca-wb-print');
+			await page.waitForSelector('.wb-download-menu', { timeout: 10000 });
+			const downloadLabels = await page.$$eval(
+				'.wb-download-menu [data-download] .oo-ui-labelElement-label',
+				( els ) => els.map( ( e ) => e.textContent.trim() )
+			);
+			const menuTitle = ( await page.locator( '.oo-ui-popupWidget-head .oo-ui-labelElement-label' ).textContent() || '' ).trim();
+			const expectedLabels = [ 'PDF', 'HTML', 'Wikitext (.wiki)' ];
+			if ( JSON.stringify( downloadLabels ) !== JSON.stringify( expectedLabels ) ) {
+				failures.push( `Download menu options are ${JSON.stringify( downloadLabels )}, expected ${JSON.stringify( expectedLabels )}` );
+			} else if ( menuTitle !== 'Download' ) {
+				failures.push( `Download menu title is ${JSON.stringify( menuTitle )}, expected "Download"` );
+			} else {
+				console.log( '[ok] Download menu wording: Download / PDF / HTML / Wikitext (.wiki)' );
+			}
+
 			// The Download button opens the menu; PDF opens the print popup
 			// with the cover-page option.
 			await openPrintFromDownloadMenu(page);
@@ -1809,6 +1827,26 @@ async function main() {
 			}
 			if (!(await page.evaluate(() => document.body.classList.contains('wb-printing')))) {
 				failures.push('print flow did not add the wb-printing body class');
+			}
+
+			// The own-page licence block follows the cover: four 30x30 deed
+			// glyphs + the deed summary.
+			const licenseCount = await page.locator('.wb-print-license').count();
+			const glyphCount = await page.locator('.wb-print-license .wb-license-glyph').count();
+			const licenseAfterCover = await page.evaluate(() => {
+				const cover = document.querySelector('.wb-print-cover');
+				const licence = document.querySelector('.wb-print-license');
+				return !!(cover && licence &&
+					(cover.compareDocumentPosition(licence) & Node.DOCUMENT_POSITION_FOLLOWING));
+			});
+			if (licenseCount !== 1) {
+				failures.push(`print flow rendered ${licenseCount} licence pages, expected 1`);
+			} else if (glyphCount !== 4) {
+				failures.push(`print licence page has ${glyphCount} deed glyphs, expected 4`);
+			} else if (!licenseAfterCover) {
+				failures.push('print licence page is not after the cover');
+			} else {
+				console.log('[ok] print licence page (4 deed glyphs) follows the cover');
 			}
 
 			// The Save-as-PDF dialog suggests document.title as the filename.
@@ -1842,6 +1880,10 @@ async function main() {
 				failures.push('HTML download does not contain the article text');
 			} else if (!htmlText.includes('<html lang=') || !htmlText.includes('<h1>')) {
 				failures.push('HTML download is not a standalone document');
+			} else if (!htmlText.includes('wb-license') ||
+				!htmlText.includes('creativecommons.org/licenses/by-nc-sa/4.0/') ||
+				!htmlText.includes('cc-by-nc-sa.png')) {
+				failures.push('HTML download lacks the CC BY-NC-SA licence footer');
 			} else {
 				console.log('[ok] Download → HTML produces a standalone rendered HTML file');
 			}
@@ -1861,6 +1903,8 @@ async function main() {
 				failures.push('wikitext download does not contain the article text');
 			} else if (wikiText.includes('{{#content:')) {
 				failures.push('wikitext download still contains the raw {{#content:}} parser function');
+			} else if (!wikiText.startsWith('Content owned by Ronzz.org below is shared with you under a')) {
+				failures.push('wikitext download does not start with the licence notice');
 			} else {
 				console.log('[ok] Download → wikitext expands {{#content:}} to actual wikitext');
 			}

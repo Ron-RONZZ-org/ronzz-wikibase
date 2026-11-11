@@ -22,6 +22,12 @@
  *                  action=expandtemplates (`{{#content:Q…}}`, templates,
  *                  parser functions → their expanded wikitext).
  *
+ * All three downloads carry the instance licence (CC BY-NC-SA 4.0, set in
+ * LocalSettings.php): the wikitext gets the licence notice prepended, the
+ * HTML file gets a badge + one-line notice footer at the end, and the PDF
+ * gets a print-only licence page (the deed glyphs + summary) after the
+ * cover — see resources/license.js.
+ *
  * The PDF popup (the citationpopup.js OOUI PopupWidget pattern) has an
  * "Add a cover page" checkbox + a Print button. On print the module fetches
  * the page's registered, non-bot contributors
@@ -227,10 +233,25 @@
 
 	/** Remove any injected print nodes and the printing body class. */
 	function cleanup() {
-		$( '.wb-print-header, .wb-print-cover' ).remove();
+		$( '.wb-print-header, .wb-print-cover, .wb-print-license' ).remove();
 		$( document.body ).removeClass( 'wb-printing' );
 		restoreDocumentTitle();
 		printTitleOverride = null;
+	}
+
+	/**
+	 * Insert the print-only licence page immediately after the cover/header,
+	 * so the printed output is cover → licence → content (or title + licence
+	 * on page 1, content on page 2 when there is no cover).
+	 *
+	 * @param {jQuery} $after the cover or header node
+	 */
+	function insertLicensePage( $after ) {
+		var license = mw.embeddableContent.license;
+		if ( !license ) {
+			return;
+		}
+		$( license.pdfPage() ).insertAfter( $after );
 	}
 
 	/** Inject the print-only header (or cover page) and mark the body. */
@@ -246,6 +267,7 @@
 			$node.append( $( '<div class="wb-print-authors"></div>' ).text( authorLine ) );
 		}
 		$mount.prepend( $node );
+		insertLicensePage( $node );
 		$( document.body ).addClass( 'wb-printing' );
 	}
 
@@ -275,6 +297,7 @@
 			$cover.append( $( '<div class="wb-print-archive-meta"></div>' ).text( line ) );
 		}
 		$mount.prepend( $cover );
+		insertLicensePage( $cover );
 		$( document.body ).addClass( 'wb-printing' );
 	}
 
@@ -363,8 +386,14 @@
 		return doc.body.innerHTML;
 	}
 
-	/** Build a standalone, minimally styled HTML document around the article. */
-	function wrapHtmlDocument( fragment, title ) {
+	/**
+	 * Build a standalone, minimally styled HTML document around the article.
+	 *
+	 * @param {string} fragment the rendered article HTML
+	 * @param {string} title the page title
+	 * @param {string} footer licence footer HTML appended after the content
+	 */
+	function wrapHtmlDocument( fragment, title, footer ) {
 		var lang = mw.config.get( 'wgContentLanguage' ) || 'en';
 		return '<!DOCTYPE html>\n<html lang="' + escapeHtml( lang ) + '">\n'
 			+ '<head>\n<meta charset="utf-8">\n'
@@ -376,9 +405,14 @@
 			+ 'img,video{max-width:100%;height:auto}\n'
 			+ 'table{border-collapse:collapse}th,td{border:1px solid #c8ccd1;padding:.3em .5em;vertical-align:top}\n'
 			+ 'pre,code{font-family:monospace;background:#f8f9fa}pre{padding:.8em;overflow:auto}\n'
+			+ '.wb-license{margin-top:3em;padding-top:1em;border-top:1px solid #c8ccd1;'
+			+ 'text-align:center;font-size:.9em;color:#54595d}\n'
+			+ '.wb-license p{margin:.5em 0 0}\n'
 			+ '</style>\n</head>\n<body>\n'
 			+ '<h1>' + escapeHtml( title ) + '</h1>\n'
-			+ fragment + '\n</body>\n</html>\n';
+			+ fragment + '\n'
+			+ ( footer || '' )
+			+ '</body>\n</html>\n';
 	}
 
 	/** Fetch the current revision's rendered article HTML. */
@@ -404,9 +438,14 @@
 	function downloadHtml() {
 		fetchRenderedHtml().then( function ( html ) {
 			var title = downloadTitle();
+			var license = mw.embeddableContent.license;
 			triggerDownload(
 				downloadFileName( title, 'html' ),
-				wrapHtmlDocument( absolutizeHtml( html ), title ),
+				wrapHtmlDocument(
+					absolutizeHtml( html ),
+					title,
+					license ? license.htmlFooter() : ''
+				),
 				'text/html;charset=utf-8'
 			);
 		} ).catch( notifyDownloadError );
@@ -449,9 +488,12 @@
 	/** Download the article as expanded wikitext. */
 	function downloadWikitext() {
 		fetchExpandedWikitext().then( function ( wikitext ) {
+			var license = mw.embeddableContent.license;
+			var notice = license ? license.wikitextNotice() : '';
+			var text = notice ? notice + '\n\n' + wikitext : wikitext;
 			triggerDownload(
 				downloadFileName( downloadTitle(), 'wiki' ),
-				wikitext,
+				text,
 				'text/plain;charset=utf-8'
 			);
 		} ).catch( notifyDownloadError );
