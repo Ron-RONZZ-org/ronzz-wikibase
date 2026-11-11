@@ -71,9 +71,9 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     },
     "MediaWiki:Licenses": {
-      "revid": 769,
-      "sha256": "948871462566a9ce242aea332fbeb4e2493193e05030c7f222a81b7735774f0a",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 16007,
+      "sha256": "cd0cfff0eb6b71eb918058ce255a982b7b01b38a694d488b26eaea14819499de",
+      "synced_at": "2026-11-11T21:27:20+00:00"
     },
     "MediaWiki:Listdatatypes": {
       "revid": 9,
@@ -129,6 +129,11 @@
       "revid": 752,
       "sha256": "79059cbf267c4bd8af5f65c63859be4da2d2eee6dec6455628991847b3b96782",
       "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:Cc-by-nc-sa-4.0": {
+      "revid": 16008,
+      "sha256": "bee55f5a9a26a4bbc1a27036214935f22836eda83454fc3e4624c5e9d142d444",
+      "synced_at": "2026-11-11T21:27:21+00:00"
     },
     "Template:Cc-by-sa-4.0": {
       "revid": 751,
@@ -411,6 +416,6 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     }
   },
-  "updated": "2026-11-11T18:21:27+00:00",
+  "updated": "2026-11-11T21:27:21+00:00",
   "version": 1
 }
