@@ -333,6 +333,14 @@
     {
       "title": "Template:YouTubeVideo",
       "path": "Template/YouTubeVideo.wiki"
+    },
+    {
+      "title": "Template:Citation-exception",
+      "path": "Template/Citation-exception.wiki"
+    },
+    {
+      "title": "Template:Author-permission",
+      "path": "Template/Author-permission.wiki"
     }
   ]
 }

@@ -407,6 +407,48 @@ class ConfigBuilderTest(unittest.TestCase):
         self.assertNotIn("'Linux' => 'Q300'", snippet)
         self.assertNotIn("'GUI (graphical user interface)' => 'Q302'", snippet)
 
+    def test_rights_basis_preseed_vocabulary(self):
+        """The five rights-basis items are seeded as their own class, not as
+        software licenses (they must never appear in the licence combobox)."""
+        rows = manifest_loader.load_preseed(MANIFESTS / "preseed.csv")
+        basis = {r["labels"]["en"] for r in rows if r["class_label"] == "rights basis"}
+        self.assertEqual(
+            {
+                "citation exception (CPI L122-5 3°a)",
+                "licensed",
+                "public domain",
+                "own work",
+                "author permission",
+            },
+            basis,
+        )
+        # They are not flagged as FOSS licences and are not licence rows.
+        self.assertFalse(any(r["foss"] for r in rows if r["class_label"] == "rights basis"))
+
+    def test_rights_basis_maps_emitted(self):
+        """The config carries the combobox options (label => Q-id) and the
+        semantic key map the notice/default-licenseInfo logic uses."""
+        snippet = config_builder.build_config(
+            {}, {}, {}, [], {},
+            preseed_ids={"All rights reserved": "Q2799"},
+            license_ids={"All rights reserved": "Q2799"},
+            rights_basis_ids={
+                "citation exception (CPI L122-5 3°a)": "Q900",
+                "licensed": "Q901",
+                "public domain": "Q902",
+                "own work": "Q903",
+                "author permission": "Q904",
+            },
+        )
+        self.assertIn("'rightsBasisItems'", snippet)
+        self.assertIn("'citation exception (CPI L122-5 3°a)' => 'Q900'", snippet)
+        self.assertIn("'rightsBasisKeys'", snippet)
+        self.assertIn("'citationException' => 'Q900'", snippet)
+        self.assertIn("'licensed' => 'Q901'", snippet)
+        self.assertIn("'publicDomain' => 'Q902'", snippet)
+        self.assertIn("'ownWork' => 'Q903'", snippet)
+        self.assertIn("'authorPermission' => 'Q904'", snippet)
+
     def test_licenses_map_falls_back_to_preseed_ids(self):
         """Legacy callers without license_ids keep the preseed_ids fallback
         (the map is only filtered when the seed passes the filtered set)."""

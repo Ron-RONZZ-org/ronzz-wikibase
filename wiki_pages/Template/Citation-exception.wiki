@@ -1,0 +1,9 @@
+<div class="wb-citation-exception">
+''Short quotation reproduced under article L122-5, 3° a) of the French Intellectual Property Code, for the scientific commentary of the work in which it is incorporated.''
+
+''Courte citation reproduite au titre de l'article L122-5, 3° a) du code de la propriété intellectuelle, à des fins de commentaire scientifique de l'œuvre dans laquelle elle est incorporée.''
+
+Source: {{#statements:P28}} — Author: {{#statements:P61}}{{#statements:P6}}
+
+''© the original rights holder. Reuse requires the rights holder's permission. / © le titulaire des droits. Toute réutilisation requiert l'autorisation du titulaire des droits.''
+</div>
