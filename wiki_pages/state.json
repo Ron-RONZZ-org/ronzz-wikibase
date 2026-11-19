@@ -115,6 +115,11 @@
       "sha256": "a43b29f016922bada0c23111ff0bda30512e6d25c02357cf9c63e99fb0f181bd",
       "synced_at": "2026-10-19T12:24:16+00:00"
     },
+    "Template:Author-permission": {
+      "revid": 17751,
+      "sha256": "143607bbbcff6eb363991f1b9b82174b58193f1310a3df53a3f17820191c915e",
+      "synced_at": "2026-11-19T10:03:49+00:00"
+    },
     "Template:Bill": {
       "revid": 9036,
       "sha256": "b9b4ef3a7c2a633377cf017c05bf7e3478e80f46243940a4e0149641a3af326c",
@@ -149,6 +154,11 @@
       "revid": 10532,
       "sha256": "366799a5262a35d1bd825def6e543d143bc24f7bdf137f12dc6858d2f2844e5c",
       "synced_at": "2026-10-18T14:12:25+00:00"
+    },
+    "Template:Citation-exception": {
+      "revid": 17750,
+      "sha256": "9d33195c58db31c7e0710f3f6c80886716a701492936c1cb91a77c3d6b2ae49b",
+      "synced_at": "2026-11-19T10:03:49+00:00"
     },
     "Template:CodeSnippet": {
       "revid": 5030,
@@ -416,6 +426,6 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     }
   },
-  "updated": "2026-11-11T22:09:01+00:00",
+  "updated": "2026-11-19T10:03:49+00:00",
   "version": 1
 }
