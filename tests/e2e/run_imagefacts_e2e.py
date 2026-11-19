@@ -265,12 +265,25 @@ def main() -> int:
         if len(license_ids) < 2:
             raise FlowError(f"expected >=2 preseed licenses, got {licenses!r}")
         license_a, license_b = license_ids[0], license_ids[1]
+        rights_basis_prop = fields["imageProperties"].get("rightsBasis")
+        rights_basis_items = fields.get("rightsBasis") or {}
+        citation_exception = next(
+            (qid for label, qid in rights_basis_items.items()
+             if label.lower().startswith("citation exception")),
+            None,
+        )
+        if not rights_basis_prop or not citation_exception:
+            raise FlowError(
+                f"rights-basis vocabulary missing: prop={rights_basis_prop!r} "
+                f"items={rights_basis_items!r}"
+            )
 
         r = api_call(op, args.api_url, {
             "action": "imagefacts", "filename": file_title,
             "description": "Image-facts E2E fixture",
             "license": license_a, "author": AUTHOR,
             "licenseInfo": LICENSE_INFO, "sourceUrl": SOURCE_URL,
+            "rightsBasis": citation_exception,
             "token": token, "format": "json",
         }, post=True)
         item_id = r.get("imagefacts", {}).get("itemId")
@@ -286,6 +299,20 @@ def main() -> int:
         })
         if not claim_values(item, instance_of):
             raise FlowError(f"{item_id} has no instance-of statement")
+        if citation_exception not in claim_values(item, rights_basis_prop):
+            raise FlowError(
+                f"{rights_basis_prop} did not get {citation_exception}: "
+                f"{claim_values(item, rights_basis_prop)!r}"
+            )
+        # The citation-exception basis auto-renders the notice on the File page.
+        page = api_call(op, args.api_url, {
+            "action": "query", "prop": "revisions", "rvslots": "main",
+            "rvprop": "content", "titles": file_title, "format": "json",
+        })
+        page_text = next(iter(page["query"]["pages"].values())).get(
+            "revisions", [{}])[0].get("slots", {}).get("main", {}).get("*", "")
+        if "{{Citation exception}}" not in page_text:
+            raise FlowError(f"File page lacks the citation-exception notice: {page_text[:300]!r}")
         image_values = claim_values(item, image)
         if not any(str(value).endswith(file_title) for value in image_values):
             raise FlowError(f"{image}: no value ends with {file_title!r}: {image_values!r}")
