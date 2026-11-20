@@ -518,7 +518,7 @@ jobs:
       - name: Install Playwright (Pyodide browser UX E2E)
         if: steps.changes.outputs.code == 'true'
         run: |
-          npm install --no-save --no-package-lock playwright@1.55.0
+          npm install --no-save --no-package-lock playwright@1.65.1
           npx playwright install --with-deps chromium
 
       - name: Pyodide4MediaWiki browser UX E2E (Playwright)
