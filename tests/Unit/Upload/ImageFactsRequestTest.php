@@ -40,6 +40,12 @@ final class ImageFactsRequestTest extends TestCase {
 		$this->assertFalse( ImageFactsRequest::isValidLicenseId( 'q124' ) );
 	}
 
+	public function testRightsBasisIdValidation(): void {
+		$this->assertTrue( ImageFactsRequest::isValidRightsBasisId( 'Q613' ) );
+		$this->assertFalse( ImageFactsRequest::isValidRightsBasisId( 'Q0' ) );
+		$this->assertFalse( ImageFactsRequest::isValidRightsBasisId( 'citation exception' ) );
+	}
+
 	public function testParseClearFieldsTrimsAndDeduplicates(): void {
 		$this->assertSame(
 			[ 'license', 'licenseInfo' ],
@@ -59,6 +65,7 @@ final class ImageFactsRequestTest extends TestCase {
 		$this->assertTrue( ImageFactsRequest::isClearableField( 'authorEntity' ) );
 		$this->assertTrue( ImageFactsRequest::isClearableField( 'sourceEntity' ) );
 		$this->assertTrue( ImageFactsRequest::isClearableField( 'sourceText' ) );
+		$this->assertTrue( ImageFactsRequest::isClearableField( 'rightsBasis' ) );
 		$this->assertFalse( ImageFactsRequest::isClearableField( 'image' ) );
 		$this->assertFalse( ImageFactsRequest::isClearableField( 'bogus' ) );
 	}

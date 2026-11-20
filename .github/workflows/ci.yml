@@ -170,19 +170,26 @@ jobs:
       # ("Undefined array key 'wikibase'" from SiteList.php) which corrupt the
       # Turtle, so the WDQS updater SKIPS the entity ("Giving up on Qxxx") and
       # any WDQS-dependent check on a sitelinked item fails. site_data /
-      # site_config are PHP-serialized empty arrays.
+      # site_config are PHP-serialized empty arrays. site_data carries the
+      # site's paths: Wikibase's client calls getFileUrl('api.php') and throws
+      # 'PATH_FILE is unset' (a console error on every page) without
+      # extraData.paths.file_path; production has the same entry (the
+      # script-path template). ON DUPLICATE KEY keeps reruns idempotent.
       - name: Register the local Wikibase site (sites table)
         if: steps.changes.outputs.code == 'true'
         run: |
-          $COMPOSE exec -T mysql mysql -u wikiuser -psqlpass my_wiki -e \
-            "INSERT IGNORE INTO sites (site_id, site_global_key, site_type, site_group, site_source, site_language, site_protocol, site_domain, site_data, site_forward, site_config) VALUES (1, 'wikibase', 'mediawiki', 'ronzz', 'local', 'en', 'http', 'wikibase', 'a:0:{}', 1, 'a:0:{}');"
+          $COMPOSE exec -T mysql mysql -u wikiuser -psqlpass my_wiki <<'SQL'
+          INSERT INTO sites (site_id, site_global_key, site_type, site_group, site_source, site_language, site_protocol, site_domain, site_data, site_forward, site_config)
+          VALUES (1, 'wikibase', 'mediawiki', 'ronzz', 'local', 'en', 'http', 'wikibase', 'a:1:{s:5:"paths";a:2:{s:4:"page";s:23:"http://wikibase/wiki/$1";s:9:"file_path";s:18:"http://wikibase/$1";}}', 1, 'a:0:{}')
+          ON DUPLICATE KEY UPDATE site_data=VALUES(site_data);
+          SQL
 
       # WikibaseCitation ships a composer dep (seboettg/citeproc-php) that is
       # installed in the extension dir (gitignored; not merged into the wiki
       # root composer). The extension is bind-mounted read-only, so install
       # the vendor into the checkout on the host before the E2E runs.
-      # ext-intl is ignored: the WBS image (runtime) has it, the composer
-      # container does not.
+      # ext-intl and ext-mbstring are ignored: the WBS image (runtime) has
+      # them, the composer container does not.
       - name: Install WikibaseCitation composer deps (citeproc-php)
         if: steps.changes.outputs.code == 'true'
         run: |
@@ -190,7 +197,8 @@ jobs:
             -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/app \
             -v "$PWD":/app -w /app/extensions/WikibaseCitation \
             composer:2 composer install --no-interaction --prefer-dist --no-dev \
-            --no-progress --ignore-platform-req=ext-intl
+            --no-progress --ignore-platform-req=ext-intl \
+            --ignore-platform-req=ext-mbstring
 
       # Issue #24: the WBS image does not bundle the stock Cite extension
       # (needed for <ref>/<references/> and {{#cite}} inside footnotes).
@@ -313,6 +321,13 @@ jobs:
         if: steps.changes.outputs.code == 'true'
         run: tools/install-pyodide.sh
 
+      # Worker-level regression: drives the real serialized worker body against
+      # the pinned distribution (no browser). Guards the matplotlib Agg/PNG
+      # path — the DOM-bound Pyodide backend cannot run in a Web Worker.
+      - name: Pyodide4MediaWiki worker test (matplotlib figures)
+        if: steps.changes.outputs.code == 'true'
+        run: node tests/e2e/run_pyodide_worker_test.mjs
+
       # CORS for .ggb: the sandboxed player (the `ggb` service) fetches the
       # file cross-origin from the wiki. Production does this in nginx; the
       # WBS image's Apache needs mod_headers + a conf snippet, applied by the
@@ -405,6 +420,14 @@ jobs:
             --base-url "$BASE_URL" --api-url "$API_URL" \
             --user "$MW_ADMIN_NAME" --password-file /tmp/e2e-pass
 
+      - name: Image-facts E2E (rights basis + citation-exception notice)
+        if: steps.changes.outputs.code == 'true'
+        run: |
+          echo -n "$MW_ADMIN_PASS" > /tmp/e2e-pass
+          python3 tests/e2e/run_imagefacts_e2e.py \
+            --base-url "$BASE_URL" --api-url "$API_URL" \
+            --user "$MW_ADMIN_NAME" --password-file /tmp/e2e-pass
+
       - name: Parent-dialog E2E (Create it now links + iframe frame marker)
         if: steps.changes.outputs.code == 'true'
         run: |
@@ -491,11 +514,33 @@ jobs:
 
       # Pyodide4MediaWiki: read-only parse-level contract (the runner module is
       # queued + the local asset URL is exported for a `class="pyodide"` block;
-      # a plain block loads nothing). The browser run itself is covered by
-      # tests/e2e/run_pyodide_ux_e2e.mjs (Playwright, manual/production).
+      # a plain block loads nothing).
       - name: Pyodide4MediaWiki E2E (client-side runner contract)
         if: steps.changes.outputs.code == 'true'
         run: python3 tests/e2e/run_pyodide_e2e.py --api-url "$API_URL"
+
+      # Browser UX E2E: Run buttons, shared interpreter, and the matplotlib
+      # PNG output rendered into the panel (Playwright supplies its own
+      # Chromium; the suite logs in as the stack's admin account).
+      - name: Install Playwright (Pyodide browser UX E2E)
+        if: steps.changes.outputs.code == 'true'
+        run: |
+          npm install --no-save --no-package-lock playwright@1.65.1
+          npx playwright install --with-deps chromium
+
+      - name: Pyodide4MediaWiki browser UX E2E (Playwright)
+        if: steps.changes.outputs.code == 'true'
+        run: |
+          echo -n "$MW_ADMIN_PASS" > /tmp/e2e-pass
+          # The dev stack's $wgServer is http://wikibase (container DNS), so the
+          # browser must see that origin: map it to the published port with a
+          # Chromium host-resolver rule. The suite's API fetches run inside the
+          # page, so they share this origin and the login cookies.
+          STACK_HOST_PORT="${BASE_URL#http://}"
+          node tests/e2e/run_pyodide_ux_e2e.mjs \
+            --base-url "http://wikibase" --api-url "http://wikibase/api.php" \
+            --host-resolver-rules "MAP wikibase ${STACK_HOST_PORT}" \
+            --user "$MW_ADMIN_NAME" --password-file /tmp/e2e-pass
 
       - name: Tear down the stack
         if: always() && steps.changes.outputs.code == 'true'

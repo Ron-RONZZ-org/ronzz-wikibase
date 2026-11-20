@@ -52,6 +52,26 @@ function appendStream( text ) {
 	}
 }
 
+function appendFigure( dataUrl ) {
+	// Figures come from the worker's matplotlib hook, which always posts a
+	// PNG data URL; accept nothing else so this stays a raster-only surface.
+	if ( !activeStream || typeof dataUrl !== 'string' ||
+		dataUrl.indexOf( 'data:image/png;base64,' ) !== 0 ) {
+		return;
+	}
+	var output = activeStream.parentNode;
+	var image = document.createElement( 'img' );
+	image.className = 'pyodide4mediawiki-figure';
+	image.alt = mw.msg( 'pyodide4mediawiki-figure' );
+	image.src = dataUrl;
+	output.appendChild( image );
+	// Keep stream order: stdout printed after the plot continues below it.
+	var stream = document.createElement( 'pre' );
+	stream.className = 'pyodide4mediawiki-stream';
+	output.appendChild( stream );
+	activeStream = stream;
+}
+
 function setButtonsDisabled( disabled ) {
 	var buttons = document.querySelectorAll( '.pyodide4mediawiki-run' );
 	for ( var i = 0; i < buttons.length; i++ ) {
@@ -64,6 +84,10 @@ function onWorkerMessage( event ) {
 
 	if ( message.type === 'stdout' || message.type === 'stderr' ) {
 		appendStream( message.text );
+		return;
+	}
+	if ( message.type === 'image' ) {
+		appendFigure( message.data );
 		return;
 	}
 	if ( message.type === 'ready' ) {

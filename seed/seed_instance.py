@@ -72,6 +72,8 @@ class SeedOrchestrator:
         # must NOT include the OS/UI preseed items (a pre-existing bug: the
         # combobox offered Linux/Windows as license choices).
         self.license_ids: dict[str, str] = {}
+        # Rights-basis preseed items (class_label == "rights basis").
+        self.rights_basis_ids: dict[str, str] = {}
 
     # ------------------------------------------------------------ manifests
 
@@ -283,6 +285,8 @@ class SeedOrchestrator:
                 self.preseed_ids[label] = existing
                 if row["class_label"] == "software license":
                     self.license_ids[label] = existing
+                if row["class_label"] == "rights basis":
+                    self.rights_basis_ids[label] = existing
                 # Re-classify a FOSS license created before the class
                 # existed (idempotent — add_claims skips existing claims).
                 if is_foss_license and instance_of_id and foss_license_class_id:
@@ -302,6 +306,8 @@ class SeedOrchestrator:
             self.preseed_ids[label] = entity_id
             if row["class_label"] == "software license":
                 self.license_ids[label] = entity_id
+            if row["class_label"] == "rights basis":
+                self.rights_basis_ids[label] = entity_id
             print(f"  created {label} ({entity_id})")
 
             class_id = self.class_ids.get(row["class_label"])
@@ -531,6 +537,7 @@ class SeedOrchestrator:
             previous_youtube_api_key=previous_key,
             preseed_ids=self.preseed_ids,
             license_ids=self.license_ids,
+            rights_basis_ids=self.rights_basis_ids,
             sparql_url=getattr(self.args, "config_sparql_url", None)
             or getattr(self.args, "sparql_url", None),
         )
