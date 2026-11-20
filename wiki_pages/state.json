@@ -250,6 +250,11 @@
       "sha256": "fed59d14ebd9460bb093e781f5f3bc8836b1a51b6a35085854f9e9e2a0d0409d",
       "synced_at": "2026-10-18T07:11:07+00:00"
     },
+    "Template:Hidden explanation": {
+      "revid": 18112,
+      "sha256": "22dad8aa951cac4fcffe830048a00b153b7bdf582610c4619f374f4e4f0d9bd1",
+      "synced_at": "2026-11-20T09:10:50+00:00"
+    },
     "Template:Hidden proof": {
       "revid": 10318,
       "sha256": "e327e65cf73fbfad659aa2c8a55cf80d72847ced54319adf6c2f164b9ea5f939",
@@ -426,6 +431,6 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     }
   },
-  "updated": "2026-11-19T10:09:58+00:00",
+  "updated": "2026-11-20T09:10:50+00:00",
   "version": 1
 }
