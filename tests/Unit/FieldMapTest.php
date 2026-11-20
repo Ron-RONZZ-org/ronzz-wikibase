@@ -4,6 +4,7 @@ declare( strict_types = 1 );
 
 namespace Tests\Unit;
 
+use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\Flow\SemanticEntityFieldMap;
 use EmbeddableContent\Flow\SourceFieldMap;
 use EmbeddableContent\Flow\SpecialContentFieldMap;
@@ -226,6 +227,23 @@ class FieldMapTest extends TestCase {
 			}
 		}
 		$this->assertSame( [], SpecialContentFieldMap::requiredAnyOf( 'math' ) );
+	}
+
+	public function testSpecialContentKindsResolveToConfigKeys(): void {
+		// Regression (2026-11-19): action=addspecialcontent-fields reported
+		// the `code-snippet` kind with no classItemId/payloadPropertyId,
+		// because the module indexed the config maps by the public kind name
+		// while the config keys it `code`. Every API kind must resolve —
+		// through formKey() — to a kind the config knows, or the discovery
+		// endpoint silently drops its class and payload property.
+		foreach ( SpecialContentFieldMap::KINDS as $kind ) {
+			$configKey = SpecialContentFieldMap::formKey( $kind );
+			$this->assertContains(
+				$configKey,
+				EmbeddableContentConfig::KINDS,
+				"kind $kind resolves to config key '$configKey' the config does not know"
+			);
+		}
 	}
 
 	public function testSpecialContentNoteIsMathOnly(): void {

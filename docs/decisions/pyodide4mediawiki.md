@@ -89,3 +89,48 @@ removes the reader's session from the interpreter's reach.
   php-fpm restart / parser-cache purge (the hook changes cached parser output).
 - Re-vendoring a new Pyodide version updates the pinned version + core sha256
   in the install script; the wheel sha256s come from the new lock file.
+
+## Addendum — Matplotlib output in the worker (2026-11-20)
+
+**Problem.** The interpreter runs in a Web Worker, which has no `window`.
+Matplotlib's Pyodide build (3.10.8 in Pyodide 314.0.7) selects `webagg` as its
+default `rcParams["backend"]`, and the backend registry aliases `webagg` to
+`backend_pyodide` — a backend that initialises by calling `run_js()` against
+the document. Every `plt.show()` therefore failed with
+`ReferenceError: window is not defined` (reproduced against the exact vendored
+distribution; the four calculation/plotting pages were affected).
+
+**Decision.** Keep the worker architecture and render figures as images:
+
+- The worker pins `MPLBACKEND=agg` when the interpreter is created, so any
+  import of matplotlib lands on the headless Agg backend.
+- Before running a cell, after `loadPackagesFromImports`, the worker checks
+  `importlib.util.find_spec("matplotlib")`. The wheel is unpacked at that
+  point (imports only load packages; they do not import modules), so the hook
+  is installed **before** the user's first `import matplotlib.pyplot`, and
+  only for cells that need matplotlib — pages that never plot download
+  nothing extra.
+- The hook replaces `pyplot.show` and `Figure.show`: each open figure is saved
+  to PNG (`bbox_inches="tight"`, the figure's own DPI), posted to the page as
+  `{ type: 'image', data: 'data:image/png;base64,…' }`, and the figures are
+  closed (inline-notebook semantics). Page code keeps writing plain
+  `plt.show()`.
+- The client renders the payload as an `<img>` in the output panel and accepts
+  only `data:image/png;base64,` — the text-only/no-`innerHTML` rule is
+  preserved, with raster figures as the one documented exception.
+- One upstream deprecation emitted by Matplotlib 3.10.8's own `backend_agg`
+  (`The … parameter as float was deprecated …`) is filtered by message; other
+  warnings remain visible.
+
+**Consequences / limits.** Plots are static: no pan/zoom, no `plt.pause`, no
+animation players or interactive widgets. `plt.savefig()` still works. Moving
+execution to the main thread would restore interactivity at the cost of
+freezing the page and abandoning the worker (and its isolation from the
+reader's session) — rejected. The documented path to interactive output
+remains a sandboxed cross-origin runner (the GeoGebra player pattern).
+
+**Tests.** `tests/e2e/run_pyodide_worker_test.mjs` drives the real serialized
+worker body against the pinned distribution and asserts the Agg backend and a
+valid PNG for `plt.show()`/`Figure.show()`; the Playwright suite
+(`tests/e2e/run_pyodide_ux_e2e.mjs`) asserts the rendered `<img>`; both run in
+the CI integration job.

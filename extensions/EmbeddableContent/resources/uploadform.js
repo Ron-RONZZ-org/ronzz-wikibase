@@ -731,6 +731,41 @@
 		syncAuthorMode();
 		syncSourceMode();
 
+		// 2d. Rights basis: infer from the licence and keep the field
+		// visible so "own work" can override the inferred "licensed". The
+		// Q-ids ride the help span (data-*), never the script.
+		function syncRightsBasis() {
+			var config = document.querySelector( '.wb-rights-basis-config' );
+			var input = document.getElementById( 'wpUploadRightsBasis' );
+			if ( !config || !input ) {
+				return;
+			}
+			var license = fieldValue( 'wpLicense' ).trim();
+			var allRights = config.getAttribute( 'data-all-rights-reserved' ) || '';
+			var proprietary = config.getAttribute( 'data-proprietary' ) || '';
+			var publicDomainLicense = config.getAttribute( 'data-public-domain-license' ) || '';
+			var citation = config.getAttribute( 'data-citation-exception' ) || '';
+			var licensed = config.getAttribute( 'data-licensed' ) || '';
+			var publicDomain = config.getAttribute( 'data-public-domain' ) || '';
+			var inferred = '';
+			if ( license === allRights || license === proprietary ) {
+				inferred = citation;
+			} else if ( license === publicDomainLicense ) {
+				inferred = publicDomain;
+			} else if ( license !== '' ) {
+				inferred = licensed;
+			}
+			setRowVisible( rowFor( 'wpUploadRightsBasis' ), license !== '' );
+			if ( inferred && input.value.trim() === '' ) {
+				input.value = inferred;
+				input.dispatchEvent( new Event( 'input', { bubbles: true } ) );
+				input.dispatchEvent( new Event( 'change', { bubbles: true } ) );
+			}
+		}
+		$form.on( 'change', '#wpLicense', syncRightsBasis );
+		$form.on( 'input', '#wpLicense', syncRightsBasis );
+		syncRightsBasis();
+
 		// uploadmeta.js reports its own conversion errors; close the empty
 		// destination tab and free the form so the user can retry.
 		mw.hook( 'embeddableContent.uploadmeta.failed' ).add( function () {

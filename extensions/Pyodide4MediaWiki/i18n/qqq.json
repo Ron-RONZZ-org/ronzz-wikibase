@@ -10,5 +10,6 @@
 	"pyodide4mediawiki-loading": "Status shown while the Pyodide interpreter is being downloaded and initialised on the first Run.",
 	"pyodide4mediawiki-login-required": "Message shown to anonymous readers in place of the Run button.",
 	"pyodide4mediawiki-error": "Heading/prefix for an execution error.",
-	"pyodide4mediawiki-output": "Accessible label for the execution output panel."
+	"pyodide4mediawiki-output": "Accessible label for the execution output panel.",
+	"pyodide4mediawiki-figure": "Alt text for a figure rendered from a <code>matplotlib</code> <code>plt.show()</code> or <code>Figure.show()</code> call."
 }
