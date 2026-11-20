@@ -2420,7 +2420,18 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 			$record['youtubeVideoId'] = YouTubeProvider::extractVideoId( (string)( $record['url'] ?? '' ) ) ?? '';
 		}
 
-		return $this->validateParent( $record );
+		$parentError = $this->validateParent( $record );
+		if ( $parentError !== null ) {
+			return $parentError;
+		}
+
+		// Early flow-service validation: the systematic abstract/summary
+		// step must not defer a FACT error (bad year, bad duration, unknown
+		// author class, …) to the final create. This is a read-only probe on
+		// a copy — the create path runs prepare() again on the real record.
+		$probe = $this->flowRecord( $record );
+		$classKey = \EmbeddableContent\Flow\SourceFieldMap::apiKey( $this->currentClassKey );
+		return $this->sourceFlow()->prepare( $classKey, $probe, true );
 	}
 
 	/**
