@@ -10,5 +10,6 @@
 	"pyodide4mediawiki-loading": "Loading Python… (the interpreter is downloaded once, then cached by the browser)",
 	"pyodide4mediawiki-login-required": "Log in to run this code.",
 	"pyodide4mediawiki-error": "Error",
-	"pyodide4mediawiki-output": "Output"
+	"pyodide4mediawiki-output": "Output",
+	"pyodide4mediawiki-figure": "Figure"
 }

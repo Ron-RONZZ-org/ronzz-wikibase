@@ -61,6 +61,44 @@ final class UploadHooks {
 			'section' => 'description',
 			'id' => 'wpLicense',
 		];
+
+		// Rights basis: the legal ground for the reproduction. The options
+		// come from the seeded `rights basis` items; the field is revealed
+		// by uploadform.js only for "All rights reserved"/"Proprietary",
+		// and inferred for the other licence choices. The data-* span lets
+		// the script do the inference without hardcoded Q-ids.
+		$rightsBasisItems = self::config()->rightsBasisItems();
+		if ( $rightsBasisItems !== [] ) {
+			$licenses = self::config()->licenseItems();
+			$keys = self::config()->rightsBasisKeys();
+			$attr = static function ( string $name, string $value ): string {
+				return $value === '' ? ''
+					: ' data-' . $name . '="' . htmlspecialchars( $value, ENT_QUOTES, 'UTF-8' ) . '"';
+			};
+			$descriptor['UploadRightsBasis'] = EntityCombobox::spec(
+				'embeddablecontent-upload-rights-basis',
+				[],
+				false,
+				[
+					'id' => 'wpUploadRightsBasis',
+					'section' => 'description',
+					'options' => $rightsBasisItems,
+					'cssclass' => 'wb-entity-combobox wb-upload-rights-basis',
+					'help' => htmlspecialchars(
+						wfMessage( 'embeddablecontent-upload-rights-basis-help' )->text()
+					) . '<span class="wb-rights-basis-config"'
+						. $attr( 'all-rights-reserved', $licenses['All rights reserved'] ?? '' )
+						. $attr( 'proprietary', $licenses['Proprietary'] ?? '' )
+						. $attr( 'public-domain-license', $licenses['Public domain'] ?? '' )
+						. $attr( 'citation-exception', $keys['citationException'] ?? '' )
+						. $attr( 'licensed', $keys['licensed'] ?? '' )
+						. $attr( 'public-domain', $keys['publicDomain'] ?? '' )
+						. $attr( 'own-work', $keys['ownWork'] ?? '' )
+						. '></span>',
+				]
+			);
+		}
+
 		// Author: a free-text name by default, or a semantic ENTITY (an agent
 		// item — the same model as the AddSource author field) when the
 		// checkbox is ticked. Both fields stay in the form; the checkbox
@@ -481,6 +519,27 @@ final class UploadHooks {
 		$request = RequestContext::getMain()->getRequest();
 		$author = self::authorFieldValues();
 		$source = self::sourceFieldValues();
+		$license = trim( (string)$request->getVal( 'wpLicense', '' ) ) ?: null;
+		$rightsBasis = trim( (string)$request->getVal( 'wpUploadRightsBasis', '' ) );
+		if ( $rightsBasis === '' ) {
+			// JS-off / no selection: infer from the licence. "All rights
+			// reserved" and "Proprietary" default to the citation exception
+			// (the user can change it); a real licence is `licensed`, and
+			// the public-domain licence is `public domain`.
+			$licenses = self::config()->licenseItems();
+			$keys = self::config()->rightsBasisKeys();
+			if ( $license !== null && in_array(
+				$license,
+				[ $licenses['All rights reserved'] ?? '', $licenses['Proprietary'] ?? '' ],
+				true
+			) ) {
+				$rightsBasis = $keys['citationException'] ?? '';
+			} elseif ( $license !== null && $license === ( $licenses['Public domain'] ?? '' ) ) {
+				$rightsBasis = $keys['publicDomain'] ?? '';
+			} elseif ( $license !== null ) {
+				$rightsBasis = $keys['licensed'] ?? '';
+			}
+		}
 		$label = (string)preg_replace( '/\.[^.]+$/', '', $title->getText() );
 		ImageItemCreator::createOrReuse(
 			self::config(),
@@ -488,7 +547,7 @@ final class UploadHooks {
 			$label,
 			trim( (string)$request->getVal( 'wpUploadDescription', '' ) ),
 			$title->getPrefixedText(),
-			trim( (string)$request->getVal( 'wpLicense', '' ) ) ?: null,
+			$license,
 			$author['text'],
 			trim( (string)$request->getVal( 'wpUploadLicenseInfo', '' ) ),
 			trim( (string)$request->getVal( 'wbUploadmetaSourceUrl', '' ) ),
@@ -497,8 +556,12 @@ final class UploadHooks {
 			[],
 			$author['entity'] !== '' ? $author['entity'] : null,
 			$source['entity'] !== '' ? $source['entity'] : null,
-			$source['text']
+			$source['text'],
+			$rightsBasis
 		);
+		if ( $rightsBasis !== '' ) {
+			RightsBasisNotice::apply( self::config(), $title, $rightsBasis, $user );
+		}
 	}
 
 	/** The validate-button wiring span (uploadmeta.js data-config). */

@@ -482,6 +482,8 @@
 	"embeddablecontent-upload-url-maxsize": "Taille maximale pour un téléversement par URL : $1",
 	"embeddablecontent-upload-license": "Licence",
 	"embeddablecontent-upload-license-help": "Choisissez la licence du fichier, ou tapez pour rechercher parmi les licences de l'instance.",
+	"embeddablecontent-upload-rights-basis": "Base de droits",
+	"embeddablecontent-upload-rights-basis-help": "Le fondement juridique de la reproduction de ce fichier. L'exception de citation et l'autorisation de l'auteur ajoutent un avertissement sur la page du fichier ; licence, domaine public et œuvre personnelle enregistrent le fondement sans avertissement supplémentaire.",
 	"embeddablecontent-upload-author": "Auteur",
 	"embeddablecontent-upload-author-source": "auteur et source",
 	"embeddablecontent-upload-author-entity-check": "Indiquer l'auteur comme entité sémantique (un élément)",
