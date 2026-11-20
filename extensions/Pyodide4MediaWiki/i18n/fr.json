@@ -10,5 +10,6 @@
 	"pyodide4mediawiki-loading": "Chargement de Python… (l’interpréteur est téléchargé une fois, puis mis en cache par le navigateur)",
 	"pyodide4mediawiki-login-required": "Connectez-vous pour exécuter ce code.",
 	"pyodide4mediawiki-error": "Erreur",
-	"pyodide4mediawiki-output": "Sortie"
+	"pyodide4mediawiki-output": "Sortie",
+	"pyodide4mediawiki-figure": "Graphique"
 }

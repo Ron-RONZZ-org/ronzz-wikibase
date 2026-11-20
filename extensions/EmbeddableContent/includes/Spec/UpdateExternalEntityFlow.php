@@ -522,14 +522,23 @@ trait UpdateExternalEntityFlow {
 			return;
 		}
 		$title = Title::newFromText( $sitelinks->getBySiteId( 'wikibase' )->getPageName() );
-		if ( $title === null || !$title->exists() ) {
+		if ( $title === null ) {
+			return;
+		}
+		// Resolve the article id BEFORE doPurge(): Title::invalidateCache()
+		// returns early while mArticleID is still 0, and a freshly built
+		// Title has not loaded it. This made the purge a silent no-op on the
+		// CI stack (the page kept the cached N/A access row).
+		if ( $title->getArticleID() <= 0 ) {
 			return;
 		}
 		try {
-			\MediaWiki\MediaWikiServices::getInstance()
-				->getWikiPageFactory()
-				->newFromTitle( $title )
-				->doPurge();
+			$services = \MediaWiki\MediaWikiServices::getInstance();
+			$page = $services->getWikiPageFactory()->newFromTitle( $title );
+			$page->doPurge();
+			// The page_touched check alone is not enough on every cache
+			// backend; delete the parser entry explicitly as well.
+			$services->getParserCache()->deleteOptionsKey( $page );
 		} catch ( \Throwable $e ) {
 			\MediaWiki\Logger\LoggerFactory::getInstance( 'EmbeddableContent' )->warning(
 				'Classic-page purge failed for {title}: {error}',

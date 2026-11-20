@@ -80,7 +80,8 @@ final class ImageItemCreator {
 		array $clearFields = [],
 		?string $authorEntity = null,
 		?string $sourceEntity = null,
-		string $sourceText = ''
+		string $sourceText = '',
+		string $rightsBasis = ''
 	): ?string {
 		$classes = $config->imageClasses();
 		$classItemId = $classes['image'] ?? null;
@@ -112,7 +113,8 @@ final class ImageItemCreator {
 						$clearFields,
 						$authorEntity,
 						$sourceEntity,
-						$sourceText
+						$sourceText,
+						$rightsBasis
 					);
 					WikibaseRepo::getEntityStore()->saveEntity( $item, $editSummary, $user, EDIT_UPDATE );
 				}
@@ -165,7 +167,8 @@ final class ImageItemCreator {
 			$clearFields,
 			$authorEntity,
 			$sourceEntity,
-			$sourceText
+			$sourceText,
+			$rightsBasis
 		);
 
 		WikibaseRepo::getEntityStore()->saveEntity( $item, $editSummary, $user, EDIT_UPDATE );
@@ -194,7 +197,8 @@ final class ImageItemCreator {
 		array $clearFields = [],
 		?string $authorEntity = null,
 		?string $sourceEntity = null,
-		string $sourceText = ''
+		string $sourceText = '',
+		string $rightsBasis = ''
 	): void {
 		$entity = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
 		if ( !$entity instanceof Item ) {
@@ -211,7 +215,8 @@ final class ImageItemCreator {
 			$clearFields,
 			$authorEntity,
 			$sourceEntity,
-			$sourceText
+			$sourceText,
+			$rightsBasis
 		);
 		$description = trim( $description );
 		if ( $description !== '' ) {
@@ -246,10 +251,17 @@ final class ImageItemCreator {
 		array $clearFields = [],
 		?string $authorEntity = null,
 		?string $sourceEntity = null,
-		string $sourceText = ''
+		string $sourceText = '',
+		string $rightsBasis = ''
 	): void {
 		$props = $config->imagePropertyIds();
 		$provenance = $config->provenancePropertyIds();
+
+		$rightsBasis = trim( $rightsBasis );
+		if ( $rightsBasis !== '' && $licenseInfo === ''
+			&& !in_array( 'licenseInfo', $clearFields, true ) ) {
+			$licenseInfo = self::defaultLicenseInfo( $config, $rightsBasis );
+		}
 
 		// The author field is a MULTI entity combobox: one `attributed to`
 		// statement per comma/semicolon-separated item id.
@@ -275,6 +287,10 @@ final class ImageItemCreator {
 			'license' => [
 				$props['license'] ?? null,
 				array_values( array_filter( [ self::itemIdValue( $license ) ] ) ),
+			],
+			'rightsBasis' => [
+				$props['rightsBasis'] ?? null,
+				array_values( array_filter( [ self::itemIdValue( $rightsBasis ) ] ) ),
 			],
 			'author' => [
 				$props['imageAuthor'] ?? null,
@@ -530,4 +546,27 @@ final class ImageItemCreator {
 		}
 		return null;
 	}
+	/**
+	 * The notice sentence recorded in `additional license information` when
+	 * the caller supplies a rights basis but no license-info text. Keeps the
+	 * model out of the legal wording; the File: page template renders the
+	 * human-readable notice.
+	 */
+	private static function defaultLicenseInfo( EmbeddableContentConfig $config, string $rightsBasis ): string {
+		$keys = $config->rightsBasisKeys();
+		if ( ( $keys['citationException'] ?? null ) === $rightsBasis ) {
+			return 'Reproduced as a short quotation under CPI art. L122-5, 3° a).';
+		}
+		if ( ( $keys['authorPermission'] ?? null ) === $rightsBasis ) {
+			return 'Reproduced with the permission of the rights holder.';
+		}
+		if ( ( $keys['publicDomain'] ?? null ) === $rightsBasis ) {
+			return 'Public domain.';
+		}
+		if ( ( $keys['ownWork'] ?? null ) === $rightsBasis ) {
+			return 'Own work.';
+		}
+		return '';
+	}
+
 }
