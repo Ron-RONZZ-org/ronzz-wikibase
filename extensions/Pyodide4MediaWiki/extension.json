@@ -42,7 +42,8 @@
 				"pyodide4mediawiki-loading",
 				"pyodide4mediawiki-login-required",
 				"pyodide4mediawiki-error",
-				"pyodide4mediawiki-output"
+				"pyodide4mediawiki-output",
+				"pyodide4mediawiki-figure"
 			],
 			"dependencies": [
 				"mediawiki.util"
