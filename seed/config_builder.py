@@ -244,6 +244,9 @@ SOURCE_PROPERTY_KINDS = {
     # The item carries `file` (File: URL) + `license`; the statement carries
     # the public/login status and the language qualifiers.
     "has access file": "hasAccessFile",
+    # The extracted-text File item linked as a qualifier on the access-file
+    # statement (Apache Tika markdown extraction).
+    "extracted text": "extractedText",
     # Zotero-aligned batch: legal/official-document facts. Territorial
     # jurisdiction mirrors the OSM place-of-birth pattern (external-id +
     # parallel human-readable label).

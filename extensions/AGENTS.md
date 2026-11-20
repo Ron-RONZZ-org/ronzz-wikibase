@@ -1468,6 +1468,25 @@ report). See `SimpleMathJax/VENDORED.md`.
   vocabulary/seed/config-map change; deploy = extension rsync + php-fpm
   restart + parser-cache purge.
 
+- **PDF → Markdown extraction (ADR `docs/decisions/pdf-text-extraction.md`)**:
+  Apache Tika 4 (host loopback `127.0.0.1:9998`, OCR `AUTO`) extracts every
+  access-file PDF to a deterministic `<name>.extracted.txt` companion File
+  (Markdown; `.txt` avoids a per-instance MIME map). The companion carries
+  the source PDF's `InternalFile` marker/category, so nginx gates internal
+  extractions identically. A sitelinked `access file` item for the `.txt`
+  page is pointed at by the new **`extracted text`** (wikibase-item)
+  qualifier on the Source's `has access file` statement
+  (`AccessEntries::attachExtractedText`; WDQS reverse lookup or `--source`).
+  `Special:SourceText?file=File:X.pdf` and `action=sourcefiletext` read it
+  with the source file's access rule (public = anyone, internal = login);
+  `Special:SourceFile`, the File toolbar and `{{#source-access:}}` link it.
+  `maintenance/extractPdfText.php` scans/skips current companions and is
+  meant for a **dedicated cron** (OCR can take minutes; not the shared
+  `runJobs.php` cycle). The MCP `get-file-text` tool calls the API and
+  returns the Markdown; `get-file-content` stays the local/bytes path.
+  Deploy: D1 property importer + full seed re-emission
+  (`sourceProperties.extractedText`), `$wgFileExtensions[] = 'txt'`, the
+  Tika loopback publish, the cron, and a parser-cache purge.
 - **Copy internal mention + quotation attribution + fictional-character
   aliases (ADR `docs/decisions/mention-and-quotation-attribution.md`,
   `docs/decisions/fictional-character-alias.md`)**: (a) every classic per-kind

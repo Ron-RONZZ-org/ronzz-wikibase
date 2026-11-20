@@ -98,6 +98,17 @@ final class SourceAccess {
 				'label' => $ext !== '' ? $ext : 'file',
 				'language' => strtolower( (string)( $entry['language'] ?? '' ) ),
 			];
+			if ( ( $entry['extractedTextFile'] ?? '' ) !== '' ) {
+				$links[] = [
+					'kind' => 'text',
+					'href' => SpecialPage::getTitleFor( 'SourceText' )->getFullURL( [
+						'file' => $fileTitle,
+					] ),
+					'label' => wfMessage( 'embeddablecontent-source-access-text' )
+						->inLanguage( $language )->text(),
+					'language' => '',
+				];
+			}
 		}
 
 		if ( $hasHidden ) {

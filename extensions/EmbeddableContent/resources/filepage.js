@@ -121,6 +121,21 @@
 		// embed → copy link → upload another).
 		if ( $( '#ca-wb-file-copyembed' ).length === 0 ) {
 			var $toolbar = $( '<span class="wb-file-toolbar"></span>' );
+			var extractedUrl = mw.config.get( 'wbExtractedTextUrl' );
+			if ( extractedUrl ) {
+				$toolbar.append(
+					$( '<a>' )
+						.attr( {
+							id: 'ca-wb-file-extractedtext',
+							href: extractedUrl,
+							target: '_blank',
+							rel: 'noopener'
+						} )
+						.addClass( 'wb-embed-toolbar-btn' )
+						.attr( 'data-wb-order', 38 )
+						.text( mw.msg( 'embeddablecontent-file-extractedtext' ) )
+				);
+			}
 			$toolbar.append( makeButton(
 				'ca-wb-file-copyembed',
 				'embeddablecontent-file-copyembed',

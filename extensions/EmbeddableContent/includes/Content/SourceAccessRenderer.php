@@ -57,6 +57,10 @@ final class SourceAccessRenderer {
 			}
 			$label = trim( (string)( $link['label'] ?? '' ) );
 			$language = strtolower( trim( (string)( $link['language'] ?? '' ) ) );
+			if ( ( $link['kind'] ?? '' ) === 'text' ) {
+				$parts[] = self::link( $href, $label !== '' ? $label : 'text' );
+				continue;
+			}
 			if ( ( $link['kind'] ?? '' ) !== 'file' ) {
 				$urlIndex += 1;
 				$name = $label !== '' ? $label : 'url' . $urlIndex;

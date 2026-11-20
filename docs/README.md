@@ -150,6 +150,11 @@ links, per-access language, `PDF: en|fr` Source rendering, backfill),
 inference on Special:Upload/UpdateFile), `file-pdf-viewer.md` (browser-native
 PDF viewer + fullscreen on File: pages and Special:SourceFile).
 
+Nov 2026 PDF text extraction: `pdf-text-extraction.md` (Tika 4 loopback →
+Markdown `.extracted.txt` companion with the source file's internal marker;
+`extracted text` qualifier on `has access file`; `Special:SourceText` +
+`action=sourcefiletext`; MCP `get-file-text`; dedicated extraction cron).
+
 Nov 2026 smart-mention / collision / upload batch:
 `nov-2026-smart-mentions-collisions-uploads.md` (unpiped classic-namespace
 mentions render the bare entity name and Source: is italic; the "Copy

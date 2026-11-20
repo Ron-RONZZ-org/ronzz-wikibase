@@ -164,9 +164,15 @@
 		},
 		"EntityIndex": {
 			"class": "EmbeddableContent\\Spec\\SpecialEntityIndex"
+		},
+		"SourceText": {
+			"class": "EmbeddableContent\\Spec\\SpecialSourceText"
 		}
 	},
 	"APIModules": {
+		"sourcefiletext": {
+			"class": "EmbeddableContent\\Api\\ApiSourceFileText"
+		},
 		"embed": {
 			"class": "EmbeddableContent\\Api\\ApiEmbed",
 			"services": [
@@ -929,9 +935,30 @@
 				"embeddablecontent-file-copyembed-hint",
 				"embeddablecontent-file-copylink",
 				"embeddablecontent-file-copylink-hint",
+				"embeddablecontent-file-extractedtext",
 				"embeddablecontent-gadget-copied",
 				"embeddablecontent-upload-copyembed-notice",
 				"embeddablecontent-upload-another-next"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.sourcefiletext": {
+			"scripts": [
+				"sourcefiletext.js"
+			],
+			"styles": [
+				"sourcefiletext.css"
+			],
+			"dependencies": [
+				"mediawiki.notification",
+				"mediawiki.util"
+			],
+			"messages": [
+				"embeddablecontent-gadget-copied",
+				"embeddablecontent-source-text-copy-failed"
 			],
 			"targets": [
 				"desktop",
