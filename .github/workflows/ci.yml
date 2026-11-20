@@ -181,8 +181,8 @@ jobs:
       # installed in the extension dir (gitignored; not merged into the wiki
       # root composer). The extension is bind-mounted read-only, so install
       # the vendor into the checkout on the host before the E2E runs.
-      # ext-intl is ignored: the WBS image (runtime) has it, the composer
-      # container does not.
+      # ext-intl and ext-mbstring are ignored: the WBS image (runtime) has
+      # them, the composer container does not.
       - name: Install WikibaseCitation composer deps (citeproc-php)
         if: steps.changes.outputs.code == 'true'
         run: |
@@ -190,7 +190,8 @@ jobs:
             -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/app \
             -v "$PWD":/app -w /app/extensions/WikibaseCitation \
             composer:2 composer install --no-interaction --prefer-dist --no-dev \
-            --no-progress --ignore-platform-req=ext-intl
+            --no-progress --ignore-platform-req=ext-intl \
+            --ignore-platform-req=ext-mbstring
 
       # Issue #24: the WBS image does not bundle the stock Cite extension
       # (needed for <ref>/<references/> and {{#cite}} inside footnotes).
