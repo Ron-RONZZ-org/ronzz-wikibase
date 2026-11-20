@@ -79,6 +79,18 @@
 			.on( 'click', handler );
 	}
 
+	/** A link styled like the toolbar buttons (opens the media in a new tab). */
+	function makeOpenLink( id, href ) {
+		return $( '<a>' )
+			.attr( 'id', id )
+			.attr( 'href', href )
+			.attr( 'target', '_blank' )
+			.attr( 'rel', 'noopener' )
+			.addClass( 'wb-embed-toolbar-btn' )
+			.attr( 'title', mw.msg( 'embeddablecontent-file-open-newtab' ) )
+			.text( mw.msg( 'embeddablecontent-file-open-newtab' ) );
+	}
+
 	/**
 	 * Persistent fallback shown when the automatic clipboard write is blocked:
 	 * the snippet plus a copy button that works on the user's click.
@@ -139,25 +151,21 @@
 			mw.hook( 'embeddableContent.fileToolbarReady' ).fire( $toolbar );
 		}
 
-		// PDFs: embed the browser's native viewer with a fullscreen control
-		// (no third-party PDF library; same same-origin iframe mechanism as
-		// Special:SourceFile).
+		// PDFs: embed the browser's native viewer (no third-party PDF
+		// library; same same-origin iframe mechanism as Special:SourceFile).
+		// The fullscreen control was removed — the browser viewer has its own,
+		// and the wrapper caused layout regressions. The toolbar above carries
+		// the "Open in a new tab" link.
 		if ( url && mw.config.get( 'wbFileMime' ) === 'application/pdf'
 			&& $( '.wb-pdf-viewer' ).length === 0
 		) {
 			var $viewer = $( '<div class="wb-pdf-viewer"></div>' )
-				.append( $( '<div class="wb-pdf-toolbar"></div>' ) )
 				.append( $( '<iframe>' ).attr( {
 					src: url,
 					title: name,
 					loading: 'lazy'
 				} ) );
 			$( '#mw-content-text' ).first().prepend( $viewer );
-			mw.loader.using( 'ext.embeddableContent.pdfviewer' ).then( function () {
-				if ( mw.embeddableContent.pdfviewer ) {
-					mw.embeddableContent.pdfviewer.attach( $viewer );
-				}
-			} );
 		}
 
 		// Upload hand-off (one-shot params appended by BeforePageRedirect).

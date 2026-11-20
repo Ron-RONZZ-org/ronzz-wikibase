@@ -188,50 +188,39 @@ async function main() {
 			console.log('[ok] File: copy-link button copies the direct media URL');
 		}
 
-		// --- PDF fullscreen fills the real viewport ----------------------
+		// --- File: "Open in a new tab" + no fullscreen --------------------
+		const openLink = page.locator('#ca-wb-file-open');
+		if (await openLink.count() !== 1) {
+			failures.push('File: page missing the "Open in a new tab" button');
+		} else {
+			const href = await openLink.getAttribute('href');
+			const target = await openLink.getAttribute('target');
+			if (!href || !href.includes('/images/')) {
+				failures.push(`open-in-new-tab href is ${JSON.stringify(href)}, expected a /images/ media URL`);
+			} else if (target !== '_blank') {
+				failures.push(`open-in-new-tab target is ${JSON.stringify(target)}, expected _blank`);
+			} else {
+				console.log('[ok] File: open-in-new-tab button points at the raw media URL');
+			}
+		}
 		const pdfs = await api({
 			action: 'query', list: 'allimages', aimime: 'application/pdf',
 			ailimit: '1', format: 'json',
 		});
 		const pdf = pdfs.query?.allimages?.[0];
 		if (!pdf) {
-			console.log('[info] no PDF file on the instance — skipping fullscreen check');
+			console.log('[info] no PDF file on the instance — skipping PDF viewer check');
 		} else {
 			await page.goto(`${BASE_URL}/wiki/File:${encodeURIComponent(pdf.name.replace(/ /g, '_'))}`,
 				{ waitUntil: 'domcontentloaded', timeout: 60000 });
-			await page.waitForSelector('.wb-pdf-viewer .wb-pdf-fullscreen-btn', { timeout: 15000 });
-			await page.locator('.wb-pdf-fullscreen-btn').click();
-			await page.waitForTimeout(500);
-			const fullscreen = await page.evaluate(() => {
-				const viewer = document.querySelector('.wb-pdf-viewer');
-				const frame = viewer && viewer.querySelector('iframe');
-				const vr = viewer && viewer.getBoundingClientRect();
-				const fr = frame && frame.getBoundingClientRect();
-				return {
-					active: document.fullscreenElement === viewer,
-					viewer: vr && { w: Math.round(vr.width), h: Math.round(vr.height) },
-					frame: fr && { w: Math.round(fr.width), h: Math.round(fr.height) },
-					vw: window.innerWidth,
-					vh: window.innerHeight,
-				};
-			});
-			if (!fullscreen.active) {
-				failures.push('PDF View full screen did not enter fullscreen');
-			} else if (!fullscreen.viewer ||
-				Math.abs(fullscreen.viewer.w - fullscreen.vw) > 1 ||
-				Math.abs(fullscreen.viewer.h - fullscreen.vh) > 1) {
-				failures.push(`PDF fullscreen wrapper is ${JSON.stringify(fullscreen.viewer)}, viewport ${fullscreen.vw}x${fullscreen.vh}`);
-			} else if (!fullscreen.frame ||
-				fullscreen.frame.w !== fullscreen.vw || fullscreen.frame.h <= 0) {
-				failures.push(`PDF fullscreen iframe is ${JSON.stringify(fullscreen.frame)}`);
+			await page.waitForSelector('.wb-pdf-viewer iframe', { timeout: 15000 });
+			if (await page.locator('.wb-pdf-fullscreen-btn').count() !== 0) {
+				failures.push('PDF fullscreen button is still rendered (the feature must be gone)');
+			} else if (await page.locator('.wb-pdf-toolbar').count() !== 0) {
+				failures.push('PDF viewer toolbar is still rendered');
 			} else {
-				console.log(`[ok] PDF fullscreen fills ${fullscreen.vw}x${fullscreen.vh} and the iframe fills the remaining height`);
+				console.log('[ok] PDF File page renders the native iframe with no fullscreen control');
 			}
-			await page.evaluate(() => {
-				if (document.fullscreenElement && document.exitFullscreen) {
-					document.exitFullscreen();
-				}
-			});
 		}
 
 		// --- classic content page: "Copy internal mention" ---------------

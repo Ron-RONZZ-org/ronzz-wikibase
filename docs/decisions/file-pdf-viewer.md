@@ -1,6 +1,6 @@
 # Decision: browser-native PDF viewer on File: pages with fullscreen
 
-- **Status**: Accepted (Nov 2026)
+- **Status**: Superseded by `fullscreen-removed-open-newtab.md` (Nov 2026) — the viewer itself remains, the fullscreen control is gone
 - **Scope**: `File:` pages, `Special:SourceFile`
 - **Decider**: Rongzhou (`ron@ronzz.org`)
 

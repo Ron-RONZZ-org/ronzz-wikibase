@@ -1018,6 +1018,7 @@ class Hooks {
 	 */
 	public static function onParserAfterTidy( Parser $parser, string &$text ): void {
 		$text = \EmbeddableContent\Spec\HeadingAnchors::inject( $text );
+		self::wireEmbeddedMediaOpenLinks( $parser );
 		// Author-year mentions carry the source item id on the rendered link;
 		// register each as a parser-cache dependency so a later author/year
 		// correction re-renders every page that mentions the source.
@@ -1039,6 +1040,61 @@ class Hooks {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Hand the page's embedded files to resources/mediaopen.js: the module
+	 * adds the small noprint "Open in a new tab" link to every image / audio /
+	 * video / PDF embed on a content page. The link target is the RAW media
+	 * URL (not the File: page), so the reader can reach the viewer directly.
+	 *
+	 * The map rides ParserOutput's JS config vars, so the module needs no API
+	 * roundtrip and the parser cache stays valid (a file URL change is a file
+	 * page edit, which already invalidates the page).
+	 */
+	private static function wireEmbeddedMediaOpenLinks( Parser $parser ): void {
+		$pageTitle = $parser->getTitle();
+		if ( $pageTitle === null || !$pageTitle->isContentPage() ) {
+			return;
+		}
+		$media = $parser->getOutput()->getLinkList(
+			\MediaWiki\Parser\ParserOutputLinkTypes::MEDIA
+		);
+		if ( $media === [] ) {
+			return;
+		}
+		$repoGroup = MediaWikiServices::getInstance()->getRepoGroup();
+		$files = [];
+		$seen = [];
+		foreach ( $media as $row ) {
+			$link = $row['link'] ?? null;
+			if ( !$link instanceof \MediaWiki\Title\LinkTarget ) {
+				continue;
+			}
+			$fileTitle = \MediaWiki\Title\Title::newFromLinkTarget( $link );
+			if ( $fileTitle->getNamespace() !== NS_FILE ) {
+				continue;
+			}
+			$key = $fileTitle->getDBkey();
+			if ( isset( $seen[$key] ) ) {
+				continue;
+			}
+			$file = $repoGroup->findFile( $fileTitle );
+			if ( $file === false ) {
+				continue;
+			}
+			$seen[$key] = true;
+			$files[] = [
+				'name' => $key,
+				'url' => $file->getFullUrl(),
+				'page' => $fileTitle->getPrefixedText(),
+			];
+		}
+		if ( $files === [] ) {
+			return;
+		}
+		$parser->getOutput()->setJsConfigVar( 'wbEmbeddedFiles', $files );
+		$parser->getOutput()->addModules( 'ext.embeddableContent.mediaopen' );
 	}
 
 	/**
