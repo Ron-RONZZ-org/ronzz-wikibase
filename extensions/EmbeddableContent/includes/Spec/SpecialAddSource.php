@@ -1182,6 +1182,41 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		return $fields;
 	}
 
+	/**
+	 * The content step is SYSTEMATIC for scholarly articles and books: even
+	 * when nothing was fetched, the contributor gets the abstract/summary
+	 * step so the Source: page can carry the prose. Other classes keep the
+	 * fetch-driven behaviour (skip when there is nothing to review).
+	 *
+	 * @param array<string,mixed> $record
+	 */
+	protected function recordHasContent( array $record ): bool {
+		if ( in_array( $this->currentClassKey, [ 'scholarlyArticle', 'book' ], true ) ) {
+			return true;
+		}
+		return parent::recordHasContent( $record );
+	}
+
+	protected function contentStepTitle(): \Message {
+		if ( $this->currentClassKey === 'scholarlyArticle' ) {
+			return $this->msg( 'embeddablecontent-content-step-abstract-title' );
+		}
+		if ( $this->currentClassKey === 'book' ) {
+			return $this->msg( 'embeddablecontent-content-step-summary-title' );
+		}
+		return parent::contentStepTitle();
+	}
+
+	protected function contentStepLegend(): \Message {
+		if ( $this->currentClassKey === 'scholarlyArticle' ) {
+			return $this->msg( 'embeddablecontent-content-step-abstract-legend' );
+		}
+		if ( $this->currentClassKey === 'book' ) {
+			return $this->msg( 'embeddablecontent-content-step-summary-legend' );
+		}
+		return parent::contentStepLegend();
+	}
+
 	/** @return array<string,string> content key => label message key */
 	private function contentKeysForClass(): array {
 		switch ( $this->currentClassKey ) {
@@ -2232,82 +2267,19 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 
 	/**
 	 * Source: page skeleton — prose lives on the page, facts in the item.
-	 * Sections are rendered ONLY when the (reviewed) record carries their
-	 * content: no blank sections, no generic Overview/Content/See also
-	 * scaffolding. website/youtubeChannel take a short intro WITHOUT
-	 * headings; the other classes get their meaningful section(s). When NO
-	 * content was fetched, the item's description is the placeholder lead
-	 * (== Overview ==, or the short intro for website/youtubeChannel).
+	 * The shared Spec\SourcePageSkeleton owns the class→section map so the
+	 * browser form and the API/MCP create path render the same body.
 	 *
 	 * @param array<string,mixed> $record
 	 */
 	protected function pageSkeleton( array $record, bool $withMarker = false ): string {
-		$template = $this->pageTemplate();
-		$marker = $withMarker ? "\n<!-- " . $this->pagePendingMarker() . " -->\n" : "";
-		if ( $this->currentClassKey === 'law' ) {
-			// The clause text lives in the item, not on the page: the page
-			// renders it (and every translation) through the standard
-			// `{{#content:}}` parser function (the no-arg form resolves the
-			// page's sitelinked item).
-			return "{{" . ( $template !== '' ? $template : 'Law' ) . "}}\n\n"
-				. "== Text ==\n\n{{#content:}}\n\n" . $marker;
-		}
-		if ( $template === '' ) {
-			return $marker;
-		}
-		$body = "{{" . $template . "}}\n\n";
-		if ( in_array( $this->currentClassKey, [ 'website', 'youtubeChannel' ], true ) ) {
-			// Short intro prose, no headings; the item description is the
-			// placeholder lead when no intro was fetched.
-			$intro = trim( (string)( $record['intro'] ?? '' ) );
-			if ( $intro !== '' ) {
-				$body .= $this->attributed( $record, 'intro', $intro ) . "\n\n";
-			} else {
-				$overview = trim( (string)( $record['description'] ?? '' ) );
-				if ( $overview !== '' ) {
-					$body .= $overview . "\n\n";
-				}
-			}
-			return $body . $marker;
-		}
-		$rendered = false;
-		foreach ( $this->pageSectionHeadings() as $key => $heading ) {
-			$content = trim( (string)( $record[$key] ?? '' ) );
-			if ( $content === '' ) {
-				continue;
-			}
-			$body .= "== {$heading} ==\n\n" . $this->attributed( $record, $key, $content ) . "\n\n";
-			$rendered = true;
-		}
-		if ( !$rendered ) {
-			// No fetched content — the item description is the placeholder lead.
-			$overview = trim( (string)( $record['description'] ?? '' ) );
-			if ( $overview !== '' ) {
-				$body .= "== Overview ==\n\n{$overview}\n\n";
-			}
-		}
-		return $body . $marker;
-	}
-
-	/** @return array<string,string> content key => section heading */
-	private function pageSectionHeadings(): array {
-		switch ( $this->currentClassKey ) {
-			case 'scholarlyArticle':
-				return [ 'abstract' => 'Abstract', 'keywords' => 'Key words' ];
-			case 'book':
-				return [ 'summary' => 'Summary', 'keywords' => 'Key words' ];
-			case 'song':
-				return [ 'intro' => 'Overview', 'lyrics' => 'Lyrics' ];
-			case 'film':
-				return [ 'intro' => 'Overview', 'plot' => 'Plot' ];
-			case 'video':
-			case 'youtubeVideo':
-				return [ 'keywords' => 'Key words' ];
-			case 'webpage':
-				return [ 'summary' => 'Summary', 'keywords' => 'Key words' ];
-			default:
-				return [];
-		}
+		return \EmbeddableContent\Spec\SourcePageSkeleton::render(
+			$this->currentClassKey,
+			$record,
+			$this->pageTemplate(),
+			fn ( string $key ): string => $this->msg( $key )->text(),
+			$withMarker ? $this->pagePendingMarker() : ''
+		);
 	}
 
 	// ------------------------------------------------------------- validation

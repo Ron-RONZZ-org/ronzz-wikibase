@@ -150,6 +150,11 @@ links, per-access language, `PDF: en|fr` Source rendering, backfill),
 inference on Special:Upload/UpdateFile), `file-pdf-viewer.md` (browser-native
 PDF viewer + fullscreen on File: pages and Special:SourceFile).
 
+Nov 2026 AddSource abstract/summary: `addsource-abstract-summary.md` (the
+content step is systematic for scholarly articles/books; the shared
+`SourcePageSkeleton` gives the API/MCP the same page body; `abstract` /
+`bookSummary` are page prose, not statements).
+
 Nov 2026 smart-mention / collision / upload batch:
 `nov-2026-smart-mentions-collisions-uploads.md` (unpiped classic-namespace
 mentions render the bare entity name and Source: is italic; the "Copy

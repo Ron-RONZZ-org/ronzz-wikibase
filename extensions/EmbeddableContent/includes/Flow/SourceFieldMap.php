@@ -117,6 +117,12 @@ final class SourceFieldMap {
 		'referenceCode',
 		'content',
 		'translations',
+		// Page prose for the Source: page (NOT statements). `abstract` is the
+		// scholarly-article abstract; `bookSummary` is the API-safe name for
+		// a book's Summary (the `summary` API parameter is the edit summary;
+		// the service maps bookSummary → the page-skeleton `summary` key).
+		'abstract',
+		'bookSummary',
 	];
 
 	/** The parent class key each child class requires. */
@@ -158,8 +164,8 @@ final class SourceFieldMap {
 	 *  review form: every class has an authors field (required except for
 	 *  book-excerpt), child classes carry parent, website carries no year. */
 	private const CLASS_FIELDS = [
-		'book' => [ 'title', 'description', 'language', 'additionalLanguages', 'otherLanguage', 'labelLanguage', 'authors', 'publisher', 'pages', 'year', 'isbn', 'accessUrl', 'wikidataId' ],
-		'scholarly-article' => [ 'title', 'description', 'language', 'additionalLanguages', 'otherLanguage', 'labelLanguage', 'authors', 'journal', 'publisher', 'volume', 'issue', 'pages', 'year', 'doi', 'accessUrl', 'wikidataId', 'openalexWorkId', 'pubmedId' ],
+		'book' => [ 'title', 'description', 'language', 'additionalLanguages', 'otherLanguage', 'labelLanguage', 'authors', 'publisher', 'pages', 'year', 'isbn', 'accessUrl', 'wikidataId', 'bookSummary' ],
+		'scholarly-article' => [ 'title', 'description', 'language', 'additionalLanguages', 'otherLanguage', 'labelLanguage', 'authors', 'journal', 'publisher', 'volume', 'issue', 'pages', 'year', 'doi', 'accessUrl', 'wikidataId', 'openalexWorkId', 'pubmedId', 'abstract' ],
 		'website' => [ 'title', 'description', 'language', 'additionalLanguages', 'otherLanguage', 'labelLanguage', 'authors', 'url', 'wikidataId' ],
 		'webpage' => [ 'title', 'description', 'language', 'additionalLanguages', 'otherLanguage', 'labelLanguage', 'authors', 'url', 'year', 'parent', 'wikidataId' ],
 		'song' => [ 'title', 'description', 'language', 'additionalLanguages', 'otherLanguage', 'labelLanguage', 'authors', 'year', 'duration', 'accessUrl' ],
