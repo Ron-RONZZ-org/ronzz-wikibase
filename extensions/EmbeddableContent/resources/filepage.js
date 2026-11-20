@@ -129,10 +129,14 @@
 		// The File page's action toolbar, inline to the right of the title
 		// (created once). The update button (resources/updatebutton.js)
 		// joins this SAME row — it used to create its own block row below
-		// the title. The ranks keep the canonical order (update → copy
-		// embed → copy link → upload another).
+		// the title. The ranks keep the canonical order (update → open →
+		// copy embed → copy link → upload another).
 		if ( $( '#ca-wb-file-copyembed' ).length === 0 ) {
 			var $toolbar = $( '<span class="wb-file-toolbar"></span>' );
+			if ( url ) {
+				$toolbar.append( makeOpenLink( 'ca-wb-file-open', url )
+					.attr( 'data-wb-order', 39 ) );
+			}
 			$toolbar.append( makeButton(
 				'ca-wb-file-copyembed',
 				'embeddablecontent-file-copyembed',
