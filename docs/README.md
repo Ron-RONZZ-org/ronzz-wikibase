@@ -150,6 +150,10 @@ links, per-access language, `PDF: en|fr` Source rendering, backfill),
 inference on Special:Upload/UpdateFile), `file-pdf-viewer.md` (browser-native
 PDF viewer + fullscreen on File: pages and Special:SourceFile).
 
+Nov 2026 pre-upload image editor: `upload-image-editor.md` (vendored TOAST UI
+Image Editor, loaded on demand; crop/rotate/flip/filter; raster only; telemetry
+disabled; `uploadimage.js` + `mediaeditor.js`).
+
 Nov 2026 smart-mention / collision / upload batch:
 `nov-2026-smart-mentions-collisions-uploads.md` (unpiped classic-namespace
 mentions render the bare entity name and Source: is italic; the "Copy

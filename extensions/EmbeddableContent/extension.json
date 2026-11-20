@@ -1182,7 +1182,37 @@
 			],
 			"messages": [
 				"embeddablecontent-upload-resizing",
-				"embeddablecontent-upload-clipboard-error"
+				"embeddablecontent-upload-clipboard-error",
+				"embeddablecontent-imageeditor-open",
+				"embeddablecontent-imageeditor-error"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.imageeditor": {
+			"scripts": [
+				"tui-telemetry-off.js",
+				"tui-image-editor/tui-color-picker.min.js",
+				"tui-image-editor/tui-image-editor.min.js",
+				"imageeditor.js"
+			],
+			"styles": [
+				"tui-image-editor/tui-color-picker.min.css",
+				"tui-image-editor/tui-image-editor.min.css",
+				"imageeditor.css"
+			],
+			"dependencies": [
+				"oojs-ui"
+			],
+			"messages": [
+				"embeddablecontent-imageeditor-open",
+				"embeddablecontent-imageeditor-title",
+				"embeddablecontent-imageeditor-apply",
+				"embeddablecontent-imageeditor-cancel",
+				"embeddablecontent-imageeditor-error",
+				"embeddablecontent-imageeditor-unsupported"
 			],
 			"targets": [
 				"desktop",
@@ -1297,7 +1327,10 @@
 				"embeddablecontent-upload-clipboard-error",
 				"embeddablecontent-upload-author-entity-check",
 				"embeddablecontent-upload-author-entity",
-				"embeddablecontent-upload-author-entity-help"
+				"embeddablecontent-upload-author-entity-help",
+				"embeddablecontent-imageeditor-open",
+				"embeddablecontent-imageeditor-unsupported",
+				"embeddablecontent-imageeditor-error"
 			]
 		},
 		"ext.embeddableContent.imagegallery": {

@@ -39,6 +39,7 @@ final class ThemeTokensTest extends TestCase {
 		'extensions/EmbeddableContent/resources/userpagetitle.css',
 		'extensions/EmbeddableContent/resources/namespacepagetitle.css',
 		'extensions/EmbeddableContent/resources/imagecredit.css',
+		'extensions/EmbeddableContent/resources/imageeditor.css',
 		'extensions/CSVTable/resources/ext.csvTable.css',
 		'extensions/GeoGebra/resources/ext.geogebra.css',
 		'extensions/LanguageBar/resources/languages-bar.css',
