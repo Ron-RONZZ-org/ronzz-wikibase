@@ -170,15 +170,19 @@ jobs:
       # ("Undefined array key 'wikibase'" from SiteList.php) which corrupt the
       # Turtle, so the WDQS updater SKIPS the entity ("Giving up on Qxxx") and
       # any WDQS-dependent check on a sitelinked item fails. site_data /
-      # site_config are PHP-serialized empty arrays. site_file_path is the
-      # script-path template (Wikibase's client builds getFileUrl('api.php')
-      # from it); empty makes ResourceLoader throw "PATH_FILE is unset" on
-      # every page.
+      # site_config are PHP-serialized empty arrays. site_data carries the
+      # site's paths: Wikibase's client calls getFileUrl('api.php') and throws
+      # 'PATH_FILE is unset' (a console error on every page) without
+      # extraData.paths.file_path; production has the same entry (the
+      # script-path template). ON DUPLICATE KEY keeps reruns idempotent.
       - name: Register the local Wikibase site (sites table)
         if: steps.changes.outputs.code == 'true'
         run: |
-          $COMPOSE exec -T mysql mysql -u wikiuser -psqlpass my_wiki -e \
-            "INSERT IGNORE INTO sites (site_id, site_global_key, site_type, site_group, site_source, site_language, site_protocol, site_domain, site_data, site_forward, site_config, site_file_path) VALUES (1, 'wikibase', 'mediawiki', 'ronzz', 'local', 'en', 'http', 'wikibase', 'a:0:{}', 1, 'a:0:{}', 'http://wikibase/\$1');"
+          $COMPOSE exec -T mysql mysql -u wikiuser -psqlpass my_wiki <<'SQL'
+          INSERT INTO sites (site_id, site_global_key, site_type, site_group, site_source, site_language, site_protocol, site_domain, site_data, site_forward, site_config)
+          VALUES (1, 'wikibase', 'mediawiki', 'ronzz', 'local', 'en', 'http', 'wikibase', 'a:1:{s:5:"paths";a:2:{s:4:"page";s:23:"http://wikibase/wiki/$1";s:9:"file_path";s:18:"http://wikibase/$1";}}', 1, 'a:0:{}')
+          ON DUPLICATE KEY UPDATE site_data=VALUES(site_data);
+          SQL
 
       # WikibaseCitation ships a composer dep (seboettg/citeproc-php) that is
       # installed in the extension dir (gitignored; not merged into the wiki
