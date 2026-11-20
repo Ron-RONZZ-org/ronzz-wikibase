@@ -170,12 +170,15 @@ jobs:
       # ("Undefined array key 'wikibase'" from SiteList.php) which corrupt the
       # Turtle, so the WDQS updater SKIPS the entity ("Giving up on Qxxx") and
       # any WDQS-dependent check on a sitelinked item fails. site_data /
-      # site_config are PHP-serialized empty arrays.
+      # site_config are PHP-serialized empty arrays. site_file_path is the
+      # script-path template (Wikibase's client builds getFileUrl('api.php')
+      # from it); empty makes ResourceLoader throw "PATH_FILE is unset" on
+      # every page.
       - name: Register the local Wikibase site (sites table)
         if: steps.changes.outputs.code == 'true'
         run: |
           $COMPOSE exec -T mysql mysql -u wikiuser -psqlpass my_wiki -e \
-            "INSERT IGNORE INTO sites (site_id, site_global_key, site_type, site_group, site_source, site_language, site_protocol, site_domain, site_data, site_forward, site_config) VALUES (1, 'wikibase', 'mediawiki', 'ronzz', 'local', 'en', 'http', 'wikibase', 'a:0:{}', 1, 'a:0:{}');"
+            "INSERT IGNORE INTO sites (site_id, site_global_key, site_type, site_group, site_source, site_language, site_protocol, site_domain, site_data, site_forward, site_config, site_file_path) VALUES (1, 'wikibase', 'mediawiki', 'ronzz', 'local', 'en', 'http', 'wikibase', 'a:0:{}', 1, 'a:0:{}', 'http://wikibase/\$1');"
 
       # WikibaseCitation ships a composer dep (seboettg/citeproc-php) that is
       # installed in the extension dir (gitignored; not merged into the wiki
