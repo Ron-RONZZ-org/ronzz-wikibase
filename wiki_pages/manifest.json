@@ -95,6 +95,10 @@
       "path": "Template/Anchor.wiki"
     },
     {
+      "title": "Template:Author-permission",
+      "path": "Template/Author-permission.wiki"
+    },
+    {
       "title": "Template:Bill",
       "path": "Template/Bill.wiki"
     },
@@ -121,6 +125,10 @@
     {
       "title": "Template:Cheatsheet",
       "path": "Template/Cheatsheet.wiki"
+    },
+    {
+      "title": "Template:Citation-exception",
+      "path": "Template/Citation-exception.wiki"
     },
     {
       "title": "Template:CodeSnippet",
@@ -193,6 +201,10 @@
     {
       "title": "Template:Hidden example",
       "path": "Template/Hidden example.wiki"
+    },
+    {
+      "title": "Template:Hidden explanation",
+      "path": "Template/Hidden explanation.wiki"
     },
     {
       "title": "Template:Hidden proof",

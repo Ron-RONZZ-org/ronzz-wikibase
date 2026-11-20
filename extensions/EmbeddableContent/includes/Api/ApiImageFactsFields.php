@@ -42,6 +42,9 @@ class ApiImageFactsFields extends ApiBase {
 			// label => item id (the preseed license vocabulary); empty when
 			// the instance was seeded without preseed licenses.
 			'licenses' => $this->config->licenseItems(),
+			// label => item id (the rights-basis combobox options); empty
+			// when the instance was seeded without the vocabulary.
+			'rightsBasis' => $this->config->rightsBasisItems(),
 		] );
 	}
 

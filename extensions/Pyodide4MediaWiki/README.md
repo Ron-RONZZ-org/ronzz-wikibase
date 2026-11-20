@@ -44,6 +44,39 @@ Any element carrying the `pyodide` class works (`<pre class="pyodide">`,
 `<code class="pyodide">`, …) as long as it contains a `pre`/`code` element (or
 is itself one) holding the code.
 
+### Plotting with matplotlib
+
+`matplotlib` works as usual: call `plt.show()` (or `fig.show()`) and each open
+figure is rendered below the block as a PNG. The figures are then closed, the
+same way a Jupyter/Quarto inline cell behaves.
+
+```wikitext
+<syntaxhighlight lang="python" class="pyodide">
+import numpy as np
+import matplotlib.pyplot as plt
+x = np.linspace(-3, 3, 400)
+plt.plot(x, np.exp(-0.5 * x**2) / np.sqrt(2 * np.pi))
+plt.title("Gaussian")
+plt.show()
+</syntaxhighlight>
+```
+
+The interpreter runs in a Web Worker, which has no DOM, so the worker forces
+matplotlib's headless **Agg** backend (the Pyodide build's default `webagg`
+backend needs `window`) and rasterises the figures itself. Consequences:
+
+- Output is a **static PNG** — no pan/zoom, no `plt.pause`, no animation
+  players, no `ipympl`/interactive widgets. `plt.savefig(...)` still works as
+  usual.
+- `plt.show()` clears the figures (like an inline notebook backend), so each
+  cell shows its own plot once.
+- The plot is rendered at the figure's own DPI (matplotlib's default 100) and
+  scaled to the panel width by CSS.
+
+One upstream Matplotlib 3.10.8 warning (`The … parameter as float was
+deprecated …`, emitted by `backend_agg` itself) is filtered — it comes from
+matplotlib's internal call, not from user code.
+
 ## How it works
 
 - **Server** (`src/Hooks.php`, `src/PyodideBlockDetector.php`): a
@@ -55,7 +88,9 @@ is itself one) holding the code.
   and, on first Run, starts the interpreter in a **module** Web Worker created
   from the serialized worker body (`resources/pyodide.worker.js`) — Pyodide
   314 requires a module worker loading `pyodide.mjs`. The worker loads Pyodide
-  from the wiki's own origin and executes each block.
+  from the wiki's own origin and executes each block. Figure messages carry a
+  PNG data URL and are rendered as `<img>` (never `innerHTML`; anything that
+  is not `data:image/png;base64,` is ignored).
 - **Assets**: the Pyodide distribution is installed per environment by
   `tools/install-pyodide.sh` into `resources/pyodide/` (gitignored — never
   committed, never a runtime CDN). The reader downloads it once; the browser
@@ -83,6 +118,10 @@ cross-origin runner (the GeoGebra player pattern); see
 
 - `tests/Unit/PyodideBlockDetectorTest.php` — the pure detector.
 - `tests/e2e/run_pyodide_e2e.py` — read-only `action=parse` checks.
-- `tests/e2e/run_pyodide_ux_e2e.mjs` — Playwright: click Run, assert output.
+- `tests/e2e/run_pyodide_worker_test.mjs` — Node: drives the real worker body
+  against the pinned Pyodide distribution; asserts `plt.show()`/`Figure.show()`
+  produce a valid PNG, the backend is `agg`, and figures are cleared.
+- `tests/e2e/run_pyodide_ux_e2e.mjs` — Playwright: click Run, assert output,
+  and assert a matplotlib plot renders as an `<img>`.
 
 License: GPL-2.0-or-later.

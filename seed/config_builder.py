@@ -324,6 +324,18 @@ IMAGE_PROPERTY_KINDS = {
     "image author": "imageAuthor",
     "image source": "imageSource",
     "additional license information": "imageLicenseInfo",
+    "rights basis": "rightsBasis",
+}
+
+# The rights-basis preseed vocabulary: label -> semantic key. The keys are
+# what the extension uses to decide the File: page notice and the default
+# licenseInfo; the labels are the combobox options.
+RIGHTS_BASIS_KINDS = {
+    "citation exception (CPI L122-5 3°a)": "citationException",
+    "licensed": "licensed",
+    "public domain": "publicDomain",
+    "own work": "ownWork",
+    "author permission": "authorPermission",
 }
 
 # Domain classes used to SCOPE entity-combobox searches (the class filter
@@ -350,6 +362,7 @@ def build_config(
     previous_youtube_api_key: str = "",
     preseed_ids: dict[str, str] | None = None,
     license_ids: dict[str, str] | None = None,
+    rights_basis_ids: dict[str, str] | None = None,
     sparql_url: str | None = None,
 ) -> str:
     """Returns a PHP snippet assigning $wgEmbeddableContentConfig and the
@@ -384,6 +397,7 @@ def build_config(
     wikidata_class_qids = wikidata_class_qids or {}
     preseed_ids = preseed_ids or {}
     license_ids = license_ids or {}
+    rights_basis_ids = rights_basis_ids or {}
 
     classes: dict[str, str] = {}
     payload: dict[str, str] = {}
@@ -568,6 +582,15 @@ def build_config(
         # entity search). Only the license-class items, never the OS/UI
         # preseed items; preseed_ids is the fallback for legacy callers.
         "licenses": dict(license_ids if license_ids else preseed_ids),
+        # Rights-basis vocabulary: the combobox options (label => Q-id) and
+        # the semantic key => Q-id map the extension uses for the notice and
+        # the default licenseInfo.
+        "rightsBasisItems": dict(rights_basis_ids),
+        "rightsBasisKeys": {
+            kind: rights_basis_ids[label]
+            for label, kind in RIGHTS_BASIS_KINDS.items()
+            if label in rights_basis_ids
+        },
         "fallbackLanguages": fallback_languages,
         "lexers": dict(sorted(lexer_ids.items())),
     }

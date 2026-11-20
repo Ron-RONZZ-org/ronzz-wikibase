@@ -1,0 +1,7 @@
+<div class="wb-author-permission">
+''Reproduced with the permission of the rights holder.''
+
+''Reproduit avec l'autorisation du titulaire des droits.''
+
+{{#if:{{{permission|}}}|Permission: {{{permission}}}|}}
+</div>

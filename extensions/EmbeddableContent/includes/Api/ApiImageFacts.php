@@ -7,6 +7,7 @@ namespace EmbeddableContent\Api;
 use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\Upload\ImageFactsRequest;
 use EmbeddableContent\Upload\ImageItemCreator;
+use EmbeddableContent\Upload\RightsBasisNotice;
 use MediaWiki\Api\ApiBase;
 use MediaWiki\Language\RawMessage;
 use MediaWiki\Title\Title;
@@ -96,6 +97,7 @@ class ApiImageFacts extends ApiBase {
 			);
 		}
 
+		$rightsBasis = $this->itemIdParam( $params['rightsBasis'] ?? null, 'rightsBasis' );
 		$authorEntity = $this->itemIdsParam( $params['authorEntity'] ?? null, 'authorEntity' );
 		$sourceEntity = $this->itemIdParam( $params['sourceEntity'] ?? null, 'sourceEntity' );
 
@@ -115,7 +117,8 @@ class ApiImageFacts extends ApiBase {
 			$clearFields,
 			$authorEntity,
 			$sourceEntity,
-			trim( (string)( $params['sourceText'] ?? '' ) )
+			trim( (string)( $params['sourceText'] ?? '' ) ),
+			$rightsBasis ?? ''
 		);
 
 		if ( $itemId === null ) {
@@ -125,6 +128,10 @@ class ApiImageFacts extends ApiBase {
 				),
 				'imagefacts-vocabulary-missing'
 			);
+		}
+
+		if ( $rightsBasis !== null ) {
+			RightsBasisNotice::apply( $this->config, $title, $rightsBasis, $this->getUser() );
 		}
 
 		$this->getResult()->addValue( null, 'imagefacts', [
@@ -225,6 +232,11 @@ class ApiImageFacts extends ApiBase {
 				self::PARAM_TYPE => 'string',
 				self::PARAM_REQUIRED => false,
 				self::PARAM_MAX_BYTES => 500,
+			],
+			'rightsBasis' => [
+				self::PARAM_TYPE => 'string',
+				self::PARAM_REQUIRED => false,
+				self::PARAM_MAX_BYTES => 16,
 			],
 			'summary' => [
 				self::PARAM_TYPE => 'string',
