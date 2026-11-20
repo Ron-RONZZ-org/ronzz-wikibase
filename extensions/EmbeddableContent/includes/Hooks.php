@@ -1068,7 +1068,7 @@ class Hooks {
 		$seen = [];
 		foreach ( $media as $row ) {
 			$link = $row['link'] ?? null;
-			if ( !$link instanceof \MediaWiki\Title\LinkTarget ) {
+			if ( !$link instanceof \MediaWiki\Linker\LinkTarget ) {
 				continue;
 			}
 			$fileTitle = \MediaWiki\Title\Title::newFromLinkTarget( $link );
