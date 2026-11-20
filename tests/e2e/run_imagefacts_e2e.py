@@ -179,6 +179,18 @@ def parse_text(op, api: str, text: str) -> str:
     return r["parse"]["text"]["*"]
 
 
+def parse_config(op, api: str, text: str) -> dict:
+    """The parser's JS config vars (wbEmbeddedFiles carries the per-file
+    credit line for captionless embeds)."""
+    r = api_call(op, api, {
+        "action": "parse", "text": text, "title": "Imagefacts credit E2E",
+        "contentmodel": "wikitext", "prop": "jsconfigvars", "format": "json",
+    })
+    if "parse" not in r:
+        raise FlowError(f"action=parse jsconfigvars failed for {text!r}: {r!r}")
+    return r["parse"].get("jsconfigvars", {})
+
+
 def claim_values(item: dict, prop: str) -> list:
     values = []
     for statement in item.get("claims", {}).get(prop, []):
@@ -377,7 +389,16 @@ def main() -> int:
                 html = parse_text(op, args.api_url, suppressed)
                 if "wb-image-credit" in html:
                     raise FlowError(f"noCredit did not suppress the credit: {suppressed!r}")
-            print(f"OK image credit + noCredit: {file_title}")
+            # A captionless image gets no server-side caption slot: the
+            # credit travels in wbEmbeddedFiles for resources/mediaopen.js.
+            config = parse_config(op, args.api_url, f"[[File:{filename}|Caption]]")
+            entries = config.get("wbEmbeddedFiles", [])
+            entry = next((row for row in entries if row.get("name") == filename), None)
+            if entry is None:
+                raise FlowError("captionless embed is missing from wbEmbeddedFiles")
+            if not entry.get("credit") or author_label not in entry["credit"]:
+                raise FlowError("captionless embed carries no credit line")
+            print(f"OK image credit + noCredit + captionless map: {file_title}")
         finally:
             if not args.keep:
                 delete_item(op, args.api_url, source_item, token)

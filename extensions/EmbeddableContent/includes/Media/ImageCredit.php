@@ -101,6 +101,9 @@ final class ImageCredit {
 			} else {
 				$frameParams['class'] = $stripped['class'];
 			}
+			// A marker the client-side non-caption credit can see after the
+			// canonical token has been stripped from the class list.
+			$frameParams['class'] = trim( ( $frameParams['class'] ?? '' ) . ' wb-no-credit' );
 			return true;
 		}
 
@@ -123,16 +126,11 @@ final class ImageCredit {
 		if ( !$file instanceof File || !$file->exists() ) {
 			return true;
 		}
-		// Image thumbnails only: audio/video/PDF/CSV embeds keep their own
-		// caption area without a photo credit.
-		if ( !in_array( $file->getMediaType(), [ MEDIATYPE_BITMAP, MEDIATYPE_DRAWING ], true ) ) {
-			return true;
-		}
-
 		// Backwards-compatible bare form: the whole caption is the token.
 		$caption = (string)( $frameParams['caption'] ?? '' );
 		if ( ImageCreditSpec::isNoCreditCaption( $caption ) ) {
 			$frameParams['caption'] = '';
+			$frameParams['class'] = trim( ( $frameParams['class'] ?? '' ) . ' wb-no-credit' );
 			return true;
 		}
 
@@ -146,8 +144,12 @@ final class ImageCredit {
 	/**
 	 * The credit HTML for a File: page, or '' when the file has no image item
 	 * or the item carries no author/license/source.
+	 *
+	 * Public for resources/mediaopen.js's server map: captionless embeds
+	 * (plain image, audio/video player, PDF link) get the same line
+	 * client-side because core has no caption slot for them.
 	 */
-	private static function creditHtml( Title $fileTitle, Parser $parser ): string {
+	public static function creditLineFor( Title $fileTitle, Parser $parser ): string {
 		$itemId = self::itemIdForFile( $fileTitle );
 		if ( $itemId === null ) {
 			return '';
@@ -207,7 +209,15 @@ final class ImageCredit {
 		}
 		$parser->getOutput()->addModuleStyles( [ 'ext.embeddableContent.imagecredit' ] );
 		self::registerCacheDependency( $parser, $itemId );
-		return '<div class="wb-image-credit">' . $line . '</div>';
+		return $line;
+	}
+
+	/**
+	 * The caption credit wrapper (a div inside the figcaption).
+	 */
+	private static function creditHtml( Title $fileTitle, Parser $parser ): string {
+		$line = self::creditLineFor( $fileTitle, $parser );
+		return $line === '' ? '' : '<div class="wb-image-credit">' . $line . '</div>';
 	}
 
 	/** The sitelinked item of a File: page, or null. */
