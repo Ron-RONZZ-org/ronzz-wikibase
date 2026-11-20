@@ -79,7 +79,7 @@ final class FileOpenLink {
 			->text();
 		$link = \EmbeddableContent\Spec\MediaOpenLink::html( $url, $label );
 		$frameParams['caption'] = (string)( $frameParams['caption'] ?? '' ) . $link;
-		$parser->getOutput()->addModuleStyles( 'ext.embeddableContent.fileviewer' );
+		$parser->getOutput()->addModuleStyles( [ 'ext.embeddableContent.fileviewer' ] );
 		return true;
 	}
 
