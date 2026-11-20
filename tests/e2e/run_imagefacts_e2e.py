@@ -393,9 +393,18 @@ def main() -> int:
             # credit travels in wbEmbeddedFiles for resources/mediaopen.js.
             config = parse_config(op, args.api_url, f"[[File:{filename}|Caption]]")
             entries = config.get("wbEmbeddedFiles", [])
-            entry = next((row for row in entries if row.get("name") == filename), None)
+
+            def norm(value: str) -> str:
+                return str(value).replace("_", " ").lower()
+
+            entry = next(
+                (row for row in entries if norm(row.get("name", "")) == norm(filename)),
+                None,
+            )
             if entry is None:
-                raise FlowError("captionless embed is missing from wbEmbeddedFiles")
+                raise FlowError(
+                    "captionless embed is missing from wbEmbeddedFiles "
+                    f"(files={[row.get('name') for row in entries]!r}, wanted={filename!r})")
             if not entry.get("credit") or author_label not in entry["credit"]:
                 raise FlowError("captionless embed carries no credit line")
             print(f"OK image credit + noCredit + captionless map: {file_title}")
