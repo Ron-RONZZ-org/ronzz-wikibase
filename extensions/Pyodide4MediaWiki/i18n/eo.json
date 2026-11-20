@@ -10,5 +10,6 @@
 	"pyodide4mediawiki-loading": "Ŝargado de Python… (la interpretilo estas elŝutata unufoje, poste kaŝmemorigata de la retumilo)",
 	"pyodide4mediawiki-login-required": "Ensalutu por ruli tiun ĉi kodon.",
 	"pyodide4mediawiki-error": "Eraro",
-	"pyodide4mediawiki-output": "Eligo"
+	"pyodide4mediawiki-output": "Eligo",
+	"pyodide4mediawiki-figure": "Grafiko"
 }

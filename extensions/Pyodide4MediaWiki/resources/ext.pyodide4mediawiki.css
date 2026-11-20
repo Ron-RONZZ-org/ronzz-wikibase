@@ -68,3 +68,10 @@
 	padding-top: 0.35em;
 	border-top: 1px dashed var( --border-color-muted, #c8ccd1 );
 }
+
+.pyodide4mediawiki-figure {
+	display: block;
+	max-width: 100%;
+	height: auto;
+	margin: 0.35em 0;
+}

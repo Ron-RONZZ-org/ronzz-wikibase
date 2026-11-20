@@ -54,6 +54,22 @@ client-side Python** (`Extension:Piwo` runs Python server-side;
    not supported"), so the worker MUST be created with `{ type: 'module' }`
    and load `pyodide.mjs`; do not "simplify" it back to `importScripts` +
    `pyodide.js`.
+5. **Matplotlib figures** (worker, lazy): a worker has no `window`, and the
+   Pyodide matplotlib build defaults `rcParams['backend']` to `webagg`
+   (aliased to the DOM-bound `backend_pyodide`) — a plain `plt.show()` died
+   with `ReferenceError: window is not defined`. The worker pins
+   `MPLBACKEND=agg` at init and, after `loadPackagesFromImports` and only when
+   `importlib.util.find_spec('matplotlib')` succeeds (the wheel is unpacked
+   but not yet imported), installs a hook that replaces `pyplot.show` and
+   `Figure.show`: each open figure is `savefig`'d to PNG (`bbox_inches=tight`),
+   posted as `{ type: 'image', data: 'data:image/png;base64,…' }`, and the
+   figures are closed (inline-notebook semantics). The client renders it as
+   an `<img>` (PNG data URLs only, never `innerHTML`). One upstream
+   Matplotlib 3.10.8 `backend_agg` float-parameter deprecation is filtered
+   (its own internal call); other warnings stay visible. Do not switch the
+   worker to the Pyodide/webagg backend or move execution to the main thread
+   — the worker is the architecture, and static PNGs are the deliberate
+   trade-off (no interactivity).
 5. **Assets** (`tools/install-pyodide.sh`, gitignored): the pinned Pyodide
    core release tarball (sha256-checked) plus the transitive dependency
    closure of the configured packages, whose wheels are fetched from the
@@ -73,7 +89,13 @@ client-side Python** (`Extension:Piwo` runs Python server-side;
   GeoGebra asset trees.
 - **The login gate is client-side** (`wgUserName`), never baked into the
   cached parser output — the parser output is shared across users.
-- **Output is rendered as text only** (`textContent`), never `innerHTML`.
+- **Output is rendered as text only** (`textContent`), never `innerHTML` —
+  the one exception is a figure: an `<img>` whose `src` MUST start with
+  `data:image/png;base64,` (anything else is dropped).
+- **Plotting is Agg + PNG, deliberately.** No pan/zoom, no `plt.pause`, no
+  animations/widgets; `plt.show()` closes the figures. Keep it that way
+  unless the security model changes (the sandboxed cross-origin runner is the
+  path to interactive output).
 - i18n ships en/fr/eo (+ qqq).
 - Security: content is trusted on this instance (all editors are vetted) so
   execution is open to anonymous readers by default
@@ -88,13 +110,16 @@ client-side Python** (`Extension:Piwo` runs Python server-side;
 
 - **Input**: page HTML (the `ParserAfterTidy` string); a `pyodide`-marked code
   block chosen by the reader; the vendored Pyodide distribution.
-- **Output**: a Run control + an output panel (client-side DOM); no server
-  output.
+- **Output**: a Run control + an output panel (client-side DOM: streamed
+  text, the last expression, and matplotlib PNG figures); no server output.
 - **Unit-test surface**: `tests/Unit/PyodideBlockDetectorTest.php` covers the
   pure detector. The MW-bound paths (the hook, module registration, the
   rendered page) are covered by `tests/e2e/run_pyodide_e2e.py` (dev-stack CI +
-  live; read-only) and the browser run by
-  `tests/e2e/run_pyodide_ux_e2e.mjs` (Playwright).
+  live; read-only). The worker itself is covered headlessly by
+  `tests/e2e/run_pyodide_worker_test.mjs` (Node, real serialized worker body +
+  the pinned distribution; asserts the Agg backend and the PNG output), and
+  the browser path by `tests/e2e/run_pyodide_ux_e2e.mjs` (Playwright; runs in
+  the CI integration job).
 
 ## Documentation Reference
 
