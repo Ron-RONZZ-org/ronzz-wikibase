@@ -380,6 +380,12 @@ def flow_final_item(op, base: str, api: str, url: str, body: str, special: str) 
     Collective:, issue follow-up) redirect through the complete/<id> finalize
     round-trip to the classic page, whose wikibase_item page property maps it
     back to the item."""
+    if "/manual/content" in url:
+        # Book/scholarlyArticle route manual creates through the systematic
+        # abstract/summary step; submit it (blank is allowed) before
+        # resolving the created item.
+        token = edit_token(body)
+        url, body = page_post(op, url, {"wpEditToken": token, "wpSubmit": "1"})
     m = re.search(r"/wiki/Item:(Q\d+)$", url)
     if m:
         qid = m.group(1)
