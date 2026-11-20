@@ -2431,7 +2431,13 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		// a copy — the create path runs prepare() again on the real record.
 		$probe = $this->flowRecord( $record );
 		$classKey = \EmbeddableContent\Flow\SourceFieldMap::apiKey( $this->currentClassKey );
-		return $this->sourceFlow()->prepare( $classKey, $probe, true );
+		$flowError = $this->sourceFlow()->prepare( $classKey, $probe, true );
+		if ( $flowError !== null ) {
+			// Same wrapper the final create path uses, so the record form
+			// shows the familiar "Creating the item failed (…)" message.
+			return $this->msg( 'embeddablecontent-extcreate-error', 'InvalidArgumentException', $flowError )->text();
+		}
+		return null;
 	}
 
 	/**
