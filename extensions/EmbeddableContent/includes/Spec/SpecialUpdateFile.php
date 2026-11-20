@@ -252,6 +252,17 @@ class SpecialUpdateFile extends SpecialPage {
 
 		$summary = $this->msg( 'embeddablecontent-updatefile-summary' )->inContentLanguage()->text();
 		$description = (string)( $data['description'] ?? '' );
+		// The form is prefilled from the item: a blanked fact field removes
+		// that statement on an EXISTING item (creation just omits it). The
+		// description is a TERM, not a statement, and keeps its no-clobber
+		// behaviour. ImageUploadHelper's clear list removes only statements
+		// that actually exist (removeStatements is a no-op otherwise).
+		$clearFields = $itemId !== null
+			? ClearFieldSet::blank( $data, [
+				'license', 'author', 'licenseInfo', 'sourceText',
+				'sourceUrl', 'authorEntity', 'sourceEntity',
+			] )
+			: [];
 		$author = (string)( $data['author'] ?? '' );
 		$licenseInfo = (string)( $data['licenseInfo'] ?? '' );
 		$sourceText = (string)( $data['sourceText'] ?? '' );
@@ -268,7 +279,7 @@ class SpecialUpdateFile extends SpecialPage {
 					$sourceUrl,
 					$summary,
 					$this->getUser(),
-					[],
+					$clearFields,
 					$authorEntity,
 					$sourceEntity,
 					$sourceText

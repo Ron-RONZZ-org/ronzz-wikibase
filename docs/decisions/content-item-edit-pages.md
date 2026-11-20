@@ -48,6 +48,11 @@ drift-proofing rule as the API/forms field maps.
 
 ### 2. Update semantics = the shared flow service (no-clobber)
 
+> **Amended Nov 2026** by `update-blank-clears-statements.md`: the Update form
+> now passes the page-open snapshot's explicit clears, so a blank field removes
+> its statement when the item is unchanged since form-open. The API path keeps
+> the no-clobber rule below.
+
 Submit runs `SpecialContentFlowService::prepare(creating:false)` +
 `applyUpdate` on a FRESH read of the item (never clobbering edits made
 between page load and submit), then persists with GUIDs — the exact pipeline

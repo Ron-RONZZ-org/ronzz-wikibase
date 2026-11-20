@@ -332,13 +332,25 @@ final class SpecialContentFlowService {
 	 * No-clobber update: replaces statements for provided fields, keeps the
 	 * rest, never changes the class. Mutates $item; the caller persists.
 	 *
+	 * `$clearProperties` is the explicit-clear list computed by the Update*
+	 * form from its page-open statement snapshot: those properties are
+	 * removed even though the record carries no new value for them. The API/
+	 * MCP partial update never passes it, so its no-clobber contract is
+	 * unchanged.
+	 *
 	 * @param array<string,mixed> $record
+	 * @param string[] $clearProperties statement properties to remove
 	 */
-	public function applyUpdate( string $kind, Item $item, array $record ): void {
+	public function applyUpdate( string $kind, Item $item, array $record, array $clearProperties = [] ): void {
 		$provided = array_filter( $record, static fn ( $v ) => $v !== null && $v !== '' );
 		$managed = [];
 		foreach ( $this->statementSpecs( $kind, $provided ) as $propertyId => $_ ) {
 			$managed[] = $propertyId;
+		}
+		foreach ( $clearProperties as $propertyId ) {
+			if ( $propertyId !== '' ) {
+				$managed[] = (string)$propertyId;
+			}
 		}
 		$managed = array_values( array_unique( $managed ) );
 		if ( $managed !== [] ) {

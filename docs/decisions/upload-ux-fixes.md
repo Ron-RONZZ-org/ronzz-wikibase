@@ -83,6 +83,11 @@ then work exactly as for an upload. The license stays mandatory.
 
 ### 5. Update no-clobber
 
+> **Amended Nov 2026** by `update-blank-clears-statements.md`: a blank field
+> now removes its statement when the item is unchanged since form-open (the
+> hidden `StatementSnapshot` guard); terms keep this no-clobber rule. The
+> API/MCP partial update keeps the rule below.
+
 `UpdateExternalEntityFlow::applyUpdate` replaces statements **only for
 properties with a new non-empty spec**; a blank managed field keeps the
 existing statement. A blank description keeps the existing one. Statement

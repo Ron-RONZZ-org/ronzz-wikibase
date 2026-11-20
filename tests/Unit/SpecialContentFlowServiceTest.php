@@ -222,6 +222,23 @@ class SpecialContentFlowServiceTest extends TestCase {
 		$this->assertSame( [ 'first note' ], $notes );
 	}
 
+	public function testExplicitClearRemovesTheNoteStatement(): void {
+		$service = $this->makeService();
+		$record = [ 'label' => 'E', 'content' => 'E=mc^2', 'note' => 'first note' ];
+		$this->assertNull( $service->prepare( 'math', $record, true ) );
+		$item = $service->buildItem( 'math', $record );
+		$item->setId( new ItemId( 'Q42' ) );
+
+		// The Update form's snapshot decided the note field was blanked after
+		// the item was unchanged: the statement is removed.
+		$service->applyUpdate( 'math', $item, [ 'content' => 'E=mc^3' ], [ 'P31' ] );
+
+		$notes = $item->getStatements()->getByPropertyId(
+			\EmbeddableContent\PropertyIdFactory::create( 'P31' )
+		);
+		$this->assertCount( 0, $notes );
+	}
+
 	public function testApplyUpdateIsNoClobber(): void {
 		$service = $this->makeService();
 		$record = [ 'label' => 'q', 'content' => 'hello', 'attributedTo' => 'Q6' ];
