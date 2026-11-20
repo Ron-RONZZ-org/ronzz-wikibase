@@ -2227,7 +2227,16 @@ report). See `SimpleMathJax/VENDORED.md`.
   module-level `import { loadPyodide } from "<indexUrl>pyodide.mjs"`); **one
   interpreter per page** (variables persist across cells). `stdout`/`stderr`
   stream to the panel, the last expression's value is shown, tracebacks render
-  as text (never `innerHTML`). The distribution is installed by
+  as text (never `innerHTML`). **Matplotlib plotting** works too: the worker
+  has no DOM, so it pins the headless **Agg** backend (the Pyodide build's
+  default `webagg` backend needs `window` and raised
+  `ReferenceError: window is not defined`) and replaces `pyplot.show` /
+  `Figure.show` with a hook that rasterises each open figure to a PNG data URL
+  posted to the page, then closes it (inline-notebook semantics). The panel
+  renders the PNG as an `<img>` (PNG data URLs only). The hook is installed
+  lazily, when the cell's imports made `importlib.util.find_spec('matplotlib')`
+  succeed, so non-plotting cells download nothing extra. Output is static:
+  no interactivity/animations. The distribution is installed by
   `tools/install-pyodide.sh` (pinned core tarball + the transitive dependency
   closure of the configured packages, sha256-checked from the distribution's
   own `pyodide-lock.json`; ~49 MB, gitignored) and served from the wiki's own

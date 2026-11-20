@@ -38,6 +38,11 @@ final class ImageFactsRequest {
 		return preg_match( '/^Q[1-9]\d*$/', $id ) === 1;
 	}
 
+	/** A rights-basis item reference is a Q-id. */
+	public static function isValidRightsBasisId( string $id ): bool {
+		return preg_match( '/^Q[1-9]\d*$/', $id ) === 1;
+	}
+
 	/**
 	 * The fact fields mode=update may clear. The author and source each have
 	 * a plain-text and an entity variant: `author`/`sourceText` are the
@@ -46,6 +51,7 @@ final class ImageFactsRequest {
 	 */
 	public const CLEARABLE_FIELDS = [
 		'license', 'author', 'authorEntity', 'licenseInfo', 'sourceEntity', 'sourceText', 'sourceUrl',
+		'rightsBasis',
 	];
 
 	/**

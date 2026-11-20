@@ -221,9 +221,37 @@ class EmbeddableContentConfig {
 	 * @return array<string,string> canonical key => property id
 	 */
 	public function imagePropertyIds(): array {
-		return $this->requireStringMap( 'imageProperties', [
+		$ids = $this->requireStringMap( 'imageProperties', [
 			'image', 'license', 'imageAuthor', 'imageSource', 'imageLicenseInfo',
 		] );
+		// Optional so a config emitted before the rights-basis batch stays
+		// valid; the write path treats a missing id as "not configured".
+		if ( isset( $this->optionalStringMap( 'imageProperties' )['rightsBasis'] ) ) {
+			$ids['rightsBasis'] = $this->optionalStringMap( 'imageProperties' )['rightsBasis'];
+		}
+		return $ids;
+	}
+
+	/**
+	 * Rights-basis combobox options (label => item id), seeded as
+	 * `rights basis`-class items. Empty when the instance was seeded
+	 * without the rights-basis vocabulary.
+	 *
+	 * @return array<string,string>
+	 */
+	public function rightsBasisItems(): array {
+		return $this->optionalStringMap( 'rightsBasisItems' );
+	}
+
+	/**
+	 * Semantic rights-basis keys (citationException, licensed, publicDomain,
+	 * ownWork, authorPermission) => item id. Used by the write path for the
+	 * default licenseInfo and the File: page notice; label-independent.
+	 *
+	 * @return array<string,string>
+	 */
+	public function rightsBasisKeys(): array {
+		return $this->optionalStringMap( 'rightsBasisKeys' );
 	}
 
 	/**

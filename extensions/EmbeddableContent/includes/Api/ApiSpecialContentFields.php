@@ -30,10 +30,14 @@ class ApiSpecialContentFields extends ApiBase {
 	public function execute() {
 		$kinds = [];
 		foreach ( SpecialContentFieldMap::KINDS as $kind ) {
+			// The API kind and the config key differ for code-snippet (the
+			// config / Add* flow spells it `code`). Resolve through formKey()
+			// so the class and payload property are not silently dropped.
+			$configKey = SpecialContentFieldMap::formKey( $kind );
 			$kinds[] = [
 				'kind' => $kind,
-				'classItemId' => $this->config->classIds()[$kind] ?? null,
-				'payloadPropertyId' => $this->config->payloadPropertyIds()[$kind] ?? null,
+				'classItemId' => $this->config->classIds()[$configKey] ?? null,
+				'payloadPropertyId' => $this->config->payloadPropertyIds()[$configKey] ?? null,
 				'fields' => SpecialContentFieldMap::fieldsForKind( $kind ),
 				'requiredOnCreate' => SpecialContentFieldMap::requiredOnCreate( $kind ),
 				'requiredAnyOf' => SpecialContentFieldMap::requiredAnyOf( $kind ),

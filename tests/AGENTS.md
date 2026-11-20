@@ -103,12 +103,18 @@ plus the Playwright browser UX suite for the query GUI (query.ronzz.org).
   runner depends on — `siteinfo` loads the extension; a `class="pyodide"`
   SyntaxHighlight block is queued the `ext.pyodide4mediawiki.run` module and
   exports `wgPyodide4MediaWikiIndexUrl` (the local asset URL); a plain block
-  loads nothing extra; and code text is HTML-escaped. The browser run itself
-  (module worker loading the installed distribution, stdout/result/traceback)
-  is exercised by `tests/e2e/run_pyodide_ux_e2e.mjs` (Playwright,
-  manual/production like the other UX suites; needs the assets installed):
-  it creates a two-cell scratch page, runs both cells and asserts the second
-  sees the first's variable (shared interpreter), then deletes the page.
+  loads nothing extra; and code text is HTML-escaped. The worker itself is
+  exercised by `tests/e2e/run_pyodide_worker_test.mjs` (Node, no browser; CI
+  integration job, needs the installed distribution): it serializes the real
+  worker body and drives `init`/`run` messages — `plt.show()` and
+  `Figure.show()` must produce a valid PNG data URL, close the figures, keep
+  stderr clean, and leave the backend on `agg`; a plain cell still runs.
+  The browser path is exercised by `tests/e2e/run_pyodide_ux_e2e.mjs`
+  (Playwright; CI integration job against the dev stack, or
+  manual/production with a real login): it creates a three-cell scratch page,
+  runs them and asserts the second sees the first's variable (shared
+  interpreter) and the third renders a matplotlib PNG in the output panel,
+  then deletes the page.
 - **`tests/e2e/run_wiki_ux_e2e.mjs`** — Playwright browser UX suite for the
   Sep-2026 UX batch B (manual/production, needs `--user` + `--password-file`
   for Special:Upload; the Nov 2026 batch adds the Special:Upload source

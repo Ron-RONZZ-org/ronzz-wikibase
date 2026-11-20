@@ -490,6 +490,8 @@
 	"embeddablecontent-upload-url-maxsize": "Maksimuma alŝuto per URL: $1",
 	"embeddablecontent-upload-license": "Permesilo",
 	"embeddablecontent-upload-license-help": "Elektu la permesilon de la dosiero, aŭ tajpu por serĉi la permesilojn de la instanco.",
+	"embeddablecontent-upload-rights-basis": "Rajta bazo",
+	"embeddablecontent-upload-rights-basis-help": "La jura bazo por reprodukti ĉi tiun dosieron. Escepto pri citado kaj permeso de la aŭtoro aldonas avizon al la dosiera paĝo; permesilo, publika havaĵo kaj propra verko registras la bazon sen plia avizo.",
 	"embeddablecontent-upload-author": "Aŭtoro",
 	"embeddablecontent-upload-author-source": "aŭtoro kaj fonto",
 	"embeddablecontent-upload-author-entity-check": "Indiki la aŭtoron kiel semantikan enton (elementon)",

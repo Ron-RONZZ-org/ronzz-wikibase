@@ -503,6 +503,8 @@
 	"embeddablecontent-upload-url-maxsize": "Maximum URL upload: $1",
 	"embeddablecontent-upload-license": "License",
 	"embeddablecontent-upload-license-help": "Pick the license of the file, or type to search the instance's license items.",
+	"embeddablecontent-upload-rights-basis": "Rights basis",
+	"embeddablecontent-upload-rights-basis-help": "The legal basis for reproducing this file. Citation exception and author permission add a notice to the File page; licensed, public domain and own work record the basis without an extra notice.",
 	"embeddablecontent-upload-author": "Author",
 	"embeddablecontent-upload-author-source": "author and source",
 	"embeddablecontent-upload-author-entity-check": "Specify the author as a semantic entity (an item)",
