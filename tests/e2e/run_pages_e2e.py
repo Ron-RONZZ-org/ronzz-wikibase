@@ -2616,6 +2616,12 @@ def flow_source_book_access_file(op, base: str, api: str, label: str,
         # The OOUI form renders wp + field key as-is: "accessFile" -> "wpaccessFile".
         "wpaccessFile": (filename, content, ctype),
     })
+    if "/manual/content" in url:
+        # Book/scholarlyArticle carry the systematic abstract/summary step;
+        # the access file already uploaded on the manual step must survive
+        # the content-step beforeCreate (the token record carries it).
+        token2 = edit_token(body)
+        url, body = page_post(op, url, {"wpEditToken": token2, "wpSubmit": "1"})
     qid = flow_final_item(op, base, api, url, body, "AddSource/book/manual (access file)")
     return qid
 
