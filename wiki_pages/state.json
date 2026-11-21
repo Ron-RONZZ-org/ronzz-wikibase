@@ -121,14 +121,14 @@
       "synced_at": "2026-11-19T10:09:58+00:00"
     },
     "Template:Bill": {
-      "revid": 9036,
-      "sha256": "b9b4ef3a7c2a633377cf017c05bf7e3478e80f46243940a4e0149641a3af326c",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18246,
+      "sha256": "e2d57b38ad447e38611961dc5c04bb4131f04fa7a356eee26f2f3430069add70",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:Book": {
-      "revid": 9017,
-      "sha256": "f7e14d5b0fdaec0fa38eba19975a15b4c2485fb4e49df4421ab63fc687f78d6f",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18226,
+      "sha256": "2850a17d1353d6e3627744cba1dcecb11a4478f1eab6ac94d7df616e4325f228",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:Cc-by-4.0": {
       "revid": 752,
@@ -166,19 +166,19 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     },
     "Template:Collective": {
-      "revid": 14201,
-      "sha256": "e803fa66bd8dbbc2a652af4cd005f5566a51cc0eb11b6665cec0ecf771af6d57",
-      "synced_at": "2026-11-07T20:08:35+00:00"
+      "revid": 18223,
+      "sha256": "de62752e53bc4217a407cc9b5d77e85fef06f3dc2905e295def9f4ca09582068",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:ConferencePaper": {
-      "revid": 9028,
-      "sha256": "827b814127b66e00db220cc4312181809a54102fb962707a5f363d5b35708c0b",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18239,
+      "sha256": "08a1019f1fa31bb518f4f264d6d0065a063d09a9ba7889f703f4e04e0134944a",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:Dataset": {
-      "revid": 9041,
-      "sha256": "3018bdba352151fa287cc18b5643d79a02ef47b54e7bab106b4e93e3ff035317",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18235,
+      "sha256": "7e998a372c8dd5b9dc7c1b00ea3af5a9544eb1e2f304b7e249e9f81f97ae8a2c",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:DesktopLinux": {
       "revid": 10533,
@@ -186,9 +186,9 @@
       "synced_at": "2026-10-18T14:12:25+00:00"
     },
     "Template:Document": {
-      "revid": 9030,
-      "sha256": "8a3051d3d48e7ecdd0559e9b3ee17ea493b30a61c43bf025b4bf56db9a2d3668",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18236,
+      "sha256": "ba514690b5b0fda2945574ab3bdab1c4d206077600bd657c4903abc5a82e3e18",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:End hidden": {
       "revid": 10047,
@@ -206,9 +206,9 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     },
     "Template:FOSS/Infobox": {
-      "revid": 9015,
-      "sha256": "7e3e85e3a48dbf87d165b93b398a6ddd39ff3673b1b3d7d36088f0f5483eb27c",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18224,
+      "sha256": "5ade8f6129e4e3520ee522bba54da3df0ecdfd1aa589a6dcab018d343e8dfbe0",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:Fairuse": {
       "revid": 755,
@@ -216,9 +216,9 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     },
     "Template:Film": {
-      "revid": 9021,
-      "sha256": "072ed26037630563acff69b5e27561a67923cea30d285a8b2c617d0731b04611",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18231,
+      "sha256": "02ef773d5b7354c4c7a5717e6c1d5841ef41ad494f7520aa4af44e327f32cc07",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:Forumheader": {
       "revid": 2193,
@@ -271,9 +271,9 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     },
     "Template:Interview": {
-      "revid": 9038,
-      "sha256": "740b2254f951243b174a6e9c481ce0685699b4fd82a215ac68ec5b2359be2bb7",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18240,
+      "sha256": "8bcaa0b8d1d12067e221f15c7f230830c1516b2d1b7c6d3392342751bdbf5adb",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:Languages": {
       "revid": 7632,
@@ -281,39 +281,39 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     },
     "Template:Law": {
-      "revid": 9135,
-      "sha256": "c11809a02a433240a4394a5392e58f86a8ec6bf321e2cd7142f35330849de5cc",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18247,
+      "sha256": "0686bc202e5657a3ea65fde3b9e5588d42ac2bc6997d6123e354885df5f7d5df",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:LegalCase": {
-      "revid": 9034,
-      "sha256": "a035577d2f73a59432c865611e2277da5940bb9f9a41744b67d8dd5d923e8820",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18248,
+      "sha256": "8a9dfe6131abae6cd6bd867ce47f34a9fed619656c83fc830335800184df6dd4",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:Legislation": {
-      "revid": 9136,
-      "sha256": "7c60fb811c47c55e9f9f7b6d10d1ca263f1c3ee09699e0c3a325495173a9defb",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18249,
+      "sha256": "6b21be4c6d20f993bf8bbe6377c006ef8e2011ec469719dbccdfad9cca24bd08",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:MagazineArticle": {
-      "revid": 9027,
-      "sha256": "255918db9f2d60c47ffe30480e435d1dbd5e1c1a2d068a0fccdd337e4fce30f4",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18241,
+      "sha256": "89bfdb1a2f303b24d3361701ae791701e03145f0f76015eda012255177388d54",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:Manuscript": {
-      "revid": 9032,
-      "sha256": "e29974e328807aebb2ca4d436e8d353bda3677027f584c8d7d3b51702ef780c8",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18243,
+      "sha256": "209a4e7fc76f8a8775aa5b001a3c89156c48f53178327c0c0b354f9181ffa4f4",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:Map": {
-      "revid": 9039,
-      "sha256": "73187b331371854de18aa10f925a780d1be00edbd8f9b0c060a50834086d6956",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18244,
+      "sha256": "efc492a4769b83ba767a7aca064d65a2024184d411127b6924296dadd0e420e4",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:NewspaperArticle": {
-      "revid": 9026,
-      "sha256": "a305e9417b4d5fd01d46e314b524e700c8cfd3135a4875528b354f69b7d6253f",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18242,
+      "sha256": "9b2212d6017ae67f2be8793741a318093e8763d91f0e2dbaac07e06c4c555f6f",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:No license": {
       "revid": 756,
@@ -321,9 +321,9 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     },
     "Template:Patent": {
-      "revid": 9033,
-      "sha256": "ef776acb705398e62eb61b3feeed8d01ac3f2d6144eadf4f9b79677f46972607",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18250,
+      "sha256": "b52d100e89746b4fe00037a741ae1dbcdfdd8f3fd9412f3ee7a7b0f566fa1ca6",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:Pd": {
       "revid": 754,
@@ -331,19 +331,19 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     },
     "Template:Person": {
-      "revid": 9101,
-      "sha256": "7a5926c8e28c9556a14d061355065f169740b15fc4dcfc661e56981b090d79f2",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18222,
+      "sha256": "9c71d250d85b89199a88ae7a2e83d19e46e4686c6f0f9e2c8e9e8bdb3091183c",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:Presentation": {
-      "revid": 9040,
-      "sha256": "acffb6ef5b9ed0556941d1433a2df1dfbd19172638ec1953db4f41178ba432a3",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18245,
+      "sha256": "99bdf2f033178d1807330932dccecc51476ab9d52f1baf185a7d58ef711df9b4",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:Report": {
-      "revid": 9029,
-      "sha256": "f65b707b003905a78bd72dd695f1addd2121841c7e7d92346b787bc96e75c798",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18237,
+      "sha256": "1a608c599f83e01f4bcb681f636ad87b3ec607d57b5d6cf958b6e440c7d70635",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:Rongzhou/Vivre en France": {
       "revid": 2785,
@@ -361,9 +361,9 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     },
     "Template:ScholarlyArticle": {
-      "revid": 9018,
-      "sha256": "4f260e7af25c6e8d293c500c7e2f3dfca948359f82354202836a07c9d714e3f4",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18227,
+      "sha256": "69bb758466b74c6b74c3ea0b9db9100cf9fe868fc25483f286a535a59639f508",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:Software": {
       "revid": 6305,
@@ -371,29 +371,29 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     },
     "Template:Software/Infobox": {
-      "revid": 9016,
-      "sha256": "7e3e85e3a48dbf87d165b93b398a6ddd39ff3673b1b3d7d36088f0f5483eb27c",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18225,
+      "sha256": "5ade8f6129e4e3520ee522bba54da3df0ecdfd1aa589a6dcab018d343e8dfbe0",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:Song": {
-      "revid": 9020,
-      "sha256": "6cd58e9d9c2abf8fb5911991f76e0b66c21e073b55659b1bebf94cd762892be0",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18230,
+      "sha256": "9c3a6b57f36741f3e30d409cf614026c01ec94100a56191eadc205af94a878b8",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:Text": {
-      "revid": 9042,
-      "sha256": "c2394944187cd10861c12ecee5e36525c38ac8ac46ada3114cbbaedbf608bbcd",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18251,
+      "sha256": "c9e04f9d9ccb7a7d4cac41329071c0053fa6b486674acecb6de3d17b58af3c96",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:Thesis": {
-      "revid": 9031,
-      "sha256": "d6780e0eb4e3acd9e449d787d250ca5d8ca31c3ae21f4f080c11112c0f0e7977",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18238,
+      "sha256": "4dc9da58184fbe9095a2797343f7156a2fa345c4496ca16b3961089c84620e26",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:Transcript": {
-      "revid": 11857,
-      "sha256": "1d234fd56b189c39b6fffbe03dd4dc10f0acd282f68d60d24b17ed9adce7c317",
-      "synced_at": "2026-10-31T10:09:08+00:00"
+      "revid": 18252,
+      "sha256": "4ac70357c3e023975fbc7a8d823d8905529944d00e886503b8011fd62da9f808",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:Translation": {
       "revid": 15974,
@@ -401,36 +401,36 @@
       "synced_at": "2026-11-11T18:21:27+00:00"
     },
     "Template:Treaty": {
-      "revid": 9037,
-      "sha256": "e1c8bfbf56e10c807886292d620ac73ec97979e655c0aa08596d187eec34ff6e",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18253,
+      "sha256": "d32f6667416c7874c69012f1e01629e393eae2e73f124645dcba72a82d40feb8",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:Video": {
-      "revid": 9022,
-      "sha256": "55a3f7c53f029c00c5b0ea8c9d17a085c237e1f5c0bceb02d574ab3e2f93ad4f",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18232,
+      "sha256": "69c6e6309314055b4fcbdbbd05031eb707e5cea79953c95094fe08b5924796a9",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:Webpage": {
-      "revid": 14202,
-      "sha256": "775cb39885bded7569a783ee7e6c22b8c74530b733a674726726d793708ce43d",
-      "synced_at": "2026-11-07T19:31:52+00:00"
+      "revid": 18229,
+      "sha256": "e9fe0e8db37a7f9218e4ceba488ef862ff95085cf457c670bc7eeab4e3b501ec",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:Website": {
-      "revid": 9019,
-      "sha256": "a9a39f3724f16836f01cfce37e6679701ee2c1fc1a433b04f0320e0ee526a1ab",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18228,
+      "sha256": "581cf660b1e67e3b1bff10e58cf7a8dcb7827a4befd9b4d984b7e4f8094d81d3",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:YouTubeChannel": {
-      "revid": 9023,
-      "sha256": "14355360ec8f2b4774df2e62342a6cd2ca08d57d54570ce960a0a89985838c4a",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18233,
+      "sha256": "4d737aef364c0731b52f9cf5fded1dc02e9ce7963e8a384846c159fd73642b4b",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     },
     "Template:YouTubeVideo": {
-      "revid": 9024,
-      "sha256": "3e600b30f6ff04a5439feb5a7530d3604db10f665340bd9070cacadb18e740cd",
-      "synced_at": "2026-10-17T12:18:01+00:00"
+      "revid": 18234,
+      "sha256": "a2db2ce99e819e3571df256c198e1956a431183e82751a4f8dc67a293ce9ff77",
+      "synced_at": "2026-11-21T11:08:01+00:00"
     }
   },
-  "updated": "2026-11-20T09:10:50+00:00",
+  "updated": "2026-11-21T11:08:01+00:00",
   "version": 1
 }

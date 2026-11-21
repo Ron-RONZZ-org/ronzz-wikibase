@@ -2,7 +2,7 @@
 <blockquote>
 '''Song''' — part of the [[Source:Main|sources collection]]. Created via [[Special:AddSource]].
 </blockquote>
-{| class="wikitable" style="float:right;clear:right;width:300px;margin:0 0 1em 1em;"
+{| class="wikitable wb-infobox" style="float:right;clear:right;width:300px;margin:0 0 1em 1em;"
 |-
 ! colspan="2" style="background:#f8f9fa;text-align:center;" | {{PAGENAME}}
 {{#statement-row:Instance of|instance of}}
