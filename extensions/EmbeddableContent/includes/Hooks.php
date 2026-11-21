@@ -252,10 +252,6 @@ class Hooks {
 		// null for $summary/$revisionRecord/$editResult (only $wikiPage, $user
 		// and $flags are populated) — typed hints throw a TypeError and the
 		// handler never runs.
-		// Queue the PDF → Markdown extraction when a PDF File page is saved
-		// (upload, re-upload, restore). The job itself skips a current
-		// companion, so a metadata-only save is a cheap ack.
-		self::enqueuePdfExtraction( $wikiPage );
 		\EmbeddableContent\Flow\NewItemPageCreator::handle(
 			$wikiPage,
 			$user,
@@ -290,20 +286,14 @@ class Hooks {
 	 * job's page is the dedup key, so a re-save while a job is pending does
 	 * not stack another.
 	 */
-	private static function enqueuePdfExtraction( $wikiPage ): void {
-		$title = $wikiPage->getTitle();
-		if ( $title instanceof Title ) {
-			self::enqueuePdfExtractionForTitle( $title );
-		}
-	}
-
 	/**
 	 * Queue one extractPdfText job for a PDF File title.
 	 *
-	 * Called from the PageSaveComplete handler and from UploadComplete (a
-	 * second, earlier producer: a page save runs inside a deferred atomic
-	 * update, and an upload must be queued even if that phase is skipped).
-	 * Both paths use removeDuplicates, so a double call is a no-op.
+	 * Called from the UploadComplete handler for the normal upload paths.
+	 * PageSaveComplete is not a producer: it runs inside the upload's
+	 * deferred atomic update and does not fire for an upload here, and a
+	 * deferred write during the AddSource access-upload form can abort it —
+	 * those files are covered by the enqueuePdfExtractions backfill.
 	 *
 	 * The type is excluded from the default queue ($wgJobTypesExcludedFrom
 	 * DefaultQueue): OCR can take minutes, so a dedicated worker drains it
