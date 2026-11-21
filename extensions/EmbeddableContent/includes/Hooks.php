@@ -318,12 +318,13 @@ class Hooks {
 		if ( strtolower( $title->getExtension() ) !== 'pdf' ) {
 			return;
 		}
-		// Synchronous push: PageSaveComplete runs after the upload's atomic
-		// section, so the insert is safe here. One row per PDF save is cheap.
+		// lazyPush: the producer can run inside an upload request, so the insert
+		// is deferred to the post-send phase (a synchronous write there can
+		// abort the upload's transaction).
 		MediaWikiServices::getInstance()
 			->getJobQueueGroupFactory()
 			->makeJobQueueGroup()
-			->push( new JobSpecification(
+			->lazyPush( new JobSpecification(
 				'extractPdfText',
 				[],
 				[ 'removeDuplicates' => true ],

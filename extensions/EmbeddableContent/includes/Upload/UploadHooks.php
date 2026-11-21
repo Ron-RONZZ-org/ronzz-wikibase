@@ -500,7 +500,19 @@ final class UploadHooks {
 	 * the sitelinked image item with the semantic statements.
 	 */
 	public static function onUploadComplete( UploadBase $uploadBase ): void {
-		if ( RequestContext::getMain()->getRequest()->getVal( 'wpUploadmetaItemize' ) !== '1' ) {
+		// Queue the PDF → Markdown extraction for the normal upload paths
+		// (Special:Upload / action=upload). The AddSource access upload
+		// (action=accessupload) runs inside the form's transaction, where a
+		// deferred DB write can abort the form; the extraction backfill
+		// (maintenance/enqueuePdfExtractions.php) covers those files.
+		$request = RequestContext::getMain()->getRequest();
+		if ( $request->getVal( 'action' ) !== 'accessupload' ) {
+			$uploadedTitle = $uploadBase->getTitle();
+			if ( $uploadedTitle !== null ) {
+				\EmbeddableContent\Hooks::enqueuePdfExtractionForTitle( $uploadedTitle );
+			}
+		}
+		if ( $request->getVal( 'wpUploadmetaItemize' ) !== '1' ) {
 			return;
 		}
 		// The uploader is the request user (UploadFromFile has no getUser()).
