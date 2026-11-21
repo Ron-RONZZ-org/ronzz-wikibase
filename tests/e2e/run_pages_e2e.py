@@ -3490,6 +3490,11 @@ def flow_mediaopen_module_source(op, base: str) -> None:
                    "embeddablecontent-file-open-newtab"]:
         if needle not in body:
             raise FlowError(f"mediaopen module: missing {needle}")
+    # The server already writes a bare `.wb-media-open` into a thumbnail
+    # caption (Media\FileOpenLink); the caption guard must skip it or the
+    # page shows the link twice.
+    if ".wb-media-tools, .wb-media-open" not in body:
+        raise FlowError("mediaopen module: caption open-link dedupe guard missing")
 
 
 def flow_uploadform_module_source(op, base: str) -> None:

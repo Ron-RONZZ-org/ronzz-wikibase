@@ -106,10 +106,13 @@
 		}
 	}
 
-	/** Append the credit/open link to a figure caption (the server credit is
-	 * already there for thumbnails; don't duplicate it). */
+	/** Append the credit/open link to a figure caption. Thumbnails/frames
+	 * already carry the server-rendered link (and usually the credit) —
+	 * Media\FileOpenLink writes a bare `.wb-media-open`, NOT wrapped in
+	 * `.wb-media-tools`, so both markers must suppress the client copy or the
+	 * caption shows "Open in a new tab" twice. */
 	function placeInCaption( $caption, file, noCredit ) {
-		if ( $caption.find( '.wb-media-tools' ).length ) {
+		if ( $caption.find( '.wb-media-tools, .wb-media-open' ).length ) {
 			return;
 		}
 		var $tools = $( '<span>' ).addClass( 'wb-media-tools' );

@@ -1391,7 +1391,9 @@ report). See `SimpleMathJax/VENDORED.md`.
   get a small `noprint` link (`Media\FileOpenLink` for captioned
   thumbnails/frames; `resources/mediaopen.js` + the `wbEmbeddedFiles` JS
   config map for captionless images, audio/video, PDF/EPUB/DJVU link embeds
-  and galleries — one paragraph below a gallery). Infoboxes
+  and galleries — one paragraph below a gallery). The client-side caption
+  path skips a caption that already carries the server link
+  (`.wb-media-open`), so a thumbnail shows it once. Infoboxes
   (`.wb-infobox`, `.wb-image-gallery`) are excluded. The viewer styles live
   in `resources/fileviewer.css` (module `ext.embeddableContent.fileviewer`);
   the old `pdfviewer.js`/`pdfviewer.css` module is gone.

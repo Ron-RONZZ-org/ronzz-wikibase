@@ -828,6 +828,59 @@ async function main() {
 			}, properNameTitle).catch(() => {});
 		}
 
+		// --- content-page embeds: "Open in a new tab" exactly once --------
+		// A thumbnail caption gets the link server-side (Media\FileOpenLink)
+		// and resources/mediaopen.js must skip it; a captionless image gets
+		// the client-side link. Regression: the caption rendered it twice
+		// ("Open in a new tab · Open in a new tab").
+		const imageList = await api({
+			action: 'query', list: 'allimages', ailimit: '20', aiprop: 'url|mime', format: 'json',
+		});
+		const embedFile = (imageList.query?.allimages || []).find((f) => /^image\//.test(f.mime || ''));
+		if (!embedFile) {
+			console.log('[info] no image on the instance — skipping the embedded open-link check');
+		} else {
+			const embedTitle = `MediaOpen UX ${Date.now()}`;
+			const embedText = `[[File:${embedFile.name}|thumb|Caption text]]\n[[File:${embedFile.name}|120px]]`;
+			await page.evaluate(async ([title, text]) => {
+				await new Promise((r) => mw.loader.using('mediawiki.api', r));
+				await new mw.Api().postWithToken('csrf', {
+					action: 'edit', title, text, createonly: true,
+				});
+			}, [embedTitle, embedText]);
+			try {
+				await page.goto(`${BASE_URL}/wiki/${encodeURIComponent(embedTitle.replace(/ /g, '_'))}`,
+					{ waitUntil: 'domcontentloaded', timeout: 60000 });
+				await page.waitForSelector('#mw-content-text figure figcaption', { timeout: 15000 });
+				// Wait for the client-side pass: the plain image's link is the one
+				// only mediaopen.js adds, so a second link proves the module ran.
+				await page.waitForFunction(() =>
+					document.querySelectorAll('#mw-content-text .wb-media-open').length >= 2,
+				{ timeout: 15000 }).catch(() => {});
+				const embedLinks = await page.evaluate(() => {
+					const caption = document.querySelector('#mw-content-text figure figcaption');
+					return {
+						all: document.querySelectorAll('#mw-content-text .wb-media-open').length,
+						inCaption: caption ? caption.querySelectorAll('.wb-media-open').length : -1,
+					};
+				});
+				if (embedLinks.inCaption !== 1) {
+					failures.push(`thumbnail caption shows ${embedLinks.inCaption} "Open in a new tab" links, expected 1`);
+				} else if (embedLinks.all !== 2) {
+					failures.push(`content page shows ${embedLinks.all} "Open in a new tab" links, expected 2 (caption + plain)`);
+				} else {
+					console.log('[ok] embedded thumbnail caption shows exactly one "Open in a new tab" link');
+				}
+			} finally {
+				await page.evaluate(async (title) => {
+					await new Promise((r) => mw.loader.using('mediawiki.api', r));
+					try {
+						await new mw.Api().postWithToken('csrf', { action: 'delete', title, format: 'json' });
+					} catch (e) { /* best-effort cleanup */ }
+				}, embedTitle).catch(() => {});
+			}
+		}
+
 		// --- Section copy controls + "Add section" append flow -----------
 		// A scratch content page with two headings: the per-section "Copy
 		// internal mention" / "Copy URL" controls render inside each heading's

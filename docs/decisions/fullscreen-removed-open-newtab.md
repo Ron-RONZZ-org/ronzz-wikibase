@@ -32,7 +32,9 @@ every File page already exposes its media URL (`wbFileUrl`).
      (`Media\FileOpenLink`); captionless images, audio/video players,
      PDF/EPUB/DJVU link embeds and galleries are handled by
      `resources/mediaopen.js`, fed by a `ParserOutput` JS config map
-     (`wbEmbeddedFiles`).
+     (`wbEmbeddedFiles`). The client-side caption path **skips a caption that
+     already carries the server link** (`.wb-media-open`) — otherwise every
+     thumbnail showed "Open in a new tab" twice.
 3. **Galleries** get one paragraph below the gallery for all their images, not
    one link per thumbnail.
 4. **Infoboxes are excluded** (`.wb-infobox`, `.wb-image-gallery`): they are a
