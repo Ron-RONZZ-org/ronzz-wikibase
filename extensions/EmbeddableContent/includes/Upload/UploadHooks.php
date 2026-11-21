@@ -500,13 +500,6 @@ final class UploadHooks {
 	 * the sitelinked image item with the semantic statements.
 	 */
 	public static function onUploadComplete( UploadBase $uploadBase ): void {
-		// Queue the PDF → Markdown extraction for every PDF upload. This runs
-		// before the File page save, so it is the reliable producer; the
-		// PageSaveComplete handler queues re-saves/restores (deduplicated).
-		$uploadedTitle = $uploadBase->getTitle();
-		if ( $uploadedTitle !== null ) {
-			\EmbeddableContent\Hooks::enqueuePdfExtractionForTitle( $uploadedTitle );
-		}
 		if ( RequestContext::getMain()->getRequest()->getVal( 'wpUploadmetaItemize' ) !== '1' ) {
 			return;
 		}
