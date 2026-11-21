@@ -281,6 +281,9 @@
 		},
 		"internalfile": {
 			"class": "EmbeddableContent\\Media\\InternalFileGuard"
+		},
+		"fileopenlink": {
+			"class": "EmbeddableContent\\Media\\FileOpenLink"
 		}
 	},
 	"Hooks": {
@@ -293,7 +296,8 @@
 		"ParserAfterTidy": "main",
 		"ImageBeforeProduceHTML": [
 			"internalfile",
-			"imagecredit"
+			"imagecredit",
+			"fileopenlink"
 		],
 		"ImageOpenShowImageInlineBefore": "main",
 		"UserLogoutComplete": "main",
@@ -891,38 +895,15 @@
 				"mobile"
 			]
 		},
-		"ext.embeddableContent.pdfviewer": {
-			"scripts": [
-				"pdfviewer.js"
-			],
-			"styles": [
-				"pdfviewer.css"
-			],
-			"dependencies": [
-				"mediawiki.util"
-			],
-			"messages": [
-				"embeddablecontent-pdf-fullscreen",
-				"embeddablecontent-pdf-fullscreen-exit",
-				"embeddablecontent-pdf-newtab"
-			],
-			"targets": [
-				"desktop",
-				"mobile"
-			]
-		},
 		"ext.embeddableContent.filepage": {
 			"scripts": [
 				"filepage.js"
-			],
-			"styles": [
-				"gadget.css"
 			],
 			"dependencies": [
 				"mediawiki.notification",
 				"mediawiki.util",
 				"ext.embeddableContent.toolbar",
-				"ext.embeddableContent.pdfviewer"
+				"ext.embeddableContent.fileviewer"
 			],
 			"messages": [
 				"embeddablecontent-file-copyembed",
@@ -931,7 +912,8 @@
 				"embeddablecontent-file-copylink-hint",
 				"embeddablecontent-gadget-copied",
 				"embeddablecontent-upload-copyembed-notice",
-				"embeddablecontent-upload-another-next"
+				"embeddablecontent-upload-another-next",
+				"embeddablecontent-file-open-newtab"
 			],
 			"targets": [
 				"desktop",
@@ -1339,6 +1321,32 @@
 			],
 			"styles": [
 				"imagegallery.css"
+			]
+		},
+		"ext.embeddableContent.fileviewer": {
+			"styles": [
+				"gadget.css",
+				"fileviewer.css"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.mediaopen": {
+			"scripts": [
+				"mediaopen.js"
+			],
+			"dependencies": [
+				"mediawiki.util",
+				"ext.embeddableContent.fileviewer"
+			],
+			"messages": [
+				"embeddablecontent-file-open-newtab"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
 			]
 		}
 	},

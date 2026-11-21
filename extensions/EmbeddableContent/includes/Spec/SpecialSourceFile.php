@@ -93,7 +93,9 @@ class SpecialSourceFile extends SpecialPage {
 		// browser's native viewer); images get a thumbnail; other types get
 		// a file-page link (no blank surface). The logged-in media cookie
 		// lets nginx serve the internal file's preview.
+		$this->getOutput()->addModuleStyles( 'ext.embeddableContent.fileviewer' );
 		$this->getOutput()->addHTML( $this->previewHtml( $file ) );
+		$this->getOutput()->addHTML( $this->openLinkHtml( $file ) );
 
 		// 2. Licence information.
 		$this->getOutput()->addHTML( $this->licenceHtml( $license ) );
@@ -153,6 +155,25 @@ class SpecialSourceFile extends SpecialPage {
 		);
 	}
 
+	/**
+	 * "Open in a new tab" for the file itself — shown for every file type so
+	 * the reader can reach the raw media (PDF viewer, image, audio, video)
+	 * without the browser's viewer chrome. Internal files stay behind the
+	 * media cookie, so the link is only rendered on the logged-in path.
+	 *
+	 * @param \MediaWiki\FileRepo\File\File $file
+	 */
+	private function openLinkHtml( \MediaWiki\FileRepo\File\File $file ): string {
+		return Html::rawElement( 'p', [ 'class' => 'wb-sourcefile-open' ],
+			Html::element( 'a', [
+				'href' => $file->getUrl(),
+				'target' => '_blank',
+				'rel' => 'noopener noreferrer',
+				'class' => 'wb-embed-toolbar-btn',
+			], $this->msg( 'embeddablecontent-file-open-newtab' )->text() )
+		);
+	}
+
 	/** @param \MediaWiki\FileRepo\File\File $file */
 	private function filePageLinkHtml( \MediaWiki\FileRepo\File\File $file ): string {
 		return '<p><a href="' . htmlspecialchars( $file->getTitle()->getLocalURL() ) . '">'
@@ -203,10 +224,8 @@ class SpecialSourceFile extends SpecialPage {
 			// MIME-locked to application/pdf at upload (no HTML/script can
 			// be served through it); PDF-embedded JavaScript, when present,
 			// runs inside PDFium's own isolated sandbox regardless.
-			$this->getOutput()->addModules( 'ext.embeddableContent.pdfviewer' );
 			return Html::rawElement( 'div', [ 'class' => 'wb-sourcefile-preview wb-pdf-viewer' ],
-				Html::rawElement( 'div', [ 'class' => 'wb-pdf-toolbar' ] )
-				. Html::rawElement( 'iframe', [
+				Html::rawElement( 'iframe', [
 					'src' => $file->getUrl(),
 					'width' => '100%',
 					'height' => '640',
