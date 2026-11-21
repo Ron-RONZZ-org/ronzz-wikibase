@@ -2384,6 +2384,20 @@ def flow_source_webpage_parent_subdomain(op, base: str, api: str,
     return webpage_qid, parent
 
 
+def page_wikitext(op, api: str, title: str) -> str:
+    """The current wikitext of a page (the HTML page has rendered headings,
+    not `== Heading ==`)."""
+    r = api_call(op, api, {
+        "action": "query", "titles": title, "prop": "revisions",
+        "rvprop": "content", "rvslots": "main", "format": "json",
+        "formatversion": "2",
+    })
+    pages = r.get("query", {}).get("pages", [])
+    if not pages or "missing" in pages[0]:
+        raise FlowError(f"page {title!r} is missing")
+    return pages[0].get("revisions", [{}])[0].get("slots", {}).get("main", {}).get("content", "")
+
+
 def flow_source_manual_prose_step(op, base: str, api: str, class_key: str,
                                   field: str, heading: str, text: str) -> str:
     """The content step is systematic for scholarlyArticle/book: a manual
@@ -2410,9 +2424,9 @@ def flow_source_manual_prose_step(op, base: str, api: str, class_key: str,
     title = (r.get("entities", {}).get(qid, {}).get("sitelinks", {}).get("wikibase", {}).get("title", ""))
     if not title:
         raise FlowError(f"{qid} has no classic page sitelink")
-    _, page = page_get(op, base, "/wiki/" + urllib.parse.quote(title.replace(" ", "_")))
+    page = page_wikitext(op, api, title)
     if f"== {heading} ==" not in page or text not in page:
-        print("DEBUG page:", page[:1500])
+        print("DEBUG wikitext:", page[:1500])
         raise FlowError(f"{title} missing the systematic == {heading} == section")
     return qid
 
@@ -2434,7 +2448,7 @@ def flow_addsource_api_prose(op, base: str, api: str, class_key: str,
     page_title = r.get("source", {}).get("pageTitle")
     if not qid or not page_title:
         raise FlowError(f"addsource {class_key} prose did not create an item/page: {r}")
-    _, page = page_get(op, base, "/wiki/" + urllib.parse.quote(page_title.replace(" ", "_")))
+    page = page_wikitext(op, api, page_title)
     if f"== {heading} ==" not in page or text not in page:
         raise FlowError(f"{page_title} missing the API-written == {heading} == section")
     return qid
