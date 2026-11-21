@@ -518,6 +518,30 @@ async function main() {
 			failures.push('content-page Copy citation popup did not show a citation preview');
 		}
 
+		// --- Item page: "Copy claim" popup -------------------------------
+		// The toolbar lists the item's statement properties and copies the
+		// page-quoting snippet for the chosen one.
+		await page.goto(`${BASE_URL}/wiki/Item:Q99`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+		try {
+			await page.waitForSelector('#ca-wb-claim', { timeout: 15000 });
+			await page.locator('#ca-wb-claim').click();
+			await page.waitForSelector('.wb-claim-popup-item', { timeout: 15000 });
+			const claimButtons = await page.locator('.wb-claim-popup-item').count();
+			if (claimButtons < 1) {
+				failures.push('Copy claim popup listed no properties');
+			} else {
+				await page.locator('.wb-claim-popup-item').first().click();
+				const snippet = await page.evaluate(() => navigator.clipboard.readText());
+				if (!/^\{\{#statements:.+\}\}$/.test(snippet)) {
+					failures.push(`Copy claim copied ${JSON.stringify(snippet)}, expected a {{#statements:…}} snippet`);
+				} else {
+					console.log(`[ok] Copy claim copies ${snippet}`);
+				}
+			}
+		} catch (e) {
+			failures.push('Copy claim popup failed: ' + e.message);
+		}
+
 		// --- Item: content-item rendered preview -------------------------
 		// A content item (quotation/math/code) has no classic page; its
 		// Item page must render the fetched embed fragment directly BELOW
@@ -2097,9 +2121,9 @@ async function main() {
 				await page.click('.wb-citation-popup .oo-ui-buttonElement-button', { timeout: 10000 });
 				console.log('[ok] citation popup renders above the Add-more dialog and is clickable');
 
-				// The provision's Source: page carries the full six-button row;
+				// The provision's Source: page carries the full seven-button row;
 				// assert the shared left→right order (update → internal
-				// citation → mention → embed → citation → print).
+				// citation → claim → mention → embed → citation → print).
 				const sourceTitle = `Source:Article 1 of ${legislationLabel} (Legislation)`;
 				await page.goto(
 					`${BASE_URL}/wiki/${encodeURIComponent(sourceTitle.replace(/ /g, '_'))}`,
@@ -2109,6 +2133,7 @@ async function main() {
 				const embedWant = [
 					'ca-wb-update-basic',
 					'ca-wb-source-cite-internal',
+					'ca-wb-claim',
 					'ca-wb-mention',
 					'ca-wb-embed-copy',
 					'ca-wb-embed-cite',
@@ -2118,7 +2143,7 @@ async function main() {
 				if (JSON.stringify(embedGot) !== JSON.stringify(embedWant)) {
 					failures.push(`Source: toolbar order is ${JSON.stringify(embedGot)}, expected ${JSON.stringify(embedWant)}`);
 				} else {
-					console.log('[ok] Source: toolbar order: update → internal citation → mention → embed → citation → print');
+					console.log('[ok] Source: toolbar order: update → internal citation → claim → mention → embed → citation → print');
 				}
 			} catch (e) {
 				failures.push('AddSource/law Add-more popup check failed: ' + e.message);

@@ -198,3 +198,31 @@
 	background: var( --background-color-neutral-subtle, #f8f9fa );
 	outline: none;
 }
+
+/* Copy-claim popup (entityactions.js): a scrollable list of the item's
+   statement properties. The widget itself is OOUI; only the list scroll and
+   the flat button rows are ours. */
+.wb-claim-popup-list {
+	max-height: 60vh;
+	overflow-y: auto;
+}
+
+.wb-claim-popup-item {
+	display: block;
+	width: 100%;
+	margin: 0;
+	padding: 0.25em 0.5em;
+	text-align: left;
+	background: none;
+	border: 0;
+	cursor: pointer;
+}
+
+.wb-claim-popup-item:hover {
+	background: var(--background-color-interactive-subtle, #eaecf0);
+}
+
+/* Above an OOUI modal dialog (z-index 450), like the citation popup. */
+.wb-claim-popup-widget {
+	z-index: 500;
+}

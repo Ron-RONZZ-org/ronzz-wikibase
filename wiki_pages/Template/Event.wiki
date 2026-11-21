@@ -1,0 +1,20 @@
+<div style="border:1px solid #c8ccd1;background:#f8f9fa;padding:0.5em 1em;margin-bottom:1em;">
+<blockquote>
+'''{{PAGENAME}}''' — a historical event. Its facts live in the item sitelinked to this page; edit the item once, and every page that quotes it updates.
+</blockquote>
+{| class="wikitable" style="float:right;clear:right;width:300px;margin:0 0 1em 1em;"
+|-
+! colspan="2" style="background:#f8f9fa;text-align:center;" | {{PAGENAME}}
+{{#statement-row:Type|instance of}}
+{{#statement-row:Date|point in time}}
+{{#statement-row:Start|start time}}
+{{#statement-row:End|end time}}
+{{#statement-row:Location|osm-location}}
+{{#statement-row:Participants|participant}}
+{{#statement-row:Number of deaths|number of deaths}}
+{{#statement-row:Number of casualties|number of casualties}}
+{{#statement-row:Part of|part of}}
+|}
+<noinclude>
+Reads the item sitelinked to the page (see [[Help:Contributing/claims]]). Rows with no data are hidden by <code>{{#statement-row:}}</code>. The location row renders the <code>location (OSM)</code> external id plus the <code>location (label)</code> display text through <code>{{#osm-place:location}}</code>.
+</noinclude>

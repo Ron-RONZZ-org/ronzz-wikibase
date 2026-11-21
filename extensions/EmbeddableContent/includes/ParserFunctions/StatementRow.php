@@ -37,7 +37,7 @@ use Wikibase\Repo\WikibaseRepo;
  * The second argument is either a property label (resolved through the
  * WikibaseClient property-label resolver, the same one `{{#statements:}}`
  * uses) or a property id (`P…`); or one of the OSM renderer keywords
- * `osm-birth` / `osm-death` / `osm-jurisdiction`, which render the
+ * `osm-birth` / `osm-death` / `osm-jurisdiction` / `osm-location`, which render the
  * `{{#osm-place:}}` cell (its backing config property is what gets
  * checked).
  *
@@ -62,6 +62,7 @@ final class StatementRow {
 		'osm-birth' => 'birth',
 		'osm-death' => 'death',
 		'osm-jurisdiction' => 'jurisdiction',
+		'osm-location' => 'location',
 	];
 
 	/**
@@ -190,6 +191,10 @@ final class StatementRow {
 					return true;
 				}
 				return self::stringValue( $item, $props['international'] ?? null ) !== '';
+			}
+			if ( $which === 'location' ) {
+				$props = $config->eventPropertyIds();
+				return self::stringValue( $item, $props['locationOsm'] ?? null ) !== '';
 			}
 			$props = $config->personPropertyIds();
 			$key = $which === 'birth' ? 'placeOfBirthOsm' : 'placeOfDeathOsm';

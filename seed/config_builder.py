@@ -104,6 +104,15 @@ PERSON_PROPERTY_KINDS = {
     "additional license information": "imageLicenseInfo",
 }
 
+# Event vocabulary (history pages): the OpenStreetMap location pair read by
+# `{{#osm-place:location}}`. The other event properties (participant, point
+# in time, start/end, deaths, casualties) are rendered with
+# `{{#statements:<label>}}` and need no config key.
+EVENT_PROPERTY_KINDS = {
+    "location (OSM)": "locationOsm",
+    "location (label)": "locationLabel",
+}
+
 # Issue follow-up: fictional-character class (Special:AddFictionalCharacter).
 FICTIONAL_CHARACTER_CLASS_KINDS = {
     "fictional character": "fictionalCharacter",
@@ -523,6 +532,11 @@ def build_config(
         if label in property_ids:
             person_props[key] = property_ids[label]
 
+    event_props: dict[str, str] = {}
+    for label, key in EVENT_PROPERTY_KINDS.items():
+        if label in property_ids:
+            event_props[key] = property_ids[label]
+
     collective_props: dict[str, str] = {}
     for label, key in COLLECTIVE_PROPERTY_KINDS.items():
         if label in property_ids:
@@ -576,6 +590,7 @@ def build_config(
         "externalIds": external_ids,
         "citationMetadata": citation_metadata,
         "personProperties": person_props,
+        "eventProperties": event_props,
         "collectiveProperties": collective_props,
         "formatterUrl": property_ids.get("formatter URL"),
         "sourceClassByWikidata": source_class_by_qid,
