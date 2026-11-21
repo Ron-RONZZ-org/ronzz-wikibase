@@ -163,6 +163,10 @@
       "path": "Template/End solution.wiki"
     },
     {
+      "title": "Template:Event",
+      "path": "Template/Event.wiki"
+    },
+    {
       "title": "Template:FOSS",
       "path": "Template/FOSS.wiki"
     },
