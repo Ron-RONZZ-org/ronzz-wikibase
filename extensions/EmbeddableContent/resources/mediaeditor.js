@@ -177,12 +177,37 @@
 					value: 'file'
 				} );
 				var fileInput = $( '<input type="file" accept="image/*">' );
-				var urlInput = new OO.ui.TextInputWidget( { placeholder: 'https://…' } );
-				var existingInput = new OO.ui.TextInputWidget( { placeholder: 'File:Example.png' } );
+				var editButton = new OO.ui.ButtonWidget( {
+					label: mw.msg( 'embeddablecontent-imageeditor-open' ),
+					framed: true
+				} );
 				var $fileLayout = new OO.ui.FieldLayout(
-					new OO.ui.Widget( { $element: $( '<div>' ).append( fileInput ) } ),
+					new OO.ui.Widget( { $element: $( '<div>' ).append( fileInput, editButton.$element ) } ),
 					{ label: mw.msg( 'embeddablecontent-access-file' ), align: 'top' }
 				).$element;
+				editButton.on( 'click', function () {
+					var file = fileInput[ 0 ].files && fileInput[ 0 ].files[ 0 ];
+					if ( !file ) {
+						return;
+					}
+					mw.loader.using( 'ext.embeddableContent.imageeditor' ).then( function () {
+						var editor = mw.embeddableContent && mw.embeddableContent.imageEditor;
+						if ( !editor ) {
+							return;
+						}
+						if ( !editor.canEdit( file ) ) {
+							mw.notify( mw.msg( 'embeddablecontent-imageeditor-unsupported' ), { type: 'warn' } );
+							return;
+						}
+						editor.open( file ).then( function ( edited ) {
+							if ( edited ) {
+								setInputFile( fileInput[ 0 ], edited );
+							}
+						} );
+					} ).catch( function () {
+						mw.notify( mw.msg( 'embeddablecontent-imageeditor-error' ), { type: 'error' } );
+					} );
+				} );
 				var $clipboardTarget = $( '<div>' ).addClass( 'wb-clipboard-target' )
 					.append( $( '<p>' ).addClass( 'wb-upload-drop-hint' )
 						.text( mw.msg( 'embeddablecontent-upload-clipboard-hint' ) ) )

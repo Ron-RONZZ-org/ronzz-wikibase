@@ -1474,6 +1474,22 @@ report). See `SimpleMathJax/VENDORED.md`.
   vocabulary/seed/config-map change; deploy = extension rsync + php-fpm
   restart + parser-cache purge.
 
+- **Pre-upload image editor (ADR `docs/decisions/upload-image-editor.md`)**:
+  a vendored **TOAST UI Image Editor** 3.15.3 + `tui-color-picker` 2.2.8
+  (`resources/tui-image-editor/`, MIT, SHA-256 + refresh in `VENDORED.md`)
+  gives crop / flip / rotate / filter on `Special:Upload`, the Add\*/Update\*
+  portrait/logo fields and the Add\* multi-image dialog. The bundle is loaded
+  **on demand** (`ext.embeddableContent.imageeditor`) only when the user clicks
+  **Edit image**; the editor's Google Analytics ping is disabled by
+  `resources/tui-telemetry-off.js` (loaded first) and
+  `usageStatistics: false`. Apply exports `editor.toDataURL()` into a new
+  `File` that replaces the input's file and re-enters the existing
+  preview/resize/auto-extension pipeline. Raster only (JPEG/PNG/WebP); SVG and
+  animated GIF are deliberately untouched. The dialog tints its chrome with
+  Codex theme tokens and inverts icons in night mode. No page loads the module
+  by default; deploy = extension rsync + php-fpm restart + message-blob purge
+  (new i18n keys) + cache purge.
+
 - **Copy internal mention + quotation attribution + fictional-character
   aliases (ADR `docs/decisions/mention-and-quotation-attribution.md`,
   `docs/decisions/fictional-character-alias.md`)**: (a) every classic per-kind
