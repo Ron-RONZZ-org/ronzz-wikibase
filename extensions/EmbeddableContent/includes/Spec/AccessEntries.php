@@ -6,6 +6,7 @@ namespace EmbeddableContent\Spec;
 
 use DataValues\StringValue;
 use EmbeddableContent\EmbeddableContentConfig;
+use EmbeddableContent\PropertyIdFactory;
 use EmbeddableContent\Upload\AccessFileItemCreator;
 use MediaWiki\Title\Title;
 use MediaWiki\User\User;
@@ -264,7 +265,7 @@ final class AccessEntries {
 				? $guidGenerator->newGuid( $item->getId() )
 				: null;
 			$statement = new Statement(
-				new PropertyValueSnak( new NumericPropertyId( $mainProp ), $value ),
+				new PropertyValueSnak( PropertyIdFactory::create( $mainProp ), $value ),
 				null,
 				null,
 				$guid
@@ -272,14 +273,14 @@ final class AccessEntries {
 			$qualifiers = new SnakList();
 			if ( $statusProp !== null ) {
 				$qualifiers->addSnak( new PropertyValueSnak(
-					new NumericPropertyId( $statusProp ),
+					PropertyIdFactory::create( $statusProp ),
 					new StringValue( !empty( $entry['public'] ) ? self::STATUS_PUBLIC : self::STATUS_LOGIN )
 				) );
 			}
 			$language = trim( (string)( $entry['language'] ?? '' ) );
 			if ( $languageProp !== null && $language !== '' ) {
 				$qualifiers->addSnak( new PropertyValueSnak(
-					new NumericPropertyId( $languageProp ),
+					PropertyIdFactory::create( $languageProp ),
 					new StringValue( $language )
 				) );
 			}
@@ -289,7 +290,7 @@ final class AccessEntries {
 				&& preg_match( '/^Q[1-9]\d*$/', (string)( $entry['license'] ?? '' ) ) === 1
 			) {
 				$qualifiers->addSnak( new PropertyValueSnak(
-					new NumericPropertyId( $licenseProp ),
+					PropertyIdFactory::create( $licenseProp ),
 					new EntityIdValue( new ItemId( (string)$entry['license'] ) )
 				) );
 			}
@@ -298,13 +299,56 @@ final class AccessEntries {
 				&& !empty( $entry['archivedTitle'] )
 			) {
 				$qualifiers->addSnak( new PropertyValueSnak(
-					new NumericPropertyId( $archiveProp ),
+					PropertyIdFactory::create( $archiveProp ),
 					new StringValue( (string)$entry['archivedTitle'] )
 				) );
 			}
 			$statement->setQualifiers( $qualifiers );
 			$item->getStatements()->addStatement( $statement );
 		}
+	}
+
+	/**
+	 * Attach/replace the `extracted text` qualifier on the `has access file`
+	 * statement that points at `$accessFileItemId`. Server-managed (the Tika
+	 * extraction job); the browser access editor never sets it.
+	 *
+	 * @return bool whether the access-file statement was found
+	 */
+	public static function attachExtractedText(
+		Item $item,
+		EmbeddableContentConfig $config,
+		string $accessFileItemId,
+		string $extractedTextItemId
+	): bool {
+		$props = $config->sourcePropertyIds();
+		$hasProp = $props['hasAccessFile'] ?? null;
+		$extractedProp = $props['extractedText'] ?? null;
+		if ( $hasProp === null || $extractedProp === null
+			|| !preg_match( '/^Q[1-9]\d*$/', $accessFileItemId )
+			|| !preg_match( '/^Q[1-9]\d*$/', $extractedTextItemId )
+		) {
+			return false;
+		}
+		foreach ( self::statements( $item, $hasProp ) as $statement ) {
+			if ( self::entityIdValue( $statement ) !== $accessFileItemId ) {
+				continue;
+			}
+			$qualifiers = $statement->getQualifiers();
+			$kept = new SnakList();
+			foreach ( $qualifiers as $qualifier ) {
+				if ( $qualifier->getPropertyId()->getSerialization() !== $extractedProp ) {
+					$kept->addSnak( $qualifier );
+				}
+			}
+			$kept->addSnak( new PropertyValueSnak(
+				\EmbeddableContent\PropertyIdFactory::create( $extractedProp ),
+				new EntityIdValue( new ItemId( $extractedTextItemId ) )
+			) );
+			$statement->setQualifiers( $kept );
+			return true;
+		}
+		return false;
 	}
 
 	/**
@@ -362,6 +406,17 @@ final class AccessEntries {
 				'license' => $fileItem !== null ? self::licenseOfItem( $fileItem, $licenseProp ) : '',
 				'fileId' => $fileId,
 			];
+			$extractedId = self::qualifierEntityId( $statement, $props['extractedText'] ?? null );
+			if ( $extractedId !== '' ) {
+				$entry['extractedText'] = $extractedId;
+				$extractedItem = self::loadItem( $extractedId );
+				$extractedTitle = $extractedItem !== null
+					? self::fileTitleOfItem( $extractedItem, $props['file'] ?? null )
+					: null;
+				if ( $extractedTitle !== null ) {
+					$entry['extractedTextFile'] = $extractedTitle->getPrefixedText();
+				}
+			}
 			$language = self::qualifierString( $statement, $languageProp );
 			if ( $language !== '' ) {
 				$entry['language'] = $language;
@@ -459,8 +514,8 @@ final class AccessEntries {
 			return;
 		}
 		try {
-			$accessId = new NumericPropertyId( $accessProp );
-			$archiveId = new NumericPropertyId( $archiveProp );
+			$accessId = PropertyIdFactory::create( $accessProp );
+			$archiveId = PropertyIdFactory::create( $archiveProp );
 		} catch ( \Throwable $e ) {
 			return;
 		}
@@ -507,7 +562,7 @@ final class AccessEntries {
 			return [];
 		}
 		try {
-			$id = new NumericPropertyId( $propertyId );
+			$id = PropertyIdFactory::create( $propertyId );
 		} catch ( \Throwable $e ) {
 			return [];
 		}
@@ -542,7 +597,7 @@ final class AccessEntries {
 
 	private static function qualifierValue( Statement $statement, string $propertyId ) {
 		try {
-			$id = new NumericPropertyId( $propertyId );
+			$id = PropertyIdFactory::create( $propertyId );
 		} catch ( \Throwable $e ) {
 			return null;
 		}

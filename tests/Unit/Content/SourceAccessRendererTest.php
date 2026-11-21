@@ -63,6 +63,21 @@ final class SourceAccessRendererTest extends TestCase {
 		$this->assertStringContainsString( 'Special:SourceFile', $cell );
 	}
 
+	public function testExtractedTextLinkIsRendered(): void {
+		$cell = SourceAccessRenderer::render(
+			[
+				[ 'kind' => 'file', 'href' => 'https://wiki/Special:SourceFile?file=X.pdf', 'label' => 'pdf' ],
+				[ 'kind' => 'text', 'href' => 'https://wiki/Special:SourceText?file=X.pdf', 'label' => 'text' ],
+			],
+			'N/A',
+			false,
+			'',
+			'Login'
+		);
+		$this->assertStringContainsString( '>text</a>', $cell );
+		$this->assertStringContainsString( 'Special:SourceText', $cell );
+	}
+
 	public function testMixedEntriesJoinWithPipe(): void {
 		$cell = SourceAccessRenderer::render(
 			[

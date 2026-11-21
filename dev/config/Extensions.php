@@ -289,6 +289,7 @@ $wgWBRepoSettings['enableEntitySearchUI'] = false;
 $wgFileExtensions[] = 'pdf';
 $wgFileExtensions[] = 'epub';
 $wgFileExtensions[] = 'djvu';
+$wgFileExtensions[] = 'txt';
 
 // ---- Issue #35 download-mode access uploads (CI parity with production) ----
 // The access field's `download` mode uploads via UploadFromUrl, which needs
