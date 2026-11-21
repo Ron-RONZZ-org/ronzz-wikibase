@@ -380,6 +380,12 @@ def flow_final_item(op, base: str, api: str, url: str, body: str, special: str) 
     Collective:, issue follow-up) redirect through the complete/<id> finalize
     round-trip to the classic page, whose wikibase_item page property maps it
     back to the item."""
+    if "/manual/content" in url:
+        # Book/scholarlyArticle route manual creates through the systematic
+        # abstract/summary step; submit it (blank is allowed) before
+        # resolving the created item.
+        token = edit_token(body)
+        url, body = page_post(op, url, {"wpEditToken": token, "wpSubmit": "1"})
     m = re.search(r"/wiki/Item:(Q\d+)$", url)
     if m:
         qid = m.group(1)
@@ -912,6 +918,11 @@ def flow_source_class_manual(op, base: str, api: str, class_key: str, fields: di
     post = {"wpEditToken": token, "wpSubmit": "1"}
     post.update(fields)
     url, body = page_post(op, url, post)
+    if "/manual/content" in url:
+        # scholarlyArticle/book carry the systematic abstract/summary step;
+        # submitting it (even blank) finishes the create.
+        token2 = edit_token(body)
+        url, body = page_post(op, url, {"wpEditToken": token2, "wpSubmit": "1"})
     return flow_final_item(op, base, api, url, body, f"AddSource/{class_key}/manual")
 
 
@@ -2380,6 +2391,76 @@ def flow_source_webpage_parent_subdomain(op, base: str, api: str,
     return webpage_qid, parent
 
 
+def page_wikitext(op, api: str, title: str) -> str:
+    """The current wikitext of a page (the HTML page has rendered headings,
+    not `== Heading ==`)."""
+    r = api_call(op, api, {
+        "action": "query", "titles": title, "prop": "revisions",
+        "rvprop": "content", "rvslots": "main", "format": "json",
+        "formatversion": "2",
+    })
+    pages = r.get("query", {}).get("pages", [])
+    if not pages or "missing" in pages[0]:
+        raise FlowError(f"page {title!r} is missing")
+    return pages[0].get("revisions", [{}])[0].get("slots", {}).get("main", {}).get("content", "")
+
+
+def flow_source_manual_prose_step(op, base: str, api: str, class_key: str,
+                                  field: str, heading: str, text: str) -> str:
+    """The content step is systematic for scholarlyArticle/book: a manual
+    create with NO fetched content still routes to the abstract/summary step,
+    and the submitted prose lands on the Source: page."""
+    label = f"Page-flow E2E manual {heading.lower()} {int(time.time())}"
+    url, body = page_get(op, base, f"/wiki/Special:AddSource/{class_key}/manual")
+    token = edit_token(body)
+    url, body = page_post(op, url, {
+        "wptitle": label, "wpEditToken": token, "wpSubmit": "1",
+    })
+    if "/manual/content" not in url:
+        raise FlowError(f"{class_key}/manual did not route to the systematic content step: {url} {find_error(body)}")
+    if f"mw-input-{field}" not in body:
+        raise FlowError(f"{class_key} content step missing the {field} textarea")
+    token2 = edit_token(body)
+    url, body = page_post(op, url, {
+        field: text, "wpEditToken": token2, "wpSubmit": "1",
+    })
+    if "/manual/content" in url:
+        print("DEBUG content submit still on step:", find_error(body)[:800])
+    qid = flow_final_item(op, base, api, url, body, f"AddSource/{class_key}/manual ({heading})")
+    r = api_call(op, api, {"action": "wbgetentities", "ids": qid, "props": "sitelinks", "format": "json"})
+    title = (r.get("entities", {}).get(qid, {}).get("sitelinks", {}).get("wikibase", {}).get("title", ""))
+    if not title:
+        raise FlowError(f"{qid} has no classic page sitelink")
+    page = page_wikitext(op, api, title)
+    if f"== {heading} ==" not in page or text not in page:
+        print("DEBUG wikitext:", page[:1500])
+        raise FlowError(f"{title} missing the systematic == {heading} == section")
+    return qid
+
+
+def flow_addsource_api_prose(op, base: str, api: str, class_key: str,
+                             extra: dict, heading: str, text: str) -> str:
+    """API/MCP parity: action=addsource accepts the page-prose field and the
+    API-created Source: page carries the same section as the browser form."""
+    token = api_call(op, api, {"action": "query", "meta": "tokens", "format": "json"})["query"]["tokens"]["csrftoken"]
+    title = f"Page-flow E2E api {heading.lower()} {int(time.time())}"
+    params = {
+        "action": "addsource", "class": class_key, "title": title,
+        "token": token, "format": "json", **extra,
+    }
+    r = api_call(op, api, params, post=True)
+    if r.get("error"):
+        raise FlowError(f"addsource {class_key} prose rejected: {r['error']}")
+    qid = r.get("source", {}).get("entityId")
+    page_title = r.get("source", {}).get("pageTitle")
+    if not qid or not page_title:
+        raise FlowError(f"addsource {class_key} prose did not create an item/page: {r}")
+    page = page_wikitext(op, api, page_title)
+    if f"== {heading} ==" not in page or text not in page:
+        raise FlowError(f"{page_title} missing the API-written == {heading} == section")
+    return qid
+
+
 def flow_source_content_step(op, base: str, api: str, doi: str, author_qid: str,
                              license_qid: str = "") -> str:
     """Scholarly-article fetched-content review step (issue follow-up):
@@ -2565,6 +2646,12 @@ def flow_source_book_access_file(op, base: str, api: str, label: str,
         # The OOUI form renders wp + field key as-is: "accessFile" -> "wpaccessFile".
         "wpaccessFile": (filename, content, ctype),
     })
+    if "/manual/content" in url:
+        # Book/scholarlyArticle carry the systematic abstract/summary step;
+        # the access file already uploaded on the manual step must survive
+        # the content-step beforeCreate (the token record carries it).
+        token2 = edit_token(body)
+        url, body = page_post(op, url, {"wpEditToken": token2, "wpSubmit": "1"})
     qid = flow_final_item(op, base, api, url, body, "AddSource/book/manual (access file)")
     return qid
 
@@ -6592,6 +6679,22 @@ def main() -> int:
             f"{article_item} access file statement missing after the content step ({file_val!r})"
         print(f"[ok] AddSource/scholarlyArticle content step -> {article_item}: "
               f"abstract/keywords reviewed + access file carried over the content step")
+
+        # 2l-bis. Systematic abstract/summary step (no fetched content) +
+        #        API/MCP page-prose parity.
+        track(flow_source_manual_prose_step(
+            op, base, api, "scholarlyArticle", "wpabstract", "Abstract",
+            "E2E systematic abstract text."))
+        track(flow_source_manual_prose_step(
+            op, base, api, "book", "wpsummary", "Summary",
+            "E2E systematic summary text."))
+        track(flow_addsource_api_prose(
+            op, base, api, "scholarly-article", {"abstract": "E2E API abstract."},
+            "Abstract", "E2E API abstract."))
+        track(flow_addsource_api_prose(
+            op, base, api, "book", {"bookSummary": "E2E API summary."},
+            "Summary", "E2E API summary."))
+        print("[ok] AddSource abstract/summary: systematic manual step + API page-prose parity")
 
         # 2m. Special:AddFictionalCharacter (issue follow-up): Wikidata
         #     search; label auto-generates with the "(fictional character)"

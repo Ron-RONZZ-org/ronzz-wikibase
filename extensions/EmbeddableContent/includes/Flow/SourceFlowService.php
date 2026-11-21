@@ -81,6 +81,11 @@ final class SourceFlowService {
 		// the author panel). They bypass the legacy group-of-humans name-list
 		// guard; no form checkbox is needed.
 		'collectiveAuthorIds',
+		// The page-skeleton prose key: API callers pass `bookSummary`
+		// (because `summary` is the edit summary); ApiAddSource maps it to
+		// `summary` before prepare/page creation. The browser form already
+		// uses `summary` directly for the page body.
+		'summary',
 	];
 
 	/**
@@ -534,13 +539,17 @@ final class SourceFlowService {
 			'map' => 'Map',
 			'presentation' => 'Presentation',
 			'dataset' => 'Dataset',
+			// The form already gives these classes a Source: page; the API
+			// path must not silently skip it.
+			'transcript' => 'Transcript',
+			'text' => 'Text',
 			'law' => 'Law',
 		];
 		$template = $templates[$formKey] ?? '';
 		if ( $template === '' ) {
 			return null;
 		}
-		return new ClassicPageSpec( NS_SOURCE, $template );
+		return new ClassicPageSpec( NS_SOURCE, $template, '__EXTERNAL_LINK_PENDING__', $formKey );
 	}
 
 	// ------------------------------------------------------------- building
