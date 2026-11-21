@@ -147,8 +147,17 @@ Nov 2026 access-file entities / upload multi-author / File PDF viewer:
 `access-file-entities.md` (per-file `access file` items + `has access file`
 links, per-access language, `PDF: en|fr` Source rendering, backfill),
 `upload-multi-author-inference.md` (multi-value author entity + source author
-inference on Special:Upload/UpdateFile), `file-pdf-viewer.md` (browser-native
-PDF viewer + fullscreen on File: pages and Special:SourceFile).
+inference on Special:Upload/UpdateFile), `file-pdf-viewer.md` (browser-native PDF viewer on File: pages and
+Special:SourceFile; the fullscreen control was later removed — see
+`fullscreen-removed-open-newtab.md`).
+
+Nov 2026 pre-upload image editor: `upload-image-editor.md` (vendored TOAST UI
+Image Editor, loaded on demand; crop/rotate/flip/filter; raster only; telemetry
+disabled; `uploadimage.js` + `mediaeditor.js`).
+Nov 2026 media credits: `media-credits-all-embeds.md` (credit every captioned
+file type server-side; captionless images/audio/video/PDF links via
+`wbEmbeddedFiles` + `mediaopen.js`; one paragraph per gallery; infoboxes
+skipped; `noCredit` still suppresses).
 
 Nov 2026 Update* clear semantics: `update-blank-clears-statements.md`
 (a blank field on `Special:Update*` removes its statement when the item is

@@ -3338,6 +3338,20 @@ def flow_uploadmeta_module_source(op, base: str) -> None:
                         "(multiple logo-license dialogs regression)")
 
 
+def flow_imageeditor_module_source(op, base: str) -> None:
+    """The image editor is an on-demand ResourceLoader module: assert the
+    served bundle carries the editor, the container and the telemetry-off
+    guard, and that the vendored asset itself is reachable."""
+    _, body = page_get(op, base,
+        "/load.php?modules=ext.embeddableContent.imageeditor&lang=en&skin=vector&debug=true")
+    for needle in [ "tui.ImageEditor", "wb-imageeditor-container", "toDataURL",
+                    "usageStatistics = false" ]:
+        if needle not in body:
+            raise FlowError(f"imageeditor module: missing {needle}")
+    page_get(op, base,
+        "/extensions/EmbeddableContent/resources/tui-image-editor/tui-image-editor.min.js")
+
+
 def flow_filepage_module_source(op, base: str) -> None:
     """File: page copy toolbar (2026-09 UX batch). The two copy buttons and
     the upload hand-off are JS-side (clipboard + window.opener), so a curl
@@ -3348,6 +3362,8 @@ def flow_filepage_module_source(op, base: str) -> None:
         "/load.php?modules=ext.embeddableContent.filepage&lang=en&skin=vector&debug=true")
     if "ca-wb-file-copyembed" not in body or "ca-wb-file-copylink" not in body:
         raise FlowError("filepage module: copy buttons missing")
+    if "ca-wb-file-open" not in body or "embeddablecontent-file-open-newtab" not in body:
+        raise FlowError("filepage module: open-in-new-tab button missing")
     if "wb-file-toolbar" not in body:
         raise FlowError("filepage module: inline toolbar container missing")
     if "[[File:' + name + ']]" not in body:
@@ -3375,6 +3391,18 @@ def flow_clearfields_module_source(op, base: str) -> None:
                     "embeddablecontent-clear-field" ]:
         if needle not in body:
             raise FlowError(f"clearfields module: missing {needle}")
+
+
+def flow_mediaopen_module_source(op, base: str) -> None:
+    """The content-page embedded-file open link is JS-side (it locates every
+    rendered img/audio/video/PDF link): assert the served module reads the
+    server map and handles galleries."""
+    _, body = page_get(op, base,
+        "/load.php?modules=ext.embeddableContent.mediaopen&lang=en&skin=vector&debug=true")
+    for needle in ["wbEmbeddedFiles", "wb-media-open", "wb-media-open-gallery",
+                   "embeddablecontent-file-open-newtab"]:
+        if needle not in body:
+            raise FlowError(f"mediaopen module: missing {needle}")
 
 
 def flow_uploadform_module_source(op, base: str) -> None:
@@ -6348,6 +6376,10 @@ def main() -> int:
         _, auth_special = page_get(op, base, internal_special)
         assert "<iframe" in auth_special and "wb-sourcefile-preview" in auth_special, \
             "logged-in internal PDF preview missing"
+        assert "wb-sourcefile-open" in auth_special and 'target="_blank"' in auth_special, \
+            "logged-in Special:SourceFile missing the open-in-new-tab link"
+        assert "wb-sourcefile-open" not in anon_special, \
+            "anonymous Special:SourceFile must not render the open-in-new-tab link"
         assert "name='wpaccept'" not in auth_special and 'name="wpaccept"' not in auth_special, \
             "internal download must not require licence acceptance"
         # [[File:]] parse is user-dependent: anon → placeholder, logged-in → image.
@@ -6355,6 +6387,9 @@ def main() -> int:
             "action": "parse", "title": "Main Page",
             "text": f"[[File:{internal_file_title[5:]}]]", "format": "json"})
         anon_parse_html = anon_parse.get("parse", {}).get("text", {}).get("*", "")
+        if "wb-internal-file-placeholder" not in anon_parse_html:
+            print("DEBUG internal_file_title:", internal_file_title)
+            print("DEBUG anon_parse:", json.dumps(anon_parse)[:2500])
         assert "wb-internal-file-placeholder" in anon_parse_html and \
             "Unfortunately, due to copyright restrictions" in anon_parse_html, \
             "anonymous [[File:]] did not render the internal-file placeholder"
@@ -7023,8 +7058,11 @@ def main() -> int:
               "dest-name normalization, validate latest-wins + banner dedupe")
         flow_filepage_module_source(op, base)
         flow_clearfields_module_source(op, base)
-        print("[ok] filepage module source: inline copy buttons + upload hand-off "
+        flow_mediaopen_module_source(op, base)
+        print("[ok] filepage/mediaopen module source: inline copy + open-in-new-tab + upload hand-off "
               "(copy-on-upload, upload-another opener reload)")
+        flow_imageeditor_module_source(op, base)
+        print("[ok] imageeditor module source: vendored editor + telemetry-off reachable")
         flow_uploadform_module_source(op, base)
         print("[ok] uploadform module source: file-source gating, empty-field warning, "
               "same-origin fetch submission, inline error + automatic token retry")

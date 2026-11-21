@@ -1,0 +1,62 @@
+/* TOAST UI Image Editor wrapper (resources/imageeditor.js) and the preview's
+ * "Edit image" trigger. The editor is a focused modal; these overrides keep
+ * its light chrome in step with the wiki's Codex theme tokens. */
+.wb-imageeditor-container {
+	height: 100%;
+	min-height: 420px;
+}
+
+.wb-imageeditor-container .tui-image-editor-wrap,
+.wb-imageeditor-container .tui-image-editor,
+.wb-imageeditor-container .tui-image-editor-main,
+.wb-imageeditor-container .tui-image-editor-main-container {
+	height: 100% !important;
+}
+
+.wb-imageeditor-container .tui-image-editor-header,
+.wb-imageeditor-container .tui-image-editor-controls,
+.wb-imageeditor-container .tui-image-editor-submenu,
+.wb-imageeditor-container .tui-image-editor-help-menu {
+	background-color: var(--background-color-base, #ffffff);
+	color: var(--color-base, #202122);
+}
+
+.wb-imageeditor-container .tui-image-editor-menu > .tui-image-editor-item {
+	color: var(--color-base, #202122);
+}
+
+.wb-imageeditor-container .tui-image-editor-menu > .tui-image-editor-item.active {
+	color: var(--color-progressive, #3366cc);
+}
+
+.wb-imageeditor-container .tui-image-editor-range-wrap .tui-image-editor-range-value {
+	color: var(--color-base, #202122);
+}
+
+/* The menu/header icon set is black; invert it for the skin's night mode so
+ * the toolbar stays legible. */
+.skin-theme-clientpref-night .wb-imageeditor-container .tui-image-editor-menu-icon,
+.skin-theme-clientpref-night .wb-imageeditor-container .tui-image-editor-header-logo,
+.skin-theme-clientpref-night .wb-imageeditor-container .tui-image-editor-controls-logo,
+.skin-theme-clientpref-night .wb-imageeditor-container .tui-image-editor-download-btn,
+.skin-theme-clientpref-night .wb-imageeditor-container .tui-image-editor-load-btn {
+	filter: invert(0.9);
+}
+
+/* The preview's "Edit image" button (uploadimage.js). */
+.wb-uploadmeta-preview .wb-image-edit {
+	margin-top: 0.4em;
+	border: 1px solid var(--border-color-base, #a2a9b1);
+	background: var(--background-color-neutral-subtle, #f8f9fa);
+	color: var(--color-base, #202122);
+	border-radius: 2px;
+	padding: 3px 10px;
+	font-family: inherit;
+	font-size: 0.85em;
+	cursor: pointer;
+}
+
+.wb-uploadmeta-preview .wb-image-edit:hover {
+	background: var(--background-color-base, #ffffff);
+	border-color: var(--border-color-base, #72777d);
+}

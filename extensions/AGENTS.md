@@ -1366,13 +1366,19 @@ report). See `SimpleMathJax/VENDORED.md`.
   (`[[File:xxx]]`) and "Copy direct link" (the media URL). The same module
   completes the `Special:Upload` hand-off (below). The File page's update
   button is **"Update metadata"** (Special:UpdateFile) and joins this same
-  file toolbar instead of a separate block row. PDF uploads gain a
-  browser-native iframe viewer (`resources/pdfviewer.js`, no third-party PDF
-  library) with a fullscreen control and an open-in-new-tab link; the same
-  module wraps `Special:SourceFile`'s preview. Fullscreen uses
-  `position:fixed; inset:0` and a 100% flex iframe (not `100vw/100vh` +
-  `height:auto`), and the SourceFile iframe carries no inline border so the
-  fullscreen reset applies.
+  file toolbar instead of a separate block row. PDF uploads keep a
+  browser-native iframe viewer (no third-party PDF library) with **no
+  fullscreen control** — the fixed-position wrapper caused layout
+  regressions and the browser viewer has its own. The **Open in a new tab**
+  link is generalised: the File toolbar carries it for every file type,
+  `Special:SourceFile` renders it for every preview, and content-page embeds
+  get a small `noprint` link (`Media\FileOpenLink` for captioned
+  thumbnails/frames; `resources/mediaopen.js` + the `wbEmbeddedFiles` JS
+  config map for captionless images, audio/video, PDF/EPUB/DJVU link embeds
+  and galleries — one paragraph below a gallery). Infoboxes
+  (`.wb-infobox`, `.wb-image-gallery`) are excluded. The viewer styles live
+  in `resources/fileviewer.css` (module `ext.embeddableContent.fileviewer`);
+  the old `pdfviewer.js`/`pdfviewer.css` module is gone.
   (b) **Alphabetical pickers** — `Spec/LabelSorter` (ICU `Collator`,
   locale-aware) sorts Special:AddSource's source-type radio picker and
   Special:AddCollective's class select; the latter also gains localized
@@ -1476,6 +1482,22 @@ report). See `SimpleMathJax/VENDORED.md`.
   `embeddablecontent-upload-resize`/`-autoext`/`-resizing` (en/fr/eo). No
   vocabulary/seed/config-map change; deploy = extension rsync + php-fpm
   restart + parser-cache purge.
+
+- **Pre-upload image editor (ADR `docs/decisions/upload-image-editor.md`)**:
+  a vendored **TOAST UI Image Editor** 3.15.3 + `tui-color-picker` 2.2.8
+  (`resources/tui-image-editor/`, MIT, SHA-256 + refresh in `VENDORED.md`)
+  gives crop / flip / rotate / filter on `Special:Upload`, the Add\*/Update\*
+  portrait/logo fields and the Add\* multi-image dialog. The bundle is loaded
+  **on demand** (`ext.embeddableContent.imageeditor`) only when the user clicks
+  **Edit image**; the editor's Google Analytics ping is disabled by
+  `resources/tui-telemetry-off.js` (loaded first) and
+  `usageStatistics: false`. Apply exports `editor.toDataURL()` into a new
+  `File` that replaces the input's file and re-enters the existing
+  preview/resize/auto-extension pipeline. Raster only (JPEG/PNG/WebP); SVG and
+  animated GIF are deliberately untouched. The dialog tints its chrome with
+  Codex theme tokens and inverts icons in night mode. No page loads the module
+  by default; deploy = extension rsync + php-fpm restart + message-blob purge
+  (new i18n keys) + cache purge.
 
 - **Copy internal mention + quotation attribution + fictional-character
   aliases (ADR `docs/decisions/mention-and-quotation-attribution.md`,
@@ -2390,14 +2412,23 @@ report). See `SimpleMathJax/VENDORED.md`.
   `action=imagefacts` gains `authorEntity`/`sourceEntity`/`sourceText` and
   the matching `clear` tokens; `imagefacts-fields` exposes the provenance
   ids. The MCP image-facts tools mirror the fields (`dist/` rebuilt).
-- **Automatic thumbnail credit**: `Media/ImageCredit` (the
-  `ImageBeforeProduceHTML` handler) appends a compact "Image: author ·
-  license · source" `<div class="wb-image-credit">` to the caption of a
-  thumb/framed image on a content page, resolved from the file's sitelinked
-  image item (entity labels link to their classic/Item pages; missing facts
-  degrade silently). The image item page is a parser-cache dependency (the
-  `ItemImage` pattern) and `resources/imagecredit.css` uses Codex tokens.
-  Suppression: the canonical `class=noCredit` option (the token is stripped
-  from the class list on every image) and a bare `noCredit` caption
-  (`Spec/ImageCredit`, unit-tested). Parser-output change — purge the
-  parser cache on deploy.
+- **Automatic media credit (ADR `docs/decisions/media-credits-all-embeds.md`)**:
+  `Media/ImageCredit` (the `ImageBeforeProduceHTML` handler) appends a compact
+  "Image: author · license · source" `<div class="wb-image-credit">` to the
+  caption of ANY captioned file embed on a content page — images, audio,
+  video and PDF (the old bitmap/drawing media-type guard is gone). The credit
+  resolves from the file's sitelinked item (entity labels link to their
+  classic/Item pages; missing facts degrade silently). The image item page is
+  a parser-cache dependency (the `ItemImage` pattern) and
+  `resources/imagecredit.css` uses Codex tokens. **Captionless embeds**
+  (plain image, audio/video player, PDF/EPUB/DJVU link) get the same credit
+  client-side: `Hooks::wireEmbeddedMediaOpenLinks` resolves
+  `ImageCredit::creditLineFor()` into `wbEmbeddedFiles` (plus `internal`),
+  and `resources/mediaopen.js` appends it with the open link. **Galleries**
+  get ONE paragraph below the gallery for all images; **infoboxes**
+  (`.wb-infobox`, `.wb-image-gallery`) are skipped (the on-wiki templates
+  carry `wb-infobox`). Suppression: `class=noCredit` (stripped, leaving a
+  `wb-no-credit` marker the client-side path also honours) and a bare
+  `noCredit` caption (`Spec/ImageCredit`, unit-tested). Internal files skip
+  the client-side link/credit for anonymous readers. Parser-output change —
+  purge the parser cache on deploy.
