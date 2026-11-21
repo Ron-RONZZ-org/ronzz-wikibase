@@ -496,7 +496,7 @@ jobs:
           echo "$out"
           echo "$out" | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d["jobs"], "no job was popped"; j=d["jobs"][0]; assert j["type"]=="extractPdfText", j; assert j["status"]=="failed", j'
           db "SELECT COUNT(*) AS n FROM job WHERE job_cmd='extractPdfText' AND job_attempts = 1;" \
-            | python3 -c 'import sys,json; assert json.load(sys.stdin)[0]["n"] >= 1'
+            | python3 -c 'import sys,json; assert int(json.load(sys.stdin)[0]["n"]) >= 1'
           $COMPOSE start wikibase-jobrunner > /dev/null
 
       - name: Image-facts E2E (rights basis + citation-exception notice)
