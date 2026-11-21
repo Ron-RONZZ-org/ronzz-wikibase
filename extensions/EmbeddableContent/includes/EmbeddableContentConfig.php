@@ -213,6 +213,18 @@ class EmbeddableContentConfig {
 	}
 
 	/**
+	 * Event property ids: the OpenStreetMap location pair
+	 * (`location (OSM)` external-id + `location (label)` display string) read
+	 * by the `{{#osm-place:location}}` renderer. Optional, so a config
+	 * emitted before the event vocabulary stays valid.
+	 *
+	 * @return array<string,string> canonical key => property id
+	 */
+	public function eventPropertyIds(): array {
+		return $this->optionalStringMap( 'eventProperties' );
+	}
+
+	/**
 	 * Image-fact property ids for the item-per-upload created by
 	 * Special:Upload (`image`, `license`, `imageAuthor`,
 	 * `imageLicenseInfo` — the same shared properties the Add* portrait/logo

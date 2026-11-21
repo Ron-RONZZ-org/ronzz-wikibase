@@ -16,7 +16,7 @@ use Wikibase\DataModel\Snak\PropertyValueSnak;
 use Wikibase\Repo\WikibaseRepo;
 
 /**
- * `{{#osm-place:birth}}` / `{{#osm-place:death}}` / `{{#osm-place:jurisdiction}}`
+ * `{{#osm-place:birth}}` / `{{#osm-place:death}}` / `{{#osm-place:jurisdiction}}` / `{{#osm-place:location}}`
  * parser function — the "Place of birth"/"Place of death" infobox cell of a
  * Person: page (osm-places follow-up), and the "Jurisdiction" cell of a
  * legal Source: page (the Zotero-aligned batch; territorial jurisdiction
@@ -60,7 +60,7 @@ final class OsmPlaceRow {
 	 */
 	public static function onOsmPlaceRow( EmbeddableContentConfig $config, Parser $parser, array $args ): array {
 		$which = strtolower( trim( (string)( $args[0] ?? '' ) ) );
-		if ( !in_array( $which, [ 'birth', 'death', 'jurisdiction' ], true ) ) {
+		if ( !in_array( $which, [ 'birth', 'death', 'jurisdiction', 'location' ], true ) ) {
 			return [ 'text' => '', 'noparse' => false, 'isHTML' => false ];
 		}
 
@@ -72,6 +72,23 @@ final class OsmPlaceRow {
 		$entity = WikibaseRepo::getEntityLookup()->getEntity( $itemId );
 		if ( !$entity instanceof Item ) {
 			return [ 'text' => '', 'noparse' => false, 'isHTML' => false ];
+		}
+
+		// Event location (history pages): the OSM external-id + the parallel
+		// display label, rendered exactly like the person places.
+		if ( $which === 'location' ) {
+			$props = $config->eventPropertyIds();
+			$osmId = self::firstString( $entity, $props['locationOsm'] ?? null );
+			if ( $osmId === '' || preg_match( '/^(node|way|relation)\/[1-9]\d*$/', $osmId ) !== 1 ) {
+				return [ 'text' => '', 'noparse' => false, 'isHTML' => false ];
+			}
+			self::registerCacheDependency( $parser, $itemId );
+			$label = self::firstString( $entity, $props['locationLabel'] ?? null );
+			return [
+				'text' => self::linkText( $osmId, $label === '' ? $osmId : $label ),
+				'noparse' => false,
+				'isHTML' => false,
+			];
 		}
 
 		// The source-class territorial jurisdiction lives in sourceProperties
