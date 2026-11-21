@@ -632,7 +632,7 @@ class Hooks {
 		// is prefilled, so clearing a field is the explicit removal gesture;
 		// Spec\StatementSnapshot decides server-side whether the blank may
 		// remove the statement.
-		if ( $title->isSpecial() && str_starts_with( $title->getText(), 'Update' ) ) {
+		if ( $title->isSpecialPage() && str_starts_with( $title->getText(), 'Update' ) ) {
 			$out->addModules( 'ext.embeddableContent.clearfields' );
 		}
 
