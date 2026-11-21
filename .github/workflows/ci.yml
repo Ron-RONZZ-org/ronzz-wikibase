@@ -445,12 +445,14 @@ jobs:
           # Upload a PDF as the admin. The PageSaveComplete hook must enqueue
           # one job; nothing may consume it (the type is excluded from the
           # default queue, and request-time jobs use that same default queue).
-          login_token=$(curl -s "$API_URL?action=query&meta=tokens&type=login&format=json" \
+          login_token=$(curl -s -c /tmp/pdfq.cookies -b /tmp/pdfq.cookies \
+            "$API_URL?action=query&meta=tokens&type=login&format=json" \
             | python3 -c 'import sys,json; print(json.load(sys.stdin)["query"]["tokens"]["logintoken"])')
           curl -s -c /tmp/pdfq.cookies -b /tmp/pdfq.cookies "$API_URL" \
             --data-urlencode action=login --data-urlencode "lgname=$MW_ADMIN_NAME" \
             --data-urlencode "lgpassword=$MW_ADMIN_PASS" \
-            --data-urlencode "lgtoken=$login_token" --data-urlencode format=json > /dev/null
+            --data-urlencode "lgtoken=$login_token" --data-urlencode format=json > /tmp/queue-login.json
+          python3 -c 'import json; d=json.load(open("/tmp/queue-login.json")); assert d["login"]["result"] == "Success", d'
           csrf=$(curl -s -b /tmp/pdfq.cookies "$API_URL?action=query&meta=tokens&format=json" \
             | python3 -c 'import sys,json; print(json.load(sys.stdin)["query"]["tokens"]["csrftoken"])')
           echo 'JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCAzMDAgMzAwXSAvQ29udGVudHMgNCAwIFIgL1Jlc291cmNlcyA8PCAvRm9udCA8PCAvRjEgNSAwIFIgPj4gPj4gPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCA0NCA+PgpzdHJlYW0KQlQgL0YxIDEyIFRmIDcyIDI2MCBUZCAoRTJFKSBUaiBFVAplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iagp0cmFpbGVyCjw8IC9Sb290IDEgMCBSIC9TaXplIDYgPj4KJSVFT0YK' \
@@ -459,7 +461,7 @@ jobs:
             -F "file=@/tmp/queue.pdf;type=application/pdf" \
             -F "filename=Queue-E2E-${GITHUB_RUN_ID:-local}.pdf" \
             -F "comment=PDF extraction queue E2E" "$API_URL" > /tmp/queue-upload.json
-          python3 -c 'import sys,json; d=json.load(open("/tmp/queue-upload.json")); assert d["upload"]["result"] == "Success", d'
+          python3 -c 'import json; d=json.load(open("/tmp/queue-upload.json")); assert d.get("upload",{}).get("result") == "Success", d'
           for i in $(seq 1 10); do
             if [ "$(db "SELECT COUNT(*) AS n FROM job WHERE job_cmd='extractPdfText';" | num)" -ge 1 ]; then
               break
