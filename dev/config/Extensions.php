@@ -342,6 +342,18 @@ $wgRightsUrl = 'https://creativecommons.org/licenses/by-nc-sa/4.0/';
 $wgRightsText = 'CC BY-NC-SA 4.0';
 $wgRightsIcon = "{$wgResourceBasePath}/resources/assets/licenses/cc-by-nc-sa.png";
 
+// ---- PDF text extraction job queue ----
+// Long-running OCR jobs get their own type, drained by a dedicated worker
+// (production: a 10-minute root cron). The generic runJobs cycle and the CI
+// jobrunner must not pick them up. Production mirrors the two settings in
+// LocalSettings.php (RonzzIT:Runbook/Wikibase § PDF text extraction).
+$wgJobTypesExcludedFromDefaultQueue[] = 'extractPdfText';
+$wgJobTypeConf['extractPdfText'] = [
+	'class' => \MediaWiki\JobQueue\JobQueueDB::class,
+	'order' => 'timestamp',
+	'claimTTL' => 3600,
+];
+
 if ( file_exists( __DIR__ . '/ronzz-wikibase-config.php' ) ) {
 	require_once __DIR__ . '/ronzz-wikibase-config.php';
 }
