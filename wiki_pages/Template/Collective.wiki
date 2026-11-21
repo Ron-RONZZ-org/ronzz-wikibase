@@ -3,7 +3,7 @@
 <blockquote>
 '''Collective''' — part of the [[Collective:Main|collectives collection]]. Created via [[Special:AddCollective]].
 </blockquote>
-{| class="wikitable" style="float:right;clear:right;width:300px;margin:0 0 1em 1em;"
+{| class="wikitable wb-infobox" style="float:right;clear:right;width:300px;margin:0 0 1em 1em;"
 |-
 ! colspan="2" style="background:#f8f9fa;text-align:center;" | {{PAGENAME}}
 |-
