@@ -13,6 +13,7 @@ use EmbeddableContent\Search\EntityTermSearch;
 use EmbeddableContent\Spec\InternalFile;
 use EmbeddableContent\Spec\InternalMention;
 use MediaWiki\Html\Html;
+use MediaWiki\JobQueue\JobSpecification;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Logging\ManualLogEntry;
 use MediaWiki\Output\OutputPage;
@@ -24,6 +25,7 @@ use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Skin\SkinTemplate;
 use MediaWiki\SpecialPage\SpecialPage;
 use MediaWiki\Specials\SpecialSearch;
+use MediaWiki\Title\Title;
 use Wikimedia\HtmlArmor\HtmlArmor;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
@@ -273,6 +275,52 @@ class Hooks {
 		// page (its {{#source-archive:}} row depends on the subpage's
 		// existence, which is not a template dependency).
 		\EmbeddableContent\SourceArchive\SourceArchive::onPageSaved( $wikiPage );
+	}
+
+	/**
+	 * Queue one extractPdfText job for a saved PDF File page.
+	 *
+	 * The type is excluded from the default queue ($wgJobTypesExcludedFrom
+	 * DefaultQueue): OCR can take minutes, so a dedicated worker drains it
+	 * (`runJobs.php --type=extractPdfText --maxjobs=1 --maxtime=...`). The
+	 * job's page is the dedup key, so a re-save while a job is pending does
+	 * not stack another.
+	 */
+	/**
+	 * Queue one extractPdfText job for a PDF File title.
+	 *
+	 * Called from the UploadComplete handler for the normal upload paths.
+	 * PageSaveComplete is not a producer: it runs inside the upload's
+	 * deferred atomic update and does not fire for an upload here, and a
+	 * deferred write during the AddSource access-upload form can abort it —
+	 * those files are covered by the enqueuePdfExtractions backfill.
+	 *
+	 * The type is excluded from the default queue ($wgJobTypesExcludedFrom
+	 * DefaultQueue): OCR can take minutes, so a dedicated worker drains it
+	 * (`runJobs.php --type=extractPdfText --maxjobs=1 --maxtime=...`).
+	 *
+	 * @internal Public for the UploadHooks handler.
+	 */
+	public static function enqueuePdfExtractionForTitle( Title $title ): void {
+		if ( $title->getNamespace() !== NS_FILE ) {
+			return;
+		}
+		// Title::getExtension() does not exist in MW 1.46; derive it from the text.
+		if ( strtolower( (string)pathinfo( $title->getText(), PATHINFO_EXTENSION ) ) !== 'pdf' ) {
+			return;
+		}
+		// lazyPush: the producer can run inside an upload request, so the insert
+		// is deferred to the post-send phase (a synchronous write there can
+		// abort the upload's transaction).
+		MediaWikiServices::getInstance()
+			->getJobQueueGroupFactory()
+			->makeJobQueueGroup()
+			->lazyPush( new JobSpecification(
+				'extractPdfText',
+				[],
+				[ 'removeDuplicates' => true ],
+				$title
+			) );
 	}
 
 	/**
