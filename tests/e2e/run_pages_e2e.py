@@ -3418,6 +3418,20 @@ def flow_uploadmeta_module_source(op, base: str) -> None:
                         "(multiple logo-license dialogs regression)")
 
 
+def flow_imageeditor_module_source(op, base: str) -> None:
+    """The image editor is an on-demand ResourceLoader module: assert the
+    served bundle carries the editor, the container and the telemetry-off
+    guard, and that the vendored asset itself is reachable."""
+    _, body = page_get(op, base,
+        "/load.php?modules=ext.embeddableContent.imageeditor&lang=en&skin=vector&debug=true")
+    for needle in [ "tui.ImageEditor", "wb-imageeditor-container", "toDataURL",
+                    "usageStatistics = false" ]:
+        if needle not in body:
+            raise FlowError(f"imageeditor module: missing {needle}")
+    page_get(op, base,
+        "/extensions/EmbeddableContent/resources/tui-image-editor/tui-image-editor.min.js")
+
+
 def flow_filepage_module_source(op, base: str) -> None:
     """File: page copy toolbar (2026-09 UX batch). The two copy buttons and
     the upload hand-off are JS-side (clipboard + window.opener), so a curl
@@ -7100,6 +7114,8 @@ def main() -> int:
         flow_mediaopen_module_source(op, base)
         print("[ok] filepage/mediaopen module source: inline copy + open-in-new-tab + upload hand-off "
               "(copy-on-upload, upload-another opener reload)")
+        flow_imageeditor_module_source(op, base)
+        print("[ok] imageeditor module source: vendored editor + telemetry-off reachable")
         flow_uploadform_module_source(op, base)
         print("[ok] uploadform module source: file-source gating, empty-field warning, "
               "same-origin fetch submission, inline error + automatic token retry")

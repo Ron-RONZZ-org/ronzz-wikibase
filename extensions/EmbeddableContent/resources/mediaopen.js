@@ -57,26 +57,75 @@
 	}
 
 	function openSpan( file ) {
+		if ( file.internal === '1' && mw.user.isAnon() ) {
+			return null;
+		}
 		return $( '<span>' )
 			.addClass( 'wb-media-open noprint' )
 			.append( ' · ' )
 			.append( openLink( file ) );
 	}
 
-	/** Ensure the link is added once per embed, after `$target`. */
-	function placeAfter( $target, file ) {
-		if ( $target.next( '.wb-media-open' ).length ) {
-			return;
+	function creditSpan( file ) {
+		if ( !file.credit ) {
+			return null;
 		}
-		$target.after( openSpan( file ) );
+		return $( '<span>' )
+			.addClass( 'wb-image-credit wb-image-credit-inline' )
+			.html( file.credit );
 	}
 
-	/** Append the link to a figure caption (the credit lives there too). */
-	function placeInCaption( $caption, file ) {
-		if ( $caption.find( '.wb-media-open' ).length ) {
+	function isNoCredit( element ) {
+		if ( !element ) {
+			return false;
+		}
+		if ( element.classList && element.classList.contains( 'noCredit' ) ) {
+			return true;
+		}
+		return $( element ).closest( '.wb-no-credit' ).length > 0;
+	}
+
+	/** Ensure the credit/open link is added once per captionless embed. */
+	function placeAfter( $target, file, noCredit ) {
+		if ( $target.next( '.wb-media-tools' ).length ) {
 			return;
 		}
-		$caption.append( openSpan( file ) );
+		var $tools = $( '<span>' ).addClass( 'wb-media-tools' );
+		if ( !noCredit ) {
+			var $credit = creditSpan( file );
+			if ( $credit ) {
+				$tools.append( $credit );
+			}
+		}
+		var $open = openSpan( file );
+		if ( $open ) {
+			$tools.append( $open );
+		}
+		if ( $tools.children().length ) {
+			$target.after( $tools );
+		}
+	}
+
+	/** Append the credit/open link to a figure caption (the server credit is
+	 * already there for thumbnails; don't duplicate it). */
+	function placeInCaption( $caption, file, noCredit ) {
+		if ( $caption.find( '.wb-media-tools' ).length ) {
+			return;
+		}
+		var $tools = $( '<span>' ).addClass( 'wb-media-tools' );
+		if ( !noCredit && $caption.find( '.wb-image-credit' ).length === 0 ) {
+			var $credit = creditSpan( file );
+			if ( $credit ) {
+				$tools.append( $credit );
+			}
+		}
+		var $open = openSpan( file );
+		if ( $open ) {
+			$tools.append( $open );
+		}
+		if ( $tools.children().length ) {
+			$caption.append( $tools );
+		}
 	}
 
 	function inExcludedContainer( element ) {
@@ -85,25 +134,34 @@
 
 	function addGalleryLink( $gallery, files ) {
 		var seen = {};
-		var links = [];
+		var parts = [];
 		$gallery.find( 'img' ).each( function () {
 			var file = fileForUrl( this.getAttribute( 'src' ), files );
-			if ( file && !seen[ file.name ] ) {
-				seen[ file.name ] = true;
-				links.push( openLink( file ) );
+			if ( !file || seen[ file.name ] ) {
+				return;
+			}
+			seen[ file.name ] = true;
+			var $part = $( '<span>' ).addClass( 'wb-gallery-credit-item' );
+			if ( file.credit ) {
+				$part.append( $( '<span>' ).addClass( 'wb-image-credit' ).html( file.credit ) );
+			}
+			var $open = openSpan( file );
+			if ( $open ) {
+				$part.append( $open );
+			}
+			if ( $part.children().length ) {
+				parts.push( $part );
 			}
 		} );
-		if ( links.length === 0 || $gallery.next( '.wb-media-open-gallery' ).length ) {
+		if ( parts.length === 0 || $gallery.next( '.wb-media-open-gallery' ).length ) {
 			return;
 		}
-		var $paragraph = $( '<div>' )
-			.addClass( 'wb-media-open-gallery noprint' )
-			.append( mw.msg( 'embeddablecontent-file-open-newtab' ) + ': ' );
-		links.forEach( function ( $link, index ) {
+		var $paragraph = $( '<div>' ).addClass( 'wb-media-open-gallery noprint' );
+		parts.forEach( function ( $part, index ) {
 			if ( index > 0 ) {
 				$paragraph.append( ' · ' );
 			}
-			$paragraph.append( $link );
+			$paragraph.append( $part );
 		} );
 		$gallery.after( $paragraph );
 	}
@@ -134,14 +192,15 @@
 			if ( !file ) {
 				return;
 			}
+			var noCredit = isNoCredit( this );
 			var $figure = $( this ).closest( 'figure' );
 			var $caption = $figure.find( 'figcaption' ).first();
 			if ( $caption.length ) {
-				placeInCaption( $caption, file );
+				placeInCaption( $caption, file, noCredit );
 				return;
 			}
 			var $anchor = $( this ).closest( 'a' );
-			placeAfter( $anchor.length ? $anchor : $( this ), file );
+			placeAfter( $anchor.length ? $anchor : $( this ), file, noCredit );
 		} );
 
 		// Audio / video players.
@@ -154,7 +213,7 @@
 				|| '';
 			var file = fileForUrl( source, files );
 			if ( file ) {
-				placeAfter( $( this ), file );
+				placeAfter( $( this ), file, false );
 			}
 		} );
 
@@ -173,7 +232,7 @@
 			}
 			var file = fileForUrl( href, files );
 			if ( file ) {
-				placeAfter( $( this ), file );
+				placeAfter( $( this ), file, false );
 			}
 		} );
 	} );
