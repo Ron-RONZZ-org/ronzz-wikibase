@@ -1148,7 +1148,7 @@ def flow_update_person_clear(op, base: str, api: str, qid: str) -> str:
     family = input_value(body, "wpfamilyName")
     class_item = input_value(body, "wpclass")
     token = edit_token(body)
-    snapshot = input_value(body, "wpupdateSnapshot")
+    snapshot = html.unescape(input_value(body, "wpupdateSnapshot"))
     if not snapshot:
         raise FlowError(f"UpdatePerson/{qid} missing the updateSnapshot hidden field")
     url, body = page_post(op, url, {
@@ -4528,7 +4528,7 @@ def flow_update_math_clear_note(op, base: str, api: str, qid: str, note_prop: st
     url, body = page_get(op, base, f"/wiki/Special:UpdateMath/{qid}")
     if not input_value(body, "wpnote"):
         raise FlowError(f"UpdateMath/{qid} did not prefill the note")
-    snapshot = input_value(body, "wpupdateSnapshot")
+    snapshot = html.unescape(input_value(body, "wpupdateSnapshot"))
     if not snapshot:
         raise FlowError(f"UpdateMath/{qid} missing the updateSnapshot hidden field")
     url, body = page_post(op, url, {
