@@ -1,0 +1,60 @@
+/* Embedded-file viewer styles.
+ *
+ * The PDF viewer is a plain same-origin iframe using the browser's native
+ * viewer (no third-party library, no toolbar, no fullscreen wrapper). The
+ * fullscreen control was removed — the browser viewer has its own and the
+ * fixed-position wrapper caused layout regressions.
+ *
+ * The "Open in a new tab" affordances (File: toolbar, Special:SourceFile,
+ * content-page embeds) share .wb-media-open. They are noprint: a printed
+ * page keeps the media and its credit, not the navigation chrome.
+ */
+.wb-pdf-viewer {
+	margin: 1em 0;
+}
+
+.wb-pdf-viewer iframe {
+	width: 100%;
+	height: 640px;
+	border: 1px solid var(--border-color-base, #c8ccd1);
+	border-radius: 2px;
+	background: #ffffff;
+}
+
+.wb-sourcefile-open {
+	margin: 0 0 1em;
+}
+
+.wb-media-open,
+.wb-media-open-gallery {
+	font-size: 0.85em;
+}
+
+.wb-media-open-link {
+	color: var(--color-progressive, #3366cc);
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.wb-media-open-link:hover {
+	text-decoration: underline;
+}
+
+.wb-media-open-gallery {
+	margin: 0.25em 0 1em;
+	color: var(--color-subtle, #54595d);
+}
+
+/* The infobox is deliberately credit/open-link free: it is a compact data
+ * summary, not a content figure. */
+.wb-infobox .wb-media-open,
+.wb-infobox .wb-media-open-gallery {
+	display: none;
+}
+
+@media print {
+	.wb-media-open,
+	.wb-media-open-gallery {
+		display: none !important;
+	}
+}
