@@ -439,6 +439,25 @@ jobs:
           num() {
             python3 -c 'import sys,json; print(json.load(sys.stdin)[0]["n"])'
           }
+          # The type must be registered and excluded from the default queue;
+          # otherwise a generic runner would consume a minutes-long OCR job.
+          $COMPOSE exec -T wikibase php maintenance/run.php eval.php <<'PHP'
+          $c = \MediaWiki\MediaWikiServices::getInstance()->getMainConfig();
+          $excluded = $c->get( 'JobTypesExcludedFromDefaultQueue' );
+          $conf = $c->get( 'JobTypeConf' )['extractPdfText'] ?? null;
+          $class = $c->get( 'JobClasses' )['extractPdfText'] ?? null;
+          if ( !in_array( 'extractPdfText', $excluded, true ) ) {
+          	fwrite( STDERR, "extractPdfText is not in \$wgJobTypesExcludedFromDefaultQueue\n" );
+          	exit( 1 );
+          }
+          if ( $conf === null || $class === null ) {
+          	fwrite( STDERR, "extractPdfText is missing \$wgJobTypeConf or \$wgJobClasses\n" );
+          	exit( 1 );
+          }
+          echo "job config ok\n";
+          PHP
+          # No generic runner may consume the test job while we inspect it.
+          $COMPOSE stop wikibase-jobrunner > /dev/null
           # A clean slate: the page-flow E2E also uploads PDFs, but its jobs may
           # point at pages it has already deleted.
           db "DELETE FROM job WHERE job_cmd='extractPdfText';" > /dev/null
@@ -471,6 +490,12 @@ jobs:
           done
           queued=$(db "SELECT COUNT(*) AS n FROM job WHERE job_cmd='extractPdfText';" | num)
           echo "extractPdfText jobs: $queued"
+          if [ "$queued" -eq 0 ]; then
+            echo "--- recentchanges for the upload ---"
+            db "SELECT rc_title, rc_comment FROM recentchanges WHERE rc_title LIKE 'Queue-E2E-%';"
+            echo "--- job table by type ---"
+            db "SELECT job_cmd, COUNT(*) AS n FROM job GROUP BY job_cmd;"
+          fi
           test "$queued" -ge 1
           attempts=$(db "SELECT COUNT(*) AS n FROM job WHERE job_cmd='extractPdfText' AND job_attempts > 0;" | num)
           test "$attempts" -eq 0
@@ -482,6 +507,7 @@ jobs:
           echo "$out" | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d["jobs"], "no job was popped"; j=d["jobs"][0]; assert j["type"]=="extractPdfText", j; assert j["status"]=="failed", j'
           db "SELECT COUNT(*) AS n FROM job WHERE job_cmd='extractPdfText' AND job_attempts = 1;" \
             | python3 -c 'import sys,json; assert json.load(sys.stdin)[0]["n"] >= 1'
+          $COMPOSE start wikibase-jobrunner > /dev/null
 
       - name: Image-facts E2E (rights basis + citation-exception notice)
         if: steps.changes.outputs.code == 'true'
