@@ -2403,6 +2403,8 @@ def flow_source_manual_prose_step(op, base: str, api: str, class_key: str,
     url, body = page_post(op, url, {
         field: text, "wpEditToken": token2, "wpSubmit": "1",
     })
+    if "/manual/content" in url:
+        print("DEBUG content submit still on step:", find_error(body)[:800])
     qid = flow_final_item(op, base, api, url, body, f"AddSource/{class_key}/manual ({heading})")
     r = api_call(op, api, {"action": "wbgetentities", "ids": qid, "props": "sitelinks", "format": "json"})
     title = (r.get("entities", {}).get(qid, {}).get("sitelinks", {}).get("wikibase", {}).get("title", ""))
@@ -2410,6 +2412,7 @@ def flow_source_manual_prose_step(op, base: str, api: str, class_key: str,
         raise FlowError(f"{qid} has no classic page sitelink")
     _, page = page_get(op, base, "/wiki/" + urllib.parse.quote(title.replace(" ", "_")))
     if f"== {heading} ==" not in page or text not in page:
+        print("DEBUG page:", page[:1500])
         raise FlowError(f"{title} missing the systematic == {heading} == section")
     return qid
 
