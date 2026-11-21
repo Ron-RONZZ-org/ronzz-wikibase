@@ -37,6 +37,7 @@
 	var ORDER = {
 		update: 10,
 		citeInternal: 20,
+		claim: 25,
 		mention: 30,
 		embed: 40,
 		embedChooser: 41,

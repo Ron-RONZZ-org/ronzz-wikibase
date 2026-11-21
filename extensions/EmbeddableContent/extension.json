@@ -565,12 +565,18 @@
 				"mediawiki.notification",
 				"mediawiki.util",
 				"ext.embeddableContent.toolbar",
-				"ext.embeddableContent.citationpopup"
+				"ext.embeddableContent.citationpopup",
+				"oojs-ui"
 			],
 			"messages": [
 				"embeddablecontent-gadget-copyembed",
 				"embeddablecontent-gadget-copycitation",
 				"embeddablecontent-gadget-copied",
+				"embeddablecontent-gadget-copyclaim",
+				"embeddablecontent-gadget-copyclaim-hint",
+				"embeddablecontent-claimpopup-loading",
+				"embeddablecontent-claimpopup-empty",
+				"embeddablecontent-claimpopup-error",
 				"embeddablecontent-gadget-embed-auto",
 				"embeddablecontent-gadget-embed-all",
 				"embeddablecontent-gadget-embed-option-internal",
