@@ -501,12 +501,15 @@ final class UploadHooks {
 	 */
 	public static function onUploadComplete( UploadBase $uploadBase ): void {
 		// Queue the PDF → Markdown extraction for the normal upload paths
-		// (Special:Upload / action=upload). The AddSource access upload
-		// (action=accessupload) runs inside the form's transaction, where a
-		// deferred DB write can abort the form; the extraction backfill
+		// (Special:Upload and action=upload). An access file is uploaded inside
+		// the AddSource/UpdateSource FORM POST, where a deferred DB write can
+		// abort the form; the extraction backfill
 		// (maintenance/enqueuePdfExtractions.php) covers those files.
 		$request = RequestContext::getMain()->getRequest();
-		if ( $request->getVal( 'action' ) !== 'accessupload' ) {
+		$formTitle = (string)$request->getVal( 'title', '' );
+		$inSourceForm = str_starts_with( $formTitle, 'Special:AddSource' )
+			|| str_starts_with( $formTitle, 'Special:UpdateSource' );
+		if ( !$inSourceForm ) {
 			$uploadedTitle = $uploadBase->getTitle();
 			if ( $uploadedTitle !== null ) {
 				\EmbeddableContent\Hooks::enqueuePdfExtractionForTitle( $uploadedTitle );
