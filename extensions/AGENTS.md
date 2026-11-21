@@ -671,6 +671,22 @@ report). See `SimpleMathJax/VENDORED.md`.
   placeholder lead — `== Overview ==` for Person/Collective/FOSS and the
   section-based Source classes, a heading-less intro for
   website/youtubeChannel (`pageSkeleton` contract, E2E-asserted).
+- **Systematic abstract/summary + API page-prose parity (ADR
+  `docs/decisions/addsource-abstract-summary.md`)**: the content step is
+  NOT skippable for `scholarlyArticle`/`book` — a manual create with no
+  fetched prose still routes to `/manual/content`, titled **Abstract** /
+  **Summary** with a legend asking the contributor to write it (no
+  optional/Add wording). The prose stays page-side; the shared
+  `Spec\SourcePageSkeleton` owns the class→section map and is used by both
+  `SpecialAddSource::pageSkeleton` (with the pending marker + message
+  lookup) and `ClassicPageCreator` (API/MCP create). The API fields are
+  `abstract` (scholarly-article) and **`bookSummary`** (book — `summary` is
+  already the edit-summary parameter; `ApiAddSource` maps it to the
+  page-skeleton `summary` key; `SourceFlowService` accepts `summary` as an
+  internal page-only field). The field contract/`contract/field-contract.json`
+  was re-emitted and the MCP pinned copy + generated schema refreshed.
+  `SourceFlowService::pageSpecFor` also gained the `transcript`/`text`
+  templates the form already had.
 - **AddSource scholarlyArticle (follow-up)**: entity-only **Journal**
   (new `journal (entity)` property, P1433-aligned; the citation source map
   `container-title` points at it), access toggle gains an **N/A** mode,

@@ -16,7 +16,11 @@ final class ClassicPageSpec {
 	public function __construct(
 		public readonly int $namespace,
 		public readonly string $template,
-		public readonly string $pendingMarker = '__EXTERNAL_LINK_PENDING__'
+		public readonly string $pendingMarker = '__EXTERNAL_LINK_PENDING__',
+		// The AddSource form class key (book, scholarlyArticle, law, …) so
+		// the shared SourcePageSkeleton can render the per-class sections.
+		// Empty for the generic (Person/Collective/Main) page specs.
+		public readonly string $classKey = ''
 	) {
 	}
 }

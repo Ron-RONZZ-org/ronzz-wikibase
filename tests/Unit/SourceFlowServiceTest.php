@@ -132,6 +132,18 @@ class SourceFlowServiceTest extends TestCase {
 
 	// ------------------------------------------------------------- validation
 
+	public function testAbstractAndBookSummaryAreAcceptedAsPageProse(): void {
+		$service = $this->makeService();
+		$scholarly = [ 'title' => 'A Paper', 'authors' => 'Q6', 'abstract' => 'The abstract.' ];
+		$this->assertNull( $service->prepare( 'scholarly-article', $scholarly, true ) );
+		$book = [ 'title' => 'A Book', 'authors' => 'Q6', 'bookSummary' => 'The summary.' ];
+		$this->assertNull( $service->prepare( 'book', $book, true ) );
+
+		// Page prose, not statements: the specs do not grow a property for them.
+		$specs = $service->statementSpecs( 'book', $book );
+		$this->assertArrayNotHasKey( 'P1', $specs );
+	}
+
 	public function testWebpageRequiresParentButNotAuthors(): void {
 		$service = $this->makeService();
 		// Title + parent only: authors are OPTIONAL on create (a text of

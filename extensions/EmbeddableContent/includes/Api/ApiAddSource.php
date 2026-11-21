@@ -98,6 +98,15 @@ class ApiAddSource extends ApiBase {
 			$record[$field] = $value;
 		}
 
+		// A book's Summary is page prose: the API field is `bookSummary`
+		// because `summary` is already the edit-summary parameter. Map it to
+		// the page-skeleton key before the flow service (which accepts it as
+		// an internal field) and the page creator run.
+		if ( isset( $record['bookSummary'] ) ) {
+			$record['summary'] = $record['bookSummary'];
+			unset( $record['bookSummary'] );
+		}
+
 		$user = $this->getUser();
 		$summary = $params['summary'];
 		$authorResult = null;

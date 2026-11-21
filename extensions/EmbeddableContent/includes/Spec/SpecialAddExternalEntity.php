@@ -896,6 +896,16 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 		return $record;
 	}
 
+	/** The content-step page title (AddSource overrides it per class). */
+	protected function contentStepTitle(): \Message {
+		return $this->msg( 'embeddablecontent-content-review-title' );
+	}
+
+	/** The content-step legend (AddSource overrides it per class). */
+	protected function contentStepLegend(): \Message {
+		return $this->msg( 'embeddablecontent-content-review-legend' );
+	}
+
 	protected function executeContent( string $token, int $index ): void {
 		$records = $this->loadTokenRecords( $token );
 		$record = $records[$index] ?? null;
@@ -903,7 +913,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			$this->showExpired();
 			return;
 		}
-		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-content-review-title' )->text() );
+		$this->getOutput()->setPageTitle( $this->contentStepTitle()->text() );
 		$fields = $this->applyRequestPrefill( $this->contentFieldSpecs( $record ) + $this->classFieldSpec( $record ) );
 
 		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
@@ -911,7 +921,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			->setSubmitTextMsg( 'embeddablecontent-extselect-create' )
 			->setSubmitCallback( fn ( array $data ) => $this->onContentSubmit( $data, $token, $index, $records ) )
 			->setSubmitID( 'wb-ext-add-content' )
-			->setWrapperLegendMsg( 'embeddablecontent-content-review-legend' );
+			->setWrapperLegendMsg( $this->contentStepLegend() );
 		$this->showForm( $form );
 	}
 
@@ -1697,7 +1707,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			$this->showExpired();
 			return;
 		}
-		$this->getOutput()->setPageTitle( $this->msg( 'embeddablecontent-content-review-title' )->text() );
+		$this->getOutput()->setPageTitle( $this->contentStepTitle()->text() );
 		$fields = $this->applyRequestPrefill( $this->contentFieldSpecs( $record ) + $this->classFieldSpec( $record ) );
 
 		$form = HTMLForm::factory( 'ooui', $fields, $this->getContext() );
@@ -1708,7 +1718,7 @@ abstract class SpecialAddExternalEntity extends SpecialPage {
 			->setSubmitTextMsg( 'embeddablecontent-extselect-create' )
 			->setSubmitCallback( [ $this, 'onManualContentSubmit' ] )
 			->setSubmitID( 'wb-ext-add-content' )
-			->setWrapperLegendMsg( 'embeddablecontent-content-review-legend' );
+			->setWrapperLegendMsg( $this->contentStepLegend() );
 		$this->showForm( $form );
 	}
 
