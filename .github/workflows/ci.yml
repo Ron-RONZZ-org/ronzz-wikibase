@@ -458,6 +458,7 @@ jobs:
           echo 'JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2JqCjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2JqCjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCAzMDAgMzAwXSAvQ29udGVudHMgNCAwIFIgL1Jlc291cmNlcyA8PCAvRm9udCA8PCAvRjEgNSAwIFIgPj4gPj4gPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCA0NCA+PgpzdHJlYW0KQlQgL0YxIDEyIFRmIDcyIDI2MCBUZCAoRTJFKSBUaiBFVAplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwgL1R5cGUgL0ZvbnQgL1N1YnR5cGUgL1R5cGUxIC9CYXNlRm9udCAvSGVsdmV0aWNhID4+CmVuZG9iagp0cmFpbGVyCjw8IC9Sb290IDEgMCBSIC9TaXplIDYgPj4KJSVFT0YK' \
             | base64 -d > /tmp/queue.pdf
           curl -s -b /tmp/pdfq.cookies -F action=upload -F format=json -F "token=$csrf" \
+            -F "ignorewarnings=1" \
             -F "file=@/tmp/queue.pdf;type=application/pdf" \
             -F "filename=Queue-E2E-${GITHUB_RUN_ID:-local}.pdf" \
             -F "comment=PDF extraction queue E2E" "$API_URL" > /tmp/queue-upload.json
