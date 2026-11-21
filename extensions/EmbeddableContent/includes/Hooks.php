@@ -1100,7 +1100,7 @@ class Hooks {
 			return;
 		}
 		$parser->getOutput()->setJsConfigVar( 'wbEmbeddedFiles', $files );
-		$parser->getOutput()->addModules( 'ext.embeddableContent.mediaopen' );
+		$parser->getOutput()->addModules( [ 'ext.embeddableContent.mediaopen' ] );
 	}
 
 	/**
