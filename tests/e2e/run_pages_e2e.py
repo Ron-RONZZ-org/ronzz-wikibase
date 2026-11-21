@@ -6324,6 +6324,9 @@ def main() -> int:
             "action": "parse", "title": "Main Page",
             "text": f"[[File:{internal_file_title[5:]}]]", "format": "json"})
         anon_parse_html = anon_parse.get("parse", {}).get("text", {}).get("*", "")
+        if "wb-internal-file-placeholder" not in anon_parse_html:
+            print("DEBUG internal_file_title:", internal_file_title)
+            print("DEBUG anon_parse_html:", anon_parse_html[:1500])
         assert "wb-internal-file-placeholder" in anon_parse_html and \
             "Unfortunately, due to copyright restrictions" in anon_parse_html, \
             "anonymous [[File:]] did not render the internal-file placeholder"
