@@ -46,10 +46,7 @@ class ExtractPdfText extends Maintenance {
 	}
 
 	public function execute() {
-		$user = $this->getUser();
-		if ( !$user instanceof User ) {
-			$user = User::newSystemUser( 'Maintenance script', [ 'steal' => true ] );
-		}
+		$user = User::newSystemUser( User::MAINTENANCE_SCRIPT_USER, [ 'steal' => true ] );
 		if ( !$user instanceof User ) {
 			$this->fatalError( 'No usable maintenance user.' );
 		}
