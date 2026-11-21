@@ -252,6 +252,10 @@ class Hooks {
 		// null for $summary/$revisionRecord/$editResult (only $wikiPage, $user
 		// and $flags are populated) — typed hints throw a TypeError and the
 		// handler never runs.
+		// Queue the PDF → Markdown extraction when a PDF File page is saved
+		// (upload, re-upload, restore). The job itself skips a current
+		// companion, so a metadata-only save is a cheap ack.
+		self::enqueuePdfExtraction( $wikiPage );
 		\EmbeddableContent\Flow\NewItemPageCreator::handle(
 			$wikiPage,
 			$user,
@@ -275,10 +279,6 @@ class Hooks {
 		// page (its {{#source-archive:}} row depends on the subpage's
 		// existence, which is not a template dependency).
 		\EmbeddableContent\SourceArchive\SourceArchive::onPageSaved( $wikiPage );
-		// Queue the PDF → Markdown extraction when a PDF File page is saved
-		// (upload, re-upload, restore). The job itself skips a current
-		// companion, so a metadata-only save is a cheap ack.
-		self::enqueuePdfExtraction( $wikiPage );
 	}
 
 	/**
@@ -318,12 +318,14 @@ class Hooks {
 		if ( strtolower( $title->getExtension() ) !== 'pdf' ) {
 			return;
 		}
-		// Synchronous push: one row insert per PDF save is cheap, and it does
-		// not depend on a deferred update running after the response.
+		// lazyPush: UploadComplete runs inside the upload transaction, so the
+		// insert must be deferred until after it commits (a synchronous push
+		// there aborted the access-file upload). The deferred update runs in
+		// the request's send phase.
 		MediaWikiServices::getInstance()
 			->getJobQueueGroupFactory()
 			->makeJobQueueGroup()
-			->push( new JobSpecification(
+			->lazyPush( new JobSpecification(
 				'extractPdfText',
 				[],
 				[ 'removeDuplicates' => true ],
