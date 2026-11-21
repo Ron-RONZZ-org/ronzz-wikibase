@@ -13,6 +13,7 @@ use EmbeddableContent\Search\EntityTermSearch;
 use EmbeddableContent\Spec\InternalFile;
 use EmbeddableContent\Spec\InternalMention;
 use MediaWiki\Html\Html;
+use MediaWiki\JobQueue\JobSpecification;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\Logging\ManualLogEntry;
 use MediaWiki\Output\OutputPage;
@@ -273,6 +274,38 @@ class Hooks {
 		// page (its {{#source-archive:}} row depends on the subpage's
 		// existence, which is not a template dependency).
 		\EmbeddableContent\SourceArchive\SourceArchive::onPageSaved( $wikiPage );
+		// Queue the PDF → Markdown extraction when a PDF File page is saved
+		// (upload, re-upload, restore). The job itself skips a current
+		// companion, so a metadata-only save is a cheap ack.
+		self::enqueuePdfExtraction( $wikiPage );
+	}
+
+	/**
+	 * Queue one extractPdfText job for a saved PDF File page.
+	 *
+	 * The type is excluded from the default queue ($wgJobTypesExcludedFrom
+	 * DefaultQueue): OCR can take minutes, so a dedicated worker drains it
+	 * (`runJobs.php --type=extractPdfText --maxjobs=1 --maxtime=...`). The
+	 * job's page is the dedup key, so a re-save while a job is pending does
+	 * not stack another.
+	 */
+	private static function enqueuePdfExtraction( $wikiPage ): void {
+		$title = $wikiPage->getTitle();
+		if ( !$title || $title->getNamespace() !== NS_FILE ) {
+			return;
+		}
+		if ( strtolower( $title->getExtension() ) !== 'pdf' ) {
+			return;
+		}
+		MediaWikiServices::getInstance()
+			->getJobQueueGroupFactory()
+			->makeJobQueueGroup()
+			->lazyPush( new JobSpecification(
+				'extractPdfText',
+				[],
+				[ 'removeDuplicates' => true ],
+				$title
+			) );
 	}
 
 	/**

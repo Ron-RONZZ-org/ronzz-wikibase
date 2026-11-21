@@ -1511,13 +1511,20 @@ report). See `SimpleMathJax/VENDORED.md`.
   `Special:SourceText?file=File:X.pdf` and `action=sourcefiletext` read it
   with the source file's access rule (public = anyone, internal = login);
   `Special:SourceFile`, the File toolbar and `{{#source-access:}}` link it.
-  `maintenance/extractPdfText.php` scans/skips current companions and is
-  meant for a **dedicated cron** (OCR can take minutes; not the shared
-  `runJobs.php` cycle). The MCP `get-file-text` tool calls the API and
+  A PDF File page save enqueues one **extractPdfText** job
+  (`Jobs/ExtractPdfTextJob`, deduplicated); the type is excluded from the
+  default queue and drained by a dedicated 10-minute worker
+  (`runJobs.php --type=extractPdfText --maxjobs=1 --maxtime=480`), so OCR
+  never occupies the shared `runJobs.php` cycle. A failed extraction is
+  retried up to `maxTries` (3) then pruned.
+  `maintenance/extractPdfText.php` stays the manual/backfill tool;
+  `maintenance/enqueuePdfExtractions.php` backfills pre-queue PDFs. The MCP
+  `get-file-text` tool calls the API and
   returns the Markdown; `get-file-content` stays the local/bytes path.
   Deploy: D1 property importer + full seed re-emission
   (`sourceProperties.extractedText`), `$wgFileExtensions[] = 'txt'`, the
-  Tika loopback publish, the cron, and a parser-cache purge.
+  Tika loopback publish, the queue settings + worker cron, and a
+  parser-cache purge.
 - **Pre-upload image editor (ADR `docs/decisions/upload-image-editor.md`)**:
   a vendored **TOAST UI Image Editor** 3.15.3 + `tui-color-picker` 2.2.8
   (`resources/tui-image-editor/`, MIT, SHA-256 + refresh in `VENDORED.md`)
