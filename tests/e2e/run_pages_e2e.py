@@ -4526,7 +4526,7 @@ def flow_update_math_clear_note(op, base: str, api: str, qid: str, note_prop: st
     """Special:UpdateMath/<qid>: blanking the Note removes its statement
     (the page-open snapshot is posted exactly as rendered)."""
     url, body = page_get(op, base, f"/wiki/Special:UpdateMath/{qid}")
-    if not input_value(body, "wpnote"):
+    if not textarea_value(body, "wpnote"):
         raise FlowError(f"UpdateMath/{qid} did not prefill the note")
     snapshot = html.unescape(input_value(body, "wpupdateSnapshot"))
     if not snapshot:
