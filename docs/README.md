@@ -155,6 +155,9 @@ Nov 2026 PDF text extraction: `pdf-text-extraction.md` (Tika 4 loopback →
 Markdown `.extracted.txt` companion with the source file's internal marker;
 `extracted text` qualifier on `has access file`; `Special:SourceText` +
 `action=sourcefiletext`; MCP `get-file-text`; dedicated extraction cron).
+Nov 2026 pre-upload image editor: `upload-image-editor.md` (vendored TOAST UI
+Image Editor, loaded on demand; crop/rotate/flip/filter; raster only; telemetry
+disabled; `uploadimage.js` + `mediaeditor.js`).
 Nov 2026 media credits: `media-credits-all-embeds.md` (credit every captioned
 file type server-side; captionless images/audio/video/PDF links via
 `wbEmbeddedFiles` + `mediaopen.js`; one paragraph per gallery; infoboxes

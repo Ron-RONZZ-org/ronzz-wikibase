@@ -132,6 +132,46 @@
 		el.style.display = '';
 	}
 
+	/**
+	 * The "Edit image" trigger under the local preview. The editor module is
+	 * large and loads only on click. The edited file replaces the input's
+	 * file, then the normal change pipeline (preview/resize/auto-extension)
+	 * runs again.
+	 */
+	function addEditButton( input, prefix ) {
+		var preview = previewFor( input );
+		var existing = preview.querySelector( '.wb-image-edit' );
+		if ( existing ) {
+			existing.parentNode.removeChild( existing );
+		}
+		var file = input.files && input.files[ 0 ];
+		if ( !file || !/^image\/(jpeg|png|webp)$/.test( String( file.type || '' ) ) ) {
+			return;
+		}
+		var button = document.createElement( 'button' );
+		button.type = 'button';
+		button.className = 'wb-image-edit';
+		button.textContent = mw.msg( 'embeddablecontent-imageeditor-open' );
+		button.addEventListener( 'click', function ( event ) {
+			event.preventDefault();
+			mw.loader.using( 'ext.embeddableContent.imageeditor' ).then( function () {
+				if ( !mw.embeddableContent || !mw.embeddableContent.imageEditor ) {
+					return;
+				}
+				return mw.embeddableContent.imageEditor.open( file ).then( function ( edited ) {
+					if ( !edited ) {
+						return;
+					}
+					setInputFile( input, edited );
+					input.dispatchEvent( new Event( 'change', { bubbles: true } ) );
+				} );
+			} ).catch( function () {
+				mw.notify( mw.msg( 'embeddablecontent-imageeditor-error' ), { type: 'error' } );
+			} );
+		} );
+		preview.appendChild( button );
+	}
+
 	function clearPreview( el ) {
 		if ( el._wbObjectUrl ) {
 			URL.revokeObjectURL( el._wbObjectUrl );
@@ -324,6 +364,7 @@
 				} );
 				renameInPlace( input, file, mime, autoExt );
 				syncDest( prefix, input.files[ 0 ] || file );
+				addEditButton( input, prefix );
 				finish();
 				return;
 			}
@@ -356,6 +397,7 @@
 					mime: out.type || mime
 				} );
 				syncDest( prefix, out );
+				addEditButton( input, prefix );
 			} );
 		} ).then( finish, function () {
 			// Decode failed (e.g. SVG) or the pipeline threw — preview the
@@ -368,6 +410,7 @@
 			} );
 			renameInPlace( input, file, mime, autoExt );
 			syncDest( prefix, input.files[ 0 ] || file );
+			addEditButton( input, prefix );
 			finish();
 		} );
 	}
