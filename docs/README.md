@@ -167,6 +167,11 @@ file type server-side; captionless images/audio/video/PDF links via
 `wbEmbeddedFiles` + `mediaopen.js`; one paragraph per gallery; infoboxes
 skipped; `noCredit` still suppresses).
 
+Nov 2026 Update* clear semantics: `update-blank-clears-statements.md`
+(a blank field on `Special:Update*` removes its statement when the item is
+unchanged since form-open — the hidden `StatementSnapshot` guard; terms keep
+no-clobber; the per-field ×/↶ clear/undo control).
+
 Nov 2026 smart-mention / collision / upload batch:
 `nov-2026-smart-mentions-collisions-uploads.md` (unpiped classic-namespace
 mentions render the bare entity name and Source: is italic; the "Copy

@@ -149,6 +149,8 @@ jobs:
           $COMPOSE logs --tail 120 wikibase
           echo "--- mysql logs ---"
           $COMPOSE logs --tail 60 mysql
+          echo "--- API response body ---"
+          curl -s "$API_URL" | head -120 || true
           exit 1
 
       # Issue follow-up: entity descriptions up to 2000 chars. The term

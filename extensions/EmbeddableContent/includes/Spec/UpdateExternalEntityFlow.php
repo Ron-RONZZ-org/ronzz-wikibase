@@ -55,6 +55,15 @@ trait UpdateExternalEntityFlow {
 	protected ?Item $updateItem = null;
 
 	/**
+	 * The page-open statement snapshot (Spec\StatementSnapshot rows) from
+	 * the hidden form field. A blank field removes its statement only when
+	 * the item's current statements still match this snapshot.
+	 *
+	 * @var list<array<string,mixed>>
+	 */
+	protected array $updateSnapshot = [];
+
+	/**
 	 * Whether the update was launched from the item's classic page (the
 	 * frompage marker on the "Update basic information" button there) — the
 	 * submit then returns to that page instead of Item:. Resolved from the
@@ -166,6 +175,10 @@ trait UpdateExternalEntityFlow {
 		);
 
 		$record = $this->recordFromItem( $item );
+		$this->updateSnapshot = StatementSnapshot::rowsFor(
+			$item,
+			$this->updateFieldPropertyMap( $item, $record )
+		);
 		// The class field is hidden by default (a class change is a
 		// different edit for most kinds); Special:UpdateCollective
 		// overrides updateClassFieldSpec() with an editable select.
@@ -186,6 +199,12 @@ trait UpdateExternalEntityFlow {
 		}
 		if ( $this->updateReturnToAddMore ) {
 			$fields['fromaddmore'] = [ 'type' => 'hidden', 'default' => '1' ];
+		}
+		if ( $this->updateSnapshot !== [] ) {
+			$fields[StatementSnapshot::FIELD] = [
+				'type' => 'hidden',
+				'default' => (string)json_encode( $this->updateSnapshot ),
+			];
 		}
 		// URL query-param prefill (deep links): a field named in the query
 		// takes that value as its default.
@@ -256,6 +275,11 @@ trait UpdateExternalEntityFlow {
 		$record['additionalStatements'] = is_array( $data['additionalStatements'] ?? null )
 			? $data['additionalStatements']
 			: [];
+		// The page-open snapshot (NOT a re-read of the current item: a
+		// concurrent edit must keep its newer value).
+		$this->updateSnapshot = StatementSnapshot::decode(
+			(string)( $data[StatementSnapshot::FIELD] ?? '' )
+		);
 
 		// Inject the chosen class into the record so the flow service's
 		// statement builder writes the new `instance of` value (the
@@ -359,14 +383,27 @@ trait UpdateExternalEntityFlow {
 		}
 
 		// Statement replacement — NO-CLOBBER contract: only properties with
-		// a NEW non-empty spec (from statementSpecs) are replaced. A managed
-		// field the user left blank keeps the existing statement — "basic
-		// information" must never overwrite what the user did not touch
-		// (a cleared field is not an implicit removal; that is an explicit
-		// item-page edit). The specs keys also cover newly-uploaded image
-		// facts (portrait/logo), so an untouched existing image survives.
+		// a NEW non-empty spec (from statementSpecs) are replaced, plus the
+		// explicit clears the page-open snapshot approved. A managed field
+		// the user left blank removes its statement only when the item is
+		// unchanged since the form opened (StatementSnapshot::clearProperties
+		// drops a concurrently edited value); a blank field with no snapshot
+		// keeps the existing statement. The specs keys also cover
+		// newly-uploaded image facts (portrait/logo), so an untouched
+		// existing image survives.
 		$specs = $this->updateStatementSpecs( $record );
-		foreach ( array_keys( $specs ) as $propertyId ) {
+		$clear = StatementSnapshot::clearProperties(
+			$item,
+			$this->updateSnapshot,
+			function ( string $field ) use ( $record ): bool {
+				return array_key_exists( $field, $record )
+					&& trim( (string)$record[$field] ) === '';
+			}
+		);
+		$propertiesToRemove = array_values( array_unique(
+			array_merge( array_keys( $specs ), $clear )
+		) );
+		foreach ( $propertiesToRemove as $propertyId ) {
 			// StatementList has no removeStatement() — remove by guid.
 			foreach ( $item->getStatements()->getByPropertyId( new NumericPropertyId( $propertyId ) ) as $statement ) {
 				$guid = $statement->getGuid();
@@ -603,6 +640,68 @@ trait UpdateExternalEntityFlow {
 			}
 		}
 		return $ids;
+	}
+
+	/**
+	 * The managed statement properties a form field owns, discovered by
+	 * probing statementSpecs with that one field blanked. Shared by every
+	 * Update* kind (the Add* statementSpecs is the single authoring source),
+	 * so a new field cannot silently lose its clear semantics.
+	 *
+	 * `instance of` and the image facts are deliberately excluded: the class
+	 * is form-owned but never cleared, and the portrait/logo hidden list is
+	 * not a blank-means-clear field.
+	 *
+	 * @param array<string,mixed> $record
+	 * @return array<string,string[]>
+	 */
+	protected function updateFieldPropertyMap( Item $item, array $record ): array {
+		try {
+			$base = $this->updateStatementSpecs( $record );
+		} catch ( \Throwable $e ) {
+			\MediaWiki\Logger\LoggerFactory::getInstance( 'EmbeddableContent' )->warning(
+				'Update snapshot: base statementSpecs failed: {error}',
+				[ 'error' => $e->getMessage() ]
+			);
+			return [];
+		}
+		$baseProperties = array_keys( $base );
+		if ( $baseProperties === [] ) {
+			return [];
+		}
+		$map = [];
+		foreach ( array_keys( $this->manualFieldSpecs() ) as $field ) {
+			$probe = $record;
+			$probe[$field] = '';
+			try {
+				$probeProperties = array_keys( $this->updateStatementSpecs( $probe ) );
+			} catch ( \Throwable $e ) {
+				// A field whose blank form is not a valid partial record is
+				// simply not clear-able (never break the page render).
+				continue;
+			}
+			$owned = array_values( array_diff( $baseProperties, $probeProperties ) );
+			if ( $owned !== [] ) {
+				$map[$field] = $owned;
+			}
+		}
+		$exclude = [ $this->config->instanceOfPropertyId() ];
+		foreach ( [
+			$this->config->personPropertyIds()['image'] ?? null,
+			$this->config->collectivePropertyIds()['image'] ?? null,
+			$this->config->fossPropertyIds()['image'] ?? null,
+		] as $imageProperty ) {
+			if ( $imageProperty !== null && $imageProperty !== '' ) {
+				$exclude[] = $imageProperty;
+			}
+		}
+		foreach ( $map as $field => $properties ) {
+			$map[$field] = array_values( array_diff( $properties, $exclude ) );
+			if ( $map[$field] === [] ) {
+				unset( $map[$field] );
+			}
+		}
+		return $map;
 	}
 
 	/**

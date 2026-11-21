@@ -1,0 +1,47 @@
+/* Per-field clear (×) / undo (↶) control on the Special:Update* forms. */
+.wb-has-clear {
+	position: relative;
+}
+
+.wb-has-clear .oo-ui-inputWidget-input {
+	/* Keep the field text clear of the button (the widget's own indicator
+	 * keeps its own padding; this is additive). */
+	padding-inline-end: 26px;
+}
+
+.wb-has-clear-indicator .oo-ui-inputWidget-input {
+	padding-inline-end: 48px;
+}
+
+.wb-clear-field {
+	position: absolute;
+	inset-inline-end: 6px;
+	top: 6px;
+	width: 22px;
+	height: 22px;
+	padding: 0;
+	border: 0;
+	border-radius: 2px;
+	background: transparent;
+	color: var(--color-subtle, #54595d);
+	font-family: inherit;
+	font-size: 1rem;
+	line-height: 1;
+	cursor: pointer;
+	z-index: 2;
+}
+
+.wb-has-clear-indicator .wb-clear-field {
+	inset-inline-end: 28px;
+}
+
+.wb-clear-field:hover,
+.wb-clear-field:focus {
+	background: var(--background-color-neutral-subtle, #f8f9fa);
+	color: var(--color-base, #202122);
+}
+
+.wb-clear-field-undo {
+	color: var(--color-progressive, #3366cc);
+	font-size: 1.1rem;
+}

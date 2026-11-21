@@ -1131,11 +1131,12 @@ def flow_update_person(op, base: str, api: str, qid: str, new_description: str) 
     return url
 
 
-def flow_update_person_no_clobber(op, base: str, api: str, qid: str) -> str:
-    """Update no-clobber (upload-ux batch): Special:UpdatePerson/<qid> with
-    a BLANKED description and a blanked place-of-death field must KEEP the
-    existing values — 'basic information' never overwrites a field the user
-    left empty (removal is an explicit item-page edit). Also asserts the
+def flow_update_person_clear(op, base: str, api: str, qid: str) -> str:
+    """Update clear semantics (PR2): on Special:UpdatePerson/<qid> a BLANKED
+    statement field (place of death) removes its statement, while a blanked
+    TERM (description) keeps its no-clobber behaviour. The hidden
+    updateSnapshot is sent exactly as the form rendered it (the server only
+    removes when the item is unchanged since form-open). Also asserts the
     update page renders the '(replacing existing)' portrait toggle wording.
     Returns the final URL."""
     url, body = page_get(op, base, f"/wiki/Special:UpdatePerson/{qid}")
@@ -1147,21 +1148,27 @@ def flow_update_person_no_clobber(op, base: str, api: str, qid: str) -> str:
     family = input_value(body, "wpfamilyName")
     class_item = input_value(body, "wpclass")
     token = edit_token(body)
+    snapshot = html.unescape(input_value(body, "wpupdateSnapshot"))
+    if not snapshot:
+        raise FlowError(f"UpdatePerson/{qid} missing the updateSnapshot hidden field")
     url, body = page_post(op, url, {
         "wpgivenName": given, "wpfamilyName": family,
-        # Blanked managed fields: the description and the place of death —
-        # both must survive the update (no-clobber).
+        # Blanked statement field (place of death) → removed; blanked term
+        # (description) → kept (no-clobber). Both labelled fields are sent
+        # blank, matching the clear button's behaviour.
         "wpdescription": "",
         "wpdateOfBirth": input_value(body, "wpdateOfBirth"),
         "wpplaceOfBirthOsm": input_value(body, "wpplaceOfBirthOsm"),
         "wpdeceased": "1",
         "wpdateOfDeath": input_value(body, "wpdateOfDeath"),
         "wpplaceOfDeathOsm": "",
+        "wpplaceOfDeathOsmLabel": "",
+        "wpupdateSnapshot": snapshot,
         "wpclass": class_item,
         "wpEditToken": token, "wpSubmit": "1",
     })
     if qid not in url:
-        raise FlowError(f"UpdatePerson/{qid} no-clobber did not redirect: {url} {find_error(body)}")
+        raise FlowError(f"UpdatePerson/{qid} clear update did not redirect: {url} {find_error(body)}")
     return url
 
 
@@ -3461,6 +3468,18 @@ def flow_filepage_module_source(op, base: str) -> None:
         raise FlowError("filepage module: clipboard-blocked copy fallback notice missing")
 
 
+def flow_clearfields_module_source(op, base: str) -> None:
+    """The Update* clear/undo control is JS-side: assert the served module
+    carries the ×/↶ classes and the discard warning key."""
+    _, body = page_get(op, base,
+        "/load.php?modules=ext.embeddableContent.clearfields&lang=en&skin=vector&debug=true")
+    for needle in [ "wb-clear-field", "wb-clear-field-undo",
+                    "embeddablecontent-undo-field-warning",
+                    "embeddablecontent-clear-field" ]:
+        if needle not in body:
+            raise FlowError(f"clearfields module: missing {needle}")
+
+
 def flow_mediaopen_module_source(op, base: str) -> None:
     """The content-page embedded-file open link is JS-side (it locates every
     rendered img/audio/video/PDF link): assert the served module reads the
@@ -4482,21 +4501,49 @@ def flow_osm_place_renders(op, base: str, api: str, qid: str, osm_id: str, label
     print(f"[ok] {{{{#osm-place:birth|{qid}}}}}: renders {label!r} linked to OSM {osm_id}")
 
 
-def flow_math(op, base: str, api: str, label: str, latex: str, describes_qid: str) -> str:
+def flow_math(op, base: str, api: str, label: str, latex: str, describes_qid: str,
+              note: str = "") -> str:
     """Special:AddMath with the 'describes' subject field (issue follow-up)."""
     url, body = page_get(op, base, "/wiki/Special:AddMath")
     token = edit_token(body)
-    url, body = page_post(op, url, {
+    payload = {
         "wplabel": label,
         "wppayload": latex,
         "wpdescribes": describes_qid,
         "wpEditToken": token,
         "wpSubmit": "1",
-    })
+    }
+    if note:
+        payload["wpnote"] = note
+    url, body = page_post(op, url, payload)
     m = re.search(r"/wiki/Item:(Q\d+)$", url)
     if not m:
         raise FlowError(f"Special:AddMath did not redirect to an item: {url} {find_error(body)}")
     return m.group(1)
+
+
+def flow_update_math_clear_note(op, base: str, api: str, qid: str, note_prop: str) -> str:
+    """Special:UpdateMath/<qid>: blanking the Note removes its statement
+    (the page-open snapshot is posted exactly as rendered)."""
+    url, body = page_get(op, base, f"/wiki/Special:UpdateMath/{qid}")
+    if not textarea_value(body, "wpnote"):
+        raise FlowError(f"UpdateMath/{qid} did not prefill the note")
+    snapshot = html.unescape(input_value(body, "wpupdateSnapshot"))
+    if not snapshot:
+        raise FlowError(f"UpdateMath/{qid} missing the updateSnapshot hidden field")
+    url, body = page_post(op, url, {
+        "wplabel": input_value(body, "wplabel"),
+        "wppayload": textarea_value(body, "wppayload"),
+        "wpnote": "",
+        "wpupdateSnapshot": snapshot,
+        "wpEditToken": edit_token(body), "wpSubmit": "1",
+    })
+    if qid not in url:
+        raise FlowError(f"UpdateMath/{qid} clear did not redirect: {url} {find_error(body)}")
+    claims, _ = entity_claims(op, api, qid)
+    if first_value(claims, note_prop) is not None:
+        raise FlowError(f"UpdateMath/{qid} blanked note kept the statement (clear failed)")
+    return url
 
 
 def flow_quotation(op, base: str, api: str, label: str, payload: str, person_qid: str) -> str:
@@ -5715,17 +5762,19 @@ def main() -> int:
         #     rejected on submit — no item created.
         flow_addperson_osm_rejects_name(op, base, api, person_class)
 
-        # 1b1b. Update no-clobber (upload-ux batch): blanked managed fields
-        #     (description + place of death) keep the existing values.
+        # 1b1b. Update clear semantics (PR2): a blanked statement field
+        #     removes its statement; a blanked term keeps no-clobber.
         old_description = entity_descriptions(op, api, person_manual)
-        flow_update_person_no_clobber(op, base, api, person_manual)
+        flow_update_person_clear(op, base, api, person_manual)
         assert entity_descriptions(op, api, person_manual) == old_description, \
-            f"{person_manual} blanked description overwrote the existing one (no-clobber)"
+            f"{person_manual} blanked description overwrote the existing one (term no-clobber)"
         claims, _ = entity_claims(op, api, person_manual)
-        assert first_value(claims, place_of_death_osm_prop) == "relation/295355", \
-            f"{person_manual} blanked OSM place-of-death field lost the existing statement (no-clobber)"
-        print(f"[ok] Special:UpdatePerson/{person_manual}: blanked fields keep existing "
-              f"description + place-of-death (no-clobber)")
+        assert first_value(claims, place_of_death_osm_prop) is None, \
+            f"{person_manual} blanked OSM place-of-death field kept the statement (clear failed)"
+        assert first_value(claims, place_of_death_label_prop) is None, \
+            f"{person_manual} blanked place-of-death label kept the statement (clear failed)"
+        print(f"[ok] Special:UpdatePerson/{person_manual}: blanked statement field removed; "
+              f"blanked term kept (description no-clobber)")
 
         # 1b2. AddPerson manual form rendering (regressions): the OpenAlex
         #     author-ID field must resolve its label (no ⧼message-key⧽) and
@@ -7111,6 +7160,7 @@ def main() -> int:
         print("[ok] uploadmeta module source: hostname parse (429 fix), 2000-char cap, "
               "dest-name normalization, validate latest-wins + banner dedupe")
         flow_filepage_module_source(op, base)
+        flow_clearfields_module_source(op, base)
         flow_mediaopen_module_source(op, base)
         print("[ok] filepage/mediaopen module source: inline copy + open-in-new-tab + upload hand-off "
               "(copy-on-upload, upload-another opener reload)")
@@ -7228,8 +7278,12 @@ def main() -> int:
         #    regression: the preview kept the delimiters, the server stripped
         #    them).
         math_label = f"Page-flow E2E math {int(time.time())}"
-        math_item = track(flow_math(op, base, api, math_label, "\n$$E = mc^2$$\n", person))
+        math_item = track(flow_math(op, base, api, math_label, "\n$$E = mc^2$$\n", person,
+                                    note="E2E math note"))
         claims, label = entity_claims(op, api, math_item)
+        note_prop = resolve("note", "property")
+        assert first_value(claims, note_prop) == "E2E math note", \
+            f"{math_item} note not written on create"
         assert first_value(claims, instance_of) == math_class, \
             f"{math_item} instance-of != mathematical expression"
         assert first_value(claims, describes_prop) == person, \
@@ -7238,7 +7292,9 @@ def main() -> int:
         assert first_value(claims, latex_prop) == "E = mc^2", \
             f"{math_item} math payload not delimiter-stripped ({first_value(claims, latex_prop)!r})"
         print(f"[ok] Special:AddMath -> {math_item}: math class + describes statement, "
-              f"payload delimiter-stripped")
+              f"payload delimiter-stripped, note written")
+        flow_update_math_clear_note(op, base, api, math_item, note_prop)
+        print(f"[ok] Special:UpdateMath/{math_item}: blanked note removed the statement")
 
         # 5b. Multi-line payloads (issue #6 §8 option A: escape-at-rest,
         #     decode-at-render): a payload with real newlines stores

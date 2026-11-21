@@ -1350,6 +1350,26 @@
 				"imagegallery.css"
 			]
 		},
+		"ext.embeddableContent.clearfields": {
+			"scripts": [
+				"clearfields.js"
+			],
+			"styles": [
+				"clearfields.css"
+			],
+			"dependencies": [
+				"oojs-ui"
+			],
+			"messages": [
+				"embeddablecontent-clear-field",
+				"embeddablecontent-undo-field",
+				"embeddablecontent-undo-field-warning"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
 		"ext.embeddableContent.fileviewer": {
 			"styles": [
 				"gadget.css",

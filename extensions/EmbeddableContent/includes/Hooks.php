@@ -627,6 +627,16 @@ class Hooks {
 			return;
 		}
 
+		// Every Special:Update* page (content items, semantic entities,
+		// UpdateFile) gets the per-field clear/undo control. The Update form
+		// is prefilled, so clearing a field is the explicit removal gesture;
+		// Spec\StatementSnapshot decides server-side whether the blank may
+		// remove the statement.
+		if ( $title->isSpecialPage() && str_starts_with( $title->getText(), 'Update' ) ) {
+			$out->addModules( 'ext.embeddableContent.clearfields' );
+		}
+
+		// AddPerson/UpdatePerson — the place-of-birth/death fields are OSM
 		// AddPerson/UpdatePerson — the place-of-birth/death fields are OSM
 		// search comboboxes (osm-places): osmsuggest.js wires them to
 		// Nominatim (browser-first). The AddSource/UpdateSource legal classes

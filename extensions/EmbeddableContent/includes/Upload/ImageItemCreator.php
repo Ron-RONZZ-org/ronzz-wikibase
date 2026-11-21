@@ -269,8 +269,12 @@ final class ImageItemCreator {
 		$sourceEntityId = self::normalizeItemId( $sourceEntity );
 
 		// "Source specified but not author": inherit the source's own
-		// `attributed to` statements (the AddSource author model).
-		if ( $authorEntityIds === [] && $sourceEntityId !== null ) {
+		// `attributed to` statements (the AddSource author model). An
+		// explicitly CLEARED author field suppresses the inheritance — the
+		// user asked for no author, not for the source's authors.
+		if ( $authorEntityIds === [] && $sourceEntityId !== null
+			&& !in_array( 'authorEntity', $clearFields, true )
+		) {
 			$authorEntityIds = self::attributedToIds(
 				$sourceEntityId,
 				$provenance['attributedTo'] ?? null

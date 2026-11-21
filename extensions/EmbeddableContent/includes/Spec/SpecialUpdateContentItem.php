@@ -98,7 +98,18 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 
 		// Prefill the shared Add* form from the item's statements, then
 		// drop the create-only "Add more" button.
-		$fields = $this->prefilledFields( $this->recordFromItem( $item ) );
+		$record = $this->recordFromItem( $item );
+		$fields = $this->prefilledFields( $record );
+		// The page-open statement snapshot: a blank field may remove its
+		// statement ONLY when the item's statements are still the ones the
+		// form was prefilled from (the concurrent-edit guard).
+		$snapshot = StatementSnapshot::rowsFor( $item, $this->updateFieldProperties() );
+		if ( $snapshot !== [] ) {
+			$fields[StatementSnapshot::FIELD] = [
+				'type' => 'hidden',
+				'default' => (string)json_encode( $snapshot ),
+			];
+		}
 		if ( $this->updateReturnToAddMore ) {
 			// The query string is lost on POST; carry the marker across.
 			$fields['fromaddmore'] = [ 'type' => 'hidden', 'default' => '1' ];
@@ -169,6 +180,52 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 			);
 		}
 		return $fields;
+	}
+
+	/**
+	 * Form field name => managed statement property for this kind. The
+	 * snapshot uses these to know which property a blank field owns.
+	 *
+	 * `translations` is deliberately absent: the cloner's present-empty list
+	 * already clears the translation property (no blank-field semantics).
+	 *
+	 * @return array<string,string>
+	 */
+	protected function updateFieldProperties(): array {
+		$kind = $this->getKind();
+		$map = [];
+		$payload = $this->config->payloadPropertyIds()[$kind] ?? null;
+		if ( $payload !== null ) {
+			$map['payload'] = $payload;
+		}
+		if ( $kind === 'math' ) {
+			foreach ( [
+				'note' => $this->config->notePropertyId(),
+				'preNote' => $this->config->preNotePropertyId(),
+				'describes' => $this->config->describesPropertyId(),
+			] as $field => $propertyId ) {
+				if ( $propertyId !== null ) {
+					$map[$field] = $propertyId;
+				}
+			}
+		}
+		if ( $kind === 'code' ) {
+			foreach ( [
+				'lexer' => $this->config->programmingLanguagePropertyId(),
+				'implementationOf' => $this->config->implementationOfPropertyId(),
+			] as $field => $propertyId ) {
+				if ( $propertyId !== null ) {
+					$map[$field] = $propertyId;
+				}
+			}
+		}
+		$provenance = $this->config->provenancePropertyIds();
+		foreach ( [ 'attributedTo', 'source', 'sourceUrl', 'date' ] as $field ) {
+			if ( isset( $provenance[$field] ) ) {
+				$map[$field] = $provenance[$field];
+			}
+		}
+		return $map;
 	}
 
 	/**
@@ -337,6 +394,20 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 		// is lost on POST).
 		$this->updateReturnToAddMore = (string)( $data['fromaddmore'] ?? '' ) === '1';
 
+		// A content item must keep a label and a payload; a quotation must
+		// keep an author or a source (the create invariants). Clearing the
+		// payload would leave an item no renderer can display.
+		if ( trim( (string)( $data['label'] ?? '' ) ) === ''
+			|| trim( (string)( $data['payload'] ?? '' ) ) === ''
+		) {
+			return $this->msg( 'embeddablecontent-add-error-required' )->text();
+		}
+		if ( $this->getKind() === 'quotation'
+			&& trim( (string)( $data['attributedTo'] ?? '' ) ) === ''
+			&& trim( (string)( $data['source'] ?? '' ) ) === ''
+		) {
+			return $this->msg( 'embeddablecontent-add-error-attribution' )->text();
+		}
 		$converted = $this->flowRecordFromForm( $data );
 		if ( $converted['error'] !== null ) {
 			return $converted['error'];
@@ -370,7 +441,16 @@ abstract class SpecialUpdateContentItem extends SpecialAddContentItem {
 			// auto-link too.
 			$previousSources = $this->provenanceIdsOf( $fresh, 'source' );
 			$previousAuthors = $this->provenanceIdsOf( $fresh, 'attributedTo' );
-			$this->contentFlow()->applyUpdate( $converted['kind'], $fresh, $record );
+			$snapshot = StatementSnapshot::decode(
+				(string)( $data[StatementSnapshot::FIELD] ?? '' )
+			);
+			$clearProperties = StatementSnapshot::clearProperties(
+				$fresh,
+				$snapshot,
+				static fn ( string $field ): bool => array_key_exists( $field, $data )
+					&& trim( (string)$data[$field] ) === ''
+			);
+			$this->contentFlow()->applyUpdate( $converted['kind'], $fresh, $record, $clearProperties );
 			$label = trim( (string)( $record['label'] ?? '' ) );
 			if ( $label === '' ) {
 				$label = $this->updateItemLabel( $fresh );

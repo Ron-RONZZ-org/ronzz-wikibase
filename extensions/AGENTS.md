@@ -915,10 +915,15 @@ report). See `SimpleMathJax/VENDORED.md`.
   — the exact same review fields prefilled from the item's statements
   (`recordFromItem`, the reverse of `statementSpecs`), submit re-runs the
   Add\* validation then replaces the managed statements **for which the form
-  provides a NEW non-empty value** (no-clobber: a blank managed field keeps
-  the existing statement — removal is an explicit item-page edit; the old
-  unconditional `baseManagedPropertyIds` removal set is gone) + updates the
-  en label/description (a blank description keeps the existing one); uploads
+  provides a NEW non-empty value**, plus the explicit clears approved by the
+  hidden page-open snapshot (`Spec\StatementSnapshot`): a blank field removes
+  its statements only when the item is unchanged since form-open, so a
+  concurrent edit keeps its newer value. Terms (`label`/`description`/
+  `aliases`) keep no-clobber; the class and the portrait/logo list are never
+  blank-cleared. The API/MCP partial update still treats blank/absent fields
+  as keep. Every Update\* form also loads `resources/clearfields.js` — a × per
+  editable field that becomes an indefinite ↶ undo restoring the form-open
+  value (a warning if it would discard new content). Uploads
   are opt-in (an existing portrait/logo survives; the AddSource access file
   is kept via a relaxed access validation); a label change
   best-effort-renames the classic page (MovePage + sitelink update). The
@@ -942,9 +947,13 @@ report). See `SimpleMathJax/VENDORED.md`.
   appears exactly as entered in Add, the quotation language and the code
   lexer pre-selected, and the subject lists (`describes`/`implementation
   of`)/provenance carrying their ids. Submit = the shared flow service
-  `prepare(creating:false)` + `applyUpdate` (no-clobber: a blank field
-  keeps the existing statement; removal is an explicit item-page edit) —
-  the same pipeline the `action=addspecialcontent` qid update runs; the
+  `prepare(creating:false)` + `applyUpdate` — the same pipeline the
+  `action=addspecialcontent` qid update runs. The Update page passes the
+  page-open snapshot's explicit clears (`applyUpdate`'s `$clearProperties`):
+  a blank field removes its statement when the item is unchanged since
+  form-open, while a blank label/payload is rejected (required) and a
+  quotation must keep an author or a source. The API path passes no clear
+  list, so its no-clobber partial-update contract is unchanged; the
   label is written back in the term language it was prefilled from and the
   class never changes. The class→Update map (`Hooks::updateTargetForItem`,
   the renamed `updateUrlForItem`) now also covers the content classes and
