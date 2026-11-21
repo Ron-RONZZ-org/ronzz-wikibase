@@ -1100,6 +1100,12 @@ class Hooks {
 				'name' => $key,
 				'url' => $file->getFullUrl(),
 				'page' => $fileTitle->getPrefixedText(),
+				// The same credit line the server appends to figure
+				// captions; captionless embeds get it client-side.
+				'credit' => \EmbeddableContent\Media\ImageCredit::creditLineFor( $fileTitle, $parser ),
+				// An internal-use file's media is login-gated; the module
+				// skips its open link for anonymous readers.
+				'internal' => \EmbeddableContent\Spec\InternalFile::isInternal( $fileTitle ) ? '1' : '',
 			];
 		}
 		if ( $files === [] ) {

@@ -2406,14 +2406,23 @@ report). See `SimpleMathJax/VENDORED.md`.
   `action=imagefacts` gains `authorEntity`/`sourceEntity`/`sourceText` and
   the matching `clear` tokens; `imagefacts-fields` exposes the provenance
   ids. The MCP image-facts tools mirror the fields (`dist/` rebuilt).
-- **Automatic thumbnail credit**: `Media/ImageCredit` (the
-  `ImageBeforeProduceHTML` handler) appends a compact "Image: author ·
-  license · source" `<div class="wb-image-credit">` to the caption of a
-  thumb/framed image on a content page, resolved from the file's sitelinked
-  image item (entity labels link to their classic/Item pages; missing facts
-  degrade silently). The image item page is a parser-cache dependency (the
-  `ItemImage` pattern) and `resources/imagecredit.css` uses Codex tokens.
-  Suppression: the canonical `class=noCredit` option (the token is stripped
-  from the class list on every image) and a bare `noCredit` caption
-  (`Spec/ImageCredit`, unit-tested). Parser-output change — purge the
-  parser cache on deploy.
+- **Automatic media credit (ADR `docs/decisions/media-credits-all-embeds.md`)**:
+  `Media/ImageCredit` (the `ImageBeforeProduceHTML` handler) appends a compact
+  "Image: author · license · source" `<div class="wb-image-credit">` to the
+  caption of ANY captioned file embed on a content page — images, audio,
+  video and PDF (the old bitmap/drawing media-type guard is gone). The credit
+  resolves from the file's sitelinked item (entity labels link to their
+  classic/Item pages; missing facts degrade silently). The image item page is
+  a parser-cache dependency (the `ItemImage` pattern) and
+  `resources/imagecredit.css` uses Codex tokens. **Captionless embeds**
+  (plain image, audio/video player, PDF/EPUB/DJVU link) get the same credit
+  client-side: `Hooks::wireEmbeddedMediaOpenLinks` resolves
+  `ImageCredit::creditLineFor()` into `wbEmbeddedFiles` (plus `internal`),
+  and `resources/mediaopen.js` appends it with the open link. **Galleries**
+  get ONE paragraph below the gallery for all images; **infoboxes**
+  (`.wb-infobox`, `.wb-image-gallery`) are skipped (the on-wiki templates
+  carry `wb-infobox`). Suppression: `class=noCredit` (stripped, leaving a
+  `wb-no-credit` marker the client-side path also honours) and a bare
+  `noCredit` caption (`Spec/ImageCredit`, unit-tested). Internal files skip
+  the client-side link/credit for anonymous readers. Parser-output change —
+  purge the parser cache on deploy.

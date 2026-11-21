@@ -45,10 +45,29 @@
 	color: var(--color-subtle, #54595d);
 }
 
+.wb-media-tools {
+	display: block;
+	margin-top: 0.25em;
+}
+
+.wb-image-credit-inline {
+	display: block;
+}
+
+.wb-media-open-gallery .wb-image-credit {
+	display: inline;
+	margin-top: 0;
+}
+
+.wb-gallery-credit-item {
+	display: inline;
+}
+
 /* The infobox is deliberately credit/open-link free: it is a compact data
  * summary, not a content figure. */
 .wb-infobox .wb-media-open,
-.wb-infobox .wb-media-open-gallery {
+.wb-infobox .wb-media-open-gallery,
+.wb-infobox .wb-image-credit {
 	display: none;
 }
 
