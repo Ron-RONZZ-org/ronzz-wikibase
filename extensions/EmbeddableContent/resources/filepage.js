@@ -79,6 +79,18 @@
 			.on( 'click', handler );
 	}
 
+	/** A link styled like the toolbar buttons (opens the media in a new tab). */
+	function makeOpenLink( id, href ) {
+		return $( '<a>' )
+			.attr( 'id', id )
+			.attr( 'href', href )
+			.attr( 'target', '_blank' )
+			.attr( 'rel', 'noopener' )
+			.addClass( 'wb-embed-toolbar-btn' )
+			.attr( 'title', mw.msg( 'embeddablecontent-file-open-newtab' ) )
+			.text( mw.msg( 'embeddablecontent-file-open-newtab' ) );
+	}
+
 	/**
 	 * Persistent fallback shown when the automatic clipboard write is blocked:
 	 * the snippet plus a copy button that works on the user's click.
@@ -117,8 +129,8 @@
 		// The File page's action toolbar, inline to the right of the title
 		// (created once). The update button (resources/updatebutton.js)
 		// joins this SAME row — it used to create its own block row below
-		// the title. The ranks keep the canonical order (update → copy
-		// embed → copy link → upload another).
+		// the title. The ranks keep the canonical order (update → open →
+		// copy embed → copy link → upload another).
 		if ( $( '#ca-wb-file-copyembed' ).length === 0 ) {
 			var $toolbar = $( '<span class="wb-file-toolbar"></span>' );
 			var extractedUrl = mw.config.get( 'wbExtractedTextUrl' );
@@ -135,6 +147,10 @@
 						.attr( 'data-wb-order', 38 )
 						.text( mw.msg( 'embeddablecontent-file-extractedtext' ) )
 				);
+			}
+			if ( url ) {
+				$toolbar.append( makeOpenLink( 'ca-wb-file-open', url )
+					.attr( 'data-wb-order', 39 ) );
 			}
 			$toolbar.append( makeButton(
 				'ca-wb-file-copyembed',
@@ -154,25 +170,21 @@
 			mw.hook( 'embeddableContent.fileToolbarReady' ).fire( $toolbar );
 		}
 
-		// PDFs: embed the browser's native viewer with a fullscreen control
-		// (no third-party PDF library; same same-origin iframe mechanism as
-		// Special:SourceFile).
+		// PDFs: embed the browser's native viewer (no third-party PDF
+		// library; same same-origin iframe mechanism as Special:SourceFile).
+		// The fullscreen control was removed — the browser viewer has its own,
+		// and the wrapper caused layout regressions. The toolbar above carries
+		// the "Open in a new tab" link.
 		if ( url && mw.config.get( 'wbFileMime' ) === 'application/pdf'
 			&& $( '.wb-pdf-viewer' ).length === 0
 		) {
 			var $viewer = $( '<div class="wb-pdf-viewer"></div>' )
-				.append( $( '<div class="wb-pdf-toolbar"></div>' ) )
 				.append( $( '<iframe>' ).attr( {
 					src: url,
 					title: name,
 					loading: 'lazy'
 				} ) );
 			$( '#mw-content-text' ).first().prepend( $viewer );
-			mw.loader.using( 'ext.embeddableContent.pdfviewer' ).then( function () {
-				if ( mw.embeddableContent.pdfviewer ) {
-					mw.embeddableContent.pdfviewer.attach( $viewer );
-				}
-			} );
 		}
 
 		// Upload hand-off (one-shot params appended by BeforePageRedirect).

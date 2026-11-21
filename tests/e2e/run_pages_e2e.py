@@ -3341,6 +3341,8 @@ def flow_filepage_module_source(op, base: str) -> None:
         "/load.php?modules=ext.embeddableContent.filepage&lang=en&skin=vector&debug=true")
     if "ca-wb-file-copyembed" not in body or "ca-wb-file-copylink" not in body:
         raise FlowError("filepage module: copy buttons missing")
+    if "ca-wb-file-open" not in body or "embeddablecontent-file-open-newtab" not in body:
+        raise FlowError("filepage module: open-in-new-tab button missing")
     if "wb-file-toolbar" not in body:
         raise FlowError("filepage module: inline toolbar container missing")
     if "[[File:' + name + ']]" not in body:
@@ -3356,6 +3358,18 @@ def flow_filepage_module_source(op, base: str) -> None:
     # hand-off must fall back to a visible one-click copy notice.
     if "wb-uploadcopy-notice" not in body or "showCopyNotice" not in body:
         raise FlowError("filepage module: clipboard-blocked copy fallback notice missing")
+
+
+def flow_mediaopen_module_source(op, base: str) -> None:
+    """The content-page embedded-file open link is JS-side (it locates every
+    rendered img/audio/video/PDF link): assert the served module reads the
+    server map and handles galleries."""
+    _, body = page_get(op, base,
+        "/load.php?modules=ext.embeddableContent.mediaopen&lang=en&skin=vector&debug=true")
+    for needle in ["wbEmbeddedFiles", "wb-media-open", "wb-media-open-gallery",
+                   "embeddablecontent-file-open-newtab"]:
+        if needle not in body:
+            raise FlowError(f"mediaopen module: missing {needle}")
 
 
 def flow_uploadform_module_source(op, base: str) -> None:
@@ -6299,6 +6313,10 @@ def main() -> int:
         _, auth_special = page_get(op, base, internal_special)
         assert "<iframe" in auth_special and "wb-sourcefile-preview" in auth_special, \
             "logged-in internal PDF preview missing"
+        assert "wb-sourcefile-open" in auth_special and 'target="_blank"' in auth_special, \
+            "logged-in Special:SourceFile missing the open-in-new-tab link"
+        assert "wb-sourcefile-open" not in anon_special, \
+            "anonymous Special:SourceFile must not render the open-in-new-tab link"
         assert "name='wpaccept'" not in auth_special and 'name="wpaccept"' not in auth_special, \
             "internal download must not require licence acceptance"
         # [[File:]] parse is user-dependent: anon → placeholder, logged-in → image.
@@ -6306,6 +6324,9 @@ def main() -> int:
             "action": "parse", "title": "Main Page",
             "text": f"[[File:{internal_file_title[5:]}]]", "format": "json"})
         anon_parse_html = anon_parse.get("parse", {}).get("text", {}).get("*", "")
+        if "wb-internal-file-placeholder" not in anon_parse_html:
+            print("DEBUG internal_file_title:", internal_file_title)
+            print("DEBUG anon_parse:", json.dumps(anon_parse)[:2500])
         assert "wb-internal-file-placeholder" in anon_parse_html and \
             "Unfortunately, due to copyright restrictions" in anon_parse_html, \
             "anonymous [[File:]] did not render the internal-file placeholder"
@@ -6973,7 +6994,8 @@ def main() -> int:
         print("[ok] uploadmeta module source: hostname parse (429 fix), 2000-char cap, "
               "dest-name normalization, validate latest-wins + banner dedupe")
         flow_filepage_module_source(op, base)
-        print("[ok] filepage module source: inline copy buttons + upload hand-off "
+        flow_mediaopen_module_source(op, base)
+        print("[ok] filepage/mediaopen module source: inline copy + open-in-new-tab + upload hand-off "
               "(copy-on-upload, upload-another opener reload)")
         flow_uploadform_module_source(op, base)
         print("[ok] uploadform module source: file-source gating, empty-field warning, "

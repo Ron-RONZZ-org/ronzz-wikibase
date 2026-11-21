@@ -1357,13 +1357,19 @@ report). See `SimpleMathJax/VENDORED.md`.
   (`[[File:xxx]]`) and "Copy direct link" (the media URL). The same module
   completes the `Special:Upload` hand-off (below). The File page's update
   button is **"Update metadata"** (Special:UpdateFile) and joins this same
-  file toolbar instead of a separate block row. PDF uploads gain a
-  browser-native iframe viewer (`resources/pdfviewer.js`, no third-party PDF
-  library) with a fullscreen control and an open-in-new-tab link; the same
-  module wraps `Special:SourceFile`'s preview. Fullscreen uses
-  `position:fixed; inset:0` and a 100% flex iframe (not `100vw/100vh` +
-  `height:auto`), and the SourceFile iframe carries no inline border so the
-  fullscreen reset applies.
+  file toolbar instead of a separate block row. PDF uploads keep a
+  browser-native iframe viewer (no third-party PDF library) with **no
+  fullscreen control** — the fixed-position wrapper caused layout
+  regressions and the browser viewer has its own. The **Open in a new tab**
+  link is generalised: the File toolbar carries it for every file type,
+  `Special:SourceFile` renders it for every preview, and content-page embeds
+  get a small `noprint` link (`Media\FileOpenLink` for captioned
+  thumbnails/frames; `resources/mediaopen.js` + the `wbEmbeddedFiles` JS
+  config map for captionless images, audio/video, PDF/EPUB/DJVU link embeds
+  and galleries — one paragraph below a gallery). Infoboxes
+  (`.wb-infobox`, `.wb-image-gallery`) are excluded. The viewer styles live
+  in `resources/fileviewer.css` (module `ext.embeddableContent.fileviewer`);
+  the old `pdfviewer.js`/`pdfviewer.css` module is gone.
   (b) **Alphabetical pickers** — `Spec/LabelSorter` (ICU `Collator`,
   locale-aware) sorts Special:AddSource's source-type radio picker and
   Special:AddCollective's class select; the latter also gains localized
