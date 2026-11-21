@@ -479,8 +479,10 @@ jobs:
           queued=$(db "SELECT COUNT(*) AS n FROM job WHERE job_cmd='extractPdfText';" | num)
           echo "extractPdfText jobs: $queued"
           if [ "$queued" -eq 0 ]; then
-            echo "--- recentchanges for the upload ---"
-            db "SELECT rc_title, rc_comment FROM recentchanges WHERE rc_title LIKE 'Queue-E2E-%';"
+            echo "--- upload response ---"
+            cat /tmp/queue-upload.json
+            echo "--- File pages matching the upload ---"
+            db "SELECT page_title FROM page WHERE page_namespace = 6 AND page_title LIKE 'Queue-E2E-%';"
             echo "--- job table by type ---"
             db "SELECT job_cmd, COUNT(*) AS n FROM job GROUP BY job_cmd;"
           fi

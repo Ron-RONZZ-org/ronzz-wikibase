@@ -297,10 +297,13 @@ class Hooks {
 		if ( strtolower( $title->getExtension() ) !== 'pdf' ) {
 			return;
 		}
+		// Synchronous push: PageSaveComplete runs in the upload's post-commit
+		// deferred phase, where a lazyPush's own deferred update can be dropped.
+		// One row insert per PDF save is cheap.
 		MediaWikiServices::getInstance()
 			->getJobQueueGroupFactory()
 			->makeJobQueueGroup()
-			->lazyPush( new JobSpecification(
+			->push( new JobSpecification(
 				'extractPdfText',
 				[],
 				[ 'removeDuplicates' => true ],
