@@ -297,6 +297,20 @@ class EmbeddableContentConfig {
 		] );
 	}
 
+	/** The Tika endpoint for PDF text extraction (host loopback by default). */
+	public function pdfTikaEndpoint(): string {
+		return $this->optionalString( 'pdfTikaEndpoint' )
+			?? \EmbeddableContent\Pdf\TikaClient::DEFAULT_ENDPOINT;
+	}
+
+	/** Per-document Tika timeout in seconds (Tika's default is 1 hour). */
+	public function pdfTikaTimeout(): float {
+		$value = $this->raw['pdfTikaTimeout'] ?? null;
+		return is_numeric( $value ) && (float)$value > 0
+			? (float)$value
+			: \EmbeddableContent\Pdf\TikaClient::DEFAULT_TIMEOUT;
+	}
+
 	/**
 	 * The legal-provision source class id, or null when not configured. The
 	 * law class is a child of `legislation` whose payload is monolingual text
@@ -345,6 +359,8 @@ class EmbeddableContentConfig {
 			'accessStatus', 'archivedText',
 			// Access file entities: the source → access-file item link.
 			'hasAccessFile',
+			// The extracted-text File item qualifier on that link.
+			'extractedText',
 			// Zotero-aligned batch: legal/official-document facts.
 			'court', 'territorialJurisdictionOsm', 'territorialJurisdictionLabel',
 			'caseNumber', 'patentNumber', 'reportNumber', 'legislationNumber',

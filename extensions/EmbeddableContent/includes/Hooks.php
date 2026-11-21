@@ -668,6 +668,18 @@ class Hooks {
 				$out->addJsConfigVars( 'wbFileName', $title->getText() );
 				$out->addJsConfigVars( 'wbFileUrl', $file->getFullUrl() );
 				$out->addJsConfigVars( 'wbFileMime', (string)$file->getMimeType() );
+				// PDF with a current Markdown extraction: the toolbar's
+				// "Read extracted text" link.
+				if ( \EmbeddableContent\Pdf\PdfTextExtractor::isPdf( $title )
+					&& !\EmbeddableContent\Pdf\PdfTextExtractor::needsExtraction( $title )
+				) {
+					$out->addJsConfigVars(
+						'wbExtractedTextUrl',
+						\MediaWiki\SpecialPage\SpecialPage::getTitleFor( 'SourceText' )->getFullURL( [
+							'file' => $title->getPrefixedText(),
+						] )
+					);
+				}
 				$out->addModules( 'ext.embeddableContent.filepage' );
 				// The File page's semantic facts + new-version upload:
 				// Special:UpdateFile. Shown even for a legacy file without an

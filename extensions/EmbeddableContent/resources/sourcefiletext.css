@@ -1,0 +1,18 @@
+/* Special:SourceText — the Markdown extraction. */
+.wb-source-text {
+	max-height: 75vh;
+	overflow: auto;
+	padding: 1em;
+	border: 1px solid var(--border-color-subtle, #c8ccd1);
+	border-radius: 2px;
+	background: var(--background-color-neutral-subtle, #f8f9fa);
+	color: var(--color-base, #202122);
+	font-size: 0.9em;
+	line-height: 1.45;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.wb-source-text-toolbar {
+	margin: 0 0 0.75em;
+}

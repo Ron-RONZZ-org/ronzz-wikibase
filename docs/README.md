@@ -151,6 +151,10 @@ inference on Special:Upload/UpdateFile), `file-pdf-viewer.md` (browser-native PD
 Special:SourceFile; the fullscreen control was later removed — see
 `fullscreen-removed-open-newtab.md`).
 
+Nov 2026 PDF text extraction: `pdf-text-extraction.md` (Tika 4 loopback →
+Markdown `.extracted.txt` companion with the source file's internal marker;
+`extracted text` qualifier on `has access file`; `Special:SourceText` +
+`action=sourcefiletext`; MCP `get-file-text`; dedicated extraction cron).
 Nov 2026 AddSource abstract/summary: `addsource-abstract-summary.md` (the
 content step is systematic for scholarly articles/books; the shared
 `SourcePageSkeleton` gives the API/MCP the same page body; `abstract` /

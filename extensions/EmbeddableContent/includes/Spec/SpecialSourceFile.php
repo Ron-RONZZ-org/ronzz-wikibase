@@ -97,6 +97,20 @@ class SpecialSourceFile extends SpecialPage {
 		$this->getOutput()->addHTML( $this->previewHtml( $file ) );
 		$this->getOutput()->addHTML( $this->openLinkHtml( $file ) );
 
+		// 1b. Extracted Markdown (Apache Tika), when the companion exists.
+		$fileTitle = $file->getTitle();
+		if ( \EmbeddableContent\Pdf\PdfTextExtractor::isPdf( $fileTitle )
+			&& !\EmbeddableContent\Pdf\PdfTextExtractor::needsExtraction( $fileTitle )
+		) {
+			$textUrl = SpecialPage::getTitleFor( 'SourceText' )->getFullURL( [
+				'file' => $fileTitle->getPrefixedText(),
+			] );
+			$this->getOutput()->addHTML(
+				'<p class="wb-sourcefile-text"><a href="' . htmlspecialchars( $textUrl ) . '">'
+				. $this->msg( 'embeddablecontent-file-extractedtext' )->escaped() . '</a></p>'
+			);
+		}
+
 		// 2. Licence information.
 		$this->getOutput()->addHTML( $this->licenceHtml( $license ) );
 
