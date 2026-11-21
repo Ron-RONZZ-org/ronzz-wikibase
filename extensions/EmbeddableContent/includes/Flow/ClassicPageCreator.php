@@ -102,14 +102,23 @@ final class ClassicPageCreator {
 	}
 
 	/**
-	 * The page skeleton: the template + the item description as an
-	 * == Overview == placeholder. Only sections with content are rendered —
-	 * no blank scaffolds. An EMPTY template (the Main-namespace page for a
-	 * plain item, no per-kind template) renders no transclusion at all.
+	 * The page skeleton: the shared Spec\SourcePageSkeleton for a Source:
+	 * class (abstract/summary/keywords/plot/… sections), or the generic
+	 * template + == Overview == placeholder for the non-Source page specs
+	 * (Person/Collective/Main). Only sections with content are rendered — no
+	 * blank scaffolds. An EMPTY template renders no transclusion at all.
 	 *
 	 * @param array<string,mixed> $record
 	 */
 	private function pageSkeleton( ClassicPageSpec $spec, array $record ): string {
+		if ( $spec->classKey !== '' ) {
+			return \EmbeddableContent\Spec\SourcePageSkeleton::render(
+				$spec->classKey,
+				$record,
+				$spec->template,
+				static fn ( string $key ): string => wfMessage( $key )->inContentLanguage()->text()
+			);
+		}
 		$body = $spec->template !== '' ? '{{' . $spec->template . "}}\n\n" : '';
 		$overview = trim( (string)( $record['description'] ?? '' ) );
 		if ( $overview !== '' ) {
