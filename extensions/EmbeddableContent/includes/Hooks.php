@@ -25,6 +25,7 @@ use MediaWiki\Revision\RevisionRecord;
 use MediaWiki\Skin\SkinTemplate;
 use MediaWiki\SpecialPage\SpecialPage;
 use MediaWiki\Specials\SpecialSearch;
+use MediaWiki\Title\Title;
 use Wikimedia\HtmlArmor\HtmlArmor;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
@@ -291,15 +292,34 @@ class Hooks {
 	 */
 	private static function enqueuePdfExtraction( $wikiPage ): void {
 		$title = $wikiPage->getTitle();
-		if ( !$title || $title->getNamespace() !== NS_FILE ) {
+		if ( $title instanceof Title ) {
+			self::enqueuePdfExtractionForTitle( $title );
+		}
+	}
+
+	/**
+	 * Queue one extractPdfText job for a PDF File title.
+	 *
+	 * Called from the PageSaveComplete handler and from UploadComplete (a
+	 * second, earlier producer: a page save runs inside a deferred atomic
+	 * update, and an upload must be queued even if that phase is skipped).
+	 * Both paths use removeDuplicates, so a double call is a no-op.
+	 *
+	 * The type is excluded from the default queue ($wgJobTypesExcludedFrom
+	 * DefaultQueue): OCR can take minutes, so a dedicated worker drains it
+	 * (`runJobs.php --type=extractPdfText --maxjobs=1 --maxtime=...`).
+	 *
+	 * @internal Public for the UploadHooks handler.
+	 */
+	public static function enqueuePdfExtractionForTitle( Title $title ): void {
+		if ( $title->getNamespace() !== NS_FILE ) {
 			return;
 		}
 		if ( strtolower( $title->getExtension() ) !== 'pdf' ) {
 			return;
 		}
-		// Synchronous push: PageSaveComplete runs in the upload's post-commit
-		// deferred phase, where a lazyPush's own deferred update can be dropped.
-		// One row insert per PDF save is cheap.
+		// Synchronous push: one row insert per PDF save is cheap, and it does
+		// not depend on a deferred update running after the response.
 		MediaWikiServices::getInstance()
 			->getJobQueueGroupFactory()
 			->makeJobQueueGroup()
