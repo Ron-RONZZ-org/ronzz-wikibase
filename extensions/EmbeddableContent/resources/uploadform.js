@@ -109,6 +109,32 @@
 	}
 
 	/**
+	 * The file from a ClipboardEvent's clipboardData, or null. Some browsers
+	 * leave `files` empty for an image paste and expose the bytes only through
+	 * `items` (`kind: 'file'`), so check both.
+	 */
+	function clipboardFile( clipboard ) {
+		if ( !clipboard ) {
+			return null;
+		}
+		var file = firstImageFile( clipboard.files );
+		if ( file ) {
+			return file;
+		}
+		var items = clipboard.items || [];
+		for ( var i = 0; i < items.length; i++ ) {
+			var item = items[ i ];
+			if ( item && item.kind === 'file' && item.getAsFile ) {
+				var fromItem = item.getAsFile();
+				if ( fromItem ) {
+					return fromItem;
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
 	 * Select a Source radio and keep the OOUI RadioSelect's hidden value in
 	 * sync. OOUI renders the visible radios WITHOUT a name and submits the
 	 * selected value through a hidden `wpSourceType` input; setting only the
@@ -142,6 +168,9 @@
 	function setFile( file ) {
 		var input = fileInput();
 		if ( !input ) {
+			// The File source is unavailable (e.g. a stash re-render): tell the
+			// user instead of failing silently.
+			mw.notify( mw.msg( 'embeddablecontent-upload-clipboard-error' ) );
 			return;
 		}
 		switchToFileMode();
@@ -799,11 +828,22 @@
 			} );
 		}
 
-		// 4b. Clipboard paste (an image on the clipboard) anywhere in the
-		// upload form — a text paste keeps working (only a file triggers it).
-		$form.on( 'paste', function ( e ) {
-			var clipboard = e.originalEvent.clipboardData;
-			var file = clipboard && firstImageFile( clipboard.files );
+		// 4b. Clipboard paste of an image ANYWHERE on the page — the hint
+		// ("Drag an image here, or paste it from your clipboard") invites a
+		// paste before anything in the form has focus, but a paste event
+		// fires on the focused element and only bubbles from there. On a fresh
+		// Special:Upload load the focus is on <body>, so a form-scoped
+		// listener never saw the event. This module loads only here, so a
+		// document-level listener is safe; a text paste falls through (only a
+		// clipboard file triggers the upload).
+		$( document ).on( 'paste', function ( e ) {
+			// An open image-editor dialog owns the file while it is up; a
+			// paste there must not replace the image under it.
+			if ( document.querySelector( '.oo-ui-windowManager-modal-active .oo-ui-dialog' ) ) {
+				return;
+			}
+			var clipboard = e.originalEvent && e.originalEvent.clipboardData;
+			var file = clipboardFile( clipboard );
 			if ( file ) {
 				e.preventDefault();
 				setFile( file );

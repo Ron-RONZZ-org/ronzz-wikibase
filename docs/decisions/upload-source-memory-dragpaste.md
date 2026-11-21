@@ -16,7 +16,10 @@ Two paper cuts on `Special:Upload`:
    (Url), so a local-file uploader had to re-pick "Source filename" every
    time.
 2. The "Source filename" field accepted only the OS file picker: dragging an
-   image onto it or pasting one from the clipboard did nothing.
+   image onto it or pasting one from the clipboard did nothing. The paste
+   listener was scoped to the form, so it only fired when a form field
+   happened to have focus — a fresh page load leaves the focus on `<body>`,
+   exactly where the drop hint invites the paste.
 
 ## Decision
 
@@ -28,12 +31,17 @@ Two paper cuts on `Special:Upload`:
    (after the blob-conversion branch, before the fresh-load default);
    `resources/filepage.js` carries `wbsourcetype` onto the reloaded form.
 2. **Accept a dropped or pasted image** (`resources/uploadform.js`): a drop
-   on the Source-filename row (or a paste of an image file anywhere in the
-   form) switches the source to **File** and fills the picker via a
-   `DataTransfer`, firing `change` so the shared `resources/uploadimage.js`
-   preview + resize run. A hint + a drop highlight are added
-   (`resources/uploadform.css`); a browser without a settable `FileList`
-   degrades to a notification, never a silent no-op.
+   on the Source-filename row (or a paste of an image file **anywhere on the
+   page** — the listener is document-level, because a paste event fires on
+   the focused element and a fresh load focuses `<body>`) switches the source
+   to **File** and fills the picker via a `DataTransfer`, firing `change` so
+   the shared `resources/uploadimage.js` preview + resize run. The clipboard
+   image is read from `clipboardData.files` **or** `clipboardData.items`
+   (`kind: 'file'`), because some browsers leave `files` empty for a paste. A
+   hint + a drop highlight are added (`resources/uploadform.css`); a browser
+   without a settable `FileList` (or a missing file input) degrades to a
+   notification, never a silent no-op. A paste is ignored while an image
+   editor dialog is open.
 
 Only the source **radio** is remembered, not the previous URL text (a stale
 URL is worse than a fresh empty field).

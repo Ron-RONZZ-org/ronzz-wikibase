@@ -1252,6 +1252,48 @@ async function main() {
 			console.log('[ok] clipboard paste selects the File source and submits wpSourceType=File');
 		}
 
+		// Page-level paste (reported regression): a fresh Special:Upload load
+		// leaves the focus on <body>, so a form-scoped listener never saw the
+		// Ctrl+V the hint invites. Dispatch on <body> and expose the image
+		// only through `items` (some browsers leave `files` empty for an image
+		// paste) — the document-level listener + items fallback must fill the
+		// picker and switch to File.
+		await page.evaluate(() => {
+			const input = document.getElementById('wpUploadFile');
+			input.value = '';
+			input.dispatchEvent(new Event('change', { bubbles: true }));
+			document.getElementById('wpSourceTypeurl').click();
+		});
+		await page.evaluate(async () => {
+			const canvas = document.createElement('canvas');
+			canvas.width = 40; canvas.height = 40;
+			canvas.getContext('2d').fillRect(0, 0, 40, 40);
+			const blob = await new Promise((r) => canvas.toBlob(r, 'image/png'));
+			const file = new File([blob], 'page-paste.png', { type: blob.type });
+			const evt = new Event('paste', { bubbles: true, cancelable: true });
+			Object.defineProperty(evt, 'clipboardData', {
+				value: {
+					files: [],
+					items: [{ kind: 'file', type: file.type, getAsFile: () => file }],
+				},
+			});
+			document.body.dispatchEvent(evt);
+		});
+		await page.waitForFunction(() => {
+			const input = document.getElementById('wpUploadFile');
+			return input && input.files && input.files.length === 1 &&
+				document.getElementById('wpSourceTypeFile').checked;
+		}, { timeout: 15000 }).catch(() => {});
+		const bodyPaste = await page.evaluate(() => ({
+			files: document.getElementById('wpUploadFile').files.length,
+			fileChecked: document.getElementById('wpSourceTypeFile').checked,
+		}));
+		if (bodyPaste.files !== 1 || !bodyPaste.fileChecked) {
+			failures.push(`page-level paste (focus on body, items-only clipboard) did not fill the picker: ${JSON.stringify(bodyPaste)}`);
+		} else {
+			console.log('[ok] page-level paste (focus on body, items-only clipboard) fills the picker + switches to File');
+		}
+
 		// Author / source mode toggles: the plain-text field is shown by
 		// default, the entity combobox appears only when its checkbox is
 		// ticked (and the server reads the mode the checkbox selects).

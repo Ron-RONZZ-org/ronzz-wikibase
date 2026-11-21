@@ -3517,6 +3517,11 @@ def flow_uploadform_module_source(op, base: str) -> None:
         raise FlowError("uploadform module: delayed URL-loading overlay missing")
     if "wpSourceType" not in body or "wb-uploadmeta-preview" not in body or "clearPreview" not in body:
         raise FlowError("uploadform module: source-toggle preview clearing missing")
+    # The paste hint invites a paste before the form has focus; the listener
+    # must be document-level (a form-scoped one misses the body-focused paste),
+    # and the clipboard `items` fallback covers browsers with empty `files`.
+    if "$( document ).on( 'paste'" not in body or "clipboard.items" not in body:
+        raise FlowError("uploadform module: page-wide clipboard paste binding missing")
 
 
 def flow_editsessionretry_module_source(op, base: str) -> None:
