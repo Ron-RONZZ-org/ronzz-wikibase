@@ -39,8 +39,9 @@ Tesseract already runs for Open WebUI (`owui-tika`, `latest-full`, OCR
    **Read extracted text** / **Open in a new tab**; `{{#source-access:}}`
    renders a `text` link next to the PDF (from the qualifier).
 6. **Extraction runs on a dedicated job queue** (ADR
-   `pdf-text-extraction-queue.md`): a PDF File page save enqueues one
-   `extractPdfText` job (`removeDuplicates`); the type is excluded from the
+   `pdf-text-extraction-queue.md`): a PDF upload (`UploadComplete`:
+   Special:Upload and `action=upload`) enqueues one `extractPdfText` job
+   (`removeDuplicates`); the type is excluded from the
    default queue and a 10-minute worker runs
    `runJobs.php --type=extractPdfText --maxjobs=1 --maxtime=480`. A failed
    extraction is retried up to `maxTries` (3), then pruned.

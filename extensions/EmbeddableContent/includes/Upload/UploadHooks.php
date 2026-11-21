@@ -507,7 +507,8 @@ final class UploadHooks {
 		// (maintenance/enqueuePdfExtractions.php) covers those files.
 		$request = RequestContext::getMain()->getRequest();
 		$formTitle = (string)$request->getVal( 'title', '' );
-		$inSourceForm = str_starts_with( $formTitle, 'Special:AddSource' )
+		$inSourceForm = $request->getVal( 'action' ) === 'accessupload'
+			|| str_starts_with( $formTitle, 'Special:AddSource' )
 			|| str_starts_with( $formTitle, 'Special:UpdateSource' );
 		if ( !$inSourceForm ) {
 			$uploadedTitle = $uploadBase->getTitle();

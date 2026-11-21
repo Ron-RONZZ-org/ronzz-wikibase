@@ -24,11 +24,13 @@ newest-first, so one poison PDF would starve every older file.
 1. **MediaWiki's job queue is the queue.** It is already DB-backed
    (`JobQueueDB`, the `job` table) and drained by the existing job runners —
    no Redis, RabbitMQ or sidecar.
-2. **Producer.** `Hooks::onPageSaveComplete` enqueues one `extractPdfText`
-   job for a PDF `File:` page save (upload, re-upload, restore).
-   `removeDuplicates` makes a re-save while a job is pending a no-op.
-   `maintenance/enqueuePdfExtractions.php` backfills PDFs that predate the
-   queue.
+2. **Producer.** `UploadHooks::onUploadComplete` enqueues one
+   `extractPdfText` job for a PDF upload (Special:Upload and
+   `action=upload`). `removeDuplicates` makes a repeat enqueue a no-op.
+   The AddSource/UpdateSource access upload runs inside the form POST and is
+   skipped (a deferred write there can abort the form);
+   `maintenance/enqueuePdfExtractions.php` backfills every PDF missing a
+   companion, including those access files.
 3. **Consumer.** The type is excluded from the default queue
    (`$wgJobTypesExcludedFromDefaultQueue[] = 'extractPdfText'`) because OCR
    can take minutes. A dedicated 10-minute root cron runs

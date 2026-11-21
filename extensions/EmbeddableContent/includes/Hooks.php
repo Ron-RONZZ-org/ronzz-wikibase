@@ -305,7 +305,8 @@ class Hooks {
 		if ( $title->getNamespace() !== NS_FILE ) {
 			return;
 		}
-		if ( strtolower( $title->getExtension() ) !== 'pdf' ) {
+		// Title::getExtension() does not exist in MW 1.46; derive it from the text.
+		if ( strtolower( (string)pathinfo( $title->getText(), PATHINFO_EXTENSION ) ) !== 'pdf' ) {
 			return;
 		}
 		// lazyPush: the producer can run inside an upload request, so the insert

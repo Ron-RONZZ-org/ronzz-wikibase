@@ -449,7 +449,7 @@ jobs:
           # A clean slate: the page-flow E2E also uploads PDFs, but its jobs may
           # point at pages it has already deleted.
           db "DELETE FROM job WHERE job_cmd='extractPdfText';" > /dev/null
-          # Upload a PDF as the admin. The PageSaveComplete hook must enqueue
+          # Upload a PDF as the admin. The UploadComplete hook must enqueue
           # one job; nothing may consume it (the type is excluded from the
           # default queue, and request-time jobs use that same default queue).
           login_token=$(curl -s -c /tmp/pdfq.cookies -b /tmp/pdfq.cookies \

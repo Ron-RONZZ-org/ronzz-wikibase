@@ -1511,8 +1511,9 @@ report). See `SimpleMathJax/VENDORED.md`.
   `Special:SourceText?file=File:X.pdf` and `action=sourcefiletext` read it
   with the source file's access rule (public = anyone, internal = login);
   `Special:SourceFile`, the File toolbar and `{{#source-access:}}` link it.
-  A PDF File page save enqueues one **extractPdfText** job
-  (`Jobs/ExtractPdfTextJob`, deduplicated); the type is excluded from the
+  A PDF upload enqueues one **extractPdfText** job
+  (`Jobs/ExtractPdfTextJob`, deduplicated; the AddSource/UpdateSource
+  access upload is inside the form POST and is backfilled instead); the type is excluded from the
   default queue and drained by a dedicated 10-minute worker
   (`runJobs.php --type=extractPdfText --maxjobs=1 --maxtime=480`), so OCR
   never occupies the shared `runJobs.php` cycle. A failed extraction is
