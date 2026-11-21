@@ -151,6 +151,11 @@ inference on Special:Upload/UpdateFile), `file-pdf-viewer.md` (browser-native PD
 Special:SourceFile; the fullscreen control was later removed — see
 `fullscreen-removed-open-newtab.md`).
 
+Nov 2026 media credits: `media-credits-all-embeds.md` (credit every captioned
+file type server-side; captionless images/audio/video/PDF links via
+`wbEmbeddedFiles` + `mediaopen.js`; one paragraph per gallery; infoboxes
+skipped; `noCredit` still suppresses).
+
 Nov 2026 smart-mention / collision / upload batch:
 `nov-2026-smart-mentions-collisions-uploads.md` (unpiped classic-namespace
 mentions render the bare entity name and Source: is italic; the "Copy
