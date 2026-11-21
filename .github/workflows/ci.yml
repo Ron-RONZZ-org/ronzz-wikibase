@@ -441,21 +441,9 @@ jobs:
           }
           # The type must be registered and excluded from the default queue;
           # otherwise a generic runner would consume a minutes-long OCR job.
-          $COMPOSE exec -T wikibase php maintenance/run.php eval.php <<'PHP'
-          $c = \MediaWiki\MediaWikiServices::getInstance()->getMainConfig();
-          $excluded = $c->get( 'JobTypesExcludedFromDefaultQueue' );
-          $conf = $c->get( 'JobTypeConf' )['extractPdfText'] ?? null;
-          $class = $c->get( 'JobClasses' )['extractPdfText'] ?? null;
-          if ( !in_array( 'extractPdfText', $excluded, true ) ) {
-          	fwrite( STDERR, "extractPdfText is not in \$wgJobTypesExcludedFromDefaultQueue\n" );
-          	exit( 1 );
-          }
-          if ( $conf === null || $class === null ) {
-          	fwrite( STDERR, "extractPdfText is missing \$wgJobTypeConf or \$wgJobClasses\n" );
-          	exit( 1 );
-          }
-          echo "job config ok\n";
-          PHP
+          cfg=$($COMPOSE exec -T wikibase php maintenance/run.php eval.php <<< '$c = \MediaWiki\MediaWikiServices::getInstance()->getMainConfig(); $e = $c->get( "JobTypesExcludedFromDefaultQueue" ); $f = $c->get( "JobTypeConf" )["extractPdfText"] ?? null; $k = $c->get( "JobClasses" )["extractPdfText"] ?? null; echo ( in_array( "extractPdfText", $e, true ) ? "excluded" : "NOT-EXCLUDED" ) . " " . ( $f !== null ? "typeconf" : "NO-TYPECONF" ) . " " . ( $k !== null ? "class" : "NO-CLASS" ) . "\n";')
+          echo "queue config: $cfg"
+          echo "$cfg" | grep -q '^excluded typeconf class$'
           # No generic runner may consume the test job while we inspect it.
           $COMPOSE stop wikibase-jobrunner > /dev/null
           # A clean slate: the page-flow E2E also uploads PDFs, but its jobs may
