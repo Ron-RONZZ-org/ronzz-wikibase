@@ -46,7 +46,7 @@ final class DatasetApplyService {
 	): array {
 		$datasetId = (string)$manifest['dataset']['dataset_id'];
 		$this->store->updateRun( $runId, [ 'step' => 'store' ] );
-		$counts = $this->store->applyManifest( $manifest, $manifestHash, $manifestRevision );
+		$counts = $this->store->applyManifest( $manifest, $manifestHash, $manifestRevision, $runId );
 		$this->store->updateRun( $runId, [ 'step' => 'wikibase' ] );
 		$items = $this->writer->apply( $manifest, $user );
 		$this->store->updateRun( $runId, [ 'step' => 'page' ] );
