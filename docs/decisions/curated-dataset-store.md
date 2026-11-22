@@ -213,8 +213,9 @@ api.php?action=datasetupsert          (authoritative validate/apply)
 - **Implementation status (2026-11-22)**: the contract, the golden example, the
   pinned copies, the MCP client, the wiki store/API/parser functions, the
   `Dataset:` namespace, the seed vocabulary, the page renderer and the
-  `extract_pdf_table` text-layer/OCR parser are implemented in the repos
-  (awaiting CI/merge). The full per-tier enforcement mechanism, the vision
+  `extract_pdf_table` text-layer/OCR parser are implemented and deployed
+  (ronzz-wikibase PR #211, MCP PR #25, PDFFigures PR #1; log:
+  `RonzzIT:Log/Wikibase/2026-11`). The full per-tier enforcement mechanism, the vision
   fallback, multi-level header refinement and a dedicated `Special:Datasets`
   browse page remain follow-ups.
 
