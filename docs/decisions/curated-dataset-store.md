@@ -210,11 +210,13 @@ api.php?action=datasetupsert          (authoritative validate/apply)
   `manifest_version` bump coordinated across the three repos. Dates are
   `YYYY-MM-DD`, datetimes ISO 8601, bboxes arrays, `null` for missing,
   `footnote_keys` an array.
-- **Now vs follow-up**: the contract, the golden example, the pinned copies,
-  the MCP client and the extractor's builder land now. The
-  `extract_pdf_table` table parser (PyMuPDF `find_tables`, OCR/vision fallback,
-  footnote pairing, multi-level headers) is the follow-up and emits the
-  already-fixed shape.
+- **Implementation status (2026-11-22)**: the contract, the golden example, the
+  pinned copies, the MCP client, the wiki store/API/parser functions, the
+  `Dataset:` namespace, the seed vocabulary, the page renderer and the
+  `extract_pdf_table` text-layer/OCR parser are implemented in the repos
+  (awaiting CI/merge). The full per-tier enforcement mechanism, the vision
+  fallback, multi-level header refinement and a dedicated `Special:Datasets`
+  browse page remain follow-ups.
 
 ## Size budget
 
@@ -304,9 +306,9 @@ from the manifest, not a return to Cargo.
   MediaWiki 1.47 upgrade.
 - The manifest contract is emitted from `DatasetSchema.php` and pinned in
   `ronzz-wikibase`, `mediawiki-mcp-server` and `ronzz-pdf-figures-mcp`; the
-  extractor's `pdf_figures.manifest` builder and the MCP client land now, and
-  the `extract_pdf_table` table parser is the follow-up that emits the fixed
-  envelope.
+  extractor's `pdf_figures.manifest` builder and `extract_pdf_table` parser
+  (text layer + OCR word clustering) emit the fixed envelope. Vision extraction
+  and multi-level header refinement are incremental follow-ups.
 
 ## Migration of the issues
 

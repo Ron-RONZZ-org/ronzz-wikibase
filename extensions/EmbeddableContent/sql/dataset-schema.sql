@@ -143,6 +143,23 @@ CREATE TABLE IF NOT EXISTS `wb_dataset_footnotes` (
   CONSTRAINT `fk_footnotes_table_id` FOREIGN KEY (`table_id`) REFERENCES `wb_dataset_data_tables` (`table_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `wb_dataset_dataset_runs` (
+  `run_id` VARCHAR(191) NOT NULL,
+  `dataset_id` VARCHAR(191) NOT NULL,
+  `status` VARCHAR(20) NOT NULL DEFAULT 'queued',
+  `step` VARCHAR(64) NULL,
+  `message` TEXT NULL,
+  `page_title` VARCHAR(255) NULL,
+  `revision` INT UNSIGNED NULL,
+  `row_counts` TEXT NULL,
+  `report_json` LONGTEXT NULL,
+  `created_at` DATETIME NOT NULL,
+  `updated_at` DATETIME NOT NULL,
+  PRIMARY KEY (`run_id`),
+  KEY `i_dataset_id` (`dataset_id`),
+  KEY `i_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS `wb_dataset_extraction_runs` (
   `run_id` VARCHAR(191) NOT NULL,
   `table_id` VARCHAR(191) NOT NULL,

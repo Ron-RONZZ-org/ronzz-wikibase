@@ -841,5 +841,6 @@
 	"embeddablecontent-media-no-file": "Elektu bildan dosieron.",
 	"embeddablecontent-image-error": "Bilda alŝuto malsukcesis: $1",
 	"embeddablecontent-image-license-required": "Permesilo bezonatas por nova bildo.",
-	"embeddablecontent-image-edit-summary": "Alŝutis bildon de $1"
+	"embeddablecontent-image-edit-summary": "Alŝutis bildon de $1",
+	"embeddablecontent-dataset-access-denied": "Ĉi tiu datuma aro ne estas disponebla al ĉi tiu leganto."
 }

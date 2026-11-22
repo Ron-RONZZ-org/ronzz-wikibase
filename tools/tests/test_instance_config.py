@@ -30,7 +30,7 @@ class MainSubpagesConfigTest(unittest.TestCase):
     def test_range_enables_every_namespace(self) -> None:
         self.assertRegex(
             self.text,
-            r"\$wgNamespacesWithSubpages\s*\+=\s*array_fill_keys\(\s*range\(\s*0,\s*2017\s*\),\s*true\s*\)",
+            r"\$wgNamespacesWithSubpages\s*\+=\s*array_fill_keys\(\s*range\(\s*0,\s*2019\s*\),\s*true\s*\)",
         )
 
     def test_main_namespace_is_explicitly_true(self) -> None:

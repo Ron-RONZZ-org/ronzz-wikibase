@@ -842,5 +842,6 @@
 	"embeddablecontent-media-no-file": "Choose an image file.",
 	"embeddablecontent-image-error": "Image upload failed: $1",
 	"embeddablecontent-image-license-required": "A licence is required for a new image.",
-	"embeddablecontent-image-edit-summary": "Uploaded an image of $1"
+	"embeddablecontent-image-edit-summary": "Uploaded an image of $1",
+	"embeddablecontent-dataset-access-denied": "This dataset is not available to this reader."
 }

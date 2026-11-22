@@ -18,7 +18,7 @@ final class DatasetSqlSchema {
 	/**
 	 * Builds the DDL for every table. The caller connects to the target DB.
 	 */
-	public static function sql(): string {
+	public static function sql( string $prefix = DatasetSchema::TABLE_PREFIX ): string {
 		$out = "-- AUTO-GENERATED — do not edit by hand.\n"
 			. "-- Source: extensions/EmbeddableContent/includes/Spec/DatasetSchema.php\n"
 			. "-- Regenerate: php extensions/EmbeddableContent/maintenance/emitDatasetContract.php\n\n";
@@ -39,9 +39,9 @@ final class DatasetSqlSchema {
 			}
 			foreach ( $table['foreign'] ?? [] as $fk ) {
 				$lines[] = "  CONSTRAINT `fk_{$name}_{$fk[0]}` FOREIGN KEY (`{$fk[0]}`) REFERENCES `"
-					. DatasetSchema::TABLE_PREFIX . "{$fk[1]}` (`{$fk[2]}`) ON DELETE CASCADE";
+					. $prefix . "{$fk[1]}` (`{$fk[2]}`) ON DELETE CASCADE";
 			}
-			$out .= 'CREATE TABLE IF NOT EXISTS `' . DatasetSchema::TABLE_PREFIX . "$name` (\n"
+			$out .= 'CREATE TABLE IF NOT EXISTS `' . $prefix . "$name` (\n"
 				. implode( ",\n", $lines ) . "\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;\n\n";
 		}
 		return $out;
@@ -197,6 +197,23 @@ final class DatasetSqlSchema {
 				'unique' => [ [ 'table_id', 'footnote_key' ] ],
 				'fulltext' => [ 'search_text' ],
 				'foreign' => [ [ 'table_id', 'data_tables', 'table_id' ] ],
+			],
+			'dataset_runs' => [
+				'columns' => [
+					'run_id' => 'VARCHAR(191) NOT NULL',
+					'dataset_id' => 'VARCHAR(191) NOT NULL',
+					'status' => "VARCHAR(20) NOT NULL DEFAULT 'queued'",
+					'step' => 'VARCHAR(64) NULL',
+					'message' => 'TEXT NULL',
+					'page_title' => 'VARCHAR(255) NULL',
+					'revision' => 'INT UNSIGNED NULL',
+					'row_counts' => 'TEXT NULL',
+					'report_json' => 'LONGTEXT NULL',
+					'created_at' => 'DATETIME NOT NULL',
+					'updated_at' => 'DATETIME NOT NULL',
+				],
+				'primary' => 'run_id',
+				'indexes' => [ [ 'dataset_id' ], [ 'status' ] ],
 			],
 			'extraction_runs' => [
 				'columns' => [

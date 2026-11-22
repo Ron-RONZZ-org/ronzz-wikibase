@@ -841,5 +841,6 @@
 	"embeddablecontent-media-no-file": "Choisissez un fichier image.",
 	"embeddablecontent-image-error": "Échec du téléversement de l’image : $1",
 	"embeddablecontent-image-license-required": "Une licence est requise pour une nouvelle image.",
-	"embeddablecontent-image-edit-summary": "Image de $1 téléversée"
+	"embeddablecontent-image-edit-summary": "Image de $1 téléversée",
+	"embeddablecontent-dataset-access-denied": "Cet ensemble de données n'est pas accessible à ce lecteur."
 }

@@ -170,6 +170,24 @@ AGENT_CLASS_KINDS = {
 }
 
 # Issue #7: source/work classes (AddSource).
+# Curated-dataset vocabulary (issue #7): the dataset/table class + the
+# provenance/status properties, and the preseeded review-status/method items.
+DATASET_CLASS_KINDS = {
+    "data table": "dataTable",
+}
+DATASET_PROPERTY_KINDS = {
+    "has data table": "hasDataTable",
+    "extracted from": "extractedFrom",
+    "table number": "tableNumber",
+    "table id": "tableId",
+    "dataset id": "datasetId",
+    "review status": "reviewStatus",
+    "extraction method": "extractionMethod",
+    "page(s)": "page",
+}
+DATASET_REVIEW_LABELS = ["unreviewed", "checked", "verified"]
+DATASET_METHOD_LABELS = ["text-layer", "ocr", "vision", "manual"]
+
 SOURCE_CLASS_KINDS = {
     "book": "book",
     "scholarly article": "scholarlyArticle",
@@ -561,6 +579,27 @@ def build_config(
         wikidata_class_qids, class_ids, AGENT_CLASS_KINDS
     )
 
+    dataset_classes: dict[str, str] = {}
+    for label, kind in DATASET_CLASS_KINDS.items():
+        if label in class_ids:
+            dataset_classes[kind] = class_ids[label]
+    if "dataset" in class_ids:
+        dataset_classes["dataset"] = class_ids["dataset"]
+    dataset_props: dict[str, str] = {}
+    for label, kind in DATASET_PROPERTY_KINDS.items():
+        if label in property_ids:
+            dataset_props[kind] = property_ids[label]
+    dataset_review: dict[str, str] = {
+        label: preseed_ids[label]
+        for label in DATASET_REVIEW_LABELS
+        if label in preseed_ids
+    }
+    dataset_method: dict[str, str] = {
+        label: preseed_ids[label]
+        for label in DATASET_METHOD_LABELS
+        if label in preseed_ids
+    }
+
     config: dict[str, Any] = {
         "instanceOf": property_ids.get("instance of"),
         "classes": classes,
@@ -611,6 +650,12 @@ def build_config(
         },
         "fallbackLanguages": fallback_languages,
         "lexers": dict(sorted(lexer_ids.items())),
+        "dataset": {
+            "classes": dataset_classes,
+            "properties": dataset_props,
+            "reviewStatus": dataset_review,
+            "extractionMethod": dataset_method,
+        },
     }
 
     # YouTube provider (deploy-injected; never committed). Empty key

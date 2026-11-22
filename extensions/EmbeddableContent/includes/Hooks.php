@@ -1683,6 +1683,34 @@ class Hooks {
 				$args
 			);
 		} );
+		$parser->setFunctionHook( 'datasettable', static function ( Parser $parser, ...$args ) use ( $services ): array {
+			return \EmbeddableContent\ParserFunctions\DatasetTable::onDatasetTable(
+				$services->get( 'EmbeddableContent.DatasetStore' ),
+				$parser,
+				$args
+			);
+		} );
+		$parser->setFunctionHook( 'datasetfootnotes', static function ( Parser $parser, ...$args ) use ( $services ): array {
+			return \EmbeddableContent\ParserFunctions\DatasetFootnotes::onDatasetFootnotes(
+				$services->get( 'EmbeddableContent.DatasetStore' ),
+				$parser,
+				$args
+			);
+		} );
+		$parser->setFunctionHook( 'datasetprovenance', static function ( Parser $parser, ...$args ) use ( $services ): array {
+			return \EmbeddableContent\ParserFunctions\DatasetProvenance::onDatasetProvenance(
+				$services->get( 'EmbeddableContent.DatasetStore' ),
+				$parser,
+				$args
+			);
+		} );
+		$parser->setFunctionHook( 'datasetcite', static function ( Parser $parser, ...$args ) use ( $services ): array {
+			return \EmbeddableContent\ParserFunctions\DatasetCite::onDatasetCite(
+				$services->get( 'EmbeddableContent.DatasetStore' ),
+				$parser,
+				$args
+			);
+		} );
 	}
 
 	/**

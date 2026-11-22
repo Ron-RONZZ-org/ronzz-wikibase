@@ -15,7 +15,7 @@
 // the values must be set here, before the service exists. The range covers
 // the instance's namespaces: core 0-15, Forum 110, Item/Property 120-123,
 // TimedText 710-711, Translations 1198-1199, Cheatsheet…Software
-// 2000-2017; extend it when a namespace is registered. Mirrors the
+// 2000-2019; extend it when a namespace is registered. Mirrors the
 // production LocalSettings block (RonzzIT:Deployment/Wikibase); the explicit
 // per-namespace lines below are kept for readability.
 // Main is included since 2026-10-18 so content trees such as
@@ -25,7 +25,7 @@
 // see this flag. Production's own LocalSettings sets it at the top, before
 // any service; `tools/tests/test_instance_config.py` guards this mirror and
 // the production `run_wiki_ux_e2e.mjs` probe verifies the live behaviour.
-$wgNamespacesWithSubpages += array_fill_keys( range( 0, 2017 ), true );
+$wgNamespacesWithSubpages += array_fill_keys( range( 0, 2019 ), true );
 $wgNamespacesWithSubpages[NS_MAIN] = true;
 
 wfLoadExtension( 'EmbeddableContent' );

@@ -162,7 +162,13 @@ report). See `SimpleMathJax/VENDORED.md`.
   drifts. The same files are pinned verbatim in `mediawiki-mcp-server` (TypeScript
   projection) and `ronzz-pdf-figures-mcp` (extractor builder + `jsonschema` test); the
   extractor returns `{ manifest, validation_report, manifest_path }` and the MCP
-  `embeddable-dataset-upsert` forwards it unchanged. See
+  `embeddable-dataset-upsert` forwards it unchanged. The wiki side lives in
+  `Store/` (`DatasetStore`, `DatasetManifestValidator`, `DatasetItemWriter`,
+  `DatasetPageRenderer`, `DatasetApplyService`), `Api/ApiDataset*`,
+  `Jobs/DatasetApplyJob`, `ParserFunctions/Dataset*`, the `Dataset:` namespace
+  (2018/2019), the seed vocabulary (`data table`, `review status`,
+  `extraction method` + properties/preseed) and
+  `maintenance/installDatasetSchema.php`. See
   `docs/decisions/curated-dataset-store.md`.
 - **Vocabulary manifests** (`manifests/`: `properties.csv`, `classes.csv`,
   `languages.csv`) + `maintenance/importVocabulary.php` — the D1 importer.

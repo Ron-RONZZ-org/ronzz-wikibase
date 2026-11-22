@@ -182,6 +182,15 @@ final class DatasetSchema {
 	}
 
 	/**
+	 * The flat manifest registry (public projection for the validator).
+	 *
+	 * @return array<string,array<string,mixed>>
+	 */
+	public static function manifestFields(): array {
+		return self::fields();
+	}
+
+	/**
 	 * @return array<string,mixed>
 	 */
 	public static function manifestSchema(): array {
@@ -320,8 +329,8 @@ final class DatasetSchema {
 		return json_encode( $data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) . "\n";
 	}
 
-	public static function sql(): string {
-		return DatasetSqlSchema::sql();
+	public static function sql( string $prefix = self::TABLE_PREFIX ): string {
+		return DatasetSqlSchema::sql( $prefix );
 	}
 
 	/**
