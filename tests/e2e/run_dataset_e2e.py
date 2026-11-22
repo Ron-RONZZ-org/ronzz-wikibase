@@ -184,9 +184,11 @@ def main() -> int:
         {"action": "datasetupsert", "manifest": encoded, "dryrun": "1", "token": token, "format": "json"},
         post=True,
     )
-    report = dry.get("datasetupsert", {})
+    if "datasetupsert" not in dry:
+        raise E2EError(f"dry-run returned no datasetupsert payload: {json.dumps(dry)[:4000]}")
+    report = dry["datasetupsert"]
     if report.get("status") not in {"ok", "warnings"}:
-        raise E2EError(f"dry-run failed: {json.dumps(report)[:2000]}")
+        raise E2EError(f"dry-run failed: {json.dumps(dry)[:4000]}")
     print(f"  dry-run: {report.get('status')}")
 
     applied = api_call(
@@ -197,7 +199,7 @@ def main() -> int:
     )
     run_id = applied.get("datasetupsert", {}).get("runId")
     if not run_id:
-        raise E2EError(f"apply did not return a run id: {applied}")
+        raise E2EError(f"apply did not return a run id: {json.dumps(applied)[:4000]}")
     status = poll_status(op, args.api_url, run_id)
     if status.get("status") not in {"ok", "partial"}:
         raise E2EError(f"apply failed: {json.dumps(status)[:2000]}")
