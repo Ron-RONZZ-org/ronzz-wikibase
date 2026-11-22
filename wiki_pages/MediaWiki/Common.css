@@ -20,3 +20,43 @@
  div.mw-collapsible {
     display: flow-root;
 }
+/* === Curiosity box — {{Curiosity}} … {{End special}} === */
+/* Blue blockquote-style division for additional context on classic pages. */
+
+.curiosity {
+    position: relative;
+    margin: 1em 0;
+    padding: 0.75em 1em 0.75em 3.25em;
+    border: 1px solid var(--border-color-progressive-subtle, #b6d4fe);
+    border-left: 4px solid var(--border-color-progressive, #36c);
+    border-radius: 4px;
+    background: var(--background-color-progressive-subtle, #eaf3ff);
+    color: var(--color-base, #202122);
+    font-size: 0.95em;
+    line-height: 1.6;
+}
+
+.curiosity > :first-child {
+    margin-top: 0;
+}
+
+.curiosity > :last-child {
+    margin-bottom: 0;
+}
+
+.curiosity::before {
+    content: "?";
+    position: absolute;
+    top: 0.7em;
+    left: 0.85em;
+    box-sizing: border-box;
+    width: 1.7em;
+    height: 1.7em;
+    border-radius: 50%;
+    background: var(--background-color-progressive, #36c);
+    color: var(--color-inverted, #fff);
+    font-size: 1em;
+    font-weight: bold;
+    line-height: 1.7em;
+    text-align: center;
+}

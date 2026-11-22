@@ -1,0 +1,7 @@
+<includeonly><div class="template-doc" style="clear:both;margin:1em 0 0;padding:0.6em 1em;border:1px solid var(--border-color-base,#a2a9b1);border-radius:2px;background:var(--background-color-neutral-subtle,#f8f9fa);color:var(--color-base,#202122);font-size:0.9em;line-height:1.5;"><div style="overflow:hidden;border-bottom:1px solid var(--border-color-subtle,#dadde3);padding-bottom:0.3em;margin-bottom:0.5em;"><span style="font-weight:bold;">Documentation</span><span style="float:right;font-weight:normal;">[[{{FULLPAGENAME}}/doc|view]] · [{{fullurl:{{FULLPAGENAME}}/doc|action=edit&preload=Template:Doc/preload}} edit]</span></div>{{ {{FULLPAGENAME}}/doc }}</div></includeonly><noinclude>
+Add <code>&lt;noinclude&gt;&#123;&#123;doc&#125;&#125;&lt;/noinclude&gt;</code> at the end of a template to show its documentation box.
+
+The box renders <code>Template:&lt;name&gt;/doc</code> with <code>view</code> and <code>edit</code> links. When the subpage does not exist yet, the box shows a red link; click <code>edit</code> to create it.
+
+See [[Template:Curiosity/doc]] for an example of a documentation page.
+</noinclude>
