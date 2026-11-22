@@ -25,7 +25,7 @@ class ApiDatasetUpsert extends ApiBase {
 	public function execute() {
 		$params = $this->extractRequestParams();
 		$user = $this->getUser();
-		foreach ( [ 'edit', 'createpage', 'editentity' ] as $right ) {
+		foreach ( [ 'edit', 'createpage' ] as $right ) {
 			if ( !$user->isAllowed( $right ) ) {
 				$this->dieWithError( 'permissiondenied' );
 			}
