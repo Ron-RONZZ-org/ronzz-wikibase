@@ -203,7 +203,7 @@ return [
 					return null;
 				}
 				$file = $services->getRepoGroup()->findFile( $title );
-				return $file === false ? null : $file->getSha1();
+				return $file === false ? null : \Wikimedia\base_convert( $file->getSha1(), 36, 16, 40 );
 			}
 		);
 	},
