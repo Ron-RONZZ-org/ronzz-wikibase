@@ -23,7 +23,9 @@ server-side caption hook alone cannot cover them.
    `wbEmbeddedFiles` map; `resources/mediaopen.js` appends it (and the open
    link) after plain images, audio/video players and PDF/EPUB/DJVU links.
    The server-built fragments are already escaped; the module inserts them
-   with `.html()`.
+   with `.html()`. A figure caption that already carries the server open
+   link (`.wb-media-open`) is left alone — appending another would show
+   "Open in a new tab" twice.
 3. **Galleries get ONE paragraph below the gallery** for all their images
    (credit + open link per image), not one line per thumbnail. Infoboxes
    (`.wb-infobox`, `.wb-image-gallery`) are skipped — a compact data summary,

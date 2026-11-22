@@ -828,6 +828,59 @@ async function main() {
 			}, properNameTitle).catch(() => {});
 		}
 
+		// --- content-page embeds: "Open in a new tab" exactly once --------
+		// A thumbnail caption gets the link server-side (Media\FileOpenLink)
+		// and resources/mediaopen.js must skip it; a captionless image gets
+		// the client-side link. Regression: the caption rendered it twice
+		// ("Open in a new tab · Open in a new tab").
+		const imageList = await api({
+			action: 'query', list: 'allimages', ailimit: '20', aiprop: 'url|mime', format: 'json',
+		});
+		const embedFile = (imageList.query?.allimages || []).find((f) => /^image\//.test(f.mime || ''));
+		if (!embedFile) {
+			console.log('[info] no image on the instance — skipping the embedded open-link check');
+		} else {
+			const embedTitle = `MediaOpen UX ${Date.now()}`;
+			const embedText = `[[File:${embedFile.name}|thumb|Caption text]]\n[[File:${embedFile.name}|120px]]`;
+			await page.evaluate(async ([title, text]) => {
+				await new Promise((r) => mw.loader.using('mediawiki.api', r));
+				await new mw.Api().postWithToken('csrf', {
+					action: 'edit', title, text, createonly: true,
+				});
+			}, [embedTitle, embedText]);
+			try {
+				await page.goto(`${BASE_URL}/wiki/${encodeURIComponent(embedTitle.replace(/ /g, '_'))}`,
+					{ waitUntil: 'domcontentloaded', timeout: 60000 });
+				await page.waitForSelector('#mw-content-text figure figcaption', { timeout: 15000 });
+				// Wait for the client-side pass: the plain image's link is the one
+				// only mediaopen.js adds, so a second link proves the module ran.
+				await page.waitForFunction(() =>
+					document.querySelectorAll('#mw-content-text .wb-media-open').length >= 2,
+				{ timeout: 15000 }).catch(() => {});
+				const embedLinks = await page.evaluate(() => {
+					const caption = document.querySelector('#mw-content-text figure figcaption');
+					return {
+						all: document.querySelectorAll('#mw-content-text .wb-media-open').length,
+						inCaption: caption ? caption.querySelectorAll('.wb-media-open').length : -1,
+					};
+				});
+				if (embedLinks.inCaption !== 1) {
+					failures.push(`thumbnail caption shows ${embedLinks.inCaption} "Open in a new tab" links, expected 1`);
+				} else if (embedLinks.all !== 2) {
+					failures.push(`content page shows ${embedLinks.all} "Open in a new tab" links, expected 2 (caption + plain)`);
+				} else {
+					console.log('[ok] embedded thumbnail caption shows exactly one "Open in a new tab" link');
+				}
+			} finally {
+				await page.evaluate(async (title) => {
+					await new Promise((r) => mw.loader.using('mediawiki.api', r));
+					try {
+						await new mw.Api().postWithToken('csrf', { action: 'delete', title, format: 'json' });
+					} catch (e) { /* best-effort cleanup */ }
+				}, embedTitle).catch(() => {});
+			}
+		}
+
 		// --- Section copy controls + "Add section" append flow -----------
 		// A scratch content page with two headings: the per-section "Copy
 		// internal mention" / "Copy URL" controls render inside each heading's
@@ -1250,6 +1303,48 @@ async function main() {
 			failures.push(`clipboard paste did not sync the destination name: ${JSON.stringify(clipboardState.dest)}`);
 		} else {
 			console.log('[ok] clipboard paste selects the File source and submits wpSourceType=File');
+		}
+
+		// Page-level paste (reported regression): a fresh Special:Upload load
+		// leaves the focus on <body>, so a form-scoped listener never saw the
+		// Ctrl+V the hint invites. Dispatch on <body> and expose the image
+		// only through `items` (some browsers leave `files` empty for an image
+		// paste) — the document-level listener + items fallback must fill the
+		// picker and switch to File.
+		await page.evaluate(() => {
+			const input = document.getElementById('wpUploadFile');
+			input.value = '';
+			input.dispatchEvent(new Event('change', { bubbles: true }));
+			document.getElementById('wpSourceTypeurl').click();
+		});
+		await page.evaluate(async () => {
+			const canvas = document.createElement('canvas');
+			canvas.width = 40; canvas.height = 40;
+			canvas.getContext('2d').fillRect(0, 0, 40, 40);
+			const blob = await new Promise((r) => canvas.toBlob(r, 'image/png'));
+			const file = new File([blob], 'page-paste.png', { type: blob.type });
+			const evt = new Event('paste', { bubbles: true, cancelable: true });
+			Object.defineProperty(evt, 'clipboardData', {
+				value: {
+					files: [],
+					items: [{ kind: 'file', type: file.type, getAsFile: () => file }],
+				},
+			});
+			document.body.dispatchEvent(evt);
+		});
+		await page.waitForFunction(() => {
+			const input = document.getElementById('wpUploadFile');
+			return input && input.files && input.files.length === 1 &&
+				document.getElementById('wpSourceTypeFile').checked;
+		}, { timeout: 15000 }).catch(() => {});
+		const bodyPaste = await page.evaluate(() => ({
+			files: document.getElementById('wpUploadFile').files.length,
+			fileChecked: document.getElementById('wpSourceTypeFile').checked,
+		}));
+		if (bodyPaste.files !== 1 || !bodyPaste.fileChecked) {
+			failures.push(`page-level paste (focus on body, items-only clipboard) did not fill the picker: ${JSON.stringify(bodyPaste)}`);
+		} else {
+			console.log('[ok] page-level paste (focus on body, items-only clipboard) fills the picker + switches to File');
 		}
 
 		// Author / source mode toggles: the plain-text field is shown by

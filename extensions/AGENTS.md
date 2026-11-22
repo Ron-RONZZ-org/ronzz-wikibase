@@ -1391,7 +1391,9 @@ report). See `SimpleMathJax/VENDORED.md`.
   get a small `noprint` link (`Media\FileOpenLink` for captioned
   thumbnails/frames; `resources/mediaopen.js` + the `wbEmbeddedFiles` JS
   config map for captionless images, audio/video, PDF/EPUB/DJVU link embeds
-  and galleries — one paragraph below a gallery). Infoboxes
+  and galleries — one paragraph below a gallery). The client-side caption
+  path skips a caption that already carries the server link
+  (`.wb-media-open`), so a thumbnail shows it once. Infoboxes
   (`.wb-infobox`, `.wb-image-gallery`) are excluded. The viewer styles live
   in `resources/fileviewer.css` (module `ext.embeddableContent.fileviewer`);
   the old `pdfviewer.js`/`pdfviewer.css` module is gone.
@@ -1671,11 +1673,16 @@ report). See `SimpleMathJax/VENDORED.md`.
   (b) **Special:Upload source memory + drag/paste** — `wbsourcetype`
   (the blob fallback's original selection wins over the converted
   `wpSourceType`) preserves the source radio across "upload another";
-  `resources/uploadform.js` accepts a dropped/pasted image on the
-  Source-filename area (switch to File + fill the picker + `change`, so the
-  shared preview/resize runs), with a hint + drop highlight
+  `resources/uploadform.js` accepts a dropped image on the Source-filename
+  area and a pasted image **anywhere on the page**. Both switch to File, fill
+  the picker and fire `change`, so the shared preview/resize runs. The paste
+  listener is document-level because a paste event fires on the focused
+  element and a fresh load focuses `<body>`; the image is read from
+  `clipboardData.files` or `items`. A hint + drop highlight
   (`uploadform.css`) and a notification fallback when `FileList` is not
-  settable. **Clipboard submission fix (2026-11-08):** OOUI submits the
+  settable (or the file input is missing) accompany it; a paste is ignored
+  while an image editor dialog is open.
+  **Clipboard submission fix (2026-11-08):** OOUI submits the
   source through a hidden `wpSourceType` input; the paste path switched only
   the visible File radio, so the hidden value stayed `Url` and the pasted
   file was posted as a URL upload (submission never landed).
