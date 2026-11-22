@@ -143,12 +143,28 @@
       "path": "Template/ConferencePaper.wiki"
     },
     {
+      "title": "Template:Curiosity",
+      "path": "Template/Curiosity.wiki"
+    },
+    {
+      "title": "Template:Curiosity/doc",
+      "path": "Template/Curiosity/doc.wiki"
+    },
+    {
       "title": "Template:Dataset",
       "path": "Template/Dataset.wiki"
     },
     {
       "title": "Template:DesktopLinux",
       "path": "Template/DesktopLinux.wiki"
+    },
+    {
+      "title": "Template:Doc",
+      "path": "Template/Doc.wiki"
+    },
+    {
+      "title": "Template:Doc/preload",
+      "path": "Template/Doc/preload.wiki"
     },
     {
       "title": "Template:Document",
@@ -161,6 +177,14 @@
     {
       "title": "Template:End solution",
       "path": "Template/End solution.wiki"
+    },
+    {
+      "title": "Template:End special",
+      "path": "Template/End special.wiki"
+    },
+    {
+      "title": "Template:End special/doc",
+      "path": "Template/End special/doc.wiki"
     },
     {
       "title": "Template:Event",

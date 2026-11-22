@@ -1,0 +1,19 @@
+<!-- This skeleton is preloaded into a new /doc page. Replace the placeholders. -->
+== Usage ==
+
+<syntaxhighlight lang="wikitext">
+{{TEMPLATE}}
+</syntaxhighlight>
+
+== Parameters ==
+
+{| class="wikitable"
+|-
+! Parameter !! Description
+|-
+| <code>1</code> ||
+|}
+
+== See also ==
+
+*

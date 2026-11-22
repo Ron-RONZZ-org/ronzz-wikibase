@@ -1,0 +1,25 @@
+__NOTOC__
+<code><nowiki>{{End special}}</nowiki></code> closes a division opened by a special-division template. It emits a single <code>&lt;/div&gt;</code> and nothing else.
+
+== Usage ==
+
+<syntaxhighlight lang="wikitext">
+{{Curiosity}}
+Additional context.
+{{End special}}
+</syntaxhighlight>
+
+Pair it with the matching opener:
+
+{| class="wikitable"
+|-
+! Opener !! Use
+|-
+| <code><nowiki>{{Curiosity}}</nowiki></code> || Curiosity box
+|}
+
+An opener without its closer leaves a <code>&lt;div&gt;</code> open: every following paragraph and heading ends up inside it.
+
+== See also ==
+
+* [[Template:Curiosity/doc]] — the curiosity box in detail
