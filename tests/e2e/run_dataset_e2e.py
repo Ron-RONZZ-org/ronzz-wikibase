@@ -67,7 +67,7 @@ def csrf(op, api: str) -> str:
     return token["query"]["tokens"]["csrftoken"]
 
 
-def upload_pdf(op, api: str, token: str, name: str, content: bytes) -> str:
+def upload_pdf(op, api: str, token: str, name: str, content: bytes) -> tuple[str, str]:
     boundary = "----ronzzwbdataset"
     fields = {
         "action": "upload",
@@ -96,7 +96,9 @@ def upload_pdf(op, api: str, token: str, name: str, content: bytes) -> str:
         result = json.load(response)
     if "upload" not in result or result["upload"].get("result") != "Success":
         raise E2EError(f"upload failed: {result}")
-    return str(result["upload"]["filename"]).removeprefix("File:")
+    filename = str(result["upload"]["filename"]).removeprefix("File:")
+    sha1 = (result["upload"].get("imageinfo") or {}).get("sha1") or hashlib.sha1(content).hexdigest()
+    return filename, str(sha1)
 
 
 def minimal_pdf() -> bytes:
@@ -172,10 +174,10 @@ def main() -> int:
     pdf_name = f"{dataset_id}.pdf"
     print(f"== dataset {dataset_id}")
 
-    pdf_file = upload_pdf(op, args.api_url, token, pdf_name, pdf)
-    print(f"  uploaded File:{pdf_file}")
+    pdf_file, pdf_sha1 = upload_pdf(op, args.api_url, token, pdf_name, pdf)
+    print(f"  uploaded File:{pdf_file} (sha1 {pdf_sha1})")
 
-    manifest = dataset_manifest(dataset_id, pdf_file, hashlib.sha1(pdf).hexdigest())
+    manifest = dataset_manifest(dataset_id, pdf_file, pdf_sha1)
     encoded = json.dumps(manifest)
 
     dry = api_call(
