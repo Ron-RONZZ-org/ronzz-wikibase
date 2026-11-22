@@ -41,9 +41,9 @@
       "synced_at": "2026-10-17T12:18:01+00:00"
     },
     "MediaWiki:Common.css": {
-      "revid": 10320,
-      "sha256": "df5f45488fad7cd152552562ffd260bbc950e6bceb00bb4c4eb51419f35769f7",
-      "synced_at": "2026-10-18T07:11:07+00:00"
+      "revid": 18857,
+      "sha256": "92b4fb518a5e2d059074847465015751189fed147db000e60dc7c2c67cafe5d9",
+      "synced_at": "2026-11-22T09:10:24+00:00"
     },
     "MediaWiki:Copyupload-allowed-domains": {
       "revid": 750,
@@ -175,6 +175,16 @@
       "sha256": "08a1019f1fa31bb518f4f264d6d0065a063d09a9ba7889f703f4e04e0134944a",
       "synced_at": "2026-11-21T11:08:01+00:00"
     },
+    "Template:Curiosity": {
+      "revid": 18849,
+      "sha256": "14d7672261018cce968fcd437865672cfa831b0b0355ef7d14335a69f9c29ec5",
+      "synced_at": "2026-11-22T09:10:24+00:00"
+    },
+    "Template:Curiosity/doc": {
+      "revid": 18854,
+      "sha256": "b215ba3fcc37f11944f6c641262beb96c3a99aac6436fafabda5f52c1556a3bf",
+      "synced_at": "2026-11-22T09:10:24+00:00"
+    },
     "Template:Dataset": {
       "revid": 18235,
       "sha256": "7e998a372c8dd5b9dc7c1b00ea3af5a9544eb1e2f304b7e249e9f81f97ae8a2c",
@@ -184,6 +194,16 @@
       "revid": 10533,
       "sha256": "0bfb92ce61abc0eada9f3f432b91870a86d13ba0c291055db4ea53398099bc18",
       "synced_at": "2026-10-18T14:12:25+00:00"
+    },
+    "Template:Doc": {
+      "revid": 18856,
+      "sha256": "b45ab1aad9f930fde79283a03c8b818c925df1aab631cda36f122fcd606709d7",
+      "synced_at": "2026-11-22T09:10:24+00:00"
+    },
+    "Template:Doc/preload": {
+      "revid": 18848,
+      "sha256": "e5067164c953311f95f04a524e4011a64a8e32b3da248fdd316c1e1d699d508a",
+      "synced_at": "2026-11-22T09:10:24+00:00"
     },
     "Template:Document": {
       "revid": 18236,
@@ -199,6 +219,16 @@
       "revid": 10048,
       "sha256": "1619df844817310d21efb8e696103645ed6a0a5b249f6a62b18c2d230633fce3",
       "synced_at": "2026-10-17T12:18:01+00:00"
+    },
+    "Template:End special": {
+      "revid": 18850,
+      "sha256": "62b055ba3716c813b0b18da5edd95104f1fe31e9e207f20e772e36f05eef466a",
+      "synced_at": "2026-11-22T09:10:24+00:00"
+    },
+    "Template:End special/doc": {
+      "revid": 18855,
+      "sha256": "90ce230d48e3495bacc30f0c800a9630459edd0e7c594fc20b44918b9f2e94d3",
+      "synced_at": "2026-11-22T09:10:24+00:00"
     },
     "Template:Event": {
       "revid": 18324,
@@ -436,6 +466,6 @@
       "synced_at": "2026-11-21T11:08:01+00:00"
     }
   },
-  "updated": "2026-11-21T12:12:31+00:00",
+  "updated": "2026-11-22T09:10:24+00:00",
   "version": 1
 }

@@ -38,11 +38,17 @@ Tesseract already runs for Open WebUI (`owui-tika`, `latest-full`, OCR
 5. **Links:** `Special:SourceFile` and the `File:` page toolbar show
    **Read extracted text** / **Open in a new tab**; `{{#source-access:}}`
    renders a `text` link next to the PDF (from the qualifier).
-6. **Extraction runner:** `maintenance/extractPdfText.php` scans PDFs,
-   skips current companions, and extracts up to `--limit` per run. It is
-   meant for a **dedicated cron** (e.g. every 10 minutes, `--scan=50
-   --limit=1`) — NOT the shared 5-minute `runJobs.php` cycle, because OCR
-   can take minutes. `--all`/`--force` re-extract, `--dry-run` previews.
+6. **Extraction runs on a dedicated job queue** (ADR
+   `pdf-text-extraction-queue.md`): a PDF upload (`UploadComplete`:
+   Special:Upload and `action=upload`) enqueues one `extractPdfText` job
+   (`removeDuplicates`); the type is excluded from the
+   default queue and a 10-minute worker runs
+   `runJobs.php --type=extractPdfText --maxjobs=1 --maxtime=480`. A failed
+   extraction is retried up to `maxTries` (3), then pruned.
+   `maintenance/extractPdfText.php` remains the manual/backfill tool
+   (`--file`, `--scan`/`--limit`, `--all`/`--force`, `--dry-run`,
+   `--source`), and `maintenance/enqueuePdfExtractions.php` backfills PDFs
+   that predate the queue.
 7. **MCP:** a new `get-file-text` tool calls `action=sourcefiletext` and
    returns the Markdown + metadata; `get-file-content` remains the
    file-bytes/local-extraction tool and points to `get-file-text` for the
@@ -61,7 +67,8 @@ Tesseract already runs for Open WebUI (`owui-tika`, `latest-full`, OCR
 - Deploy: extension rsync + `php-fpm` restart + parser-cache purge; the
   `extracted text` property via the D1 importer + full seed re-emission
   (`sourceProperties.extractedText`); `$wgFileExtensions[] = 'txt'`; Tika
-  loopback publish; a dedicated extraction cron. The MCP tool is a separate
+  loopback publish; the queue settings + a dedicated worker cron (see
+  `pdf-text-extraction-queue.md`). The MCP tool is a separate
   image bump.
 - Tests: `TikaClientTest` (envelope/partial/failure), `AccessEntries`
   qualifier attach, `SourceAccessRenderer` text link; a live Tika run is

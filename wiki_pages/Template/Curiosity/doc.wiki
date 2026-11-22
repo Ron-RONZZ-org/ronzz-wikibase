@@ -1,0 +1,56 @@
+__NOTOC__
+The '''curiosity box''' is a blue, blockquote-style division for additional context on classic (wikitext) content pages. Two templates build it: <code><nowiki>{{Curiosity}}</nowiki></code> opens the box and <code><nowiki>{{End special}}</nowiki></code> closes it. Ordinary wikitext inside — paragraphs, lists, math, code and links — renders as usual.
+
+== Usage ==
+
+<syntaxhighlight lang="wikitext">
+{{Curiosity}}
+The derivative of a constant is zero, because a constant does not change.
+{{End special}}
+</syntaxhighlight>
+
+A box can hold several paragraphs, a list, math or code:
+
+<syntaxhighlight lang="wikitext">
+{{Curiosity}}
+A short remark.
+
+* first point
+* second point
+{{End special}}
+</syntaxhighlight>
+
+Always close the box with <code><nowiki>{{End special}}</nowiki></code>. A box left open swallows the rest of the page.
+
+== Appearance ==
+
+The box is styled by the <code>.curiosity</code> class in [[MediaWiki:Common.css]]:
+
+* a blue left bar and a pale blue background, like a quotation;
+* a round '''?''' badge in the left margin.
+
+The templates emit only <code><nowiki><div class="curiosity"></nowiki></code> and <code><nowiki></div></nowiki></code>; all styling lives in the site CSS, so the box follows the skin and dark mode.
+
+== Related special divisions ==
+
+{| class="wikitable"
+|-
+! Opener !! Closer !! Purpose
+|-
+| <code><nowiki>{{Curiosity}}</nowiki></code> || <code><nowiki>{{End special}}</nowiki></code> || Additional context (this box)
+|-
+| <code><nowiki>{{Hidden solution}}</nowiki></code> || <code><nowiki>{{End hidden}}</nowiki></code> || Collapsible worked solution
+|-
+| <code><nowiki>{{Hidden proof}}</nowiki></code> || <code><nowiki>{{End hidden}}</nowiki></code> || Collapsible proof
+|-
+| <code><nowiki>{{Hidden example}}</nowiki></code> || <code><nowiki>{{End hidden}}</nowiki></code> || Collapsible example
+|-
+| <code><nowiki>{{Hidden explanation}}</nowiki></code> || <code><nowiki>{{End hidden}}</nowiki></code> || Collapsible explanation
+|}
+
+<code><nowiki>{{End solution}}</nowiki></code> redirects to <code><nowiki>{{End hidden}}</nowiki></code>.
+
+== See also ==
+
+* [[Template:End special]] — the generic closing template
+* [[Help:Contributing/styleGuide]]
