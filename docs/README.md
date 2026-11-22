@@ -188,3 +188,12 @@ right-click **Capitalise first letter** mention variant, automatic stale-
 token retries for `Special:Upload` and the same-origin `action=edit` save,
 relevance ranking of merged Add\* provider results, and the **Proprietary**
 license + non-FOSS default (the Q2721 repair).
+
+Nov 2026 curated scientific datasets: `curated-dataset-store.md` — the
+`Dataset:` namespace, a manifest JSON page as the source of truth, a
+purpose-built MySQL measurement store, `#dataset-table` / `#dataset-footnotes`
+/ `#dataset-provenance`, and `action=datasetupsert` / `action=datasetquery`;
+Wikibase + WDQS keep identity/provenance/citation. **Cargo is rejected** for
+this use case (page-scoped write model, delete-then-reparse saves, 2 MB / 5 k
+caps, no per-dataset access control); the original Cargo decision in #6/#7 is
+superseded.

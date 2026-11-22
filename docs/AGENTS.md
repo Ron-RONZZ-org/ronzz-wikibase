@@ -53,8 +53,12 @@ deployed, how to operate it, and why it is designed the way it is.
   `section-controls-editpage-editor.md` (the controls extended to every classic
   article page, and the append editor rebuilt on core's `EditPage` for true
   Show preview / Show changes parity with only the minor-edit checkbox
-  removed), and `geogebra-inline-commands.md` (the `<geogebra>` tag rendering
-  raw GeoGebra commands without an uploaded `.ggb`).
+  removed), `geogebra-inline-commands.md` (the `<geogebra>` tag rendering
+  raw GeoGebra commands without an uploaded `.ggb`), and
+  `curated-dataset-store.md` (curated scientific datasets: `Dataset:`
+  namespace, manifest-as-source-of-truth, MySQL measurement store,
+  `#dataset-*` parser functions, `action=datasetupsert`/`datasetquery`;
+  **Cargo rejected** — the #6/#7 Cargo decision is superseded).
 
 ## Constraints and Invariants
 
