@@ -101,8 +101,8 @@ final class DatasetPageRenderer {
 		if ( !$status->isOK() ) {
 			throw new RuntimeException( 'dataset page save failed: ' . $status->getWikiText() );
 		}
-		$value = $status->getValue();
-		$revision = is_object( $value ) && method_exists( $value, 'getId' ) ? (int)$value->getId() : 0;
+		$value = method_exists( $status, 'getNewRevision' ) ? $status->getNewRevision() : $status->getValue();
+		$revision = $value instanceof \MediaWiki\Revision\RevisionRecord ? (int)$value->getId() : 0;
 		return [ 'title' => $title->getPrefixedText(), 'revision' => $revision ];
 	}
 

@@ -76,8 +76,11 @@ class ApiDatasetUpsert extends ApiBase {
 		if ( !$status->isOK() ) {
 			$this->dieWithError( new RawMessage( $status->getWikiText() ), 'page-conflict' );
 		}
-		$revision = $status->getValue();
-		$revId = is_object( $revision ) && method_exists( $revision, 'getId' ) ? (int)$revision->getId() : 0;
+		$revision = method_exists( $status, 'getNewRevision' ) ? $status->getNewRevision() : $status->getValue();
+		$revId = $revision instanceof \MediaWiki\Revision\RevisionRecord ? (int)$revision->getId() : 0;
+		if ( $revId === 0 ) {
+			$this->dieWithError( new RawMessage( 'could not read the saved manifest revision' ), 'store-error' );
+		}
 		$runId = $datasetId . '-' . substr( hash( 'sha256', $json ), 0, 12 );
 		$store->createRun( $runId, $datasetId );
 		try {
