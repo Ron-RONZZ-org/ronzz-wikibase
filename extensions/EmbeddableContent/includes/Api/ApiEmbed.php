@@ -7,6 +7,7 @@ namespace EmbeddableContent\Api;
 use EmbeddableContent\Content\ContentRenderer;
 use EmbeddableContent\Content\RenderException;
 use MediaWiki\Api\ApiBase;
+use MediaWiki\Language\RawMessage;
 use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\Repo\WikibaseRepo;
 
@@ -42,7 +43,11 @@ class ApiEmbed extends ApiBase {
 		try {
 			$result = $this->renderer->render( $id, $format, $lang, null, $acceptLanguages, $preview );
 		} catch ( RenderException $e ) {
-			$this->dieWithError( [ 'rawmessage' => $e->getMessage() ], $e->getErrorCode() );
+			// RawMessage, not [ 'rawmessage' => … ]: dieWithError() feeds the
+			// value to ApiMessage::create(), which reads $msg[0] and warns
+			// "Undefined array key 0" on an associative array (and then uses
+			// the text as a message KEY, rendering it as ⧼text⧽).
+			$this->dieWithError( new RawMessage( $e->getMessage() ), $e->getErrorCode() );
 		}
 
 		$payload = [
