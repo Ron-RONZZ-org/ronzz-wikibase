@@ -356,6 +356,23 @@ def check(args: argparse.Namespace) -> int:
         status, body, _ = http_get(f"{base}/wiki/Special:Embed/{args.quote}")
         expect(status == 200, f"Special:Embed/{args.quote}: HTTP {status}")
 
+    def check_embed_error_info_is_raw() -> None:
+        # Regression: ApiEmbed passed [ 'rawmessage' => … ] to dieWithError().
+        # ApiMessage::create() reads $msg[0] on arrays, so every failed embed
+        # raised "Undefined array key 0" (PHP warning spam) and then used the
+        # text as a message KEY — the API info came back as "⧼No item Q…⧽".
+        # A RawMessage keeps the text raw and warning-free.
+        params = {"action": "embed", "entity": "Q999999999",
+                  "output": "json", "format": "json"}
+        status, body, _ = http_get(f"{api}?{urllib.parse.urlencode(params)}")
+        expect(status == 200, f"embed error path: HTTP {status}")
+        payload = json.loads(body.decode("utf-8", "replace"))
+        expect("error" in payload, f"embed error path: expected an error, got {payload!r}")
+        info = payload["error"].get("info", "")
+        expect("No item Q999999999" in info, f"embed error info changed: {info!r}")
+        expect("\u29fc" not in info and "\u29fd" not in info,
+               f"embed error info is a rendered message key, not raw text: {info!r}")
+
     def check_entitysearch_fulltext() -> None:
         """action=entitysearch (the combobox fulltext search): a CONTAINS
         match must find labels that wbsearchentities' exact/prefix search
@@ -395,6 +412,7 @@ def check(args: argparse.Namespace) -> int:
     run("special pages listed on Special:SpecialPages + non-empty titles (issue #11)", check_specialpages_listing)
     run("entity index (Special:EntityIndex pagination + limit clamp)", check_entity_index)
     run("Special:Embed error paths render 200 (issue #11)", check_embed_error_paths)
+    run("embed error info is raw text (ApiMessage warning regression)", check_embed_error_info_is_raw)
     run("addsource-fields contract (webpage exposes authors — the drift regression)", lambda: check_addsource_fields(api))
     run("field-contract parity (-fields ⊆ write-module params)", check_field_contract_parity)
 
