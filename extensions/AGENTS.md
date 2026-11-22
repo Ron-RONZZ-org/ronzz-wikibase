@@ -154,6 +154,22 @@ report). See `SimpleMathJax/VENDORED.md`.
   MCP server pins a verbatim copy and generates its embeddable add tools' schemas from it.
   Web-published field lists (`action=*-fields`) and the JSON share one emitter, so the
   discovery contract and the write path cannot disagree.
+- **Dataset manifest contract (`extensions/EmbeddableContent/contract/dataset-manifest.schema.json`)**:
+  `Spec/DatasetSchema` (manifest) + `Spec/DatasetSqlSchema` (DDL) are the single definition;
+  `maintenance/emitDatasetContract.php` (a PURE script) emits the manifest/envelope/validation-report schemas, the store field
+  map (`dataset-store-fields.json`), the envelope example and `sql/dataset-schema.sql`
+  (the `wb_dataset_*` DDL). `tests/Unit/DatasetSchemaTest` fails if any committed file
+  drifts. The same files are pinned verbatim in `mediawiki-mcp-server` (TypeScript
+  projection) and `ronzz-pdf-figures-mcp` (extractor builder + `jsonschema` test); the
+  extractor returns `{ manifest, validation_report, manifest_path }` and the MCP
+  `embeddable-dataset-upsert` forwards it unchanged. The wiki side lives in
+  `Store/` (`DatasetStore`, `DatasetManifestValidator`, `DatasetItemWriter`,
+  `DatasetPageRenderer`, `DatasetApplyService`), `Api/ApiDataset*`,
+  `Jobs/DatasetApplyJob`, `ParserFunctions/Dataset*`, the `Dataset:` namespace
+  (2018/2019), the seed vocabulary (`data table`, `review status`,
+  `extraction method` + properties/preseed) and
+  `maintenance/installDatasetSchema.php`. See
+  `docs/decisions/curated-dataset-store.md`.
 - **Vocabulary manifests** (`manifests/`: `properties.csv`, `classes.csv`,
   `languages.csv`) + `maintenance/importVocabulary.php` — the D1 importer.
   Includes the issue-#7 ExternalId authority + citation-metadata properties

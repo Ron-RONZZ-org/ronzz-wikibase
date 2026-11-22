@@ -12,6 +12,12 @@ use EmbeddableContent\Fetch\ProviderClient;
 use EmbeddableContent\Fetch\RateLimitedHttpClient;
 use EmbeddableContent\Fetch\WikipediaContentProvider;
 use EmbeddableContent\Search\EntityTermSearch;
+use EmbeddableContent\Store\DatasetApplyService;
+use EmbeddableContent\Store\DatasetItemWriter;
+use EmbeddableContent\Store\DatasetManifestValidator;
+use EmbeddableContent\Store\DatasetPageRenderer;
+use EmbeddableContent\Store\DatasetStore;
+use MediaWiki\Title\Title;
 use MediaWiki\MediaWikiServices;
 use Wikibase\Repo\WikibaseRepo;
 
@@ -179,6 +185,42 @@ return [
 			$services->get( 'EmbeddableContent.Config' ),
 			WikibaseRepo::getEntityLookup( $services ),
 			static fn ( string $key, array $params ) => wfMessage( $key, ...$params )->inLanguage( 'en' )->text()
+		);
+	},
+
+	'EmbeddableContent.DatasetStore' => static function ( MediaWikiServices $services ): DatasetStore {
+		return new DatasetStore(
+			$services->getConnectionProvider(),
+			$services->getMainConfig()->get( 'EmbeddableContentDatasetInternalGroups' )
+		);
+	},
+
+	'EmbeddableContent.DatasetValidator' => static function ( MediaWikiServices $services ): DatasetManifestValidator {
+		return new DatasetManifestValidator(
+			static function ( string $pdfFile, ?int $revision ) use ( $services ): ?string {
+				$title = Title::newFromText( $pdfFile, NS_FILE );
+				if ( $title === null ) {
+					return null;
+				}
+				$file = $services->getRepoGroup()->findFile( $title );
+				return $file === false ? null : \Wikimedia\base_convert( $file->getSha1(), 36, 16, 40 );
+			}
+		);
+	},
+
+	'EmbeddableContent.DatasetItemWriter' => static function ( MediaWikiServices $services ): DatasetItemWriter {
+		return new DatasetItemWriter( $services->get( 'EmbeddableContent.Config' ) );
+	},
+
+	'EmbeddableContent.DatasetPageRenderer' => static function (): DatasetPageRenderer {
+		return new DatasetPageRenderer();
+	},
+
+	'EmbeddableContent.DatasetApplyService' => static function ( MediaWikiServices $services ): DatasetApplyService {
+		return new DatasetApplyService(
+			$services->get( 'EmbeddableContent.DatasetStore' ),
+			$services->get( 'EmbeddableContent.DatasetItemWriter' ),
+			$services->get( 'EmbeddableContent.DatasetPageRenderer' )
 		);
 	},
 ];

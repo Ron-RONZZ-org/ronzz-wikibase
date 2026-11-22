@@ -50,3 +50,10 @@ rights basis,licensed,sous licence,sub permesilo,reproduced under a licence gran
 rights basis,public domain,domaine public,publika havaĵo,the work is in the public domain,l'œuvre est dans le domaine public,la verko estas en la publika havaĵo,false
 rights basis,own work,œuvre personnelle,propra verko,the uploader is the author of the work,le téléverseur est l'auteur de l'œuvre,la alŝutinto estas la aŭtoro de la verko,false
 rights basis,author permission,autorisation de l'auteur,permeso de la aŭtoro,reproduced with the permission of the rights holder,reproduit avec l'autorisation du titulaire des droits,reproduktita kun la permeso de la rajtoposedanto,false
+review status,unreviewed,non relu,nelreviziita,not yet reviewed,pas encore relu,ankoraŭ ne reviziita,false
+review status,checked,vérifié,kontrolita,reviewed and checked,relu et vérifié,reviziita kaj kontrolita,false
+review status,verified,vérifié (expert),kontrolita (faka),independently verified by a domain expert,vérifié indépendamment par un expert du domaine,sendepende kontrolita de faka spertulo,false
+extraction method,text-layer,couche de texte,teksttavolo,extracted from the PDF text layer,extrait de la couche de texte du PDF,eltirita el la teksttavolo de la PDF,false
+extraction method,ocr,ocr,okr,extracted with OCR,extrait avec OCR,eltirita per OCR,false
+extraction method,vision,vision,vizio,extracted from a rendered image by a vision model,extrait d'une image rendue par un modèle de vision,eltirita el bildigo per vida modelo,false
+extraction method,manual,manuel,mana,entered or corrected manually,saisi ou corrigé manuellement,entajpita aŭ korektita mane,false

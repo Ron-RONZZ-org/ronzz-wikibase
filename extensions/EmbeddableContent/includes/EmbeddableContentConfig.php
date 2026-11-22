@@ -637,6 +637,66 @@ class EmbeddableContentConfig {
 	}
 
 	/**
+	 * Curated-dataset vocabulary (issue #7): class ids keyed by
+	 * `dataTable` / `dataset`.
+	 *
+	 * @return array<string,string>
+	 */
+	public function datasetClasses(): array {
+		return $this->datasetMap( 'classes' );
+	}
+
+	/**
+	 * Curated-dataset property ids keyed by `hasDataTable`, `extractedFrom`,
+	 * `tableNumber`, `tableId`, `datasetId`, `reviewStatus`,
+	 * `extractionMethod`.
+	 *
+	 * @return array<string,string>
+	 */
+	public function datasetPropertyIds(): array {
+		return $this->datasetMap( 'properties' );
+	}
+
+	/**
+	 * Preseeded review-status items keyed by `unreviewed` / `checked` /
+	 * `verified`.
+	 *
+	 * @return array<string,string>
+	 */
+	public function datasetReviewStatusItems(): array {
+		return $this->datasetMap( 'reviewStatus' );
+	}
+
+	/**
+	 * Preseeded extraction-method items keyed by `text-layer` / `ocr` /
+	 * `vision` / `manual`.
+	 *
+	 * @return array<string,string>
+	 */
+	public function datasetExtractionMethodItems(): array {
+		return $this->datasetMap( 'extractionMethod' );
+	}
+
+	/** @return array<string,string> */
+	private function datasetMap( string $key ): array {
+		$dataset = $this->raw['dataset'] ?? [];
+		if ( !is_array( $dataset ) ) {
+			return [];
+		}
+		$value = $dataset[$key] ?? [];
+		if ( !is_array( $value ) ) {
+			return [];
+		}
+		$result = [];
+		foreach ( $value as $mapKey => $mapValue ) {
+			if ( is_string( $mapKey ) && is_string( $mapValue ) ) {
+				$result[$mapKey] = $mapValue;
+			}
+		}
+		return $result;
+	}
+
+	/**
 	 * Lenient string=>string map getter (no key filtering — e.g. the
 	 * QID→class-key inference maps).
 	 *

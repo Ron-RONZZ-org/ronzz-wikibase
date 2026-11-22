@@ -28,6 +28,18 @@ $magicWords['en'] = [
 	'osmplace' => [ 0, 'osm-place' ],
 	'statementrow' => [ 0, 'statement-row' ],
 	'quotationsby' => [ 0, 'quotations-by' ],
+	'datasettable' => [ 0, 'dataset-table' ],
+	'datasetfootnotes' => [ 0, 'dataset-footnotes' ],
+	'datasetprovenance' => [ 0, 'dataset-provenance' ],
+	'datasetcite' => [ 0, 'dataset-cite' ],
+	'datasettable' => [ 0, 'dataset-table' ],
+	'datasetfootnotes' => [ 0, 'dataset-footnotes' ],
+	'datasetprovenance' => [ 0, 'dataset-provenance' ],
+	'datasetcite' => [ 0, 'dataset-cite' ],
+	'datasettable' => [ 0, 'dataset-table' ],
+	'datasetfootnotes' => [ 0, 'dataset-footnotes' ],
+	'datasetprovenance' => [ 0, 'dataset-provenance' ],
+	'datasetcite' => [ 0, 'dataset-cite' ],
 ];
 
 /** French (français) */

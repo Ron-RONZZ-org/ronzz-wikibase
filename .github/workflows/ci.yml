@@ -376,6 +376,12 @@ jobs:
           done
           $COMPOSE --profile updater up -d wdqs-updater
 
+      - name: Install the curated-dataset schema (wb_dataset_*)
+        if: steps.changes.outputs.code == 'true'
+        run: |
+          $COMPOSE exec -T -u root wikibase php maintenance/run.php \
+            /var/www/html/extensions/EmbeddableContent/maintenance/installDatasetSchema.php
+
       - name: E2E acceptance (3 embed surfaces, 5 citation styles, SPARQL)
         if: steps.changes.outputs.code == 'true'
         run: |
@@ -428,6 +434,13 @@ jobs:
           python3 tests/e2e/run_pages_e2e.py \
             --base-url "$BASE_URL" --api-url "$API_URL" \
             --user "$MW_ADMIN_NAME" --password-file /tmp/e2e-pass
+
+      - name: Dataset E2E (contract dry-run → apply job → query → page)
+        if: steps.changes.outputs.code == 'true'
+        run: |
+          python3 tests/e2e/run_dataset_e2e.py \
+            --api-url "$API_URL" \
+            --user "$MW_ADMIN_NAME" --password "$MW_ADMIN_PASS"
 
       - name: PDF extraction queue (save hook → excluded type → dedicated worker)
         if: steps.changes.outputs.code == 'true'

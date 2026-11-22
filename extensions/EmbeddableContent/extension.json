@@ -14,8 +14,13 @@
 	"AutoloadNamespaces": {
 		"EmbeddableContent\\": "includes/"
 	},
+	"namespaces": [
+		{ "id": 2018, "constant": "NS_DATASET", "name": "Dataset", "content": true, "subpages": true },
+		{ "id": 2019, "constant": "NS_DATASET_TALK", "name": "Dataset_talk", "subpages": true }
+	],
 	"JobClasses": {
-		"extractPdfText": "EmbeddableContent\\Jobs\\ExtractPdfTextJob"
+		"extractPdfText": "EmbeddableContent\\Jobs\\ExtractPdfTextJob",
+		"datasetApply": "EmbeddableContent\\Jobs\\DatasetApplyJob"
 	},
 	"MessagesDirs": {
 		"EmbeddableContent": [
@@ -28,7 +33,7 @@
 	"config": {
 		"EmbeddableContentConfig": {
 			"value": [],
-			"description": "Instance-specific config map emitted by the seed (issue #6 D2 + issue #7): instanceOf, classes, agentClasses, sourceClasses, payloadProperties, programmingLanguage, describes, implementationOf, note, provenance, externalIds, citationMetadata, formatterUrl, sourceClassByWikidata, agentClassByWikidata, fallbackLanguages, lexers."
+			"description": "Instance-specific config map emitted by the seed (issue #6 D2 + issue #7): instanceOf, classes, agentClasses, sourceClasses, payloadProperties, programmingLanguage, describes, implementationOf, note, provenance, externalIds, citationMetadata, formatterUrl, sourceClassByWikidata, agentClassByWikidata, fallbackLanguages, lexers, dataset (classes, properties, reviewStatus, extractionMethod)."
 		},
 		"EmbeddableContentMediaAuthSecret": {
 			"value": "",
@@ -41,6 +46,11 @@
 		"EmbeddableContentInternalFileCategory": {
 			"value": "Internal use only files",
 			"description": "Category recorded on File: pages of internal-use files (the human-readable marker)."
+		}
+,
+		"EmbeddableContentDatasetInternalGroups": {
+			"value": [],
+			"description": "User groups allowed to read internal-tier datasets. Empty means deny-by-default (the future per-tier mechanism)."
 		}
 	},
 	"ServiceWiringFiles": [
@@ -272,6 +282,15 @@
 		},
 		"imageupload": {
 			"class": "EmbeddableContent\\Api\\ApiImageUpload"
+		},
+		"datasetupsert": {
+			"class": "EmbeddableContent\\Api\\ApiDatasetUpsert"
+		},
+		"datasetquery": {
+			"class": "EmbeddableContent\\Api\\ApiDatasetQuery"
+		},
+		"datasetstatus": {
+			"class": "EmbeddableContent\\Api\\ApiDatasetStatus"
 		}
 	},
 	"Actions": {
