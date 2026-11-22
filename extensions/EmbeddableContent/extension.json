@@ -33,7 +33,7 @@
 	"config": {
 		"EmbeddableContentConfig": {
 			"value": [],
-			"description": "Instance-specific config map emitted by the seed (issue #6 D2 + issue #7): instanceOf, classes, agentClasses, sourceClasses, payloadProperties, programmingLanguage, describes, implementationOf, note, provenance, externalIds, citationMetadata, formatterUrl, sourceClassByWikidata, agentClassByWikidata, fallbackLanguages, lexers."
+			"description": "Instance-specific config map emitted by the seed (issue #6 D2 + issue #7): instanceOf, classes, agentClasses, sourceClasses, payloadProperties, programmingLanguage, describes, implementationOf, note, provenance, externalIds, citationMetadata, formatterUrl, sourceClassByWikidata, agentClassByWikidata, fallbackLanguages, lexers, dataset (classes, properties, reviewStatus, extractionMethod)."
 		},
 		"EmbeddableContentMediaAuthSecret": {
 			"value": "",
