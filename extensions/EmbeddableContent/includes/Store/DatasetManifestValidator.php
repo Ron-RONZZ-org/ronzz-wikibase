@@ -310,7 +310,8 @@ final class DatasetManifestValidator {
 						'the source PDF does not exist' );
 				} elseif ( strtolower( $actual ) !== strtolower( (string)$table['pdf_sha1'] ) ) {
 					$add( 'pdf-provenance', 'error', "$tablePath.pdf_sha1",
-						'the source PDF SHA1 does not match' );
+						'the source PDF SHA1 does not match (manifest '
+						. $table['pdf_sha1'] . ', file ' . $actual . ')' );
 				}
 			}
 		}

@@ -176,6 +176,11 @@ def main() -> int:
 
     pdf_file, pdf_sha1 = upload_pdf(op, args.api_url, token, pdf_name, pdf)
     print(f"  uploaded File:{pdf_file} (sha1 {pdf_sha1})")
+    info = api_call(op, args.api_url, {
+        "action": "query", "titles": f"File:{pdf_file}", "prop": "imageinfo",
+        "iiprop": "sha1", "format": "json",
+    })
+    print(f"  imageinfo: {json.dumps(info)[:1000]}")
 
     manifest = dataset_manifest(dataset_id, pdf_file, pdf_sha1)
     encoded = json.dumps(manifest)
