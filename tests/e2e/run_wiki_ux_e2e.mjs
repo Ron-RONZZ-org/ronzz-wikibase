@@ -1420,12 +1420,13 @@ async function main() {
 		}
 		// Select the clipboard mode and paste an image onto <body> (focus is
 		// NOT inside the dialog — the document-level listener must catch it).
-		await page.evaluate(() => {
-			const dlg = document.querySelector('.oo-ui-windowManager-modal-active .oo-ui-dialog');
-			const radio = Array.from(dlg.querySelectorAll('input[type="radio"]')).find((r) => r.value === 'clipboard');
-			radio.checked = true;
-			radio.dispatchEvent(new Event('change', { bubbles: true }));
-		});
+		// Click the OOUI radio option like a user: setting the native input's
+		// `checked` does NOT update the RadioSelectInputWidget's value, so the
+		// dialog would still treat the mode as "file" and ignore the paste.
+		const clipboardModeLabel = await page.evaluate(
+			() => mw.msg('embeddablecontent-upload-mode-clipboard'));
+		await page.locator('.oo-ui-dialog .oo-ui-radioOptionWidget',
+			{ hasText: clipboardModeLabel }).first().click();
 		await page.evaluate(() => new Promise((resolve) => {
 			const c = document.createElement('canvas');
 			c.width = 40; c.height = 30;
