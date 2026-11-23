@@ -19,10 +19,10 @@ class CitationMapReader {
 
 	/** CSL field names accepted in the property map (per CSL 1.0.2 spec, common subset). */
 	public const CSL_FIELDS = [
-		'accessed', 'archive', 'archive_location', 'archive-place', 'author', 'call-number',
+		'accessed', 'archive', 'archive_location', 'archive-place', 'author', 'authority', 'call-number',
 		'chapter-number', 'citation-key', 'collection-title', 'container-title', 'container-title-short',
 		'DOI', 'edition', 'editor', 'event', 'event-place', 'familyName', 'first-reference-note-number', 'genre',
-		'givenName', 'ISBN', 'ISSN', 'issue', 'issued', 'journalAbbreviation', 'language', 'license', 'medium',
+		'givenName', 'ISBN', 'ISSN', 'issue', 'issued', 'journalAbbreviation', 'jurisdiction', 'language', 'license', 'medium',
 		'note', 'number', 'number-of-pages', 'number-of-volumes', 'original-date', 'original-publisher',
 		'original-publisher-place', 'original-title', 'page', 'page-first', 'PMCID', 'PMID', 'publisher',
 		'publisher-place', 'references', 'reviewed-genre', 'reviewed-title', 'scale', 'section', 'source',

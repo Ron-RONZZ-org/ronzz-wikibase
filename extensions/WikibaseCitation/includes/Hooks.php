@@ -43,9 +43,10 @@ class Hooks {
 		$engine = $services->get( 'WikibaseCitation.CitationEngine' );
 		$dependencies = $services->get( 'WikibaseCitation.CitationDependencies' );
 		$sourcePages = $services->get( 'WikibaseCitation.SourcePageResolver' );
+		$legalLinks = $services->get( 'WikibaseCitation.LegalItemLink' );
 
-		$parser->setFunctionHook( 'cite', static function ( Parser $parser, ...$args ) use ( $engine, $dependencies, $sourcePages ): array {
-			return CiteQ::onCite( $engine, $dependencies, $sourcePages, $parser, $args );
+		$parser->setFunctionHook( 'cite', static function ( Parser $parser, ...$args ) use ( $engine, $dependencies, $sourcePages, $legalLinks ): array {
+			return CiteQ::onCite( $engine, $dependencies, $sourcePages, $legalLinks, $parser, $args );
 		} );
 
 		$parser->setFunctionHook( 'citations', static function ( Parser $parser, ...$args ) use ( $engine, $dependencies ): array {

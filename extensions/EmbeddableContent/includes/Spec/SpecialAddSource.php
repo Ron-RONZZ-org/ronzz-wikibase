@@ -520,6 +520,15 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		$parts = explode( '/', trim( (string)$subPage ) );
 		$first = $parts[0] ?? '';
 
+		if ( $first === 'law' ) {
+			// Special:AddSource/law is replaced by Special:Law (the law
+			// corpus, cite-or-create). Existing legal items keep working.
+			$this->getOutput()->redirect(
+				\MediaWiki\SpecialPage\SpecialPage::getTitleFor( 'Law' )->getFullURL()
+			);
+			return;
+		}
+
 		if ( $first === '' || !$this->isSourceClassKey( $first ) ) {
 			// Root, or an unknown subpage (e.g. a stale pre-rework token).
 			$this->executeClassPicker();
@@ -645,6 +654,10 @@ class SpecialAddSource extends SpecialAddExternalEntity {
 		// in the reader's language (2026-09 UX batch).
 		$options = [];
 		foreach ( $this->config->sourceClasses() as $key => $_ ) {
+			if ( $key === 'law' ) {
+				// Replaced by Special:Law (the corpus + cite-or-create view).
+				continue;
+			}
 			$options[$this->msg( 'embeddablecontent-source-class-' . $key )->text()] = $key;
 		}
 		$options = LabelSorter::sortByLabel( $options, $this->getLanguage()->getCode() );

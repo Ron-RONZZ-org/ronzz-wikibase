@@ -382,6 +382,12 @@ jobs:
           $COMPOSE exec -T -u root wikibase php maintenance/run.php \
             /var/www/html/extensions/EmbeddableContent/maintenance/installDatasetSchema.php
 
+      - name: Install the law-corpus schema (wb_law_*)
+        if: steps.changes.outputs.code == 'true'
+        run: |
+          $COMPOSE exec -T -u root wikibase php maintenance/run.php \
+            /var/www/html/extensions/EmbeddableContent/maintenance/installLawSchema.php
+
       - name: E2E acceptance (3 embed surfaces, 5 citation styles, SPARQL)
         if: steps.changes.outputs.code == 'true'
         run: |

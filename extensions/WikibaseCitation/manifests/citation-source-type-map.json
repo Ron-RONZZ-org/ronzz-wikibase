@@ -23,5 +23,6 @@
 	"presentation": "speech",
 	"dataset": "dataset",
 	"transcript": "document",
-	"text": "document"
+	"text": "document",
+	"legal provision": "legislation"
 }

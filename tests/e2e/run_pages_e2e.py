@@ -6211,24 +6211,20 @@ def main() -> int:
         print(f"[ok] AddSource/text manual (multi-language) -> {multi_item}: "
               f"en/fr/eo statements")
 
-        # 2g7. AddSource/law (legal provision): a child of a legislation with a
-        #      reference code + a monolingual clause text (language inherited
-        #      from the parent) + added translations; the Source: page renders
-        #      the clause + translations via {{#content:}}, and the classic
-        #      "Update basic information" return marker round-trips (task 2).
-        law, law_legislation = flow_source_law(op, base, api, resolve)
-        track(law)
-        track(law_legislation)
-
-        # 2g7b. AddSource/law "Add more" (feature): the second submit button
-        #       creates the provision + its Source: page, reopens the form with
-        #       the parent legislation preserved, and wires the success popup;
-        #       action=embed renders the provision through the quotation path
-        #       (the "Copy embed code" button).
-        law_add1, law_add2, law_add_legislation = flow_source_law_addmore(op, base, api, resolve)
-        track(law_add1)
-        track(law_add2)
-        track(law_add_legislation)
+        # 2g7. Special:Law (replaces AddSource/law): the corpus page responds
+        #      with the search form (and the empty state on the CI stack); the
+        #      old AddSource/law route redirects there; action=lawsearch is a
+        #      read-only envelope before the importer runs.
+        _, law_body = page_get(op, base, "/wiki/Special:Law")
+        if "wb-law-search" not in law_body:
+            raise FlowError("Special:Law does not render the search form")
+        _, law_redirect_body = page_get(op, base, "/wiki/Special:AddSource/law/manual")
+        if "wb-law-search" not in law_redirect_body:
+            raise FlowError("Special:AddSource/law did not redirect to Special:Law")
+        law_search = api_call(op, api, {"action": "lawsearch", "format": "json"})
+        if "lawsearch" not in law_search:
+            raise FlowError("action=lawsearch did not return a lawsearch envelope")
+        print("[ok] Special:Law renders; AddSource/law redirects; lawsearch responds")
 
         # 2g8. Direct en-label edit (the Item-page label field / wbeditentity)
         #      renames the sitelinked classic page, leaving a redirect behind;
