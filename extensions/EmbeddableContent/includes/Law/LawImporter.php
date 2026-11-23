@@ -62,112 +62,124 @@ final class LawImporter {
 			$this->store->createRun( $runId, 'dila', $mode );
 		}
 
+		$store = $this->store;
 		$stats = [ 'files' => 0, 'laws' => 0, 'sections' => 0, 'articles' => 0, 'skipped' => 0, 'errors' => 0 ];
-		$laws = [];
-		$sections = [];
-		$articles = [];
-		$now = wfTimestamp( TS_MW );
-		$lawKeys = [];
-
-		$flush = function () use ( &$laws, &$sections, &$articles, $store, $dryRun ): void {
-			if ( $dryRun ) {
-				$laws = [];
-				$sections = [];
-				$articles = [];
-				return;
-			}
-			foreach ( $laws as $law ) {
-				$store->upsertLaw( $law );
-			}
-			$store->upsertSections( array_values( $sections ) );
-			$store->upsertArticles( array_values( $articles ) );
+		try {
 			$laws = [];
 			$sections = [];
 			$articles = [];
-		};
+			$now = wfTimestamp( TS_MW );
+			$lawKeys = [];
 
-		$iterator = new RecursiveIteratorIterator(
-			new RecursiveDirectoryIterator( $root, FilesystemIterator::SKIP_DOTS )
-		);
-		foreach ( $iterator as $file ) {
-			$path = $file->getPathname();
-			if ( !str_ends_with( $path, '.xml' ) || !str_contains( $path, '/article/' ) ) {
-				continue;
-			}
-			if ( $limit > 0 && $stats['articles'] >= $limit ) {
-				break;
-			}
-			$stats['files']++;
-			$xml = file_get_contents( $path );
-			if ( $xml === false ) {
-				$stats['errors']++;
-				$log( "unreadable: $path" );
-				continue;
-			}
-			try {
-				$parsed = $this->parser->parseArticle( $xml );
-			} catch ( LegiParseException $e ) {
-				$stats['errors']++;
-				$log( 'parse error: ' . $path . ': ' . $e->getMessage() );
-				continue;
-			}
-			if ( $parsed === null ) {
-				$stats['skipped']++;
-				continue;
-			}
-			$law = $parsed['law'];
-			if ( $codesOnly && ( $law['nature'] ?? '' ) !== 'CODE' ) {
-				$stats['skipped']++;
-				continue;
-			}
-			$law['retrieved_at'] = $now;
-			$laws[$law['law_key']] = $law;
-			$lawKeys[$law['law_key']] = $law['law_key'];
+			$flush = function () use ( &$laws, &$sections, &$articles, $store, $dryRun ): void {
+				if ( $dryRun ) {
+					$laws = [];
+					$sections = [];
+					$articles = [];
+					return;
+				}
+				foreach ( $laws as $law ) {
+					$store->upsertLaw( $law );
+				}
+				$store->upsertSections( array_values( $sections ) );
+				$store->upsertArticles( array_values( $articles ) );
+				$laws = [];
+				$sections = [];
+				$articles = [];
+			};
 
-			$sort = 0;
-			foreach ( $parsed['sections'] as $section ) {
-				$section['law_key'] = $law['law_key'];
-				$section['sort_order'] = $sort++;
-				$sections[$section['section_id']] = $section;
-				$stats['sections']++;
-			}
-
-			$article = $parsed['article'];
-			$article['retrieved_at'] = $now;
-			$article['content_hash'] = hash( 'sha256', (string)$article['text'] );
-			$article['created_at'] = $now;
-			$article['updated_at'] = $now;
-			$key = $article['law_key'] . "\0" . $article['reference_code'] . "\0" . $article['language'];
-			if ( !isset( $articles[$key] ) ) {
-				$stats['articles']++;
-			}
-			$articles[$key] = $article;
-			if ( count( $articles ) >= 200 ) {
-				$flush();
-			}
-		}
-		$flush();
-
-		if ( $mode === 'increment' ) {
-			$stats += $this->applySuppressions( $dir, $dryRun, $log );
-		}
-
-		if ( $createItems && !$dryRun && $this->writer !== null && $user !== null ) {
-			foreach ( $lawKeys as $lawKey ) {
-				$law = $this->store->getLaw( $lawKey );
-				if ( $law === null || trim( (string)( $law['item_id'] ?? '' ) ) !== '' ) {
+			$iterator = new RecursiveIteratorIterator(
+				new RecursiveDirectoryIterator( $root, FilesystemIterator::SKIP_DOTS )
+			);
+			foreach ( $iterator as $file ) {
+				$path = $file->getPathname();
+				if ( !str_ends_with( $path, '.xml' ) || !str_contains( $path, '/article/' ) ) {
 					continue;
 				}
-				$id = $this->writer->ensureLawItem( $law, $user );
-				if ( $id !== null ) {
-					$this->store->setLawItemId( $lawKey, $id );
+				if ( $limit > 0 && $stats['articles'] >= $limit ) {
+					break;
+				}
+				$stats['files']++;
+				$xml = file_get_contents( $path );
+				if ( $xml === false ) {
+					$stats['errors']++;
+					$log( "unreadable: $path" );
+					continue;
+				}
+				try {
+					$parsed = $this->parser->parseArticle( $xml );
+				} catch ( LegiParseException $e ) {
+					$stats['errors']++;
+					$log( 'parse error: ' . $path . ': ' . $e->getMessage() );
+					continue;
+				}
+				if ( $parsed === null ) {
+					$stats['skipped']++;
+					continue;
+				}
+				$law = $parsed['law'];
+				if ( $codesOnly && ( $law['nature'] ?? '' ) !== 'CODE' ) {
+					$stats['skipped']++;
+					continue;
+				}
+				$law['retrieved_at'] = $now;
+				$laws[$law['law_key']] = $law;
+				$lawKeys[$law['law_key']] = $law['law_key'];
+
+				$sort = 0;
+				foreach ( $parsed['sections'] as $section ) {
+					$section['law_key'] = $law['law_key'];
+					$section['sort_order'] = $sort++;
+					$sections[$section['section_id']] = $section;
+					$stats['sections']++;
+				}
+
+				$article = $parsed['article'];
+				$article['retrieved_at'] = $now;
+				$article['content_hash'] = hash( 'sha256', (string)$article['text'] );
+				$article['created_at'] = $now;
+				$article['updated_at'] = $now;
+				$key = $article['law_key'] . "\0" . $article['reference_code'] . "\0" . $article['language'];
+				if ( !isset( $articles[$key] ) ) {
+					$stats['articles']++;
+				}
+				$articles[$key] = $article;
+				if ( count( $articles ) >= 200 ) {
+					$flush();
 				}
 			}
-		}
-		$stats['laws'] = count( $lawKeys );
+			$flush();
 
-		if ( !$dryRun ) {
-			$this->store->finishRun( $runId, 'complete', $stats );
+			if ( $mode === 'increment' ) {
+				$stats += $this->applySuppressions( $dir, $dryRun, $log );
+			}
+
+			if ( $createItems && !$dryRun && $this->writer !== null && $user !== null ) {
+				foreach ( $lawKeys as $lawKey ) {
+					$law = $this->store->getLaw( $lawKey );
+					if ( $law === null || trim( (string)( $law['item_id'] ?? '' ) ) !== '' ) {
+						continue;
+					}
+					$id = $this->writer->ensureLawItem( $law, $user );
+					if ( $id !== null ) {
+						$this->store->setLawItemId( $lawKey, $id );
+					}
+				}
+			}
+			$stats['laws'] = count( $lawKeys );
+
+			if ( !$dryRun ) {
+				$this->store->finishRun( $runId, 'complete', $stats );
+			}
+		} catch ( \Throwable $e ) {
+			if ( !$dryRun ) {
+				try {
+					$this->store->finishRun( $runId, 'failed', $stats, $e->getMessage() );
+				} catch ( \Throwable $recordError ) {
+					$log( 'failed to record the import run: ' . $recordError->getMessage() );
+				}
+			}
+			throw $e;
 		}
 		$log( 'import complete: ' . json_encode( $stats ) );
 		return $stats;
