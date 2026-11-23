@@ -1,8 +1,8 @@
 # Decision: Special:Upload source memory + drag/paste
 
 - **Status**: Accepted (Oct 2026)
-- **Scope**: `wikibase.ronzz.org` — `Special:Upload` (`resources/uploadform.js`,
-  `resources/filepage.js`, `UploadHooks`)
+- **Scope**: `wikibase.ronzz.org` — `Special:Upload` (`resources/uploadpaste.js`,
+  `resources/uploadform.js`, `resources/filepage.js`, `UploadHooks`)
 - **Decider**: Rongzhou (`ron@ronzz.org`)
 
 ## Context
@@ -30,7 +30,7 @@ Two paper cuts on `Special:Upload`:
    `UploadHooks::onUploadFormSourceDescriptors` restores the matching radio
    (after the blob-conversion branch, before the fresh-load default);
    `resources/filepage.js` carries `wbsourcetype` onto the reloaded form.
-2. **Accept a dropped or pasted image** (`resources/uploadform.js`): a drop
+2. **Accept a dropped or pasted image** (`resources/uploadpaste.js`): a drop
    on the Source-filename row (or a paste of an image file **anywhere on the
    page** — the listener is document-level, because a paste event fires on
    the focused element and a fresh load focuses `<body>`) switches the source
@@ -42,6 +42,23 @@ Two paper cuts on `Special:Upload`:
    without a settable `FileList` (or a missing file input) degrades to a
    notification, never a silent no-op. A paste is ignored while an image
    editor dialog is open.
+3. **The intake is a DEPENDENCY-FREE ResourceLoader module**
+   (`ext.embeddableContent.uploadpaste`). `uploadform.js` statically depends
+   on `uploadmeta` (→ `oojs-ui`) and `uploadimage`, so the loader only
+   executes it after that whole graph resolves — measured ~0.4 s after
+   `DOMContentLoaded` on a warm production cache, longer cold. A paste in
+   that window was silently dropped ("paste works only some of the time").
+   The new module declares no dependencies, so it executes as soon as its
+   batch arrives and binds the listener ahead of the heavy modules.
+   `uploadform.js` keeps the submission/enhancement logic and retries its
+   init at `DOMContentLoaded` if the form is not parsed yet.
+   `setFile()` also **enables `#wpUploadFile` explicitly** — core's radio
+   handler may not be bound yet and a disabled control is excluded from
+   `FormData` — and a file pasted before the form is parsed is queued and
+   filled at DOM ready. The add-image dialog
+   (`resources/mediaeditor.js`) reads the same `files`-or-`items` fallback
+   and listens at the document while it is open (a paste can fire on
+   `<body>`), so "Paste from clipboard" works there too.
 
 Only the source **radio** is remembered, not the previous URL text (a stale
 URL is worse than a fresh empty field).
@@ -50,13 +67,22 @@ URL is worse than a fresh empty field).
 
 - A URL uploader pastes another URL immediately; a file uploader re-picks the
   File radio without a round-trip.
+- Paste/drop no longer depends on the heavy upload modules having loaded, so
+  a paste in the first moments of a cold load lands.
+- The `ext.embeddableContent.uploadpaste` module must stay dependency-free —
+  adding one re-creates the delay it exists to remove (asserted by the
+  page-flow E2E).
 - No server config/vocabulary change; deploy = extension rsync + php-fpm
-  restart (the JS/CSS are ResourceLoader-versioned).
+  restart (the JS/CSS are ResourceLoader-versioned) + the message/objectcache
+  purge.
 
 ## References
 
-- `extensions/EmbeddableContent/includes/Hooks.php` (`onBeforePageRedirect`)
+- `extensions/EmbeddableContent/includes/Hooks.php` (`onBeforePageRedirect`,
+  the Upload module list)
 - `extensions/EmbeddableContent/includes/Upload/UploadHooks.php`
-- `extensions/EmbeddableContent/resources/uploadform.js`, `filepage.js`,
-  `uploadform.css`
-- `tests/e2e/run_wiki_ux_e2e.mjs` — `wbsourcetype` restore + drop/paste
+- `extensions/EmbeddableContent/resources/uploadpaste.js`, `uploadform.js`,
+  `uploadimage.js`, `filepage.js`, `uploadform.css`
+- `tests/e2e/run_wiki_ux_e2e.mjs` — `wbsourcetype` restore + drop/paste +
+  cold-window paste + the Add* dialog paste
+- `tests/e2e/run_pages_e2e.py` — `flow_uploadpaste_module_source`

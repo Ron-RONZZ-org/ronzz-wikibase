@@ -440,6 +440,29 @@
 		return null;
 	}
 
+	/** The file from a ClipboardEvent/DataTransfer, or null — `files` first,
+	 * then `items` (some browsers leave `files` empty for an image paste). */
+	function clipboardFile( data ) {
+		if ( !data ) {
+			return null;
+		}
+		var file = firstImageFile( data.files );
+		if ( file ) {
+			return file;
+		}
+		var items = data.items || [];
+		for ( var i = 0; i < items.length; i++ ) {
+			var item = items[ i ];
+			if ( item && item.kind === 'file' && item.getAsFile ) {
+				var fromItem = item.getAsFile();
+				if ( fromItem ) {
+					return fromItem;
+				}
+			}
+		}
+		return null;
+	}
+
 	/** The section's current source mode (the OOUI radio group carries the
 	 * value in a hidden input; mirrors uploadmeta.js). */
 	function modeValue( prefix ) {
@@ -483,7 +506,7 @@
 	/**
 	 * Clipboard mode: paste (anywhere in the section) or drop onto the
 	 * `.wb-clipboard-target` box fills the file input. Special:Upload is
-	 * skipped — resources/uploadform.js already owns paste/drop there.
+	 * skipped — resources/uploadpaste.js already owns paste/drop there.
 	 */
 	function wireClipboard( input, prefix, form ) {
 		if ( !form || prefix === 'Upload' || form.dataset.wbClipboardWired === '1' ) {
@@ -496,7 +519,7 @@
 				return;
 			}
 			var data = ( e.originalEvent && e.originalEvent.clipboardData ) || e.clipboardData;
-			var file = firstImageFile( data && data.files );
+			var file = clipboardFile( data );
 			if ( !file ) {
 				return;
 			}
@@ -565,6 +588,15 @@
 				// add another spinner per press.
 				syncDest( prefix, input.files && input.files[ 0 ], true );
 			}, true );
+		}
+
+		// A file can already be present when this module finishes loading
+		// after a paste: resources/uploadpaste.js has no dependencies, so it
+		// can fill the picker before this module wires. Render that file's
+		// preview/resize now instead of leaving a bare picker.
+		if ( input.files && input.files.length > 0 ) {
+			setBusy( input, true );
+			processFile( input, prefix, function () { setBusy( input, false ); } );
 		}
 	}
 

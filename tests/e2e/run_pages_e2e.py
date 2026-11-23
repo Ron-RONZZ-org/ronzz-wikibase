@@ -3091,6 +3091,20 @@ def flow_media_editor_present(op, base: str) -> None:
         _, body = page_get(op, base, path)
         if "wb-media-editor" not in body or "wpimageEntries" not in body:
             raise FlowError(f"{path} missing the multi-image editor")
+    # The dialog is JS-side: assert the served module declares the URL and
+    # existing-file inputs (undeclared `urlInput`/`existingInput` used to
+    # throw `ReferenceError` and render OOUI's "Something went wrong") and
+    # the document-level clipboard listener.
+    _, js = page_get(op, base,
+        "/load.php?modules=ext.embeddableContent.mediaeditor&lang=en&skin=vector&debug=true")
+    for needle in [
+        "var urlInput = new OO.ui.TextInputWidget",
+        "var existingInput = new OO.ui.ComboBoxInputWidget",
+        "mw.embeddableContent.fileselect",
+        "onPaste",
+    ]:
+        if needle not in js:
+            raise FlowError(f"mediaeditor module: missing {needle}")
     print("[ok] AddPerson/AddCollective/AddSoftware render the multi-image editor")
 
 
@@ -3314,6 +3328,9 @@ def flow_upload_special_form(op, base: str) -> None:
         raise FlowError(f"Special:Upload 'upload another' button must carry name=wpUpload value=another: {m.group(0)}")
     if "ext.embeddableContent.uploadform" not in body:
         raise FlowError("Special:Upload does not load ext.embeddableContent.uploadform")
+    if "ext.embeddableContent.uploadpaste" not in body:
+        raise FlowError("Special:Upload does not load ext.embeddableContent.uploadpaste "
+                        "(the early clipboard/drag intake)")
 
 
 def flow_upload_special_source_restore(op, base: str) -> None:
@@ -3522,11 +3539,42 @@ def flow_uploadform_module_source(op, base: str) -> None:
         raise FlowError("uploadform module: delayed URL-loading overlay missing")
     if "wpSourceType" not in body or "wb-uploadmeta-preview" not in body or "clearPreview" not in body:
         raise FlowError("uploadform module: source-toggle preview clearing missing")
-    # The paste hint invites a paste before the form has focus; the listener
-    # must be document-level (a form-scoped one misses the body-focused paste),
-    # and the clipboard `items` fallback covers browsers with empty `files`.
-    if "$( document ).on( 'paste'" not in body or "clipboard.items" not in body:
-        raise FlowError("uploadform module: page-wide clipboard paste binding missing")
+    # The module can execute before the body is parsed on a warm cache; the
+    # init must retry at DOM ready instead of leaving the form unenhanced.
+    if "DOMContentLoaded" not in body or "function init()" not in body:
+        raise FlowError("uploadform module: DOM-ready init retry missing")
+    # The paste/drop intake moved to the dependency-free uploadpaste module
+    # (it binds before uploadmeta/uploadimage finish loading).
+    if "$( document ).on( 'paste'" in body:
+        raise FlowError("uploadform module: stale clipboard intake (moved to uploadpaste)")
+
+
+def flow_uploadpaste_module_source(op, base: str) -> None:
+    """The Special:Upload paste/drop intake is a DEPENDENCY-FREE module so it
+    binds while the heavier upload modules are still loading — the
+    cold-cache paste race (a paste in that window used to be dropped). Assert
+    the served module source carries the document-level listener, the
+    `items` fallback, the explicit enable and the pre-parse queue."""
+    _, body = page_get(op, base,
+        "/load.php?modules=ext.embeddableContent.uploadpaste&lang=en&skin=vector&debug=true")
+    for needle in [
+        "document.addEventListener( 'paste'",
+        "clipboard.items",
+        "input.disabled = false",
+        "DOMContentLoaded",
+        "wb-upload-drop-active",
+    ]:
+        if needle not in body:
+            raise FlowError(f"uploadpaste module: missing {needle}")
+    # Dependency-free is the point: a `dependencies` entry would re-create
+    # the delay this module exists to remove.
+    import pathlib
+    cfg_path = (pathlib.Path(__file__).resolve().parents[2]
+                / "extensions" / "EmbeddableContent" / "extension.json")
+    if cfg_path.exists():
+        modules = json.loads(cfg_path.read_text(encoding="utf-8"))["ResourceModules"]
+        if "dependencies" in modules.get("ext.embeddableContent.uploadpaste", {}):
+            raise FlowError("uploadpaste module must stay dependency-free")
 
 
 def flow_editsessionretry_module_source(op, base: str) -> None:
@@ -7175,6 +7223,9 @@ def main() -> int:
         flow_uploadform_module_source(op, base)
         print("[ok] uploadform module source: file-source gating, empty-field warning, "
               "same-origin fetch submission, inline error + automatic token retry")
+        flow_uploadpaste_module_source(op, base)
+        print("[ok] uploadpaste module source: dependency-free document paste/drop intake, "
+              "items fallback, explicit file-input enable, pre-parse queue")
         flow_editsessionretry_module_source(op, base)
         print("[ok] editsessionretry module source: same-origin stale-token retry + no-loop marker")
         flow_mentioncontext_module_source(op, base)

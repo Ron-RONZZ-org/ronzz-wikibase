@@ -97,7 +97,9 @@ the AddMath note sits below Content and shows in the preview),
 `semantic-entity-label-language.md` (the AddSource `labelLanguage` field
 extended to every semantic-entity Add\*/Update\* form + `addsemanticentity`),
 `upload-source-memory-dragpaste.md` (`Special:Upload` remembers the File/Url
-source across "upload another" and accepts a dropped/pasted image),
+source across "upload another"; the dependency-free `uploadpaste.js` binds
+the drop/paste intake before the heavy upload modules load, so a paste is
+never lost to a cold cache; the Add\* image dialog paste works too),
 `printable-version.md` (namespace/subpage-stripped print title, centered
 authors, the "Download" toolbar menu (PDF / HTML / expanded wikitext), the
 cover-page popup, and the browser Save-as-PDF filename),
@@ -162,7 +164,9 @@ content step is systematic for scholarly articles/books; the shared
 `bookSummary` are page prose, not statements).
 Nov 2026 pre-upload image editor: `upload-image-editor.md` (vendored TOAST UI
 Image Editor, loaded on demand; crop/rotate/flip/filter; raster only; telemetry
-disabled; `uploadimage.js` + `mediaeditor.js`).
+disabled; `uploadimage.js` + `mediaeditor.js`; the Add\* "Add image" dialog —
+the editor's entry point there — was fixed on 2026-11-23 after an
+undeclared-variable `ReferenceError` made it unreachable).
 Nov 2026 media credits: `media-credits-all-embeds.md` (credit every captioned
 file type server-side; captionless images/audio/video/PDF links via
 `wbEmbeddedFiles` + `mediaopen.js`; one paragraph per gallery; infoboxes

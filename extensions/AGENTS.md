@@ -1335,7 +1335,10 @@ report). See `SimpleMathJax/VENDORED.md`.
   collation is case-insensitive, unlike the VARBINARY entity term store).
   `resources/fileselect.js` queries it and batch-fetches the 64 px
   thumbnails via one `imageinfo` call (latest-wins `searchSeq` guard, raw
-  in-flight requests kept for abort). (b) **Subdomain parent inference** —
+  in-flight requests kept for abort). It exposes
+  `mw.embeddableContent.fileselect.wireWidget(combo)` so JS-created
+  comboboxes reuse the same search/preview (the Add\* multi-image dialog's
+  "existing file" field does). (b) **Subdomain parent inference** —
   `SiteRootMatcher::findByHost` matches a recorded website whose host is the
   page host OR an **ancestor domain** of it ("univ-lorraine.fr" is the site
   of "scifa.univ-lorraine.fr"); the longest (most specific) matching host
@@ -1579,7 +1582,12 @@ report). See `SimpleMathJax/VENDORED.md`.
   animated GIF are deliberately untouched. The dialog tints its chrome with
   Codex theme tokens and inverts icons in night mode. No page loads the module
   by default; deploy = extension rsync + php-fpm restart + message-blob purge
-  (new i18n keys) + cache purge.
+  (new i18n keys) + cache purge. **Entry points:** on `Special:Upload` the
+  **Edit image** button sits under the local preview; on Add\*/Update\* it is
+  inside the **Add image** dialog (`mediaeditor.js`). That dialog used to
+  throw `ReferenceError: urlInput is not defined` on open (OOUI "Something
+  went wrong"), making the editor unreachable there — fixed 2026-11-23 (see
+  the source-memory ADR too).
 
 - **Copy internal mention + quotation attribution + fictional-character
   aliases (ADR `docs/decisions/mention-and-quotation-attribution.md`,
@@ -1710,15 +1718,31 @@ report). See `SimpleMathJax/VENDORED.md`.
   (b) **Special:Upload source memory + drag/paste** — `wbsourcetype`
   (the blob fallback's original selection wins over the converted
   `wpSourceType`) preserves the source radio across "upload another";
-  `resources/uploadform.js` accepts a dropped image on the Source-filename
-  area and a pasted image **anywhere on the page**. Both switch to File, fill
-  the picker and fire `change`, so the shared preview/resize runs. The paste
-  listener is document-level because a paste event fires on the focused
-  element and a fresh load focuses `<body>`; the image is read from
-  `clipboardData.files` or `items`. A hint + drop highlight
-  (`uploadform.css`) and a notification fallback when `FileList` is not
-  settable (or the file input is missing) accompany it; a paste is ignored
-  while an image editor dialog is open.
+  the **dependency-free** `resources/uploadpaste.js` (RL module
+  `ext.embeddableContent.uploadpaste`, NO dependencies) owns the intake: a
+  dropped image on the Source-filename area and a pasted image **anywhere
+  on the page**. Both switch to File, enable the file input explicitly (core's
+  radio handler may not be bound yet; a disabled control is excluded from
+  `FormData`), fill the picker and fire `change`, so the shared
+  preview/resize runs. The paste listener is document-level because a paste
+  event fires on the focused element and a fresh load focuses `<body>`; the
+  image is read from `clipboardData.files` or `items`. A file pasted before
+  the form is parsed is queued and filled at DOM ready. A hint + drop
+  highlight (`uploadform.css`) and a notification fallback when `FileList`
+  is not settable (or the file input is missing) accompany it; a paste is
+  ignored while an image editor dialog is open. **Why dependency-free
+  (2026-11-23):** `uploadform.js` statically depends on `uploadmeta`
+  (→ `oojs-ui`) and `uploadimage`, so it only executed ~0.4 s after
+  `DOMContentLoaded` (longer cold) — a paste in that window was silently
+  dropped ("paste works only some of the time"). `uploadform.js` now keeps
+  the submission/enhancement logic, retries its init at `DOMContentLoaded`,
+  and the page-flow E2E asserts the intake module has no `dependencies`.
+  The Add\* multi-image dialog (`mediaeditor.js`) gained the same
+  `files`-or-`items` fallback and a document-level paste while open; it also
+  declares the previously missing `urlInput`/`existingInput` widgets (the
+  existing-file one wired through the shared `fileselect.js`
+  `wireWidget()`), fixing the `ReferenceError` that made "Add image" show
+  OOUI "Something went wrong".
   **Clipboard submission fix (2026-11-08):** OOUI submits the
   source through a hidden `wpSourceType` input; the paste path switched only
   the visible File radio, so the hidden value stayed `Url` and the pasted

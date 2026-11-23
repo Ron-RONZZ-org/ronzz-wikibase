@@ -1393,6 +1393,132 @@ async function main() {
 			console.log('[ok] Special:Upload author/source mode toggles');
 		}
 
+		// --- Add* multi-image dialog: the "Paste from clipboard" option ----
+		// It used to throw `ReferenceError: urlInput is not defined` while the
+		// dialog initialized (OOUI rendered "Something went wrong"), so the
+		// paste mode and the image editor were unreachable on the Add*/
+		// Update* image section.
+		await page.goto(`${BASE_URL}/wiki/Special:AddPerson/manual`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+		await page.waitForSelector('.wb-media-editor .wb-access-add-mount .oo-ui-buttonElement-button', { timeout: 20000 });
+		await page.click('.wb-media-editor .wb-access-add-mount .oo-ui-buttonElement-button');
+		await page.waitForSelector('.oo-ui-windowManager-modal-active .oo-ui-dialog', { timeout: 15000 });
+		const addDialog = await page.evaluate(() => {
+			const dlg = document.querySelector('.oo-ui-windowManager-modal-active .oo-ui-dialog');
+			const radios = Array.from(dlg.querySelectorAll('input[type="radio"]'));
+			return {
+				text: dlg.innerText.slice(0, 160),
+				clipboard: radios.some((r) => r.value === 'clipboard'),
+				hasFileInput: !!dlg.querySelector('input[type="file"]'),
+			};
+		});
+		if (/Something went wrong/i.test(addDialog.text)) {
+			failures.push(`AddPerson "Add image" dialog renders OOUI "Something went wrong": ${JSON.stringify(addDialog.text)}`);
+		} else if (!addDialog.clipboard || !addDialog.hasFileInput) {
+			failures.push(`AddPerson "Add image" dialog lacks the clipboard option/file input: ${JSON.stringify(addDialog)}`);
+		} else {
+			console.log('[ok] AddPerson "Add image" dialog opens with the Paste-from-clipboard option');
+		}
+		// Select the clipboard mode and paste an image onto <body> (focus is
+		// NOT inside the dialog — the document-level listener must catch it).
+		await page.evaluate(() => {
+			const dlg = document.querySelector('.oo-ui-windowManager-modal-active .oo-ui-dialog');
+			const radio = Array.from(dlg.querySelectorAll('input[type="radio"]')).find((r) => r.value === 'clipboard');
+			radio.checked = true;
+			radio.dispatchEvent(new Event('change', { bubbles: true }));
+		});
+		await page.evaluate(() => new Promise((resolve) => {
+			const c = document.createElement('canvas');
+			c.width = 40; c.height = 30;
+			c.getContext('2d').fillRect(0, 0, 40, 30);
+			c.toBlob((blob) => {
+				const file = new File([blob], 'dialog-paste.png', { type: blob.type });
+				const evt = new Event('paste', { bubbles: true, cancelable: true });
+				// items-only clipboard (the browser variant with empty files)
+				Object.defineProperty(evt, 'clipboardData', {
+					value: {
+						files: [],
+						items: [ { kind: 'file', type: file.type, getAsFile: () => file } ],
+					},
+				});
+				document.body.dispatchEvent(evt);
+				resolve();
+			}, 'image/png');
+		}));
+		await page.waitForFunction(() => {
+			const dlg = document.querySelector('.oo-ui-windowManager-modal-active .oo-ui-dialog');
+			const f = dlg && dlg.querySelector('input[type="file"]');
+			return f && f.files && f.files.length === 1;
+		}, { timeout: 15000 }).catch(() => {});
+		const dialogPaste = await page.evaluate(() => {
+			const dlg = document.querySelector('.oo-ui-windowManager-modal-active .oo-ui-dialog');
+			const f = dlg && dlg.querySelector('input[type="file"]');
+			return {
+				files: f && f.files ? f.files.length : 0,
+				editButton: !!(dlg && dlg.querySelector('.oo-ui-buttonElement-button')
+					&& Array.from(dlg.querySelectorAll('.oo-ui-buttonElement-button'))
+						.some((b) => b.textContent.trim() === mw.msg('embeddablecontent-imageeditor-open'))),
+			};
+		});
+		if (dialogPaste.files !== 1) {
+			failures.push(`AddPerson "Add image" clipboard paste did not fill its file input: ${JSON.stringify(dialogPaste)}`);
+		} else if (!dialogPaste.editButton) {
+			failures.push('AddPerson "Add image" dialog lacks the Edit image trigger after a paste');
+		} else {
+			console.log('[ok] AddPerson "Add image" clipboard paste fills the picker (items-only clipboard) + Edit image is present');
+		}
+		// Close the dialog (its own Cancel control).
+		await page.evaluate(() => {
+			const cancel = mw.msg('embeddablecontent-access-cancel');
+			const buttons = Array.from(document.querySelectorAll(
+				'.oo-ui-windowManager-modal-active .oo-ui-dialog .wb-access-dialog-actions .oo-ui-buttonElement-button'
+			));
+			const btn = buttons.find((b) => b.textContent.trim() === cancel);
+			if (btn) {
+				btn.click();
+			}
+		});
+		await page.waitForFunction(() =>
+			!document.querySelector('.oo-ui-windowManager-modal-active .oo-ui-dialog'),
+		{ timeout: 10000 }).catch(() => {});
+
+		// --- Cold-window paste: the listener must be live before the heavy
+		// upload modules finish resolving their dependency graph. Paste straight
+		// after DOMContentLoaded; the dependency-free uploadpaste module must
+		// fill the picker even while uploadform is still loading (the reported
+		// "paste works only some of the time").
+		await page.goto(`${BASE_URL}/wiki/Special:Upload`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+		const formStateAtPaste = await page.evaluate(() => (
+			window.mw && mw.loader && typeof mw.loader.getState === 'function'
+				? mw.loader.getState('ext.embeddableContent.uploadform')
+				: 'no-mw'
+		));
+		await page.evaluate(() => new Promise((resolve) => {
+			const c = document.createElement('canvas');
+			c.width = 30; c.height = 20;
+			c.getContext('2d').fillRect(0, 0, 30, 20);
+			c.toBlob((blob) => {
+				const file = new File([blob], 'cold-paste.png', { type: blob.type });
+				const evt = new Event('paste', { bubbles: true, cancelable: true });
+				Object.defineProperty(evt, 'clipboardData', { value: { files: [ file ], items: [] } });
+				document.body.dispatchEvent(evt);
+				resolve();
+			}, 'image/png');
+		}));
+		await page.waitForFunction(() => {
+			const f = document.getElementById('wpUploadFile');
+			return f && f.files && f.files.length === 1;
+		}, { timeout: 8000 }).catch(() => {});
+		const coldState = await page.evaluate(() => ({
+			files: document.getElementById('wpUploadFile').files.length,
+			radio: document.getElementById('wpSourceTypeFile').checked,
+			disabled: document.getElementById('wpUploadFile').disabled,
+		}));
+		if (coldState.files !== 1 || !coldState.radio || coldState.disabled) {
+			failures.push(`cold-window paste (uploadform=${formStateAtPaste}) did not fill the picker: ${JSON.stringify(coldState)}`);
+		} else {
+			console.log(`[ok] cold-window paste fills the picker before uploadform is ready (state was ${formStateAtPaste})`);
+		}
+
 		await page.goto(`${BASE_URL}/wiki/Special:Upload`, { waitUntil: 'domcontentloaded', timeout: 60000 });
 		await page.waitForSelector('#mw-upload-form', { timeout: 15000 });
 

@@ -31,10 +31,10 @@
  *     natively submitting the form, so the converted file also rides the
  *     fetch POST.
  *
- *  4. Drag-and-drop / clipboard paste — dropping an image onto the source
- *     file area (or pasting one) switches the source to "Source filename"
- *     and fills the file input, firing `change` so the shared
- *     resources/uploadimage.js preview + resize run.
+ *  4. Drag-and-drop / clipboard paste is owned by the dependency-free
+ *     resources/uploadpaste.js, which binds while this module's heavier
+ *     dependencies (uploadmeta → oojs-ui, uploadimage) are still loading.
+ *     See that file for the intake itself.
  */
 ( function () {
 	'use strict';
@@ -90,101 +90,6 @@
 	function fileInput() {
 		var input = findInput( 'wpUploadFile' );
 		return input && input.type === 'file' ? input : null;
-	}
-
-	/** The first image file in a FileList/DataTransfer, or null. */
-	function firstImageFile( fileList ) {
-		if ( !fileList ) {
-			return null;
-		}
-		for ( var i = 0; i < fileList.length; i++ ) {
-			var file = fileList[ i ];
-			if ( file && file.type && file.type.indexOf( 'image/' ) === 0 ) {
-				return file;
-			}
-		}
-		// Fall back to the first file at all (a pasted SVG/blob may arrive
-		// with an empty type in some browsers).
-		return fileList.length > 0 ? fileList[ 0 ] : null;
-	}
-
-	/**
-	 * The file from a ClipboardEvent's clipboardData, or null. Some browsers
-	 * leave `files` empty for an image paste and expose the bytes only through
-	 * `items` (`kind: 'file'`), so check both.
-	 */
-	function clipboardFile( clipboard ) {
-		if ( !clipboard ) {
-			return null;
-		}
-		var file = firstImageFile( clipboard.files );
-		if ( file ) {
-			return file;
-		}
-		var items = clipboard.items || [];
-		for ( var i = 0; i < items.length; i++ ) {
-			var item = items[ i ];
-			if ( item && item.kind === 'file' && item.getAsFile ) {
-				var fromItem = item.getAsFile();
-				if ( fromItem ) {
-					return fromItem;
-				}
-			}
-		}
-		return null;
-	}
-
-	/**
-	 * Select a Source radio and keep the OOUI RadioSelect's hidden value in
-	 * sync. OOUI renders the visible radios WITHOUT a name and submits the
-	 * selected value through a hidden `wpSourceType` input; setting only the
-	 * visible radio left the hidden input on the fresh-load default ("Url"),
-	 * so a pasted/dropped file was POSTed as a URL upload and never landed.
-	 */
-	function selectSourceType( value ) {
-		var radio = document.getElementById( 'wpSourceType' + value );
-		if ( radio && !radio.checked ) {
-			radio.checked = true;
-			// Core's mediawiki.special.upload radio handler syncs the URL /
-			// file field states; fire it so the file input is enabled.
-			radio.dispatchEvent( new Event( 'change', { bubbles: true } ) );
-		}
-		// The OOUI hidden value input (no type attribute) is what the form
-		// actually submits; php-mode radios have the name on the radio itself.
-		var hidden = document.querySelector(
-			'input[name="wpSourceType"]:not([type="radio"]):not([type="checkbox"])'
-		);
-		if ( hidden ) {
-			hidden.value = value;
-		}
-	}
-
-	/** Select the "Source filename" (File) radio, letting core reveal the picker. */
-	function switchToFileMode() {
-		selectSourceType( 'File' );
-	}
-
-	/** Put `file` into the file input and notify the shared modules. */
-	function setFile( file ) {
-		var input = fileInput();
-		if ( !input ) {
-			// The File source is unavailable (e.g. a stash re-render): tell the
-			// user instead of failing silently.
-			mw.notify( mw.msg( 'embeddablecontent-upload-clipboard-error' ) );
-			return;
-		}
-		switchToFileMode();
-		try {
-			var dt = new DataTransfer();
-			dt.items.add( file );
-			input.files = dt.files;
-		} catch ( e ) {
-			// A browser without a settable FileList (old Safari) — leave the
-			// picker for the user rather than silently doing nothing.
-			mw.notify( mw.msg( 'embeddablecontent-upload-drop-unsupported' ) );
-			return;
-		}
-		input.dispatchEvent( new Event( 'change', { bubbles: true } ) );
 	}
 
 	/** A Codex error message box (same markup Html::errorBox() uses). */
@@ -559,9 +464,15 @@
 		} );
 	}
 
-	mw.loader.using( 'mediawiki.notification' ).then( function () {
+	mw.loader.using( 'mediawiki.notification' ).then( function init() {
 		$form = $( '#mw-upload-form' );
 		if ( $form.length === 0 ) {
+			// The module can execute before the body is parsed on a warm
+			// ResourceLoader cache with a fast network: retry at DOM ready
+			// instead of silently leaving the form unenhanced.
+			if ( document.readyState === 'loading' ) {
+				document.addEventListener( 'DOMContentLoaded', init, { once: true } );
+			}
 			return;
 		}
 		formAction = $form.attr( 'action' ) || window.location.href;
@@ -802,52 +713,8 @@
 			cancelPendingUpload();
 		} );
 
-		// 4. Drag-and-drop onto the source file area. The input may be
-		// disabled (Url mode) — bind to its field wrapper so a drop is
-		// accepted anywhere over the "Source filename" row.
-		var fileEl = fileInput();
-		if ( fileEl ) {
-			var $drop = $( fileEl ).closest( '.mw-htmlform-field, .oo-ui-fieldLayout, tr' );
-			if ( $drop.length === 0 ) {
-				$drop = $( fileEl );
-			}
-			$drop.on( 'dragover', function ( e ) {
-				e.preventDefault();
-				e.originalEvent.dataTransfer.dropEffect = 'copy';
-				$drop.addClass( 'wb-upload-drop-active' );
-			} );
-			$drop.on( 'dragleave drop', function () {
-				$drop.removeClass( 'wb-upload-drop-active' );
-			} );
-			$drop.on( 'drop', function ( e ) {
-				e.preventDefault();
-				var file = firstImageFile( e.originalEvent.dataTransfer.files );
-				if ( file ) {
-					setFile( file );
-				}
-			} );
-		}
-
-		// 4b. Clipboard paste of an image ANYWHERE on the page — the hint
-		// ("Drag an image here, or paste it from your clipboard") invites a
-		// paste before anything in the form has focus, but a paste event
-		// fires on the focused element and only bubbles from there. On a fresh
-		// Special:Upload load the focus is on <body>, so a form-scoped
-		// listener never saw the event. This module loads only here, so a
-		// document-level listener is safe; a text paste falls through (only a
-		// clipboard file triggers the upload).
-		$( document ).on( 'paste', function ( e ) {
-			// An open image-editor dialog owns the file while it is up; a
-			// paste there must not replace the image under it.
-			if ( document.querySelector( '.oo-ui-windowManager-modal-active .oo-ui-dialog' ) ) {
-				return;
-			}
-			var clipboard = e.originalEvent && e.originalEvent.clipboardData;
-			var file = clipboardFile( clipboard );
-			if ( file ) {
-				e.preventDefault();
-				setFile( file );
-			}
-		} );
+		// 4. Drag-and-drop / clipboard paste is handled by
+		// resources/uploadpaste.js (dependency-free, bound before this
+		// module's heavier dependencies finish loading).
 	} );
 }() );
