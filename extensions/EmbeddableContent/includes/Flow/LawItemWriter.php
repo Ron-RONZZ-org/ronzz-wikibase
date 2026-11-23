@@ -12,6 +12,7 @@ use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\PropertyIdFactory;
 use EmbeddableContent\Search\EntityTermSearch;
 use MediaWiki\User\UserIdentity;
+use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\DataModel\Snak\PropertyValueSnak;
@@ -52,8 +53,10 @@ final class LawItemWriter {
 		if ( $label === '' || $class === null ) {
 			return null;
 		}
-		$found = $this->findItemByLabel( $label, $class );
+		$found = $this->findItemByLabel( $label, $class )
+			?? $this->findItemByLabel( $label . ' (Legislation)', $class );
 		if ( $found !== null ) {
+			$this->ensureLegislationNumber( $found, (string)$law['law_key'], $user );
 			return $found;
 		}
 
@@ -62,7 +65,7 @@ final class LawItemWriter {
 		$item->setDescription( 'fr', 'texte législatif français' );
 		$item->setDescription( 'en', 'French legislative text' );
 		$item->getStatements()->addStatement(
-			$this->statement( $this->config->instanceOfPropertyId(), new ItemId( $class ) )
+			$this->statement( $this->config->instanceOfPropertyId(), new EntityIdValue( new ItemId( $class ) ) )
 		);
 		$legislationNumber = $this->config->sourcePropertyIds()['legislationNumber'] ?? null;
 		if ( $legislationNumber !== null ) {
@@ -106,6 +109,11 @@ final class LawItemWriter {
 		$lawTitle = trim( (string)( $law['title'] ?? '' ) );
 		$label = 'Article ' . $reference . ( $lawTitle !== '' ? ' — ' . $lawTitle : '' );
 		$found = $this->findItemByLabel( $label, $class );
+		if ( $found === null && $lawTitle !== '' ) {
+			// Legacy AddSource provision label: "{reference} of {parent}".
+			$found = $this->findItemByLabel( $reference . ' of ' . $lawTitle . ' (Legislation)', $class )
+				?? $this->findItemByLabel( $reference . ' of ' . $lawTitle, $class );
+		}
 		if ( $found !== null ) {
 			return $found;
 		}
@@ -116,10 +124,10 @@ final class LawItemWriter {
 		$item->setDescription( 'fr', 'disposition de ' . $lawTitle );
 		$item->setDescription( 'en', 'provision of ' . $lawTitle );
 		$item->getStatements()->addStatement(
-			$this->statement( $this->config->instanceOfPropertyId(), new ItemId( $class ) )
+			$this->statement( $this->config->instanceOfPropertyId(), new EntityIdValue( new ItemId( $class ) ) )
 		);
 		$item->getStatements()->addStatement(
-			$this->statement( $partOf, new ItemId( $lawItemId ) )
+			$this->statement( $partOf, new EntityIdValue( new ItemId( $lawItemId ) ) )
 		);
 		$item->getStatements()->addStatement(
 			$this->statement( $referenceProperty, new StringValue( $reference ) )
@@ -135,6 +143,36 @@ final class LawItemWriter {
 			);
 		}
 		return $this->save( $item, 'law corpus: create legal provision item', $user );
+	}
+
+	/**
+	 * Adds the official legislation number to a reused legacy item when it
+	 * has none (the manual AddSource items predate the field). The number is
+	 * what Special:Law/<law_key> and the citation link resolve from.
+	 */
+	private function ensureLegislationNumber( string $itemId, string $lawKey, UserIdentity $user ): void {
+		$property = $this->config->sourcePropertyIds()['legislationNumber'] ?? null;
+		if ( $property === null || $lawKey === '' ) {
+			return;
+		}
+		$entity = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
+		if ( !$entity instanceof Item ) {
+			return;
+		}
+		foreach ( $entity->getStatements()->getByPropertyId( PropertyIdFactory::create( $property ) ) as $statement ) {
+			if ( $statement->getRank() !== \Wikibase\DataModel\Statement\Statement::RANK_DEPRECATED ) {
+				return;
+			}
+		}
+		$entity->getStatements()->addStatement(
+			$this->statement( $property, new StringValue( $lawKey ) )
+		);
+		WikibaseRepo::getEntityStore()->saveEntity(
+			$entity,
+			'law corpus: add legislation number',
+			$user,
+			EDIT_UPDATE
+		);
 	}
 
 	private function findItemByLabel( string $label, string $classId ): ?string {
@@ -182,11 +220,12 @@ final class LawItemWriter {
 	}
 
 	private function save( Item $item, string $summary, UserIdentity $user ): ?string {
-		$status = WikibaseRepo::getEntityStore()->saveEntity( $item, $summary, $user, EDIT_NEW );
-		if ( !$status->isOK() ) {
+		try {
+			$revision = WikibaseRepo::getEntityStore()->saveEntity( $item, $summary, $user, EDIT_NEW );
+		} catch ( \Throwable $e ) {
 			return null;
 		}
-		$id = $item->getId();
+		$id = $revision->getEntity()->getId();
 		return $id !== null ? $id->getSerialization() : null;
 	}
 }

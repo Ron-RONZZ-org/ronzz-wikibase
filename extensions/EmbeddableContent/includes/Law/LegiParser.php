@@ -99,7 +99,9 @@ final class LegiParser {
 		$content = isset( $doc->BLOC_TEXTUEL->CONTENU ) ? (string)$doc->BLOC_TEXTUEL->CONTENU->asXML() : '';
 		$text = self::plainText( $content );
 		$status = strtoupper( trim( (string)$meta->ETAT ) ) ?: 'VIGUEUR';
-		$lawStatus = $status === 'VIGUEUR' ? 'in_force' : 'repealed';
+		// The article state is the ARTICLE's state, not the law's. The
+		// code_en_vigueur/TNC_en_vigueur archives contain in-force texts only.
+		$lawStatus = 'in_force';
 		$sourceUrl = $nature === 'CODE'
 			? 'https://www.legifrance.gouv.fr/codes/texte_lc/' . rawurlencode( $lawKey ) . '/'
 			: ( $jorft !== '' ? 'https://www.legifrance.gouv.fr/loda/id/' . rawurlencode( $jorft ) . '/' : null );

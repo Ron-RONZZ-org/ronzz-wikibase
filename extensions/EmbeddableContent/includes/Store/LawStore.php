@@ -9,6 +9,7 @@ use Wikimedia\Rdbms\IConnectionProvider;
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IExpression;
 use Wikimedia\Rdbms\LikeValue;
+use Wikimedia\Rdbms\RawSQLValue;
 
 /**
  * The law-corpus store (`wb_law_*`). Laws, sections and articles are written
@@ -43,7 +44,7 @@ final class LawStore {
 			self::PREFIX . 'laws',
 			$row,
 			[ 'law_key' ],
-			$this->updateColumns( $row, [ 'law_key', 'item_id', 'created_at' ] ),
+			$this->valueSet( $row, [ 'law_key', 'item_id', 'created_at' ] ),
 			__METHOD__
 		);
 	}
@@ -55,11 +56,12 @@ final class LawStore {
 		if ( $rows === [] ) {
 			return;
 		}
+		$rows = array_values( $rows );
 		$this->connections->getPrimaryDatabase()->upsert(
 			self::PREFIX . 'sections',
-			array_values( $rows ),
+			$rows,
 			[ 'section_id' ],
-			[ 'law_key', 'parent_id', 'level', 'title', 'path', 'sort_order' ],
+			$this->valueSet( $rows[0], [ 'section_id' ] ),
 			__METHOD__
 		);
 	}
@@ -77,15 +79,15 @@ final class LawStore {
 			$row['updated_at'] = $now;
 		}
 		unset( $row );
+		$rows = array_values( $rows );
 		$this->connections->getPrimaryDatabase()->upsert(
 			self::PREFIX . 'articles',
-			array_values( $rows ),
+			$rows,
 			[ [ 'law_key', 'reference_code', 'language' ] ],
-			[
-				'article_id', 'section_id', 'section_path', 'text', 'status',
-				'version_start', 'version_end', 'retrieved_at', 'content_hash',
-				'search_text', 'updated_at',
-			],
+			$this->valueSet(
+				$rows[0],
+				[ 'law_key', 'reference_code', 'language', 'item_id', 'created_at' ]
+			),
 			__METHOD__
 		);
 	}
@@ -138,14 +140,27 @@ final class LawStore {
 	 * @return array<string,mixed>|null
 	 */
 	public function getArticle( string $lawKey, string $reference, string $language = 'fr' ): ?array {
-		$row = $this->connections->getReplicaDatabase()->newSelectQueryBuilder()
+		$row = $this->fetchArticle( $lawKey, $reference, $language );
+		if ( $row === false ) {
+			$normalized = preg_replace( '/[\s_]+/u', '', $reference );
+			if ( $normalized !== $reference && $normalized !== '' ) {
+				$row = $this->fetchArticle( $lawKey, $normalized, $language );
+			}
+		}
+		return $row === false ? null : (array)$row;
+	}
+
+	/**
+	 * @return array<string,mixed>|false
+	 */
+	private function fetchArticle( string $lawKey, string $reference, string $language ) {
+		return $this->connections->getReplicaDatabase()->newSelectQueryBuilder()
 			->select( 'a.*, l.title AS law_title, l.nature AS law_nature, l.jurisdiction, l.source_url' )
 			->from( self::PREFIX . 'articles', 'a' )
 			->join( self::PREFIX . 'laws', 'l', 'l.law_key = a.law_key' )
 			->where( [ 'a.law_key' => $lawKey, 'a.reference_code' => $reference, 'a.language' => $language ] )
 			->caller( __METHOD__ )
 			->fetchRow();
-		return $row === false ? null : (array)$row;
 	}
 
 	/**
@@ -321,11 +336,26 @@ final class LawStore {
 	}
 
 	/**
+	 * The mutable column => VALUES(column) set for a multi-row upsert,
+	 * excluding the row key and the columns an import must never clobber
+	 * (item_id, created_at). MySQL/MariaDB's VALUES() references the row
+	 * being inserted, so one statement carries every row's own values.
+	 *
 	 * @param array<string,mixed> $row
 	 * @param string[] $exclude
-	 * @return string[]
+	 * @return array<string,\Wikimedia\Rdbms\RawSQLValue>
 	 */
-	private function updateColumns( array $row, array $exclude ): array {
-		return array_values( array_diff( array_keys( $row ), $exclude ) );
+	private function valueSet( array $row, array $exclude ): array {
+		$dbw = $this->connections->getPrimaryDatabase();
+		$out = [];
+		foreach ( array_keys( $row ) as $column ) {
+			if ( in_array( $column, $exclude, true ) ) {
+				continue;
+			}
+			$out[$column] = new RawSQLValue(
+				'VALUES(' . $dbw->addIdentifierQuotes( $column ) . ')'
+			);
+		}
+		return $out;
 	}
 }

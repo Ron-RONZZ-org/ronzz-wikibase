@@ -52,6 +52,23 @@ class CitationFormatterTest extends TestCase {
 		$this->assertStringContainsString( '<', $out );
 	}
 
+	public function testLegalCitationUsesTheDeterministicFormat(): void {
+		$csl = [
+			'type' => 'legislation',
+			'title' => 'Article L 111-1',
+			'container-title' => "Code de l'éducation",
+			'number' => 'LEGITEXT000006071191',
+		];
+		$this->assertSame(
+			"Article L 111-1, in Code de l'éducation, LEGITEXT000006071191.",
+			$this->formatter->format( $csl, 'apa', 'text' )
+		);
+		$this->assertStringContainsString(
+			'wikibasecitation-legal',
+			$this->formatter->format( $csl, 'vancouver', 'html' )
+		);
+	}
+
 	public function testVancouverStyleRenders(): void {
 		$out = $this->formatter->format( $this->sampleCsl(), 'vancouver', 'text' );
 		$this->assertStringContainsString( 'Lovelace', $out );
