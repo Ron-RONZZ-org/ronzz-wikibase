@@ -103,7 +103,9 @@ final class LawSchema {
 				'primary' => [ 'law_key', 'reference_code', 'language' ],
 				'unique' => [ [ 'article_id' ] ],
 				'indexes' => [ [ 'law_key', 'section_id' ], [ 'item_id' ], [ 'status' ] ],
-				'fulltext' => [ 'search_text' ],
+				// No FULLTEXT here: the article body is already in `text`, and
+				// a full-text copy would double the (large) corpus on disk.
+				// `search_text` holds a short searchable snippet only.
 				'foreign' => [ [ 'law_key', 'laws', 'law_key' ] ],
 			],
 			'runs' => [

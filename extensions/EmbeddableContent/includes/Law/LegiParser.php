@@ -131,7 +131,7 @@ final class LegiParser {
 				'status' => $status,
 				'version_start' => $this->date( (string)$meta->DATE_DEBUT ),
 				'version_end' => $this->date( (string)$meta->DATE_FIN ),
-				'search_text' => trim( $reference . ' ' . implode( ' > ', $deepestPath ) . ' ' . $text ),
+				'search_text' => trim( $reference . ' ' . implode( ' > ', $deepestPath ) . ' ' . mb_substr( $text, 0, 500 ) ),
 			],
 		];
 	}
