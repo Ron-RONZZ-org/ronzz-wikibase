@@ -11,7 +11,10 @@ use EmbeddableContent\Fetch\PageMetadataFetcher;
 use EmbeddableContent\Fetch\ProviderClient;
 use EmbeddableContent\Fetch\RateLimitedHttpClient;
 use EmbeddableContent\Fetch\WikipediaContentProvider;
+use EmbeddableContent\Flow\LawCiteService;
+use EmbeddableContent\Flow\LawItemWriter;
 use EmbeddableContent\Search\EntityTermSearch;
+use EmbeddableContent\Store\LawStore;
 use EmbeddableContent\Store\DatasetApplyService;
 use EmbeddableContent\Store\DatasetItemWriter;
 use EmbeddableContent\Store\DatasetManifestValidator;
@@ -221,6 +224,24 @@ return [
 			$services->get( 'EmbeddableContent.DatasetStore' ),
 			$services->get( 'EmbeddableContent.DatasetItemWriter' ),
 			$services->get( 'EmbeddableContent.DatasetPageRenderer' )
+		);
+	},
+
+	'EmbeddableContent.LawStore' => static function ( MediaWikiServices $services ): LawStore {
+		return new LawStore( $services->getConnectionProvider() );
+	},
+
+	'EmbeddableContent.LawItemWriter' => static function ( MediaWikiServices $services ): LawItemWriter {
+		return new LawItemWriter(
+			$services->get( 'EmbeddableContent.Config' ),
+			$services->get( 'EmbeddableContent.EntityTermSearch' )
+		);
+	},
+
+	'EmbeddableContent.LawCiteService' => static function ( MediaWikiServices $services ): LawCiteService {
+		return new LawCiteService(
+			$services->get( 'EmbeddableContent.LawStore' ),
+			$services->get( 'EmbeddableContent.LawItemWriter' )
 		);
 	},
 ];
