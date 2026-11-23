@@ -171,12 +171,17 @@
 		} );
 	}
 
-	function wire( $el ) {
-		if ( $el.data( 'wbFileCombobox' ) ) {
+	/**
+	 * Wire an OOUI ComboBoxInputWidget to the CONTAINS File: search — used
+	 * both for the server-rendered field (infused by wire() below) and for
+	 * JS-created comboboxes such as the Add* multi-image dialog's
+	 * "existing file" input. Idempotent via the element data marker.
+	 */
+	function wireCombo( combo ) {
+		if ( !combo || combo.$element.data( 'wbFileCombobox' ) ) {
 			return;
 		}
-		$el.data( 'wbFileCombobox', true );
-		var combo = OO.ui.ComboBoxInputWidget.static.infuse( $el );
+		combo.$element.data( 'wbFileCombobox', true );
 
 		combo.on( 'change', OO.ui.debounce( function ( value ) {
 			var q = String( value || '' ).trim();
@@ -218,11 +223,26 @@
 		} );
 	}
 
+	function wire( $el ) {
+		if ( $el.data( 'wbFileCombobox' ) ) {
+			return;
+		}
+		wireCombo( OO.ui.ComboBoxInputWidget.static.infuse( $el ) );
+	}
+
 	function wireAll() {
 		$( '.wb-file-combobox.oo-ui-comboBoxInputWidget' ).each( function () {
 			wire( $( this ) );
 		} );
 	}
+
+	// Shared with the JS-created comboboxes (the Add* multi-image dialog's
+	// "existing file" input).
+	mw.embeddableContent = mw.embeddableContent || {};
+	mw.embeddableContent.fileselect = {
+		wireWidget: wireCombo,
+		updatePreview: updatePreview
+	};
 
 	mw.loader.using( 'oojs-ui' ).then( function () {
 		wireAll();

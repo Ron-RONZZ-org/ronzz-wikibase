@@ -1195,6 +1195,19 @@
 				"mobile"
 			]
 		},
+		"ext.embeddableContent.uploadpaste": {
+			"scripts": [
+				"uploadpaste.js"
+			],
+			"messages": [
+				"embeddablecontent-upload-clipboard-error",
+				"embeddablecontent-upload-drop-unsupported"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
 		"ext.embeddableContent.uploadform": {
 			"scripts": [
 				"uploadform.js"
@@ -1356,7 +1369,8 @@
 				"oojs-ui",
 				"mediawiki.api",
 				"mediawiki.util",
-				"ext.embeddableContent.entitysuggest"
+				"ext.embeddableContent.entitysuggest",
+				"ext.embeddableContent.fileselect"
 			],
 			"messages": [
 				"embeddablecontent-access-cancel",

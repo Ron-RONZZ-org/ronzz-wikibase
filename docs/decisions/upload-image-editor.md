@@ -49,6 +49,15 @@ bundle is vendored, so it was chosen.
 6. **Surfaces**: `uploadimage.js` (Special:Upload + Add\*/Update\* portrait/
    logo) adds the trigger under the preview; `mediaeditor.js` (the Add\*
    multi-image dialog) adds it next to its file input.
+7. **The Add\* multi-image dialog is reachable**: the dialog's
+   `urlInput`/`existingInput` widgets were referenced but never declared, so
+   opening **Add image** threw `ReferenceError: urlInput is not defined` and
+   OOUI rendered "Something went wrong" — the editor trigger and the
+   "Paste from clipboard" mode inside it could not be used (fixed
+   2026-11-23). The URL field is a plain text input; the existing-file field
+   is the shared `fileselect.js` File: combobox (exposed as
+   `wireWidget()` for JS-created widgets). The dialog's clipboard paste is
+   document-level while it is open and reads `files` or `items`.
 
 ## Consequences
 
@@ -58,9 +67,11 @@ bundle is vendored, so it was chosen.
   (mediaeditor shows a short unsupported-format hint).
 - The vendored bundle is ~750 KB on disk; the ResourceLoader module is not
   added to any page by default.
-- Tests: module-source + asset reachability in `run_pages_e2e.py`; the
-  existing upload UX suite covers the preview/resize paths the edited file
-  re-enters. `ThemeTokensTest` audits `imageeditor.css`.
+- Tests: module-source + asset reachability in `run_pages_e2e.py` (now also
+  asserts `mediaeditor` declares its URL/existing-file inputs); the existing
+  upload UX suite covers the preview/resize paths the edited file re-enters,
+  and opens the Add* "Add image" dialog to assert the trigger/paste work.
+  `ThemeTokensTest` audits `imageeditor.css`.
 
 ## References
 

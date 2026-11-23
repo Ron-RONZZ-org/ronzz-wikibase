@@ -44,16 +44,55 @@
 			mw.embeddableContent.entitysuggest.wireWidget( combo, !!multi );
 		}
 
-		function firstClipboardFile( clipboardData ) {
-			if ( !clipboardData || !clipboardData.files ) {
+		function firstImageIn( fileList ) {
+			if ( !fileList ) {
 				return null;
 			}
-			for ( var i = 0; i < clipboardData.files.length; i++ ) {
-				if ( /^image\//.test( clipboardData.files[ i ].type ) ) {
-					return clipboardData.files[ i ];
+			for ( var i = 0; i < fileList.length; i++ ) {
+				if ( /^image\//.test( fileList[ i ].type ) ) {
+					return fileList[ i ];
 				}
 			}
-			return clipboardData.files.length ? clipboardData.files[ 0 ] : null;
+			return fileList.length ? fileList[ 0 ] : null;
+		}
+
+		/**
+		 * The file from a ClipboardEvent's clipboardData / a DataTransfer, or
+		 * null. Some browsers leave `files` empty for an image paste and
+		 * expose the bytes only through `items` (`kind: 'file'`), so check
+		 * both (the resources/uploadpaste.js contract).
+		 */
+		function firstClipboardFile( clipboardData ) {
+			if ( !clipboardData ) {
+				return null;
+			}
+			var fromFiles = firstImageIn( clipboardData.files );
+			if ( fromFiles ) {
+				return fromFiles;
+			}
+			var items = clipboardData.items || [];
+			for ( var i = 0; i < items.length; i++ ) {
+				var item = items[ i ];
+				if ( item && item.kind === 'file' && item.getAsFile ) {
+					var file = item.getAsFile();
+					if ( file ) {
+						return file;
+					}
+				}
+			}
+			return null;
+		}
+
+		/** Wire a JS-created File: combobox through the shared fileselect
+		 * primitive (the same CONTAINS search + thumbnails as the server-
+		 * rendered reuse-existing field). */
+		function wireFileCombo( combo ) {
+			if ( !combo || !mw.embeddableContent || !mw.embeddableContent.fileselect ||
+				typeof mw.embeddableContent.fileselect.wireWidget !== 'function'
+			) {
+				return;
+			}
+			mw.embeddableContent.fileselect.wireWidget( combo );
 		}
 
 		function setInputFile( input, file ) {
@@ -218,11 +257,20 @@
 					new OO.ui.Widget( { $element: $clipboardTarget } ),
 					{ label: mw.msg( 'embeddablecontent-upload-mode-clipboard' ), align: 'top' }
 				).$element;
+				var urlInput = new OO.ui.TextInputWidget( { placeholder: 'https://…' } );
 				var $urlLayout = new OO.ui.FieldLayout( urlInput, {
 					label: mw.msg( 'embeddablecontent-access-file-url' ), align: 'top'
 				} ).$element;
+				var existingInput = new OO.ui.ComboBoxInputWidget( {
+					options: [],
+					placeholder: 'File:…'
+				} );
+				existingInput.$element.addClass( 'wb-file-combobox' );
+				wireFileCombo( existingInput );
 				var $existingLayout = new OO.ui.FieldLayout( existingInput, {
-					label: mw.msg( 'embeddablecontent-media-existing' ), align: 'top'
+					label: mw.msg( 'embeddablecontent-media-existing' ),
+					help: $( '<div>' ).addClass( 'wb-file-preview' ),
+					align: 'top'
 				} ).$element;
 				// Classic semantic license combobox (known list + entity search).
 				var license = new OO.ui.ComboBoxInputWidget( { options: licenseOptionList() } );
@@ -300,16 +348,22 @@
 					} );
 				}
 				$clipboardTarget.on( 'click', 'button', readClipboard );
-				$body.on( 'paste', function ( e ) {
+				// A paste fires on the focused element — <body> when nothing in
+				// the dialog has focus — so listen at the document while this
+				// dialog is open (removed in the closed handler below).
+				function onPaste( e ) {
 					if ( mode.getValue() !== 'clipboard' ) {
 						return;
 					}
-					var file = firstClipboardFile( e.originalEvent && e.originalEvent.clipboardData );
+					var file = firstClipboardFile(
+						e.originalEvent && e.originalEvent.clipboardData
+					);
 					if ( file ) {
 						e.preventDefault();
 						setInputFile( fileInput[ 0 ], file );
 					}
-				} );
+				}
+				$( document ).on( 'paste.' + name, onPaste );
 				$clipboardTarget.on( 'dragover', function ( e ) {
 					e.preventDefault();
 					$clipboardTarget.addClass( 'wb-upload-drop-active' );
@@ -419,6 +473,7 @@
 			var dialog = new Dialog( { size: 'medium' } );
 			windowManager.addWindows( [ dialog ] );
 			windowManager.openWindow( dialog ).closed.then( function () {
+				$( document ).off( 'paste.' + name );
 				windowManager.removeWindows( [ name ] );
 			} );
 		}

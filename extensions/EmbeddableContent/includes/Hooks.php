@@ -665,6 +665,10 @@ class Hooks {
 					static fn ( string $key ): string => wfMessage( $key )->text()
 				)
 			);
+			// Clipboard/drag intake. Dependency-free, so it binds before the
+			// heavier modules above finish loading — a paste in that window
+			// (cold ResourceLoader cache) would otherwise be silently lost.
+			$out->addModules( 'ext.embeddableContent.uploadpaste' );
 			// Source-field gating, the empty author/license warning and the
 			// same-origin fetch upload submission (2026-10 batch).
 			$out->addModules( 'ext.embeddableContent.uploadform' );
