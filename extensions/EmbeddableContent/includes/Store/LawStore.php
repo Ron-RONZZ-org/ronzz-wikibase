@@ -255,11 +255,28 @@ final class LawStore {
 	public function searchLaws( string $query, ?string $jurisdiction = null, int $limit = 50 ): array {
 		$dbr = $this->connections->getReplicaDatabase();
 		$like = new LikeValue( $dbr->anyString(), $query, $dbr->anyString() );
+		// Title matches first: a law search for "Constitution" must return the
+		// Constitution, not the 20 Conseil constitutionnel decisions whose
+		// reviewed-law short title happens to contain the word. The other
+		// fields (number, key, short title, NOR) are the fallback for an
+		// official-number search such as "85-197".
+		$prefix = new LikeValue( $query, $dbr->anyString() );
+		$rows = $this->queryLaws( $dbr, $dbr->expr( 'title', IExpression::LIKE, $prefix ), $jurisdiction, $limit );
+		if ( $rows !== [] ) {
+			return $rows;
+		}
 		$match = $dbr->expr( 'title', IExpression::LIKE, $like )
 			->or( 'short_title', IExpression::LIKE, $like )
 			->or( 'law_key', IExpression::LIKE, $like )
 			->or( 'number', IExpression::LIKE, $like )
 			->or( 'nor', IExpression::LIKE, $like );
+		return $this->queryLaws( $dbr, $match, $jurisdiction, $limit );
+	}
+
+	/**
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function queryLaws( IDatabase $dbr, IExpression $match, ?string $jurisdiction, int $limit ): array {
 		$qb = $dbr->newSelectQueryBuilder()
 			->select( 'law_key, jurisdiction, title, short_title, nature, number, status, version_start, item_id' )
 			->from( self::PREFIX . 'laws' )
