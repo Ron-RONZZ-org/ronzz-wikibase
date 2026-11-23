@@ -15,8 +15,19 @@
 		"EmbeddableContent\\": "includes/"
 	},
 	"namespaces": [
-		{ "id": 2018, "constant": "NS_DATASET", "name": "Dataset", "content": true, "subpages": true },
-		{ "id": 2019, "constant": "NS_DATASET_TALK", "name": "Dataset_talk", "subpages": true }
+		{
+			"id": 2018,
+			"constant": "NS_DATASET",
+			"name": "Dataset",
+			"content": true,
+			"subpages": true
+		},
+		{
+			"id": 2019,
+			"constant": "NS_DATASET_TALK",
+			"name": "Dataset_talk",
+			"subpages": true
+		}
 	],
 	"JobClasses": {
 		"extractPdfText": "EmbeddableContent\\Jobs\\ExtractPdfTextJob",
@@ -46,8 +57,7 @@
 		"EmbeddableContentInternalFileCategory": {
 			"value": "Internal use only files",
 			"description": "Category recorded on File: pages of internal-use files (the human-readable marker)."
-		}
-,
+		},
 		"EmbeddableContentDatasetInternalGroups": {
 			"value": [],
 			"description": "User groups allowed to read internal-tier datasets. Empty means deny-by-default (the future per-tier mechanism)."
@@ -180,6 +190,9 @@
 		},
 		"SourceText": {
 			"class": "EmbeddableContent\\Spec\\SpecialSourceText"
+		},
+		"Law": {
+			"class": "EmbeddableContent\\Spec\\SpecialLaw"
 		}
 	},
 	"APIModules": {
@@ -291,6 +304,15 @@
 		},
 		"datasetstatus": {
 			"class": "EmbeddableContent\\Api\\ApiDatasetStatus"
+		},
+		"lawsearch": {
+			"class": "EmbeddableContent\\Api\\ApiLawSearch"
+		},
+		"lawget": {
+			"class": "EmbeddableContent\\Api\\ApiLawGet"
+		},
+		"lawcite": {
+			"class": "EmbeddableContent\\Api\\ApiLawCite"
 		}
 	},
 	"Actions": {
@@ -1418,6 +1440,15 @@
 			],
 			"messages": [
 				"embeddablecontent-file-open-newtab"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
+		"ext.embeddableContent.law": {
+			"styles": [
+				"law.css"
 			],
 			"targets": [
 				"desktop",
