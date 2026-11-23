@@ -568,6 +568,27 @@ report). See `SimpleMathJax/VENDORED.md`.
   iframe) renders alongside "Copy internal citation"/"Copy internal mention".
   A `legislation` item itself stays non-embeddable (no payload). No
   vocabulary/config change.
+- **Law corpus v2 — constitutional bloc, CONSTIT, CASS, JADE (ADR
+  `docs/decisions/law-corpus-v2.md`)**: `LawSourceParser` is the source
+  boundary (LegiParser, ConstitParser, CassParser, JadeParser) and
+  `importLawCorpus.php --source=legi|constit|cass|jade` the one importer.
+  **Version policy fix**: the LEGI tree carries every article version, and v1
+  kept the last iterated one (Code civil art. 9 was the 1927 abrogated text);
+  `LawVersionPolicy` now keeps `ETAT=VIGUEUR` + the latest `DATE_DEBUT`, and
+  `--prune` deletes the non-in-force rows (the v1 repair halves the store).
+  Schema 1.1 adds `laws.number`, `laws.court` and `articles.source_url`
+  (`upgradeLawSchema.php`); `laws.source` names the corpus. A court decision
+  is cited as its **decision item** (no "provision of a law" child):
+  `law-cite` returns the `legal case` item, and `article` is optional for
+  case law. The new **`legal identifier`** property carries the corpus key on
+  every legal item; `LegalItemLink` accepts `legal case`/`treaty` and reads it
+  (fallback `legislation number`). The new `court` class (Q41487) and the
+  items created by `createLawCourtItems.php` back the `court` statement;
+  `citation-source-property-map.json` gains `authority`/`jurisdiction`/
+  `number` (`court`/`territorial jurisdiction (label)`/`case number`), and
+  `formatLegalCase` renders the French case citation. Bulk items are limited
+  to LEGI; jurisprudence items are created on first citation. EU waits for
+  the full EUR-Lex dump; JADE `inedit` waits for a second volume.
 - **AddSource/law "Add more" (ADR
   `docs/decisions/addsource-law-addmore.md`)**: the legal-provision manual form
   (`Special:AddSource/law/manual`) gains the content pages' second **"Add

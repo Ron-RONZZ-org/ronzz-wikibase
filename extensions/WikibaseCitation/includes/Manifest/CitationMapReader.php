@@ -27,6 +27,7 @@ class CitationMapReader {
 		'original-publisher-place', 'original-title', 'page', 'page-first', 'PMCID', 'PMID', 'publisher',
 		'publisher-place', 'references', 'reviewed-genre', 'reviewed-title', 'scale', 'section', 'source',
 		'status', 'title', 'title-short', 'URL', 'version', 'volume', 'volume-title', 'year-suffix',
+		'jurisdiction',
 	];
 
 	/** CSL type names accepted in the type map (per CSL 1.0.2 spec). */

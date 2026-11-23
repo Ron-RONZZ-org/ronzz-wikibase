@@ -67,25 +67,93 @@ class CitationFormatter {
 		throw new RuntimeException( "Unsupported citation style '$style'" );
 	}
 
+	/** French long-date month names, used by the legal-case citation. */
+	private const MONTHS = [
+		1 => 'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+		'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
+	];
+
 	/**
-	 * A deterministic legal citation: the work/provision title, its container
-	 * law, the authority where present, and the official number.
+	 * A deterministic legal citation. Legislation keeps the provision/law
+	 * shape; a court decision uses the French case citation
+	 * (`Conseil constitutionnel, n° 85-197, du 23 août 1985`). A corpus
+	 * item's label is already a full citation (it names the court), so it is
+	 * rendered as-is instead of duplicating the authority.
 	 *
 	 * @param array<string,mixed> $csl
 	 */
 	private function formatLegal( array $csl, string $format ): string {
+		$text = ( $csl['type'] ?? '' ) === 'legal_case'
+			? $this->formatLegalCase( $csl )
+			: $this->formatLegislation( $csl );
+		return $format === 'html'
+			? '<span class="wikibasecitation-legal">' . htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' ) . '</span>'
+			: $text;
+	}
+
+	/**
+	 * @param array<string,mixed> $csl
+	 */
+	private function formatLegislation( array $csl ): string {
 		$parts = [];
-		foreach ( [ 'title', 'container-title', 'authority', 'jurisdiction', 'number' ] as $field ) {
+		foreach ( [ 'title', 'container-title', 'authority', 'number' ] as $field ) {
 			$value = $csl[$field] ?? '';
 			if ( is_string( $value ) && trim( $value ) !== '' ) {
 				$parts[] = $field === 'container-title' ? 'in ' . trim( $value ) : trim( $value );
 			}
 		}
 		$text = $parts === [] ? 'Legal source' : implode( ', ', $parts );
-		$text .= '.';
-		return $format === 'html'
-			? '<span class="wikibasecitation-legal">' . htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' ) . '</span>'
-			: $text;
+		return $this->withPeriod( $text );
+	}
+
+	/**
+	 * @param array<string,mixed> $csl
+	 */
+	private function formatLegalCase( array $csl ): string {
+		$title = trim( (string)( $csl['title'] ?? '' ) );
+		$authority = trim( (string)( $csl['authority'] ?? '' ) );
+		if ( $title !== '' && $authority !== '' && mb_stripos( $title, $authority ) !== false ) {
+			return $this->withPeriod( $title );
+		}
+		$parts = [];
+		if ( $authority !== '' ) {
+			$parts[] = $authority;
+		}
+		$number = trim( (string)( $csl['number'] ?? '' ) );
+		if ( $number !== '' ) {
+			$parts[] = preg_match( '/^(n°|no\.?|N°)/u', $number ) === 1 ? $number : 'n° ' . $number;
+		}
+		$date = $csl['issued']['date-parts'][0] ?? null;
+		$dateText = is_array( $date ) ? $this->frenchDate( $date ) : '';
+		if ( $dateText !== '' ) {
+			$parts[] = 'du ' . $dateText;
+		}
+		if ( $title !== '' ) {
+			$parts[] = $title;
+		}
+		$text = $parts === [] ? 'Legal source' : implode( ', ', $parts );
+		return $this->withPeriod( $text );
+	}
+
+	/**
+	 * @param int[] $parts CSL date-parts
+	 */
+	private function frenchDate( array $parts ): string {
+		$year = (int)( $parts[0] ?? 0 );
+		if ( $year <= 0 ) {
+			return '';
+		}
+		$month = (int)( $parts[1] ?? 0 );
+		$day = (int)( $parts[2] ?? 0 );
+		if ( $month < 1 || $month > 12 || $day < 1 ) {
+			return (string)$year;
+		}
+		return $day . ' ' . ( self::MONTHS[$month] ?? (string)$month ) . ' ' . $year;
+	}
+
+	private function withPeriod( string $text ): string {
+		$text = rtrim( trim( $text ) );
+		return str_ends_with( $text, '.' ) ? $text : $text . '.';
 	}
 
 	private function renderCslStyle( array $csl, string $style, string $format ): string {

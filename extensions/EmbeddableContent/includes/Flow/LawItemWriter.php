@@ -48,29 +48,55 @@ final class LawItemWriter {
 		if ( $existing !== '' ) {
 			return $existing;
 		}
-		$label = trim( (string)( $law['title'] ?? '' ) );
-		$class = $this->config->sourceClasses()['legislation'] ?? null;
+		$label = mb_substr( trim( (string)( $law['title'] ?? '' ) ), 0, 250 );
+		$source = (string)( $law['source'] ?? 'legi' );
+		$isCase = in_array( $source, [ 'constit', 'cass', 'jade' ], true );
+		$class = $this->config->sourceClasses()[$isCase ? 'legalCase' : 'legislation'] ?? null;
 		if ( $label === '' || $class === null ) {
 			return null;
 		}
-		$found = $this->findItemByLabel( $label, $class )
-			?? $this->findItemByLabel( $label . ' (Legislation)', $class );
+		$found = $this->findItemByLabel( $label, $class );
+		if ( $found === null && !$isCase ) {
+			$found = $this->findItemByLabel( $label . ' (Legislation)', $class );
+		}
 		if ( $found !== null ) {
-			$this->ensureLegislationNumber( $found, (string)$law['law_key'], $user );
+			$this->ensureLegalIdentifier( $found, (string)$law['law_key'], $user );
+			if ( !$isCase ) {
+				$this->ensureLegislationNumber( $found, (string)$law['law_key'], $user );
+			}
 			return $found;
 		}
 
 		$item = new Item();
 		$item->setLabel( 'fr', $label );
-		$item->setDescription( 'fr', 'texte législatif français' );
-		$item->setDescription( 'en', 'French legislative text' );
+		$item->setDescription( 'fr',
+			( $law['nature'] ?? '' ) === 'CONSTITUTION'
+				? 'texte constitutionnel français'
+				: $this->descriptionFr( $source )
+		);
+		$item->setDescription( 'en', $this->descriptionEn( $source ) );
 		$item->getStatements()->addStatement(
 			$this->statement( $this->config->instanceOfPropertyId(), new EntityIdValue( new ItemId( $class ) ) )
 		);
-		$legislationNumber = $this->config->sourcePropertyIds()['legislationNumber'] ?? null;
-		if ( $legislationNumber !== null ) {
+		$this->addLegalIdentifier( $item, (string)$law['law_key'] );
+		$properties = $this->config->sourcePropertyIds();
+		if ( $isCase ) {
+			$caseNumber = trim( (string)( $law['number'] ?? '' ) );
+			if ( $caseNumber !== '' && isset( $properties['caseNumber'] ) ) {
+				$item->getStatements()->addStatement(
+					$this->statement( $properties['caseNumber'], new StringValue( $caseNumber ) )
+				);
+			}
+			$court = trim( (string)( $law['court'] ?? '' ) );
+			$courtItem = $court !== '' ? $this->findCourtItem( $court ) : null;
+			if ( $courtItem !== null && isset( $properties['court'] ) ) {
+				$item->getStatements()->addStatement(
+					$this->statement( $properties['court'], new EntityIdValue( new ItemId( $courtItem ) ) )
+				);
+			}
+		} elseif ( isset( $properties['legislationNumber'] ) ) {
 			$item->getStatements()->addStatement(
-				$this->statement( $legislationNumber, new StringValue( (string)$law['law_key'] ) )
+				$this->statement( $properties['legislationNumber'], new StringValue( (string)$law['law_key'] ) )
 			);
 		}
 		$this->addJurisdiction( $item );
@@ -137,12 +163,91 @@ final class LawItemWriter {
 		);
 		$url = $this->config->sourcePropertyIds()['url'] ?? null;
 		$articleId = trim( (string)( $article['article_id'] ?? '' ) );
-		if ( $url !== null && $articleId !== '' ) {
+		$articleUrl = trim( (string)( $article['source_url'] ?? '' ) );
+		if ( $url !== null && $articleUrl !== '' ) {
+			$item->getStatements()->addStatement(
+				$this->statement( $url, new StringValue( $articleUrl ) )
+			);
+		} elseif ( $url !== null && $articleId !== '' ) {
 			$item->getStatements()->addStatement(
 				$this->statement( $url, new StringValue( 'https://www.legifrance.gouv.fr/codes/article_lc/' . rawurlencode( $articleId ) . '/' ) )
 			);
 		}
 		return $this->save( $item, 'law corpus: create legal provision item', $user );
+	}
+
+	private function descriptionFr( string $source ): string {
+		return match ( $source ) {
+			'constit' => 'décision du Conseil constitutionnel',
+			'cass' => 'décision de la Cour de cassation',
+			'jade' => 'décision du juge administratif français',
+			'eurlex' => 'texte du droit de l\'Union européenne',
+			default => 'texte législatif français',
+		};
+	}
+
+	private function descriptionEn( string $source ): string {
+		return match ( $source ) {
+			'constit' => 'French Constitutional Council decision',
+			'cass' => 'French Court of Cassation decision',
+			'jade' => 'French administrative court decision',
+			'eurlex' => 'European Union legal act',
+			default => 'French legislative text',
+		};
+	}
+
+	/**
+	 * Writes the official corpus key (LEGITEXT/JURITEXT/CONSTEXT/CELEX/ECLI)
+	 * on the item — the value Special:Law/<law_key> and the citation link
+	 * resolve from for every legal source, legislation and case law alike.
+	 */
+	private function addLegalIdentifier( Item $item, string $lawKey ): void {
+		$property = $this->config->sourcePropertyIds()['legalIdentifier'] ?? null;
+		if ( $property !== null && $lawKey !== '' ) {
+			$item->getStatements()->addStatement(
+				$this->statement( $property, new StringValue( $lawKey ) )
+			);
+		}
+	}
+
+	private function ensureLegalIdentifier( string $itemId, string $lawKey, UserIdentity $user ): void {
+		$property = $this->config->sourcePropertyIds()['legalIdentifier'] ?? null;
+		if ( $property === null || $lawKey === '' ) {
+			return;
+		}
+		$entity = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
+		if ( !$entity instanceof Item ) {
+			return;
+		}
+		foreach ( $entity->getStatements()->getByPropertyId( PropertyIdFactory::create( $property ) ) as $statement ) {
+			if ( $statement->getRank() !== \Wikibase\DataModel\Statement\Statement::RANK_DEPRECATED ) {
+				return;
+			}
+		}
+		$entity->getStatements()->addStatement(
+			$this->statement( $property, new StringValue( $lawKey ) )
+		);
+		WikibaseRepo::getEntityStore()->saveEntity(
+			$entity,
+			'law corpus: add legal identifier',
+			$user,
+			EDIT_UPDATE
+		);
+	}
+
+	/**
+	 * The court item created by `createLawCourtItems.php`, matched by its
+	 * exact label. No class filter: the label is unique and the class may not
+	 * be seeded on an older instance.
+	 */
+	private function findCourtItem( string $label ): ?string {
+		foreach ( $this->termSearch->search( $label, 'fr', 5, [] ) as $entry ) {
+			$candidate = trim( (string)( $entry['label'] ?? '' ) );
+			if ( $candidate !== '' && mb_strtolower( $candidate ) === mb_strtolower( $label ) ) {
+				return (string)$entry['id'];
+			}
+		}
+		return null;
 	}
 
 	/**

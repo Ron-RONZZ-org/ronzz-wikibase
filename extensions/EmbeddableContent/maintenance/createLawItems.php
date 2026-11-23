@@ -30,6 +30,7 @@ class CreateLawItems extends Maintenance {
 		parent::__construct();
 		$this->addDescription( 'Create the entity items for the imported law rows.' );
 		$this->addOption( 'limit', 'Maximum law rows to process.', false, true );
+		$this->addOption( 'source', 'Only create items for this source (default legi).', false, true );
 	}
 
 	public function execute() {
@@ -43,10 +44,11 @@ class CreateLawItems extends Maintenance {
 			$this->fatalError( 'cannot resolve the Maintenance script user' );
 		}
 		$limit = (int)( $this->getOption( 'limit' ) ?: 500 );
+		$source = (string)( $this->getOption( 'source' ) ?: 'legi' );
 		$created = 0;
 		$reused = 0;
 		$failed = 0;
-		foreach ( $store->listLaws( null, $limit ) as $row ) {
+		foreach ( $store->listLaws( null, $limit, 0, $source ) as $row ) {
 			$law = $store->getLaw( (string)$row['law_key'] );
 			if ( $law === null ) {
 				$failed++;
