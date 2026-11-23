@@ -52,8 +52,10 @@ final class LawItemWriter {
 		if ( $label === '' || $class === null ) {
 			return null;
 		}
-		$found = $this->findItemByLabel( $label, $class );
+		$found = $this->findItemByLabel( $label, $class )
+			?? $this->findItemByLabel( $label . ' (Legislation)', $class );
 		if ( $found !== null ) {
+			$this->ensureLegislationNumber( $found, (string)$law['law_key'], $user );
 			return $found;
 		}
 
@@ -106,6 +108,11 @@ final class LawItemWriter {
 		$lawTitle = trim( (string)( $law['title'] ?? '' ) );
 		$label = 'Article ' . $reference . ( $lawTitle !== '' ? ' — ' . $lawTitle : '' );
 		$found = $this->findItemByLabel( $label, $class );
+		if ( $found === null && $lawTitle !== '' ) {
+			// Legacy AddSource provision label: "{reference} of {parent}".
+			$found = $this->findItemByLabel( $reference . ' of ' . $lawTitle . ' (Legislation)', $class )
+				?? $this->findItemByLabel( $reference . ' of ' . $lawTitle, $class );
+		}
 		if ( $found !== null ) {
 			return $found;
 		}
@@ -135,6 +142,36 @@ final class LawItemWriter {
 			);
 		}
 		return $this->save( $item, 'law corpus: create legal provision item', $user );
+	}
+
+	/**
+	 * Adds the official legislation number to a reused legacy item when it
+	 * has none (the manual AddSource items predate the field). The number is
+	 * what Special:Law/<law_key> and the citation link resolve from.
+	 */
+	private function ensureLegislationNumber( string $itemId, string $lawKey, UserIdentity $user ): void {
+		$property = $this->config->sourcePropertyIds()['legislationNumber'] ?? null;
+		if ( $property === null || $lawKey === '' ) {
+			return;
+		}
+		$entity = WikibaseRepo::getEntityLookup()->getEntity( new ItemId( $itemId ) );
+		if ( !$entity instanceof Item ) {
+			return;
+		}
+		foreach ( $entity->getStatements()->getByPropertyId( PropertyIdFactory::create( $property ) ) as $statement ) {
+			if ( $statement->getRank() !== \Wikibase\DataModel\Statement\Statement::RANK_DEPRECATED ) {
+				return;
+			}
+		}
+		$entity->getStatements()->addStatement(
+			$this->statement( $property, new StringValue( $lawKey ) )
+		);
+		WikibaseRepo::getEntityStore()->saveEntity(
+			$entity,
+			'law corpus: add legislation number',
+			$user,
+			EDIT_UPDATE
+		);
 	}
 
 	private function findItemByLabel( string $label, string $classId ): ?string {

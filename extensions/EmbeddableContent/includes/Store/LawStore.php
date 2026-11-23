@@ -9,6 +9,7 @@ use Wikimedia\Rdbms\IConnectionProvider;
 use Wikimedia\Rdbms\IDatabase;
 use Wikimedia\Rdbms\IExpression;
 use Wikimedia\Rdbms\LikeValue;
+use Wikimedia\Rdbms\RawSQLValue;
 
 /**
  * The law-corpus store (`wb_law_*`). Laws, sections and articles are written
@@ -43,7 +44,7 @@ final class LawStore {
 			self::PREFIX . 'laws',
 			$row,
 			[ 'law_key' ],
-			$this->setValues( $row, [ 'law_key', 'item_id', 'created_at' ] ),
+			$this->valueSet( $row, [ 'law_key', 'item_id', 'created_at' ] ),
 			__METHOD__
 		);
 	}
@@ -52,38 +53,43 @@ final class LawStore {
 	 * @param array<int,array<string,mixed>> $rows
 	 */
 	public function upsertSections( array $rows ): void {
-		$dbw = $this->connections->getPrimaryDatabase();
-		foreach ( $rows as $row ) {
-			$dbw->upsert(
-				self::PREFIX . 'sections',
-				$row,
-				[ 'section_id' ],
-				$this->setValues( $row, [ 'section_id' ] ),
-				__METHOD__
-			);
+		if ( $rows === [] ) {
+			return;
 		}
+		$rows = array_values( $rows );
+		$this->connections->getPrimaryDatabase()->upsert(
+			self::PREFIX . 'sections',
+			$rows,
+			[ 'section_id' ],
+			$this->valueSet( $rows[0], [ 'section_id' ] ),
+			__METHOD__
+		);
 	}
 
 	/**
 	 * @param array<int,array<string,mixed>> $rows
 	 */
 	public function upsertArticles( array $rows ): void {
+		if ( $rows === [] ) {
+			return;
+		}
 		$now = wfTimestamp( TS_MW );
-		$dbw = $this->connections->getPrimaryDatabase();
-		foreach ( $rows as $row ) {
+		foreach ( $rows as &$row ) {
 			$row['created_at'] = $row['created_at'] ?? $now;
 			$row['updated_at'] = $now;
-			$dbw->upsert(
-				self::PREFIX . 'articles',
-				$row,
-				[ [ 'law_key', 'reference_code', 'language' ] ],
-				$this->setValues(
-					$row,
-					[ 'law_key', 'reference_code', 'language', 'item_id', 'created_at' ]
-				),
-				__METHOD__
-			);
 		}
+		unset( $row );
+		$rows = array_values( $rows );
+		$this->connections->getPrimaryDatabase()->upsert(
+			self::PREFIX . 'articles',
+			$rows,
+			[ [ 'law_key', 'reference_code', 'language' ] ],
+			$this->valueSet(
+				$rows[0],
+				[ 'law_key', 'reference_code', 'language', 'item_id', 'created_at' ]
+			),
+			__METHOD__
+		);
 	}
 
 	public function deleteLaw( string $lawKey ): void {
@@ -317,19 +323,25 @@ final class LawStore {
 	}
 
 	/**
-	 * The mutable column => value set for an upsert, excluding the row key
-	 * and the columns an import must never clobber (item_id, created_at).
+	 * The mutable column => VALUES(column) set for a multi-row upsert,
+	 * excluding the row key and the columns an import must never clobber
+	 * (item_id, created_at). MySQL/MariaDB's VALUES() references the row
+	 * being inserted, so one statement carries every row's own values.
 	 *
 	 * @param array<string,mixed> $row
 	 * @param string[] $exclude
-	 * @return array<string,mixed>
+	 * @return array<string,\Wikimedia\Rdbms\RawSQLValue>
 	 */
-	private function setValues( array $row, array $exclude ): array {
+	private function valueSet( array $row, array $exclude ): array {
+		$dbw = $this->connections->getPrimaryDatabase();
 		$out = [];
-		foreach ( $row as $column => $value ) {
-			if ( !in_array( $column, $exclude, true ) ) {
-				$out[$column] = $value;
+		foreach ( array_keys( $row ) as $column ) {
+			if ( in_array( $column, $exclude, true ) ) {
+				continue;
 			}
+			$out[$column] = new RawSQLValue(
+				'VALUES(' . $dbw->addIdentifierQuotes( $column ) . ')'
+			);
 		}
 		return $out;
 	}
