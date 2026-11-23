@@ -10,6 +10,7 @@ use WikibaseCitation\CitationFormatter;
 use WikibaseCitation\CitationPropertyMap;
 use WikibaseCitation\CitationSanitizer;
 use WikibaseCitation\CslTypeMapper;
+use WikibaseCitation\LegalItemLink;
 use WikibaseCitation\SourcePageResolver;
 use WikibaseCitation\StatementToCslConverter;
 
@@ -32,6 +33,7 @@ return [
 
 	'WikibaseCitation.StatementToCslConverter' => static function ( MediaWikiServices $services ): StatementToCslConverter {
 		$config = $services->getMainConfig();
+		$embeddable = $config->get( 'EmbeddableContentConfig' );
 		$instanceOf = $config->get( 'WikibaseCitationInstanceOf' );
 		if ( !is_string( $instanceOf ) || $instanceOf === '' ) {
 			// Fall back to the EmbeddableContent config map when present.
@@ -65,6 +67,9 @@ return [
 				? $embeddable['agentClasses']['person']
 				: null;
 		}
+		$lawClass = is_array( $embeddable ) ? ( $embeddable['sourceClasses']['law'] ?? null ) : null;
+		$referenceCode = is_array( $embeddable ) ? ( $embeddable['sourceProperties']['referenceCode'] ?? null ) : null;
+		$legislationNumber = is_array( $embeddable ) ? ( $embeddable['sourceProperties']['legislationNumber'] ?? null ) : null;
 		return new StatementToCslConverter(
 			WikibaseRepo::getEntityLookup( $services ),
 			$services->get( 'WikibaseCitation.PropertyMap' ),
@@ -72,7 +77,10 @@ return [
 			is_string( $instanceOf ) ? $instanceOf : null,
 			$sourceClasses,
 			is_string( $partOf ) && $partOf !== '' ? $partOf : null,
-			is_string( $personClass ) && $personClass !== '' ? $personClass : null
+			is_string( $personClass ) && $personClass !== '' ? $personClass : null,
+			is_string( $lawClass ) && $lawClass !== '' ? $lawClass : null,
+			is_string( $referenceCode ) && $referenceCode !== '' ? $referenceCode : null,
+			is_string( $legislationNumber ) && $legislationNumber !== '' ? $legislationNumber : null
 		);
 	},
 
@@ -116,6 +124,26 @@ return [
 		return new SourcePageResolver(
 			WikibaseRepo::getStore( $services )->newSiteLinkStore(),
 			$services->getTitleFactory()
+		);
+	},
+
+	'WikibaseCitation.LegalItemLink' => static function ( MediaWikiServices $services ): LegalItemLink {
+		$embeddable = $services->getMainConfig()->get( 'EmbeddableContentConfig' );
+		$classes = is_array( $embeddable ) ? ( $embeddable['sourceClasses'] ?? [] ) : [];
+		$props = is_array( $embeddable ) ? ( $embeddable['sourceProperties'] ?? [] ) : [];
+		$legislation = array_values( array_filter( [
+			$classes['legislation'] ?? null,
+			$classes['treaty'] ?? null,
+			$classes['bill'] ?? null,
+		], 'is_string' ) );
+		return new LegalItemLink(
+			WikibaseRepo::getEntityLookup( $services ),
+			is_array( $embeddable ) && isset( $embeddable['instanceOf'] ) ? (string)$embeddable['instanceOf'] : 'P1',
+			$legislation,
+			$classes['law'] ?? null,
+			$props['partOf'] ?? null,
+			$props['legislationNumber'] ?? null,
+			$props['referenceCode'] ?? null
 		);
 	},
 ];

@@ -43,6 +43,9 @@ class StatementToCslConverter {
 		// The source language (the AddSource `language` field, a BCP-47 code)
 		// — a CSL top-level field.
 		'language',
+		// Legal sources: authority (court), jurisdiction, pinpoint (reference
+		// code) and number (case / legislation number).
+		'authority', 'jurisdiction', 'section', 'number',
 	];
 
 	/** @var EntityLookup */
@@ -66,6 +69,15 @@ class StatementToCslConverter {
 	/** @var string|null person class item id (from extension config) */
 	private $personClassId;
 
+	/** @var string|null legal-provision class item id */
+	private $lawClassId;
+
+	/** @var string|null reference-code property id */
+	private $referenceCodePropertyId;
+
+	/** @var string|null legislation-number property id */
+	private $legislationNumberPropertyId;
+
 	/**
 	 * @param string[] $sourceClasses Class item ids that are sources themselves
 	 *  (self-cite, issue #24). Default [] disables the self-cite behaviour.
@@ -85,7 +97,10 @@ class StatementToCslConverter {
 		?string $instanceOfPropertyId = null,
 		array $sourceClasses = [],
 		?string $partOfPropertyId = null,
-		?string $personClassId = null
+		?string $personClassId = null,
+		?string $lawClassId = null,
+		?string $referenceCodePropertyId = null,
+		?string $legislationNumberPropertyId = null
 	) {
 		$this->entityLookup = $entityLookup;
 		$this->propertyMap = $propertyMap;
@@ -94,6 +109,9 @@ class StatementToCslConverter {
 		$this->sourceClasses = $sourceClasses;
 		$this->partOfPropertyId = $partOfPropertyId;
 		$this->personClassId = $personClassId;
+		$this->lawClassId = $lawClassId;
+		$this->referenceCodePropertyId = $referenceCodePropertyId;
+		$this->legislationNumberPropertyId = $legislationNumberPropertyId;
 	}
 
 	/**
@@ -131,6 +149,21 @@ class StatementToCslConverter {
 		if ( $label !== '' ) {
 			$csl['title'] = $label;
 		}
+		// A legal provision cites by article: the title is "Article <n>",
+		// the container is the parent law (set by the part-of fallback below),
+		// and the reference code is the CSL section (pinpoint).
+		if ( $this->lawClassId !== null
+			&& in_array( $this->lawClassId, $contentClassIds, true )
+			&& $this->referenceCodePropertyId !== null
+		) {
+			$reference = $this->stringOfProperty( $item, $this->referenceCodePropertyId );
+			if ( $reference !== null ) {
+				$csl['title'] = preg_match( '/^(Article|Art\.)\b/u', $reference ) === 1
+					? $reference
+					: 'Article ' . $reference;
+				$csl['section'] = $reference;
+			}
+		}
 
 		$this->addAuthor( $item, $csl, $preferredLanguage );
 		$this->addFromStatement( $item, 'issued', static function ( $value ) {
@@ -145,6 +178,21 @@ class StatementToCslConverter {
 		// Issue #7: source-level fields from the source item.
 		foreach ( self::SOURCE_LEVEL_FIELDS as $field ) {
 			$this->addFromSource( $sourceItem, $field, $csl, $preferredLanguage );
+		}
+		// `number` is mapped to `case number`; a legislation has no case
+		// number, so fall back to its `legislation number` (the official id).
+		if ( !isset( $csl['number'] ) && $this->legislationNumberPropertyId !== null ) {
+			$candidate = $sourceItem ?? $item;
+			$number = $this->stringOfProperty( $candidate, $this->legislationNumberPropertyId );
+			if ( $number === null ) {
+				$parent = $this->partOfItem( $candidate );
+				if ( $parent !== null ) {
+					$number = $this->stringOfProperty( $parent, $this->legislationNumberPropertyId );
+				}
+			}
+			if ( $number !== null ) {
+				$csl['number'] = $number;
+			}
 		}
 		// The citation year and URL read from the SOURCE item (issue
 		// follow-up): a source cited directly (Source: page / self-cite)
@@ -193,6 +241,48 @@ class StatementToCslConverter {
 		}
 
 		return $csl;
+	}
+
+	/**
+	 * Best string value of a property on an item, or null.
+	 */
+	private function partOfItem( Item $item ): ?Item {
+		if ( $this->partOfPropertyId === null ) {
+			return null;
+		}
+		$statement = $this->bestStatement( $item, $this->partOfPropertyId );
+		if ( $statement === null ) {
+			return null;
+		}
+		$snak = $statement->getMainSnak();
+		if ( !$snak instanceof PropertyValueSnak ) {
+			return null;
+		}
+		$value = $snak->getDataValue();
+		if ( $value instanceof EntityIdValue ) {
+			$value = $value->getEntityId();
+		}
+		if ( !$value instanceof ItemId ) {
+			return null;
+		}
+		$parent = $this->entityLookup->getEntity( $value );
+		return $parent instanceof Item ? $parent : null;
+	}
+
+	private function stringOfProperty( Item $item, string $propertyId ): ?string {
+		$statement = $this->bestStatement( $item, $propertyId );
+		if ( $statement === null ) {
+			return null;
+		}
+		$snak = $statement->getMainSnak();
+		if ( !$snak instanceof PropertyValueSnak ) {
+			return null;
+		}
+		$value = $snak->getDataValue();
+		if ( $value instanceof StringValue && trim( $value->getValue() ) !== '' ) {
+			return trim( $value->getValue() );
+		}
+		return null;
 	}
 
 	/**

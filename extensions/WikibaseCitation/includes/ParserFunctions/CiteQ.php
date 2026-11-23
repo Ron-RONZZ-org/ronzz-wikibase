@@ -10,6 +10,7 @@ use WikibaseCitation\CitationEngine;
 use WikibaseCitation\CitationEntityNotFoundException;
 use WikibaseCitation\CitationException;
 use WikibaseCitation\InvalidCitationIdException;
+use WikibaseCitation\LegalItemLink;
 use WikibaseCitation\SourceLink;
 use WikibaseCitation\SourcePageResolver;
 
@@ -56,6 +57,7 @@ class CiteQ {
 		CitationEngine $engine,
 		CitationDependencies $dependencies,
 		SourcePageResolver $sourcePages,
+		LegalItemLink $legalLinks,
 		Parser $parser,
 		array $args
 	): array {
@@ -88,7 +90,11 @@ class CiteQ {
 				// output stays link-free and the link follows the CURRENT
 				// sitelink (a page rename never serves a stale href).
 				if ( $sourceId !== null ) {
-					$html = SourceLink::wrap( $html, $sourcePages->pageUrl( $sourceId ) );
+					// Legal items have no Source: page; their readable page is
+					// Special:Law/<law_key>[/<article>]. Non-legal items keep
+					// the classic-page link.
+					$url = $legalLinks->urlFor( $sourceId ) ?? $sourcePages->pageUrl( $sourceId );
+					$html = SourceLink::wrap( $html, $url );
 				}
 			} else {
 				[ $html, $sourceIds ] = $engine->renderList( $entities, $style, $format, $language );
