@@ -12,6 +12,7 @@ use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\PropertyIdFactory;
 use EmbeddableContent\Search\EntityTermSearch;
 use MediaWiki\User\UserIdentity;
+use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
 use Wikibase\DataModel\Snak\PropertyValueSnak;
@@ -64,7 +65,7 @@ final class LawItemWriter {
 		$item->setDescription( 'fr', 'texte législatif français' );
 		$item->setDescription( 'en', 'French legislative text' );
 		$item->getStatements()->addStatement(
-			$this->statement( $this->config->instanceOfPropertyId(), new ItemId( $class ) )
+			$this->statement( $this->config->instanceOfPropertyId(), new EntityIdValue( new ItemId( $class ) ) )
 		);
 		$legislationNumber = $this->config->sourcePropertyIds()['legislationNumber'] ?? null;
 		if ( $legislationNumber !== null ) {
@@ -123,10 +124,10 @@ final class LawItemWriter {
 		$item->setDescription( 'fr', 'disposition de ' . $lawTitle );
 		$item->setDescription( 'en', 'provision of ' . $lawTitle );
 		$item->getStatements()->addStatement(
-			$this->statement( $this->config->instanceOfPropertyId(), new ItemId( $class ) )
+			$this->statement( $this->config->instanceOfPropertyId(), new EntityIdValue( new ItemId( $class ) ) )
 		);
 		$item->getStatements()->addStatement(
-			$this->statement( $partOf, new ItemId( $lawItemId ) )
+			$this->statement( $partOf, new EntityIdValue( new ItemId( $lawItemId ) ) )
 		);
 		$item->getStatements()->addStatement(
 			$this->statement( $referenceProperty, new StringValue( $reference ) )
