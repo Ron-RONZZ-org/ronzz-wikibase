@@ -97,7 +97,7 @@ class RefreshLawProvisionItems extends Maintenance {
 				}
 				$kept[] = $statement;
 			}
-			$item->setStatements( new StatementList( $kept ) );
+			$item->setStatements( new StatementList( ...$kept ) );
 			$item->getStatements()->addStatement( new Statement( new PropertyValueSnak(
 				PropertyIdFactory::create( $quotationProperty ),
 				new MonolingualTextValue( $language, PayloadCodec::escape( (string)$article['text'] ) )
