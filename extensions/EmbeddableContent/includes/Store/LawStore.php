@@ -43,7 +43,7 @@ final class LawStore {
 			self::PREFIX . 'laws',
 			$row,
 			[ 'law_key' ],
-			$this->updateColumns( $row, [ 'law_key', 'item_id', 'created_at' ] ),
+			$this->setValues( $row, [ 'law_key', 'item_id', 'created_at' ] ),
 			__METHOD__
 		);
 	}
@@ -52,42 +52,38 @@ final class LawStore {
 	 * @param array<int,array<string,mixed>> $rows
 	 */
 	public function upsertSections( array $rows ): void {
-		if ( $rows === [] ) {
-			return;
+		$dbw = $this->connections->getPrimaryDatabase();
+		foreach ( $rows as $row ) {
+			$dbw->upsert(
+				self::PREFIX . 'sections',
+				$row,
+				[ 'section_id' ],
+				$this->setValues( $row, [ 'section_id' ] ),
+				__METHOD__
+			);
 		}
-		$this->connections->getPrimaryDatabase()->upsert(
-			self::PREFIX . 'sections',
-			array_values( $rows ),
-			[ 'section_id' ],
-			[ 'law_key', 'parent_id', 'level', 'title', 'path', 'sort_order' ],
-			__METHOD__
-		);
 	}
 
 	/**
 	 * @param array<int,array<string,mixed>> $rows
 	 */
 	public function upsertArticles( array $rows ): void {
-		if ( $rows === [] ) {
-			return;
-		}
 		$now = wfTimestamp( TS_MW );
-		foreach ( $rows as &$row ) {
+		$dbw = $this->connections->getPrimaryDatabase();
+		foreach ( $rows as $row ) {
 			$row['created_at'] = $row['created_at'] ?? $now;
 			$row['updated_at'] = $now;
+			$dbw->upsert(
+				self::PREFIX . 'articles',
+				$row,
+				[ [ 'law_key', 'reference_code', 'language' ] ],
+				$this->setValues(
+					$row,
+					[ 'law_key', 'reference_code', 'language', 'item_id', 'created_at' ]
+				),
+				__METHOD__
+			);
 		}
-		unset( $row );
-		$this->connections->getPrimaryDatabase()->upsert(
-			self::PREFIX . 'articles',
-			array_values( $rows ),
-			[ [ 'law_key', 'reference_code', 'language' ] ],
-			[
-				'article_id', 'section_id', 'section_path', 'text', 'status',
-				'version_start', 'version_end', 'retrieved_at', 'content_hash',
-				'search_text', 'updated_at',
-			],
-			__METHOD__
-		);
 	}
 
 	public function deleteLaw( string $lawKey ): void {
@@ -321,11 +317,20 @@ final class LawStore {
 	}
 
 	/**
+	 * The mutable column => value set for an upsert, excluding the row key
+	 * and the columns an import must never clobber (item_id, created_at).
+	 *
 	 * @param array<string,mixed> $row
 	 * @param string[] $exclude
-	 * @return string[]
+	 * @return array<string,mixed>
 	 */
-	private function updateColumns( array $row, array $exclude ): array {
-		return array_values( array_diff( array_keys( $row ), $exclude ) );
+	private function setValues( array $row, array $exclude ): array {
+		$out = [];
+		foreach ( $row as $column => $value ) {
+			if ( !in_array( $column, $exclude, true ) ) {
+				$out[$column] = $value;
+			}
+		}
+		return $out;
 	}
 }
