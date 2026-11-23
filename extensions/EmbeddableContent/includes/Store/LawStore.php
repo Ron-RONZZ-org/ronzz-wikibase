@@ -50,6 +50,30 @@ final class LawStore {
 	}
 
 	/**
+	 * Batched law upsert (the jurisprudence sources have one law row per
+	 * decision — 145k individual upserts would dominate the import).
+	 *
+	 * @param array<int,array<string,mixed>> $rows
+	 */
+	public function upsertLaws( array $rows ): void {
+		if ( $rows === [] ) {
+			return;
+		}
+		$rows = array_values( $rows );
+		foreach ( $rows as &$row ) {
+			$row = $this->withTimestamps( $row, true );
+		}
+		unset( $row );
+		$this->connections->getPrimaryDatabase()->upsert(
+			self::PREFIX . 'laws',
+			$rows,
+			[ 'law_key' ],
+			$this->valueSet( $rows[0], [ 'law_key', 'item_id', 'created_at' ] ),
+			__METHOD__
+		);
+	}
+
+	/**
 	 * @param array<int,array<string,mixed>> $rows
 	 */
 	public function upsertSections( array $rows ): void {
@@ -141,8 +165,14 @@ final class LawStore {
 	 */
 	public function getArticle( string $lawKey, string $reference, string $language = 'fr' ): ?array {
 		$row = $this->fetchArticle( $lawKey, $reference, $language );
+		// Accept the human form ("Article 24", "L 111-1", "L_111-1") as well
+		// as the stored reference code ("24", "L111-1").
+		$stripped = preg_replace( '/^\s*(?:Article|Art\.)\s*/iu', '', $reference ) ?? $reference;
+		if ( $row === false && $stripped !== $reference && $stripped !== '' ) {
+			$row = $this->fetchArticle( $lawKey, $stripped, $language );
+		}
 		if ( $row === false ) {
-			$normalized = preg_replace( '/[\s_]+/u', '', $reference );
+			$normalized = preg_replace( '/[\s_]+/u', '', $stripped );
 			if ( $normalized !== $reference && $normalized !== '' ) {
 				$row = $this->fetchArticle( $lawKey, $normalized, $language );
 			}
@@ -198,9 +228,9 @@ final class LawStore {
 	/**
 	 * @return array<int,array<string,mixed>>
 	 */
-	public function listLaws( ?string $jurisdiction = null, int $limit = 200, int $offset = 0 ): array {
+	public function listLaws( ?string $jurisdiction = null, int $limit = 200, int $offset = 0, ?string $source = null ): array {
 		$qb = $this->connections->getReplicaDatabase()->newSelectQueryBuilder()
-			->select( 'law_key, jurisdiction, title, short_title, nature, status, version_start, item_id' )
+			->select( 'law_key, jurisdiction, title, short_title, nature, number, status, version_start, item_id, source' )
 			->from( self::PREFIX . 'laws' )
 			->orderBy( 'title', 'ASC' )
 			->limit( $limit )
@@ -209,19 +239,31 @@ final class LawStore {
 		if ( $jurisdiction !== null && $jurisdiction !== '' ) {
 			$qb->where( [ 'jurisdiction' => $jurisdiction ] );
 		}
+		if ( $source !== null && $source !== '' ) {
+			$qb->where( [ 'source' => $source ] );
+		}
 		return $this->rows( $qb );
 	}
 
 	/**
+	 * Law search over the human title, the short title (the reviewed law of
+	 * a decision), the official key, the official number and the NOR. An
+	 * agent can therefore search `85-197`, `RGPD`, `LEGITEXT…` or a title.
+	 *
 	 * @return array<int,array<string,mixed>>
 	 */
 	public function searchLaws( string $query, ?string $jurisdiction = null, int $limit = 50 ): array {
 		$dbr = $this->connections->getReplicaDatabase();
 		$like = new LikeValue( $dbr->anyString(), $query, $dbr->anyString() );
+		$match = $dbr->expr( 'title', IExpression::LIKE, $like )
+			->or( 'short_title', IExpression::LIKE, $like )
+			->or( 'law_key', IExpression::LIKE, $like )
+			->or( 'number', IExpression::LIKE, $like )
+			->or( 'nor', IExpression::LIKE, $like );
 		$qb = $dbr->newSelectQueryBuilder()
-			->select( 'law_key, jurisdiction, title, short_title, nature, status, version_start, item_id' )
+			->select( 'law_key, jurisdiction, title, short_title, nature, number, status, version_start, item_id' )
 			->from( self::PREFIX . 'laws' )
-			->where( $dbr->expr( 'title', IExpression::LIKE, $like ) )
+			->where( $match )
 			->orderBy( 'title', 'ASC' )
 			->limit( $limit )
 			->caller( __METHOD__ );
@@ -229,6 +271,53 @@ final class LawStore {
 			$qb->where( [ 'jurisdiction' => $jurisdiction ] );
 		}
 		return $this->rows( $qb );
+	}
+
+	/**
+	 * The cited provisions (articles with an item id), with their law's
+	 * source. Used by the v1 text-repair script after a re-import.
+	 *
+	 * @return array<int,array<string,mixed>>
+	 */
+	public function listCitedArticles( int $limit = 5000 ): array {
+		$dbr = $this->connections->getReplicaDatabase();
+		return $this->rows( $dbr->newSelectQueryBuilder()
+			->select( 'a.law_key, a.reference_code, a.language, a.item_id, l.source, l.title AS law_title' )
+			->from( self::PREFIX . 'articles', 'a' )
+			->join( self::PREFIX . 'laws', 'l', 'l.law_key = a.law_key' )
+			->where( $dbr->expr( 'a.item_id', '!=', null ) )
+			->andWhere( $dbr->expr( 'a.item_id', '!=', '' ) )
+			->limit( $limit )
+			->caller( __METHOD__ ) );
+	}
+
+	/**
+	 * Removes the historical rows a v1 LEGI import left behind (the LEGI
+	 * tree carries every article version, and the old importer kept one row
+	 * per reference without an in-force rule). Cited rows that now have a
+	 * current version were upserted to VIGUEUR by the repair import, so this
+	 * only drops references that no longer exist in force.
+	 */
+	public function pruneNonInForce( string $source ): int {
+		$dbw = $this->connections->getPrimaryDatabase();
+		$lawKeys = $dbw->newSelectQueryBuilder()
+			->select( 'law_key' )
+			->from( self::PREFIX . 'laws' )
+			->where( [ 'source' => $source ] )
+			->caller( __METHOD__ )
+			->fetchFieldValues();
+		$deleted = 0;
+		foreach ( array_chunk( $lawKeys, 500 ) as $chunk ) {
+			$dbw->newDeleteQueryBuilder()
+				->delete( self::PREFIX . 'articles' )
+				->where( [ 'law_key' => $chunk ] )
+				->andWhere( $dbw->expr( 'status', '!=', 'VIGUEUR' ) )
+				->andWhere( $dbw->expr( 'item_id', '=', null )->or( 'item_id', '=', '' ) )
+				->caller( __METHOD__ )
+				->execute();
+			$deleted += $dbw->affectedRows();
+		}
+		return $deleted;
 	}
 
 	/**

@@ -842,5 +842,14 @@
 	"embeddablecontent-image-error": "Échec du téléversement de l’image : $1",
 	"embeddablecontent-image-license-required": "Une licence est requise pour une nouvelle image.",
 	"embeddablecontent-image-edit-summary": "Image de $1 téléversée",
-	"embeddablecontent-dataset-access-denied": "Cet ensemble de données n'est pas accessible à ce lecteur."
+	"embeddablecontent-dataset-access-denied": "Cet ensemble de données n'est pas accessible à ce lecteur.",
+	"embeddablecontent-law-article-label": "Article $1",
+	"embeddablecontent-law-considerant": "Considérant $1",
+	"embeddablecontent-law-paragraph": "Paragraphe $1",
+	"embeddablecontent-law-arret": "Arrêt",
+	"embeddablecontent-law-avis": "Avis",
+	"embeddablecontent-law-ordonnance": "Ordonnance",
+	"embeddablecontent-law-decision": "Décision",
+	"embeddablecontent-law-dispositif": "Dispositif",
+	"embeddablecontent-law-visas": "Visas"
 }

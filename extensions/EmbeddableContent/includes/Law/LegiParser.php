@@ -19,7 +19,18 @@ use SimpleXMLElement;
  *
  * @license GPL-2.0-or-later
  */
-final class LegiParser {
+final class LegiParser implements LawSourceParser {
+
+	public function accepts( string $path ): bool {
+		return str_ends_with( $path, '.xml' ) && str_contains( $path, '/article/' );
+	}
+
+	/**
+	 * @return array{law:array<string,mixed>,sections:array<int,array<string,mixed>>,article:array<string,mixed>}|null
+	 */
+	public function parse( string $xml, string $path ): ?array {
+		return $this->parseArticle( $xml );
+	}
 
 	/**
 	 * @return array{law:array<string,mixed>,sections:array<int,array<string,mixed>>,article:array<string,mixed>}|null
@@ -105,6 +116,9 @@ final class LegiParser {
 		$sourceUrl = $nature === 'CODE'
 			? 'https://www.legifrance.gouv.fr/codes/texte_lc/' . rawurlencode( $lawKey ) . '/'
 			: ( $jorft !== '' ? 'https://www.legifrance.gouv.fr/loda/id/' . rawurlencode( $jorft ) . '/' : null );
+		$articleUrl = $nature === 'CODE'
+			? 'https://www.legifrance.gouv.fr/codes/article_lc/' . rawurlencode( $articleId ) . '/'
+			: 'https://www.legifrance.gouv.fr/loda/article_lc/' . rawurlencode( $articleId ) . '/';
 
 		return [
 			'law' => [
@@ -115,7 +129,7 @@ final class LegiParser {
 				'nature' => $nature !== '' ? $nature : null,
 				'nor' => $nor !== '' ? $nor : null,
 				'source_url' => $sourceUrl,
-				'source' => 'dila',
+				'source' => 'legi',
 				'language' => 'fr',
 				'version_start' => $lawTitle['start'] ?? null,
 				'version_end' => $lawTitle['end'] ?? null,
@@ -133,6 +147,7 @@ final class LegiParser {
 				'status' => $status,
 				'version_start' => $this->date( (string)$meta->DATE_DEBUT ),
 				'version_end' => $this->date( (string)$meta->DATE_FIN ),
+				'source_url' => $articleUrl,
 				'search_text' => trim( $reference . ' ' . implode( ' > ', $deepestPath ) . ' ' . mb_substr( $text, 0, 500 ) ),
 			],
 		];

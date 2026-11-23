@@ -37,12 +37,17 @@ final class LawCiteService {
 		if ( $law === null ) {
 			throw new LawCiteException( LawCiteException::LAW_NOT_FOUND, "law not found: $lawKey" );
 		}
-		$article = $this->store->getArticle( $lawKey, $reference );
-		if ( $article === null ) {
-			throw new LawCiteException( LawCiteException::ARTICLE_NOT_FOUND, "article not found: $lawKey / $reference" );
+		$isCase = in_array( (string)( $law['source'] ?? '' ), [ 'constit', 'cass', 'jade' ], true );
+		$article = null;
+		if ( $reference !== '' ) {
+			$article = $this->store->getArticle( $lawKey, $reference );
+			if ( $article === null ) {
+				throw new LawCiteException( LawCiteException::ARTICLE_NOT_FOUND, "article not found: $lawKey / $reference" );
+			}
+			$reference = (string)( $article['reference_code'] ?? $reference );
+		} elseif ( !$isCase ) {
+			throw new LawCiteException( LawCiteException::ARTICLE_NOT_FOUND, "article required for a legislative text: $lawKey" );
 		}
-
-		$reference = (string)( $article['reference_code'] ?? $reference );
 
 		$created = false;
 		$lawItemId = trim( (string)( $law['item_id'] ?? '' ) );
@@ -52,6 +57,27 @@ final class LawCiteService {
 				throw new LawCiteException( LawCiteException::ITEM_CREATE_FAILED, "could not create the law item for $lawKey" );
 			}
 			$this->store->setLawItemId( $lawKey, $lawItemId );
+			$created = true;
+		}
+
+		// A court decision is cited as a whole: the decision item is the
+		// citable entity, there is no separate "provision of a law" child.
+		if ( $isCase ) {
+			if ( $article !== null ) {
+				$this->store->setArticleItemId(
+					$lawKey,
+					$reference,
+					(string)( $article['language'] ?? 'fr' ),
+					$lawItemId
+				);
+			}
+			return [
+				'qid' => $lawItemId,
+				'ref' => '<ref>{{#cite:' . $lawItemId . '}}</ref>',
+				'created' => $created,
+				'law_key' => $lawKey,
+				'reference_code' => $reference !== '' ? $reference : 'décision',
+			];
 		}
 
 		$articleItemId = trim( (string)( $article['item_id'] ?? '' ) );

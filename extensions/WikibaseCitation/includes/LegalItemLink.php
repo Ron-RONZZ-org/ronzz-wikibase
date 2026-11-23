@@ -43,6 +43,8 @@ final class LegalItemLink {
 
 	private ?string $legislationNumberPropertyId;
 
+	private ?string $legalIdentifierPropertyId;
+
 	private ?string $referenceCodePropertyId;
 
 	/**
@@ -55,7 +57,8 @@ final class LegalItemLink {
 		?string $lawClassId,
 		?string $partOfPropertyId,
 		?string $legislationNumberPropertyId,
-		?string $referenceCodePropertyId
+		?string $referenceCodePropertyId,
+		?string $legalIdentifierPropertyId = null
 	) {
 		$this->entityLookup = $entityLookup;
 		$this->instanceOfPropertyId = $instanceOfPropertyId;
@@ -64,6 +67,7 @@ final class LegalItemLink {
 		$this->partOfPropertyId = $partOfPropertyId;
 		$this->legislationNumberPropertyId = $legislationNumberPropertyId;
 		$this->referenceCodePropertyId = $referenceCodePropertyId;
+		$this->legalIdentifierPropertyId = $legalIdentifierPropertyId;
 	}
 
 	public function urlFor( ItemId $itemId ): ?string {
@@ -74,13 +78,17 @@ final class LegalItemLink {
 		$classes = $this->classIdsOf( $item );
 
 		if ( $this->isLaw( $item, $classes ) ) {
-			$lawKey = $this->stringOf( $item, $this->legislationNumberPropertyId );
+			$lawKey = $this->stringOf( $item, $this->legalIdentifierPropertyId )
+				?? $this->stringOf( $item, $this->legislationNumberPropertyId );
 			return $lawKey !== null ? $this->lawUrl( $lawKey ) : null;
 		}
 		if ( $this->isProvision( $classes ) ) {
 			$reference = $this->stringOf( $item, $this->referenceCodePropertyId );
 			$parent = $this->itemOf( $item, $this->partOfPropertyId );
-			$lawKey = $parent !== null ? $this->stringOf( $parent, $this->legislationNumberPropertyId ) : null;
+			$lawKey = $parent !== null
+				? ( $this->stringOf( $parent, $this->legalIdentifierPropertyId )
+					?? $this->stringOf( $parent, $this->legislationNumberPropertyId ) )
+				: null;
 			if ( $reference !== null && $lawKey !== null ) {
 				$reference = (string)preg_replace( '/[\s_]+/u', '', $reference );
 				return $this->lawUrl( $lawKey, $reference );

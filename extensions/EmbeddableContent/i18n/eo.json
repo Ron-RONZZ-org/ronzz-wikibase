@@ -842,5 +842,14 @@
 	"embeddablecontent-image-error": "Bilda alŝuto malsukcesis: $1",
 	"embeddablecontent-image-license-required": "Permesilo bezonatas por nova bildo.",
 	"embeddablecontent-image-edit-summary": "Alŝutis bildon de $1",
-	"embeddablecontent-dataset-access-denied": "Ĉi tiu datuma aro ne estas disponebla al ĉi tiu leganto."
+	"embeddablecontent-dataset-access-denied": "Ĉi tiu datuma aro ne estas disponebla al ĉi tiu leganto.",
+	"embeddablecontent-law-article-label": "Artikolo $1",
+	"embeddablecontent-law-considerant": "Konsidero $1",
+	"embeddablecontent-law-paragraph": "Paragrafo $1",
+	"embeddablecontent-law-arret": "Juĝo",
+	"embeddablecontent-law-avis": "Opinio",
+	"embeddablecontent-law-ordonnance": "Ordo",
+	"embeddablecontent-law-decision": "Decido",
+	"embeddablecontent-law-dispositif": "Dispozicio",
+	"embeddablecontent-law-visas": "Vizoj"
 }
