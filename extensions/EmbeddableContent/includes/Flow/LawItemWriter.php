@@ -220,11 +220,12 @@ final class LawItemWriter {
 	}
 
 	private function save( Item $item, string $summary, UserIdentity $user ): ?string {
-		$status = WikibaseRepo::getEntityStore()->saveEntity( $item, $summary, $user, EDIT_NEW );
-		if ( !$status->isOK() ) {
+		try {
+			$revision = WikibaseRepo::getEntityStore()->saveEntity( $item, $summary, $user, EDIT_NEW );
+		} catch ( \Throwable $e ) {
 			return null;
 		}
-		$id = $item->getId();
+		$id = $revision->getEntity()->getId();
 		return $id !== null ? $id->getSerialization() : null;
 	}
 }
