@@ -42,6 +42,8 @@ final class LawCiteService {
 			throw new LawCiteException( LawCiteException::ARTICLE_NOT_FOUND, "article not found: $lawKey / $reference" );
 		}
 
+		$reference = (string)( $article['reference_code'] ?? $reference );
+
 		$created = false;
 		$lawItemId = trim( (string)( $law['item_id'] ?? '' ) );
 		if ( $lawItemId === '' ) {

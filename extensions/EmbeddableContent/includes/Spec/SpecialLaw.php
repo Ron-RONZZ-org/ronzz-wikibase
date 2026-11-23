@@ -181,7 +181,7 @@ class SpecialLaw extends SpecialPage {
 
 		$text = trim( (string)( $article['text'] ?? '' ) );
 		$this->getOutput()->addHTML( Html::rawElement( 'div', [ 'class' => 'wb-law-article-text' ],
-			nl2br( Html::escape( $text ) ) ) );
+			nl2br( htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' ) ) ) );
 
 		if ( $justCited ) {
 			return;

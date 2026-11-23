@@ -140,14 +140,27 @@ final class LawStore {
 	 * @return array<string,mixed>|null
 	 */
 	public function getArticle( string $lawKey, string $reference, string $language = 'fr' ): ?array {
-		$row = $this->connections->getReplicaDatabase()->newSelectQueryBuilder()
+		$row = $this->fetchArticle( $lawKey, $reference, $language );
+		if ( $row === false ) {
+			$normalized = preg_replace( '/\s+/u', '', $reference );
+			if ( $normalized !== $reference && $normalized !== '' ) {
+				$row = $this->fetchArticle( $lawKey, $normalized, $language );
+			}
+		}
+		return $row === false ? null : (array)$row;
+	}
+
+	/**
+	 * @return array<string,mixed>|false
+	 */
+	private function fetchArticle( string $lawKey, string $reference, string $language ) {
+		return $this->connections->getReplicaDatabase()->newSelectQueryBuilder()
 			->select( 'a.*, l.title AS law_title, l.nature AS law_nature, l.jurisdiction, l.source_url' )
 			->from( self::PREFIX . 'articles', 'a' )
 			->join( self::PREFIX . 'laws', 'l', 'l.law_key = a.law_key' )
 			->where( [ 'a.law_key' => $lawKey, 'a.reference_code' => $reference, 'a.language' => $language ] )
 			->caller( __METHOD__ )
 			->fetchRow();
-		return $row === false ? null : (array)$row;
 	}
 
 	/**
