@@ -82,7 +82,7 @@ final class LegalItemLink {
 			$parent = $this->itemOf( $item, $this->partOfPropertyId );
 			$lawKey = $parent !== null ? $this->stringOf( $parent, $this->legislationNumberPropertyId ) : null;
 			if ( $reference !== null && $lawKey !== null ) {
-				$reference = (string)preg_replace( '/\s+/u', '', $reference );
+				$reference = (string)preg_replace( '/[\s_]+/u', '', $reference );
 				return $this->lawUrl( $lawKey, $reference );
 			}
 		}

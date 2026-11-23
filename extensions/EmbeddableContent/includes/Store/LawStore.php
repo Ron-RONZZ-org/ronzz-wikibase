@@ -142,7 +142,7 @@ final class LawStore {
 	public function getArticle( string $lawKey, string $reference, string $language = 'fr' ): ?array {
 		$row = $this->fetchArticle( $lawKey, $reference, $language );
 		if ( $row === false ) {
-			$normalized = preg_replace( '/\s+/u', '', $reference );
+			$normalized = preg_replace( '/[\s_]+/u', '', $reference );
 			if ( $normalized !== $reference && $normalized !== '' ) {
 				$row = $this->fetchArticle( $lawKey, $normalized, $language );
 			}
