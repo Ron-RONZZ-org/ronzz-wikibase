@@ -39,6 +39,15 @@ class CitationFormatter {
 	 * @param array<string,mixed> $csl CSL-JSON
 	 */
 	public function format( array $csl, string $style, string $format = 'text' ): string {
+		// citeproc-php 2.7.1 throws "Call to a member function filter() on
+		// null" for the legal CSL types without an author/issued sort key.
+		// Render the legal citation ourselves for the citeproc styles; json
+		// and the native BibTeX/RIS serializers keep the structured path.
+		if ( ( $style === 'apa' || $style === 'vancouver' )
+			&& in_array( (string)( $csl['type'] ?? '' ), [ 'legislation', 'legal_case' ], true )
+		) {
+			return $this->formatLegal( $csl, $format );
+		}
 		switch ( $style ) {
 			case 'json':
 				return $format === 'html'
@@ -56,6 +65,27 @@ class CitationFormatter {
 				return $this->wrap( $this->risSerializer->serialize( $csl ), $format );
 		}
 		throw new RuntimeException( "Unsupported citation style '$style'" );
+	}
+
+	/**
+	 * A deterministic legal citation: the work/provision title, its container
+	 * law, the authority where present, and the official number.
+	 *
+	 * @param array<string,mixed> $csl
+	 */
+	private function formatLegal( array $csl, string $format ): string {
+		$parts = [];
+		foreach ( [ 'title', 'container-title', 'authority', 'jurisdiction', 'number' ] as $field ) {
+			$value = $csl[$field] ?? '';
+			if ( is_string( $value ) && trim( $value ) !== '' ) {
+				$parts[] = $field === 'container-title' ? 'in ' . trim( $value ) : trim( $value );
+			}
+		}
+		$text = $parts === [] ? 'Legal source' : implode( ', ', $parts );
+		$text .= '.';
+		return $format === 'html'
+			? '<span class="wikibasecitation-legal">' . htmlspecialchars( $text, ENT_QUOTES, 'UTF-8' ) . '</span>'
+			: $text;
 	}
 
 	private function renderCslStyle( array $csl, string $style, string $format ): string {

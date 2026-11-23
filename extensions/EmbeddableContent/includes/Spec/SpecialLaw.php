@@ -10,6 +10,7 @@ use EmbeddableContent\Store\LawStore;
 use MediaWiki\Html\Html;
 use MediaWiki\MediaWikiServices;
 use MediaWiki\SpecialPage\SpecialPage;
+use MediaWiki\Title\Title;
 
 /**
  * Special:Law — the human view of the law corpus and the cite-or-create
@@ -245,8 +246,9 @@ class SpecialLaw extends SpecialPage {
 
 	private function refBox( string $itemId, bool $created ): string {
 		$ref = '<ref>{{#cite:' . $itemId . '}}</ref>';
+		$itemTitle = Title::newFromText( 'Item:' . $itemId );
 		$itemLink = Html::element( 'a', [
-			'href' => SpecialPage::getTitleFor( 'EntityPage', $itemId )->getLocalURL(),
+			'href' => $itemTitle !== null ? $itemTitle->getLocalURL() : '#',
 		], $itemId );
 		$body = Html::element( 'p', [], $created
 			? $this->msg( 'embeddablecontent-law-created' )->text()
