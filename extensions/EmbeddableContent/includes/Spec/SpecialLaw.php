@@ -45,15 +45,22 @@ class SpecialLaw extends SpecialPage {
 		$this->getOutput()->addModuleStyles( [ 'mediawiki.special', 'ext.embeddableContent.law' ] );
 		$this->getOutput()->addHTML( $this->searchForm( $this->getRequest()->getText( 'q', '' ) ) );
 
+		$store = MediaWikiServices::getInstance()->get( 'EmbeddableContent.LawStore' );
+		if ( !$store->schemaExists() ) {
+			$this->getOutput()->addHTML( Html::warningBox(
+				$this->msg( 'embeddablecontent-law-notinstalled' )->escaped()
+			) );
+			return;
+		}
+
 		$subPage = trim( (string)$subPage );
 		if ( $subPage === '' ) {
-			$this->renderSearch( $this->getRequest()->getText( 'q', '' ) );
+			$this->renderSearch( $this->getRequest()->getText( 'q', '' ), $store );
 			return;
 		}
 		[ $lawKey, $reference ] = array_pad( explode( '/', $subPage, 2 ), 2, '' );
 		$lawKey = trim( $lawKey );
 		$reference = trim( $reference );
-		$store = MediaWikiServices::getInstance()->get( 'EmbeddableContent.LawStore' );
 		$law = $store->getLaw( $lawKey );
 		if ( $law === null ) {
 			$this->getOutput()->addHTML( Html::errorBox( $this->msg( 'embeddablecontent-law-notfound', $lawKey )->escaped() ) );
@@ -67,9 +74,8 @@ class SpecialLaw extends SpecialPage {
 		$this->renderArticle( $store, $law, $reference );
 	}
 
-	private function renderSearch( string $query ): void {
+	private function renderSearch( string $query, LawStore $store ): void {
 		$query = trim( $query );
-		$store = MediaWikiServices::getInstance()->get( 'EmbeddableContent.LawStore' );
 		if ( $query === '' ) {
 			$this->renderLawList( $store );
 			return;

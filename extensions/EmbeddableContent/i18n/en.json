@@ -874,5 +874,6 @@
 	"embeddablecontent-law-col-article": "Article",
 	"embeddablecontent-law-col-section": "Section",
 	"embeddablecontent-law-col-item": "Item",
-	"embeddablecontent-law-col-since": "Since"
+	"embeddablecontent-law-col-since": "Since",
+	"embeddablecontent-law-notinstalled": "The law corpus is not installed. Run installLawSchema.php and the importer."
 }
