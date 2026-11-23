@@ -167,9 +167,11 @@ class StatementToCslConverter {
 
 		$this->addAuthor( $item, $csl, $preferredLanguage );
 		$this->addFromStatement( $item, 'issued', static function ( $value ) {
-			return $value instanceof TimeValue
-				? [ 'date-parts' => [ [ (int)substr( ltrim( $value->getTime(), '+' ), 0, 4 ) ] ] ]
-				: [ 'literal' => (string)$value ];
+			if ( !$value instanceof TimeValue ) {
+				return [ 'literal' => (string)$value ];
+			}
+			$parts = self::dateParts( $value );
+			return [ 'date-parts' => [ $parts !== [] ? $parts : [ 0 ] ] ];
 		}, $csl, 'issued', $preferredLanguage );
 		$this->addFromStatement( $item, 'URL', static function ( $value ) {
 			return (string)$value;
@@ -664,17 +666,43 @@ class StatementToCslConverter {
 			}
 			$value = $snak->getDataValue();
 			if ( $value instanceof TimeValue ) {
-				$year = (int)substr( ltrim( $value->getTime(), '+' ), 0, 4 );
-				if ( $year > 0 ) {
-					$years[] = $year;
+				$parts = self::dateParts( $value );
+				if ( $parts !== [] && $parts[0] > 0 ) {
+					$years[] = $parts;
 				}
 			}
 		}
 		if ( $years === [] ) {
 			return;
 		}
-		// The LAST edition: the most recent year.
-		$csl['issued'] = [ 'date-parts' => [ [ max( $years ) ] ] ];
+		// The LAST edition: the most recent year (with its month/day when the
+		// statement carries day precision — a court decision date).
+		usort( $years, static fn ( $a, $b ) => $a <=> $b );
+		$csl['issued'] = [ 'date-parts' => [ end( $years ) ] ];
+	}
+
+	/**
+	 * A Wikibase TimeValue as CSL date-parts (`[year, month, day]`, dropping
+	 * a zero month/day so year-precision statements keep `[year]`).
+	 *
+	 * @return int[]
+	 */
+	private static function dateParts( TimeValue $value ): array {
+		$time = ltrim( $value->getTime(), '+' );
+		$year = (int)substr( $time, 0, 4 );
+		if ( $year <= 0 ) {
+			return [];
+		}
+		$parts = [ $year ];
+		$month = (int)substr( $time, 5, 2 );
+		$day = (int)substr( $time, 8, 2 );
+		if ( $value->getPrecision() >= TimeValue::PRECISION_MONTH && $month > 0 ) {
+			$parts[] = $month;
+			if ( $value->getPrecision() >= TimeValue::PRECISION_DAY && $day > 0 ) {
+				$parts[] = $day;
+			}
+		}
+		return $parts;
 	}
 
 	/**

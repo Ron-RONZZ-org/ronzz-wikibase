@@ -42,7 +42,7 @@ class ApiLawCite extends ApiBase {
 	public function getAllowedParams() {
 		return [
 			'law' => [ self::PARAM_TYPE => 'string', self::PARAM_REQUIRED => true, self::PARAM_MAX_BYTES => 64 ],
-			'article' => [ self::PARAM_TYPE => 'string', self::PARAM_REQUIRED => true, self::PARAM_MAX_BYTES => 191 ],
+			'article' => [ self::PARAM_TYPE => 'string', self::PARAM_DFLT => '', self::PARAM_MAX_BYTES => 191 ],
 		];
 	}
 

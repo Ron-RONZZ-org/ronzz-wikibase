@@ -4,8 +4,6 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\Law;
 
-use RuntimeException;
-
 /**
  * A DILA LEGI XML document could not be parsed into a corpus row.
  *
@@ -15,5 +13,5 @@ use RuntimeException;
  *
  * @license GPL-2.0-or-later
  */
-final class LegiParseException extends RuntimeException {
+final class LegiParseException extends LawParseException {
 }

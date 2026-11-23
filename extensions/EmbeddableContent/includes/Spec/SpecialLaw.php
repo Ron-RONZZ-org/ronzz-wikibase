@@ -149,7 +149,7 @@ class SpecialLaw extends SpecialPage {
 		foreach ( $articles as $article ) {
 			$rows[] = Html::rawElement( 'tr', [], Html::rawElement( 'td', [],
 				$this->link( (string)$law['law_key'] . '/' . (string)$article['reference_code'],
-					'Article ' . (string)$article['reference_code'] ) )
+					$this->articleLabel( $law, (string)$article['reference_code'] ) ) )
 				. Html::element( 'td', [], (string)( $article['section_path'] ?? '' ) )
 				. Html::element( 'td', [], (string)( $article['status'] ?? '' ) )
 				. Html::element( 'td', [], (string)( $article['item_id'] ?? '' ) ) );
@@ -292,7 +292,7 @@ class SpecialLaw extends SpecialPage {
 	 * @param array<string,mixed> $article
 	 */
 	private function articleHeader( array $law, array $article ): string {
-		$title = 'Article ' . (string)( $article['reference_code'] ?? '' );
+		$title = $this->articleLabel( $law, (string)( $article['reference_code'] ?? '' ) );
 		$facts = [];
 		foreach ( [
 			'embeddablecontent-law-section' => (string)( $article['section_path'] ?? '' ),
@@ -308,6 +308,36 @@ class SpecialLaw extends SpecialPage {
 			Html::element( 'h3', [], $title )
 			. Html::rawElement( 'p', [ 'class' => 'wb-law-article-facts' ], implode( ' · ', $facts ) )
 		);
+	}
+
+	/**
+	 * A human label for a citable row: `Article 24` for legislation,
+	 * `Considérant 20` for a Conseil constitutionnel decision's reasoning,
+	 * and the decision part's name (`Arrêt`, `Dispositif`, `Visas`, …).
+	 *
+	 * @param array<string,mixed> $law
+	 */
+	private function articleLabel( array $law, string $reference ): string {
+		$source = (string)( $law['source'] ?? 'legi' );
+		if ( $source === 'legi' ) {
+			return $this->msg( 'embeddablecontent-law-article-label', $reference )->text();
+		}
+		if ( ctype_digit( $reference ) ) {
+			return $this->msg(
+				$source === 'constit' ? 'embeddablecontent-law-considerant' : 'embeddablecontent-law-paragraph',
+				$reference
+			)->text();
+		}
+		$key = match ( $reference ) {
+			'arrêt' => 'embeddablecontent-law-arret',
+			'avis' => 'embeddablecontent-law-avis',
+			'ordonnance' => 'embeddablecontent-law-ordonnance',
+			'décision' => 'embeddablecontent-law-decision',
+			'dispositif' => 'embeddablecontent-law-dispositif',
+			'visas' => 'embeddablecontent-law-visas',
+			default => null,
+		};
+		return $key !== null ? $this->msg( $key )->text() : ucfirst( $reference );
 	}
 
 	private function searchForm( string $query ): string {

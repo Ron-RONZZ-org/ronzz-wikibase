@@ -22,6 +22,14 @@ class LawSchemaTest extends TestCase {
 		$this->assertSame( [ 'law_key', 'reference_code', 'language' ], $tables['articles']['primary'] );
 	}
 
+	public function testV11AddsTheLegalColumns(): void {
+		$tables = LawSchema::tables();
+		$this->assertSame( '1.1', LawSchema::VERSION );
+		$this->assertArrayHasKey( 'number', $tables['laws']['columns'] );
+		$this->assertArrayHasKey( 'court', $tables['laws']['columns'] );
+		$this->assertArrayHasKey( 'source_url', $tables['articles']['columns'] );
+	}
+
 	public function testDdlUsesThePrefixAndTheParseKeys(): void {
 		$sql = LawSqlSchema::sql( 'mw_' . LawSchema::TABLE_PREFIX );
 		$this->assertStringContainsString( 'CREATE TABLE IF NOT EXISTS `mw_wb_law_laws`', $sql );

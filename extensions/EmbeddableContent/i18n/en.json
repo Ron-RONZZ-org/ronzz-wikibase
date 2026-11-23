@@ -875,5 +875,14 @@
 	"embeddablecontent-law-col-section": "Section",
 	"embeddablecontent-law-col-item": "Item",
 	"embeddablecontent-law-col-since": "Since",
-	"embeddablecontent-law-notinstalled": "The law corpus is not installed. Run installLawSchema.php and the importer."
+	"embeddablecontent-law-notinstalled": "The law corpus is not installed. Run installLawSchema.php and the importer.",
+	"embeddablecontent-law-article-label": "Article $1",
+	"embeddablecontent-law-considerant": "Recital $1",
+	"embeddablecontent-law-paragraph": "Paragraph $1",
+	"embeddablecontent-law-arret": "Judgment",
+	"embeddablecontent-law-avis": "Opinion",
+	"embeddablecontent-law-ordonnance": "Order",
+	"embeddablecontent-law-decision": "Decision",
+	"embeddablecontent-law-dispositif": "Operative part",
+	"embeddablecontent-law-visas": "Visas"
 }

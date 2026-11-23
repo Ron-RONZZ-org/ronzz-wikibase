@@ -65,3 +65,4 @@ guerre,war,milito,"conflit armé organisé et prolongé entre nations, États ou
 statut de révision,review status,stato de revizio,le statut de revue d'une table de données extraite,the review status of an extracted data table,la revizia stato de eltirita datumtabelo,,
 méthode d'extraction,extraction method,eltirmetodo,la méthode utilisée pour extraire une table de données,the method used to extract a data table,la metodo uzita por eltiri datumtabelon,,
 table de données,data table,datumtabelo,une table de données extraite d'une source et stockée dans le magasin de données,a data table extracted from a source and stored in the dataset store,datumtabelo eltirita el fonto kaj konservita en la datuma konservejo,,
+juridiction,court,tribunalo,"une institution qui rend la justice","an institution that administers justice","institucio kiu administras justecon",,https://www.wikidata.org/wiki/Q41487

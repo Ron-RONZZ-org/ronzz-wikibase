@@ -284,6 +284,9 @@ SOURCE_PROPERTY_KINDS = {
     "patent number": "patentNumber",
     "report number": "reportNumber",
     "legislation number": "legislationNumber",
+    # The official identifier of ANY legal text or decision (LEGITEXT, JURITEXT,
+    # CONSTEXT, CELEX, ECLI) — what Special:Law/<law_key> resolves from.
+    "legal identifier": "legalIdentifier",
     # International legal texts: a boolean marker replacing territorial
     # jurisdiction.
     "international": "international",

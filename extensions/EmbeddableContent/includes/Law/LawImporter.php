@@ -12,14 +12,16 @@ use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
 /**
- * Imports an extracted DILA LEGI tree into the `wb_law_*` store.
+ * Imports an extracted DILA (or EUR-Lex) tree into the `wb_law_*` store.
  *
  * The archive extraction is an operational step (`tar -xzf`); this class
- * only reads the extracted tree. One article XML gives the law, the section
- * path and the article row, so the walk is a single pass over `.../article/`.
+ * only reads the extracted tree. One parser per source turns each XML file
+ * into a law/section/article unit.
  *
- * `--codes-only` keeps the v1 pilot to the 73 in-force codes; the baseline
- * still contains the whole LEGI tree, and a later run can ingest the rest.
+ * LEGI keeps one row per (law, reference) and the tree carries the whole
+ * version history, so `in_force_only` selects the `VIGUEUR` version (and the
+ * latest one when several exist). The jurisprudence sources (CONSTIT, CASS,
+ * JADE) are one decision per file with no version history.
  *
  * @license GPL-2.0-or-later
  */
@@ -27,18 +29,18 @@ final class LawImporter {
 
 	private LawStore $store;
 
-	private LegiParser $parser;
+	private LawSourceParser $parser;
 
 	private ?LawItemWriter $writer;
 
-	public function __construct( LawStore $store, LegiParser $parser, ?LawItemWriter $writer = null ) {
+	public function __construct( LawStore $store, LawSourceParser $parser, ?LawItemWriter $writer = null ) {
 		$this->store = $store;
 		$this->parser = $parser;
 		$this->writer = $writer;
 	}
 
 	/**
-	 * @param array{codes_only?:bool,limit?:int,create_items?:bool,dry_run?:bool} $options
+	 * @param array{codes_only?:bool,limit?:int,create_items?:bool,dry_run?:bool,in_force_only?:bool,source?:string} $options
 	 * @return array<string,int> stats
 	 * @throws LawImportException
 	 */
@@ -51,19 +53,25 @@ final class LawImporter {
 		$limit = (int)( $options['limit'] ?? 0 );
 		$createItems = (bool)( $options['create_items'] ?? false );
 		$dryRun = (bool)( $options['dry_run'] ?? false );
+		$inForceOnly = (bool)( $options['in_force_only'] ?? false );
+		$source = (string)( $options['source'] ?? 'legi' );
 		if ( !$dryRun && !$this->store->schemaExists() ) {
 			throw new LawImportException( 'law schema missing — run installLawSchema.php first' );
 		}
 		$root = $codesOnly ? $this->codesRoot( $dir ) : $dir;
-		$log( "import root: $root (mode=$mode, codes_only=" . ( $codesOnly ? '1' : '0' ) . ', dry_run=' . ( $dryRun ? '1' : '0' ) . ')' );
+		$log( "import root: $root (source=$source, mode=$mode, codes_only=" . ( $codesOnly ? '1' : '0' )
+			. ', in_force_only=' . ( $inForceOnly ? '1' : '0' ) . ', dry_run=' . ( $dryRun ? '1' : '0' ) . ')' );
 
 		$runId = $mode . '-' . gmdate( 'YmdHis' ) . '-' . substr( hash( 'sha256', $root ), 0, 8 );
 		if ( !$dryRun ) {
-			$this->store->createRun( $runId, 'dila', $mode );
+			$this->store->createRun( $runId, $source, $mode );
 		}
 
 		$store = $this->store;
-		$stats = [ 'files' => 0, 'laws' => 0, 'sections' => 0, 'articles' => 0, 'skipped' => 0, 'errors' => 0 ];
+		$stats = [
+			'files' => 0, 'laws' => 0, 'sections' => 0, 'articles' => 0,
+			'skipped' => 0, 'versions_skipped' => 0, 'errors' => 0,
+		];
 		try {
 			$laws = [];
 			$sections = [];
@@ -78,9 +86,7 @@ final class LawImporter {
 					$articles = [];
 					return;
 				}
-				foreach ( $laws as $law ) {
-					$store->upsertLaw( $law );
-				}
+				$store->upsertLaws( array_values( $laws ) );
 				$store->upsertSections( array_values( $sections ) );
 				$store->upsertArticles( array_values( $articles ) );
 				$laws = [];
@@ -93,7 +99,7 @@ final class LawImporter {
 			);
 			foreach ( $iterator as $file ) {
 				$path = $file->getPathname();
-				if ( !str_ends_with( $path, '.xml' ) || !str_contains( $path, '/article/' ) ) {
+				if ( !$this->parser->accepts( $path ) ) {
 					continue;
 				}
 				if ( $limit > 0 && $stats['articles'] >= $limit ) {
@@ -107,8 +113,8 @@ final class LawImporter {
 					continue;
 				}
 				try {
-					$parsed = $this->parser->parseArticle( $xml );
-				} catch ( LegiParseException $e ) {
+					$parsed = $this->parser->parse( $xml, $path );
+				} catch ( LawParseException $e ) {
 					$stats['errors']++;
 					$log( 'parse error: ' . $path . ': ' . $e->getMessage() );
 					continue;
@@ -134,18 +140,28 @@ final class LawImporter {
 					$stats['sections']++;
 				}
 
-				$article = $parsed['article'];
-				$article['retrieved_at'] = $now;
-				$article['content_hash'] = hash( 'sha256', (string)$article['text'] );
-				$article['created_at'] = $now;
-				$article['updated_at'] = $now;
-				$key = $article['law_key'] . "\0" . $article['reference_code'] . "\0" . $article['language'];
-				if ( !isset( $articles[$key] ) ) {
-					$stats['articles']++;
-				}
-				$articles[$key] = $article;
-				if ( count( $articles ) >= 200 ) {
-					$flush();
+				foreach ( $parsed['articles'] ?? [ $parsed['article'] ] as $article ) {
+					if ( $inForceOnly && !LawVersionPolicy::isInForce( $article ) ) {
+						$stats['versions_skipped']++;
+						continue;
+					}
+					$article['retrieved_at'] = $now;
+					$article['content_hash'] = hash( 'sha256', (string)$article['text'] );
+					$article['created_at'] = $now;
+					$article['updated_at'] = $now;
+					$key = $article['law_key'] . "\0" . $article['reference_code'] . "\0" . $article['language'];
+					$existing = $articles[$key] ?? null;
+					if ( $existing !== null && !LawVersionPolicy::isPreferred( $article, $existing ) ) {
+						$stats['versions_skipped']++;
+						continue;
+					}
+					if ( $existing === null ) {
+						$stats['articles']++;
+					}
+					$articles[$key] = $article;
+					if ( count( $articles ) >= 200 ) {
+						$flush();
+					}
 				}
 			}
 			$flush();
@@ -196,6 +212,9 @@ final class LawImporter {
 		$contents = file_get_contents( $file );
 		if ( $contents === false ) {
 			$log( "unreadable suppression list: $file" );
+			return [];
+		}
+		if ( !$this->parser instanceof LegiParser ) {
 			return [];
 		}
 		$stats = [ 'deleted_laws' => 0, 'deleted_sections' => 0, 'deleted_articles' => 0 ];

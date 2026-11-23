@@ -135,6 +135,7 @@ return [
 			$classes['legislation'] ?? null,
 			$classes['treaty'] ?? null,
 			$classes['bill'] ?? null,
+			$classes['legalCase'] ?? null,
 		], 'is_string' ) );
 		return new LegalItemLink(
 			WikibaseRepo::getEntityLookup( $services ),
@@ -143,7 +144,8 @@ return [
 			$classes['law'] ?? null,
 			$props['partOf'] ?? null,
 			$props['legislationNumber'] ?? null,
-			$props['referenceCode'] ?? null
+			$props['referenceCode'] ?? null,
+			$props['legalIdentifier'] ?? null
 		);
 	},
 ];

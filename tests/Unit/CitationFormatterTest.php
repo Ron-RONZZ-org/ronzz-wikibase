@@ -128,4 +128,31 @@ class CitationFormatterTest extends TestCase {
 		$this->expectException( \RuntimeException::class );
 		$this->formatter->format( $this->sampleCsl(), 'nonsense' );
 	}
+
+	public function testLegalCaseCitationUsesTheCorpusLabelAsIs(): void {
+		$csl = [
+			'type' => 'legal_case',
+			'title' => 'Conseil constitutionnel, décision n° 85-197 DC du 23 août 1985',
+			'authority' => 'Conseil constitutionnel',
+			'number' => '85-197',
+			'issued' => [ 'date-parts' => [ [ 1985, 8, 23 ] ] ],
+		];
+		$out = $this->formatter->format( $csl, 'apa', 'text' );
+		$this->assertSame( 'Conseil constitutionnel, décision n° 85-197 DC du 23 août 1985.', $out );
+	}
+
+	public function testManualLegalCaseComposesTheFrenchCitation(): void {
+		$csl = [
+			'type' => 'legal_case',
+			'title' => 'Loi sur la Nouvelle-Calédonie',
+			'authority' => 'Conseil constitutionnel',
+			'number' => '85-197',
+			'issued' => [ 'date-parts' => [ [ 1985, 8, 23 ] ] ],
+		];
+		$out = $this->formatter->format( $csl, 'apa', 'text' );
+		$this->assertSame(
+			'Conseil constitutionnel, n° 85-197, du 23 août 1985, Loi sur la Nouvelle-Calédonie.',
+			$out
+		);
+	}
 }

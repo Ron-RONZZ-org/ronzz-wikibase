@@ -376,6 +376,7 @@ class EmbeddableContentConfig {
 			// Zotero-aligned batch: legal/official-document facts.
 			'court', 'territorialJurisdictionOsm', 'territorialJurisdictionLabel',
 			'caseNumber', 'patentNumber', 'reportNumber', 'legislationNumber',
+			'legalIdentifier',
 			// International legal texts (a marker replacing territorial
 			// jurisdiction).
 			'international',

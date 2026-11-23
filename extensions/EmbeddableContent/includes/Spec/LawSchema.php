@@ -19,7 +19,7 @@ namespace EmbeddableContent\Spec;
  */
 final class LawSchema {
 
-	public const VERSION = '1.0';
+	public const VERSION = '1.1';
 
 	public const TABLE_PREFIX = 'wb_law_';
 
@@ -49,6 +49,8 @@ final class LawSchema {
 					'short_title' => 'VARCHAR(500) NULL',
 					'nature' => 'VARCHAR(32) NULL',
 					'nor' => 'VARCHAR(32) NULL',
+					'number' => 'VARCHAR(64) NULL',
+					'court' => 'VARCHAR(255) NULL',
 					'eli' => 'VARCHAR(255) NULL',
 					'source_url' => 'VARCHAR(1000) NULL',
 					'source' => "VARCHAR(16) NOT NULL DEFAULT 'dila'",
@@ -64,7 +66,7 @@ final class LawSchema {
 					'updated_at' => 'DATETIME NOT NULL',
 				],
 				'primary' => 'law_key',
-				'indexes' => [ [ 'jurisdiction' ], [ 'nature' ], [ 'status' ], [ 'item_id' ] ],
+				'indexes' => [ [ 'jurisdiction' ], [ 'nature' ], [ 'status' ], [ 'item_id' ], [ 'number' ] ],
 				'fulltext' => [ 'search_text' ],
 			],
 			'sections' => [
@@ -96,6 +98,7 @@ final class LawSchema {
 					'retrieved_at' => 'DATETIME NOT NULL',
 					'content_hash' => 'CHAR(64) NULL',
 					'item_id' => 'VARCHAR(32) NULL',
+					'source_url' => 'VARCHAR(1000) NULL',
 					'search_text' => 'MEDIUMTEXT NULL',
 					'created_at' => 'DATETIME NOT NULL',
 					'updated_at' => 'DATETIME NOT NULL',
