@@ -63,3 +63,15 @@ every File page already exposes its media URL (`wbFileUrl`).
 - `includes/Media/FileOpenLink.php`, `includes/Hooks.php`
   (`wireEmbeddedMediaOpenLinks`), `includes/Spec/SpecialSourceFile.php`
 - `tests/e2e/run_wiki_ux_e2e.mjs`
+
+## Amendment (Nov 2026): native fullscreen for content tables and images
+
+The removal above was about the **hand-rolled `position: fixed` wrapper**,
+not about fullscreen itself. Content tables and images now get a **native
+Fullscreen API** view (`resources/contentlayout.js`): a plain click on a
+content image opens its figure/image fullscreen (using the ORIGINAL media
+URL, not the article thumbnail), and each wikitable gets a **Full screen**
+button. There is no fixed-position wrapper, no injected toolbar and no new
+PDF fullscreen control — the browser owns the fullscreen layout and exit.
+The File: page remains reachable via Ctrl/Cmd/middle click and the small
+noprint **File page** link. See `content-tables-and-fullscreen.md`.

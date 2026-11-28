@@ -150,8 +150,9 @@ Nov 2026 access-file entities / upload multi-author / File PDF viewer:
 links, per-access language, `PDF: en|fr` Source rendering, backfill),
 `upload-multi-author-inference.md` (multi-value author entity + source author
 inference on Special:Upload/UpdateFile), `file-pdf-viewer.md` (browser-native PDF viewer on File: pages and
-Special:SourceFile; the fullscreen control was later removed — see
-`fullscreen-removed-open-newtab.md`).
+Special:SourceFile; the custom fullscreen control was later removed — see
+`fullscreen-removed-open-newtab.md`; native fullscreen was then added for
+content tables/images in `content-tables-and-fullscreen.md`).
 
 Nov 2026 PDF text extraction: `pdf-text-extraction.md` (Tika 4 loopback →
 Markdown `.extracted.txt` companion with the source file's internal marker;
@@ -170,7 +171,14 @@ undeclared-variable `ReferenceError` made it unreachable).
 Nov 2026 media credits: `media-credits-all-embeds.md` (credit every captioned
 file type server-side; captionless images/audio/video/PDF links via
 `wbEmbeddedFiles` + `mediaopen.js`; one paragraph per gallery; infoboxes
-skipped; `noCredit` still suppresses).
+skipped; `noCredit` still suppresses). Nov 2026 content tables / figure width
+/ fullscreen and the upload re-upload fix: `content-tables-and-fullscreen.md`
+(wikitable credits move to one paragraph below the table; horizontal-scroll
+table wrapper + **Full screen**; figures pinned to the media width; floats
+cleared before headings/tables; plain image click opens the native fullscreen
+viewer on the original media) and `upload-enhancements.md` §Follow-up (a new
+file version replaces the image facts and the re-upload form is prefilled from
+the current item).
 
 Nov 2026 Update* clear semantics: `update-blank-clears-statements.md`
 (a blank field on `Special:Update*` removes its statement when the item is

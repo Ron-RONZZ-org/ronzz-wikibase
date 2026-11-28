@@ -28,6 +28,28 @@ class ImageCreditTest extends TestCase {
 		$this->assertSame( '', ImageCredit::line( [ '', ' ' ], 'Image' ) );
 	}
 
+	public function testTableLineLeadsWithTheFileThenAuthorSourceLicence(): void {
+		$this->assertSame(
+			'Image: Triclinic.svg · Stannered · Commons · CC BY-SA 3.0',
+			ImageCredit::tableLine(
+				'Triclinic.svg',
+				[ 'Stannered', 'Commons', 'CC BY-SA 3.0' ],
+				'Image'
+			)
+		);
+	}
+
+	public function testTableLineDropsEmptyPartsAndSupportsNoPrefix(): void {
+		$this->assertSame(
+			'Triclinic.svg · Stannered · CC BY-SA 3.0',
+			ImageCredit::tableLine( 'Triclinic.svg', [ 'Stannered', '', 'CC BY-SA 3.0' ] )
+		);
+	}
+
+	public function testTableLineNeedsAFile(): void {
+		$this->assertSame( '', ImageCredit::tableLine( '  ', [ 'Stannered' ], 'Image' ) );
+	}
+
 	public function testStripsTheNoCreditClassToken(): void {
 		$this->assertSame(
 			[ 'found' => true, 'class' => '' ],

@@ -8,6 +8,7 @@ use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\Fields\EntityCombobox;
 use MediaWiki\Context\RequestContext;
 use MediaWiki\MediaWikiServices;
+use MediaWiki\Title\Title;
 use MediaWiki\Upload\UploadBase;
 
 /**
@@ -39,6 +40,13 @@ use MediaWiki\Upload\UploadBase;
 final class UploadHooks {
 
 	/**
+	 * Whether the file being processed already existed before this upload,
+	 * captured by UploadVerifyUpload (the only hook that runs before the
+	 * file row is written). Null when the hook did not run.
+	 */
+	private static ?bool $wasReupload = null;
+
+	/**
 	 * UploadFormInitDescriptor: replace the core License dropdown with the
 	 * semantic entity combobox (options from the seed's license items +
 	 * entity search), add the author + additional-license-info text fields,
@@ -47,6 +55,12 @@ final class UploadHooks {
 	 * @param array<string,mixed> $descriptor
 	 */
 	public static function onUploadFormInitDescriptor( array &$descriptor ): void {
+		// A destination that already exists is the re-upload page (the File:
+		// page's "Upload a new version" link, or core's overwrite warning).
+		// Its current facts prefill the fields below so the contributor sees
+		// what will be replaced instead of a blank form.
+		$reuploadRecord = self::existingImageFacts();
+
 		// The UploadForm is a php-mode HTMLForm — a plain `combobox` type
 		// would render as an <input>+<datalist> with no entity autocomplete.
 		// The shared Fields\EntityCombobox builder sets OOUIComboboxField
@@ -225,6 +239,115 @@ final class UploadHooks {
 			'id' => 'wpUploadAnother',
 			'flags' => [],
 		];
+
+		if ( $reuploadRecord !== null ) {
+			$descriptor = self::applyReuploadPrefill( $descriptor, $reuploadRecord );
+		}
+	}
+
+	/**
+	 * The current image facts when the submitted destination already exists,
+	 * or null on a fresh upload. The re-upload page is identified by the
+	 * destination title (`?wpDestFile=` is set by the File: page's "Upload a
+	 * new version" link and by core's overwrite warning).
+	 *
+	 * @return array<string,string>|null
+	 */
+	private static function existingImageFacts(): ?array {
+		$request = RequestContext::getMain()->getRequest();
+		$dest = trim( (string)$request->getVal( 'wpDestFile', '' ) );
+		if ( $dest === '' ) {
+			return null;
+		}
+		$title = Title::newFromText( $dest, NS_FILE );
+		if ( $title === null || $title->getNamespace() !== NS_FILE || !$title->exists() ) {
+			return null;
+		}
+		return ImageFactsRecord::forFileTitle( self::config(), $title );
+	}
+
+	/**
+	 * Prefill the form fields with an existing image record and add the
+	 * explanation notice. Posted values still win: HTMLForm uses a field's
+	 * default only when the request does not carry that field.
+	 *
+	 * @param array<string,mixed> $descriptor
+	 * @param array<string,string> $record
+	 * @return array<string,mixed>
+	 */
+	private static function applyReuploadPrefill( array $descriptor, array $record ): array {
+		$set = static function ( array $spec, $value ): array {
+			$spec['default'] = $value;
+			return $spec;
+		};
+
+		$descriptor['License'] = $set( $descriptor['License'], $record['license'] );
+		if ( isset( $descriptor['UploadRightsBasis'] ) ) {
+			$descriptor['UploadRightsBasis'] = $set(
+				$descriptor['UploadRightsBasis'],
+				$record['rightsBasis']
+			);
+		}
+		$descriptor['UploadAuthor'] = $set( $descriptor['UploadAuthor'], $record['author'] );
+		$descriptor['UploadAuthorIsEntity'] = $set(
+			$descriptor['UploadAuthorIsEntity'],
+			$record['authorEntity'] !== ''
+		);
+		$descriptor['UploadAuthorEntity'] = $set(
+			$descriptor['UploadAuthorEntity'],
+			$record['authorEntity']
+		);
+		$descriptor['UploadSource'] = $set( $descriptor['UploadSource'], $record['sourceEntity'] );
+		$descriptor['UploadSourceIsText'] = $set(
+			$descriptor['UploadSourceIsText'],
+			$record['sourceEntity'] === '' && $record['sourceText'] !== ''
+		);
+		$descriptor['UploadSourceText'] = $set(
+			$descriptor['UploadSourceText'],
+			$record['sourceText']
+		);
+		$descriptor['UploadLicenseInfo'] = $set(
+			$descriptor['UploadLicenseInfo'],
+			$record['licenseInfo']
+		);
+
+		$notice = [
+			'ReuploadPrefill' => [
+				'type' => 'info',
+				'section' => 'description',
+				'default' => wfMessage( 'embeddablecontent-upload-reupload-prefill' )->parse(),
+				'raw' => true,
+			],
+		];
+		return $notice + $descriptor;
+	}
+
+	/**
+	 * UploadVerifyUpload: record whether the file existed BEFORE
+	 * LocalFile::upload() writes the new version. UploadComplete runs after
+	 * the write, where exists() is always true, so this is the only reliable
+	 * re-upload signal.
+	 */
+	public static function onUploadVerifyUpload(
+		$upload,
+		$user,
+		$props,
+		$comment,
+		$pageText,
+		&$error
+	): bool {
+		self::$wasReupload = null;
+		if ( $upload instanceof UploadBase ) {
+			try {
+				$file = $upload->getLocalFile();
+				if ( $file !== null ) {
+					self::$wasReupload = $file->exists();
+				}
+			} catch ( \Throwable $e ) {
+				wfLogWarning( 'EmbeddableContent: re-upload detection failed: ' . $e->getMessage() );
+			}
+		}
+		return true;
 	}
 
 	/**
@@ -517,7 +640,22 @@ final class UploadHooks {
 			}
 		}
 		if ( $request->getVal( 'wpUploadmetaItemize' ) !== '1' ) {
+			self::$wasReupload = null;
 			return;
+		}
+		// Read and clear the pre-write signal. A re-upload must REPLACE the
+		// existing item's facts: passing false here was the "new author not
+		// registered" bug — createOrReuse only applied facts on a create.
+		$isReupload = self::$wasReupload;
+		self::$wasReupload = null;
+		if ( $isReupload === null ) {
+			try {
+				$local = $uploadBase->getLocalFile();
+				$isReupload = $local !== null && $local->getHistory() !== [];
+			} catch ( \Throwable $e ) {
+				wfLogWarning( 'EmbeddableContent: re-upload fallback failed: ' . $e->getMessage() );
+				$isReupload = false;
+			}
 		}
 		// The uploader is the request user (UploadFromFile has no getUser()).
 		$user = RequestContext::getMain()->getUser();
@@ -568,7 +706,7 @@ final class UploadHooks {
 			trim( (string)$request->getVal( 'wpUploadLicenseInfo', '' ) ),
 			trim( (string)$request->getVal( 'wbUploadmetaSourceUrl', '' ) ),
 			wfMessage( 'embeddablecontent-upload-item-edit-summary', $label )->inContentLanguage()->text(),
-			false,
+			$isReupload,
 			[],
 			$author['entity'] !== '' ? $author['entity'] : null,
 			$source['entity'] !== '' ? $source['entity'] : null,

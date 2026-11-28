@@ -630,6 +630,12 @@ class Hooks {
 		// excluded (File: has its own copy toolbar).
 		self::wirePrintModule( $out, $title );
 
+		// Content-page layout: wikitable horizontal scrolling, float clearing
+		// (a tall image must not overlap the next section), the figure width
+		// constraint (a long caption/credit line must not widen a 250 px
+		// video into a 542 px box) and the click-to-fullscreen viewer.
+		self::wireContentLayout( $out, $title );
+
 		// Special:Upload — the semantic license combobox needs the entity
 		// autocomplete (native formatting, same as the Add* pages) and the
 		// URL validate button + 429 blob fallback. The wiring span is
@@ -1032,6 +1038,19 @@ class Hooks {
 	}
 
 	/**
+	 * Load the content-page layout module on classic article pages: table
+	 * scroll wrappers, float clearing, the figure width constraint and the
+	 * native fullscreen viewer. The credits module depends on it (it moves a
+	 * wikitable's credits into one paragraph below the wrapped table).
+	 */
+	private static function wireContentLayout( OutputPage $out, \MediaWiki\Title\Title $title ): void {
+		if ( !self::isClassicArticleTitle( $title ) ) {
+			return;
+		}
+		$out->addModules( 'ext.embeddableContent.contentlayout' );
+	}
+
+	/**
 	 * Wire the printable-version module on an existing article page: the
 	 * namespace- and subpage-stripped title (`Title::getSubpageText()`, the
 	 * `wbPrintTitle` JS config) plus the "Download" toolbar menu and the
@@ -1158,13 +1177,18 @@ class Hooks {
 				continue;
 			}
 			$seen[$key] = true;
+			$credits = \EmbeddableContent\Media\ImageCredit::creditLinesFor( $fileTitle, $parser );
 			$files[] = [
 				'name' => $key,
 				'url' => $file->getFullUrl(),
 				'page' => $fileTitle->getPrefixedText(),
 				// The same credit line the server appends to figure
 				// captions; captionless embeds get it client-side.
-				'credit' => \EmbeddableContent\Media\ImageCredit::creditLineFor( $fileTitle, $parser ),
+				'credit' => $credits['credit'],
+				// The wikitable variant (file · author · source · licence),
+				// placed in ONE paragraph below the table by mediaopen.js
+				// instead of inside each cell.
+				'tableCredit' => $credits['table'],
 				// An internal-use file's media is login-gated; the module
 				// skips its open link for anonymous readers.
 				'internal' => \EmbeddableContent\Spec\InternalFile::isInternal( $fileTitle ) ? '1' : '',

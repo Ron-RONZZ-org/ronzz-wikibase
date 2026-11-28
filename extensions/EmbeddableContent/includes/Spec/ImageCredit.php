@@ -49,6 +49,37 @@ final class ImageCredit {
 	}
 
 	/**
+	 * The one-line credit used for an image inside a wikitable, placed in a
+	 * single paragraph below the table instead of inside its cell:
+	 *
+	 *   Image: <file> · <author> · <source> · <licence>
+	 *
+	 * The file name leads (the reader sees the table cell, not a caption) and
+	 * the field order follows the table-credit request. Empty parts are
+	 * dropped; an empty file name yields ''.
+	 *
+	 * @param string $file already-escaped HTML for the file (usually a link)
+	 * @param string[] $parts already-escaped HTML fragments (author, source, licence)
+	 * @param string $prefix the localized "Image" label ('' = no prefix)
+	 */
+	public static function tableLine( string $file, array $parts, string $prefix = '' ): string {
+		$file = trim( $file );
+		if ( $file === '' ) {
+			return '';
+		}
+		$kept = [ $file ];
+		foreach ( $parts as $part ) {
+			$part = trim( (string)$part );
+			if ( $part !== '' ) {
+				$kept[] = $part;
+			}
+		}
+		$body = implode( ' · ', $kept );
+		$prefix = trim( $prefix );
+		return $prefix === '' ? $body : $prefix . ': ' . $body;
+	}
+
+	/**
 	 * The `class` image option's value with a `noCredit` token removed.
 	 *
 	 * @return array{found:bool,class:string} `class` is trimmed and may be ''

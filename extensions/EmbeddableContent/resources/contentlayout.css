@@ -1,0 +1,154 @@
+/**
+ * Content-page layout: table scrolling, float clearing, figure width and the
+ * native fullscreen viewer.
+ *
+ * Floats: MediaWiki does not clear floats before headings/tables, so a tall
+ * image overlaps the next section (the Crystal "Defect" report). Block
+ * elements that must start on their own line clear both.
+ */
+
+.mw-parser-output .mw-heading,
+.mw-parser-output table.wikitable,
+.mw-parser-output .wb-table-block,
+.mw-parser-output .gallery,
+.mw-parser-output .mw-references-wrap {
+	clear: both;
+}
+
+/* An infobox is itself the floated summary; do not force it below a
+ * neighbouring float. */
+.mw-parser-output .wb-infobox table.wikitable {
+	clear: none;
+}
+
+.wb-table-block {
+	max-width: 100%;
+	margin: 0.5em 0 1em;
+}
+
+.wb-table-scroll {
+	max-width: 100%;
+	overflow-x: auto;
+	-webkit-overflow-scrolling: touch;
+}
+
+.wb-table-scroll > table.wikitable {
+	margin: 0;
+}
+
+.wb-table-tools {
+	display: flex;
+	justify-content: flex-end;
+	margin: 0 0 0.25em;
+}
+
+.wb-fullscreen-btn {
+	padding: 0.15em 0.4em;
+	border: 1px solid var(--border-color-base, #c8ccd1);
+	border-radius: 2px;
+	background: var(--background-color-base, #fff);
+	color: var(--color-progressive, #3366cc);
+	font-size: 0.8125em;
+	line-height: 1.4;
+	cursor: pointer;
+}
+
+.wb-fullscreen-btn:hover {
+	background: var(--background-color-interactive-subtle, #eaecf0);
+	text-decoration: underline;
+}
+
+/* A figure's width is pinned to its media by contentlayout.js; the caption
+ * wraps inside that width instead of widening the box. */
+.mw-parser-output figure[typeof~="mw:File/Thumb"],
+.mw-parser-output figure[typeof~="mw:File/Frame"] {
+	max-width: 100%;
+}
+
+.mw-parser-output figure[typeof~="mw:File/Thumb"] img,
+.mw-parser-output figure[typeof~="mw:File/Frame"] img,
+.mw-parser-output figure[typeof~="mw:File/Thumb"] video,
+.mw-parser-output figure[typeof~="mw:File/Frame"] video {
+	max-width: 100%;
+}
+
+/* Images are a fullscreen trigger; show it. */
+#mw-content-text a.wb-media-zoom {
+	cursor: zoom-in;
+}
+
+#mw-content-text .wb-infobox a.wb-media-zoom {
+	cursor: default;
+}
+
+/* Fullscreen: the browser owns the viewport; these rules only centre the
+ * content. No fixed-position wrapper. */
+.wb-fullscreen-active {
+	background: var(--background-color-base, #fff);
+	box-sizing: border-box;
+}
+
+.wb-table-block.wb-fullscreen-active {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	height: 100%;
+	padding: 0.5em 1em;
+	margin: 0;
+}
+
+.wb-table-block.wb-fullscreen-active .wb-table-scroll {
+	flex: 1 1 auto;
+	overflow: auto;
+}
+
+figure.wb-fullscreen-active {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	width: 100% !important;
+	max-width: none !important;
+	height: 100%;
+	margin: 0;
+	padding: 1em;
+	float: none !important;
+	overflow: auto;
+}
+
+figure.wb-fullscreen-active > span {
+	display: flex;
+	justify-content: center;
+	width: 100%;
+}
+
+figure.wb-fullscreen-active img,
+figure.wb-fullscreen-active video {
+	width: auto;
+	height: auto;
+	max-width: 100%;
+	max-height: calc(100vh - 8em);
+}
+
+figure.wb-fullscreen-active figcaption {
+	max-width: 60em;
+	margin-top: 0.75em;
+	text-align: left;
+}
+
+img.wb-fullscreen-active {
+	display: block;
+	margin: auto;
+	width: auto;
+	height: auto;
+	max-width: 100vw;
+	max-height: 100vh;
+	object-fit: contain;
+}
+
+@media print {
+	.wb-table-tools,
+	.wb-fullscreen-btn {
+		display: none !important;
+	}
+}

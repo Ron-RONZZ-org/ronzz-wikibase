@@ -1,14 +1,19 @@
 /**
- * "Open in a new tab" for files embedded on content pages.
+ * Content-page media affordances.
  *
  * The server resolves every file used by the page (ParserOutput::getImages())
- * into wbEmbeddedFiles — { name, url, page } — and loads this module from
- * Hooks::onParserAfterTidy. The module adds a small noprint link to the raw
- * media next to each embed:
- *   - figures get it appended to the figcaption (next to the credit);
- *   - plain images/audio/video players get it after the element;
- *   - galleries get ONE paragraph after the gallery for all their images;
- *   - PDF/EPUB/DJVU link embeds get it after the link.
+ * into wbEmbeddedFiles — { name, url, page, credit, tableCredit } — and loads
+ * this module from Hooks::onParserAfterTidy. The module adds:
+ *   - a small noprint "Open in a new tab" link to the raw media next to each
+ *     embed (captionless images/audio/video/PDF links; galleries get ONE
+ *     paragraph for all their images);
+ *   - a noprint "File page" fallback (content images now open the fullscreen
+ *     viewer on a plain click — see resources/contentlayout.js);
+ *   - the automatic credit for captionless embeds;
+ *   - for a WIKITABLE, the credits are moved out of the cells into ONE
+ *     paragraph below the table (Image: file · author · source · licence).
+ *     A credit line in an 80 px cell otherwise widens the table far beyond
+ *     the content column and misaligns every row.
  *
  * Skipped: infobox galleries (.wb-image-gallery) and anything inside
  * .wb-infobox — a compact data summary, not a content figure.
@@ -72,7 +77,29 @@
 		}
 		return $( '<span>' )
 			.addClass( 'wb-image-credit wb-image-credit-inline' )
+			.attr( 'data-wb-file', file.name )
 			.html( file.credit );
+	}
+
+	function detailsSpan( file ) {
+		if ( !file.page ) {
+			return null;
+		}
+		if ( file.internal === '1' && mw.user.isAnon() ) {
+			return null;
+		}
+		return $( '<span>' )
+			.addClass( 'wb-media-details noprint' )
+			.append( ' · ' )
+			.append(
+				$( '<a>' )
+					.attr( {
+						href: mw.util.getUrl( file.page ),
+						title: mw.msg( 'embeddablecontent-file-details-hint' )
+					} )
+					.addClass( 'wb-media-details-link' )
+					.text( mw.msg( 'embeddablecontent-file-details' ) )
+			);
 	}
 
 	function isNoCredit( element ) {
@@ -101,6 +128,10 @@
 		if ( $open ) {
 			$tools.append( $open );
 		}
+		var $details = detailsSpan( file );
+		if ( $details ) {
+			$tools.append( $details );
+		}
 		if ( $tools.children().length ) {
 			$target.after( $tools );
 		}
@@ -110,9 +141,20 @@
 	 * already carry the server-rendered link (and usually the credit) —
 	 * Media\FileOpenLink writes a bare `.wb-media-open`, NOT wrapped in
 	 * `.wb-media-tools`, so both markers must suppress the client copy or the
-	 * caption shows "Open in a new tab" twice. */
+	 * caption shows "Open in a new tab" twice. The `data-wb-file` marker is
+	 * still recorded: mediaopen.js moves a table's credits out of the cells. */
 	function placeInCaption( $caption, file, noCredit ) {
+		var $existingCredit = $caption.find( '.wb-image-credit' ).first();
+		if ( $existingCredit.length && !$existingCredit.attr( 'data-wb-file' ) ) {
+			$existingCredit.attr( 'data-wb-file', file.name );
+		}
 		if ( $caption.find( '.wb-media-tools, .wb-media-open' ).length ) {
+			if ( $caption.find( '.wb-media-details' ).length === 0 ) {
+				var $serverDetails = detailsSpan( file );
+				if ( $serverDetails ) {
+					$caption.append( $serverDetails );
+				}
+			}
 			return;
 		}
 		var $tools = $( '<span>' ).addClass( 'wb-media-tools' );
@@ -125,6 +167,10 @@
 		var $open = openSpan( file );
 		if ( $open ) {
 			$tools.append( $open );
+		}
+		var $details = detailsSpan( file );
+		if ( $details ) {
+			$tools.append( $details );
 		}
 		if ( $tools.children().length ) {
 			$caption.append( $tools );
@@ -143,14 +189,24 @@
 			if ( !file || seen[ file.name ] ) {
 				return;
 			}
+			$( this ).attr( 'data-wb-media-url', file.url );
 			seen[ file.name ] = true;
 			var $part = $( '<span>' ).addClass( 'wb-gallery-credit-item' );
 			if ( file.credit ) {
-				$part.append( $( '<span>' ).addClass( 'wb-image-credit' ).html( file.credit ) );
+				$part.append(
+					$( '<span>' )
+						.addClass( 'wb-image-credit' )
+						.attr( 'data-wb-file', file.name )
+						.html( file.credit )
+				);
 			}
 			var $open = openSpan( file );
 			if ( $open ) {
 				$part.append( $open );
+			}
+			var $details = detailsSpan( file );
+			if ( $details ) {
+				$part.append( $details );
 			}
 			if ( $part.children().length ) {
 				parts.push( $part );
@@ -167,6 +223,101 @@
 			$paragraph.append( $part );
 		} );
 		$gallery.after( $paragraph );
+	}
+
+	/** The wbEmbeddedFiles entry whose name matches `name`, or null. */
+	function fileByName( name, files ) {
+		var wanted = normalize( name );
+		if ( wanted === '' ) {
+			return null;
+		}
+		for ( var i = 0; i < files.length; i++ ) {
+			if ( normalize( files[ i ].name ) === wanted ) {
+				return files[ i ];
+			}
+		}
+		return null;
+	}
+
+	/** The file a credit element belongs to: its data marker first, then the
+	 * nearest image/video in the same cell or figure. */
+	function fileForCredit( $credit, files ) {
+		var direct = fileByName( $credit.attr( 'data-wb-file' ), files );
+		if ( direct ) {
+			return direct;
+		}
+		var $container = $credit.closest( 'figure, td, th, li' );
+		if ( !$container.length ) {
+			$container = $credit.parent();
+		}
+		var media = $container.find( 'img, video' ).first();
+		var source = media.attr( 'src' )
+			|| media.find( 'source' ).first().attr( 'src' )
+			|| '';
+		return fileForUrl( source, files );
+	}
+
+	/** Drop a `.wb-media-tools` wrapper the credit move left empty. */
+	function removeCredit( $credit ) {
+		var $tools = $credit.closest( '.wb-media-tools' );
+		$credit.remove();
+		if ( $tools.length && $tools.children().length === 0 ) {
+			$tools.remove();
+		}
+	}
+
+	/**
+	 * A wikitable's image credits are the table's tall-cell / overflow
+	 * problem: a long credit line in an 80 px cell widens the table to
+	 * 1432 px in a 752 px column. Move every credit out of the cells into
+	 * ONE paragraph below the table (file · author · source · licence), one
+	 * line per file. The `.wb-media-open`/details links stay inline.
+	 */
+	function relocateTableCredits( files ) {
+		$( '#mw-content-text table.wikitable' ).each( function () {
+			var $table = $( this );
+			if ( $table.closest( '.wb-infobox' ).length ) {
+				return;
+			}
+			var credits = $table.find( '.wb-image-credit' );
+			if ( !credits.length ) {
+				return;
+			}
+			var seen = {};
+			var parts = [];
+			credits.each( function () {
+				var $credit = $( this );
+				var file = fileForCredit( $credit, files );
+				if ( !file ) {
+					// No map entry: leave the credit where it is rather than
+					// deleting an attribution we cannot rebuild.
+					return;
+				}
+				var line = file.tableCredit || file.credit || '';
+				if ( seen[ file.name ] || !line ) {
+					removeCredit( $credit );
+					return;
+				}
+				seen[ file.name ] = true;
+				parts.push( $( '<span>' ).addClass( 'wb-table-credit-item' ).html( line ) );
+				removeCredit( $credit );
+			} );
+			if ( parts.length === 0 ) {
+				return;
+			}
+			var $block = mw.embeddableContent.contentLayout.wrapTable( $table[ 0 ] );
+			if ( $block.next( '.wb-table-credits' ).length ) {
+				return;
+			}
+			var $paragraph = $( '<p>' );
+			parts.forEach( function ( $part, index ) {
+				if ( index > 0 ) {
+					$paragraph.append( '<br>' );
+				}
+				$paragraph.append( $part );
+			} );
+			$block.after( $( '<div>' ).addClass( 'wb-table-credits' ).append( $paragraph ) );
+		} );
 	}
 
 	mw.loader.using( [ 'mediawiki.util' ] ).then( function () {
@@ -195,6 +346,9 @@
 			if ( !file ) {
 				return;
 			}
+			// The fullscreen viewer swaps the (possibly 250 px) thumbnail for
+			// the original media; resources/contentlayout.js reads this.
+			$( this ).attr( 'data-wb-media-url', file.url );
 			var noCredit = isNoCredit( this );
 			var $figure = $( this ).closest( 'figure' );
 			var $caption = $figure.find( 'figcaption' ).first();
@@ -238,5 +392,8 @@
 				placeAfter( $( this ), file, false );
 			}
 		} );
+
+		// One paragraph after each wikitable instead of a per-cell credit.
+		relocateTableCredits( files );
 	} );
 }() );

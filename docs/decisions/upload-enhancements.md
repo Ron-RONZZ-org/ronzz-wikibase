@@ -285,3 +285,37 @@ two server-side regressions — a `Special:Upload` POST and an
 `AddPerson/manual` POST carrying the marker and a `.svg`-named PNG, asserting
 the error re-render keeps the original source radio. No vocabulary/config-map
 change; the deploy is a file rsync + php-fpm restart + cache purge.
+
+## Follow-up (Nov 2026): a new file version now replaces the image facts
+
+`UploadHooks::onUploadComplete` called `ImageItemCreator::createOrReuse`
+with `replaceExistingFacts = false`, and that method applies facts to an
+existing item only in replace mode. A re-upload therefore registered the
+new bytes but silently dropped the new author / licence / licence-info /
+source: the item kept its old facts (or stayed blank for a file whose item
+predated the form), producing the "authorship fields become blank" report.
+The File page text itself was never rewritten (core writes a dummy revision
+for an existing page).
+
+The fix has two halves:
+
+- **Re-upload detection before the write.** The new `UploadVerifyUpload`
+  handler records `getLocalFile()->exists()` — the only hook that sees the
+  pre-upload state; `UploadComplete` runs after the file row exists.
+  `onUploadComplete` passes that as `replaceExistingFacts`, so every
+  provided field replaces its statements and a blank field keeps the
+  current value (the UpdateFile no-clobber contract).
+- **The re-upload form is prefilled from the current item.** When
+  `wpDestFile` names an existing File page (the File: page's "Upload a new
+  version" link, or core's overwrite-warning re-render),
+  `UploadHooks::onUploadFormInitDescriptor` reads the sitelinked item through
+  the new `Upload/ImageFactsRecord` (the read half of `Special:UpdateFile`,
+  which now delegates to it) and sets the author / author-entity / licence /
+  rights-basis / source / licence-info defaults. An `info` notice explains
+  that a value replaces the old fact and a blank keeps it. Posted values
+  still win (HTMLForm only uses a default when the request lacks the field).
+
+Regression: the page-flow upload flow re-uploads a file with a new author +
+licence note, asserts the item's old `image author` statement is gone and the
+new value landed, and checks the re-upload page shows the prefill notice and
+the current author. No vocabulary/config-map change.

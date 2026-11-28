@@ -150,23 +150,41 @@ final class ImageCredit {
 	 * client-side because core has no caption slot for them.
 	 */
 	public static function creditLineFor( Title $fileTitle, Parser $parser ): string {
+		return self::creditLinesFor( $fileTitle, $parser )['credit'];
+	}
+
+	/**
+	 * Both credit shapes for one file, resolved once:
+	 *
+	 *  - `credit` — the caption/captionless line (author · licence · source),
+	 *    unchanged;
+	 *  - `table` — the wikitable line, placed in one paragraph below the
+	 *    table (file · author · source · licence).
+	 *
+	 * The table line leads with a link to the File: page because the reader
+	 * no longer reaches it by clicking the image (the click opens the
+	 * fullscreen viewer).
+	 *
+	 * @return array{credit:string,table:string}
+	 */
+	public static function creditLinesFor( Title $fileTitle, Parser $parser ): array {
+		$empty = [ 'credit' => '', 'table' => '' ];
 		$itemId = self::itemIdForFile( $fileTitle );
 		if ( $itemId === null ) {
-			return '';
+			return $empty;
 		}
 		$item = self::itemLookup( $itemId );
 		if ( !$item instanceof Item ) {
-			return '';
+			return $empty;
 		}
 		$config = self::config();
 		if ( $config === null ) {
-			return '';
+			return $empty;
 		}
 		$props = $config->imagePropertyIds();
 		$provenance = $config->provenancePropertyIds();
 		$linkRenderer = MediaWikiServices::getInstance()->getLinkRenderer();
 
-		$parts = [];
 		$authors = self::entityLinks( $item, $provenance['attributedTo'] ?? null, $linkRenderer );
 		if ( $authors === [] ) {
 			$authors = array_map(
@@ -174,14 +192,10 @@ final class ImageCredit {
 				self::stringValues( $item, $props['imageAuthor'] ?? null )
 			);
 		}
-		if ( $authors !== [] ) {
-			$parts[] = implode( ', ', $authors );
-		}
+		$authorPart = $authors !== [] ? implode( ', ', $authors ) : '';
 
 		$licenses = self::entityLinks( $item, $props['license'] ?? null, $linkRenderer );
-		if ( $licenses !== [] ) {
-			$parts[] = implode( ', ', $licenses );
-		}
+		$licensePart = $licenses !== [] ? implode( ', ', $licenses ) : '';
 
 		$sources = self::entityLinks( $item, $provenance['source'] ?? null, $linkRenderer );
 		if ( $sources === [] ) {
@@ -196,20 +210,26 @@ final class ImageCredit {
 				$sources[] = self::externalLink( $urls[0] );
 			}
 		}
-		if ( $sources !== [] ) {
-			$parts[] = implode( ', ', $sources );
-		}
+		$sourcePart = $sources !== [] ? implode( ', ', $sources ) : '';
 
 		$prefix = wfMessage( 'embeddablecontent-imagecredit-prefix' )
 			->inLanguage( $parser->getTargetLanguage() )
 			->text();
-		$line = ImageCreditSpec::line( $parts, $prefix );
-		if ( $line === '' ) {
-			return '';
+		$credit = ImageCreditSpec::line( [ $authorPart, $licensePart, $sourcePart ], $prefix );
+		$table = '';
+		if ( $authorPart !== '' || $sourcePart !== '' || $licensePart !== '' ) {
+			$table = ImageCreditSpec::tableLine(
+				$linkRenderer->makeKnownLink( $fileTitle, $fileTitle->getText() ),
+				[ $authorPart, $sourcePart, $licensePart ],
+				$prefix
+			);
+		}
+		if ( $credit === '' && $table === '' ) {
+			return $empty;
 		}
 		$parser->getOutput()->addModuleStyles( [ 'ext.embeddableContent.imagecredit' ] );
 		self::registerCacheDependency( $parser, $itemId );
-		return $line;
+		return [ 'credit' => $credit, 'table' => $table ];
 	}
 
 	/**
