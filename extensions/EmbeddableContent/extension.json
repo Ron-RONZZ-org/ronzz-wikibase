@@ -355,6 +355,7 @@
 		"UploadFormSourceDescriptors": "upload",
 		"UploadForm:BeforeProcessing": "upload",
 		"UploadForm:getInitialPageText": "upload",
+		"UploadVerifyUpload": "upload",
 		"UploadComplete": "upload",
 		"PageSaveComplete": "main",
 		"PageDeleteComplete": "main",
@@ -1444,16 +1445,38 @@
 				"mobile"
 			]
 		},
+		"ext.embeddableContent.contentlayout": {
+			"scripts": [
+				"contentlayout.js"
+			],
+			"styles": [
+				"contentlayout.css"
+			],
+			"dependencies": [
+				"mediawiki.util"
+			],
+			"messages": [
+				"embeddablecontent-media-fullscreen",
+				"embeddablecontent-media-fullscreen-hint"
+			],
+			"targets": [
+				"desktop",
+				"mobile"
+			]
+		},
 		"ext.embeddableContent.mediaopen": {
 			"scripts": [
 				"mediaopen.js"
 			],
 			"dependencies": [
 				"mediawiki.util",
-				"ext.embeddableContent.fileviewer"
+				"ext.embeddableContent.fileviewer",
+				"ext.embeddableContent.contentlayout"
 			],
 			"messages": [
-				"embeddablecontent-file-open-newtab"
+				"embeddablecontent-file-open-newtab",
+				"embeddablecontent-file-details",
+				"embeddablecontent-file-details-hint"
 			],
 			"targets": [
 				"desktop",

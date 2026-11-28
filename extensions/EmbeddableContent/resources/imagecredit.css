@@ -14,3 +14,24 @@
 .wb-image-credit a {
 	color: inherit;
 }
+
+/* One paragraph below a wikitable (mediaopen.js moves the per-cell credits
+ * out of the table so they cannot widen it). */
+.wb-table-credits {
+	margin: 0.25em 0 1em;
+	font-size: 0.85em;
+	line-height: 1.45;
+	color: var(--color-subtle, #54595d);
+}
+
+.wb-table-credits p {
+	margin: 0;
+}
+
+.wb-table-credit-item {
+	display: inline;
+}
+
+.wb-table-credit-item a {
+	color: inherit;
+}

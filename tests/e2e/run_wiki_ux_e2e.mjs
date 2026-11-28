@@ -881,6 +881,125 @@ async function main() {
 			}
 		}
 
+		// --- Table layout: wrapper, credits paragraph, figure width, click
+		// to fullscreen, float clearing ------------------------------------
+		// Crystal / Solid oxide fuel cell regressions: per-cell credits made
+		// a wikitable 1432 px wide in a 752 px column; the credit line also
+		// widened a 250 px video figure to 542 px; a tall float overlapped the
+		// next heading.
+		const layoutTitle = `Table UX ${Date.now()}`;
+		const longCaption = 'A deliberately long caption that used to widen the figure. '.repeat(8);
+		// Prefer a file known to carry image facts (the table-credit
+		// relocation needs a credit); fall back to any image on the instance.
+		const knownFactFile = 'Triclinic.svg';
+		const knownCheck = await api({
+			action: 'query', titles: `File:${knownFactFile}`, prop: 'imageinfo',
+			iiprop: 'url', format: 'json',
+		});
+		const knownPage = knownCheck.query?.pages || {};
+		const creditFile = Object.keys(knownPage).some((k) => k !== '-1' && !knownPage[k].missing)
+			? knownFactFile
+			: embedFile.name;
+		const layoutText = [
+			`[[File:${creditFile}|thumb|right|${longCaption}]]`,
+			'== Heading after a tall float ==',
+			'Body text after the float.',
+			'',
+			'{| class="wikitable" style="width:1600px;"',
+			'! A !! B !! C !! D !! E !! F !! G !! H',
+			'|-',
+			`| [[File:${creditFile}|80px]] || x || x || x || x || x || x || x`,
+			'|}',
+		].join('\n');
+		await page.waitForFunction(() => window.mw && window.mw.loader && typeof window.mw.loader.using === 'function');
+		await page.evaluate(async ([title, text]) => {
+			await new Promise((r) => mw.loader.using('mediawiki.api', r));
+			await new mw.Api().postWithToken('csrf', {
+				action: 'edit', title, text, createonly: true,
+			});
+		}, [layoutTitle, layoutText]);
+		try {
+			await page.goto(`${BASE_URL}/wiki/${encodeURIComponent(layoutTitle.replace(/ /g, '_'))}`,
+				{ waitUntil: 'domcontentloaded', timeout: 60000 });
+			await page.waitForFunction(
+				() => document.querySelector('#mw-content-text .wb-table-block'),
+				{ timeout: 15000 }
+			).catch(() => {});
+			const layout = await page.evaluate(() => {
+				const block = document.querySelector('#mw-content-text .wb-table-block');
+				const scroll = block?.querySelector('.wb-table-scroll');
+				const table = block?.querySelector('table');
+				const figure = document.querySelector('#mw-content-text figure');
+				const image = figure?.querySelector('img');
+				const heading = [ ...document.querySelectorAll('#mw-content-text .mw-heading') ]
+					.find((h) => h.textContent.includes('Heading after a tall float'));
+				const credits = document.querySelector('#mw-content-text .wb-table-credits');
+				return {
+					hasBlock: !!block,
+					scrolls: !!scroll && scroll.scrollWidth > scroll.clientWidth,
+					creditsInTable: table ? table.querySelectorAll('.wb-image-credit').length : -1,
+					creditsAfterBlock: !!block && block.nextElementSibling?.classList.contains('wb-table-credits'),
+					creditItems: credits ? credits.querySelectorAll('.wb-table-credit-item').length : 0,
+					creditText: credits ? credits.textContent : '',
+					figureWidth: figure ? figure.getBoundingClientRect().width : -1,
+					imageWidth: image ? parseInt(image.getAttribute('width'), 10) : -1,
+					headingTop: heading ? heading.getBoundingClientRect().top : -1,
+					figureBottom: figure ? figure.getBoundingClientRect().bottom : -1,
+					zoomAnchor: !!document.querySelector('#mw-content-text a.wb-media-zoom'),
+				};
+			});
+			if (!layout.hasBlock || !layout.scrolls) {
+				failures.push('wide wikitable is not wrapped in a horizontally scrolling .wb-table-block');
+			} else if (layout.creditsAfterBlock && layout.creditsInTable === 0 && layout.creditItems > 0) {
+				console.log(`[ok] wikitable credits moved to one paragraph after the table (${layout.creditItems} item(s))`);
+			} else if (layout.creditItems === 0) {
+				console.log('[info] table-credit relocation skipped (no image facts on the test file)');
+			} else {
+				failures.push(`wikitable credits not relocated (inTable=${layout.creditsInTable}, afterBlock=${layout.creditsAfterBlock}, items=${layout.creditItems})`);
+			}
+			if (layout.figureWidth > layout.imageWidth + 2) {
+				failures.push(`figure is ${Math.round(layout.figureWidth)}px wide for a ${layout.imageWidth}px image (caption widens the box)`);
+			} else if (layout.figureWidth > 0) {
+				console.log(`[ok] figure constrained to the media width (${layout.imageWidth}px)`);
+			}
+			if (layout.headingTop < layout.figureBottom - 1) {
+				failures.push(`heading overlaps a tall float (heading ${Math.round(layout.headingTop)} < figure bottom ${Math.round(layout.figureBottom)})`);
+			} else if (layout.headingTop > 0) {
+				console.log('[ok] heading clears a tall float');
+			}
+			if (!layout.zoomAnchor) {
+				failures.push('content image is not wired as a fullscreen trigger (no .wb-media-zoom)');
+			} else {
+				const fullscreenSupported = await page.evaluate(() => !!document.fullscreenEnabled);
+				if (!fullscreenSupported) {
+					console.log('[info] fullscreen API unavailable — click-to-fullscreen skipped');
+				} else {
+					await page.evaluate(() => {
+						const anchor = document.querySelector('#mw-content-text a.wb-media-zoom');
+						const figure = anchor.closest('figure');
+						figure.requestFullscreen = function () {
+							window.__wbFullscreenTarget = this;
+							return Promise.resolve();
+						};
+					});
+					await page.locator('#mw-content-text a.wb-media-zoom').first().click();
+					const called = await page.evaluate(() => !!window.__wbFullscreenTarget);
+					if (!called) {
+						failures.push('clicking a content image did not open the fullscreen viewer');
+					} else {
+						console.log('[ok] clicking a content image opens the fullscreen viewer');
+					}
+				}
+			}
+		} finally {
+			await page.evaluate(async (title) => {
+				await new Promise((r) => mw.loader.using('mediawiki.api', r));
+				try {
+					await new mw.Api().postWithToken('csrf', { action: 'delete', title, format: 'json' });
+				} catch (e) { /* best-effort cleanup */ }
+			}, layoutTitle).catch(() => {});
+		}
+
 		// --- Section copy controls + "Add section" append flow -----------
 		// A scratch content page with two headings: the per-section "Copy
 		// internal mention" / "Copy URL" controls render inside each heading's

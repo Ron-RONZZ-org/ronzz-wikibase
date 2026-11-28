@@ -3504,7 +3504,8 @@ def flow_mediaopen_module_source(op, base: str) -> None:
     _, body = page_get(op, base,
         "/load.php?modules=ext.embeddableContent.mediaopen&lang=en&skin=vector&debug=true")
     for needle in ["wbEmbeddedFiles", "wb-media-open", "wb-media-open-gallery",
-                   "embeddablecontent-file-open-newtab"]:
+                   "embeddablecontent-file-open-newtab", "wb-table-credit-item",
+                   "tableCredit", "wb-media-details"]:
         if needle not in body:
             raise FlowError(f"mediaopen module: missing {needle}")
     # The server already writes a bare `.wb-media-open` into a thumbnail
@@ -3512,6 +3513,23 @@ def flow_mediaopen_module_source(op, base: str) -> None:
     # page shows the link twice.
     if ".wb-media-tools, .wb-media-open" not in body:
         raise FlowError("mediaopen module: caption open-link dedupe guard missing")
+
+
+def flow_contentlayout_module_source(op, base: str) -> None:
+    """The table/figure/fullscreen behaviour is JS-side: assert the served
+    module contains the wrapper, the native Fullscreen API call, the figure
+    width constraint and the click-to-fullscreen wiring."""
+    _, body = page_get(op, base,
+        "/load.php?modules=ext.embeddableContent.contentlayout&lang=en&skin=vector&debug=true")
+    for needle in ["wb-table-block", "wb-table-scroll", "wb-fullscreen-btn",
+                   "requestFullscreen", "wb-media-zoom", "constrainFigure"]:
+        if needle not in body:
+            raise FlowError(f"contentlayout module: missing {needle}")
+    _, styles = page_get(op, base,
+        "/load.php?modules=ext.embeddableContent.contentlayout&only=styles&lang=en&skin=vector&debug=true")
+    for needle in ["wb-table-scroll", "clear: both", "wb-fullscreen-active"]:
+        if needle not in styles:
+            raise FlowError(f"contentlayout styles: missing {needle}")
 
 
 def flow_uploadform_module_source(op, base: str) -> None:
@@ -3849,6 +3867,58 @@ def flow_upload_special_item(op, base: str, api: str, license_qid: str) -> str:
     m = re.search(r'"wbFileUrl":"([^"]+)"', file_html)
     if not m or "/images/" not in m.group(1):
         raise FlowError(f"File:{dest}.png missing/incorrect the wbFileUrl config var")
+
+    # --- re-upload (new version) -------------------------------------
+    # Regression: UploadComplete passed replaceExistingFacts=false, so the
+    # new version's author/license info never reached the existing image
+    # item (the "authorship fields become blank" report). The re-upload page
+    # must prefill the current facts and the submit must REPLACE them.
+    reupload_path = (
+        "/wiki/Special:Upload?wpDestFile=" + urllib.parse.quote(dest + ".png")
+        + "&wpForReUpload=1"
+    )
+    prefill_url, prefill = page_get(op, base, reupload_path)
+    if "prefilled from its current image record" not in prefill:
+        raise FlowError("re-upload form does not show the prefill notice")
+    if 'value="E2E Upload Author"' not in prefill:
+        raise FlowError("re-upload form does not prefill the current author")
+    # A different 2x2 PNG so this is a real new version (not the identical
+    # byte stream, which core may warn about).
+    png2 = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFElEQVR42mNk+M9Qz0AEYBxVSF+FABJADveWkH6oAAAAAElFTkSuQmCC"
+    )
+    reupload_token = edit_token(prefill)
+    url, body = page_post_multipart(op, prefill_url, {
+        "wpDestFile": dest + ".png",
+        "wpForReUpload": "1",
+        "wpUploadDescription": "E2E re-upload summary.",
+        "wpLicense": license_qid,
+        "wpUploadAuthor": "E2E Reupload Author",
+        "wpUploadLicenseInfo": "E2E reupload license note",
+        "wpUploadmetaItemize": "1",
+        "wpIgnoreWarning": "1",
+        "wpEditToken": reupload_token,
+        "wpUpload": "1",
+    }, {
+        "wpUploadFile": (dest + ".png", png2, "image/png"),
+    })
+    if "/wiki/File:" not in url and "File:" not in body:
+        raise FlowError(f"Special:Upload re-upload did not land on the File page: {url} {find_error(body)}")
+    claims, _ = entity_claims(op, api, qid)
+    authors = claim_values(claims, author_prop)
+    if authors != ["E2E Reupload Author"]:
+        raise FlowError(
+            f"re-upload did not replace the image author (got {authors!r}, "
+            f"old 'E2E Upload Author' must be gone)")
+    infos = claim_values(claims, info_prop)
+    if infos != ["E2E reupload license note"]:
+        raise FlowError(f"re-upload did not replace the license info (got {infos!r})")
+    if first_value(claims, license_prop) != license_qid:
+        raise FlowError("re-upload lost the license statement")
+    _, raw_after = page_get(op, base, file_path + "?action=raw")
+    assert "{{#image-facts:}}" in raw_after, \
+        f"re-upload rewrote the File page text; raw: {raw_after[:400]!r}"
+    print(f"[ok] Special:Upload re-upload -> {qid}: facts replaced, File page preserved")
     return qid
 
 def create_api_item(op, api: str, label: str) -> str:
@@ -7218,6 +7288,9 @@ def main() -> int:
         flow_mediaopen_module_source(op, base)
         print("[ok] filepage/mediaopen module source: inline copy + open-in-new-tab + upload hand-off "
               "(copy-on-upload, upload-another opener reload)")
+        flow_contentlayout_module_source(op, base)
+        print("[ok] contentlayout module source: table wrapper/scroll, Full screen "
+              "(native requestFullscreen), figure width + click-to-fullscreen")
         flow_imageeditor_module_source(op, base)
         print("[ok] imageeditor module source: vendored editor + telemetry-off reachable")
         flow_uploadform_module_source(op, base)

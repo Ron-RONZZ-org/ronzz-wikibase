@@ -4,19 +4,16 @@ declare( strict_types = 1 );
 
 namespace EmbeddableContent\Spec;
 
-use DataValues\StringValue;
 use EmbeddableContent\EmbeddableContentConfig;
 use EmbeddableContent\Fields\EntityCombobox;
+use EmbeddableContent\Upload\ImageFactsRecord;
 use EmbeddableContent\Upload\ImageItemCreator;
 use EmbeddableContent\Upload\ImageUploadHelper;
 use MediaWiki\HTMLForm\HTMLForm;
 use MediaWiki\SpecialPage\SpecialPage;
 use MediaWiki\Title\Title;
-use Wikibase\DataModel\Entity\EntityIdValue;
 use Wikibase\DataModel\Entity\Item;
 use Wikibase\DataModel\Entity\ItemId;
-use Wikibase\DataModel\Entity\NumericPropertyId;
-use Wikibase\DataModel\Snak\PropertyValueSnak;
 use Wikibase\Repo\WikibaseRepo;
 
 /**
@@ -59,7 +56,7 @@ class SpecialUpdateFile extends SpecialPage {
 		}
 		$itemId = $this->sitelinkedItemId( $title );
 		$item = $itemId !== null ? $this->loadItem( $itemId ) : null;
-		$record = $item instanceof Item ? $this->recordFromItem( $item ) : [];
+		$record = $item instanceof Item ? ImageFactsRecord::fromItem( $this->config, $item ) : [];
 
 		$this->getOutput()->setPageTitle(
 			$this->msg( 'embeddablecontent-updatefile-title' )->text()
@@ -105,25 +102,6 @@ class SpecialUpdateFile extends SpecialPage {
 			return null;
 		}
 		return $entity instanceof Item ? $entity : null;
-	}
-
-	/** @return array<string,mixed> */
-	private function recordFromItem( Item $item ): array {
-		$props = $this->config->imagePropertyIds();
-		$provenance = $this->config->provenancePropertyIds();
-		return [
-			'description' => $this->itemDescription( $item ),
-			'license' => $this->firstEntity( $item, $props['license'] ?? null ),
-			'author' => $this->firstString( $item, $props['imageAuthor'] ?? null ),
-			'licenseInfo' => $this->firstString( $item, $props['imageLicenseInfo'] ?? null ),
-			'sourceText' => $this->firstString( $item, $props['imageSource'] ?? null ),
-			'sourceUrl' => $this->firstString( $item, $provenance['sourceUrl'] ?? null ),
-			'authorEntity' => implode(
-				', ',
-				$this->entityIds( $item, $provenance['attributedTo'] ?? null )
-			),
-			'sourceEntity' => $this->firstEntity( $item, $provenance['source'] ?? null ),
-		];
 	}
 
 	/** @return array<string,mixed> */
@@ -329,51 +307,5 @@ class SpecialUpdateFile extends SpecialPage {
 			}
 		}
 		return true;
-	}
-
-	private function firstString( Item $item, ?string $propertyId ): string {
-		if ( $propertyId === null || $propertyId === '' ) {
-			return '';
-		}
-		foreach ( $item->getStatements()->getByPropertyId( new NumericPropertyId( $propertyId ) ) as $statement ) {
-			$snak = $statement->getMainSnak();
-			if ( $snak instanceof PropertyValueSnak && $snak->getDataValue() instanceof StringValue ) {
-				return (string)$snak->getDataValue()->getValue();
-			}
-		}
-		return '';
-	}
-
-	private function firstEntity( Item $item, ?string $propertyId ): string {
-		if ( $propertyId === null || $propertyId === '' ) {
-			return '';
-		}
-		foreach ( $item->getStatements()->getByPropertyId( new NumericPropertyId( $propertyId ) ) as $statement ) {
-			$snak = $statement->getMainSnak();
-			if ( $snak instanceof PropertyValueSnak && $snak->getDataValue() instanceof EntityIdValue ) {
-				return $snak->getDataValue()->getEntityId()->getSerialization();
-			}
-		}
-		return '';
-	}
-
-	/** @return string[] every entity id of a property (statement order). */
-	private function entityIds( Item $item, ?string $propertyId ): array {
-		if ( $propertyId === null || $propertyId === '' ) {
-			return [];
-		}
-		$ids = [];
-		foreach ( $item->getStatements()->getByPropertyId( new NumericPropertyId( $propertyId ) ) as $statement ) {
-			$snak = $statement->getMainSnak();
-			if ( $snak instanceof PropertyValueSnak && $snak->getDataValue() instanceof EntityIdValue ) {
-				$ids[] = $snak->getDataValue()->getEntityId()->getSerialization();
-			}
-		}
-		return array_values( array_unique( $ids ) );
-	}
-
-	private function itemDescription( Item $item ): string {
-		$descriptions = $item->getDescriptions()->toTextArray();
-		return (string)( $descriptions['en'] ?? ( $descriptions ? reset( $descriptions ) : '' ) );
 	}
 }
