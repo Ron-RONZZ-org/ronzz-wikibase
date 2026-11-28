@@ -58,3 +58,18 @@ server-side caption hook alone cannot cover them.
   (`wireEmbeddedMediaOpenLinks`)
 - `resources/mediaopen.js`, `resources/fileviewer.css`
 - `tests/e2e/run_imagefacts_e2e.py`
+
+## Amendment (Nov 2026): credits inside a wikitable
+
+The per-cell credit line broke table layout: a credit in an 80 px cell sets
+the table's max-content width (`Crystal` rendered 1432 px in a 752 px
+column) and makes every row taller. **Credits for images inside a
+`table.wikitable` now move out of the cells into ONE paragraph immediately
+below the table**, one file per line, in the table order:
+`Image: <file> · <author> · <source> · <licence>` (the file name links to its
+File: page). The server adds this line as `tableCredit` in
+`wbEmbeddedFiles` (`ImageCredit::creditLinesFor`), and
+`resources/mediaopen.js` relocates every `.wb-image-credit` from the table
+into `.wb-table-credits`. The inline `Open in a new tab` / `File page` links
+stay in the cell. Infobox tables are excluded, as before. See
+`content-tables-and-fullscreen.md`.

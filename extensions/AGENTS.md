@@ -870,7 +870,14 @@ report). See `SimpleMathJax/VENDORED.md`.
   attribution block (`[[Q42|label]]`, never a `{{Q42}}` template call), and
   marker-gated `UploadComplete` item-per-upload via `ImageItemCreator`
   (sitelinked `image`-class item with image/license/imageAuthor/
-  imageLicenseInfo/source statements). The author entity field is
+  imageLicenseInfo/source statements). **A re-upload replaces the provided
+  facts** (Nov 2026): the new `UploadVerifyUpload` handler records the
+  pre-write file existence and `onUploadComplete` passes it as
+  `replaceExistingFacts` (blank fields keep the old value); the re-upload
+  form (`wpDestFile` exists, or core's overwrite-warning re-render) is
+  prefilled from the current item via the new `Upload/ImageFactsRecord`
+  (the read half also used by `Special:UpdateFile`) with an info notice
+  explaining replace-vs-keep. The author entity field is
   **multi-value** (comma/semicolon Q-ids) on Special:Upload, UpdateFile, the
   Add\* sections and the Add-image dialog; an empty author + a source entity
   inherits the source's `attributed to` authors (create AND update). The
@@ -1424,8 +1431,10 @@ report). See `SimpleMathJax/VENDORED.md`.
   button is **"Update metadata"** (Special:UpdateFile) and joins this same
   file toolbar instead of a separate block row. PDF uploads keep a
   browser-native iframe viewer (no third-party PDF library) with **no
-  fullscreen control** — the fixed-position wrapper caused layout
-  regressions and the browser viewer has its own. The **Open in a new tab**
+  custom fullscreen control** — the fixed-position wrapper caused layout
+  regressions and the browser viewer has its own (native fullscreen was
+  later reinstated for content tables/images; see the content-layout bullet
+  below). The **Open in a new tab**
   link is generalised: the File toolbar carries it for every file type,
   `Special:SourceFile` renders it for every preview, and content-page embeds
   get a small `noprint` link (`Media\FileOpenLink` for captioned
@@ -2541,5 +2550,28 @@ report). See `SimpleMathJax/VENDORED.md`.
   carry `wb-infobox`). Suppression: `class=noCredit` (stripped, leaving a
   `wb-no-credit` marker the client-side path also honours) and a bare
   `noCredit` caption (`Spec/ImageCredit`, unit-tested). Internal files skip
-  the client-side link/credit for anonymous readers. Parser-output change —
-  purge the parser cache on deploy.
+  the client-side link/credit for anonymous readers. **Wikitables** (Nov
+  2026): the server emits a `tableCredit` line
+  (`Image: <file> · <author> · <source> · <licence>`, `ImageCredit::
+  creditLinesFor`) and `resources/mediaopen.js` moves every
+  `.wb-image-credit` out of the cells into ONE `.wb-table-credits` paragraph
+  below the table — a credit in an 80 px cell forced the table to 1432 px in
+  a 752 px column (`Crystal`). Parser-output change — purge the parser cache
+  on deploy. See `docs/decisions/content-tables-and-fullscreen.md`.
+- **Content-page layout + click-to-fullscreen (ADR
+  `docs/decisions/content-tables-and-fullscreen.md`)**: a new module
+  `ext.embeddableContent.contentlayout` (`resources/contentlayout.js` +
+  `.css`, loaded on classic article pages by `Hooks::wireContentLayout`)
+  wraps each content `table.wikitable` (infoboxes excluded) in
+  `.wb-table-block > .wb-table-tools + .wb-table-scroll` so a wide table
+  scrolls instead of overflowing; pins a thumb/frame's width to its media's
+  declared width (a long caption/credit otherwise widened a 250 px video to
+  542 px on `Solid oxide fuel cell`); adds `clear: both` to content
+  headings/tables/galleries/references (a tall float overlapped the next
+  `h4` on `Crystal#Defect`); and adds a **Full screen** button to each table.
+  A plain left click on a File:-linked content image opens the **native
+  Fullscreen API** viewer on the figure/image (thumbnail swapped for the
+  original media URL, restored on exit); Ctrl/Cmd/Shift/middle click keeps
+  the File: link and `mediaopen.js` adds a noprint **File page** link.
+  Native fullscreen only — no fixed-position wrapper (the reason the old PDF
+  control was removed). Infoboxes and video (native controls) are excluded.
